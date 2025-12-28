@@ -1,7 +1,6 @@
-// [S-52.2.3] Chart API - Force Dynamic + Build Metadata
 import { NextResponse } from 'next/server';
 import { getStockChartData, Range } from '@/services/stockApi';
-import { getBuildMeta } from '@/services/buildMeta';
+import { getBuildId } from '@/services/buildIdSSOT'; // [S-56.4.6e]
 
 // [S-52.2.3] Force dynamic rendering - no static optimization
 export const dynamic = 'force-dynamic';
@@ -21,12 +20,11 @@ export async function GET(request: Request) {
 
         // [S-53.5] Extract sessionMaskDebug from data if present
         const sessionMaskDebug = (data as any).sessionMaskDebug || null;
-
-        const apiBuildMeta = getBuildMeta(request.headers as any);
+        const buildId = getBuildId();
 
         // [S-55.10a] Enforce SSOT: Overwrite sessionMaskDebug.buildId with API buildId
         if (sessionMaskDebug) {
-            sessionMaskDebug.buildId = apiBuildMeta.buildId;
+            sessionMaskDebug.buildId = buildId;
         }
 
         // [S-52.2.3] Inject build metadata for staleness detection
