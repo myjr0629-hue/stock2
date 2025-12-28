@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LiveTickerDashboard } from "@/components/LiveTickerDashboard";
 import { StockData, NewsItem } from "@/services/stockTypes";
 import { AlertCircle, CheckCircle, Clock, XCircle } from "lucide-react";
+import { getBuildId, getEnvType } from "@/services/buildIdSSOT";
 
 interface Props {
     searchParams: Promise<{ ticker?: string; range?: string; extended?: string }>;
@@ -61,6 +62,13 @@ function convertToNewsItems(overview: TickerOverview): NewsItem[] {
 function ParityDiagnostics({ overview }: { overview: TickerOverview }) {
     const d = overview.diagnostics;
 
+    // [S-56.4.6f] Server-Side Deploy Metadata (Direct Env Access since this is a Server Component)
+    const envType = getEnvType();
+    // Prefer VERCEL_GIT_COMMIT_SHA for the badge, fallback to buildId
+    const commitSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "HEAD";
+    const shortSha = commitSha.slice(0, 7);
+    const envCode = envType === 'production' ? 'PROD' : 'DEV';
+
     const StatusIcon = ({ ok }: { ok: boolean }) => ok
         ? <CheckCircle className="w-3 h-3 text-emerald-400" />
         : <XCircle className="w-3 h-3 text-rose-400" />;
@@ -76,6 +84,13 @@ function ParityDiagnostics({ overview }: { overview: TickerOverview }) {
     return (
         <div className="bg-slate-900 text-white py-2 px-4 flex flex-wrap items-center justify-between gap-2 text-[9px] font-mono sticky top-[48px] z-40 border-b border-slate-800">
             <div className="flex items-center gap-3">
+                {/* [S-56.4.6f] DEPLOY SSOT BADGE */}
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-800 border border-slate-700 rounded">
+                    <span className={`w-1.5 h-1.5 rounded-full ${envType === 'production' ? 'bg-indigo-500' : 'bg-slate-500'}`} />
+                    <span className="text-slate-400">{envCode}:</span>
+                    <span className="text-indigo-400 font-bold">{shortSha}</span>
+                </div>
+
                 <span className="text-slate-500">Build: <span className="text-slate-300">{d.buildId.slice(0, 7)}</span></span>
                 <span className="text-slate-500">Source: <span className="text-indigo-400">{d.source}</span></span>
                 <span className="text-slate-500">Anchor: <span className="text-cyan-400">{d.anchorDate}</span></span>
@@ -133,6 +148,11 @@ export default async function TickerPage({ searchParams }: Props) {
     const range = params.range || "1d";
     const extended = params.extended === "true";
 
+    // [S-56.4.6f] GUARD LOGIC
+    const envType = getEnvType();
+    const serverBuildId = getBuildId();
+    const isDrifted = envType === 'production' && serverBuildId === 'local';
+
     if (!ticker) {
         return (
             <div className="min-h-screen font-sans bg-white">
@@ -177,6 +197,13 @@ export default async function TickerPage({ searchParams }: Props) {
     return (
         <div className="min-h-screen selection:bg-blue-100 selection:text-blue-900 font-sans bg-white">
             <LandingHeader />
+
+            {/* [S-56.4.6f] PRODUCTION DRIFT GUARD BANNER */}
+            {isDrifted && (
+                <div className="bg-rose-600 text-white px-4 py-1 text-center text-[10px] font-bold tracking-widest animate-pulse sticky top-0 z-50">
+                    ⚠️ CRITICAL: PRODUCTION ENVIRONMENT RUNNING LOCAL BUILD - DEPLOYMENT DRIFT DETECTED ⚠️
+                </div>
+            )}
 
             {/* [S-56.4.5b] Parity Diagnostics Strip - Always visible */}
             {overview && <ParityDiagnostics overview={overview} />}

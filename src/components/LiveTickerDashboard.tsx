@@ -455,7 +455,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* CHART */}
                     <div className="relative">
                         <StockChart
-                            key={`${ticker}:${range}:${initialStockData.history.length}:${initialStockData.freshness?.asOfET}`}
+                            key={`${ticker}:${range}:${initialStockData.history.length}:${initialStockData.history[0]?.date}:${initialStockData.history[initialStockData.history.length - 1]?.date}`}
                             data={initialStockData.history}
                             color={isUp ? "#10b981" : "#f43f5e"}
                             ticker={ticker}

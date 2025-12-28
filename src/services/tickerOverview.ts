@@ -401,53 +401,54 @@ export async function getTickerOverview(
             };
         }
 
-        // 4b. Daily fallback for indicators (RSI/3D)
-        if (intradayCloses.length < 15) {
-            try {
-                // Fetch last 30 daily bars for RSI(14) + 3D return
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 35);
-                const from = toYYYYMMDD_ET(thirtyDaysAgo);
-                const to = anchorDate;
+        // 4b. Always fetch daily history for valid RSI(14) / 3D Return
+        // [S-56.4.8] Integrity Fix: Indicators must be based on DAILY closes, not intraday.
+        try {
+            // Fetch last 35 days (enough for RSI 14 + smoothing)
+            const thirtyDaysAgo = new Date();
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 35);
+            const from = toYYYYMMDD_ET(thirtyDaysAgo);
+            const to = anchorDate;
 
-                const dailyAggs = await fetchMassive(
-                    `/v2/aggs/ticker/${tickerUpper}/range/1/day/${from}/${to}`,
-                    { adjusted: "true", sort: "asc", limit: "50" },
-                    true,
-                    undefined,
-                    { next: { revalidate: 300 } }
-                );
+            const dailyAggs = await fetchMassive(
+                `/v2/aggs/ticker/${tickerUpper}/range/1/day/${from}/${to}`,
+                { adjusted: "true", sort: "asc", limit: "50" },
+                true,
+                undefined,
+                { next: { revalidate: 300 } }
+            );
 
-                if (dailyAggs?.results?.length > 0) {
-                    dailyCloses = dailyAggs.results.map((r: any) => r.c);
-                    chartSource = chartSource === "NONE" ? "DAILY" : chartSource;
+            if (dailyAggs?.results?.length > 0) {
+                dailyCloses = dailyAggs.results.map((r: any) => r.c);
+                chartSource = chartSource === "NONE" ? "DAILY" : chartSource;
 
-                    // If no intraday chart, use daily as fallback
-                    if (!result.history || result.history.length === 0) {
-                        result.history = dailyAggs.results.map((r: any) => ({
-                            date: new Date(r.t).toISOString(),
-                            close: r.c
-                        }));
+                // If no intraday chart, use daily as fallback
+                if (!result.history || result.history.length === 0) {
+                    result.history = dailyAggs.results.map((r: any) => ({
+                        date: new Date(r.t).toISOString(),
+                        close: r.c
+                    }));
 
-                        const history = result.history ?? [];
-                        diagnostics.chart = {
-                            ok: history.length > 0,
-                            points: history.length,
-                            reasonKR: history.length > 0 ? "일봉 데이터 사용 (인트라데이 없음)" : "데이터 없음",
-                            updatedAtISO: new Date().toISOString(),
-                            anchorDate,
-                            dataSource: "DAILY"
-                        };
-                    }
+                    const history = result.history ?? [];
+                    diagnostics.chart = {
+                        ok: history.length > 0,
+                        points: history.length,
+                        reasonKR: history.length > 0 ? "일봉 데이터 사용 (인트라데이 없음)" : "데이터 없음",
+                        updatedAtISO: new Date().toISOString(),
+                        anchorDate,
+                        dataSource: "DAILY"
+                    };
                 }
-            } catch (e) {
-                // Non-critical, indicators will just be N/A
             }
+        } catch (e) {
+            // Non-critical, indicators will just be N/A
         }
 
-        // 4c. Calculate indicators
-        const closesForIndicators = intradayCloses.length >= 15 ? intradayCloses : dailyCloses;
-        result.indicators.dataSource = chartSource;
+
+        // 4c. Calculate indicators (Use DAILY closes only)
+        // [S-56.4.8] Enforce Daily Data for Indicators
+        const closesForIndicators = dailyCloses;
+        result.indicators.dataSource = "DAILY";
 
         if (closesForIndicators.length >= 15) {
             const rsi = calculateRSI(closesForIndicators);

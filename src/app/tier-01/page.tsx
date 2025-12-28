@@ -109,6 +109,7 @@ export default function Tier01Page() {
     const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null); // [S-56.4.7b]
+    const [deployStatus, setDeployStatus] = useState<any>(null); // [S-56.4.6f]
 
     const { status: marketStatus } = useMarketStatus();
     const { snapshot: macroData } = useMacroSnapshot();
@@ -116,10 +117,21 @@ export default function Tier01Page() {
     useEffect(() => {
         async function load() {
             setLoading(true);
-            const { snapshot, storageDebug, error } = await fetchReportData();
-            setSnapshot(snapshot);
-            setStorageDebug(storageDebug);
-            if (error) setError(error);
+
+            // Parallel Fetch: Report + Deploy Status
+            const [reportData, deployData] = await Promise.all([
+                fetchReportData(),
+                fetch("/api/health/deploy").then(r => r.json()).catch(() => null)
+            ]);
+
+            setSnapshot(reportData.snapshot);
+            setStorageDebug(reportData.storageDebug);
+            if (reportData.error) setError(reportData.error);
+
+            if (deployData && deployData.ok) {
+                setDeployStatus(deployData);
+            }
+
             setLoading(false);
         }
         load();
@@ -214,11 +226,23 @@ export default function Tier01Page() {
                     })()}
                 </div>
 
-                {/* RIGHT: Engine ID & Refresh */}
+                {/* RIGHT: Engine ID & Refresh & Deploy Badge */}
                 <div className="flex items-center gap-3">
-                    <span className="text-[9px] text-slate-600 font-mono hidden sm:inline">
-                        Build: {meta.buildId?.slice(0, 7) || storageDebug?.buildId?.slice(0, 7) || "LOCAL"}
-                    </span>
+                    {/* [S-56.4.6f] DEPLOY SSOT BADGE */}
+                    {(() => {
+                        const d = deployStatus?.deploy;
+                        if (!d) return null;
+                        const shortSha = d.gitCommitSha ? d.gitCommitSha.slice(0, 7) : "HEAD";
+                        const envCode = d.envType === 'production' ? 'PROD' : 'DEV';
+                        return (
+                            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-800 border border-slate-700 rounded text-[9px] font-mono">
+                                <span className={`w-1.5 h-1.5 rounded-full ${d.envType === 'production' ? 'bg-indigo-500' : 'bg-slate-500'}`} />
+                                <span className="text-slate-400">{envCode}:</span>
+                                <span className="text-indigo-400 font-bold">{shortSha}</span>
+                            </div>
+                        );
+                    })()}
+
                     <div className="h-3 w-px bg-slate-800 hidden sm:block" />
                     <span className="text-[9px] text-slate-500">
                         {storageDebug?.optionsStatus?.updatedAt ? `Updated: ${storageDebug.optionsStatus.updatedAt.split("T")[1]?.slice(0, 5)} ET` : ""}
@@ -230,6 +254,13 @@ export default function Tier01Page() {
                     </span>
                 </div>
             </div>
+
+            {/* [S-56.4.6f] PRODUCTION DRIFT GUARD BANNER */}
+            {deployStatus?.guard?.isDrifted && (
+                <div className="bg-rose-600 text-white px-4 py-1 text-center text-[10px] font-bold tracking-widest animate-pulse">
+                    ⚠️ CRITICAL: PRODUCTION ENVIRONMENT RUNNING LOCAL BUILD - DEPLOYMENT DRIFT DETECTED ⚠️
+                </div>
+            )}
 
             {/* Engine Status Console replaced by Status Strip above, but keeping detailed stats below if valid */}
             {/* ... */}
