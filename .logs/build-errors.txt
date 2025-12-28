@@ -1,0 +1,10 @@
+﻿src/app/ticker/page.tsx(18,12): error TS2352: Conversion of type '{ ticker: string; name: string; price: number; change: number; changePct: number; open: number; high: number; low: number; prevClose: number; volume: number; vwap: number | undefined; vwapReasonKR: string | undefined; ... 8 more ...; env: "development" | ... 1 more ... | "local"; }' to type 'StockData' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
+  Type '{ ticker: string; name: string; price: number; change: number; changePct: number; open: number; high: number; low: number; prevClose: number; volume: number; vwap: number | undefined; vwapReasonKR: string | undefined; ... 8 more ...; env: "development" | ... 1 more ... | "local"; }' is missing the following properties from type 'StockData': symbol, changePercent, currency
+src/app/ticker/page.tsx(52,5): error TS2322: Type '{ title: string; url: string; source: string; publishedAt: string; sentiment: "positive" | "negative" | "neutral" | undefined; }[]' is not assignable to type 'NewsItem[]'.
+  Type '{ title: string; url: string; source: string; publishedAt: string; sentiment: "positive" | "negative" | "neutral" | undefined; }' is missing the following properties from type 'NewsItem': link, publisher, time, publishedAtEt, and 2 more.
+src/engine/reportOrchestrator.ts(4,39): error TS2305: Module '"../services/stockTypes"' has no exported member 'Engine'.
+src/services/reportScheduler.ts(333,30): error TS2304: Cannot find name 'BUILD_PIPELINE_VERSION'.
+src/services/reportScheduler.ts(365,17): error TS2304: Cannot find name 'orchestrateGemsEngine'.
+src/services/stockApi.ts(214,7): error TS2304: Cannot find name 'notifyStatus'.
+src/services/stockApi.ts(502,9): error TS2304: Cannot find name 'notifyStatus'.
+src/services/tickerOverview.ts(349,57): error TS18048: 'result.history' is possibly 'undefined'.

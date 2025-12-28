@@ -1,0 +1,206 @@
+{
+  "meta": {
+    "id": "2025-12-26-eod",
+    "type": "eod",
+    "generatedAt": "2025-12-26T09:22:39.597Z",
+    "generatedAtET": "12/26/2025, 04:22:39 AM",
+    "marketDate": "2025-12-26",
+    "version": "S50.0-MVP"
+  },
+  "macro": {
+    "asOfET": "12/26/2025, 4:22:08 AM",
+    "marketStatus": {
+      "market": "extended-hours",
+      "session": "pre",
+      "isHoliday": false,
+      "serverTime": "2025-12-26T09:22:08.827Z",
+      "asOfET": "12/26/2025, 4:22:08 AM",
+      "source": "POLYGON",
+      "cacheAgeSec": 0
+    },
+    "factors": {
+      "nasdaq100": {
+        "level": 25656.146,
+        "chgPct": 0.2669879,
+        "chgAbs": 68.31641,
+        "label": "NASDAQ 100",
+        "source": "YAHOO",
+        "status": "OK",
+        "symbolUsed": "^NDX"
+      },
+      "vix": {
+        "level": 14.12,
+        "chgPct": 4.8255353,
+        "chgAbs": 0.6499996,
+        "label": "VIX",
+        "source": "YAHOO",
+        "status": "OK",
+        "symbolUsed": "^VIX"
+      },
+      "us10y": {
+        "level": 4.136,
+        "chgPct": 0,
+        "chgAbs": 0,
+        "label": "US10Y",
+        "source": "YAHOO",
+        "status": "OK",
+        "symbolUsed": "^TNX"
+      },
+      "dxy": {
+        "level": 98.042,
+        "chgPct": 0.10312119,
+        "chgAbs": 0.100997925,
+        "label": "DXY",
+        "source": "YAHOO",
+        "status": "OK",
+        "symbolUsed": "DX-Y.NYB"
+      }
+    }
+  },
+  "events": {
+    "asOfET": "12/26/25, 4:22 AM",
+    "events": [
+      {
+        "date": "2025-12-27",
+        "time": "08:30",
+        "name": "Jobless Claims",
+        "nameKR": "실업수당 청구건수",
+        "importance": "MEDIUM",
+        "expectedImpact": "고용시장 건전성 지표. 예상치 상회 시 경기둔화 우려.",
+        "sourceGrade": "A",
+        "category": "ECONOMIC"
+      },
+      {
+        "date": "2025-12-30",
+        "time": "09:00",
+        "name": "S&P/Case-Shiller Home Price",
+        "nameKR": "케이스-쉴러 주택가격지수",
+        "importance": "MEDIUM",
+        "expectedImpact": "부동산 시장 건전성. 급등 시 인플레이션 우려.",
+        "sourceGrade": "A",
+        "category": "ECONOMIC"
+      },
+      {
+        "date": "2025-12-31",
+        "time": "13:00",
+        "name": "Early Market Close",
+        "nameKR": "조기 마감 (1PM ET)",
+        "importance": "HIGH",
+        "expectedImpact": "신년 전야 조기마감. 거래량 감소로 변동성 확대 가능.",
+        "sourceGrade": "A",
+        "category": "HOLIDAY"
+      },
+      {
+        "date": "2025-12-31",
+        "time": "09:45",
+        "name": "Chicago PMI",
+        "nameKR": "시카고 PMI",
+        "importance": "MEDIUM",
+        "expectedImpact": "제조업 경기 선행지표. 50 이하는 위축 신호.",
+        "sourceGrade": "A",
+        "category": "ECONOMIC"
+      },
+      {
+        "date": "2026-01-01",
+        "time": "00:00",
+        "name": "New Year's Day - Market Closed",
+        "nameKR": "신년 휴장",
+        "importance": "HIGH",
+        "expectedImpact": "미국 증시 전체 휴장.",
+        "sourceGrade": "A",
+        "category": "HOLIDAY"
+      }
+    ],
+    "shakeReasons": [
+      "실업수당 청구건수 (2025-12-27 08:30 ET) - 고용시장 건전성 지표. 예상치 상회 시 경기둔화 우려."
+    ]
+  },
+  "policy": {
+    "asOfET": "12/26/25, 4:22 AM",
+    "policies72h": [],
+    "policies7d": [],
+    "policyGateSummary": [
+      "현재 72시간 내 P0급 정책 이벤트 없음."
+    ]
+  },
+  "news": {
+    "asOfET": "12/26/25, 4:22 AM",
+    "marketHeadlines": [
+      {
+        "id": "mkt-001",
+        "headline": "Fed Officials Signal Patience on Rate Cuts in 2025",
+        "summaryKR": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAt": "2025-12-26T14:30:00Z",
+        "sentiment": "negative",
+        "catalystType": "fed",
+        "catalystAge": -6,
+        "isStale": false
+      },
+      {
+        "id": "mkt-002",
+        "headline": "Tech Stocks Lead Holiday Rally as Santa Claus Effect Takes Hold",
+        "summaryKR": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAt": "2025-12-25T18:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "market",
+        "catalystAge": 15,
+        "isStale": false
+      },
+      {
+        "id": "mkt-003",
+        "headline": "China Stimulus Hopes Boost Asian Markets Overnight",
+        "summaryKR": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAt": "2025-12-26T08:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "global",
+        "catalystAge": 1,
+        "isStale": false
+      },
+      {
+        "id": "mkt-004",
+        "headline": "Oil Prices Rise on Middle East Tensions",
+        "summaryKR": "중동 긴장 고조로 유가 상승. 에너지 섹터 강세 예상.",
+        "source": "WSJ",
+        "publishedAt": "2025-12-26T10:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "commodities",
+        "catalystAge": -1,
+        "isStale": false
+      },
+      {
+        "id": "mkt-005",
+        "headline": "Year-End Rebalancing Could Drive Volatility This Week",
+        "summaryKR": "연말 리밸런싱으로 이번 주 변동성 확대 가능. 대형 펀드 매도세 주의.",
+        "source": "MarketWatch",
+        "publishedAt": "2025-12-26T06:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "technical",
+        "catalystAge": 3,
+        "isStale": false
+      }
+    ],
+    "stockNews": [],
+    "marketLikes": [
+      "Tech Stocks Lead Holiday Rally as Santa ...",
+      "China Stimulus Hopes Boost Asian Markets..."
+    ],
+    "marketDislikes": [
+      "Fed Officials Signal Patience on Rate Cu..."
+    ]
+  },
+  "shakeReasons": [
+    "실업수당 청구건수 (2025-12-27 08:30 ET) - 고용시장 건전성 지표. 예상치 상회 시 경기둔화 우려."
+  ],
+  "marketSentiment": {
+    "likes": [
+      "Tech Stocks Lead Holiday Rally as Santa ...",
+      "China Stimulus Hopes Boost Asian Markets..."
+    ],
+    "dislikes": [
+      "Fed Officials Signal Patience on Rate Cu..."
+    ]
+  }
+}

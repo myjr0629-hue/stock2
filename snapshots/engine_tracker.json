@@ -1,0 +1,41 @@
+{
+  "top3": [
+    "SIVR",
+    "FCX",
+    "AGQ"
+  ],
+  "timeStopTracker": {
+    "AGQ": {
+      "ticker": "AGQ",
+      "entryDate": "2025-12-27",
+      "entryPrice": 199.74,
+      "target1": 209.72700000000003,
+      "target1Hit": false,
+      "daysSinceEntry": 1,
+      "rebuildPressure": 0,
+      "lastUpdateDate": "2025-12-28"
+    },
+    "SIVR": {
+      "ticker": "SIVR",
+      "entryDate": "2025-12-27",
+      "entryPrice": 74.66,
+      "target1": 78.393,
+      "target1Hit": false,
+      "daysSinceEntry": 1,
+      "rebuildPressure": 0,
+      "lastUpdateDate": "2025-12-28"
+    },
+    "FCX": {
+      "ticker": "FCX",
+      "entryDate": "2025-12-28",
+      "entryPrice": 53.4,
+      "target1": 56.07,
+      "target1Hit": false,
+      "daysSinceEntry": 0,
+      "rebuildPressure": 0,
+      "lastUpdateDate": "2025-12-28"
+    }
+  },
+  "lastReportDate": "2025-12-28",
+  "changelog": []
+}

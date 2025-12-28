@@ -1,0 +1,40 @@
+﻿
+> stock@0.1.0 build
+> next build
+
+??Next.js 16.1.0 (Turbopack)
+
+  Creating an optimized production build ...
+??Compiled successfully in 2.3s
+  Running TypeScript ...
+node.exe : Failed to compile.
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/node.exe" "C:\
+Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified 
+   : (Failed to compile.:String) [], Remo  
+  teException
+    + FullyQualifiedErrorId : NativeComman 
+   dError
+ 
+
+./check_dxy.ts:2:7
+Type error: Cannot redeclare block-scoped v
+ariable 'pkg'.
+
+[0m [90m 1 |[39m
+[31m[1m>[22m[39m[90m 2 |[39m [36mcon
+st[39m pkg [33m=[39m require([32m'yahoo
+-finance2'[39m)[33m;[39m
+ [90m   |[39m       [31m[1m^[22m[39m
+ [90m 3 |[39m [36mconst[39m [33mYahooF
+inance[39m [33m=[39m pkg[33m.[39m[36m
+default[39m [33m||[39m pkg[33m;[39m
+ [90m 4 |[39m [36mconst[39m yf [33m=[
+39m [36mnew[39m [33mYahooFinance[39m()
+[33m;[39m
+ [90m 5 |[39m[0m
+Next.js build worker exited with code: 1 an
+d signal: null

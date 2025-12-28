@@ -1,0 +1,47 @@
+[
+    {
+        "id": "mkt-001",
+        "headline": "Fed Officials Signal Patience on Rate Cuts in 2025",
+        "summaryKR": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAt": "2025-12-26T14:30:00Z",
+        "sentiment": "negative",
+        "catalystType": "fed"
+    },
+    {
+        "id": "mkt-002",
+        "headline": "Tech Stocks Lead Holiday Rally as Santa Claus Effect Takes Hold",
+        "summaryKR": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAt": "2025-12-25T18:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "market"
+    },
+    {
+        "id": "mkt-003",
+        "headline": "China Stimulus Hopes Boost Asian Markets Overnight",
+        "summaryKR": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAt": "2025-12-26T08:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "global"
+    },
+    {
+        "id": "mkt-004",
+        "headline": "Oil Prices Rise on Middle East Tensions",
+        "summaryKR": "중동 긴장 고조로 유가 상승. 에너지 섹터 강세 예상.",
+        "source": "WSJ",
+        "publishedAt": "2025-12-26T10:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "commodities"
+    },
+    {
+        "id": "mkt-005",
+        "headline": "Year-End Rebalancing Could Drive Volatility This Week",
+        "summaryKR": "연말 리밸런싱으로 이번 주 변동성 확대 가능. 대형 펀드 매도세 주의.",
+        "source": "MarketWatch",
+        "publishedAt": "2025-12-26T06:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "technical"
+    }
+]

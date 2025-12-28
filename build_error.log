@@ -1,0 +1,62 @@
+﻿
+> stock@0.1.0 build
+> next build
+
+??Next.js 16.1.0 (Turbopack)
+
+  Creating an optimized production build ...
+??Compiled successfully in 2.3s
+  Running TypeScript ...
+node.exe : Failed to compile.
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/node.ex
+e" "C:\Program Files\nodejs/node_mo 
+...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSp 
+   ecified: (Failed to compile.:St  
+  ring) [], RemoteException
+    + FullyQualifiedErrorId : Nativ 
+   eCommandError
+ 
+
+./src/services/stockApi.ts:370:60
+Type error: Type 'string | undefined
+' is not assignable to type 'string'
+.
+  Type 'undefined' is not assignable
+ to type 'string'.
+
+[0m [90m 368 |[39m [36mexport[3
+9m [36masync[39m [36mfunction[39
+m getStockNews(symbol[33m:[39m str
+ing[33m,[39m count[33m:[39m numb
+er [33m=[39m [35m15[39m)[33m:[
+39m [33mPromise[39m[33m<[39m[33
+mNewsItem[39m[][33m>[39m {
+ [90m 369 |[39m   [36mtry[39m {
+[31m[1m>[22m[39m[90m 370 |[39m
+     [36mconst[39m res [33m=[39m
+ [36mawait[39m fetchPolygon([32m'
+/v2/reference/news'[39m[33m,[39m 
+{ ticker[33m:[39m symbol[33m.[39
+mstartsWith([32m'^'[39m) [33m?[3
+9m undefined [33m:[39m symbol[33m
+,[39m limit[33m:[39m count[33m.
+[39mtoString() })[33m;[39m
+ [90m     |[39m                   
+                                    
+     [31m[1m^[22m[39m
+ [90m 371 |[39m     [36mif[39m (
+res [33m&&[39m res[33m.[39mresul
+ts) {
+ [90m 372 |[39m       [36mreturn
+[39m res[33m.[39mresults[33m.[39
+mmap((n[33m:[39m any) [33m=>[39m
+ ({
+ [90m 373 |[39m         title[33m
+:[39m translateToKorean(n[33m.[39
+mtitle)[33m,[39m[0m
+Next.js build worker exited with cod
+e: 1 and signal: null

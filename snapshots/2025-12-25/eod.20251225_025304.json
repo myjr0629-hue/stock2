@@ -1,0 +1,532 @@
+{
+  "meta": {
+    "timestamp": "2025-12-25T07:55:08.553Z",
+    "engineVersion": "V8.1-AlphaEngine",
+    "validation": {
+      "isValid": false,
+      "errors": [
+        "Pending tickers: 2"
+      ],
+      "mode": "PARTIAL"
+    },
+    "pendingCount": 2,
+    "pendingTickers": [
+      "CREVW",
+      "ORGNW"
+    ],
+    "backfillRound": 1,
+    "lastBackfillAt": "2025-12-25T07:55:08.553Z",
+    "mode": "incremental-backfill",
+    "universeSource": "market",
+    "universeCount": 2,
+    "universeSelectedK": 0,
+    "itemsCount": 2,
+    "topPicks": [
+      "CREVW",
+      "ORGNW"
+    ],
+    "slot": "eod",
+    "runId": "20251225_025304",
+    "etDate": "2025-12-25",
+    "etTimestamp": "2025-12-25T02:53:04",
+    "source": "Massive",
+    "integrity": {
+      "oiPolicy": "NO_SUBSTITUTE",
+      "pendingAllowed": true
+    },
+    "uiDefaults": {
+      "tableTopN": 20
+    }
+  },
+  "macro": {
+    "us10y": 4.136,
+    "us10yChange": 0,
+    "vix": 13.47,
+    "vixChange": 0,
+    "regime": "Neutral"
+  },
+  "alphaGrid": {
+    "top3": [
+      {
+        "rank": 1,
+        "symbol": "CREVW",
+        "role": "Challenger",
+        "price": 0.0123,
+        "change": 0.0057,
+        "changePercent": 86.36363636363636,
+        "targetPrice": 0.013530000000000002,
+        "cutPrice": 0.011685,
+        "alphaScore": 72,
+        "scoreDecomposition": {
+          "momentum": 20,
+          "options": 10,
+          "structure": 10,
+          "regime": 12,
+          "risk": 20
+        },
+        "velocity": "▲",
+        "detail": "Vol Ratio: 1.7x",
+        "mmPos": "분석중",
+        "edge": "전략 수립중",
+        "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+        "comment": "강력 매수 신호 (Strong Buy)",
+        "return3d": "112.3% (T+3)",
+        "v71": {
+          "gate": "PASS",
+          "gateReason": "Momentum Locked",
+          "action": "Enter",
+          "entryZone": [
+            0.012054,
+            0.012546
+          ],
+          "isInsideEntry": true,
+          "support": 0.011562,
+          "resistance": 0.013038000000000001,
+          "tp1": 0.013530000000000002,
+          "tp2": 0.014759999999999999,
+          "oiLevels": {
+            "pin": null,
+            "callWall": 0.014145,
+            "putFloor": 0.010454999999999999,
+            "grade": "OI-C"
+          },
+          "timeStop": "48 Hours",
+          "maxPainNear": null,
+          "pcrNear": null,
+          "netGex": null,
+          "vwapPos": "N/A",
+          "rsi14": 50,
+          "options_status": "PENDING",
+          "options_grade": "C",
+          "options_reason": "UNKNOWN_PENDING"
+        }
+      },
+      {
+        "rank": 2,
+        "symbol": "ORGNW",
+        "role": "Challenger",
+        "price": 0.0088,
+        "change": 0.003999000000000001,
+        "changePercent": 83.29514684440744,
+        "targetPrice": 0.009680000000000001,
+        "cutPrice": 0.00836,
+        "alphaScore": 72,
+        "scoreDecomposition": {
+          "momentum": 20,
+          "options": 10,
+          "structure": 10,
+          "regime": 12,
+          "risk": 20
+        },
+        "velocity": "►",
+        "detail": "Vol Ratio: 0.0x",
+        "mmPos": "분석중",
+        "edge": "전략 수립중",
+        "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+        "comment": "강력 매수 신호 (Strong Buy)",
+        "return3d": "108.3% (T+3)",
+        "v71": {
+          "gate": "PASS",
+          "gateReason": "Momentum Locked",
+          "action": "Enter",
+          "entryZone": [
+            0.008624,
+            0.008976000000000001
+          ],
+          "isInsideEntry": true,
+          "support": 0.008272,
+          "resistance": 0.009328000000000001,
+          "tp1": 0.009680000000000001,
+          "tp2": 0.01056,
+          "oiLevels": {
+            "pin": null,
+            "callWall": 0.01012,
+            "putFloor": 0.0074800000000000005,
+            "grade": "OI-C"
+          },
+          "timeStop": "48 Hours",
+          "maxPainNear": null,
+          "pcrNear": null,
+          "netGex": null,
+          "vwapPos": "N/A",
+          "rsi14": 50,
+          "options_status": "PENDING",
+          "options_grade": "C",
+          "options_reason": "UNKNOWN_PENDING"
+        }
+      }
+    ],
+    "fullUniverse": [
+      {
+        "rank": 1,
+        "symbol": "CREVW",
+        "role": "Challenger",
+        "price": 0.0123,
+        "change": 0.0057,
+        "changePercent": 86.36363636363636,
+        "targetPrice": 0.013530000000000002,
+        "cutPrice": 0.011685,
+        "alphaScore": 72,
+        "scoreDecomposition": {
+          "momentum": 20,
+          "options": 10,
+          "structure": 10,
+          "regime": 12,
+          "risk": 20
+        },
+        "velocity": "▲",
+        "detail": "Vol Ratio: 1.7x",
+        "mmPos": "분석중",
+        "edge": "전략 수립중",
+        "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+        "comment": "강력 매수 신호 (Strong Buy)",
+        "return3d": "112.3% (T+3)",
+        "v71": {
+          "gate": "PASS",
+          "gateReason": "Momentum Locked",
+          "action": "Enter",
+          "entryZone": [
+            0.012054,
+            0.012546
+          ],
+          "isInsideEntry": true,
+          "support": 0.011562,
+          "resistance": 0.013038000000000001,
+          "tp1": 0.013530000000000002,
+          "tp2": 0.014759999999999999,
+          "oiLevels": {
+            "pin": null,
+            "callWall": 0.014145,
+            "putFloor": 0.010454999999999999,
+            "grade": "OI-C"
+          },
+          "timeStop": "48 Hours",
+          "maxPainNear": null,
+          "pcrNear": null,
+          "netGex": null,
+          "vwapPos": "N/A",
+          "rsi14": 50,
+          "options_status": "PENDING",
+          "options_grade": "C",
+          "options_reason": "UNKNOWN_PENDING"
+        }
+      },
+      {
+        "rank": 2,
+        "symbol": "ORGNW",
+        "role": "Challenger",
+        "price": 0.0088,
+        "change": 0.003999000000000001,
+        "changePercent": 83.29514684440744,
+        "targetPrice": 0.009680000000000001,
+        "cutPrice": 0.00836,
+        "alphaScore": 72,
+        "scoreDecomposition": {
+          "momentum": 20,
+          "options": 10,
+          "structure": 10,
+          "regime": 12,
+          "risk": 20
+        },
+        "velocity": "►",
+        "detail": "Vol Ratio: 0.0x",
+        "mmPos": "분석중",
+        "edge": "전략 수립중",
+        "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+        "comment": "강력 매수 신호 (Strong Buy)",
+        "return3d": "108.3% (T+3)",
+        "v71": {
+          "gate": "PASS",
+          "gateReason": "Momentum Locked",
+          "action": "Enter",
+          "entryZone": [
+            0.008624,
+            0.008976000000000001
+          ],
+          "isInsideEntry": true,
+          "support": 0.008272,
+          "resistance": 0.009328000000000001,
+          "tp1": 0.009680000000000001,
+          "tp2": 0.01056,
+          "oiLevels": {
+            "pin": null,
+            "callWall": 0.01012,
+            "putFloor": 0.0074800000000000005,
+            "grade": "OI-C"
+          },
+          "timeStop": "48 Hours",
+          "maxPainNear": null,
+          "pcrNear": null,
+          "netGex": null,
+          "vwapPos": "N/A",
+          "rsi14": 50,
+          "options_status": "PENDING",
+          "options_grade": "C",
+          "options_reason": "UNKNOWN_PENDING"
+        }
+      }
+    ]
+  },
+  "strategy": {
+    "action": "MAINTAIN",
+    "reason": "GEMS V8.1 Deterministic Scan Complete.",
+    "orders": [
+      {
+        "ticker": "CREVW",
+        "action": "HOLD/NONE",
+        "allocation": "0%"
+      },
+      {
+        "ticker": "ORGNW",
+        "action": "HOLD/NONE",
+        "allocation": "0%"
+      }
+    ]
+  },
+  "tickers": [
+    {
+      "rank": 1,
+      "symbol": "CREVW",
+      "role": "Challenger",
+      "price": 0.0123,
+      "change": 0.0057,
+      "changePercent": 86.36363636363636,
+      "targetPrice": 0.013530000000000002,
+      "cutPrice": 0.011685,
+      "alphaScore": 72,
+      "scoreDecomposition": {
+        "momentum": 20,
+        "options": 10,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "▲",
+      "detail": "Vol Ratio: 1.7x",
+      "mmPos": "분석중",
+      "edge": "전략 수립중",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "강력 매수 신호 (Strong Buy)",
+      "return3d": "112.3% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Enter",
+        "entryZone": [
+          0.012054,
+          0.012546
+        ],
+        "isInsideEntry": true,
+        "support": 0.011562,
+        "resistance": 0.013038000000000001,
+        "tp1": 0.013530000000000002,
+        "tp2": 0.014759999999999999,
+        "oiLevels": {
+          "pin": null,
+          "callWall": 0.014145,
+          "putFloor": 0.010454999999999999,
+          "grade": "OI-C"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": null,
+        "pcrNear": null,
+        "netGex": null,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "PENDING",
+        "options_grade": "C",
+        "options_reason": "UNKNOWN_PENDING"
+      }
+    },
+    {
+      "rank": 2,
+      "symbol": "ORGNW",
+      "role": "Challenger",
+      "price": 0.0088,
+      "change": 0.003999000000000001,
+      "changePercent": 83.29514684440744,
+      "targetPrice": 0.009680000000000001,
+      "cutPrice": 0.00836,
+      "alphaScore": 72,
+      "scoreDecomposition": {
+        "momentum": 20,
+        "options": 10,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.0x",
+      "mmPos": "분석중",
+      "edge": "전략 수립중",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "강력 매수 신호 (Strong Buy)",
+      "return3d": "108.3% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Enter",
+        "entryZone": [
+          0.008624,
+          0.008976000000000001
+        ],
+        "isInsideEntry": true,
+        "support": 0.008272,
+        "resistance": 0.009328000000000001,
+        "tp1": 0.009680000000000001,
+        "tp2": 0.01056,
+        "oiLevels": {
+          "pin": null,
+          "callWall": 0.01012,
+          "putFloor": 0.0074800000000000005,
+          "grade": "OI-C"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": null,
+        "pcrNear": null,
+        "netGex": null,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "PENDING",
+        "options_grade": "C",
+        "options_reason": "UNKNOWN_PENDING"
+      }
+    }
+  ],
+  "items": [
+    {
+      "rank": 1,
+      "symbol": "CREVW",
+      "role": "Challenger",
+      "price": 0.0123,
+      "change": 0.0057,
+      "changePercent": 86.36363636363636,
+      "targetPrice": 0.013530000000000002,
+      "cutPrice": 0.011685,
+      "alphaScore": 72,
+      "scoreDecomposition": {
+        "momentum": 20,
+        "options": 10,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "▲",
+      "detail": "Vol Ratio: 1.7x",
+      "mmPos": "분석중",
+      "edge": "전략 수립중",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "강력 매수 신호 (Strong Buy)",
+      "return3d": "112.3% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Enter",
+        "entryZone": [
+          0.012054,
+          0.012546
+        ],
+        "isInsideEntry": true,
+        "support": 0.011562,
+        "resistance": 0.013038000000000001,
+        "tp1": 0.013530000000000002,
+        "tp2": 0.014759999999999999,
+        "oiLevels": {
+          "pin": null,
+          "callWall": 0.014145,
+          "putFloor": 0.010454999999999999,
+          "grade": "OI-C"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": null,
+        "pcrNear": null,
+        "netGex": null,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "PENDING",
+        "options_grade": "C",
+        "options_reason": "UNKNOWN_PENDING"
+      },
+      "ticker": "CREVW",
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "UNKNOWN_PENDING",
+        "options_grade": "C"
+      }
+    },
+    {
+      "rank": 2,
+      "symbol": "ORGNW",
+      "role": "Challenger",
+      "price": 0.0088,
+      "change": 0.003999000000000001,
+      "changePercent": 83.29514684440744,
+      "targetPrice": 0.009680000000000001,
+      "cutPrice": 0.00836,
+      "alphaScore": 72,
+      "scoreDecomposition": {
+        "momentum": 20,
+        "options": 10,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.0x",
+      "mmPos": "분석중",
+      "edge": "전략 수립중",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "강력 매수 신호 (Strong Buy)",
+      "return3d": "108.3% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Enter",
+        "entryZone": [
+          0.008624,
+          0.008976000000000001
+        ],
+        "isInsideEntry": true,
+        "support": 0.008272,
+        "resistance": 0.009328000000000001,
+        "tp1": 0.009680000000000001,
+        "tp2": 0.01056,
+        "oiLevels": {
+          "pin": null,
+          "callWall": 0.01012,
+          "putFloor": 0.0074800000000000005,
+          "grade": "OI-C"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": null,
+        "pcrNear": null,
+        "netGex": null,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "PENDING",
+        "options_grade": "C",
+        "options_reason": "UNKNOWN_PENDING"
+      },
+      "ticker": "ORGNW",
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "UNKNOWN_PENDING",
+        "options_grade": "C"
+      }
+    }
+  ]
+}

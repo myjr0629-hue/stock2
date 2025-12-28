@@ -1,0 +1,4051 @@
+{
+  "meta": {
+    "timestamp": "2025-12-25T06:55:11.831Z",
+    "engineVersion": "V8.1-AlphaEngine",
+    "validation": {
+      "isValid": true,
+      "errors": [],
+      "mode": "PASS"
+    },
+    "pendingCount": 0,
+    "pendingTickers": [],
+    "backfillRound": 1,
+    "lastBackfillAt": "2025-12-25T06:55:11.831Z",
+    "mode": "incremental-backfill",
+    "slot": "eod",
+    "runId": "20251225_015445",
+    "etDate": "2025-12-25",
+    "etTimestamp": "2025-12-25T01:54:45",
+    "source": "Massive",
+    "integrity": {
+      "oiPolicy": "NO_SUBSTITUTE",
+      "pendingAllowed": false
+    }
+  },
+  "tickers": [
+    {
+      "rank": 1,
+      "symbol": "TSLA",
+      "role": "Challenger",
+      "price": 485.4,
+      "change": -1.3000000000000114,
+      "changePercent": -0.03295164346322288,
+      "targetPrice": 533.94,
+      "cutPrice": 461.12999999999994,
+      "alphaScore": 60.3,
+      "scoreDecomposition": {
+        "momentum": 9.9,
+        "options": 8.1,
+        "structure": 10.2,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.7x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$475.00. Spot $485.40.",
+      "return3d": "-0.0% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          475.69199999999995,
+          495.108
+        ],
+        "isInsideEntry": true,
+        "support": 456.27599999999995,
+        "resistance": 514.524,
+        "tp1": 533.94,
+        "tp2": 582.4799999999999,
+        "oiLevels": {
+          "pin": 475,
+          "callWall": 558.2099999999999,
+          "putFloor": 412.59,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 475,
+        "pcrNear": 0.811819628202981,
+        "netGex": 203137.79995750656,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 462.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00462500",
+          "implied_volatility": null,
+          "open_interest": 2411
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 465,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00465000",
+          "implied_volatility": null,
+          "open_interest": 3819
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 467.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00467500",
+          "implied_volatility": null,
+          "open_interest": 1654
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 470,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00470000",
+          "implied_volatility": null,
+          "open_interest": 7809
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 472.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00472500",
+          "implied_volatility": null,
+          "open_interest": 2820
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 475,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00475000",
+          "implied_volatility": null,
+          "open_interest": 6794
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 477.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00477500",
+          "implied_volatility": null,
+          "open_interest": 4370
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 480,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00480000",
+          "implied_volatility": null,
+          "open_interest": 8344
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 482.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00482500",
+          "implied_volatility": null,
+          "open_interest": 2966
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 485,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00485000",
+          "implied_volatility": null,
+          "open_interest": 9586
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 487.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00487500",
+          "implied_volatility": null,
+          "open_interest": 5716
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 490,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00490000",
+          "implied_volatility": null,
+          "open_interest": 17862
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 492.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00492500",
+          "implied_volatility": null,
+          "open_interest": 6737
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 495,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00495000",
+          "implied_volatility": null,
+          "open_interest": 19604
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 497.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00497500",
+          "implied_volatility": null,
+          "open_interest": 6957
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 500,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00500000",
+          "implied_volatility": null,
+          "open_interest": 40793
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 502.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00502500",
+          "implied_volatility": null,
+          "open_interest": 6360
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 505,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00505000",
+          "implied_volatility": null,
+          "open_interest": 12636
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 507.5,
+          "contract_type": "call",
+          "ticker": "O:TSLA251226C00507500",
+          "implied_volatility": null,
+          "open_interest": 3426
+        }
+      ]
+    },
+    {
+      "rank": 2,
+      "symbol": "PLTR",
+      "role": "Challenger",
+      "price": 194.17,
+      "change": -0.21999999999999886,
+      "changePercent": 0.02060474939473139,
+      "targetPrice": 213.58700000000002,
+      "cutPrice": 184.46149999999997,
+      "alphaScore": 60.2,
+      "scoreDecomposition": {
+        "momentum": 10,
+        "options": 7.7,
+        "structure": 10.4,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.5x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$187.50. Spot $194.17.",
+      "return3d": "0.0% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          190.2866,
+          198.05339999999998
+        ],
+        "isInsideEntry": true,
+        "support": 182.51979999999998,
+        "resistance": 205.8202,
+        "tp1": 213.58700000000002,
+        "tp2": 233.00399999999996,
+        "oiLevels": {
+          "pin": 187.5,
+          "callWall": 223.29549999999998,
+          "putFloor": 165.04449999999997,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 187.5,
+        "pcrNear": 0.7736173458909134,
+        "netGex": 407970.42218381347,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 185,
+          "contract_type": "call",
+          "ticker": "O:PLTR251226C00185000",
+          "implied_volatility": null,
+          "open_interest": 8456
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 185,
+          "contract_type": "put",
+          "ticker": "O:PLTR251226P00185000",
+          "implied_volatility": null,
+          "open_interest": 8860
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 185,
+          "contract_type": "call",
+          "ticker": "O:PLTR260102C00185000",
+          "implied_volatility": null,
+          "open_interest": 4316
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 185,
+          "contract_type": "put",
+          "ticker": "O:PLTR260102P00185000",
+          "implied_volatility": null,
+          "open_interest": 2477
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 187.5,
+          "contract_type": "call",
+          "ticker": "O:PLTR251226C00187500",
+          "implied_volatility": null,
+          "open_interest": 2737
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 187.5,
+          "contract_type": "put",
+          "ticker": "O:PLTR251226P00187500",
+          "implied_volatility": null,
+          "open_interest": 6514
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 187.5,
+          "contract_type": "call",
+          "ticker": "O:PLTR260102C00187500",
+          "implied_volatility": null,
+          "open_interest": 850
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 187.5,
+          "contract_type": "put",
+          "ticker": "O:PLTR260102P00187500",
+          "implied_volatility": null,
+          "open_interest": 1025
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 190,
+          "contract_type": "call",
+          "ticker": "O:PLTR251226C00190000",
+          "implied_volatility": null,
+          "open_interest": 9142
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 190,
+          "contract_type": "put",
+          "ticker": "O:PLTR251226P00190000",
+          "implied_volatility": null,
+          "open_interest": 10381
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 190,
+          "contract_type": "call",
+          "ticker": "O:PLTR260102C00190000",
+          "implied_volatility": null,
+          "open_interest": 2885
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 190,
+          "contract_type": "put",
+          "ticker": "O:PLTR260102P00190000",
+          "implied_volatility": null,
+          "open_interest": 2910
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 192.5,
+          "contract_type": "call",
+          "ticker": "O:PLTR251226C00192500",
+          "implied_volatility": null,
+          "open_interest": 10484
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 192.5,
+          "contract_type": "put",
+          "ticker": "O:PLTR251226P00192500",
+          "implied_volatility": null,
+          "open_interest": 4426
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 192.5,
+          "contract_type": "call",
+          "ticker": "O:PLTR260102C00192500",
+          "implied_volatility": null,
+          "open_interest": 1409
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 192.5,
+          "contract_type": "put",
+          "ticker": "O:PLTR260102P00192500",
+          "implied_volatility": null,
+          "open_interest": 1579
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 195,
+          "contract_type": "call",
+          "ticker": "O:PLTR251226C00195000",
+          "implied_volatility": null,
+          "open_interest": 14892
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 195,
+          "contract_type": "put",
+          "ticker": "O:PLTR251226P00195000",
+          "implied_volatility": null,
+          "open_interest": 3479
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 195,
+          "contract_type": "call",
+          "ticker": "O:PLTR260102C00195000",
+          "implied_volatility": null,
+          "open_interest": 3989
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 195,
+          "contract_type": "put",
+          "ticker": "O:PLTR260102P00195000",
+          "implied_volatility": null,
+          "open_interest": 1231
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 197.5,
+          "contract_type": "call",
+          "ticker": "O:PLTR251226C00197500",
+          "implied_volatility": null,
+          "open_interest": 20548
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 197.5,
+          "contract_type": "put",
+          "ticker": "O:PLTR251226P00197500",
+          "implied_volatility": null,
+          "open_interest": 1249
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 197.5,
+          "contract_type": "call",
+          "ticker": "O:PLTR260102C00197500",
+          "implied_volatility": null,
+          "open_interest": 4019
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 197.5,
+          "contract_type": "put",
+          "ticker": "O:PLTR260102P00197500",
+          "implied_volatility": null,
+          "open_interest": 167
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 200,
+          "contract_type": "call",
+          "ticker": "O:PLTR251226C00200000",
+          "implied_volatility": null,
+          "open_interest": 28287
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 200,
+          "contract_type": "put",
+          "ticker": "O:PLTR251226P00200000",
+          "implied_volatility": null,
+          "open_interest": 889
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 200,
+          "contract_type": "call",
+          "ticker": "O:PLTR260102C00200000",
+          "implied_volatility": null,
+          "open_interest": 47059
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 200,
+          "contract_type": "put",
+          "ticker": "O:PLTR260102P00200000",
+          "implied_volatility": null,
+          "open_interest": 983
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 202.5,
+          "contract_type": "call",
+          "ticker": "O:PLTR251226C00202500",
+          "implied_volatility": null,
+          "open_interest": 11856
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 202.5,
+          "contract_type": "put",
+          "ticker": "O:PLTR251226P00202500",
+          "implied_volatility": null,
+          "open_interest": 121
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 202.5,
+          "contract_type": "call",
+          "ticker": "O:PLTR260102C00202500",
+          "implied_volatility": null,
+          "open_interest": 10707
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 202.5,
+          "contract_type": "put",
+          "ticker": "O:PLTR260102P00202500",
+          "implied_volatility": null,
+          "open_interest": 140
+        }
+      ]
+    },
+    {
+      "rank": 3,
+      "symbol": "MSFT",
+      "role": "Challenger",
+      "price": 488.02,
+      "change": 0.7699999999999818,
+      "changePercent": 0.24032042723630664,
+      "targetPrice": 536.822,
+      "cutPrice": 463.61899999999997,
+      "alphaScore": 60.2,
+      "scoreDecomposition": {
+        "momentum": 10.5,
+        "options": 7.6,
+        "structure": 10.1,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.4x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$480.00. Spot $488.02.",
+      "return3d": "0.3% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          478.2596,
+          497.7804
+        ],
+        "isInsideEntry": true,
+        "support": 458.73879999999997,
+        "resistance": 517.3012,
+        "tp1": 536.822,
+        "tp2": 585.6239999999999,
+        "oiLevels": {
+          "pin": 480,
+          "callWall": 561.223,
+          "putFloor": 414.81699999999995,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 480,
+        "pcrNear": 0.758284822270643,
+        "netGex": 87311.8342224148,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 465,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00465000",
+          "implied_volatility": null,
+          "open_interest": 302
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 465,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00465000",
+          "implied_volatility": null,
+          "open_interest": 2644
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 465,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00465000",
+          "implied_volatility": null,
+          "open_interest": 100
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 467.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00467500",
+          "implied_volatility": null,
+          "open_interest": 87
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 467.5,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00467500",
+          "implied_volatility": null,
+          "open_interest": 2004
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 467.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00467500",
+          "implied_volatility": null,
+          "open_interest": 43
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 470,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00470000",
+          "implied_volatility": null,
+          "open_interest": 1936
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 470,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00470000",
+          "implied_volatility": null,
+          "open_interest": 3855
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 470,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00470000",
+          "implied_volatility": null,
+          "open_interest": 432
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 472.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00472500",
+          "implied_volatility": null,
+          "open_interest": 367
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 472.5,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00472500",
+          "implied_volatility": null,
+          "open_interest": 2063
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 472.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00472500",
+          "implied_volatility": null,
+          "open_interest": 178
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 475,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00475000",
+          "implied_volatility": null,
+          "open_interest": 1496
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 475,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00475000",
+          "implied_volatility": null,
+          "open_interest": 3083
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 475,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00475000",
+          "implied_volatility": null,
+          "open_interest": 391
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 477.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00477500",
+          "implied_volatility": null,
+          "open_interest": 638
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 477.5,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00477500",
+          "implied_volatility": null,
+          "open_interest": 1129
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 477.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00477500",
+          "implied_volatility": null,
+          "open_interest": 287
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 480,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00480000",
+          "implied_volatility": null,
+          "open_interest": 2881
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 480,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00480000",
+          "implied_volatility": null,
+          "open_interest": 3325
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 480,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00480000",
+          "implied_volatility": null,
+          "open_interest": 786
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 482.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00482500",
+          "implied_volatility": null,
+          "open_interest": 1693
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 482.5,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00482500",
+          "implied_volatility": null,
+          "open_interest": 1162
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 482.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00482500",
+          "implied_volatility": null,
+          "open_interest": 539
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 485,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00485000",
+          "implied_volatility": null,
+          "open_interest": 4473
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 485,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00485000",
+          "implied_volatility": null,
+          "open_interest": 2225
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 485,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00485000",
+          "implied_volatility": null,
+          "open_interest": 2589
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 487.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00487500",
+          "implied_volatility": null,
+          "open_interest": 2577
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 487.5,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00487500",
+          "implied_volatility": null,
+          "open_interest": 938
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 487.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00487500",
+          "implied_volatility": null,
+          "open_interest": 1511
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 490,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00490000",
+          "implied_volatility": null,
+          "open_interest": 5272
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 490,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00490000",
+          "implied_volatility": null,
+          "open_interest": 975
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 490,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00490000",
+          "implied_volatility": null,
+          "open_interest": 2507
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 492.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00492500",
+          "implied_volatility": null,
+          "open_interest": 2940
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 492.5,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00492500",
+          "implied_volatility": null,
+          "open_interest": 132
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 492.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00492500",
+          "implied_volatility": null,
+          "open_interest": 2209
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 495,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00495000",
+          "implied_volatility": null,
+          "open_interest": 4648
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 495,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00495000",
+          "implied_volatility": null,
+          "open_interest": 258
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 495,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00495000",
+          "implied_volatility": null,
+          "open_interest": 2046
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 497.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00497500",
+          "implied_volatility": null,
+          "open_interest": 2245
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 497.5,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00497500",
+          "implied_volatility": null,
+          "open_interest": 53
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 497.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00497500",
+          "implied_volatility": null,
+          "open_interest": 1358
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 500,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00500000",
+          "implied_volatility": null,
+          "open_interest": 7143
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 500,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00500000",
+          "implied_volatility": null,
+          "open_interest": 5
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 500,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00500000",
+          "implied_volatility": null,
+          "open_interest": 3419
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 502.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00502500",
+          "implied_volatility": null,
+          "open_interest": 1092
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 502.5,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00502500",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 505,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00505000",
+          "implied_volatility": null,
+          "open_interest": 4592
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 505,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00505000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 505,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00505000",
+          "implied_volatility": null,
+          "open_interest": 2579
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 507.5,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00507500",
+          "implied_volatility": null,
+          "open_interest": 354
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 507.5,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00507500",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 510,
+          "contract_type": "call",
+          "ticker": "O:MSFT251226C00510000",
+          "implied_volatility": null,
+          "open_interest": 4171
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 510,
+          "contract_type": "put",
+          "ticker": "O:MSFT251226P00510000",
+          "implied_volatility": null,
+          "open_interest": 1
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 510,
+          "contract_type": "call",
+          "ticker": "O:MSFT260102C00510000",
+          "implied_volatility": null,
+          "open_interest": 2501
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "symbol": "NVDA",
+      "role": "Challenger",
+      "price": 188.61,
+      "change": -1.1599999999999966,
+      "changePercent": -0.31710797526557494,
+      "targetPrice": 207.47100000000003,
+      "cutPrice": 179.17950000000002,
+      "alphaScore": 60.1,
+      "scoreDecomposition": {
+        "momentum": 9.4,
+        "options": 7.2,
+        "structure": 11.5,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.4x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$180.00. Spot $188.61.",
+      "return3d": "-0.4% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          184.83780000000002,
+          192.3822
+        ],
+        "isInsideEntry": true,
+        "support": 177.2934,
+        "resistance": 199.92660000000004,
+        "tp1": 207.47100000000003,
+        "tp2": 226.33200000000002,
+        "oiLevels": {
+          "pin": 180,
+          "callWall": 216.9015,
+          "putFloor": 160.3185,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 180,
+        "pcrNear": 0.719006032835936,
+        "netGex": 1530711.668640069,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 180,
+          "contract_type": "call",
+          "ticker": "O:NVDA251226C00180000",
+          "implied_volatility": null,
+          "open_interest": 33408
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 180,
+          "contract_type": "put",
+          "ticker": "O:NVDA251226P00180000",
+          "implied_volatility": null,
+          "open_interest": 30417
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 180,
+          "contract_type": "call",
+          "ticker": "O:NVDA260102C00180000",
+          "implied_volatility": null,
+          "open_interest": 14364
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 182.5,
+          "contract_type": "call",
+          "ticker": "O:NVDA251226C00182500",
+          "implied_volatility": null,
+          "open_interest": 43955
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 182.5,
+          "contract_type": "put",
+          "ticker": "O:NVDA251226P00182500",
+          "implied_volatility": null,
+          "open_interest": 23203
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 182.5,
+          "contract_type": "call",
+          "ticker": "O:NVDA260102C00182500",
+          "implied_volatility": null,
+          "open_interest": 6987
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 185,
+          "contract_type": "call",
+          "ticker": "O:NVDA251226C00185000",
+          "implied_volatility": null,
+          "open_interest": 59470
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 185,
+          "contract_type": "put",
+          "ticker": "O:NVDA251226P00185000",
+          "implied_volatility": null,
+          "open_interest": 32980
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 185,
+          "contract_type": "call",
+          "ticker": "O:NVDA260102C00185000",
+          "implied_volatility": null,
+          "open_interest": 22607
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 187.5,
+          "contract_type": "call",
+          "ticker": "O:NVDA251226C00187500",
+          "implied_volatility": null,
+          "open_interest": 37346
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 187.5,
+          "contract_type": "put",
+          "ticker": "O:NVDA251226P00187500",
+          "implied_volatility": null,
+          "open_interest": 13227
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 187.5,
+          "contract_type": "call",
+          "ticker": "O:NVDA260102C00187500",
+          "implied_volatility": null,
+          "open_interest": 15085
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 190,
+          "contract_type": "call",
+          "ticker": "O:NVDA251226C00190000",
+          "implied_volatility": null,
+          "open_interest": 67845
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 190,
+          "contract_type": "put",
+          "ticker": "O:NVDA251226P00190000",
+          "implied_volatility": null,
+          "open_interest": 4952
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 190,
+          "contract_type": "call",
+          "ticker": "O:NVDA260102C00190000",
+          "implied_volatility": null,
+          "open_interest": 68298
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 192.5,
+          "contract_type": "call",
+          "ticker": "O:NVDA251226C00192500",
+          "implied_volatility": null,
+          "open_interest": 31380
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 192.5,
+          "contract_type": "put",
+          "ticker": "O:NVDA251226P00192500",
+          "implied_volatility": null,
+          "open_interest": 768
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 192.5,
+          "contract_type": "call",
+          "ticker": "O:NVDA260102C00192500",
+          "implied_volatility": null,
+          "open_interest": 58583
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 195,
+          "contract_type": "call",
+          "ticker": "O:NVDA251226C00195000",
+          "implied_volatility": null,
+          "open_interest": 37096
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 195,
+          "contract_type": "put",
+          "ticker": "O:NVDA251226P00195000",
+          "implied_volatility": null,
+          "open_interest": 397
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 195,
+          "contract_type": "call",
+          "ticker": "O:NVDA260102C00195000",
+          "implied_volatility": null,
+          "open_interest": 53306
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 197.5,
+          "contract_type": "call",
+          "ticker": "O:NVDA251226C00197500",
+          "implied_volatility": null,
+          "open_interest": 12897
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 197.5,
+          "contract_type": "put",
+          "ticker": "O:NVDA251226P00197500",
+          "implied_volatility": null,
+          "open_interest": 9
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 197.5,
+          "contract_type": "call",
+          "ticker": "O:NVDA260102C00197500",
+          "implied_volatility": null,
+          "open_interest": 50244
+        }
+      ]
+    },
+    {
+      "rank": 5,
+      "symbol": "AMD",
+      "role": "Challenger",
+      "price": 215.04,
+      "change": -0.21999999999999886,
+      "changePercent": 0.0651465798045539,
+      "targetPrice": 236.544,
+      "cutPrice": 204.28799999999998,
+      "alphaScore": 58.8,
+      "scoreDecomposition": {
+        "momentum": 10.1,
+        "options": 6.5,
+        "structure": 10.2,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.4x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$210.00. Spot $215.04.",
+      "return3d": "0.1% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          210.73919999999998,
+          219.3408
+        ],
+        "isInsideEntry": true,
+        "support": 202.1376,
+        "resistance": 227.9424,
+        "tp1": 236.544,
+        "tp2": 258.048,
+        "oiLevels": {
+          "pin": 210,
+          "callWall": 247.29599999999996,
+          "putFloor": 182.784,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 210,
+        "pcrNear": 0.6502788365095286,
+        "netGex": 195845.59715299538,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 205,
+          "contract_type": "call",
+          "ticker": "O:AMD251226C00205000",
+          "implied_volatility": null,
+          "open_interest": 1759
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 205,
+          "contract_type": "put",
+          "ticker": "O:AMD251226P00205000",
+          "implied_volatility": null,
+          "open_interest": 4094
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 205,
+          "contract_type": "call",
+          "ticker": "O:AMD260102C00205000",
+          "implied_volatility": null,
+          "open_interest": 1461
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 207.5,
+          "contract_type": "call",
+          "ticker": "O:AMD251226C00207500",
+          "implied_volatility": null,
+          "open_interest": 2581
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 207.5,
+          "contract_type": "put",
+          "ticker": "O:AMD251226P00207500",
+          "implied_volatility": null,
+          "open_interest": 3370
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 207.5,
+          "contract_type": "call",
+          "ticker": "O:AMD260102C00207500",
+          "implied_volatility": null,
+          "open_interest": 350
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 210,
+          "contract_type": "call",
+          "ticker": "O:AMD251226C00210000",
+          "implied_volatility": null,
+          "open_interest": 4860
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 210,
+          "contract_type": "put",
+          "ticker": "O:AMD251226P00210000",
+          "implied_volatility": null,
+          "open_interest": 4388
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 210,
+          "contract_type": "call",
+          "ticker": "O:AMD260102C00210000",
+          "implied_volatility": null,
+          "open_interest": 1726
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 212.5,
+          "contract_type": "call",
+          "ticker": "O:AMD251226C00212500",
+          "implied_volatility": null,
+          "open_interest": 6275
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 212.5,
+          "contract_type": "put",
+          "ticker": "O:AMD251226P00212500",
+          "implied_volatility": null,
+          "open_interest": 3299
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 212.5,
+          "contract_type": "call",
+          "ticker": "O:AMD260102C00212500",
+          "implied_volatility": null,
+          "open_interest": 847
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 215,
+          "contract_type": "call",
+          "ticker": "O:AMD251226C00215000",
+          "implied_volatility": null,
+          "open_interest": 10395
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 215,
+          "contract_type": "put",
+          "ticker": "O:AMD251226P00215000",
+          "implied_volatility": null,
+          "open_interest": 3523
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 215,
+          "contract_type": "call",
+          "ticker": "O:AMD260102C00215000",
+          "implied_volatility": null,
+          "open_interest": 3573
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 217.5,
+          "contract_type": "call",
+          "ticker": "O:AMD251226C00217500",
+          "implied_volatility": null,
+          "open_interest": 5797
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 217.5,
+          "contract_type": "put",
+          "ticker": "O:AMD251226P00217500",
+          "implied_volatility": null,
+          "open_interest": 758
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 217.5,
+          "contract_type": "call",
+          "ticker": "O:AMD260102C00217500",
+          "implied_volatility": null,
+          "open_interest": 1121
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 220,
+          "contract_type": "call",
+          "ticker": "O:AMD251226C00220000",
+          "implied_volatility": null,
+          "open_interest": 11649
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 220,
+          "contract_type": "put",
+          "ticker": "O:AMD251226P00220000",
+          "implied_volatility": null,
+          "open_interest": 1517
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 220,
+          "contract_type": "call",
+          "ticker": "O:AMD260102C00220000",
+          "implied_volatility": null,
+          "open_interest": 9517
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 222.5,
+          "contract_type": "call",
+          "ticker": "O:AMD251226C00222500",
+          "implied_volatility": null,
+          "open_interest": 9175
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 222.5,
+          "contract_type": "put",
+          "ticker": "O:AMD251226P00222500",
+          "implied_volatility": null,
+          "open_interest": 280
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 222.5,
+          "contract_type": "call",
+          "ticker": "O:AMD260102C00222500",
+          "implied_volatility": null,
+          "open_interest": 3243
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 225,
+          "contract_type": "call",
+          "ticker": "O:AMD251226C00225000",
+          "implied_volatility": null,
+          "open_interest": 12999
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 225,
+          "contract_type": "put",
+          "ticker": "O:AMD251226P00225000",
+          "implied_volatility": null,
+          "open_interest": 636
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 225,
+          "contract_type": "call",
+          "ticker": "O:AMD260102C00225000",
+          "implied_volatility": null,
+          "open_interest": 5620
+        }
+      ]
+    },
+    {
+      "rank": 6,
+      "symbol": "META",
+      "role": "Challenger",
+      "price": 667.55,
+      "change": 1.3699999999998909,
+      "changePercent": 0.3925166180407104,
+      "targetPrice": 734.3050000000001,
+      "cutPrice": 634.1724999999999,
+      "alphaScore": 58.8,
+      "scoreDecomposition": {
+        "momentum": 10.8,
+        "options": 5.9,
+        "structure": 10.1,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.7x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$657.50. Spot $667.55.",
+      "return3d": "0.5% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          654.199,
+          680.901
+        ],
+        "isInsideEntry": true,
+        "support": 627.497,
+        "resistance": 707.603,
+        "tp1": 734.3050000000001,
+        "tp2": 801.06,
+        "oiLevels": {
+          "pin": 657.5,
+          "callWall": 767.6824999999999,
+          "putFloor": 567.4174999999999,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 657.5,
+        "pcrNear": 0.5920316642395729,
+        "netGex": 78356.61848584055,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 635,
+          "contract_type": "call",
+          "ticker": "O:META251226C00635000",
+          "implied_volatility": null,
+          "open_interest": 603
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 637.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00637500",
+          "implied_volatility": null,
+          "open_interest": 100
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 640,
+          "contract_type": "call",
+          "ticker": "O:META251226C00640000",
+          "implied_volatility": null,
+          "open_interest": 1946
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 642.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00642500",
+          "implied_volatility": null,
+          "open_interest": 174
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 645,
+          "contract_type": "call",
+          "ticker": "O:META251226C00645000",
+          "implied_volatility": null,
+          "open_interest": 1353
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 647.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00647500",
+          "implied_volatility": null,
+          "open_interest": 605
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 650,
+          "contract_type": "call",
+          "ticker": "O:META251226C00650000",
+          "implied_volatility": null,
+          "open_interest": 2469
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 652.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00652500",
+          "implied_volatility": null,
+          "open_interest": 335
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 655,
+          "contract_type": "call",
+          "ticker": "O:META251226C00655000",
+          "implied_volatility": null,
+          "open_interest": 1746
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 657.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00657500",
+          "implied_volatility": null,
+          "open_interest": 671
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 660,
+          "contract_type": "call",
+          "ticker": "O:META251226C00660000",
+          "implied_volatility": null,
+          "open_interest": 5007
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 662.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00662500",
+          "implied_volatility": null,
+          "open_interest": 1929
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 665,
+          "contract_type": "call",
+          "ticker": "O:META251226C00665000",
+          "implied_volatility": null,
+          "open_interest": 4979
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 667.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00667500",
+          "implied_volatility": null,
+          "open_interest": 1566
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 670,
+          "contract_type": "call",
+          "ticker": "O:META251226C00670000",
+          "implied_volatility": null,
+          "open_interest": 8088
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 672.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00672500",
+          "implied_volatility": null,
+          "open_interest": 3514
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 675,
+          "contract_type": "call",
+          "ticker": "O:META251226C00675000",
+          "implied_volatility": null,
+          "open_interest": 5693
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 677.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00677500",
+          "implied_volatility": null,
+          "open_interest": 2094
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 680,
+          "contract_type": "call",
+          "ticker": "O:META251226C00680000",
+          "implied_volatility": null,
+          "open_interest": 10305
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 682.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00682500",
+          "implied_volatility": null,
+          "open_interest": 1916
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 685,
+          "contract_type": "call",
+          "ticker": "O:META251226C00685000",
+          "implied_volatility": null,
+          "open_interest": 4412
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 687.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00687500",
+          "implied_volatility": null,
+          "open_interest": 2139
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 690,
+          "contract_type": "call",
+          "ticker": "O:META251226C00690000",
+          "implied_volatility": null,
+          "open_interest": 11804
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 692.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00692500",
+          "implied_volatility": null,
+          "open_interest": 1093
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 695,
+          "contract_type": "call",
+          "ticker": "O:META251226C00695000",
+          "implied_volatility": null,
+          "open_interest": 2519
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 697.5,
+          "contract_type": "call",
+          "ticker": "O:META251226C00697500",
+          "implied_volatility": null,
+          "open_interest": 1787
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 700,
+          "contract_type": "call",
+          "ticker": "O:META251226C00700000",
+          "implied_volatility": null,
+          "open_interest": 13293
+        }
+      ]
+    },
+    {
+      "rank": 7,
+      "symbol": "GOOGL",
+      "role": "Challenger",
+      "price": 314.09,
+      "change": -0.410000000000025,
+      "changePercent": -0.08271035470019016,
+      "targetPrice": 345.499,
+      "cutPrice": 298.3855,
+      "alphaScore": 58.6,
+      "scoreDecomposition": {
+        "momentum": 9.8,
+        "options": 6.6,
+        "structure": 10.2,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.4x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$307.50. Spot $314.09.",
+      "return3d": "-0.1% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          307.80819999999994,
+          320.3718
+        ],
+        "isInsideEntry": true,
+        "support": 295.24459999999993,
+        "resistance": 332.9354,
+        "tp1": 345.499,
+        "tp2": 376.90799999999996,
+        "oiLevels": {
+          "pin": 307.5,
+          "callWall": 361.20349999999996,
+          "putFloor": 266.9765,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 307.5,
+        "pcrNear": 0.664052673705073,
+        "netGex": 165089.25087838533,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 300,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00300000",
+          "implied_volatility": null,
+          "open_interest": 2788
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 300,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00300000",
+          "implied_volatility": null,
+          "open_interest": 5468
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 300,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00300000",
+          "implied_volatility": null,
+          "open_interest": 1624
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 302.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00302500",
+          "implied_volatility": null,
+          "open_interest": 4848
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 302.5,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00302500",
+          "implied_volatility": null,
+          "open_interest": 1405
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 302.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00302500",
+          "implied_volatility": null,
+          "open_interest": 321
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 305,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00305000",
+          "implied_volatility": null,
+          "open_interest": 5482
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 305,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00305000",
+          "implied_volatility": null,
+          "open_interest": 5115
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 305,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00305000",
+          "implied_volatility": null,
+          "open_interest": 3128
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 307.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00307500",
+          "implied_volatility": null,
+          "open_interest": 4881
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 307.5,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00307500",
+          "implied_volatility": null,
+          "open_interest": 3022
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 307.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00307500",
+          "implied_volatility": null,
+          "open_interest": 1010
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 310,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00310000",
+          "implied_volatility": null,
+          "open_interest": 10589
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 310,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00310000",
+          "implied_volatility": null,
+          "open_interest": 4788
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 310,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00310000",
+          "implied_volatility": null,
+          "open_interest": 3451
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 312.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00312500",
+          "implied_volatility": null,
+          "open_interest": 5653
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 312.5,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00312500",
+          "implied_volatility": null,
+          "open_interest": 7731
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 312.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00312500",
+          "implied_volatility": null,
+          "open_interest": 1091
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 315,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00315000",
+          "implied_volatility": null,
+          "open_interest": 7513
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 315,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00315000",
+          "implied_volatility": null,
+          "open_interest": 1764
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 315,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00315000",
+          "implied_volatility": null,
+          "open_interest": 5399
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 317.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00317500",
+          "implied_volatility": null,
+          "open_interest": 5743
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 317.5,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00317500",
+          "implied_volatility": null,
+          "open_interest": 444
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 317.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00317500",
+          "implied_volatility": null,
+          "open_interest": 4867
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 320,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00320000",
+          "implied_volatility": null,
+          "open_interest": 9792
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 320,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00320000",
+          "implied_volatility": null,
+          "open_interest": 653
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 320,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00320000",
+          "implied_volatility": null,
+          "open_interest": 7477
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 322.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00322500",
+          "implied_volatility": null,
+          "open_interest": 3397
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 322.5,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00322500",
+          "implied_volatility": null,
+          "open_interest": 97
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 322.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00322500",
+          "implied_volatility": null,
+          "open_interest": 6986
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 325,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00325000",
+          "implied_volatility": null,
+          "open_interest": 4187
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 325,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00325000",
+          "implied_volatility": null,
+          "open_interest": 9
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 325,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00325000",
+          "implied_volatility": null,
+          "open_interest": 5080
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 327.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL251226C00327500",
+          "implied_volatility": null,
+          "open_interest": 900
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 327.5,
+          "contract_type": "put",
+          "ticker": "O:GOOGL251226P00327500",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 327.5,
+          "contract_type": "call",
+          "ticker": "O:GOOGL260102C00327500",
+          "implied_volatility": null,
+          "open_interest": 748
+        }
+      ]
+    },
+    {
+      "rank": 8,
+      "symbol": "AMZN",
+      "role": "Challenger",
+      "price": 232.38,
+      "change": -0.12999999999999545,
+      "changePercent": 0.10338588782631564,
+      "targetPrice": 255.61800000000002,
+      "cutPrice": 220.761,
+      "alphaScore": 58,
+      "scoreDecomposition": {
+        "momentum": 10.2,
+        "options": 5.2,
+        "structure": 10.6,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.4x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$227.50. Spot $232.38.",
+      "return3d": "0.1% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          227.73239999999998,
+          237.0276
+        ],
+        "isInsideEntry": true,
+        "support": 218.4372,
+        "resistance": 246.3228,
+        "tp1": 255.61800000000002,
+        "tp2": 278.856,
+        "oiLevels": {
+          "pin": 227.5,
+          "callWall": 267.23699999999997,
+          "putFloor": 197.523,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 227.5,
+        "pcrNear": 0.5246022857018584,
+        "netGex": 594789.7039857004,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 222.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN251226C00222500",
+          "implied_volatility": null,
+          "open_interest": 1499
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 222.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN251226P00222500",
+          "implied_volatility": null,
+          "open_interest": 7645
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 222.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN260102C00222500",
+          "implied_volatility": null,
+          "open_interest": 446
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 222.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN260102P00222500",
+          "implied_volatility": null,
+          "open_interest": 2981
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 225,
+          "contract_type": "call",
+          "ticker": "O:AMZN251226C00225000",
+          "implied_volatility": null,
+          "open_interest": 6160
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 225,
+          "contract_type": "put",
+          "ticker": "O:AMZN251226P00225000",
+          "implied_volatility": null,
+          "open_interest": 8652
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 225,
+          "contract_type": "call",
+          "ticker": "O:AMZN260102C00225000",
+          "implied_volatility": null,
+          "open_interest": 2561
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 225,
+          "contract_type": "put",
+          "ticker": "O:AMZN260102P00225000",
+          "implied_volatility": null,
+          "open_interest": 4491
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 227.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN251226C00227500",
+          "implied_volatility": null,
+          "open_interest": 7348
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 227.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN251226P00227500",
+          "implied_volatility": null,
+          "open_interest": 5170
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 227.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN260102C00227500",
+          "implied_volatility": null,
+          "open_interest": 1856
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 227.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN260102P00227500",
+          "implied_volatility": null,
+          "open_interest": 4302
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 230,
+          "contract_type": "call",
+          "ticker": "O:AMZN251226C00230000",
+          "implied_volatility": null,
+          "open_interest": 17708
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 230,
+          "contract_type": "put",
+          "ticker": "O:AMZN251226P00230000",
+          "implied_volatility": null,
+          "open_interest": 9829
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 230,
+          "contract_type": "call",
+          "ticker": "O:AMZN260102C00230000",
+          "implied_volatility": null,
+          "open_interest": 6623
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 230,
+          "contract_type": "put",
+          "ticker": "O:AMZN260102P00230000",
+          "implied_volatility": null,
+          "open_interest": 5611
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 232.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN251226C00232500",
+          "implied_volatility": null,
+          "open_interest": 15909
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 232.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN251226P00232500",
+          "implied_volatility": null,
+          "open_interest": 2422
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 232.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN260102C00232500",
+          "implied_volatility": null,
+          "open_interest": 6100
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 232.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN260102P00232500",
+          "implied_volatility": null,
+          "open_interest": 1995
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 235,
+          "contract_type": "call",
+          "ticker": "O:AMZN251226C00235000",
+          "implied_volatility": null,
+          "open_interest": 32408
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 235,
+          "contract_type": "put",
+          "ticker": "O:AMZN251226P00235000",
+          "implied_volatility": null,
+          "open_interest": 1009
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 235,
+          "contract_type": "call",
+          "ticker": "O:AMZN260102C00235000",
+          "implied_volatility": null,
+          "open_interest": 15325
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 235,
+          "contract_type": "put",
+          "ticker": "O:AMZN260102P00235000",
+          "implied_volatility": null,
+          "open_interest": 724
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 237.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN251226C00237500",
+          "implied_volatility": null,
+          "open_interest": 24220
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 237.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN251226P00237500",
+          "implied_volatility": null,
+          "open_interest": 171
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 237.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN260102C00237500",
+          "implied_volatility": null,
+          "open_interest": 9005
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 237.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN260102P00237500",
+          "implied_volatility": null,
+          "open_interest": 243
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 240,
+          "contract_type": "call",
+          "ticker": "O:AMZN251226C00240000",
+          "implied_volatility": null,
+          "open_interest": 18129
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 240,
+          "contract_type": "put",
+          "ticker": "O:AMZN251226P00240000",
+          "implied_volatility": null,
+          "open_interest": 48
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 240,
+          "contract_type": "call",
+          "ticker": "O:AMZN260102C00240000",
+          "implied_volatility": null,
+          "open_interest": 15167
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 240,
+          "contract_type": "put",
+          "ticker": "O:AMZN260102P00240000",
+          "implied_volatility": null,
+          "open_interest": 677
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 242.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN251226C00242500",
+          "implied_volatility": null,
+          "open_interest": 3419
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 242.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN251226P00242500",
+          "implied_volatility": null,
+          "open_interest": 12
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 242.5,
+          "contract_type": "call",
+          "ticker": "O:AMZN260102C00242500",
+          "implied_volatility": null,
+          "open_interest": 7855
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 242.5,
+          "contract_type": "put",
+          "ticker": "O:AMZN260102P00242500",
+          "implied_volatility": null,
+          "open_interest": 68
+        }
+      ]
+    },
+    {
+      "rank": 9,
+      "symbol": "AAPL",
+      "role": "Challenger",
+      "price": 273.81,
+      "change": 1.1999999999999886,
+      "changePercent": 0.5323836099280322,
+      "targetPrice": 301.19100000000003,
+      "cutPrice": 260.1195,
+      "alphaScore": 57.5,
+      "scoreDecomposition": {
+        "momentum": 11.1,
+        "options": 3.7,
+        "structure": 10.7,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.6x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$270.00. Spot $273.81.",
+      "return3d": "0.7% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          268.3338,
+          279.2862
+        ],
+        "isInsideEntry": true,
+        "support": 257.3814,
+        "resistance": 290.2386,
+        "tp1": 301.19100000000003,
+        "tp2": 328.572,
+        "oiLevels": {
+          "pin": 270,
+          "callWall": 314.88149999999996,
+          "putFloor": 232.7385,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 270,
+        "pcrNear": 0.37324254460626693,
+        "netGex": 749748.1868893241,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 262.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00262500",
+          "implied_volatility": null,
+          "open_interest": 408
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 262.5,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00262500",
+          "implied_volatility": null,
+          "open_interest": 5841
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 262.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00262500",
+          "implied_volatility": null,
+          "open_interest": 310
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 265,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00265000",
+          "implied_volatility": null,
+          "open_interest": 3909
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 265,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00265000",
+          "implied_volatility": null,
+          "open_interest": 6961
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 265,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00265000",
+          "implied_volatility": null,
+          "open_interest": 2219
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 267.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00267500",
+          "implied_volatility": null,
+          "open_interest": 1619
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 267.5,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00267500",
+          "implied_volatility": null,
+          "open_interest": 8015
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 267.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00267500",
+          "implied_volatility": null,
+          "open_interest": 561
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 270,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00270000",
+          "implied_volatility": null,
+          "open_interest": 10499
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 270,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00270000",
+          "implied_volatility": null,
+          "open_interest": 13281
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 270,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00270000",
+          "implied_volatility": null,
+          "open_interest": 4358
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 272.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00272500",
+          "implied_volatility": null,
+          "open_interest": 21912
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 272.5,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00272500",
+          "implied_volatility": null,
+          "open_interest": 6672
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 272.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00272500",
+          "implied_volatility": null,
+          "open_interest": 7569
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 275,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00275000",
+          "implied_volatility": null,
+          "open_interest": 38551
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 275,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00275000",
+          "implied_volatility": null,
+          "open_interest": 6910
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 275,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00275000",
+          "implied_volatility": null,
+          "open_interest": 11901
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 277.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00277500",
+          "implied_volatility": null,
+          "open_interest": 26447
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 277.5,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00277500",
+          "implied_volatility": null,
+          "open_interest": 736
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 277.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00277500",
+          "implied_volatility": null,
+          "open_interest": 7371
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 280,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00280000",
+          "implied_volatility": null,
+          "open_interest": 28509
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 280,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00280000",
+          "implied_volatility": null,
+          "open_interest": 132
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 280,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00280000",
+          "implied_volatility": null,
+          "open_interest": 13662
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 282.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00282500",
+          "implied_volatility": null,
+          "open_interest": 8000
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 282.5,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00282500",
+          "implied_volatility": null,
+          "open_interest": 12
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 282.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00282500",
+          "implied_volatility": null,
+          "open_interest": 1890
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 285,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00285000",
+          "implied_volatility": null,
+          "open_interest": 13159
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 285,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00285000",
+          "implied_volatility": null,
+          "open_interest": 23
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 285,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00285000",
+          "implied_volatility": null,
+          "open_interest": 5542
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 287.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL251226C00287500",
+          "implied_volatility": null,
+          "open_interest": 7386
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 287.5,
+          "contract_type": "put",
+          "ticker": "O:AAPL251226P00287500",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 287.5,
+          "contract_type": "call",
+          "ticker": "O:AAPL260102C00287500",
+          "implied_volatility": null,
+          "open_interest": 1639
+        }
+      ]
+    },
+    {
+      "rank": 10,
+      "symbol": "MSTR",
+      "role": "Challenger",
+      "price": 158.71,
+      "change": 1.0800000000000125,
+      "changePercent": 0.525715733468465,
+      "targetPrice": 174.58100000000002,
+      "cutPrice": 150.7745,
+      "alphaScore": 57.3,
+      "scoreDecomposition": {
+        "momentum": 11.1,
+        "options": 4.3,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.4x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$160.00. Spot $158.71.",
+      "return3d": "0.7% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          155.5358,
+          161.88420000000002
+        ],
+        "isInsideEntry": true,
+        "support": 149.1874,
+        "resistance": 168.23260000000002,
+        "tp1": 174.58100000000002,
+        "tp2": 190.452,
+        "oiLevels": {
+          "pin": 160,
+          "callWall": 182.5165,
+          "putFloor": 134.9035,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 160,
+        "pcrNear": 0.4256162375990333,
+        "netGex": 27771.13089648854,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 149,
+          "contract_type": "call",
+          "ticker": "O:MSTR251226C00149000",
+          "implied_volatility": null,
+          "open_interest": 6
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 149,
+          "contract_type": "put",
+          "ticker": "O:MSTR251226P00149000",
+          "implied_volatility": null,
+          "open_interest": 1207
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 149,
+          "contract_type": "call",
+          "ticker": "O:MSTR260102C00149000",
+          "implied_volatility": null,
+          "open_interest": 16
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 150,
+          "contract_type": "call",
+          "ticker": "O:MSTR251226C00150000",
+          "implied_volatility": null,
+          "open_interest": 237
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 150,
+          "contract_type": "put",
+          "ticker": "O:MSTR251226P00150000",
+          "implied_volatility": null,
+          "open_interest": 8345
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 152.5,
+          "contract_type": "call",
+          "ticker": "O:MSTR251226C00152500",
+          "implied_volatility": null,
+          "open_interest": 1255
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 152.5,
+          "contract_type": "put",
+          "ticker": "O:MSTR251226P00152500",
+          "implied_volatility": null,
+          "open_interest": 1990
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 155,
+          "contract_type": "call",
+          "ticker": "O:MSTR251226C00155000",
+          "implied_volatility": null,
+          "open_interest": 2211
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 155,
+          "contract_type": "put",
+          "ticker": "O:MSTR251226P00155000",
+          "implied_volatility": null,
+          "open_interest": 5330
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 157.5,
+          "contract_type": "call",
+          "ticker": "O:MSTR251226C00157500",
+          "implied_volatility": null,
+          "open_interest": 2569
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 157.5,
+          "contract_type": "put",
+          "ticker": "O:MSTR251226P00157500",
+          "implied_volatility": null,
+          "open_interest": 4754
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 160,
+          "contract_type": "call",
+          "ticker": "O:MSTR251226C00160000",
+          "implied_volatility": null,
+          "open_interest": 4620
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 160,
+          "contract_type": "put",
+          "ticker": "O:MSTR251226P00160000",
+          "implied_volatility": null,
+          "open_interest": 5240
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 162.5,
+          "contract_type": "call",
+          "ticker": "O:MSTR251226C00162500",
+          "implied_volatility": null,
+          "open_interest": 1980
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 162.5,
+          "contract_type": "put",
+          "ticker": "O:MSTR251226P00162500",
+          "implied_volatility": null,
+          "open_interest": 1934
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 165,
+          "contract_type": "call",
+          "ticker": "O:MSTR251226C00165000",
+          "implied_volatility": null,
+          "open_interest": 5539
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 165,
+          "contract_type": "put",
+          "ticker": "O:MSTR251226P00165000",
+          "implied_volatility": null,
+          "open_interest": 2514
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 167.5,
+          "contract_type": "call",
+          "ticker": "O:MSTR251226C00167500",
+          "implied_volatility": null,
+          "open_interest": 3237
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 167.5,
+          "contract_type": "put",
+          "ticker": "O:MSTR251226P00167500",
+          "implied_volatility": null,
+          "open_interest": 1387
+        }
+      ]
+    },
+    {
+      "rank": 11,
+      "symbol": "NFLX",
+      "role": "Challenger",
+      "price": 93.64,
+      "change": -0.09000000000000341,
+      "changePercent": 0.1497326203208562,
+      "targetPrice": 103.004,
+      "cutPrice": 88.958,
+      "alphaScore": 55.8,
+      "scoreDecomposition": {
+        "momentum": 10.3,
+        "options": 3.2,
+        "structure": 10.3,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.5x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$95.00. Spot $93.64.",
+      "return3d": "0.2% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Hold",
+        "entryZone": [
+          91.7672,
+          95.5128
+        ],
+        "isInsideEntry": true,
+        "support": 88.02159999999999,
+        "resistance": 99.25840000000001,
+        "tp1": 103.004,
+        "tp2": 112.368,
+        "oiLevels": {
+          "pin": 95,
+          "callWall": 107.68599999999999,
+          "putFloor": 79.594,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 95,
+        "pcrNear": 0.3183992980820641,
+        "netGex": 312480.6254568129,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 84,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00084000",
+          "implied_volatility": null,
+          "open_interest": 26
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 84,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00084000",
+          "implied_volatility": null,
+          "open_interest": 311
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 85,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00085000",
+          "implied_volatility": null,
+          "open_interest": 123
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 85,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00085000",
+          "implied_volatility": null,
+          "open_interest": 1481
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 86,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00086000",
+          "implied_volatility": null,
+          "open_interest": 69
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 86,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00086000",
+          "implied_volatility": null,
+          "open_interest": 853
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 87,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00087000",
+          "implied_volatility": null,
+          "open_interest": 111
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 87,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00087000",
+          "implied_volatility": null,
+          "open_interest": 936
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 88,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00088000",
+          "implied_volatility": null,
+          "open_interest": 99
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 88,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00088000",
+          "implied_volatility": null,
+          "open_interest": 3626
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 89,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00089000",
+          "implied_volatility": null,
+          "open_interest": 89
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 89,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00089000",
+          "implied_volatility": null,
+          "open_interest": 2706
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 90,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00090000",
+          "implied_volatility": null,
+          "open_interest": 535
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 90,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00090000",
+          "implied_volatility": null,
+          "open_interest": 4248
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 91,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00091000",
+          "implied_volatility": null,
+          "open_interest": 382
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 91,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00091000",
+          "implied_volatility": null,
+          "open_interest": 3147
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 91.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00091500",
+          "implied_volatility": null,
+          "open_interest": 493
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 91.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00091500",
+          "implied_volatility": null,
+          "open_interest": 1593
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 92,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00092000",
+          "implied_volatility": null,
+          "open_interest": 1144
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 92,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00092000",
+          "implied_volatility": null,
+          "open_interest": 4058
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 92.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00092500",
+          "implied_volatility": null,
+          "open_interest": 1202
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 92.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00092500",
+          "implied_volatility": null,
+          "open_interest": 2792
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 93,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00093000",
+          "implied_volatility": null,
+          "open_interest": 4643
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 93,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00093000",
+          "implied_volatility": null,
+          "open_interest": 6804
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 93.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00093500",
+          "implied_volatility": null,
+          "open_interest": 3319
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 93.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00093500",
+          "implied_volatility": null,
+          "open_interest": 3057
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 94,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00094000",
+          "implied_volatility": null,
+          "open_interest": 6803
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 94,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00094000",
+          "implied_volatility": null,
+          "open_interest": 2836
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 94.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00094500",
+          "implied_volatility": null,
+          "open_interest": 4076
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 94.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00094500",
+          "implied_volatility": null,
+          "open_interest": 1599
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 95,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00095000",
+          "implied_volatility": null,
+          "open_interest": 12222
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 95,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00095000",
+          "implied_volatility": null,
+          "open_interest": 7546
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 95.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00095500",
+          "implied_volatility": null,
+          "open_interest": 4906
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 95.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00095500",
+          "implied_volatility": null,
+          "open_interest": 3253
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 96,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00096000",
+          "implied_volatility": null,
+          "open_interest": 9321
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 96,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00096000",
+          "implied_volatility": null,
+          "open_interest": 4033
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 96.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00096500",
+          "implied_volatility": null,
+          "open_interest": 2854
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 96.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00096500",
+          "implied_volatility": null,
+          "open_interest": 1469
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 97,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00097000",
+          "implied_volatility": null,
+          "open_interest": 11912
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 97,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00097000",
+          "implied_volatility": null,
+          "open_interest": 1047
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 97.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00097500",
+          "implied_volatility": null,
+          "open_interest": 4287
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 97.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00097500",
+          "implied_volatility": null,
+          "open_interest": 249
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 98,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00098000",
+          "implied_volatility": null,
+          "open_interest": 9223
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 98,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00098000",
+          "implied_volatility": null,
+          "open_interest": 943
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 98.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00098500",
+          "implied_volatility": null,
+          "open_interest": 2210
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 98.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00098500",
+          "implied_volatility": null,
+          "open_interest": 588
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 99,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00099000",
+          "implied_volatility": null,
+          "open_interest": 6511
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 99,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00099000",
+          "implied_volatility": null,
+          "open_interest": 4463
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 99.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00099500",
+          "implied_volatility": null,
+          "open_interest": 2326
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 99.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00099500",
+          "implied_volatility": null,
+          "open_interest": 41
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 100,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00100000",
+          "implied_volatility": null,
+          "open_interest": 30084
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 100,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00100000",
+          "implied_volatility": null,
+          "open_interest": 192
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 100.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00100500",
+          "implied_volatility": null,
+          "open_interest": 1055
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 100.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00100500",
+          "implied_volatility": null,
+          "open_interest": 84
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 101,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00101000",
+          "implied_volatility": null,
+          "open_interest": 2482
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 101,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00101000",
+          "implied_volatility": null,
+          "open_interest": 22
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 101.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00101500",
+          "implied_volatility": null,
+          "open_interest": 699
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 101.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00101500",
+          "implied_volatility": null,
+          "open_interest": 16
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 102,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00102000",
+          "implied_volatility": null,
+          "open_interest": 4728
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 102,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00102000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 102.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00102500",
+          "implied_volatility": null,
+          "open_interest": 1525
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 102.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00102500",
+          "implied_volatility": null,
+          "open_interest": 4
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 103,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00103000",
+          "implied_volatility": null,
+          "open_interest": 2526
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 103,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00103000",
+          "implied_volatility": null,
+          "open_interest": 1002
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 103.5,
+          "contract_type": "call",
+          "ticker": "O:NFLX251226C00103500",
+          "implied_volatility": null,
+          "open_interest": 1040
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 103.5,
+          "contract_type": "put",
+          "ticker": "O:NFLX251226P00103500",
+          "implied_volatility": null,
+          "open_interest": 0
+        }
+      ]
+    },
+    {
+      "rank": 12,
+      "symbol": "COIN",
+      "role": "Challenger",
+      "price": 239.73,
+      "change": -2.788800000000009,
+      "changePercent": -1.060668592653744,
+      "targetPrice": 263.70300000000003,
+      "cutPrice": 227.74349999999998,
+      "alphaScore": 54.2,
+      "scoreDecomposition": {
+        "momentum": 7.9,
+        "options": 4.3,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.6x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$247.50. Spot $239.73.",
+      "return3d": "-1.4% (T+3)",
+      "v71": {
+        "gate": "FAIL",
+        "gateReason": "Low Energy",
+        "action": "No Trade",
+        "entryZone": [
+          234.9354,
+          244.5246
+        ],
+        "isInsideEntry": true,
+        "support": 225.34619999999998,
+        "resistance": 254.1138,
+        "tp1": 263.70300000000003,
+        "tp2": 287.676,
+        "oiLevels": {
+          "pin": 247.5,
+          "callWall": 275.68949999999995,
+          "putFloor": 203.7705,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 247.5,
+        "pcrNear": 0.431138751386142,
+        "netGex": 1832.984620466302,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "OK",
+        "options_grade": "B"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 230,
+          "contract_type": "call",
+          "ticker": "O:COIN251226C00230000",
+          "implied_volatility": null,
+          "open_interest": 84
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 230,
+          "contract_type": "put",
+          "ticker": "O:COIN251226P00230000",
+          "implied_volatility": null,
+          "open_interest": 2834
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 230,
+          "contract_type": "call",
+          "ticker": "O:COIN260102C00230000",
+          "implied_volatility": null,
+          "open_interest": 48
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 232.5,
+          "contract_type": "call",
+          "ticker": "O:COIN251226C00232500",
+          "implied_volatility": null,
+          "open_interest": 34
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 232.5,
+          "contract_type": "put",
+          "ticker": "O:COIN251226P00232500",
+          "implied_volatility": null,
+          "open_interest": 842
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 232.5,
+          "contract_type": "call",
+          "ticker": "O:COIN260102C00232500",
+          "implied_volatility": null,
+          "open_interest": 8
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 235,
+          "contract_type": "call",
+          "ticker": "O:COIN251226C00235000",
+          "implied_volatility": null,
+          "open_interest": 132
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 235,
+          "contract_type": "put",
+          "ticker": "O:COIN251226P00235000",
+          "implied_volatility": null,
+          "open_interest": 2019
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 235,
+          "contract_type": "call",
+          "ticker": "O:COIN260102C00235000",
+          "implied_volatility": null,
+          "open_interest": 260
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 237.5,
+          "contract_type": "call",
+          "ticker": "O:COIN251226C00237500",
+          "implied_volatility": null,
+          "open_interest": 66
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 237.5,
+          "contract_type": "put",
+          "ticker": "O:COIN251226P00237500",
+          "implied_volatility": null,
+          "open_interest": 1099
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 237.5,
+          "contract_type": "call",
+          "ticker": "O:COIN260102C00237500",
+          "implied_volatility": null,
+          "open_interest": 125
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 240,
+          "contract_type": "call",
+          "ticker": "O:COIN251226C00240000",
+          "implied_volatility": null,
+          "open_interest": 958
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 240,
+          "contract_type": "put",
+          "ticker": "O:COIN251226P00240000",
+          "implied_volatility": null,
+          "open_interest": 3917
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 240,
+          "contract_type": "call",
+          "ticker": "O:COIN260102C00240000",
+          "implied_volatility": null,
+          "open_interest": 540
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 242.5,
+          "contract_type": "call",
+          "ticker": "O:COIN251226C00242500",
+          "implied_volatility": null,
+          "open_interest": 806
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 242.5,
+          "contract_type": "put",
+          "ticker": "O:COIN251226P00242500",
+          "implied_volatility": null,
+          "open_interest": 1142
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 242.5,
+          "contract_type": "call",
+          "ticker": "O:COIN260102C00242500",
+          "implied_volatility": null,
+          "open_interest": 421
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 245,
+          "contract_type": "call",
+          "ticker": "O:COIN251226C00245000",
+          "implied_volatility": null,
+          "open_interest": 1567
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 245,
+          "contract_type": "put",
+          "ticker": "O:COIN251226P00245000",
+          "implied_volatility": null,
+          "open_interest": 1136
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 245,
+          "contract_type": "call",
+          "ticker": "O:COIN260102C00245000",
+          "implied_volatility": null,
+          "open_interest": 1439
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 247.5,
+          "contract_type": "call",
+          "ticker": "O:COIN251226C00247500",
+          "implied_volatility": null,
+          "open_interest": 1109
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 247.5,
+          "contract_type": "put",
+          "ticker": "O:COIN251226P00247500",
+          "implied_volatility": null,
+          "open_interest": 799
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 247.5,
+          "contract_type": "call",
+          "ticker": "O:COIN260102C00247500",
+          "implied_volatility": null,
+          "open_interest": 2598
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 250,
+          "contract_type": "call",
+          "ticker": "O:COIN251226C00250000",
+          "implied_volatility": null,
+          "open_interest": 11065
+        },
+        {
+          "expiration_date": "2025-12-26",
+          "strike_price": 250,
+          "contract_type": "put",
+          "ticker": "O:COIN251226P00250000",
+          "implied_volatility": null,
+          "open_interest": 1617
+        },
+        {
+          "expiration_date": "2026-01-02",
+          "strike_price": 250,
+          "contract_type": "call",
+          "ticker": "O:COIN260102C00250000",
+          "implied_volatility": null,
+          "open_interest": 7466
+        }
+      ]
+    }
+  ]
+}

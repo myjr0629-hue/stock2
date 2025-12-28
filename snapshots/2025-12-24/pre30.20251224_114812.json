@@ -1,0 +1,43 @@
+{
+  "meta": {
+    "timestamp": "2025-12-23T16:56:33.832Z",
+    "engineVersion": "V8.1-EngineOnly",
+    "validation": {
+      "isValid": true,
+      "errors": [],
+      "mode": "PASS"
+    },
+    "pendingCount": 0,
+    "pendingTickers": [],
+    "backfillRound": 1,
+    "lastBackfillAt": "2025-12-24T16:48:14.779Z",
+    "mode": "incremental-backfill",
+    "slot": "pre30",
+    "runId": "20251224_114812",
+    "etDate": "2025-12-24",
+    "etTimestamp": "2025-12-24T11:48:12",
+    "source": "Massive",
+    "integrity": {
+      "oiPolicy": "NO_SUBSTITUTE",
+      "pendingAllowed": true
+    }
+  },
+  "macro": {
+    "us10y": 4.1470003,
+    "us10yChange": 0,
+    "vix": 13.51,
+    "vixChange": 0,
+    "regime": "Neutral"
+  },
+  "alphaGrid": {
+    "top3": [],
+    "fullUniverse": []
+  },
+  "strategy": {
+    "action": "ERROR",
+    "reason": "Data Feed disconnected",
+    "orders": []
+  },
+  "tickers": [],
+  "items": []
+}

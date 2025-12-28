@@ -1,0 +1,25 @@
+[Verification] Starting S-56.4.1 Validation...
+Running Orchestrator Run 1...
+[S-56.3] Loaded Stock Universe Pool: 300 symbols
+[CRITICAL FAIL] Exception during verification: TypeError: previousTop3Symbols.map is not a function
+    at selectTop3 (C:\Users\seamo\.gemini\antigravity\stock2\src\services\powerEngine.ts:143:53)
+    at orchestrateGemsEngine (C:\Users\seamo\.gemini\antigravity\stock2\src\engine\reportOrchestrator.ts:54:49)
+    at verify (C:\Users\seamo\.gemini\antigravity\stock2\scripts\verify_s56_4.ts:39:25)
+    at <anonymous> (C:\Users\seamo\.gemini\antigravity\stock2\scripts\verify_s56_4.ts:77:1)
+    at Object.<anonymous> (C:\Users\seamo\.gemini\antigravity\stock2\scripts\verify_s56_4.ts:77:8)
+    at Module._compile (node:internal/modules/cjs/loader:1761:14)
+    at Object.transformer (C:\Users\seamo\AppData\Local\npm-cache\_npx\fd45a72a545557e9\node_modules\tsx\dist\register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module._load (node:internal/modules/cjs/loader:1300:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+TypeError: previousTop3Symbols.map is not a function
+    at selectTop3 (C:\Users\seamo\.gemini\antigravity\stock2\src\services\powerEngine.ts:143:53)
+    at orchestrateGemsEngine (C:\Users\seamo\.gemini\antigravity\stock2\src\engine\reportOrchestrator.ts:54:49)
+    at verify (C:\Users\seamo\.gemini\antigravity\stock2\scripts\verify_s56_4.ts:39:25)
+    at <anonymous> (C:\Users\seamo\.gemini\antigravity\stock2\scripts\verify_s56_4.ts:77:1)
+    at Object.<anonymous> (C:\Users\seamo\.gemini\antigravity\stock2\scripts\verify_s56_4.ts:77:8)
+    at Module._compile (node:internal/modules/cjs/loader:1761:14)
+    at Object.transformer (C:\Users\seamo\AppData\Local\npm-cache\_npx\fd45a72a545557e9\node_modules\tsx\dist\register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module._load (node:internal/modules/cjs/loader:1300:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)

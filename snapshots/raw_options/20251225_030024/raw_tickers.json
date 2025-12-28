@@ -1,0 +1,858 @@
+{
+  "meta": {
+    "timestamp": "2025-12-25T08:04:29.737Z",
+    "engineVersion": "V8.1-AlphaEngine",
+    "validation": {
+      "isValid": false,
+      "errors": [
+        "Pending tickers: 4"
+      ],
+      "mode": "PARTIAL"
+    },
+    "pendingCount": 4,
+    "pendingTickers": [
+      "SOBR",
+      "NCL",
+      "CREVW",
+      "ORGNW"
+    ],
+    "backfillRound": 1,
+    "lastBackfillAt": "2025-12-25T08:04:29.737Z",
+    "mode": "incremental-backfill",
+    "universeSource": "market",
+    "universeCount": 5,
+    "universeSelectedK": 1,
+    "itemsCount": 5,
+    "topPicks": [
+      "SOBR",
+      "NCL",
+      "CREVW"
+    ],
+    "slot": "eod",
+    "runId": "20251225_030024",
+    "etDate": "2025-12-25",
+    "etTimestamp": "2025-12-25T03:00:24",
+    "source": "Massive",
+    "integrity": {
+      "oiPolicy": "NO_SUBSTITUTE",
+      "pendingAllowed": true
+    },
+    "uiDefaults": {
+      "tableTopN": 20
+    }
+  },
+  "tickers": [
+    {
+      "rank": 1,
+      "symbol": "SOBR",
+      "role": "Challenger",
+      "price": 2.03,
+      "change": 0.7299999999999998,
+      "changePercent": 56.15384615384613,
+      "targetPrice": 2.233,
+      "cutPrice": 1.9284999999999997,
+      "alphaScore": 72,
+      "scoreDecomposition": {
+        "momentum": 20,
+        "options": 10,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "▲",
+      "detail": "Vol Ratio: 141.6x",
+      "mmPos": "분석중",
+      "edge": "전략 수립중",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "강력 매수 신호 (Strong Buy)",
+      "return3d": "73.0% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Enter",
+        "entryZone": [
+          1.9893999999999998,
+          2.0705999999999998
+        ],
+        "isInsideEntry": true,
+        "support": 1.9081999999999997,
+        "resistance": 2.1517999999999997,
+        "tp1": 2.233,
+        "tp2": 2.4359999999999995,
+        "oiLevels": {
+          "pin": null,
+          "callWall": 2.3345,
+          "putFloor": 1.7254999999999998,
+          "grade": "OI-C"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": null,
+        "pcrNear": null,
+        "netGex": null,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "PENDING",
+        "options_grade": "C",
+        "options_reason": "UNKNOWN_PENDING"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "UNKNOWN_PENDING",
+        "options_grade": "C"
+      }
+    },
+    {
+      "rank": 2,
+      "symbol": "NCL",
+      "role": "Challenger",
+      "price": 0.264,
+      "change": 0.0847,
+      "changePercent": 49.44541739638061,
+      "targetPrice": 0.29040000000000005,
+      "cutPrice": 0.2508,
+      "alphaScore": 72,
+      "scoreDecomposition": {
+        "momentum": 20,
+        "options": 10,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "▲",
+      "detail": "Vol Ratio: 4.2x",
+      "mmPos": "분석중",
+      "edge": "전략 수립중",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "강력 매수 신호 (Strong Buy)",
+      "return3d": "64.3% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Enter",
+        "entryZone": [
+          0.25872,
+          0.26928
+        ],
+        "isInsideEntry": true,
+        "support": 0.24816,
+        "resistance": 0.27984000000000003,
+        "tp1": 0.29040000000000005,
+        "tp2": 0.3168,
+        "oiLevels": {
+          "pin": null,
+          "callWall": 0.3036,
+          "putFloor": 0.22440000000000002,
+          "grade": "OI-C"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": null,
+        "pcrNear": null,
+        "netGex": null,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "PENDING",
+        "options_grade": "C",
+        "options_reason": "UNKNOWN_PENDING"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "UNKNOWN_PENDING",
+        "options_grade": "C"
+      }
+    },
+    {
+      "rank": 3,
+      "symbol": "CREVW",
+      "role": "Challenger",
+      "price": 0.0123,
+      "change": 0.0057,
+      "changePercent": 86.36363636363636,
+      "targetPrice": 0.013530000000000002,
+      "cutPrice": 0.011685,
+      "alphaScore": 72,
+      "scoreDecomposition": {
+        "momentum": 20,
+        "options": 10,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "▲",
+      "detail": "Vol Ratio: 1.7x",
+      "mmPos": "분석중",
+      "edge": "전략 수립중",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "강력 매수 신호 (Strong Buy)",
+      "return3d": "112.3% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Enter",
+        "entryZone": [
+          0.012054,
+          0.012546
+        ],
+        "isInsideEntry": true,
+        "support": 0.011562,
+        "resistance": 0.013038000000000001,
+        "tp1": 0.013530000000000002,
+        "tp2": 0.014759999999999999,
+        "oiLevels": {
+          "pin": null,
+          "callWall": 0.014145,
+          "putFloor": 0.010454999999999999,
+          "grade": "OI-C"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": null,
+        "pcrNear": null,
+        "netGex": null,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "PENDING",
+        "options_grade": "C",
+        "options_reason": "UNKNOWN_PENDING"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "UNKNOWN_PENDING",
+        "options_grade": "C"
+      }
+    },
+    {
+      "rank": 4,
+      "symbol": "ORGNW",
+      "role": "Challenger",
+      "price": 0.0088,
+      "change": 0.003999000000000001,
+      "changePercent": 83.29514684440744,
+      "targetPrice": 0.009680000000000001,
+      "cutPrice": 0.00836,
+      "alphaScore": 72,
+      "scoreDecomposition": {
+        "momentum": 20,
+        "options": 10,
+        "structure": 10,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "►",
+      "detail": "Vol Ratio: 0.0x",
+      "mmPos": "분석중",
+      "edge": "전략 수립중",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "강력 매수 신호 (Strong Buy)",
+      "return3d": "108.3% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Enter",
+        "entryZone": [
+          0.008624,
+          0.008976000000000001
+        ],
+        "isInsideEntry": true,
+        "support": 0.008272,
+        "resistance": 0.009328000000000001,
+        "tp1": 0.009680000000000001,
+        "tp2": 0.01056,
+        "oiLevels": {
+          "pin": null,
+          "callWall": 0.01012,
+          "putFloor": 0.0074800000000000005,
+          "grade": "OI-C"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": null,
+        "pcrNear": null,
+        "netGex": null,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "PENDING",
+        "options_grade": "C",
+        "options_reason": "UNKNOWN_PENDING"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "UNKNOWN_PENDING",
+        "options_grade": "C"
+      }
+    },
+    {
+      "rank": 5,
+      "symbol": "OMER",
+      "role": "Challenger",
+      "price": 15.36,
+      "change": 6.5,
+      "changePercent": 75.54285714285713,
+      "targetPrice": 16.896,
+      "cutPrice": 14.591999999999999,
+      "alphaScore": 66.7,
+      "scoreDecomposition": {
+        "momentum": 20,
+        "options": 4.5,
+        "structure": 10.2,
+        "regime": 12,
+        "risk": 20
+      },
+      "velocity": "▲",
+      "detail": "Vol Ratio: 9.7x",
+      "mmPos": "Dealer Long Gamma",
+      "edge": "Range-friendly (Vol Crush)",
+      "secret": "Regime: Neutral / AlphaVelocity 적용됨",
+      "comment": "[Options] Dealer Long Gamma. NetGEX positive. MaxPain ~$9.00. Spot $15.36.",
+      "return3d": "98.2% (T+3)",
+      "v71": {
+        "gate": "PASS",
+        "gateReason": "Momentum Locked",
+        "action": "Enter",
+        "entryZone": [
+          15.0528,
+          15.6672
+        ],
+        "isInsideEntry": true,
+        "support": 14.438399999999998,
+        "resistance": 16.2816,
+        "tp1": 16.896,
+        "tp2": 18.432,
+        "oiLevels": {
+          "pin": 9,
+          "callWall": 17.663999999999998,
+          "putFloor": 13.056,
+          "grade": "OI-B"
+        },
+        "timeStop": "48 Hours",
+        "maxPainNear": 9,
+        "pcrNear": 0.45414184927141255,
+        "netGex": 187190.38693464219,
+        "vwapPos": "N/A",
+        "rsi14": 50,
+        "options_status": "OK",
+        "options_grade": "B",
+        "options_reason": "OK"
+      },
+      "options": {
+        "options_status": "PENDING",
+        "callWall": null,
+        "putFloor": null,
+        "pinZone": null,
+        "totalCallOI": null,
+        "totalPutOI": null,
+        "ivRank": null,
+        "gammaExposure": null,
+        "options_reason": "UNKNOWN_PENDING",
+        "options_grade": "C"
+      },
+      "optionsChain": [
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 6,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00006000",
+          "implied_volatility": null,
+          "open_interest": 16
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 6,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00006000",
+          "implied_volatility": null,
+          "open_interest": 4462
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 6,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00006000",
+          "implied_volatility": null,
+          "open_interest": 737
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 6,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00006000",
+          "implied_volatility": null,
+          "open_interest": 85
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 7,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00007000",
+          "implied_volatility": null,
+          "open_interest": 304
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 7,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00007000",
+          "implied_volatility": null,
+          "open_interest": 1048
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 7,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00007000",
+          "implied_volatility": null,
+          "open_interest": 436
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 7,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00007000",
+          "implied_volatility": null,
+          "open_interest": 440
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 8,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00008000",
+          "implied_volatility": null,
+          "open_interest": 4300
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 8,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00008000",
+          "implied_volatility": null,
+          "open_interest": 858
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 8,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00008000",
+          "implied_volatility": null,
+          "open_interest": 570
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 8,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00008000",
+          "implied_volatility": null,
+          "open_interest": 477
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 9,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00009000",
+          "implied_volatility": null,
+          "open_interest": 2402
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 9,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00009000",
+          "implied_volatility": null,
+          "open_interest": 8753
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 9,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00009000",
+          "implied_volatility": null,
+          "open_interest": 201
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 9,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00009000",
+          "implied_volatility": null,
+          "open_interest": 167
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 10,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00010000",
+          "implied_volatility": null,
+          "open_interest": 10280
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 10,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00010000",
+          "implied_volatility": null,
+          "open_interest": 4250
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 10,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00010000",
+          "implied_volatility": null,
+          "open_interest": 3005
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 10,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00010000",
+          "implied_volatility": null,
+          "open_interest": 445
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 11,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00011000",
+          "implied_volatility": null,
+          "open_interest": 2046
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 11,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00011000",
+          "implied_volatility": null,
+          "open_interest": 31
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 11,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00011000",
+          "implied_volatility": null,
+          "open_interest": 3255
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 11,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00011000",
+          "implied_volatility": null,
+          "open_interest": 108
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 12,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00012000",
+          "implied_volatility": null,
+          "open_interest": 6736
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 12,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00012000",
+          "implied_volatility": null,
+          "open_interest": 65
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 12,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00012000",
+          "implied_volatility": null,
+          "open_interest": 7266
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 12,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00012000",
+          "implied_volatility": null,
+          "open_interest": 213
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 13,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00013000",
+          "implied_volatility": null,
+          "open_interest": 485
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 13,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00013000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 13,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00013000",
+          "implied_volatility": null,
+          "open_interest": 933
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 13,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00013000",
+          "implied_volatility": null,
+          "open_interest": 84
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 14,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00014000",
+          "implied_volatility": null,
+          "open_interest": 934
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 14,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00014000",
+          "implied_volatility": null,
+          "open_interest": 10
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 14,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00014000",
+          "implied_volatility": null,
+          "open_interest": 337
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 14,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00014000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 15,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00015000",
+          "implied_volatility": null,
+          "open_interest": 11238
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 15,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00015000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 15,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00015000",
+          "implied_volatility": null,
+          "open_interest": 1899
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 15,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00015000",
+          "implied_volatility": null,
+          "open_interest": 3
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 16,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00016000",
+          "implied_volatility": null,
+          "open_interest": 396
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 16,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00016000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 16,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00016000",
+          "implied_volatility": null,
+          "open_interest": 152
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 16,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00016000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 17,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00017000",
+          "implied_volatility": null,
+          "open_interest": 2476
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 17,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00017000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 17,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00017000",
+          "implied_volatility": null,
+          "open_interest": 1
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 17,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00017000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 18,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00018000",
+          "implied_volatility": null,
+          "open_interest": 128
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 18,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00018000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 18,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00018000",
+          "implied_volatility": null,
+          "open_interest": 753
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 18,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00018000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 19,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00019000",
+          "implied_volatility": null,
+          "open_interest": 2870
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 19,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00019000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 19,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00019000",
+          "implied_volatility": null,
+          "open_interest": 42
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 19,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00019000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 20,
+          "contract_type": "call",
+          "ticker": "O:OMER260116C00020000",
+          "implied_volatility": null,
+          "open_interest": 810
+        },
+        {
+          "expiration_date": "2026-01-16",
+          "strike_price": 20,
+          "contract_type": "put",
+          "ticker": "O:OMER260116P00020000",
+          "implied_volatility": null,
+          "open_interest": 0
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 20,
+          "contract_type": "call",
+          "ticker": "O:OMER260220C00020000",
+          "implied_volatility": null,
+          "open_interest": 2073
+        },
+        {
+          "expiration_date": "2026-02-20",
+          "strike_price": 20,
+          "contract_type": "put",
+          "ticker": "O:OMER260220P00020000",
+          "implied_volatility": null,
+          "open_interest": 0
+        }
+      ]
+    }
+  ]
+}

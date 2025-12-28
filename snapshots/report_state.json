@@ -1,0 +1,21 @@
+{
+  "status": "SUCCESS",
+  "step": "DONE",
+  "runId": "RUN_1766662560325",
+  "startedAt": 1766662560325,
+  "updatedAt": 1766915067701,
+  "lastEndpoint": "/v2/aggs/ticker/PPLT/range/1/day/2025-11-18/2025-12-28",
+  "lastHttpStatus": 200,
+  "progress": {
+    "tickersDone": 152,
+    "totalTickers": 153,
+    "currentTicker": "ASTS",
+    "pagesFetchedCurrent": 0,
+    "round": 20
+  },
+  "summary": {
+    "optionsOkCount": 6,
+    "optionsFailCount": 54,
+    "elapsedMs": 17034
+  }
+}

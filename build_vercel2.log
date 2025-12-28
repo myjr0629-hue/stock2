@@ -1,0 +1,40 @@
+﻿
+> stock@0.1.0 build
+> next build
+
+??Next.js 16.1.0 (Turbopack)
+
+  Creating an optimized production build ...
+??Compiled successfully in 2.6s
+  Running TypeScript ...
+node.exe : Failed to compile.
+위치 줄:1 문자:1
++ & "C:\Program Files\nodejs/node.exe" "C:\
+Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified 
+   : (Failed to compile.:String) [], Remo  
+  teException
+    + FullyQualifiedErrorId : NativeComman 
+   dError
+ 
+
+./scan_massive_indices.ts:2:7
+Type error: Cannot redeclare block-scoped v
+ariable 'API_KEY'.
+
+[0m [90m 1 |[39m
+[31m[1m>[22m[39m[90m 2 |[39m [36mcon
+st[39m [33mAPI_KEY[39m [33m=[39m [32m
+"iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF"[39m[33
+m;[39m
+ [90m   |[39m       [31m[1m^[22m[39m
+ [90m 3 |[39m [36mconst[39m [33mBASE_U
+RL[39m [33m=[39m [32m"https://api.polyg
+on.io"[39m[33m;[39m
+ [90m 4 |[39m
+ [90m 5 |[39m [36mconst[39m [33mCANDID
+ATES[39m [33m=[39m [[0m
+Next.js build worker exited with code: 1 an
+d signal: null

@@ -1,0 +1,224 @@
+@import "tailwindcss";
+
+@plugin "tailwindcss-animate";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0
+    }
+
+    to {
+      height: var(--radix-accordion-content-height)
+    }
+  }
+
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height)
+    }
+
+    to {
+      height: 0
+    }
+  }
+}
+
+@layer base {
+  :root {
+    --background: hsl(210 40% 98%);
+    --foreground: hsl(222 47% 11%);
+    --card: hsl(0 0% 100%);
+    --card-foreground: hsl(222 47% 11%);
+    --popover: hsl(0 0% 100%);
+    --popover-foreground: hsl(222 47% 11%);
+    --primary: hsl(224 71% 40%);
+    --primary-foreground: hsl(210 40% 98%);
+    --secondary: hsl(214 95% 93%);
+    --secondary-foreground: hsl(222 47% 11%);
+    --muted: hsl(215 16% 94%);
+    --muted-foreground: hsl(215 16% 47%);
+    --accent: hsl(217 91% 60%);
+    --accent-foreground: hsl(222 47% 11%);
+    --destructive: hsl(0 84% 60%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(214 32% 91%);
+    --input: hsl(214 32% 91%);
+    --ring: hsl(224 71% 40%);
+    --radius: 0.75rem;
+
+    --chart-1: hsl(224 71% 40%);
+    --chart-2: hsl(173 58% 39%);
+    --chart-3: hsl(197 37% 24%);
+    --chart-4: hsl(43 74% 66%);
+    --chart-5: hsl(27 87% 67%);
+  }
+
+  .dark {
+    --background: hsl(222.2 84% 4.9%);
+    --foreground: hsl(210 40% 98%);
+    --card: hsl(222.2 84% 4.9%);
+    --card-foreground: hsl(210 40% 98%);
+    --popover: hsl(222.2 84% 4.9%);
+    --popover-foreground: hsl(210 40% 98%);
+    --primary: hsl(210 40% 98%);
+    --primary-foreground: hsl(222.2 47.4% 11.2%);
+    --secondary: hsl(217.2 32.6% 17.5%);
+    --secondary-foreground: hsl(210 40% 98%);
+    --muted: hsl(217.2 32.6% 17.5%);
+    --muted-foreground: hsl(215 20.2% 65.1%);
+    --accent: hsl(217.2 32.6% 17.5%);
+    --accent-foreground: hsl(210 40% 98%);
+    --destructive: hsl(0 62.8% 30.6%);
+    --destructive-foreground: hsl(210 40% 98%);
+    --border: hsl(217.2 32.6% 17.5%);
+    --input: hsl(217.2 32.6% 17.5%);
+    --ring: hsl(212.7 26.8% 83.9%);
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground tracking-tight antialiased bg-gradient-to-b from-[#CFEBF8] via-[#F0F3F7] to-[#F1DCC9] min-h-screen;
+    font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+  }
+}
+
+@utility glass {
+  @apply bg-white/80 backdrop-blur-md border border-white/40 shadow-sm supports-[backdrop-filter]:bg-white/60;
+}
+
+/* ===== [S-51.1] PREMIUM TYPOGRAPHY ===== */
+
+/* Minimum font size enforcement */
+@layer base {
+  .text-min-13 {
+    font-size: max(13px, 0.8125rem);
+    line-height: 1.4;
+  }
+}
+
+/* Premium headline for Engine Verdict */
+@utility verdict-headline {
+  font-size: clamp(1.75rem, 3vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+/* Section titles (16-18px) */
+@utility section-title {
+  font-size: clamp(1rem, 2vw, 1.125rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+}
+
+/* Body text with enhanced contrast */
+@utility body-premium {
+  font-size: clamp(0.875rem, 1.5vw, 0.9375rem);
+  line-height: 1.6;
+  color: hsl(215 20% 75%);
+}
+
+/* Table cells (min 13px) */
+@utility table-cell {
+  font-size: max(13px, 0.8125rem);
+  line-height: 1.5;
+}
+
+/* Important numbers (price/score) */
+@utility num-highlight {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* WHY text blocks (Korean explanations) */
+@utility why-text {
+  font-size: max(13px, 0.8125rem);
+  line-height: 1.6;
+  color: hsl(215 20% 70%);
+}
+
+/* WHY headline in cards */
+@utility why-headline {
+  font-size: max(14px, 0.875rem);
+  font-weight: 600;
+  line-height: 1.4;
+  color: hsl(215 30% 85%);
+}
+
+/* Contrast-enhanced muted text */
+@utility text-muted-enhanced {
+  color: hsl(215 20% 60%);
+}
+
+/* Premium badge/label text */
+@utility badge-text {
+  font-size: max(10px, 0.625rem);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Risk indicator text */
+@utility risk-text {
+  font-size: max(12px, 0.75rem);
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* Regime status large text */
+@utility regime-status {
+  font-size: clamp(1rem, 2vw, 1.25rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* Dark mode overrides for better contrast */
+.dark .body-premium,
+.dark .why-text {
+  color: hsl(215 20% 75%);
+}
+
+.dark .why-headline {
+  color: hsl(215 30% 90%);
+}

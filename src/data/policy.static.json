@@ -1,0 +1,99 @@
+[
+    {
+        "id": "P0-2025-001",
+        "category": "P0",
+        "title": "China AI Chip Export Controls Extension",
+        "titleKR": "중국 AI 칩 수출통제 연장",
+        "description": "미 상무부, AI 관련 반도체 수출통제 품목 확대 검토 중. NVDA/AMD 직접 영향.",
+        "effectiveDate": "2026-01-15",
+        "sourceGrade": "B",
+        "affectedSectors": [
+            "Semiconductors",
+            "AI"
+        ],
+        "affectedTickers": [
+            "NVDA",
+            "AMD",
+            "AVGO"
+        ],
+        "impact": "NEGATIVE"
+    },
+    {
+        "id": "P0-2025-002",
+        "category": "P0",
+        "title": "Federal Reserve FOMC Decision",
+        "titleKR": "연준 FOMC 금리결정",
+        "description": "1월 FOMC 회의. 금리 동결 예상되나 향후 인하 경로에 대한 힌트 주목.",
+        "effectiveDate": "2026-01-29",
+        "sourceGrade": "A",
+        "affectedSectors": [
+            "All"
+        ],
+        "impact": "MIXED"
+    },
+    {
+        "id": "P1-2025-001",
+        "category": "P1",
+        "title": "EV Tax Credit Phase-out Review",
+        "titleKR": "전기차 세액공제 단계적 폐지 검토",
+        "description": "2025년 일부 EV 모델 세액공제 자격 재검토. TSLA/RIVN 영향 가능.",
+        "effectiveDate": "2026-01-10",
+        "sourceGrade": "B",
+        "affectedSectors": [
+            "EV",
+            "Automotive"
+        ],
+        "affectedTickers": [
+            "TSLA",
+            "RIVN",
+            "LCID"
+        ],
+        "impact": "NEGATIVE"
+    },
+    {
+        "id": "P1-2025-002",
+        "category": "P1",
+        "title": "Defense Budget FY2026 Proposal",
+        "titleKR": "FY2026 국방예산안 발표",
+        "description": "새 회계연도 국방예산 1조 달러 돌파 전망. 방산 섹터 긍정적.",
+        "effectiveDate": "2026-02-01",
+        "sourceGrade": "B",
+        "affectedSectors": [
+            "Defense",
+            "Aerospace"
+        ],
+        "affectedTickers": [
+            "LMT",
+            "RTX",
+            "NOC",
+            "GD"
+        ],
+        "impact": "POSITIVE"
+    },
+    {
+        "id": "P2-2025-001",
+        "category": "P2",
+        "title": "NVDA Antitrust Inquiry Update",
+        "titleKR": "NVDA 반독점 조사 진행상황",
+        "description": "DOJ의 NVIDIA GPU 시장 독점 조사 진행 중. 결과에 따라 주가 변동.",
+        "effectiveDate": "2026-01-20",
+        "sourceGrade": "B",
+        "affectedTickers": [
+            "NVDA"
+        ],
+        "impact": "NEGATIVE"
+    },
+    {
+        "id": "P2-2025-002",
+        "category": "P2",
+        "title": "AAPL EU DMA Compliance Deadline",
+        "titleKR": "AAPL EU 디지털시장법 준수 마감",
+        "description": "EU 디지털시장법에 따른 App Store 정책 변경 마감. 수수료 수익 영향.",
+        "effectiveDate": "2026-03-01",
+        "sourceGrade": "A",
+        "affectedTickers": [
+            "AAPL"
+        ],
+        "impact": "NEGATIVE"
+    }
+]
