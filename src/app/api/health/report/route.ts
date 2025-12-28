@@ -20,6 +20,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'eod';
     const buildId = getBuildId();
+    const includeSnapshot = searchParams.get('includeSnapshot') === 'true'; // [S-56.4.7b]
 
     const isVercelEnv = process.env.VERCEL === '1' || !!process.env.VERCEL_ENV;
     const useRedisEnv = process.env.USE_REDIS_SSOT === '1' || isVercelEnv;
@@ -46,6 +47,8 @@ export async function GET(request: Request) {
             ssot: useRedisEnv ? 'REDIS' : 'FS',
             type,
             bytes: reportStr.length,
+            // [S-56.4.7b] Include full snapshot if requested for UI binding
+            snapshot: includeSnapshot ? report : undefined,
             reportId: report.meta?.id || 'unknown',
             generatedAtET: report.meta?.generatedAtET || report.meta?.generatedAt,
             version: report.meta?.version,

@@ -31,7 +31,10 @@ function convertToStockData(overview: TickerOverview): StockData {
         dayHigh: overview.price.high,
         dayLow: overview.price.low,
         vwap: overview.price.vwap || undefined,
-        session: overview.price.session === "REG" ? "reg" : overview.price.session === "PRE" ? "pre" : overview.price.session === "POST" ? "post" : undefined
+        session: overview.price.session === "REG" ? "reg" : overview.price.session === "PRE" ? "pre" : overview.price.session === "POST" ? "post" : undefined,
+        // [S-56.4.7] SSOT Indicator Mapping
+        rsi: overview.indicators.rsi14 || undefined,
+        return3d: overview.indicators.return3D || undefined
     };
 }
 

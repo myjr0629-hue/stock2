@@ -76,20 +76,29 @@ interface StorageDebug {
 }
 
 // Fetch report data
-async function fetchReportData(): Promise<{ snapshot: ReportSnapshot; storageDebug: StorageDebug }> {
+// [S-56.4.7b] Use Health SSOT with Snapshot Inclusion
+async function fetchReportData(): Promise<{ snapshot: ReportSnapshot; storageDebug: StorageDebug; error?: string }> {
     try {
-        const res = await fetch("/api/reports/latest", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch report");
+        const res = await fetch("/api/health/report?type=eod&includeSnapshot=true", { cache: "no-store" });
+        if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
         const data = await res.json();
+
         return {
             snapshot: data.snapshot || { items: [], meta: {} },
-            storageDebug: data.debug || {}
+            storageDebug: {
+                ssot: data.ssot,
+                buildId: data.envDiagnostics?.buildId,
+                itemsCount: data.counts?.items,
+                optionsStatus: data.optionsStatus,
+                integrity: data.integrity
+            }
         };
-    } catch (e) {
+    } catch (e: any) {
         console.error("Report fetch error:", e);
         return {
             snapshot: { items: [], meta: {} },
-            storageDebug: {}
+            storageDebug: {},
+            error: e.message || "Unknown Fetch Error"
         };
     }
 }
@@ -99,6 +108,7 @@ export default function Tier01Page() {
     const [storageDebug, setStorageDebug] = useState<StorageDebug>({});
     const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null); // [S-56.4.7b]
 
     const { status: marketStatus } = useMarketStatus();
     const { snapshot: macroData } = useMacroSnapshot();
@@ -106,9 +116,10 @@ export default function Tier01Page() {
     useEffect(() => {
         async function load() {
             setLoading(true);
-            const { snapshot, storageDebug } = await fetchReportData();
+            const { snapshot, storageDebug, error } = await fetchReportData();
             setSnapshot(snapshot);
             setStorageDebug(storageDebug);
+            if (error) setError(error);
             setLoading(false);
         }
         load();
@@ -212,66 +223,16 @@ export default function Tier01Page() {
                     <span className="text-[9px] text-slate-500">
                         {storageDebug?.optionsStatus?.updatedAt ? `Updated: ${storageDebug.optionsStatus.updatedAt.split("T")[1]?.slice(0, 5)} ET` : ""}
                     </span>
+                    {/* [S-56.4.7b] Items Count for Debugging */}
+                    <div className="h-3 w-px bg-slate-800 hidden sm:block" />
+                    <span className="text-[9px] text-slate-600 font-mono">
+                        N:{items.length}
+                    </span>
                 </div>
             </div>
 
-            {/* Engine Status Console */}
-            <div className="sticky top-[80px] z-40 bg-[#0F1419]/95 backdrop-blur-sm border-b border-slate-700/40 select-none">
-                <div className="max-w-full mx-auto px-4 lg:px-6 h-11 flex items-center justify-between">
-                    <div className="flex items-center divide-x divide-slate-700">
-                        {/* Integrity Status */}
-                        <div className="px-3 flex flex-col justify-center">
-                            <span className="text-[8px] font-bold text-slate-500 mb-0.5">Status</span>
-                            <div className="flex items-center gap-1.5">
-                                <div className={`w-1.5 h-1.5 rounded-full ${isReportIntegrityOK ? "bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]" : integrityFailReason === "SSOT_MISSING_OR_INVALID" ? "bg-rose-400" : "bg-amber-400"}`}></div>
-                                <span className={`text-[10px] font-bold ${isReportIntegrityOK ? "text-emerald-400" : integrityFailReason === "SSOT_MISSING_OR_INVALID" ? "text-rose-400" : "text-amber-400"}`}>
-                                    {isReportIntegrityOK ? "OK" : integrityFailReason === "SSOT_MISSING_OR_INVALID" ? "FAIL" : "PENDING"}
-                                </span>
-                            </div>
-                        </div>
-
-                        {/* Market Session */}
-                        <div className="px-3 flex flex-col justify-center">
-                            <span className="text-[8px] font-bold text-slate-500 mb-0.5">Market</span>
-                            <div className="flex items-center gap-1.5">
-                                <MarketStatusBadge status={marketStatus} variant="live" />
-                            </div>
-                        </div>
-
-                        {/* Market Regime */}
-                        <div className="px-3 flex flex-col justify-center">
-                            <span className="text-[8px] font-bold text-slate-500 mb-0.5">Regime</span>
-                            <span className="text-[10px] font-bold text-slate-200">
-                                {(snapshot as any).marketSentiment?.regime === "Risk-On" ? "RISK ON" :
-                                    (snapshot as any).marketSentiment?.regime === "Risk-Off" ? "RISK OFF" : "NEUTRAL"}
-                            </span>
-                        </div>
-
-                        {/* VIX */}
-                        <div className="px-3 flex flex-col justify-center">
-                            <span className="text-[8px] font-bold text-slate-500 mb-0.5">VIX</span>
-                            <span className={`text-[10px] font-bold ${(macroData?.factors?.vix?.level || 0) > 20 ? "text-rose-400" : "text-emerald-400"}`}>
-                                {macroData?.factors?.vix?.level?.toFixed(2) || "-"}
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        {isInstitutional ? (
-                            <div className="px-2.5 py-1 bg-emerald-500/15 border border-emerald-500/30 rounded text-[9px] font-bold text-emerald-400">
-                                INSTITUTIONAL
-                            </div>
-                        ) : isSimulation ? (
-                            <div className="px-2.5 py-1 bg-amber-500/15 border border-amber-500/30 rounded text-[9px] font-bold text-amber-400 animate-pulse">
-                                SIMULATION
-                            </div>
-                        ) : null}
-                        <div className="px-2 py-0.5 border border-slate-600 rounded text-[8px] font-bold text-slate-500">
-                            V8.1
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {/* Engine Status Console replaced by Status Strip above, but keeping detailed stats below if valid */}
+            {/* ... */}
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -281,76 +242,94 @@ export default function Tier01Page() {
                     <p className="text-sm text-slate-500">Real-time engine analysis and Top 12 portfolio</p>
                 </div>
 
-                {/* Top 12 Table */}
-                <div className="bg-[#1A1F26] border border-slate-800 rounded-xl overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                            <thead className="bg-slate-900/50 border-b border-slate-800">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">#</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticker</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Alpha</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Options</th>
-                                    <th className="px-4 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Details</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800/50">
-                                {final12.map((t: TickerItem, i: number) => {
-                                    const decision = t.decisionSSOT || t.v71?.decisionSSOT;
-                                    const action = decision?.action || "CAUTION";
-                                    const optStatus = t.options_status || "PENDING";
-
-                                    return (
-                                        <tr
-                                            key={t.ticker || t.symbol}
-                                            className="hover:bg-slate-800/30 cursor-pointer transition-colors group"
-                                            onClick={() => setSelectedTicker(t.ticker || t.symbol)}
-                                        >
-                                            <td className="px-4 py-3">
-                                                <span className="text-[10px] font-mono text-slate-600">{(i + 1).toString().padStart(2, "0")}</span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex items-center gap-2">
-                                                    <span className="text-[12px] font-bold text-slate-100 group-hover:text-indigo-400">{t.symbol || t.ticker}</span>
-                                                    {t.role === "ALPHA" && <span className="text-[7px] font-bold text-indigo-400 bg-indigo-500/15 px-1 py-0.5 rounded">A</span>}
-                                                    {/* [S-56.4.4] Options Status Dot */}
-                                                    {optStatus !== "OK" && (
-                                                        <span title={`Options: ${optStatus}`} className={`w-1.5 h-1.5 rounded-full ${getOptionsStatusColor(optStatus)}`} />
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-[11px] font-bold text-indigo-400">{t.alphaScore?.toFixed(1) || "-"}</span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <div className="flex flex-col">
-                                                    <span className={`text-[10px] font-black ${getDecisionColor(action)} tracking-tight`}>
-                                                        {action}
-                                                    </span>
-                                                    <span className="text-[8px] text-slate-500 font-medium truncate max-w-[100px]">
-                                                        {decision?.triggersKR?.[0] || "Analyzing..."}
-                                                    </span>
-                                                </div>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${optStatus === "OK" ? "bg-emerald-500/20 text-emerald-400" :
-                                                    optStatus === "PARTIAL" ? "bg-amber-500/20 text-amber-400" :
-                                                        "bg-slate-500/20 text-slate-400"
-                                                    }`}>
-                                                    {optStatus}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3 text-right">
-                                                <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 inline" />
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
+                {/* [S-56.4.7b] Error Panel */}
+                {(error || items.length === 0) && (
+                    <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-6 mb-8 flex items-start gap-4">
+                        <AlertCircle className="w-6 h-6 text-rose-500 shrink-0 mt-0.5" />
+                        <div>
+                            <h3 className="text-lg font-bold text-rose-400 mb-1">Engine Data Unavailable</h3>
+                            <p className="text-sm text-rose-200/80 font-mono mb-2">
+                                {error || "No items returned from report engine (Empty Snapshot)"}
+                            </p>
+                            <div className="text-xs text-rose-500/60 font-mono bg-rose-950/30 px-2 py-1 rounded inline-block">
+                                Endpoint: /api/health/report?type=eod
+                            </div>
+                        </div>
                     </div>
-                </div>
+                )}
+
+                {/* Top 12 Table (Only show if items exist) */}
+                {items.length > 0 && (
+                    <div className="bg-[#1A1F26] border border-slate-800 rounded-xl overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                                <thead className="bg-slate-900/50 border-b border-slate-800">
+                                    <tr>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">#</th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticker</th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Alpha</th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
+                                        <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Options</th>
+                                        <th className="px-4 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest">Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800/50">
+                                    {final12.map((t: TickerItem, i: number) => {
+                                        const decision = t.decisionSSOT || t.v71?.decisionSSOT;
+                                        const action = decision?.action || "CAUTION";
+                                        const optStatus = t.options_status || "PENDING";
+
+                                        return (
+                                            <tr
+                                                key={t.ticker || t.symbol}
+                                                className="hover:bg-slate-800/30 cursor-pointer transition-colors group"
+                                                onClick={() => setSelectedTicker(t.ticker || t.symbol)}
+                                            >
+                                                <td className="px-4 py-3">
+                                                    <span className="text-[10px] font-mono text-slate-600">{(i + 1).toString().padStart(2, "0")}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="text-[12px] font-bold text-slate-100 group-hover:text-indigo-400">{t.symbol || t.ticker}</span>
+                                                        {t.role === "ALPHA" && <span className="text-[7px] font-bold text-indigo-400 bg-indigo-500/15 px-1 py-0.5 rounded">A</span>}
+                                                        {/* [S-56.4.4] Options Status Dot */}
+                                                        {optStatus !== "OK" && (
+                                                            <span title={`Options: ${optStatus}`} className={`w-1.5 h-1.5 rounded-full ${getOptionsStatusColor(optStatus)}`} />
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className="text-[11px] font-bold text-indigo-400">{t.alphaScore?.toFixed(1) || "-"}</span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <div className="flex flex-col">
+                                                        <span className={`text-[10px] font-black ${getDecisionColor(action)} tracking-tight`}>
+                                                            {action}
+                                                        </span>
+                                                        <span className="text-[8px] text-slate-500 font-medium truncate max-w-[100px]">
+                                                            {decision?.triggersKR?.[0] || "Analyzing..."}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${optStatus === "OK" ? "bg-emerald-500/20 text-emerald-400" :
+                                                        optStatus === "PARTIAL" ? "bg-amber-500/20 text-amber-400" :
+                                                            "bg-slate-500/20 text-slate-400"
+                                                        }`}>
+                                                        {optStatus}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3 text-right">
+                                                    <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400 inline" />
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
 
                 {/* Alpha Grid Summary */}
                 <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">

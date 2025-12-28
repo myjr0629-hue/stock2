@@ -11,12 +11,21 @@ import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { MarketStatusBadge } from "@/components/common/MarketStatusBadge";
 
+// [S-56.4.7] Imported or defined locally to avoid server-module leakage
+interface ChartDiagnostics {
+    ok: boolean;
+    reasonKR?: string;
+    code?: string;
+    points?: number;
+}
+
 interface Props {
     ticker: string;
     initialStockData: StockData | null;
     initialNews: NewsItem[];
     range: string;
     buildId?: string;
+    chartDiagnostics?: ChartDiagnostics; // [S-56.4.7] No-Silence UX
 }
 
 const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any) => {
@@ -134,7 +143,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
     );
 };
 
-export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId }: Props) {
+export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics }: Props) {
     // --- Live Data State ---
     const [liveQuote, setLiveQuote] = useState<any>(null);
     const [options, setOptions] = useState<any>(null);
@@ -444,12 +453,27 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 <div className="lg:col-span-3 space-y-6">
                     {/* CHART */}
-                    <StockChart
-                        data={initialStockData.history}
-                        color={isUp ? "#10b981" : "#f43f5e"}
-                        ticker={ticker}
-                        initialRange={range}
-                    />
+                    <div className="relative">
+                        <StockChart
+                            key={`${ticker}:${range}:${initialStockData.history.length}:${initialStockData.freshness?.asOfET}`}
+                            data={initialStockData.history}
+                            color={isUp ? "#10b981" : "#f43f5e"}
+                            ticker={ticker}
+                            initialRange={range}
+                        />
+                        {chartDiagnostics && !chartDiagnostics.ok && (
+                            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 border border-slate-200 rounded-xl">
+                                <AlertCircle className="w-8 h-8 text-amber-500 mb-2" />
+                                <div className="text-lg font-bold text-slate-700">차트 데이터 없음</div>
+                                <div className="text-sm font-bold text-slate-500 bg-slate-100 px-3 py-1 rounded-full mt-2">
+                                    {chartDiagnostics.reasonKR || "데이터 소스 연결 실패"}
+                                </div>
+                                <div className="text-xs text-slate-400 font-mono mt-1">
+                                    [{chartDiagnostics.code || "ERR"}] {chartDiagnostics.points || 0} points
+                                </div>
+                            </div>
+                        )}
+                    </div>
 
                     {/* ADVANCED OPTIONS ANALYSIS (Structure) */}
                     <Card className="border-slate-200 shadow-sm overflow-hidden">

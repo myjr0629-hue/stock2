@@ -31,7 +31,8 @@ export async function GET(request: Request) {
         const response = {
             data,
             meta: {
-                ...apiBuildMeta,
+                buildId,
+                timestampISO: new Date().toISOString(),
                 sessionMaskDebug // [S-53.5] Chart session masking diagnostic
             },
             range,
