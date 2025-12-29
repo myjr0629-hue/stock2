@@ -148,11 +148,11 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 </CardHeader>
                 <CardContent className="pt-6">
                     <div className="h-[360px] w-full flex flex-col items-center justify-center text-slate-400">
-                        <div className="p-4 rounded-full bg-slate-100 mb-3">
-                            <AlertCircle className="h-8 w-8 text-slate-300" />
+                        <div className="p-4 rounded-full bg-red-100 mb-3">
+                            <AlertCircle className="h-8 w-8 text-red-500" />
                         </div>
-                        <p className="font-semibold">Market Closed - No Data</p>
-                        <p className="text-xs mt-1 text-slate-500">Market might be closed or data is delayed.</p>
+                        <p className="font-semibold text-red-600">No Data Received from Server</p>
+                        <p className="text-xs mt-1 text-slate-500">Market might be closed or API is unavailable.</p>
                     </div>
                 </CardContent>
             </Card>

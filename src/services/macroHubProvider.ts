@@ -62,12 +62,21 @@ try {
 } catch (e) { }
 
 async function fetchYahooQuote(symbol: string, label: string): Promise<MacroFactor> {
+    // [Phase 22] Strict 3s timeout with immediate fallback
+    const YAHOO_TIMEOUT_MS = 3000;
+
     try {
         const pkg = require('yahoo-finance2');
         const YahooFinance = pkg.default || pkg;
         const yf = new YahooFinance(); // Uses global config
 
-        const quote = await yf.quote(symbol);
+        // Wrap in Promise.race with timeout
+        const quotePromise = yf.quote(symbol);
+        const timeoutPromise = new Promise<null>((_, reject) =>
+            setTimeout(() => reject(new Error(`Yahoo timeout after ${YAHOO_TIMEOUT_MS}ms`)), YAHOO_TIMEOUT_MS)
+        );
+
+        const quote = await Promise.race([quotePromise, timeoutPromise]);
 
         if (quote && (quote.regularMarketPrice != null || quote.ask != null)) {
             const price = quote.regularMarketPrice || quote.ask || 0;
@@ -87,8 +96,8 @@ async function fetchYahooQuote(symbol: string, label: string): Promise<MacroFact
         console.warn(`[Alpha] Yahoo quote empty for ${symbol}, using fallback.`);
         return createFailFactor(label, symbol);
     } catch (e: any) {
-        // [Phase 21] Silent exception handling - log but don't crash
-        console.error(`[MacroHub] Yahoo Error ${symbol}: ${e.message}. Using fallback.`);
+        // [Phase 22] Strict timeout or error - log and fallback immediately
+        console.error(`[MacroHub] Yahoo Error ${symbol}: ${e.message}. Falling back to Massive.`);
         return createFailFactor(label, symbol);
     }
 }
