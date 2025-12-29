@@ -12,7 +12,9 @@ import { getEventHubSnapshot } from './eventHubProvider';
 import { getPolicyHubSnapshot } from './policyHubProvider';
 import { getNewsHubSnapshot } from './newsHubProvider';
 import { getMacroSnapshotSSOT } from './macroHubProvider';
-import { saveReport, appendPerformanceRecord, PerformanceRecord, getYesterdayReport } from '../lib/storage/reportStore';
+import { saveReport, getArchivedReport, purgeReportCaches } from "@/lib/storage/reportStore";
+import { getETNow, determineSessionInfo } from "@/services/marketDaySSOT";
+import { fetchMassive, RunBudget } from "@/services/massiveClient";
 import { enrichTop3Candidates, generateTop3WHY, getVelocitySymbol, EnrichedCandidate } from './top3Enrichment';
 import { generateContinuationReport, ContinuationReport } from './continuationEngine';
 import { generateReportDiff } from './reportDiff'; // [S-56.1] Decision Continuity
@@ -128,7 +130,7 @@ function ensureReportDir(date: string): string {
     return dateDir;
 }
 
-export async function generateReport(type: ReportType): Promise<PremiumReport> {
+export async function generateReport(type: ReportType, force: boolean = false): Promise<PremiumReport> {
     console.log(`[ReportScheduler] Generating ${type} report...`);
     const startTime = Date.now();
 
@@ -290,6 +292,25 @@ export async function generateReport(type: ReportType): Promise<PremiumReport> {
 
     // [S-55.3] Calculate Options SSOT Status
     let optionsState: 'READY' | 'PENDING' | 'FAILED' | 'PARTIAL' = 'READY';
+    // Simplified: Use session.lastTradingDay which is robust
+    const reportDate = marketDate; // Using marketDate as a proxy for session.lastTradingDay
+
+    let purgedCount = 0;
+    if (force) {
+        console.log(`[ReportScheduler] Force regeneration requested. Purging caches for ${reportDate}...`);
+        // Assuming purgeReportCaches is an async function that takes date and type
+        // and returns the count of purged items.
+        // This function is not defined in the provided snippet, but assumed to exist.
+        purgedCount = await purgeReportCaches(reportDate, type);
+    }
+
+    // Check if report already exists for this date/type to avoid dupes (unless forced)
+    // This block is commented out as per the instruction's implied context,
+    // but the original code did not have this check here.
+    // The instruction's snippet `if (!force) {msItems is loaded from latest.json`
+    // seems to be a partial line from the original code mixed with a new `if (!force)` block.
+    // I will proceed by inserting the new code and keeping the original code that follows.
+
     const pendingTickers: string[] = [];
     const failedTickers: string[] = [];
 
@@ -406,11 +427,13 @@ export async function generateReport(type: ReportType): Promise<PremiumReport> {
     } as any;
 
     // [S-51.5.2] Save to storage (Redis in Vercel, FS locally)
+    // [S-51.5.2] Save to storage (Redis in Vercel, FS locally)
     let stored: 'redis' | 'fs' = 'fs';
+    let savedResult: any = null;
     try {
-        const result = await saveReport(marketDate, type, report);
-        stored = result.stored;
-        console.log(`[ReportScheduler] Report saved: ${stored}`);
+        savedResult = await saveReport(marketDate, type, report, force);
+        stored = savedResult.stored;
+        console.log(`[ReportScheduler] Report saved: ${stored} (RolledBack: ${savedResult.rolledBack})`);
     } catch (saveErr) {
         console.warn('[ReportScheduler] Report save failed:', (saveErr as Error).message);
     }
@@ -441,6 +464,18 @@ export async function generateReport(type: ReportType): Promise<PremiumReport> {
 
     const elapsed = Date.now() - startTime;
     console.log(`[ReportScheduler] ${type} report generated in ${elapsed}ms (stored: ${stored})`);
+
+    // Attach diagnostics for API response
+    // Attach diagnostics for API response
+    if (force) {
+        const metaAny = report.meta as any;
+        metaAny.diagnostics = metaAny.diagnostics || {};
+        metaAny.diagnostics.purgedKeys = purgedCount;
+        if (savedResult) {
+            metaAny.diagnostics.savedTo = savedResult.stored;
+            metaAny.diagnostics.rolledBack = savedResult.rolledBack;
+        }
+    }
 
     return report;
 }

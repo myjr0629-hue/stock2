@@ -55,7 +55,9 @@ export async function GET(request: Request) {
             diagnostics: {
                 buildId: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || "local",
                 routeVersionTag: "S-56.4.6e",
-                savedTo: report.meta.optionsStatus?.state
+                savedTo: report.meta?.diagnostics?.savedTo || report.meta.optionsStatus?.state,
+                purgedKeys: report.meta?.diagnostics?.purgedKeys,
+                rolledBack: report.meta?.diagnostics?.rolledBack
             }
         });
     } catch (error: any) {

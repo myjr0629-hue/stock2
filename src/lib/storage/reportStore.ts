@@ -174,7 +174,44 @@ export function calculateOptionsStatus(report: any): OptionsStatus {
 
 // ============ REPORT STORAGE ============
 
-export async function saveReport(date: string, type: string, reportJson: any): Promise<{ stored: 'redis' | 'fs'; integrity: IntegrityReport; rolledBack?: boolean }> {
+// [S-Force] Purge caches logic
+export async function purgeReportCaches(date: string, type: string): Promise<number> {
+    if (!useRedis()) return 0;
+
+    const redis = getRedis();
+    let deletedCount = 0;
+
+    // Patterns to match:
+    // reports:{date}:{type}
+    // reports:latest:{type}
+    // reports:failed:{date}:{type}:*
+    const patterns = [
+        `${REPORTS_PREFIX}${date}:${type}`,
+        `${REPORTS_LATEST_PREFIX}${type}`,
+        `${REPORTS_FAILED_PREFIX}${date}:${type}:*`
+    ];
+
+    console.log(`[ReportStore] Purging keys for ${date}/${type}...`);
+
+    for (const pattern of patterns) {
+        let cursor = 0;
+        do {
+            const result = await redis.scan(cursor, { match: pattern, count: 100 });
+            cursor = Number(result[0]);
+            const keys = result[1];
+
+            if (keys.length > 0) {
+                await redis.del(...keys);
+                deletedCount += keys.length;
+                console.log(`[ReportStore] Purged ${keys.length} keys matching ${pattern}`);
+            }
+        } while (cursor !== 0);
+    }
+
+    return deletedCount;
+}
+
+export async function saveReport(date: string, type: string, reportJson: any, force: boolean = false): Promise<{ stored: 'redis' | 'fs'; integrity: IntegrityReport; rolledBack?: boolean }> {
     // [S-52.6] Validate and inject integrity/optionsStatus before saving
     const validation = validateReportShape(reportJson);
     const optionsStatus = calculateOptionsStatus(reportJson);
@@ -216,11 +253,11 @@ export async function saveReport(date: string, type: string, reportJson: any): P
             await redis.set(reportKey, reportStr);
             console.log(`[ReportStore] Redis SET ${reportKey} (${reportBytes} bytes)`);
 
-            // 2) [S-52.7] Auto-rollback: Only update latest if not INCOMPLETE
+            // 2) [S-52.7] Auto-rollback: Only update latest if not INCOMPLETE or FORCED
             let rolledBack = false;
-            if (validation.integrity.status !== 'INCOMPLETE') {
+            if (validation.integrity.status !== 'INCOMPLETE' || force) {
                 await redis.set(latestKey, reportStr);
-                console.log(`[ReportStore] Redis SET ${latestKey} (${reportBytes} bytes)`);
+                console.log(`[ReportStore] Redis SET ${latestKey} (${reportBytes} bytes) ${force ? '[FORCED]' : ''}`);
             } else {
                 // Save to failed key with 7-day TTL instead
                 const failedKey = `${REPORTS_FAILED_PREFIX}${date}:${type}:${Date.now()}`;
