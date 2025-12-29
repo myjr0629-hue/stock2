@@ -56,6 +56,8 @@ export function computeQualityTier(
         const stealthScore = calculateStealthScore(evidence.stealth);
         alphaScore += (stealthScore * POWER_SCORE_CONFIG.WEIGHTS.STEALTH) / 100;
 
+        console.log(`[PowerEngine] ${symbol} RawScore: ${alphaScore.toFixed(2)} (P:${priceScore} O:${optionsScore} F:${flowScore} M:${macroScore} S:${stealthScore})`);
+
     } else {
         // Legacy Fallback
         alphaScore = item.alphaScore || 0;
@@ -79,10 +81,23 @@ export function computeQualityTier(
     let tier: QualityTier;
     let reasonKR: string;
 
-    // Rule: Backfilled items are always FILLER
-    if (isBackfilled || !evidence) {
+    // Rule: Zero Score -> INVALID (Critical Guardrail)
+    if (alphaScore <= 0) {
         tier = 'FILLER';
-        reasonKR = 'Backfill 충원 종목 (Top3 승격 불가)';
+        reasonKR = '데이터 산출 실패 (INVALID)';
+        alphaScore = 0; // Ensure explicit 0 for filtering
+    }
+    // Rule: Backfilled items with Smart Estimates CAN be actionable (if high confidence)
+    // but usually we prefer Live. Allow SILVER/GOLD distinction if passed in.
+    else if (isBackfilled || !evidence) {
+        // [vNext] Smart Backfill allows promotion if score is very high (e.g. > 80), otherwise Filler
+        if (alphaScore > 80) {
+            tier = 'WATCH'; // Promote to Watch at least
+            reasonKR = 'Backfill(추정치) 고득점';
+        } else {
+            tier = 'FILLER';
+            reasonKR = 'Backfill 충원 종목';
+        }
     }
     // Rule: EXIT action -> FILLER
     else if (holdAction === 'EXIT') {
@@ -90,7 +105,7 @@ export function computeQualityTier(
         reasonKR = '매도 신호 (EXIT)';
     }
     // Rule: Policy Block
-    else if (evidence.policy?.gate?.blocked) {
+    else if (evidence?.policy?.gate?.blocked) {
         tier = 'FILLER';
         reasonKR = '정책적 차단 (Policy Block)';
     }
@@ -102,7 +117,7 @@ export function computeQualityTier(
     // Rule: Moderate -> WATCH
     else if (alphaScore >= QUALITY_TIER_CONFIG.WATCH_MIN_SCORE) {
         tier = 'WATCH';
-        reasonKR = `중립(${alphaScore.toFixed(0)}) - 관망 권장`;
+        reasonKR = `관심권(${alphaScore.toFixed(0)})`;
     }
     else {
         tier = 'FILLER';

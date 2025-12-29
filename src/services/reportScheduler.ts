@@ -205,6 +205,7 @@ export async function generateReport(type: ReportType, force: boolean = false): 
             ...item,
             ...qualityResult,
             score: qualityResult.powerScore, // Legacy compat
+            alphaScore: qualityResult.powerScore, // [FIX] Update alphaScore for UI
             rank: 0 // Will assign later
         };
     });
