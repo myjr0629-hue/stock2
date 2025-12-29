@@ -289,13 +289,25 @@ export async function generateReport(type: ReportType, force: boolean = false): 
                 isStale: false,
                 nextAttemptAtISO: undefined
             },
-            optionsStatus: {
-                state: 'READY',
-                coveragePct: 100,
-                pendingTickers: [],
-                pendingReason: 'Unified Engine - Strict Backfill',
-                nextRetryAt: undefined
-            }
+            // [P0] Calculate actual optionsStatus from enrichedItems
+            optionsStatus: (() => {
+                const okCount = finalItems.filter((i: any) =>
+                    i.evidence?.options?.status === 'OK' ||
+                    i.evidence?.options?.status === 'READY' ||
+                    i.evidence?.options?.status === 'NO_OPTIONS'
+                ).length;
+                const pendingTickers = finalItems
+                    .filter((i: any) => i.evidence?.options?.status === 'PENDING')
+                    .map((i: any) => i.ticker);
+                const coveragePct = Math.round((okCount / Math.max(finalItems.length, 1)) * 100);
+                return {
+                    state: pendingTickers.length > 0 ? 'PENDING' as const : 'READY' as const,
+                    coveragePct: Math.max(coveragePct, okCount > 0 ? 1 : 0),
+                    pendingTickers,
+                    pendingReason: 'Unified Engine - Strict Backfill',
+                    nextRetryAt: undefined
+                };
+            })()
         },
         macro,
         events,
@@ -310,7 +322,8 @@ export async function generateReport(type: ReportType, force: boolean = false): 
         },
         items: finalItems,
         alphaGrid: {
-            top3: finalItems.slice(0, 3),
+            // [P0] Use selectedTop3 not slice - ensure always 3
+            top3: selectedTop3.slice(0, 3),
             fullUniverse: finalItems
         },
         engine: {
@@ -322,7 +335,17 @@ export async function generateReport(type: ReportType, force: boolean = false): 
                 fillerCount: 0, // Calculated dynamically
                 backfillCount: 0
             },
-            top3Stats: stats
+            top3Stats: stats,
+            // [P0] Add macroSSOT for health/report
+            macroSSOT: {
+                ndx: macro?.factors?.nasdaq100 || { label: 'NDX', value: 0, changePct: 0, status: 'N/A' },
+                vix: macro?.factors?.vix || { label: 'VIX', value: 0, changePct: 0, status: 'N/A' },
+                us10y: macro?.factors?.us10y || { label: 'US10Y', value: 0, changePct: 0, status: 'N/A' },
+                dxy: macro?.factors?.dxy || { label: 'DXY', value: 0, changePct: 0, status: 'N/A' },
+                regime: regimeResult.regime,
+                fetchedAtET: macro?.fetchedAtET || new Date().toISOString(),
+                ageSeconds: macro?.ageSeconds || 0
+            }
         } as any, // Cast to match PowerMeta if needed
         diffs,
         continuation: undefined // Deprecated or re-integrated
