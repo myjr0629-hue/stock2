@@ -227,6 +227,140 @@ function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
 }
 
 // ============================================================================
+// DRAWER COMPONENT (Ticker Evidence)
+// ============================================================================
+function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: () => void }) {
+    if (!item) return null;
+
+    const action = item.decisionSSOT?.action || "CAUTION";
+    const tier = item.qualityTier || "WATCH";
+    const opt = getOptionsStatus(item.options_status);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex justify-end">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+
+            {/* Drawer Content */}
+            <div className="relative w-full max-w-md h-full bg-slate-950 border-l border-slate-800 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
+                {/* Header */}
+                <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur border-b border-slate-800 p-6 flex items-start justify-between">
+                    <div>
+                        <div className="flex items-center gap-3 mb-2">
+                            <h2 className="text-2xl font-black text-white">{item.ticker}</h2>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getTierStyle(tier)}`}>{tier}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-xs font-bold px-2 py-1 rounded ${getActionStyle(action)}`}>
+                                {action}
+                            </span>
+                            <span className="text-xs text-slate-500 font-mono">
+                                Alpha {item.alphaScore?.toFixed(1) || "—"}
+                            </span>
+                        </div>
+                    </div>
+                    <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
+                        <XCircle className="w-6 h-6" />
+                    </button>
+                </div>
+
+                <div className="p-6 space-y-8">
+                    {/* 1. Decision Evidence */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
+                            <Target className="w-4 h-4 text-indigo-500" />
+                            <span>Decision Evidence</span>
+                        </div>
+                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+                            <div className="flex justify-between items-center mb-3">
+                                <span className="text-sm font-bold text-slate-200">Trigger Logic</span>
+                                <span className="text-[10px] text-indigo-400 font-mono">
+                                    Conf. {item.decisionSSOT?.confidencePct || 0}%
+                                </span>
+                            </div>
+                            <ul className="space-y-2">
+                                {(item.decisionSSOT?.triggersKR || ["No specific triggers"]).map((t, i) => (
+                                    <li key={i} className="flex items-start gap-2 text-xs text-slate-400">
+                                        <div className="w-1 h-1 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
+                                        {t}
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+
+                    {/* 2. Options Structure */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
+                            <BarChart3 className="w-4 h-4 text-amber-500" />
+                            <span>Options Structure</span>
+                        </div>
+                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
+                            <div className="flex items-center justify-between mb-4">
+                                <span className="text-sm font-bold text-slate-200">Status</span>
+                                <div className="flex items-center gap-2">
+                                    <span className={`w-2 h-2 rounded-full ${opt.color}`} />
+                                    <span className="text-xs text-slate-400 font-medium">{opt.label}</span>
+                                </div>
+                            </div>
+
+                            {/* Simple visual representation if data available, else text */}
+                            <div className="grid grid-cols-2 gap-3 text-center">
+                                <div className="bg-slate-950 rounded p-2 border border-slate-800">
+                                    <span className="block text-[9px] text-slate-500 uppercase">Call Wall</span>
+                                    <span className="block text-xs font-mono font-bold text-white">—</span>
+                                </div>
+                                <div className="bg-slate-950 rounded p-2 border border-slate-800">
+                                    <span className="block text-[9px] text-slate-500 uppercase">Put Floor</span>
+                                    <span className="block text-xs font-mono font-bold text-white">—</span>
+                                </div>
+                            </div>
+                            <p className="mt-3 text-[10px] text-slate-500 text-center italic">
+                                * 상세 옵션 레벨은 Ticker Detail에서 확인 가능
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* 3. Execution Plan */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
+                            <Zap className="w-4 h-4 text-emerald-500" />
+                            <span>Execution Plan</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-800/20 border border-slate-800 rounded-lg p-3">
+                                <span className="block text-[10px] text-slate-500 mb-1">Entry Band</span>
+                                <span className="block text-sm font-mono font-bold text-white">
+                                    {item.entryBand ? `$${item.entryBand.low.toFixed(2)} - $${item.entryBand.high.toFixed(2)}` : "미산출"}
+                                </span>
+                            </div>
+                            <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3">
+                                <span className="block text-[10px] text-rose-400 mb-1">Hard Cut</span>
+                                <span className="block text-sm font-mono font-bold text-rose-300">
+                                    {item.hardCut ? `$${item.hardCut.toFixed(2)}` : "미산출"}
+                                </span>
+                            </div>
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+                                <span className="block text-[10px] text-emerald-400 mb-1">Target 1</span>
+                                <span className="block text-sm font-mono font-bold text-emerald-300">
+                                    {item.tp1 ? `$${item.tp1.toFixed(2)}` : "미산출"}
+                                </span>
+                            </div>
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
+                                <span className="block text-[10px] text-emerald-400 mb-1">Target 2</span>
+                                <span className="block text-sm font-mono font-bold text-emerald-300">
+                                    {item.tp2 ? `$${item.tp2.toFixed(2)}` : "미산출"}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ============================================================================
 // MAIN PAGE COMPONENT
 // ============================================================================
 export default function Tier01Terminal() {
@@ -241,6 +375,7 @@ export default function Tier01Terminal() {
     const [evidenceCards, setEvidenceCards] = useState<EvidenceCard[]>([]);
     const [items, setItems] = useState<TickerItem[]>([]);
     const [top3, setTop3] = useState<TickerItem[]>([]);
+    const [selectedTickerItem, setSelectedTickerItem] = useState<TickerItem | null>(null);
 
     // Fetch data
     useEffect(() => {
@@ -252,23 +387,34 @@ export default function Tier01Terminal() {
 
                 // Extract data
                 const snapshot = data.snapshot || {};
-                const meta = snapshot.meta || {};
                 const allItems = snapshot.items || [];
+
+                // Global Options Fallback
+                const globalOptState = data.optionsStatus?.state || "UNKNOWN";
+
+                // Map items with normalized options status
+                const mappedItems = allItems.map((item: any) => ({
+                    ...item,
+                    // [P0-1 Fix] Correct mapping: item > global > UNKNOWN
+                    options_status: item.options_status || globalOptState
+                }));
 
                 // Regime
                 setRegime(snapshot.marketSentiment?.regime || "NEUTRAL");
 
+                // ... (existing gate logic kept as is) ...
                 // Gates
                 const integrity = data.integrity || {};
                 setGates({
                     price: true,
-                    options: data.optionsStatus?.state === "READY" || data.optionsStatus?.state === "OK",
+                    options: globalOptState === "READY" || globalOptState === "OK",
                     macro: true,
                     event: !snapshot.events?.events?.some((e: any) => e.importance === "HIGH" && e.date === new Date().toISOString().split("T")[0]),
                     policy: !snapshot.policy?.policies72h?.some((p: any) => p.category === "P0")
                 });
 
-                // Generate principles based on gates and regime
+                // ... (principles/cards logic kept as is) ...
+                // Generate principles
                 const genPrinciples: string[] = [];
                 if (!gates.event) genPrinciples.push("⚠️ 이벤트 전 신규 진입 금지");
                 if (!gates.policy) genPrinciples.push("🚫 P0급 정책 충돌 - 증액 금지");
@@ -277,10 +423,8 @@ export default function Tier01Terminal() {
                 genPrinciples.push("📊 옵션 Put Floor 이탈 시 즉시 하드컷");
                 setPrinciples(genPrinciples.slice(0, 3));
 
-                // Build Evidence Cards
+                // Build Evidence Cards (reused logic)
                 const cards: EvidenceCard[] = [];
-
-                // Macro/FED Card
                 const macroSnapshot = snapshot.macro || {};
                 cards.push({
                     id: "macro",
@@ -294,7 +438,6 @@ export default function Tier01Terminal() {
                     status: regime === "RISK_ON" ? "BULLISH" : regime === "RISK_OFF" ? "BEARISH" : "NEUTRAL"
                 });
 
-                // Events Card
                 const events = snapshot.events?.events || [];
                 const upcomingHigh = events.filter((e: any) => e.importance === "HIGH").slice(0, 2);
                 cards.push({
@@ -309,7 +452,6 @@ export default function Tier01Terminal() {
                     status: upcomingHigh.length > 0 ? "NEUTRAL" : "BULLISH"
                 });
 
-                // Policy Card
                 const policies72h = snapshot.policy?.policies72h || [];
                 const p0Policies = policies72h.filter((p: any) => p.category === "P0");
                 cards.push({
@@ -324,24 +466,22 @@ export default function Tier01Terminal() {
                     status: p0Policies.length > 0 ? "BEARISH" : "BULLISH"
                 });
 
-                // Options Card
-                const optStatus = data.optionsStatus?.state || "UNKNOWN";
                 cards.push({
                     id: "options",
                     title: "OPTIONS STRUCTURE",
                     titleKR: "옵션 구조",
                     meaning: "마켓 메이커의 헤징 포지션과 예상 핀존",
-                    interpretation: `OI 커버리지 ${data.optionsStatus?.coveragePct || 0}% | 상태: ${optStatus}`,
-                    action: optStatus === "READY" || optStatus === "OK" ? "옵션 레벨 참고 가능" : "옵션 데이터 불완전 - 보수적 접근",
-                    confidence: optStatus === "READY" || optStatus === "OK" ? "A" : "C",
+                    interpretation: `OI 커버리지 ${data.optionsStatus?.coveragePct || 0}% | 상태: ${globalOptState}`,
+                    action: globalOptState === "READY" || globalOptState === "OK" ? "옵션 레벨 참고 가능" : "옵션 데이터 불완전 - 보수적 접근",
+                    confidence: globalOptState === "READY" || globalOptState === "OK" ? "A" : "C",
                     icon: <BarChart3 className="w-4 h-4" />,
-                    status: optStatus === "READY" || optStatus === "OK" ? "BULLISH" : "PENDING"
+                    status: globalOptState === "READY" || globalOptState === "OK" ? "BULLISH" : "PENDING"
                 });
 
                 setEvidenceCards(cards);
 
-                // Items & Top3
-                const sortedItems = allItems.sort((a: TickerItem, b: TickerItem) => (b.alphaScore || 0) - (a.alphaScore || 0));
+                // Items & Top3 with mapped options_status
+                const sortedItems = mappedItems.sort((a: TickerItem, b: TickerItem) => (b.alphaScore || 0) - (a.alphaScore || 0));
                 setItems(sortedItems);
                 setTop3(sortedItems.slice(0, 3));
 
@@ -355,7 +495,7 @@ export default function Tier01Terminal() {
         fetchData();
     }, []);
 
-    // Loading State
+    // ... (rest of loading/render logic same until table) ...
     if (loading) {
         return (
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -372,12 +512,9 @@ export default function Tier01Terminal() {
             {/* Navigation Header */}
             <LandingHeader />
 
-            {/* ================================================================
-                SECTION 1: DECISION HEADER (항상 상단 고정)
-            ================================================================ */}
+            {/* HEADER */}
             <header className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-sm border-b border-slate-800">
                 <div className="max-w-7xl mx-auto px-4 py-4">
-                    {/* Top Row: Regime + Gates */}
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
                             <div className={`px-3 py-1.5 rounded-lg ${getRegimeColor(regime)} text-white font-black text-sm flex items-center gap-2`}>
@@ -387,7 +524,6 @@ export default function Tier01Terminal() {
                             <span className="text-slate-500 text-xs font-mono">|</span>
                             <span className="text-[11px] text-slate-400 uppercase tracking-widest font-bold">Tier 0.1 Evidence Terminal</span>
                         </div>
-
                         <div className="flex items-center gap-2">
                             <GateBadge label="Price" pass={gates.price} />
                             <GateBadge label="Options" pass={gates.options} />
@@ -396,8 +532,6 @@ export default function Tier01Terminal() {
                             <GateBadge label="Policy" pass={gates.policy} />
                         </div>
                     </div>
-
-                    {/* Principles */}
                     <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-800">
                         <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">오늘의 행동 원칙</p>
                         <div className="flex flex-wrap gap-4">
@@ -409,9 +543,7 @@ export default function Tier01Terminal() {
                 </div>
             </header>
 
-            {/* ================================================================
-                MAIN CONTENT
-            ================================================================ */}
+            {/* MAIN */}
             <main className="max-w-7xl mx-auto px-4 py-8">
                 {error && (
                     <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
@@ -420,9 +552,7 @@ export default function Tier01Terminal() {
                     </div>
                 )}
 
-                {/* ================================================================
-                    SECTION 2: EVIDENCE STACK
-                ================================================================ */}
+                {/* Evidence Stack */}
                 <section className="mb-10">
                     <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Evidence Stack</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -432,9 +562,7 @@ export default function Tier01Terminal() {
                     </div>
                 </section>
 
-                {/* ================================================================
-                    SECTION 3: TOP3 EXECUTION PANEL
-                ================================================================ */}
+                {/* Top3 Execution */}
                 <section className="mb-10">
                     <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Top3 Execution</h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -444,9 +572,7 @@ export default function Tier01Terminal() {
                     </div>
                 </section>
 
-                {/* ================================================================
-                    SECTION 4: ALPHA12 TABLE
-                ================================================================ */}
+                {/* Alpha12 Scan */}
                 <section>
                     <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Alpha12 Scan</h2>
                     <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
@@ -472,7 +598,8 @@ export default function Tier01Terminal() {
                                         <tr
                                             key={item.ticker}
                                             className="hover:bg-slate-800/30 cursor-pointer transition-colors"
-                                            onClick={() => router.push(`/ticker?ticker=${item.ticker}`)}
+                                            // [Changed] Open drawer on row click
+                                            onClick={() => setSelectedTickerItem(item)}
                                         >
                                             <td className="px-4 py-3">
                                                 <span className="text-[10px] font-mono text-slate-600">{String(i + 1).padStart(2, "0")}</span>
@@ -497,8 +624,17 @@ export default function Tier01Terminal() {
                                                 <span className={`w-2 h-2 rounded-full inline-block ${opt.color}`} title={opt.label} />
                                                 <span className="text-[10px] text-slate-500 ml-2">{opt.label}</span>
                                             </td>
+                                            {/* [Changed] Details Button ONLY for navigation */}
                                             <td className="px-4 py-3 text-right">
-                                                <ChevronRight className="w-4 h-4 text-slate-600 inline" />
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation(); // Prevent drawer
+                                                        router.push(`/ticker?ticker=${item.ticker}`);
+                                                    }}
+                                                    className="p-1 hover:bg-slate-700 rounded transition-colors"
+                                                >
+                                                    <ChevronRight className="w-4 h-4 text-slate-600 hover:text-white" />
+                                                </button>
                                             </td>
                                         </tr>
                                     );
@@ -508,6 +644,11 @@ export default function Tier01Terminal() {
                     </div>
                 </section>
             </main>
+
+            {/* Evidence Drawer */}
+            {selectedTickerItem && (
+                <TickerEvidenceDrawer item={selectedTickerItem} onClose={() => setSelectedTickerItem(null)} />
+            )}
 
             {/* Footer */}
             <footer className="border-t border-slate-800 py-6 mt-12">
