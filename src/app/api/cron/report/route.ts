@@ -13,13 +13,17 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Invalid type. Use: eod, pre, open' }, { status: 400 });
     }
 
-    // Security: Check CRON_SECRET in production
+    // [P0] Security: Check CRON_SECRET - supports both header and query param
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.get('authorization');
+    const secretParam = searchParams.get('secret');
 
     if (process.env.NODE_ENV === 'production' && cronSecret) {
-        if (authHeader !== `Bearer ${cronSecret}`) {
-            console.warn('[Cron] Unauthorized cron request');
+        const isHeaderValid = authHeader === `Bearer ${cronSecret}`;
+        const isParamValid = secretParam === cronSecret;
+
+        if (!isHeaderValid && !isParamValid) {
+            console.warn('[Cron] Unauthorized cron request - invalid secret');
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
     }
