@@ -22,26 +22,18 @@ interface LayerScores {
     flow: number | null;
     macro: number | null;
     stealth: number | null;
+    policy: number | null; // [Step 1] New Policy Layer
 }
 
 interface ScoreResult {
-    alphaScore: number | null;  // null if incomplete
+    alphaScore: number | null;
     layerScores: LayerScores;
     calculatedLayers: number;
     totalWeight: number;
+    eventImpact: number; // [Step 1] Event Impact on Score
 }
 
-// === HELPER: Check if symbol is in Leaders Track ===
-function isLeaderSymbol(symbol: string): boolean {
-    const sym = symbol?.toUpperCase() || '';
-    return (
-        (MAGNIFICENT_7 as readonly string[]).includes(sym) ||
-        (BIO_LEADERS_TOP5 as readonly string[]).includes(sym) ||
-        (DATACENTER_TOP5 as readonly string[]).includes(sym)
-    );
-}
-
-// === COMPUTE LAYER SCORES (No Default 50) ===
+// ... existing code ...
 
 function calculateLayerScores(evidence: any): ScoreResult {
     const layerScores: LayerScores = {
@@ -49,31 +41,27 @@ function calculateLayerScores(evidence: any): ScoreResult {
         options: null,
         flow: null,
         macro: null,
-        stealth: null
+        stealth: null,
+        policy: null
     };
 
     let calculatedLayers = 0;
     let totalWeight = 0;
     let weightedSum = 0;
+    let eventImpact = 0;
 
-    // A) Price Layer (Weight: 25) - [P0] Continuous scaling
+    // A) Price Layer (Weight: 25)
     if (evidence?.price?.complete) {
+        // ... same logic as before ...
         const p = evidence.price;
         let score = 0;
-
-        // Momentum (-5% to +5% → 0-40 continuous)
         const momentumScore = Math.max(0, Math.min(40, (p.changePct + 2) * 8));
         score += momentumScore;
-
-        // VWAP Position (-3% to +3% → 0-30 continuous)
         const vwapScore = Math.max(0, Math.min(30, (p.vwapDistPct + 1.5) * 10));
         score += vwapScore;
-
-        // RSI Sweet Spot (30-70 optimal band → 0-30)
-        const rsiDistance = Math.abs(p.rsi14 - 55); // Distance from optimal 55
-        const rsiScore = Math.max(0, 30 - rsiDistance); // Closer to 55 = higher
+        const rsiDistance = Math.abs(p.rsi14 - 55);
+        const rsiScore = Math.max(0, 30 - rsiDistance);
         score += rsiScore;
-
         layerScores.price = Math.max(0, Math.min(100, score));
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.PRICE;
@@ -84,74 +72,65 @@ function calculateLayerScores(evidence: any): ScoreResult {
     if (evidence?.options?.complete && evidence.options.status !== 'PENDING') {
         const o = evidence.options;
         let score = 0;
-
         if (o.status === 'NO_OPTIONS') {
-            // No options = neutral score
             score = 50;
         } else {
-            // Bias from PCR (0-40)
-            if (o.pcr < 0.5) score += 40; // Very bullish
+            if (o.pcr < 0.5) score += 40;
             else if (o.pcr < 0.7) score += 30;
             else if (o.pcr < 1.0) score += 20;
             else if (o.pcr < 1.3) score += 10;
-
-            // Gamma Regime (0-30)
             if (o.gammaRegime === 'Long Gamma') score += 30;
             else if (o.gammaRegime === 'Neutral') score += 15;
-
-            // Wall Structure (0-30)
             if (o.callWall > 0 && o.putFloor > 0) {
                 const range = o.callWall - o.putFloor;
-                if (range > 0) score += 20; // Clear structure
+                if (range > 0) score += 20;
             }
         }
-
         layerScores.options = Math.min(100, score);
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.OPTIONS;
         weightedSum += layerScores.options * POWER_SCORE_CONFIG.WEIGHTS.OPTIONS;
     }
 
-    // C) Flow Layer (Weight: 20) - [P0] Continuous scaling
+    // C) Flow Layer (Weight: 20)
+    const relVolVal = evidence?.flow?.relVol || 0;
     if (evidence?.flow?.complete) {
         const f = evidence.flow;
         let score = 0;
-
-        // Relative Volume (0.5x to 3x → 0-50 continuous)
         const relVolClamped = Math.max(0.5, Math.min(3, f.relVol));
         const relVolScore = ((relVolClamped - 0.5) / 2.5) * 50;
         score += relVolScore;
-
-        // Gap % (-3% to +5% → 0-30)
         const gapClamped = Math.max(-3, Math.min(5, f.gapPct));
         const gapScore = Math.max(0, ((gapClamped + 1) / 6) * 30);
         score += gapScore;
-
-        // [P0] offExPct removed from scoring (no source)
-        // Base 20 for having flow data at all
         score += 20;
-
         layerScores.flow = Math.max(0, Math.min(100, score));
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.FLOW;
         weightedSum += layerScores.flow * POWER_SCORE_CONFIG.WEIGHTS.FLOW;
     }
 
-    // D) Macro Layer (Weight: 15) - [P0] Continuous scaling
+    // [Step 1] Real-time Validator: Flow Validation
+    const isFlowConfirmed = relVolVal > 1.2; // Significant volume validates external signals
+
+    // D) Macro Layer (Weight: 15)
     if (evidence?.macro?.complete) {
         const m = evidence.macro;
-
-        // NDX Direction (-3% to +3% → 0-60 continuous)
         const ndxPct = m.ndx?.changePct || 0;
         const ndxClamped = Math.max(-3, Math.min(3, ndxPct));
         const ndxScore = ((ndxClamped + 3) / 6) * 60;
-
-        // VIX Level (10-40 inverted → 0-40)
         const vix = m.vix?.value || 20;
         const vixClamped = Math.max(10, Math.min(40, vix));
-        const vixScore = ((40 - vixClamped) / 30) * 40; // Lower VIX = higher score
+        const vixScore = ((40 - vixClamped) / 30) * 40;
 
-        layerScores.macro = Math.max(0, Math.min(100, ndxScore + vixScore));
+        // [Step 1] Validation Gate
+        let rawMacroScore = ndxScore + vixScore;
+        if (!isFlowConfirmed && Math.abs(rawMacroScore - 50) > 20) {
+            // Dampen extreme macro signals if not confirmed by flow
+            rawMacroScore = 50 + (rawMacroScore - 50) * 0.5;
+        }
+
+        layerScores.macro = Math.max(0, Math.min(100, rawMacroScore));
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.MACRO;
         weightedSum += layerScores.macro * POWER_SCORE_CONFIG.WEIGHTS.MACRO;
@@ -161,34 +140,57 @@ function calculateLayerScores(evidence: any): ScoreResult {
     if (evidence?.stealth?.complete) {
         const s = evidence.stealth;
         let score = 0;
-
-        // Label-based
         if (s.label === 'A') score = 90;
         else if (s.label === 'B') score = 60;
         else score = 30;
-
-        // Bonus for specific tags
         if (s.tags?.includes('blockPrint')) score += 10;
         if (s.tags?.includes('offExSurge')) score += 10;
-
         layerScores.stealth = Math.min(100, score);
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.STEALTH;
         weightedSum += layerScores.stealth * POWER_SCORE_CONFIG.WEIGHTS.STEALTH;
     }
 
-    // [P0] Calculate normalized score - ALWAYS produce a score if >= 1 layer
-    // Formula: (weighted sum / total weight) - gives score on 0-100 scale
+    // [Step 1] F) Policy/Events Layer (New Weight: 10 - steals from others in vNext, but additively for now)
+    if (evidence?.policy) {
+        const p = evidence.policy;
+        let policyScore = 50; // Neutral start
+
+        // Gate impact
+        if (p.gate?.blocked) policyScore = 0;
+        else {
+            // Grade based scoring
+            if (p.gradeA_B_C_counts?.A > 0) policyScore += 20;
+            if (p.gradeA_B_C_counts?.B > 0) policyScore += 10;
+
+            // Event Impact (Mock for now, real logic would use EventHub dates)
+            // If major event coming, increase volatility expectation -> simpler: reduce certainty?
+            // For Alpha score, we reward favourable policy.
+        }
+
+        // [Step 1] Validation
+        if (!isFlowConfirmed && policyScore > 60) {
+            policyScore = 60; // Cap unconfirmed policy optimism
+        }
+
+        layerScores.policy = Math.max(0, Math.min(100, policyScore));
+        // Note: Not adding to totalWeight yet to preserve existing balance, 
+        // using it as a modifier or separate signal in vNext full rollout.
+        // For this step, we just calculate it.
+    }
+
+    // Calculate Alpha Score
     let alphaScore: number | null = null;
     if (calculatedLayers >= 1 && totalWeight > 0) {
-        // [P0] Produce partial score even with 1 layer
         alphaScore = weightedSum / totalWeight;
 
-        // [P0] Cap score based on completeness
-        // 1-2 layers: max 50
-        // 3 layers: max 70
-        // 4 layers: max 85
-        // 5 layers: no cap
+        // [Step 1] Event Impact Logic (Global modifier)
+        // If high VIX or Policy Block, dampen score
+        if (evidence?.policy?.gate?.blocked) {
+            alphaScore *= 0.5;
+            eventImpact = -50;
+        }
+
         const cappedMax = calculatedLayers <= 2 ? 50 : calculatedLayers === 3 ? 70 : calculatedLayers === 4 ? 85 : 100;
         alphaScore = Math.min(alphaScore, cappedMax);
     }
@@ -197,7 +199,8 @@ function calculateLayerScores(evidence: any): ScoreResult {
         alphaScore,
         layerScores,
         calculatedLayers,
-        totalWeight
+        totalWeight,
+        eventImpact
     };
 }
 

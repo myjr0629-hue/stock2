@@ -488,8 +488,24 @@ async function fetchFlowData(ticker: string): Promise<CachedFlowBundle | null> {
     }
 
     try {
-        // [P0] Fetch current snapshot for volume
-        const snapshotResponse = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`, {}, true);
+        // [P0] Precision Retry Loop for Snapshot (Flow Data)
+        let snapshotResponse;
+        let attempt = 0;
+        const maxFlowRetries = 3;
+
+        while (attempt < maxFlowRetries) {
+            snapshotResponse = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`, {}, true);
+            const vol = snapshotResponse?.ticker?.day?.v || 0;
+
+            if (vol > 0) break; // Found data, exit loop
+
+            attempt++;
+            if (attempt < maxFlowRetries) {
+                console.log(`[TerminalEnricher v2] Flow retry ${attempt}/${maxFlowRetries} for ${ticker} (Zero Volume)`);
+                await delay(200 * attempt); // Progressive delay: 200ms, 400ms
+            }
+        }
+
         const snapshot = snapshotResponse?.ticker;
 
         // [P0] Fetch previous day for gapPct
