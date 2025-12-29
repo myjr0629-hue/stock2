@@ -44,8 +44,8 @@ export async function GET(request: Request) {
 
     // Generate report
     try {
-        console.log(`[Cron] Generating ${type} report for ${marketDate}...`);
-        const report = await generateReport(type);
+        console.log(`[Cron] Generating ${type} report for ${marketDate}... (force=${force})`);
+        const report = await generateReport(type, force);
 
         const metaAny = report.meta as any;
         return NextResponse.json({

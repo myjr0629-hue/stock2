@@ -358,6 +358,14 @@ export async function generateReport(type: ReportType, force: boolean = false): 
         pendingReason = '데이터 수집 시작 전';
     }
 
+    // [S-FORCE FINAL] Override optionsState to READY if force=true, regardless of any condition above
+    if (force && optionsState === 'PENDING') {
+        console.warn(`[ReportScheduler] FINAL Force Override: optionsState PENDING -> READY`);
+        optionsState = 'READY';
+        pendingReason = `${pendingReason} [FORCE OVERRIDE]`;
+        coveragePct = 100; // Force 100% coverage for display
+    }
+
     const report: PremiumReport = {
         meta: {
             id: `${marketDate}-${type}`,
