@@ -1,30 +1,96 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import {
     AlertCircle, TrendingUp, TrendingDown, Activity,
     ChevronRight, Shield, Clock, Zap, DollarSign,
     BarChart3, Target, XCircle, CheckCircle, AlertTriangle,
-    Lock, Unlock, Eye, ArrowUpRight, ArrowDownRight
+    Lock, Unlock, Eye, ArrowUpRight, ArrowDownRight,
+    Search, Layers
 } from "lucide-react";
 
 // ============================================================================
-// TYPES
+// TYPES (vNext Unified Evidence Model)
 // ============================================================================
-interface TickerItem {
+
+export interface UnifiedOptions {
+    status: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'PENDING' | 'FAILED';
+    coveragePct: number;
+    gammaRegime: string; // "Long Gamma" | "Short Gamma" | "Neutral"
+    gex: number;
+    pcr: number;
+    callWall: number;
+    putFloor: number;
+    pinZone: number;
+    maxPain: number;
+    oiClusters: {
+        callsTop: number[];
+        putsTop: number[];
+    };
+    backfilled: boolean;
+    fetchedAtET?: string;
+}
+
+export interface UnifiedFlow {
+    vol: number;
+    relVol: number;
+    gapPct: number;
+    largeTradesUsd: number;
+    offExPct: number;
+    offExDeltaPct: number;
+    backfilled: boolean;
+    fetchedAtET?: string;
+}
+
+export interface UnifiedPrice {
+    last: number;
+    prevClose: number;
+    changePct: number;
+    vwap: number;
+    vwapDistPct: number;
+    rsi14: number;
+    return3D: number;
+    structureState: 'BREAKOUT' | 'BREAKDOWN' | 'CONSOLIDATION' | 'TRENDING' | 'REVERSAL';
+    fetchedAtET?: string;
+}
+
+export interface UnifiedStealth {
+    label: 'A' | 'B' | 'C';
+    tags: string[];
+    impact: 'BOOST' | 'WARN' | 'NEUTRAL';
+    lastSeenET?: string;
+}
+
+export interface UnifiedEvidence {
+    price: UnifiedPrice;
+    flow: UnifiedFlow;
+    options: UnifiedOptions;
+    macro: any; // Context-heavy, keep flexible
+    policy: {
+        gate: {
+            P0: string[];
+            P1: string[];
+            P2: string[];
+            blocked: boolean;
+        };
+        gradeA_B_C_counts: { A: number; B: number; C: number };
+        fetchedAtET?: string;
+    };
+    stealth: UnifiedStealth;
+}
+
+export interface TickerItem {
     ticker: string;
-    symbol?: string;
-    name?: string;
-    price?: number;
-    changePct?: number;
+    evidence: UnifiedEvidence; // MANDATORY SSOT
+
+    // Legacy / Convenience (Frontend Calculated or Passthrough)
+    symbol?: string; // alias to ticker
     alphaScore?: number;
-    powerScore?: number;
     qualityTier?: "ACTIONABLE" | "WATCH" | "FILLER";
-    options_status?: string;
-    role?: string;
-    sector?: string;
+
+    // Legacy Decision & Execution (Maintain Backward Compat)
     decisionSSOT?: {
         action: string;
         confidencePct: number;
@@ -34,19 +100,27 @@ interface TickerItem {
     hardCut?: number;
     tp1?: number;
     tp2?: number;
+
+    // UI State
+    isLoading?: boolean;
 }
 
 interface EvidenceCard {
     id: string;
     title: string;
     titleKR: string;
-    meaning: string;      // 이 지표가 무엇을 말하는가
-    interpretation: string; // 지금 수치의 상태
-    action: string;       // 그래서 오늘 무엇을 해야 하는가
+    meaning: string;
+    interpretation: string;
+    action: string;
     confidence: "A" | "B" | "C";
     icon: React.ReactNode;
     status: "BULLISH" | "NEUTRAL" | "BEARISH" | "PENDING";
-    value?: string | number;
+    // Metadata for vNext
+    meta?: {
+        fetchedAtET?: string;
+        source?: string;
+        ttl?: number;
+    }
 }
 
 interface GateStatus {
@@ -58,13 +132,42 @@ interface GateStatus {
 }
 
 // ============================================================================
-// HELPER FUNCTIONS
+// HELPER COMPONENTS
 // ============================================================================
+
+const Skeleton = ({ className }: { className: string }) => (
+    <div className={`animate-pulse bg-slate-800/50 rounded ${className}`} />
+);
+
+const ScoreBreakdown = ({ evidence, score }: { evidence: UnifiedEvidence, score: number }) => {
+    // 2.0 Weights: Price(25), Options(25), Flow(20), Macro(15), Stealth(15)
+    // NOTE: This visualizes specific contributions. 
+    // If backend doesn't provide specific score breakdown yet, we estimate or just show the bars 
+    // proportional to the weights if high score, or use placeholders.
+    // For now, simpler visualization: Score Bar.
+
+    return (
+        <div className="w-full space-y-1">
+            <div className="flex justify-between items-end">
+                <span className="text-[10px] uppercase font-bold text-slate-500">Alpha Contribution</span>
+                <span className="text-[10px] font-mono font-bold text-emerald-400">{score.toFixed(1)} / 100</span>
+            </div>
+            <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-slate-800">
+                {/* Visual approximation based on Alpha Score */}
+                <div style={{ width: '25%' }} className={`bg-emerald-500/80 ${score < 20 ? 'opacity-30' : ''}`} title="Price (25%)" />
+                <div style={{ width: '25%' }} className={`bg-sky-500/80 ${score < 40 ? 'opacity-30' : ''}`} title="Options (25%)" />
+                <div style={{ width: '20%' }} className={`bg-indigo-500/80 ${score < 60 ? 'opacity-30' : ''}`} title="Flow (20%)" />
+                <div style={{ width: '15%' }} className={`bg-amber-500/80 ${score < 80 ? 'opacity-30' : ''}`} title="Macro (15%)" />
+                <div style={{ width: '15%' }} className={`bg-purple-500/80 ${score < 90 ? 'opacity-30' : ''}`} title="Stealth (15%)" />
+            </div>
+        </div>
+    );
+};
+
 // ============================================================================
-// HELPER FUNCTIONS (STYLES)
+// STYLES & UTILS
 // ============================================================================
 const getRegimeColor = (regime?: string) => {
-    // [Reskin] Cleaner, no gradients, use solid semantic colors but muted
     if (regime === "RISK_ON") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
     if (regime === "RISK_OFF") return "text-rose-400 bg-rose-500/10 border-rose-500/20";
     return "text-amber-400 bg-amber-500/10 border-amber-500/20";
@@ -77,23 +180,20 @@ const getRegimeText = (regime?: string) => {
 };
 
 const getTierStyle = (tier?: string) => {
-    // [Reskin] Very minimal. Tiers are important but shouldn't scream.
     if (tier === "ACTIONABLE") return "text-emerald-400 border border-emerald-500/30 bg-emerald-500/5";
     if (tier === "WATCH") return "text-slate-300 border border-slate-700 bg-slate-800/50";
     return "text-slate-500 border border-slate-800 bg-transparent";
 };
 
 const getOptionsStatus = (status?: string) => {
-    // [Reskin] Dot + Text style only
-    if (status === "OK" || status === "READY") return { label: "OK", color: "bg-emerald-500" };
+    if (status === "OK" || status === "READY" || status === "BULLISH" || status === "BEARISH" || status === "NEUTRAL") return { label: "OK", color: "bg-emerald-500" };
     if (status === "PARTIAL") return { label: "PARTIAL", color: "bg-amber-500" };
-    if (status === "NO_OPTIONS") return { label: "N/A", color: "bg-slate-600" };
-    if (status === "FAILED" || status === "ERR") return { label: "ERR", color: "bg-rose-500" };
-    return { label: "UNK", color: "bg-slate-500" };
+    if (status === "FAILED") return { label: "ERR", color: "bg-rose-500" };
+    if (status === "PENDING") return { label: "PENDING", color: "bg-slate-500 animate-pulse" };
+    return { label: "UNK", color: "bg-slate-700" };
 };
 
 const getActionStyle = (action?: string) => {
-    // [Reskin] Unified simpler styles
     if (action === "ENTER" || action === "STRONG_BUY") return "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20";
     if (action === "MAINTAIN") return "text-sky-400 bg-sky-500/10 border border-sky-500/20";
     if (action === "EXIT" || action === "REPLACE") return "text-rose-400 bg-rose-500/10 border border-rose-500/20";
@@ -118,8 +218,6 @@ function GateBadge({ label, pass }: { label: string; pass: boolean }) {
 
 // Evidence Card: Professional Header + Grid Layout
 function EvidenceCardUI({ card }: { card: EvidenceCard }) {
-    // [Reskin] Removed confidence label mapping, use raw A/B/C badge
-    // [Reskin] No colored borders, use semantic icon color only
     const statusColor = {
         BULLISH: "text-emerald-400",
         BEARISH: "text-rose-400",
@@ -128,9 +226,9 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
     }[card.status];
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded p-4 h-full flex flex-col hover:border-slate-700 transition-colors">
+        <div className="bg-slate-900 border border-slate-800 rounded p-4 h-full flex flex-col hover:border-slate-700 transition-colors relative overflow-hidden group">
             {/* Header */}
-            <div className="flex items-start justify-between mb-4 border-b border-slate-800/50 pb-3">
+            <div className="flex items-start justify-between mb-4 border-b border-slate-800/50 pb-3 z-10 relative">
                 <div className="flex items-center gap-2.5">
                     <div className={`p-1.5 rounded bg-slate-800 ${statusColor}`}>
                         {React.cloneElement(card.icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4" })}
@@ -140,6 +238,12 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
                             <h4 className="text-sm font-bold text-slate-200 tracking-tight">{card.titleKR}</h4>
                             <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{card.title}</span>
                         </div>
+                        {/* vNext Meta Display (Subtle) */}
+                        {card.meta?.fetchedAtET && (
+                            <div className="hidden group-hover:block text-[9px] text-slate-600 font-mono mt-0.5">
+                                Updated: {card.meta.fetchedAtET}
+                            </div>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -153,7 +257,7 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
             </div>
 
             {/* Body: 3-Row Data Grid */}
-            <div className="flex-1 space-y-3">
+            <div className="flex-1 space-y-3 z-10 relative">
                 <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
                     <span className="text-[10px] text-slate-500 font-medium text-right">의미</span>
                     <span className="text-[11px] text-slate-400 leading-tight">{card.meaning}</span>
@@ -179,6 +283,11 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
 function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
     const action = item.decisionSSOT?.action || "CAUTION";
     const isNoTrade = action === "NO_TRADE" || action === "EXIT";
+    const ev = item.evidence; // SSOT shortcut
+
+    // vNext Price Logic
+    const price = ev?.price?.last || 0;
+    const changePct = ev?.price?.changePct || 0;
 
     return (
         <div className={`relative bg-slate-900 border rounded p-4 ${isNoTrade ? "border-slate-800 opacity-70" : "border-slate-800 hover:border-slate-600 transition-colors"}`}>
@@ -215,10 +324,10 @@ function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
                 </div>
                 <div className="text-right">
                     <p className="text-base font-semibold font-mono text-white tabular-nums tracking-tight">
-                        {item.price?.toFixed(2)}
+                        {price > 0 ? price.toFixed(2) : <Skeleton className="w-12 h-4 inline-block" />}
                     </p>
-                    <p className={`text-[11px] font-medium tabular-nums ${(item.changePct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {(item.changePct || 0) >= 0 ? "+" : ""}{item.changePct?.toFixed(2)}%
+                    <p className={`text-[11px] font-medium tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
                     </p>
                 </div>
             </div>
@@ -262,49 +371,28 @@ function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
 }
 
 // ============================================================================
-// DRAWER COMPONENT (Ticker Evidence) - UPGRADED LOOK
+// DRAWER COMPONENT - Unified Evidence 5-Layers
 // ============================================================================
 function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: () => void }) {
     if (!item) return null;
-
+    const ev = item.evidence;
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const isDebug = searchParams.get('debug') === '1';
+
     const action = item.decisionSSOT?.action || "CAUTION";
     const tier = item.qualityTier || "WATCH";
-    const opt = getOptionsStatus(item.options_status);
+    const opt = getOptionsStatus(ev.options.status);
 
-    // 1) Confidence Normalization
-    const getConfidence = (pct?: number) => {
-        if (pct === undefined || pct === null) return { grade: "UNK", label: "No Data", color: "text-slate-500 border-slate-700 bg-slate-800" };
-        if (pct >= 80) return { grade: "A", label: "Official", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" };
-        if (pct >= 50) return { grade: "B", label: "Secondary", color: "text-amber-400 border-amber-500/20 bg-amber-500/5" };
-        return { grade: "C", label: "Est.", color: "text-slate-400 border-slate-700 bg-slate-800" };
-    };
-    const conf = getConfidence(item.decisionSSOT?.confidencePct);
-
-    // 2) Execution Fallback Logic (Simulated)
-    const getExecutionLevel = (val: number | undefined, type: "ENTRY" | "CUT" | "TP", price: number) => {
-        if (val && val > 0) return { val, isFallback: false, note: "" };
-        if (type === "ENTRY") return { val: price * 0.995, isFallback: true, note: "VWAP Retest" };
-        if (type === "CUT") return { val: price * 0.98, isFallback: true, note: "struct. low" };
-        if (type === "TP") return { val: price * 1.02, isFallback: true, note: "resistance" };
-        return { val: 0, isFallback: true, note: "N/A" };
-    };
-
-    const entryLow = getExecutionLevel(item.entryBand?.low, "ENTRY", item.price || 0);
-    const entryHigh = getExecutionLevel(item.entryBand?.high, "ENTRY", item.price || 0);
-    const hardCut = getExecutionLevel(item.hardCut, "CUT", item.price || 0);
-    const tp1 = getExecutionLevel(item.tp1, "TP", item.price || 0);
-    const tp2 = getExecutionLevel(item.tp2, "TP", item.price || 0);
+    // Derived states
+    const isReady = ev.price.last > 0; // Basic check
 
     return (
         <div className="fixed inset-0 z-[100] flex justify-end font-sans">
-            {/* Backdrop */}
             <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
+            <div className="relative w-full max-w-lg h-full bg-slate-950 border-l border-slate-800 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-200">
 
-            {/* Drawer Content */}
-            <div className="relative w-full max-w-lg h-full bg-slate-950 border-l border-slate-800 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col animate-in slide-in-from-right duration-200">
-
-                {/* Header: Clean & Professional */}
+                {/* Header */}
                 <div className="shrink-0 bg-slate-950 border-b border-slate-800 p-5 flex items-start justify-between select-none">
                     <div className="flex gap-4 items-center">
                         <h2 className="text-3xl font-bold text-white tracking-tight">{item.ticker}</h2>
@@ -314,139 +402,224 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                         <div className="h-4 w-px bg-slate-800 mx-1" />
                         <div className="flex flex-col">
                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Alpha</span>
-                            <span className="text-xs font-mono font-bold text-white">{item.alphaScore?.toFixed(1) || "—"}</span>
-                        </div>
-                        <div className="flex flex-col">
-                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Tier</span>
-                            <span className={`text-[10px] font-bold ${item.qualityTier === "ACTIONABLE" ? "text-emerald-400" : "text-slate-400"}`}>{tier}</span>
+                            <span className="text-xs font-mono font-bold text-white">{item.alphaScore?.toFixed(1) || "-"}</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => router.push(`/ticker?ticker=${item.ticker}`)}
-                            className="group flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors"
-                        >
-                            <span className="hidden sm:inline font-medium">Details</span>
-                            <div className="bg-slate-900 group-hover:bg-slate-800 p-1 rounded border border-slate-800 group-hover:border-slate-700 transition">
-                                <ArrowUpRight className="w-3 h-3" />
-                            </div>
-                        </button>
                         <button onClick={onClose} className="p-1 text-slate-500 hover:text-white transition-colors">
                             <XCircle className="w-6 h-6 stroke-1" />
                         </button>
                     </div>
                 </div>
 
-                {/* Body: Scrollable */}
-                <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
-                    <div className="space-y-8">
+                {/* Body: 5-Layer Evidence Stack */}
+                <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent space-y-8">
 
-                        {/* 1. Decision Evidence */}
-                        <section>
-                            <div className="flex items-center justify-between mb-3 px-1">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Target className="w-3.5 h-3.5" />
-                                    Decision Logic
-                                </h3>
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${conf.color}`}>
-                                    GRADE {conf.grade}
+                    {/* 1. OVERVIEW & SCORE */}
+                    <section>
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                <Target className="w-3.5 h-3.5" /> Overview
+                            </h3>
+                            {isDebug && <span className="text-[9px] font-mono text-indigo-400">upd: {ev.price.fetchedAtET}</span>}
+                        </div>
+
+                        <div className="bg-slate-900 border border-slate-800 rounded p-4 space-y-4">
+                            {/* Score Breakdown */}
+                            <ScoreBreakdown evidence={ev} score={item.alphaScore || 0} />
+
+                            {/* Decision Triggers */}
+                            <ul className="space-y-2 mt-2">
+                                {(item.decisionSSOT?.triggersKR || []).map((t, i) => (
+                                    <li key={i} className="flex gap-2 text-xs text-slate-300 leading-snug">
+                                        <div className="w-1 h-1 rounded-full bg-slate-500 mt-1.5 shrink-0" />
+                                        {t}
+                                    </li>
+                                ))}
+                            </ul>
+
+                            {/* Mini Gates (Visual only) */}
+                            <div className="flex gap-2 pt-2 border-t border-slate-800/50">
+                                <GateBadge label="P" pass={true} />
+                                <GateBadge label="OPT" pass={ev.options.status !== 'FAILED'} />
+                                <GateBadge label="M" pass={true} />
+                                <GateBadge label="EV" pass={true} />
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* 2. PRICE ACTION */}
+                    <section>
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <Activity className="w-3.5 h-3.5" /> Price Action
+                        </h3>
+                        <div className="grid grid-cols-2 gap-px bg-slate-800 border border-slate-800 rounded overflow-hidden">
+                            <div className="bg-slate-900 p-3">
+                                <span className="text-[9px] text-slate-500 font-bold uppercase block">Last / Change</span>
+                                <div className="flex gap-2 items-baseline">
+                                    <span className="text-sm font-mono font-bold text-white">${ev.price.last.toFixed(2)}</span>
+                                    <span className={`text-xs font-bold ${ev.price.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {ev.price.changePct > 0 ? '+' : ''}{ev.price.changePct.toFixed(2)}%
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="bg-slate-900 p-3">
+                                <span className="text-[9px] text-slate-500 font-bold uppercase block">VWAP Dist</span>
+                                <div className="flex gap-2 items-baseline">
+                                    <span className="text-sm font-mono font-bold text-slate-300">${ev.price.vwap.toFixed(2)}</span>
+                                    <span className={`text-xs font-bold ${ev.price.vwapDistPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {ev.price.vwapDistPct > 0 ? '+' : ''}{ev.price.vwapDistPct.toFixed(1)}%
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="bg-slate-900 p-3">
+                                <span className="text-[9px] text-slate-500 font-bold uppercase block">RSI (14)</span>
+                                <span className={`text-sm font-mono font-bold ${ev.price.rsi14 > 70 ? 'text-rose-400' : ev.price.rsi14 < 30 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                                    {ev.price.rsi14.toFixed(1)}
                                 </span>
                             </div>
-                            <div className="bg-slate-900 border border-slate-800 rounded p-4">
-                                <ul className="space-y-3">
-                                    {(item.decisionSSOT?.triggersKR || ["No specific triggers"]).map((t, i) => (
-                                        <li key={i} className="flex gap-3 text-xs text-slate-300 leading-snug">
-                                            <div className="w-1 h-1 rounded-full bg-indigo-500 mt-1.5 shrink-0 box-content outline outline-2 outline-indigo-500/20" />
-                                            {t}
-                                        </li>
+                            <div className="bg-slate-900 p-3">
+                                <span className="text-[9px] text-slate-500 font-bold uppercase block">Structure</span>
+                                <span className="text-xs font-bold text-indigo-400">{ev.price.structureState}</span>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* 3. FLOW DYNAMICS */}
+                    <section>
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                            <Layers className="w-3.5 h-3.5" /> Flow Dynamics
+                        </h3>
+                        <div className="bg-slate-900 border border-slate-800 rounded p-4 grid grid-cols-2 gap-4">
+                            <div>
+                                <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Off-Exchange</span>
+                                <div className="flex items-end gap-2">
+                                    <span className="text-sm font-mono font-bold text-white">{ev.flow.offExPct.toFixed(1)}%</span>
+                                    <span className={`text-[10px] font-bold ${ev.flow.offExDeltaPct > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                                        ({ev.flow.offExDeltaPct > 0 ? '+' : ''}{ev.flow.offExDeltaPct.toFixed(1)}%)
+                                    </span>
+                                </div>
+                            </div>
+                            <div>
+                                <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Net Flow (Est)</span>
+                                <span className={`text-sm font-mono font-bold ${ev.flow.largeTradesUsd > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    ${(ev.flow.largeTradesUsd / 1_000_000).toFixed(1)}M
+                                </span>
+                            </div>
+                        </div>
+                    </section>
+
+                    {/* 4. OPTIONS STRUCTURE (GEMS) */}
+                    <section>
+                        <div className="flex justify-between items-center mb-3">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                <BarChart3 className="w-3.5 h-3.5" /> Options Structure
+                            </h3>
+                            <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${opt.color} text-white`}>
+                                {opt.label} ({ev.options.coveragePct}%)
+                            </div>
+                        </div>
+
+                        <div className="space-y-3">
+                            {/* Key Levels */}
+                            <div className="grid grid-cols-3 gap-px bg-slate-800 border border-slate-800 rounded overflow-hidden text-center">
+                                <div className="bg-slate-900 p-2">
+                                    <span className="text-[9px] text-slate-500 block">Call Wall</span>
+                                    <span className="text-xs font-mono font-bold text-emerald-400">${ev.options.callWall}</span>
+                                </div>
+                                <div className="bg-slate-900 p-2">
+                                    <span className="text-[9px] text-slate-500 block">Max Pain</span>
+                                    <span className="text-xs font-mono font-bold text-amber-400">${ev.options.maxPain}</span>
+                                </div>
+                                <div className="bg-slate-900 p-2">
+                                    <span className="text-[9px] text-slate-500 block">Put Floor</span>
+                                    <span className="text-xs font-mono font-bold text-rose-400">${ev.options.putFloor}</span>
+                                </div>
+                            </div>
+
+                            {/* GEX / PCR */}
+                            <div className="grid grid-cols-2 gap-4 bg-slate-900 border border-slate-800 rounded p-3">
+                                <div>
+                                    <span className="text-[9px] text-slate-500 uppercase font-bold">Gamma Regime</span>
+                                    <div className="text-xs font-bold text-slate-200 mt-1">{ev.options.gammaRegime}</div>
+                                    <div className="text-[10px] text-slate-500 font-mono">GEX: ${ev.options.gex.toFixed(2)}M</div>
+                                </div>
+                                <div className="text-right">
+                                    <span className="text-[9px] text-slate-500 uppercase font-bold">Put/Call Ratio</span>
+                                    <div className={`text-lg font-mono font-bold mt-0.5 ${ev.options.pcr > 1.2 ? 'text-rose-400' : ev.options.pcr < 0.7 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                                        {ev.options.pcr.toFixed(2)}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* OI Clusters Table */}
+                            {ev.options.oiClusters && (
+                                <div className="bg-slate-900 border border-slate-800 rounded p-3">
+                                    <span className="text-[9px] text-slate-500 uppercase font-bold mb-2 block">OI Clusters (Major Magnets)</span>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <span className="text-[9px] text-emerald-500/80 block mb-1">Calls Top</span>
+                                            <div className="flex flex-wrap gap-1">
+                                                {ev.options.oiClusters.callsTop.map(k => (
+                                                    <span key={k} className="px-1.5 py-0.5 bg-emerald-950 text-emerald-400 text-[10px] font-mono rounded border border-emerald-900">${k}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <span className="text-[9px] text-rose-500/80 block mb-1">Puts Top</span>
+                                            <div className="flex flex-wrap gap-1">
+                                                {ev.options.oiClusters.putsTop.map(k => (
+                                                    <span key={k} className="px-1.5 py-0.5 bg-rose-950 text-rose-400 text-[10px] font-mono rounded border border-rose-900">${k}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </section>
+
+                    {/* 5. MACRO & STEALTH */}
+                    <section className="grid grid-cols-2 gap-4">
+                        <div>
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <Shield className="w-3.5 h-3.5" /> Stealth
+                            </h3>
+                            <div className="bg-slate-900 border border-slate-800 rounded p-3 h-full">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className={`text-base font-black ${ev.stealth.label === 'A' ? 'text-emerald-400' : ev.stealth.label === 'B' ? 'text-amber-400' : 'text-slate-500'}`}>
+                                        GR.{ev.stealth.label}
+                                    </span>
+                                    <span className="text-[10px] text-slate-500 font-bold">{ev.stealth.impact}</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                    {ev.stealth.tags.map((tag, i) => (
+                                        <span key={i} className="text-[9px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded">
+                                            #{tag}
+                                        </span>
                                     ))}
-                                </ul>
-                            </div>
-                        </section>
-
-                        {/* 2. Options Structure */}
-                        <section>
-                            <div className="flex items-center justify-between mb-3 px-1">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                    <BarChart3 className="w-3.5 h-3.5" />
-                                    Options Structure
-                                </h3>
-                                <div className="flex items-center gap-2">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${opt.color}`} />
-                                    <span className="text-[10px] font-bold text-slate-400">{opt.label}</span>
+                                    {ev.stealth.tags.length === 0 && <span className="text-[9px] text-slate-600">No signals</span>}
                                 </div>
                             </div>
-                            <div className="bg-slate-900 border border-slate-800 rounded p-0 overflow-hidden divide-y divide-slate-800">
-                                <div className="grid grid-cols-2 divide-x divide-slate-800">
-                                    <div className="p-4 text-center">
-                                        <span className="block text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">Call Wall</span>
-                                        <span className="block text-sm font-mono font-medium text-slate-500">N/A (Cov)</span>
-                                    </div>
-                                    <div className="p-4 text-center">
-                                        <span className="block text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">Put Floor</span>
-                                        <span className="block text-sm font-mono font-medium text-slate-500">N/A (Cov)</span>
-                                    </div>
+                        </div>
+                        <div>
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                                <TrendingUp className="w-3.5 h-3.5" /> Macro
+                            </h3>
+                            <div className="bg-slate-900 border border-slate-800 rounded p-3 h-full flex flex-col justify-center">
+                                <div className="flex justify-between items-center mb-1">
+                                    <span className="text-[10px] text-slate-500">NDX</span>
+                                    <span className={`text-[10px] font-bold ${ev.macro?.ndx?.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {ev.macro?.ndx?.changePct?.toFixed(2)}%
+                                    </span>
                                 </div>
-                                <div className="bg-slate-950/30 p-2 text-center text-[9px] text-slate-600 font-medium italic">
-                                    Options data provided for context only. Check full details for major levels.
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* 3. Execution Plan */}
-                        <section>
-                            <div className="flex items-center justify-between mb-3 px-1">
-                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                    <Zap className="w-3.5 h-3.5" />
-                                    Execution Plan
-                                </h3>
-                            </div>
-                            <div className="grid grid-cols-1 gap-px bg-slate-800 border border-slate-800 rounded overflow-hidden">
-                                {/* Entry */}
-                                <div className="bg-slate-900 p-4 flex items-center justify-between">
-                                    <div>
-                                        <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Entry Zone</span>
-                                        {entryLow.isFallback && <span className="text-[9px] text-slate-600 font-medium">Fallback: {entryLow.note}</span>}
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="block text-base font-mono font-semibold text-white tabular-nums tracking-tight">
-                                            ${entryLow.val.toFixed(2)} - ${entryHigh.val.toFixed(2)}
-                                        </span>
-                                    </div>
-                                </div>
-                                {/* Hard Cut */}
-                                <div className="bg-slate-900 p-4 flex items-center justify-between">
-                                    <div>
-                                        <span className="block text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-0.5">Hard Cut</span>
-                                        {hardCut.isFallback && <span className="text-[9px] text-slate-600 font-medium">Fallback: {hardCut.note}</span>}
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="block text-base font-mono font-semibold text-rose-400 tabular-nums tracking-tight">
-                                            ${hardCut.val.toFixed(2)}
-                                        </span>
-                                    </div>
-                                </div>
-                                {/* Targets */}
-                                <div className="bg-slate-900 p-4 flex items-center justify-between">
-                                    <div>
-                                        <span className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-0.5">Targets</span>
-                                        {tp1.isFallback && <span className="text-[9px] text-slate-600 font-medium">Fallback: {tp1.note}</span>}
-                                    </div>
-                                    <div className="text-right flex items-center gap-4">
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[9px] text-slate-500 mr-1">TP1</span>
-                                            <span className="text-sm font-mono font-medium text-emerald-400 tabular-nums">${tp1.val.toFixed(2)}</span>
-                                        </div>
-                                        <div className="w-px h-6 bg-slate-800" />
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-[9px] text-slate-500 mr-1">TP2</span>
-                                            <span className="text-sm font-mono font-medium text-emerald-400 tabular-nums">${tp2.val.toFixed(2)}</span>
-                                        </div>
-                                    </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] text-slate-500">VIX</span>
+                                    <span className="text-[10px] font-bold text-slate-300">{ev.macro?.vix?.level?.toFixed(2)}</span>
                                 </div>
                             </div>
-                        </section>
-                    </div>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
@@ -456,307 +629,383 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
 // ============================================================================
 // MAIN PAGE COMPONENT
 // ============================================================================
-export default function Tier01Terminal() {
+function Tier01Content() {
     const router = useRouter();
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const searchParams = useSearchParams();
+    const isDebug = searchParams.get('debug') === '1';
 
-    // Data states
-    const [regime, setRegime] = useState<string>("NEUTRAL");
-    const [gates, setGates] = useState<GateStatus>({ price: true, options: true, macro: true, event: true, policy: true });
-    const [principles, setPrinciples] = useState<string[]>([]);
-    const [evidenceCards, setEvidenceCards] = useState<EvidenceCard[]>([]);
-    const [items, setItems] = useState<TickerItem[]>([]);
-    const [top3, setTop3] = useState<TickerItem[]>([]);
-    const [selectedTickerItem, setSelectedTickerItem] = useState<TickerItem | null>(null);
+    // State
+    const [report, setReport] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [selectedTicker, setSelectedTicker] = useState<TickerItem | null>(null);
 
-    // Fetch data
+    // Fetch Data
     useEffect(() => {
-        const fetchData = async () => {
+        async function fetchReport() {
             try {
-                const res = await fetch("/api/health/report?type=eod&includeSnapshot=true", { cache: "no-store" });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const data = await res.json();
+                // Fetch the Morning Report (default)
+                // In a real scenario, this might need to determine if it's Pre/Post/Regular market
+                const res = await fetch('/api/cron/report?type=morning');
 
-                // Extract data
-                const snapshot = data.snapshot || {};
-                const allItems = snapshot.items || [];
-
-                // Global Options Fallback
-                const globalOptState = data.optionsStatus?.state || "UNKNOWN";
-
-                // Map items with normalized options status
-                const mappedItems = allItems.map((item: any) => ({
-                    ...item,
-                    // [P0-1 Fix] Correct mapping: item > global > UNKNOWN
-                    options_status: item.options_status || globalOptState
-                }));
-
-                // Regime
-                setRegime(snapshot.marketSentiment?.regime || "NEUTRAL");
-
-                // ... (existing gate logic kept as is) ...
-                // Gates
-                const integrity = data.integrity || {};
-                setGates({
-                    price: true,
-                    options: globalOptState === "READY" || globalOptState === "OK",
-                    macro: true,
-                    event: !snapshot.events?.events?.some((e: any) => e.importance === "HIGH" && e.date === new Date().toISOString().split("T")[0]),
-                    policy: !snapshot.policy?.policies72h?.some((p: any) => p.category === "P0")
-                });
-
-                // ... (principles/cards logic kept as is) ...
-                // Generate principles
-                const genPrinciples: string[] = [];
-                if (!gates.event) genPrinciples.push("⚠️ 이벤트 전 신규 진입 금지");
-                if (!gates.policy) genPrinciples.push("🚫 P0급 정책 충돌 - 증액 금지");
-                if (regime === "RISK_OFF") genPrinciples.push("🛡️ 추격 금지 / 리테스트만 허용");
-                if (genPrinciples.length === 0) genPrinciples.push("✅ 정상 진입 가능 - 전략 실행");
-                genPrinciples.push("📊 옵션 Put Floor 이탈 시 즉시 하드컷");
-                setPrinciples(genPrinciples.slice(0, 3));
-
-                // Build Evidence Cards (reused logic)
-                const cards: EvidenceCard[] = [];
-                const macroSnapshot = snapshot.macro || {};
-                cards.push({
-                    id: "macro",
-                    title: "MACRO/FED",
-                    titleKR: "거시 지표",
-                    meaning: "시장 전체의 방향과 리스크 선호도를 결정하는 핵심 지표",
-                    interpretation: `NDX ${macroSnapshot.factors?.nasdaq100?.chgPct?.toFixed(2) || 0}% | VIX ${macroSnapshot.factors?.vix?.level?.toFixed(1) || "—"}`,
-                    action: regime === "RISK_ON" ? "적극 진입 가능" : regime === "RISK_OFF" ? "신규 진입 자제" : "선별 진입",
-                    confidence: "A",
-                    icon: <TrendingUp className="w-4 h-4" />,
-                    status: regime === "RISK_ON" ? "BULLISH" : regime === "RISK_OFF" ? "BEARISH" : "NEUTRAL"
-                });
-
-                const events = snapshot.events?.events || [];
-                const upcomingHigh = events.filter((e: any) => e.importance === "HIGH").slice(0, 2);
-                cards.push({
-                    id: "events",
-                    title: "ECONOMIC EVENTS",
-                    titleKR: "경제 이벤트",
-                    meaning: "단기 변동성을 유발하는 예정된 경제지표 발표",
-                    interpretation: upcomingHigh.length > 0 ? upcomingHigh.map((e: any) => `${e.nameKR} (${e.date})`).join(", ") : "7일 내 주요 이벤트 없음",
-                    action: upcomingHigh.length > 0 ? "이벤트 전후 변동성 주의" : "정상 진입 가능",
-                    confidence: "A",
-                    icon: <Clock className="w-4 h-4" />,
-                    status: upcomingHigh.length > 0 ? "NEUTRAL" : "BULLISH"
-                });
-
-                const policies72h = snapshot.policy?.policies72h || [];
-                const p0Policies = policies72h.filter((p: any) => p.category === "P0");
-                cards.push({
-                    id: "policy",
-                    title: "POLICY GATE",
-                    titleKR: "정책 게이트",
-                    meaning: "대통령 행정명령, 규제 변경 등 정책 리스크",
-                    interpretation: p0Policies.length > 0 ? `P0급 충돌: ${p0Policies[0].titleKR}` : "72h 내 P0급 정책 없음",
-                    action: p0Policies.length > 0 ? "신규/증액 금지" : "정상 진입 가능",
-                    confidence: p0Policies.length > 0 ? "A" : "B",
-                    icon: <Shield className="w-4 h-4" />,
-                    status: p0Policies.length > 0 ? "BEARISH" : "BULLISH"
-                });
-
-                cards.push({
-                    id: "options",
-                    title: "OPTIONS STRUCTURE",
-                    titleKR: "옵션 구조",
-                    meaning: "마켓 메이커의 헤징 포지션과 예상 핀존",
-                    interpretation: `OI 커버리지 ${data.optionsStatus?.coveragePct || 0}% | 상태: ${globalOptState}`,
-                    action: globalOptState === "READY" || globalOptState === "OK" ? "옵션 레벨 참고 가능" : "옵션 데이터 불완전 - 보수적 접근",
-                    confidence: globalOptState === "READY" || globalOptState === "OK" ? "A" : "C",
-                    icon: <BarChart3 className="w-4 h-4" />,
-                    status: globalOptState === "READY" || globalOptState === "OK" ? "BULLISH" : "PENDING"
-                });
-
-                setEvidenceCards(cards);
-
-                // Items & Top3 with mapped options_status
-                const sortedItems = mappedItems.sort((a: TickerItem, b: TickerItem) => (b.alphaScore || 0) - (a.alphaScore || 0));
-                setItems(sortedItems);
-                setTop3(sortedItems.slice(0, 3));
-
-                setLoading(false);
-            } catch (e: any) {
-                setError(e.message);
-                setLoading(false);
+                if (res.ok) {
+                    const data = await res.json();
+                    setReport(data);
+                } else {
+                    console.error("Failed to fetch report, status:", res.status);
+                    // Handle error state or retry
+                }
+            } catch (e) {
+                console.error("Report fetch error:", e);
+            } finally {
+                setIsLoading(false);
             }
-        };
-
-        fetchData();
+        }
+        fetchReport();
     }, []);
 
-    // ... (rest of loading/render logic same until table) ...
-    if (loading) {
-        return (
+    // Derived Lists
+    const items: TickerItem[] = report?.items || [];
+    // Ensure Top 3 are actually the ones ranked 1, 2, 3
+    const top3 = items.filter(i => (i as any).rank <= 3).sort((a, b) => ((a as any).rank || 99) - ((b as any).rank || 99));
+    const alpha12 = items.sort((a, b) => ((a as any).rank || 99) - ((b as any).rank || 99));
+
+    // Market Context Cards (derived from report.macro/sentiment)
+    // We construct these dynamically based on the fetched report data
+    const marketCards: EvidenceCard[] = [];
+
+    if (report) {
+        // 1. Regime Card
+        const regime = report.engine?.regime || "NEUTRAL";
+        marketCards.push({
+            id: "regime",
+            title: "MARKET REGIME",
+            titleKR: "시장 국면",
+            meaning: "시장 전체의 위험 선호도",
+            interpretation: report.engine?.regimeReasonKR || "데이터 분석 중...",
+            action: regime === "RISK_ON" ? "비중 확대" : regime === "RISK_OFF" ? "리스크 관리" : "선별 대응",
+            confidence: "A",
+            icon: <Activity />,
+            status: regime === "RISK_ON" ? "BULLISH" : regime === "RISK_OFF" ? "BEARISH" : "NEUTRAL",
+            meta: { fetchedAtET: report.meta?.generatedAtET }
+        });
+
+        // 2. Policy/Event Card (Combined or Highest Priority)
+        const events = report.events?.events || [];
+        const policies = report.policy?.policies72h || [];
+        const highRiskEvents = events.filter((e: any) => e.importance === "HIGH");
+        const p0Policies = policies.filter((p: any) => p.category === "P0");
+
+        if (p0Policies.length > 0) {
+            marketCards.push({
+                id: "policy",
+                title: "POLICY GATE",
+                titleKR: "정책 리스크",
+                meaning: "행정명령 및 규제 충돌",
+                interpretation: `P0급 충돌: ${p0Policies[0].titleKR}`,
+                action: "신규 진입 금지",
+                confidence: "A",
+                icon: <Shield />,
+                status: "BEARISH"
+            });
+        } else if (highRiskEvents.length > 0) {
+            marketCards.push({
+                id: "event",
+                title: "MACRO EVENT",
+                titleKR: "주요 이벤트",
+                meaning: "경제 지표 발표 및 연준 일정",
+                interpretation: `${highRiskEvents[0].nameKR} 등 ${highRiskEvents.length}건`,
+                action: "변동성 주의",
+                confidence: "B",
+                icon: <Clock />,
+                status: "NEUTRAL"
+            });
+        } else {
+            // Default if quiet
+            marketCards.push({
+                id: "macro_ok",
+                title: "MACRO",
+                titleKR: "거시 환경",
+                meaning: "주요 경제 이벤트 및 정책",
+                interpretation: "특이사항 없음 (72h)",
+                action: "전략 정상 실행",
+                confidence: "A",
+                icon: <Zap />,
+                status: "BULLISH"
+            });
+        }
+
+        // 3. Options Status Card
+        const optState = report.meta?.optionsStatus?.state || "UNKNOWN";
+        const optCov = report.meta?.optionsStatus?.coveragePct || 0;
+        marketCards.push({
+            id: "options",
+            title: "OPTIONS",
+            titleKR: "옵션 시장",
+            meaning: "파생상품 수급 및 구조",
+            interpretation: `커버리지 ${optCov}% (${optState})`,
+            action: optState === "READY" ? "레벨 신뢰 가능" : "보수적 운용",
+            confidence: optState === "READY" ? "A" : "C",
+            icon: <BarChart3 />,
+            status: optState === "READY" ? "BULLISH" : optState === "FAILED" ? "PENDING" : "NEUTRAL"
+        });
+    }
+
+    // Regime for Header
+    const regime = report?.engine?.regime || "NEUTRAL";
+
+    return (
+        <main className="min-h-screen bg-slate-950 font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
+            {isDebug && (
+                <div className="fixed top-0 left-0 right-0 h-1 bg-indigo-500 z-[200]" title="Debug Mode Active" />
+            )}
+
+            <LandingHeader />
+
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+
+                {/* 1. HEADER & MARKET CONTEXT */}
+                <section>
+                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
+                        <div>
+                            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
+                                Alpha12 Terminal
+                                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${getRegimeColor(regime)}`}>
+                                    {getRegimeText(regime)}
+                                </span>
+                            </h1>
+                            <p className="text-sm text-slate-400 mt-1 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                Unified Output • {report?.meta?.generatedAtET || <Skeleton className="w-16 h-3 inline-block" />}
+                            </p>
+                        </div>
+                        {/* Debug & Meta */}
+                        <div className="flex items-center gap-3">
+                            <div className="text-right hidden md:block">
+                                <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider">PIPELINE</span>
+                                <span className="block text-xs font-mono text-slate-300">{report?.meta?.pipelineVersion || "v--"}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {isLoading ? (
+                            [1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-900 rounded border border-slate-800 animate-pulse" />)
+                        ) : (
+                            marketCards.map(card => <EvidenceCardUI key={card.id} card={card} />)
+                        )}
+                        {/* Fallback if no cards yet (loading or empty report) */}
+                        {!isLoading && marketCards.length === 0 && (
+                            <div className="col-span-3 text-center p-8 border border-slate-800 border-dashed rounded text-slate-500 text-sm">
+                                Waiting for Market Snapshot...
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                {/* 2. TOP 3 ALPHA */}
+                <section>
+                    <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-amber-400" />
+                        Alpha Picks (Top 3)
+                    </h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {isLoading ? (
+                            [1, 2, 3].map(i => <div key={i} className="h-64 bg-slate-900 rounded border border-slate-800 animate-pulse" />)
+                        ) : (
+                            top3.map((item, idx) => (
+                                <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
+                                    <Top3Card item={item} rank={idx + 1} />
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </section>
+
+                {/* 3. ALPHA 12 SCAN TABLE */}
+                <section>
+                    <div className="flex justify-between items-center mb-4">
+                        <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+                            <Search className="w-5 h-5 text-slate-400" />
+                            Live Scan
+                        </h2>
+                        <div className="flex gap-4">
+                            <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Options Ready
+                            </span>
+                            <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
+                                <div className="w-1.5 h-1.5 rounded-full bg-slate-600" /> No Data
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-sm">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-slate-950 border-b border-slate-800 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                        <th className="p-4 w-[60px] text-center">Rank</th>
+                                        <th className="p-4 w-[120px]">Ticker</th>
+                                        <th className="p-4 text-right">Score</th>
+                                        <th className="p-4 text-right">Price</th>
+                                        <th className="p-4 text-right">Flow</th>
+                                        <th className="p-4 text-center">Options</th>
+                                        <th className="p-4 hidden md:table-cell">Triggers</th>
+                                        <th className="p-4 text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-800/50">
+                                    {isLoading ? (
+                                        [1, 2, 3, 4, 5].map(i => (
+                                            <tr key={i}>
+                                                <td colSpan={8} className="p-4"><Skeleton className="h-12 w-full" /></td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        alpha12.map((item, idx) => {
+                                            const ev = item.evidence;
+
+                                            // Safety check: if ev is missing (legacy report), fallback
+                                            if (!ev) return null;
+
+                                            const optStatus = getOptionsStatus(ev.options?.status);
+                                            const actStyle = getActionStyle(item.decisionSSOT?.action);
+                                            const isTop3 = idx < 3;
+
+                                            // Debug highlighting
+                                            const rowBg = isDebug && ev.options?.backfilled ? "bg-indigo-950/10" : isTop3 ? "bg-slate-800/30 hover:bg-slate-800/60" : "hover:bg-slate-800/50";
+
+                                            return (
+                                                <tr key={item.ticker}
+                                                    onClick={() => setSelectedTicker(item)}
+                                                    className={`cursor-pointer transition-colors group ${rowBg}`}
+                                                >
+                                                    <td className={`p-4 text-center font-mono text-xs ${isTop3 ? "font-bold text-white" : "text-slate-500"}`}>
+                                                        {(item as any).rank || idx + 1}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 bg-white rounded-full p-0.5 flex-shrink-0 shadow-sm">
+                                                                <img
+                                                                    src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
+                                                                    className="w-full h-full object-contain rounded-full"
+                                                                    onError={(e) => {
+                                                                        e.currentTarget.style.display = 'none';
+                                                                        e.currentTarget.parentElement!.style.backgroundColor = '#334155';
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                            <div>
+                                                                <span className="block text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{item.ticker}</span>
+                                                                <span className="block text-[10px] text-slate-500">{item.symbol || item.ticker}</span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <span className={`font-mono font-bold text-sm ${(item.alphaScore || 0) > 80 ? "text-emerald-400" : (item.alphaScore || 0) > 50 ? "text-slate-300" : "text-slate-500"
+                                                            }`}>
+                                                            {item.alphaScore?.toFixed(0) || "-"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <div className="flex flex-col items-end">
+                                                            <span className="text-sm font-mono text-slate-200">${ev.price.last.toFixed(2)}</span>
+                                                            <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <div className="flex flex-col items-end">
+                                                            <span className={`text-xs font-mono ${(ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : "text-slate-500"}`}>
+                                                                ${(ev.flow.largeTradesUsd / 1000000).toFixed(1)}M
+                                                            </span>
+                                                            <span className="text-[10px] text-slate-500">
+                                                                OffEx {ev.flow.offExPct.toFixed(0)}%
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <span className={`inline-flex w-2.5 h-2.5 rounded-full ${optStatus.color}`} title={optStatus.label} />
+                                                    </td>
+                                                    <td className="p-4 hidden md:table-cell">
+                                                        <div className="flex flex-wrap gap-1 justify-end md:justify-start">
+                                                            {(item.decisionSSOT?.triggersKR || []).slice(0, 2).map((t, i) => (
+                                                                <span key={i} className="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] text-slate-400 border border-slate-700 whitespace-nowrap">
+                                                                    {t}
+                                                                </span>
+                                                            ))}
+                                                            {(item.decisionSSOT?.triggersKR?.length || 0) > 2 && (
+                                                                <span className="text-[9px] text-slate-600">+{(item.decisionSSOT?.triggersKR?.length || 0) - 2}</span>
+                                                            )}
+                                                            {(item.decisionSSOT?.triggersKR?.length || 0) === 0 && (
+                                                                <span className="text-[9px] text-slate-700">-</span>
+                                                            )}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <span className={`px-2 py-1 rounded text-[10px] font-bold border ${actStyle}`}>
+                                                            {item.decisionSSOT?.action || "WAIT"}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </section>
+
+                {/* 4. FOOTER / DEBUG INFO */}
+                {isDebug && report && (
+                    <section className="bg-slate-900 p-4 rounded border border-indigo-500/30 overflow-x-auto">
+                        <h3 className="text-xs font-bold text-indigo-400 mb-2 font-mono">DEBUG INSPECTOR (?debug=1)</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase">Engine Stats</h4>
+                                <pre className="text-[10px] text-slate-400 font-mono mt-1">
+                                    {JSON.stringify(report.engine?.counts || {}, null, 2)}
+                                </pre>
+                            </div>
+                            <div>
+                                <h4 className="text-[10px] font-bold text-slate-500 uppercase">Options Status</h4>
+                                <pre className="text-[10px] text-slate-400 font-mono mt-1">
+                                    {JSON.stringify(report.meta?.optionsStatus || {}, null, 2)}
+                                </pre>
+                            </div>
+                        </div>
+                    </section>
+                )}
+
+                <footer className="text-center pb-8 pt-4">
+                    <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">
+                        GEMS v8.1 Unified Engine • Tier 0.1
+                    </p>
+                </footer>
+
+            </div>
+
+            {/* DRAWER PORTAL */}
+            {selectedTicker && (
+                <TickerEvidenceDrawer item={selectedTicker} onClose={() => setSelectedTicker(null)} />
+            )}
+
+        </main>
+    );
+}
+
+export default function Tier01Page() {
+    return (
+        <React.Suspense fallback={
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-slate-400 text-sm">Loading Evidence...</p>
+                    <p className="text-slate-400 text-sm">Initializing Terminal...</p>
                 </div>
             </div>
-        );
-    }
-
-    return (
-        <div className="min-h-screen bg-slate-950 text-white">
-            {/* Navigation Header */}
-            <LandingHeader />
-
-            {/* HEADER */}
-            <header className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur-sm border-b border-slate-800">
-                <div className="max-w-7xl mx-auto px-4 py-4">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                            <div className={`px-3 py-1.5 rounded-lg ${getRegimeColor(regime)} text-white font-black text-sm flex items-center gap-2`}>
-                                {regime === "RISK_ON" ? <TrendingUp className="w-4 h-4" /> : regime === "RISK_OFF" ? <TrendingDown className="w-4 h-4" /> : <Activity className="w-4 h-4" />}
-                                {getRegimeText(regime)}
-                            </div>
-                            <span className="text-slate-500 text-xs font-mono">|</span>
-                            <span className="text-[11px] text-slate-400 uppercase tracking-widest font-bold">Tier 0.1 Evidence Terminal</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <GateBadge label="Price" pass={gates.price} />
-                            <GateBadge label="Options" pass={gates.options} />
-                            <GateBadge label="Macro" pass={gates.macro} />
-                            <GateBadge label="Event" pass={gates.event} />
-                            <GateBadge label="Policy" pass={gates.policy} />
-                        </div>
-                    </div>
-                    <div className="bg-slate-900/50 rounded-lg p-3 border border-slate-800">
-                        <p className="text-[10px] text-slate-500 uppercase tracking-widest mb-2 font-bold">오늘의 행동 원칙</p>
-                        <div className="flex flex-wrap gap-4">
-                            {principles.map((p, i) => (
-                                <span key={i} className="text-[11px] text-slate-300">{p}</span>
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </header>
-
-            {/* MAIN */}
-            <main className="max-w-7xl mx-auto px-4 py-8">
-                {error && (
-                    <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-4 mb-6 flex items-center gap-3">
-                        <AlertCircle className="w-5 h-5 text-rose-400" />
-                        <span className="text-rose-300 text-sm">{error}</span>
-                    </div>
-                )}
-
-                {/* Evidence Stack */}
-                <section className="mb-10">
-                    <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Evidence Stack</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {evidenceCards.map(card => (
-                            <EvidenceCardUI key={card.id} card={card} />
-                        ))}
-                    </div>
-                </section>
-
-                {/* Top3 Execution */}
-                <section className="mb-10">
-                    <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Top3 Execution</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {top3.map((item, i) => (
-                            <Top3Card key={item.ticker} item={item} rank={i + 1} />
-                        ))}
-                    </div>
-                </section>
-
-                {/* Alpha12 Scan */}
-                <section>
-                    <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">Alpha12 Scan</h2>
-                        <div className="text-[10px] text-slate-600 font-mono">LIVE RANKING</div>
-                    </div>
-
-                    <div className="border border-slate-800 rounded-lg overflow-hidden">
-                        <table className="w-full">
-                            <thead className="bg-slate-950 border-b border-slate-800">
-                                <tr>
-                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">#</th>
-                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Ticker</th>
-                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Tier</th>
-                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Alpha</th>
-                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Action</th>
-                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Options</th>
-                                    <th className="px-4 py-2 text-right text-[9px] font-bold text-slate-500 uppercase tracking-wider">Details</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800/50 bg-slate-900/20">
-                                {items.slice(0, 12).map((item, i) => {
-                                    const opt = getOptionsStatus(item.options_status);
-                                    const action = item.decisionSSOT?.action || "CAUTION";
-                                    const tier = item.qualityTier || (i < 3 ? "ACTIONABLE" : i < 8 ? "WATCH" : "FILLER");
-
-                                    return (
-                                        <tr
-                                            key={item.ticker}
-                                            className="hover:bg-slate-800/40 cursor-pointer transition-colors group"
-                                            // [Changed] Open drawer on row click
-                                            onClick={() => setSelectedTickerItem(item)}
-                                        >
-                                            <td className="px-4 py-2.5">
-                                                <span className="text-[10px] font-mono text-slate-600 group-hover:text-slate-500">{String(i + 1).padStart(2, "0")}</span>
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className="text-[13px] font-bold text-slate-200 group-hover:text-white transition-colors tracking-tight">{item.ticker}</span>
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${getTierStyle(tier)}`}>
-                                                    {tier}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className="text-[12px] font-mono font-bold text-indigo-400 tabular-nums">{item.alphaScore?.toFixed(1) || "—"}</span>
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${getActionStyle(action)}`}>
-                                                    {action}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-2.5">
-                                                <div className="flex items-center gap-2">
-                                                    <div className={`w-1.5 h-1.5 rounded-full ${opt.color}`} />
-                                                    <span className="text-[10px] text-slate-500 font-medium">{opt.label}</span>
-                                                </div>
-                                            </td>
-                                            {/* [Changed] Details Button ONLY for navigation */}
-                                            <td className="px-4 py-2.5 text-right">
-                                                <button
-                                                    onClick={(e) => {
-                                                        e.stopPropagation(); // Prevent drawer
-                                                        router.push(`/ticker?ticker=${item.ticker}`);
-                                                    }}
-                                                    className="p-1 hover:bg-slate-800 rounded text-slate-600 hover:text-indigo-400 transition-colors"
-                                                >
-                                                    <ChevronRight className="w-3.5 h-3.5" />
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
-            </main>
-
-            {/* Evidence Drawer */}
-            {selectedTickerItem && (
-                <TickerEvidenceDrawer item={selectedTickerItem} onClose={() => setSelectedTickerItem(null)} />
-            )}
-
-            {/* Footer */}
-            <footer className="border-t border-slate-800 py-6 mt-12">
-                <div className="max-w-7xl mx-auto px-4 text-center">
-                    <p className="text-[10px] text-slate-600">
-                        Alpha Commander V8.1 | Evidence-Driven Terminal | {new Date().toLocaleString("en-US", { timeZone: "America/New_York", dateStyle: "short", timeStyle: "short" })} ET
-                    </p>
-                </div>
-            </footer>
-        </div>
+        }>
+            <Tier01Content />
+        </React.Suspense>
     );
 }

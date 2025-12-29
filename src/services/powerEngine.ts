@@ -23,55 +23,64 @@ function isLeaderSymbol(symbol: string): boolean {
     );
 }
 
-// === COMPUTE QUALITY TIER ===
+// === COMPUTE QUALITY TIER (vNext Weighted) ===
 export function computeQualityTier(
-    item: any,
+    item: any, // Typed as TerminalItem in practice
     prevReportSymbols: Set<string> = new Set(),
     isBackfilled: boolean = false
 ): QualityTierResult {
-    const symbol = item.symbol || item.ticker || '';
-    const baseScore = item.alphaScore || item.score || 0;
+    const symbol = item.ticker || '';
+    const evidence = item.evidence; // Enhanced Evidence
 
-    // Extract signals
+    // 1. Calculate weighted AlphaScore 2.0
+    let alphaScore = 0;
+
+    if (evidence) {
+        // A) Price (25)
+        const priceScore = calculatePriceScore(evidence.price);
+        alphaScore += (priceScore * POWER_SCORE_CONFIG.WEIGHTS.PRICE) / 100;
+
+        // B) Options (25)
+        const optionsScore = calculateOptionsScore(evidence.options);
+        alphaScore += (optionsScore * POWER_SCORE_CONFIG.WEIGHTS.OPTIONS) / 100;
+
+        // C) Flow (20)
+        const flowScore = calculateFlowScore(evidence.flow);
+        alphaScore += (flowScore * POWER_SCORE_CONFIG.WEIGHTS.FLOW) / 100;
+
+        // D) Macro (15)
+        const macroScore = calculateMacroScore(evidence.macro);
+        alphaScore += (macroScore * POWER_SCORE_CONFIG.WEIGHTS.MACRO) / 100;
+
+        // E) Stealth (15)
+        const stealthScore = calculateStealthScore(evidence.stealth);
+        alphaScore += (stealthScore * POWER_SCORE_CONFIG.WEIGHTS.STEALTH) / 100;
+
+    } else {
+        // Legacy Fallback
+        alphaScore = item.alphaScore || 0;
+    }
+
+    // 2. Adjustments (Bonuses/Penalties)
     const holdAction = item.decisionSSOT?.action || 'NONE';
-    const confidence = item.decisionSSOT?.confidencePct || 50;
     const reportDiffReason = item.classification?.reportDiffReason || item.reportDiffReason || 'NONE';
     const wasInPrevReport = prevReportSymbols.has(symbol);
 
-    // Calculate Power Score
-    let powerScore = baseScore;
+    if (reportDiffReason === 'CONTINUATION') alphaScore += POWER_SCORE_CONFIG.BONUS_CONTINUATION;
+    if (reportDiffReason === 'RECOVERY') alphaScore += POWER_SCORE_CONFIG.BONUS_RECOVERY;
+    if (wasInPrevReport) alphaScore += POWER_SCORE_CONFIG.BONUS_STABILITY;
+    if (isLeaderSymbol(symbol)) alphaScore += POWER_SCORE_CONFIG.BONUS_LEADER_TRACK;
 
-    // Bonuses
-    if (reportDiffReason === 'CONTINUATION') {
-        powerScore += POWER_SCORE_CONFIG.BONUS_CONTINUATION;
-    }
-    if (reportDiffReason === 'RECOVERY') {
-        powerScore += POWER_SCORE_CONFIG.BONUS_RECOVERY;
-    }
-    if (wasInPrevReport) {
-        powerScore += POWER_SCORE_CONFIG.BONUS_STABILITY;
-    }
-    if (isLeaderSymbol(symbol)) {
-        powerScore += POWER_SCORE_CONFIG.BONUS_LEADER_TRACK;
-    }
+    if (reportDiffReason === 'WEAKENING') alphaScore += POWER_SCORE_CONFIG.PENALTY_WEAKENING;
+    if (holdAction === 'EXIT') alphaScore += POWER_SCORE_CONFIG.PENALTY_EXIT;
+    if (!wasInPrevReport) alphaScore += POWER_SCORE_CONFIG.PENALTY_NEW_ENTRY;
 
-    // Penalties
-    if (reportDiffReason === 'WEAKENING') {
-        powerScore += POWER_SCORE_CONFIG.PENALTY_WEAKENING;
-    }
-    if (holdAction === 'EXIT' || reportDiffReason === 'EXIT_SIGNAL') {
-        powerScore += POWER_SCORE_CONFIG.PENALTY_EXIT;
-    }
-    if (!wasInPrevReport) {
-        powerScore += POWER_SCORE_CONFIG.PENALTY_NEW_ENTRY;
-    }
-
-    // === TIER DETERMINATION ===
+    // 3. Tier Determination
     let tier: QualityTier;
     let reasonKR: string;
 
     // Rule: Backfilled items are always FILLER
-    if (isBackfilled) {
+    if (isBackfilled || !evidence) {
         tier = 'FILLER';
         reasonKR = 'Backfill 충원 종목 (Top3 승격 불가)';
     }
@@ -80,32 +89,72 @@ export function computeQualityTier(
         tier = 'FILLER';
         reasonKR = '매도 신호 (EXIT)';
     }
-    // Rule: High score + good confidence + not WEAKENING -> ACTIONABLE
-    else if (
-        powerScore >= QUALITY_TIER_CONFIG.ACTIONABLE_MIN_SCORE &&
-        confidence >= QUALITY_TIER_CONFIG.ACTIONABLE_MIN_CONFIDENCE &&
-        reportDiffReason !== 'WEAKENING'
-    ) {
+    // Rule: Policy Block
+    else if (evidence.policy?.gate?.blocked) {
+        tier = 'FILLER';
+        reasonKR = '정책적 차단 (Policy Block)';
+    }
+    // Rule: High score -> ACTIONABLE
+    else if (alphaScore >= QUALITY_TIER_CONFIG.ACTIONABLE_MIN_SCORE) {
         tier = 'ACTIONABLE';
-        reasonKR = `고점수(${powerScore.toFixed(1)}) + 신뢰도(${confidence}%) = 매수 적합`;
+        reasonKR = `고강도(${alphaScore.toFixed(0)}) + 통합근거 = 매수 적합`;
     }
     // Rule: Moderate -> WATCH
-    else if (powerScore >= QUALITY_TIER_CONFIG.WATCH_MIN_SCORE) {
+    else if (alphaScore >= QUALITY_TIER_CONFIG.WATCH_MIN_SCORE) {
         tier = 'WATCH';
-        reasonKR = `중간 점수(${powerScore.toFixed(1)}) - 관망 권장`;
+        reasonKR = `중립(${alphaScore.toFixed(0)}) - 관망 권장`;
     }
-    // Default: FILLER
     else {
         tier = 'FILLER';
-        reasonKR = `저점수(${powerScore.toFixed(1)}) - 채움용`;
+        reasonKR = `저강도(${alphaScore.toFixed(0)}) - 채움용`;
     }
 
     return {
         tier,
         reasonKR,
-        powerScore,
+        powerScore: alphaScore,
         isBackfilled
     };
+}
+
+// vNext Scoring Helpers
+function calculatePriceScore(p?: any): number {
+    if (!p) return 0;
+    let score = 50; // Base
+    if (p.changePct > 0) score += 20;
+    if (p.vwapDistPct > 0) score += 20;
+    if (p.rsi14 >= 50 && p.rsi14 <= 70) score += 10;
+    return Math.min(100, Math.max(0, score));
+}
+
+function calculateOptionsScore(o?: any): number {
+    if (!o) return 0;
+    let score = 50;
+    if (o.status === 'BULLISH') score += 30;
+    else if (o.status === 'BEARISH') score -= 20;
+    if (o.gammaRegime === 'Long Gamma') score += 10; // Stability
+    return Math.min(100, Math.max(0, score));
+}
+
+function calculateFlowScore(f?: any): number {
+    if (!f) return 0;
+    let score = 50;
+    if (f.offExPct > 45) score += 15;
+    if (f.relVol > 1.2) score += 20;
+    return Math.min(100, Math.max(0, score));
+}
+
+function calculateMacroScore(m?: any): number {
+    if (!m) return 50;
+    // Simple pass-through regime
+    return 50; // Neutral default for now
+}
+
+function calculateStealthScore(s?: any): number {
+    if (!s) return 0;
+    if (s.label === 'A') return 90;
+    if (s.label === 'B') return 70;
+    return 30;
 }
 
 // === DETERMINE MARKET REGIME ===

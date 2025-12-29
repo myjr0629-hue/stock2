@@ -9,7 +9,7 @@ export async function GET(request: Request) {
     const type = searchParams.get('type') as ReportType | null;
 
     // Validate type
-    if (!type || !['eod', 'pre2h', 'open30m'].includes(type)) {
+    if (!type || !['morning', 'eod', 'pre2h', 'open30m'].includes(type)) {
         return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
     }
 
