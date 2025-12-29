@@ -56,27 +56,25 @@ function calculateLayerScores(evidence: any): ScoreResult {
     let totalWeight = 0;
     let weightedSum = 0;
 
-    // A) Price Layer (Weight: 25)
+    // A) Price Layer (Weight: 25) - [P0] Continuous scaling
     if (evidence?.price?.complete) {
         const p = evidence.price;
         let score = 0;
 
-        // Momentum (0-40)
-        if (p.changePct > 3) score += 40;
-        else if (p.changePct > 1) score += 30;
-        else if (p.changePct > 0) score += 20;
-        else if (p.changePct > -1) score += 10;
+        // Momentum (-5% to +5% → 0-40 continuous)
+        const momentumScore = Math.max(0, Math.min(40, (p.changePct + 2) * 8));
+        score += momentumScore;
 
-        // VWAP Position (0-30)
-        if (p.vwapDistPct > 1) score += 30;
-        else if (p.vwapDistPct > 0) score += 20;
-        else if (p.vwapDistPct > -1) score += 10;
+        // VWAP Position (-3% to +3% → 0-30 continuous)
+        const vwapScore = Math.max(0, Math.min(30, (p.vwapDistPct + 1.5) * 10));
+        score += vwapScore;
 
-        // RSI Sweet Spot (0-30)
-        if (p.rsi14 >= 50 && p.rsi14 <= 70) score += 30;
-        else if (p.rsi14 >= 40 && p.rsi14 <= 80) score += 15;
+        // RSI Sweet Spot (30-70 optimal band → 0-30)
+        const rsiDistance = Math.abs(p.rsi14 - 55); // Distance from optimal 55
+        const rsiScore = Math.max(0, 30 - rsiDistance); // Closer to 55 = higher
+        score += rsiScore;
 
-        layerScores.price = Math.min(100, score);
+        layerScores.price = Math.max(0, Math.min(100, score));
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.PRICE;
         weightedSum += layerScores.price * POWER_SCORE_CONFIG.WEIGHTS.PRICE;
@@ -114,53 +112,46 @@ function calculateLayerScores(evidence: any): ScoreResult {
         weightedSum += layerScores.options * POWER_SCORE_CONFIG.WEIGHTS.OPTIONS;
     }
 
-    // C) Flow Layer (Weight: 20)
+    // C) Flow Layer (Weight: 20) - [P0] Continuous scaling
     if (evidence?.flow?.complete) {
         const f = evidence.flow;
         let score = 0;
 
-        // Relative Volume (0-50)
-        if (f.relVol > 2.0) score += 50;
-        else if (f.relVol > 1.5) score += 40;
-        else if (f.relVol > 1.2) score += 30;
-        else if (f.relVol > 1.0) score += 20;
-        else score += 10;
+        // Relative Volume (0.5x to 3x → 0-50 continuous)
+        const relVolClamped = Math.max(0.5, Math.min(3, f.relVol));
+        const relVolScore = ((relVolClamped - 0.5) / 2.5) * 50;
+        score += relVolScore;
 
-        // Off-Exchange Activity (0-30)
-        if (f.offExPct > 50) score += 30;
-        else if (f.offExPct > 40) score += 20;
-        else score += 10;
+        // Gap % (-3% to +5% → 0-30)
+        const gapClamped = Math.max(-3, Math.min(5, f.gapPct));
+        const gapScore = Math.max(0, ((gapClamped + 1) / 6) * 30);
+        score += gapScore;
 
-        // Large Trades (0-20)
-        if (f.largeTradesUsd > 10_000_000) score += 20;
-        else if (f.largeTradesUsd > 5_000_000) score += 15;
-        else if (f.largeTradesUsd > 1_000_000) score += 10;
+        // [P0] offExPct removed from scoring (no source)
+        // Base 20 for having flow data at all
+        score += 20;
 
-        layerScores.flow = Math.min(100, score);
+        layerScores.flow = Math.max(0, Math.min(100, score));
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.FLOW;
         weightedSum += layerScores.flow * POWER_SCORE_CONFIG.WEIGHTS.FLOW;
     }
 
-    // D) Macro Layer (Weight: 15)
+    // D) Macro Layer (Weight: 15) - [P0] Continuous scaling
     if (evidence?.macro?.complete) {
         const m = evidence.macro;
-        let score = 50; // Neutral base for macro
 
-        // NDX Direction
+        // NDX Direction (-3% to +3% → 0-60 continuous)
         const ndxPct = m.ndx?.changePct || 0;
-        if (ndxPct > 1) score += 25;
-        else if (ndxPct > 0) score += 15;
-        else if (ndxPct > -1) score += 5;
-        else score -= 10;
+        const ndxClamped = Math.max(-3, Math.min(3, ndxPct));
+        const ndxScore = ((ndxClamped + 3) / 6) * 60;
 
-        // VIX Level
+        // VIX Level (10-40 inverted → 0-40)
         const vix = m.vix?.value || 20;
-        if (vix < 15) score += 15;
-        else if (vix < 20) score += 10;
-        else if (vix > 30) score -= 15;
+        const vixClamped = Math.max(10, Math.min(40, vix));
+        const vixScore = ((40 - vixClamped) / 30) * 40; // Lower VIX = higher score
 
-        layerScores.macro = Math.max(0, Math.min(100, score));
+        layerScores.macro = Math.max(0, Math.min(100, ndxScore + vixScore));
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.MACRO;
         weightedSum += layerScores.macro * POWER_SCORE_CONFIG.WEIGHTS.MACRO;

@@ -8,9 +8,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as ReportType | null;
 
-    // Validate type
-    if (!type || !['morning', 'eod', 'pre2h', 'open30m'].includes(type)) {
-        return NextResponse.json({ error: 'Invalid type' }, { status: 400 });
+    // [P0] Validate type - 3 fixed reports + legacy morning
+    if (!type || !['eod', 'pre', 'open', 'morning'].includes(type)) {
+        return NextResponse.json({ error: 'Invalid type. Use: eod, pre, open' }, { status: 400 });
     }
 
     // Security: Check CRON_SECRET in production

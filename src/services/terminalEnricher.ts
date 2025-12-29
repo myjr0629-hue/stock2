@@ -22,13 +22,15 @@ import {
     CachedMacroBundle
 } from '@/lib/storage/evidenceCache';
 
-// === CONFIGURATION ===
+// === CONFIGURATION v2.1 ===
 const CONFIG = {
     BATCH_SIZE: 4,
     BATCH_CONCURRENCY: 2,
     MAX_RETRIES: 2,
-    BACKOFF_MS: [300, 900],
-    MAX_ENRICHMENT_TIME_MS: 15000 // 15 seconds max for backfill
+    BACKOFF_MS: [400, 1200],  // [P0] Increased backoff
+    MAX_ENRICHMENT_TIME_MS: 20000, // 20 seconds max
+    OPTIONS_RETRY_LIMIT: 3,   // Extra retries for options
+    MACRO_CACHE_THRESHOLD_S: 30 // [P0] 30s macro cache
 };
 
 // === UNIFIED EVIDENCE SCHEMA (Strict) ===
@@ -450,28 +452,46 @@ async function fetchFlowData(ticker: string): Promise<CachedFlowBundle | null> {
     }
 
     try {
-        // Fetch from Massive aggs
-        const response = await fetchMassive(`/v2/aggs/ticker/${ticker}/prev`, {}, true);
+        // [P0] Fetch current snapshot for volume
+        const snapshotResponse = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`, {}, true);
+        const snapshot = snapshotResponse?.ticker;
 
-        if (!response || !response.results || response.results.length === 0) {
-            return null;
+        // [P0] Fetch previous day for gapPct
+        const prevResponse = await fetchMassive(`/v2/aggs/ticker/${ticker}/prev`, {}, true);
+        const prevAgg = prevResponse?.results?.[0];
+
+        // [P0] Fetch historical for avgVol (20-day)
+        const today = new Date();
+        const from = new Date(today.getTime() - 25 * 24 * 60 * 60 * 1000); // 25 days back
+        const histResponse = await fetchMassive(`/v2/aggs/ticker/${ticker}/range/1/day/${from.toISOString().split('T')[0]}/${today.toISOString().split('T')[0]}`, {
+            limit: '20'
+        }, true);
+
+        // Calculate values
+        const currentVol = snapshot?.day?.v || snapshot?.prevDay?.v || prevAgg?.v || 0;
+        const prevClose = snapshot?.prevDay?.c || prevAgg?.c || 0;
+        const todayOpen = snapshot?.day?.o || snapshot?.prevDay?.o || prevAgg?.o || 0;
+
+        // [P0] Calculate 20-day average volume
+        let avgVol = currentVol; // Fallback
+        if (histResponse?.results && histResponse.results.length > 0) {
+            const volumes = histResponse.results.map((r: any) => r.v || 0);
+            avgVol = volumes.reduce((a: number, b: number) => a + b, 0) / volumes.length;
         }
 
-        const agg = response.results[0];
-        const vol = agg.v || 0;
-
-        // Get average volume (simplified - use 20-day avg from another source if available)
-        const avgVol = vol; // Placeholder - would need historical data
+        // [P0] Calculate real metrics
+        const relVol = avgVol > 0 ? currentVol / avgVol : 1;
+        const gapPct = prevClose > 0 ? ((todayOpen - prevClose) / prevClose) * 100 : 0;
 
         const flowResult: CachedFlowBundle = {
             ticker,
-            vol,
-            relVol: avgVol > 0 ? vol / avgVol : 1,
-            gapPct: 0, // Would need previous close
-            largeTradesUsd: 0, // Would need trades data
-            offExPct: 40, // Default assumption
+            vol: currentVol,
+            relVol: Math.round(relVol * 100) / 100,
+            gapPct: Math.round(gapPct * 100) / 100,
+            largeTradesUsd: 0, // [P0] No source - leave as 0, UI won't show
+            offExPct: 0,       // [P0] No source - leave as 0, not 40%
             offExDeltaPct: 0,
-            complete: vol > 0,
+            complete: currentVol > 0 && avgVol > 0,
             fetchedAtET: new Date().toISOString()
         };
 
@@ -482,7 +502,7 @@ async function fetchFlowData(ticker: string): Promise<CachedFlowBundle | null> {
         return flowResult;
 
     } catch (e) {
-        console.warn(`[TerminalEnricher v2] Flow fetch failed for ${ticker}:`, e);
+        console.warn(`[TerminalEnricher v2.1] Flow fetch failed for ${ticker}:`, e);
         return null;
     }
 }
@@ -490,7 +510,8 @@ async function fetchFlowData(ticker: string): Promise<CachedFlowBundle | null> {
 async function fetchMacroWithCache(): Promise<UnifiedMacro> {
     // Check cache first
     const cached = await getMacroBundleFromCache();
-    if (cached && cached.ageSeconds < 45) {
+    // [P0] Use CONFIG threshold (30s)
+    if (cached && cached.ageSeconds < CONFIG.MACRO_CACHE_THRESHOLD_S) {
         return {
             ndx: cached.ndx,
             vix: cached.vix,

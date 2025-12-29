@@ -27,7 +27,8 @@ import { applyQualityTiers, selectTop3, determineRegime, computePowerMeta, compu
 import { BUILD_PIPELINE_VERSION, orchestrateGemsEngine } from '../engine/reportOrchestrator'; // [S-56.4.5c]
 import crypto from 'crypto';
 
-export type ReportType = 'morning' | 'eod' | 'pre2h' | 'open30m';
+// [P0] Fixed 3-report schedule + morning for legacy
+export type ReportType = 'eod' | 'pre' | 'open' | 'morning';
 
 // [S-51.5] Top3 and Baseline interfaces for performance tracking
 export interface Top3Item {
@@ -100,12 +101,12 @@ export interface PremiumReport {
 const REPORTS_DIR = path.join(process.cwd(), 'snapshots', 'reports');
 const REPORT_VERSION = "S-56.4.6e";
 
-// Schedule definitions (ET time)
-export const REPORT_SCHEDULES: Record<ReportType, { hour: number, minute: number, description: string }> = {
-    'morning': { hour: 8, minute: 0, description: 'Morning Brief (장전 브리핑)' },
-    'eod': { hour: 16, minute: 30, description: 'EOD Final Report (장마감 후)' },
-    'pre2h': { hour: 6, minute: 30, description: 'Pre+2h Checkpoint (프리마켓 2시간 후)' },
-    'open30m': { hour: 9, minute: 0, description: 'Open-30m Execution (개장 30분 전)' }
+// [P0] Schedule definitions (ET time) - 3 fixed reports
+export const REPORT_SCHEDULES: Record<ReportType, { hour: number; minute: number; description: string; labelKR: string }> = {
+    'eod': { hour: 16, minute: 30, description: 'EOD Final Report', labelKR: '장마감 후 확정' },
+    'pre': { hour: 6, minute: 30, description: 'Premarket +2h', labelKR: '프리마켓 후 2시간' },
+    'open': { hour: 9, minute: 0, description: 'Open -30m', labelKR: '본장 30분 전' },
+    'morning': { hour: 8, minute: 0, description: 'Morning Brief', labelKR: '장전 브리핑 (레거시)' }
 };
 
 // ============================================================================
