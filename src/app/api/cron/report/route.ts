@@ -47,6 +47,7 @@ export async function GET(request: Request) {
         console.log(`[Cron] Generating ${type} report for ${marketDate}...`);
         const report = await generateReport(type);
 
+        const metaAny = report.meta as any;
         return NextResponse.json({
             success: true,
             reportId: report.meta.id,
@@ -55,9 +56,10 @@ export async function GET(request: Request) {
             diagnostics: {
                 buildId: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || "local",
                 routeVersionTag: "S-56.4.6e",
-                savedTo: report.meta?.diagnostics?.savedTo || report.meta.optionsStatus?.state,
-                purgedKeys: report.meta?.diagnostics?.purgedKeys,
-                rolledBack: report.meta?.diagnostics?.rolledBack
+                savedTo: metaAny.diagnostics?.savedTo || report.meta.optionsStatus?.state,
+                finalOptionsState: report.meta.optionsStatus?.state,
+                purgedKeys: metaAny.diagnostics?.purgedKeys,
+                rolledBack: metaAny.diagnostics?.rolledBack
             }
         });
     } catch (error: any) {

@@ -86,7 +86,8 @@ const PERF_TRACKER_PATH = path.join(process.cwd(), 'snapshots', 'performance_tra
 
 // [S-52.6] Environment check - USE_REDIS_SSOT allows local to use Redis
 const isVercel = () => process.env.VERCEL === '1' || !!process.env.VERCEL_ENV;
-const useRedis = () => process.env.USE_REDIS_SSOT === '1' || isVercel();
+// [S-Force] Force Redis SSOT to true as requested, if we have credentials
+export const useRedis = () => isVercel() || !!process.env.KV_URL || !!process.env.UPSTASH_REDIS_REST_URL;
 
 // Get Redis client (lazy initialization)
 let redisClient: Redis | null = null;
@@ -214,7 +215,15 @@ export async function purgeReportCaches(date: string, type: string): Promise<num
 export async function saveReport(date: string, type: string, reportJson: any, force: boolean = false): Promise<{ stored: 'redis' | 'fs'; integrity: IntegrityReport; rolledBack?: boolean }> {
     // [S-52.6] Validate and inject integrity/optionsStatus before saving
     const validation = validateReportShape(reportJson);
-    const optionsStatus = calculateOptionsStatus(reportJson);
+    let optionsStatus = calculateOptionsStatus(reportJson);
+
+    // [S-Force] Immediate Force Override for Options Status
+    if (force) {
+        optionsStatus.state = 'READY';
+        optionsStatus.note = (optionsStatus.note || '') + ' [FORCE FINALIZED]';
+        validation.integrity.gates.options = 'READY';
+        console.warn('[ReportStore] Force override: optionsStatus set to READY.');
+    }
 
     // [S-52.7] Calculate validation score (0-100)
     const hardFails = validation.integrity.reasons.filter(r => ['ITEMS_LT_12', 'MACRO_MISSING', 'TOP3_LT_3'].includes(r));
@@ -248,6 +257,12 @@ export async function saveReport(date: string, type: string, reportJson: any, fo
             const reportKey = `${REPORTS_PREFIX}${date}:${type}`;
             const latestKey = `${REPORTS_LATEST_PREFIX}${type}`;
             const typesKey = `${ARCHIVES_TYPES_PREFIX}${date}:types`;
+
+            // [S-Force] Pre-delete polluted cache if forced
+            if (force) {
+                await redis.del(latestKey);
+                console.log(`[ReportStore] Forced delete of ${latestKey} before write.`);
+            }
 
             // 1) Save report to dated archive
             await redis.set(reportKey, reportStr);

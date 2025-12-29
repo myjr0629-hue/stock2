@@ -12,7 +12,7 @@ import { getEventHubSnapshot } from './eventHubProvider';
 import { getPolicyHubSnapshot } from './policyHubProvider';
 import { getNewsHubSnapshot } from './newsHubProvider';
 import { getMacroSnapshotSSOT } from './macroHubProvider';
-import { saveReport, getArchivedReport, purgeReportCaches } from "@/lib/storage/reportStore";
+import { saveReport, purgeReportCaches, getYesterdayReport, appendPerformanceRecord, PerformanceRecord } from "@/lib/storage/reportStore";
 import { getETNow, determineSessionInfo } from "@/services/marketDaySSOT";
 import { fetchMassive, RunBudget } from "@/services/massiveClient";
 import { enrichTop3Candidates, generateTop3WHY, getVelocitySymbol, EnrichedCandidate } from './top3Enrichment';
@@ -101,9 +101,7 @@ export const REPORT_SCHEDULES: Record<ReportType, { hour: number, minute: number
     'open30m': { hour: 9, minute: 0, description: 'Open-30m Execution (개장 30분 전)' }
 };
 
-function getETNow(): Date {
-    return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-}
+
 
 function formatET(date: Date): string {
     return date.toLocaleString('en-US', {
@@ -311,6 +309,22 @@ export async function generateReport(type: ReportType, force: boolean = false): 
     // seems to be a partial line from the original code mixed with a new `if (!force)` block.
     // I will proceed by inserting the new code and keeping the original code that follows.
 
+    // [S-Force] Force Finalize: If force=true, we convert 'PENDING' items to 'FAILED'
+    // This ensures saveReport()'s strict recalculation sees them as FAILED (terminal), not PENDING.
+    if (force) {
+        let forcedCount = 0;
+        gemsItems.forEach(item => {
+            if (item.v71?.options_status === 'PENDING') {
+                item.v71.options_status = 'FAILED';
+                item.v71.options_note = 'Force finalized: PENDING -> FAILED';
+                forcedCount++;
+            }
+        });
+        if (forcedCount > 0) {
+            console.warn(`[ReportScheduler] Force finalized ${forcedCount} PENDING items to FAILED.`);
+        }
+    }
+
     const pendingTickers: string[] = [];
     const failedTickers: string[] = [];
 
@@ -338,7 +352,7 @@ export async function generateReport(type: ReportType, force: boolean = false): 
         nextRetryAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
     } else if (failedTickers.length > 0 && coveragePct < 50) {
         optionsState = 'FAILED';
-        pendingReason = '주요 종목 옵션 데이터 실패';
+        pendingReason = '주요 종목 옵션 데이터 실패 (Force Finalized)';
     } else if (totalTarget === 0) {
         optionsState = 'PENDING'; // No data yet
         pendingReason = '데이터 수집 시작 전';
