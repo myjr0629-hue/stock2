@@ -161,7 +161,7 @@ async function enrichSingleTickerWithRetry(
         // 2. Parallel fetch: Price/Flow and Options
         const [stockData, optionsData, flowData] = await Promise.all([
             fetchPriceData(ticker, session),
-            fetchOptionsChain(ticker),
+            fetchOptionsChain(ticker, undefined, force), // [Phase 20] Pass force flag
             fetchFlowData(ticker)
         ]);
 
@@ -234,11 +234,13 @@ async function fetchPriceData(ticker: string, session: string): Promise<any> {
     }
 }
 
-async function fetchOptionsChain(ticker: string, currentPrice?: number): Promise<CachedOptionsChain | null> {
-    // Check cache first
-    const cached = await getOptionsFromCache(ticker);
-    if (cached && cached.status !== 'PENDING' && cached.status !== 'FAILED') {
-        return cached;
+async function fetchOptionsChain(ticker: string, currentPrice?: number, force: boolean = false): Promise<CachedOptionsChain | null> {
+    // Check cache first (unless forced)
+    if (!force) {
+        const cached = await getOptionsFromCache(ticker);
+        if (cached && cached.status !== 'PENDING' && cached.status !== 'FAILED') {
+            return cached;
+        }
     }
 
     try {
@@ -252,7 +254,8 @@ async function fetchOptionsChain(ticker: string, currentPrice?: number): Promise
         }
 
         // Call the trusted logic
-        const analytics = await getOptionsData(ticker, spot);
+        // [Phase 20] Pass useCache = !force
+        const analytics = await getOptionsData(ticker, spot, undefined, !force);
 
         // Map to CachedOptionsChain
         const optionsResult: CachedOptionsChain = {

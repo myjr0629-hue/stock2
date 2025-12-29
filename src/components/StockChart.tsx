@@ -101,15 +101,21 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 // but at least we tried. If we can't get minute, we can't plot on minute-based axis.
                 return item;
             } else {
-                // Non-1D: Use timestamp
+                // Non-1D: Use timestamp with safe fallback
+                let timeVal = 0;
+                if (item.t) timeVal = item.t; // Raw timestamp from Polygon
+                else if (item.date) timeVal = new Date(item.date).getTime();
+                else if (item.time) timeVal = new Date(item.time).getTime();
+                else timeVal = Date.now(); // Fallback to now (will likely be an outlier but prevents crash)
+
                 return {
                     ...item,
-                    xValue: new Date(item.date).getTime(),
-                    xLabel: item.date,
+                    xValue: timeVal,
+                    xLabel: item.date || new Date(timeVal).toLocaleDateString(),
                 };
             }
         })
-        .filter((item: any) => item.close !== null && (!isIntraday || item.xValue !== undefined)) // [HOTFIX] Filter nulls and invalid 1D points
+        .filter((item: any) => item.close !== null && (!isIntraday || item.xValue !== undefined) && !isNaN(item.xValue)) // [HOTFIX] Filter NaNs
         .sort((a: any, b: any) => a.xValue - b.xValue);
 
     // [HOTFIX S-55] Domain for 1D: etMinute range (240-1200 = 04:00-20:00)
@@ -145,7 +151,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                         <div className="p-4 rounded-full bg-slate-100 mb-3">
                             <AlertCircle className="h-8 w-8 text-slate-300" />
                         </div>
-                        <p className="font-semibold">No Market Data Available</p>
+                        <p className="font-semibold">Market Closed - No Data</p>
                         <p className="text-xs mt-1 text-slate-500">Market might be closed or data is delayed.</p>
                     </div>
                 </CardContent>

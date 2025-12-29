@@ -44,18 +44,34 @@ const SYMBOLS = {
     NQF: "NQ=F" // [Phase 17] Added Futures
 };
 
-// [S-48.3] Yahoo Finance Fetcher
+// [S-48.3] Yahoo Finance Fetcher (Vercel-Safe)
+// Inject User-Agent to bypass Vercel/Cloudflare blocks
+try {
+    const pkg = require('yahoo-finance2');
+    const YahooFinance = pkg.default || pkg;
+    YahooFinance.setGlobalConfig({
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        logger: {
+            info: (...args: any[]) => { },
+            warn: (...args: any[]) => { },
+            error: (...args: any[]) => { } // Suppress noisy Vercel logs
+        }
+    });
+} catch (e) { }
+
 async function fetchYahooQuote(symbol: string, label: string): Promise<MacroFactor> {
     try {
         const pkg = require('yahoo-finance2');
         const YahooFinance = pkg.default || pkg;
-        const yf = new YahooFinance();
+        const yf = new YahooFinance(); // Uses global config
 
         const quote = await yf.quote(symbol);
 
         if (quote && (quote.regularMarketPrice != null || quote.ask != null)) {
-            // Futures often use bid/ask or regularMarketPrice
             const price = quote.regularMarketPrice || quote.ask || 0;
+            console.log(`[Alpha] NQ=F Fetch Result: ${symbol} = ${price}`); // [Phase 20] Verification Log
             return {
                 level: price,
                 chgPct: quote.regularMarketChangePercent ?? null,
@@ -86,11 +102,37 @@ function createFailFactor(label: string, symbolUsed: string): MacroFactor {
     };
 }
 
+// Fallback logic for NDX
+async function fetchMassiveNDXFallback(): Promise<MacroFactor | null> {
+    try {
+        // Import purely for fallback to avoid circular deps if possible
+        const { fetchMassive } = require('./massiveClient');
+        // Try I:NDX or just NDX
+        const res = await fetchMassive(`/v2/snapshot/locale/us/markets/indices/tickers/I:NDX`, {}, false); // No cache for fallback
+        const t = res?.ticker;
+        if (t && t.day && t.day.c) {
+            console.log(`[Alpha] Fallback NDX Success: ${t.day.c}`);
+            return {
+                level: t.day.c,
+                chgPct: t.todaysChangePerc || 0,
+                chgAbs: t.todaysChange || 0,
+                label: "NASDAQ 100 (Fallback)",
+                source: "YAHOO", // Use YAHOO type to satisfy interface but it's really Massive
+                status: "OK",
+                symbolUsed: "I:NDX"
+            };
+        }
+    } catch (e) {
+        console.error("[MacroHub] Massive NDX Fallback failed");
+    }
+    return null;
+}
+
 // --- Main SSOT Provider ---
 export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const now = Date.now();
 
-    // Cache Check - return with updated ageSeconds
+    // Cache Check
     if (cache.data && cache.expiry > now) {
         cache.data.ageSeconds = Math.floor((now - cache.fetchedAt) / 1000);
         return cache.data;
@@ -100,11 +142,9 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const marketStatus = await getMarketStatusSSOT();
     const fetchedAtET = new Date().toISOString();
 
-    // [Phase 17] Context Logic: Use Futures if Market Closed/Extended
     const useFutures = marketStatus.market === 'closed' || marketStatus.market === 'extended-hours';
 
-    // Parallel Fetch from Yahoo Finance
-    // [Phase 17] Fetch NQ=F if needed, otherwise normal behavior
+    // Parallel Fetch
     const promises = [
         fetchYahooQuote(SYMBOLS.NDX, "NASDAQ 100"),
         fetchYahooQuote(SYMBOLS.VIX, "VIX"),
@@ -123,12 +163,17 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const dxy = results[3];
     const futuresNq = useFutures ? results[4] : null;
 
-    // [Phase 17] Override Logic
+    // [Phase 20] NDX Fallback
+    if (nasdaq100.status !== 'OK') {
+        const fallback = await fetchMassiveNDXFallback();
+        if (fallback) nasdaq100 = fallback;
+    }
+
+    // [Phase 17] Futures Override
     if (useFutures && futuresNq && futuresNq.status === 'OK') {
-        // console.log(`[MacroHub] Using Futures (NQ=F) for After-Hours context. Level: ${futuresNq.level}`);
         nasdaq100 = {
             ...futuresNq,
-            label: "NASDAQ 100 (F)", // Mark as Futures
+            label: "NASDAQ 100 (F)",
             symbolUsed: SYMBOLS.NQF
         };
     }
@@ -144,7 +189,6 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
             us10y,
             dxy
         },
-        // [Phase 7] Flattened access for convenience
         nq: nasdaq100.level ?? 0,
         nqChangePercent: nasdaq100.chgPct ?? 0,
         vix: vix.level ?? 0,

@@ -180,13 +180,13 @@ async function getTechnicalRSI(symbol: string, budget?: RunBudget): Promise<numb
 }
 
 // --- ENGINE 3: OPTIONS, MAX PAIN & GEX (OI Integrity + Retry) ---
-async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budget?: RunBudget) {
+async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budget?: RunBudget, useCache: boolean = true) {
 
   try {
     // 1) Spot Price
     let spot = presetSpot;
     if (!spot) {
-      const spotRes = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`, {}, true, budget);
+      const spotRes = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`, {}, useCache, budget);
       const t = spotRes?.ticker;
       spot = t?.lastTrade?.p || t?.min?.c || t?.day?.c || t?.prevDay?.c || 0;
     }
@@ -194,7 +194,7 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
     // 2) Initial Fetch to detect Target Expiry
     const initialSnap = await fetchMassive(`/v3/snapshot/options/${symbol}`, {
       limit: '250', sort: 'ticker', order: 'asc'
-    }, true, budget);
+    }, useCache, budget);
 
     if (!initialSnap?.results?.length) {
       console.warn(`[Massive] No options snapshot found for ${symbol}`);
@@ -217,7 +217,7 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
     while (nextUrl && pagesFetched < MAX_PAGES) {
       console.log(`[Massive] Fetching page ${pagesFetched + 1} for ${symbol}...`);
       notifyStatus({ progress: { currentTicker: symbol, pagesFetchedCurrent: pagesFetched + 1 } });
-      const nextSnap = await fetchMassive(nextUrl, {}, true, budget);
+      const nextSnap = await fetchMassive(nextUrl, {}, useCache, budget);
       if (nextSnap?.results?.length) {
         allResults = [...allResults, ...nextSnap.results];
         nextUrl = nextSnap.next_url;
@@ -327,7 +327,6 @@ function calculateGemsGreeks(contracts: any[], spot: number) {
 
   const totalPutsOI = contracts.filter((c: any) => c.contract_type === 'put')
     .reduce((acc: number, c: any) => acc + (Number(c.open_interest) || 0), 0);
-
   const putCallRatio = totalCallsOI > 0 ? (totalPutsOI / totalCallsOI) : null;
 
   const comment = `[Options] ${mmPos}. NetGEX ${totalGex > 0 ? "positive" : "negative"}. MaxPain ~$${Number(maxPain).toFixed(2)}. Spot $${Number(spot).toFixed(2)}.`;
@@ -346,7 +345,7 @@ function calculateGemsGreeks(contracts: any[], spot: number) {
   };
 }
 
-export async function getOptionsData(symbol: string, presetSpot?: number, budget?: RunBudget): Promise<OptionData> {
+export async function getOptionsData(symbol: string, presetSpot?: number, budget?: RunBudget, useCache: boolean = true): Promise<OptionData> {
 
 
   // [S-17] Safe Unblock: Only allow if ALLOW_MASSIVE_FOR_SNAPSHOT is '1'
@@ -373,7 +372,7 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
 
   // [S-38D] Options-Eligibility Gate (Just-In-Time)
   // Step 1: Probe presence of ANY contracts for this ticker
-  const probeSnap = await fetchMassive(`/v3/snapshot/options/${symbol}`, { limit: '10' }, true, budget);
+  const probeSnap = await fetchMassive(`/v3/snapshot/options/${symbol}`, { limit: '10' }, useCache, budget);
 
   if (!probeSnap || !probeSnap.results || probeSnap.results.length === 0) {
     console.warn(`[S-38D] Eligibility Gate: NO_OPTIONS_LISTED for ${symbol}`);
@@ -400,7 +399,7 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
   let chainData: any = null;
 
   while (attempt < MAX_OI_RETRIES) {
-    chainData = await getPolygonOptionsChain(symbol, presetSpot, budget);
+    chainData = await getPolygonOptionsChain(symbol, presetSpot, budget, useCache);
     const spotNum = chainData.spot || 0;
     analytics = calculateGemsGreeks(chainData.contracts, spotNum);
 
@@ -412,6 +411,11 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
       console.log(`[OI Retry] ${symbol} OI PENDING. Retrying in ${waitMs / 1000}s (Attempt ${attempt}/${MAX_OI_RETRIES})`);
       await new Promise(r => setTimeout(r, waitMs));
     }
+  }
+
+  // [Phase 20] Verification Log
+  if (analytics && analytics.totalGex !== null) {
+    console.log(`[Alpha] Option Wall: ${symbol} GEX=${analytics.totalGex.toFixed(0)} MP=${analytics.maxPain}`);
   }
 
   const spotNum = chainData?.spot || 0;
