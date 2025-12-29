@@ -271,6 +271,10 @@ export function computeQualityTier(
     // Options incomplete = cannot be ACTIONABLE (Top3 Gate)
     const optionsComplete = evidence?.options?.complete && evidence.options.status !== 'PENDING';
 
+    // [Step 1] State Machine & Event Gate Variables (Lifted Scope)
+    const currentAction = item.decisionSSOT?.action || 'NONE';
+    const hasHighImpactEvent = item.evidence?.policy?.gate?.P0?.length > 0;
+
     if (holdAction === 'EXIT') {
         tier = 'FILLER';
         reasonKR = '매도 신호 (EXIT)';
@@ -315,6 +319,19 @@ export function computeQualityTier(
         if (hasHighImpactEvent) {
             tier = 'WATCH';
             reasonKR = `⛔ Event Gate: ${item.evidence.policy.gate.P0[0]} 대기 (매수 보류)`;
+        }
+
+        // [Step 1] State Machine Logic (Status Transitions)
+        if (currentAction === 'HOLD') {
+            if (alphaScore < 60 && alphaScore >= 45) {
+                reasonKR += ' [OBSERVE: 점수 하락 관찰]';
+            } else if (alphaScore < 45) {
+                reasonKR += ' [EARLY_HANDOFF: 구조 붕괴]';
+            }
+        } else if (currentAction === 'OBSERVE') {
+            if (alphaScore >= 70) {
+                reasonKR += ' [REBUILD: 회복세 확인]';
+            }
         }
 
     } else if (alphaScore >= QUALITY_TIER_CONFIG.WATCH_MIN_SCORE) {
