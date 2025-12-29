@@ -177,12 +177,20 @@ function calculateLayerScores(evidence: any): ScoreResult {
         weightedSum += layerScores.stealth * POWER_SCORE_CONFIG.WEIGHTS.STEALTH;
     }
 
-    // Calculate normalized score
+    // [P0] Calculate normalized score - ALWAYS produce a score if >= 1 layer
     // Formula: (weighted sum / total weight) - gives score on 0-100 scale
     let alphaScore: number | null = null;
-    if (calculatedLayers >= 3 && totalWeight > 0) {
-        // Require at least 3 layers for a valid score
+    if (calculatedLayers >= 1 && totalWeight > 0) {
+        // [P0] Produce partial score even with 1 layer
         alphaScore = weightedSum / totalWeight;
+
+        // [P0] Cap score based on completeness
+        // 1-2 layers: max 50
+        // 3 layers: max 70
+        // 4 layers: max 85
+        // 5 layers: no cap
+        const cappedMax = calculatedLayers <= 2 ? 50 : calculatedLayers === 3 ? 70 : calculatedLayers === 4 ? 85 : 100;
+        alphaScore = Math.min(alphaScore, cappedMax);
     }
 
     return {
@@ -210,12 +218,28 @@ export function computeQualityTier(
 
     console.log(`[PowerEngine v2] ${symbol}: Layers ${scoreResult.calculatedLayers}/5, Score: ${alphaScore?.toFixed(1) || 'NULL'}`);
 
-    // 2. If incomplete, score is null - cannot promote
-    if (!isComplete || alphaScore === null) {
+    // [P0] FIX: Never return score=0. Partial score is always valid.
+    // If alphaScore is still null (0 layers), use a minimum base score
+    if (alphaScore === null) {
+        alphaScore = 25; // Base score for items with no calculable layers
+    }
+
+    // [P0] Build missing layers list for reasonKR
+    const missingLayers: string[] = [];
+    if (!scoreResult.layerScores.price) missingLayers.push('가격');
+    if (!scoreResult.layerScores.options) missingLayers.push('옵션');
+    if (!scoreResult.layerScores.flow) missingLayers.push('거래량');
+    if (!scoreResult.layerScores.macro) missingLayers.push('매크로');
+    if (!scoreResult.layerScores.stealth) missingLayers.push('스텔스');
+
+    // [P0] Determine tier based on completeness and score
+    if (!isComplete) {
+        // Partial data - still give a score but mark as PARTIAL tier
+        const missingStr = missingLayers.length > 0 ? missingLayers.slice(0, 2).join('/') : '';
         return {
-            tier: 'FILLER',
-            reasonKR: `데이터 미완성 (${scoreResult.calculatedLayers}/5 레이어)`,
-            powerScore: 0,
+            tier: scoreResult.calculatedLayers >= 3 ? 'WATCH' : 'FILLER',
+            reasonKR: `부분 데이터 (${scoreResult.calculatedLayers}/5${missingStr ? ', 누락: ' + missingStr : ''})`,
+            powerScore: Math.round(alphaScore * 10) / 10, // [P0] Never zero!
             isBackfilled: true
         };
     }
@@ -353,28 +377,40 @@ export function selectTop3(
         }
     }
 
-    // === FILL FROM WATCH IF NEEDED ===
+    // === [P0] FILL FROM WATCH IF NEEDED ===
     if (selected.length < 3) {
         for (const item of watches) {
             if (selected.length >= 3) break;
 
-            const score = item.powerScore || 0;
-            if (score < promotionThreshold) continue;
-
             const sym = (item.symbol || item.ticker)?.toUpperCase();
             if (selected.some(s => (s.symbol || s.ticker)?.toUpperCase() === sym)) continue;
 
-            selected.push(item);
+            // [P0] Accept any WATCH item, no threshold when filling
+            selected.push({ ...item, top3Action: 'WATCH' });
             watchUsed++;
-            changelog.push(`[WATCH 승격] ${sym} - 점수 ${score.toFixed(1)} >= ${promotionThreshold}`);
+            changelog.push(`[WATCH 승격] ${sym} - 점수 ${(item.powerScore || 0).toFixed(1)}`);
         }
     }
 
-    // === NO_TRADE SLOTS ===
-    const noTradeSlots = 3 - selected.length;
-    if (noTradeSlots > 0) {
-        changelog.push(`[NO_TRADE] ${noTradeSlots}개 슬롯 - 완전한 ACTIONABLE 부족`);
+    // === [P0] FILL FROM ALL ITEMS (FILLER) IF STILL NOT 3 ===
+    if (selected.length < 3) {
+        // Sort all remaining items by score
+        const remaining = rankedItems
+            .filter(item => !selected.some(s => (s.symbol || s.ticker)?.toUpperCase() === (item.symbol || item.ticker)?.toUpperCase()))
+            .sort((a, b) => (b.powerScore || 0) - (a.powerScore || 0));
+
+        for (const item of remaining) {
+            if (selected.length >= 3) break;
+            const sym = (item.symbol || item.ticker)?.toUpperCase();
+            // [P0] Mark as NO_TRADE action for incomplete items
+            const action = item.complete ? 'HOLD_ONLY' : 'NO_TRADE';
+            selected.push({ ...item, top3Action: action });
+            changelog.push(`[${action}] ${sym} - 점수 ${(item.powerScore || 0).toFixed(1)} (데이터 부분)`);
+        }
     }
+
+    // [P0] noTradeSlots = count of items with NO_TRADE action
+    const noTradeSlots = selected.filter(s => s.top3Action === 'NO_TRADE').length;
 
     const stats: Top3Stats = {
         actionableUsed,

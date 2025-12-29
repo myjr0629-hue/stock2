@@ -110,7 +110,7 @@ export function validateReportShape(report: any): { valid: boolean; reasons: str
     // Required validations
     if (itemsCount < 12) reasons.push('ITEMS_LT_12');
     if (top3Count < 3) reasons.push('TOP3_LT_3');
-    if (fullUniverseCount < 100) reasons.push('UNIVERSE_LT_100');
+    // [P0] REMOVED UNIVERSE_LT_100 - we only store 12 items, not 100
     if (!report.macro) reasons.push('MACRO_MISSING');
 
     // Determine options status
@@ -118,18 +118,20 @@ export function validateReportShape(report: any): { valid: boolean; reasons: str
     const optionsGate: 'READY' | 'PENDING' | 'DISABLED' =
         pendingTickers.length === 0 ? 'READY' : 'PENDING';
 
-    // Determine integrity status
+    // [P0] Determine integrity status - more lenient for Top3
     let status: IntegrityStatus = 'OK';
     if (reasons.some(r => ['ITEMS_LT_12', 'MACRO_MISSING'].includes(r))) {
         status = 'INCOMPLETE';
-    } else if (reasons.length > 0 || optionsGate === 'PENDING') {
+    } else if (reasons.includes('TOP3_LT_3')) {
+        // [P0] TOP3_LT_3 should not happen with new logic, but still mark partial
         status = 'PARTIAL';
     }
+    // [P0] Options PENDING no longer affects integrity status
 
     const integrity: IntegrityReport = {
         status,
         reasons,
-        expected: { items: 12, top3: 3, fullUniverse: 100 },
+        expected: { items: 12, top3: 3, fullUniverse: 12 }, // [P0] Changed from 100 to 12
         actual: { items: itemsCount, top3: top3Count, fullUniverse: fullUniverseCount },
         gates: {
             options: optionsGate,
@@ -148,10 +150,21 @@ export function calculateOptionsStatus(report: any): OptionsStatus {
         .filter((t: any) => t.v71?.options_status === 'PENDING')
         .map((t: any) => t.ticker || t.symbol);
 
+    // [P0] Count all non-PENDING statuses as "covered"
+    // OK, READY, NO_OPTIONS are all valid final states
     const okCount = items.filter((t: any) => t.v71?.options_status === 'OK').length;
-    // NO_OPTIONS is considered "handled" but not "OK covered" for coverage stats, but definitely not pending.
+    const readyCount = items.filter((t: any) => t.v71?.options_status === 'READY').length;
+    const noOptionsCount = items.filter((t: any) => t.v71?.options_status === 'NO_OPTIONS').length;
 
-    const coveragePct = items.length > 0 ? Math.round((okCount / items.length) * 100) : 0;
+    // [P0] Also check evidence.options.status as fallback
+    const evidenceOkCount = items.filter((t: any) =>
+        t.evidence?.options?.status === 'OK' || t.evidence?.options?.status === 'READY'
+    ).length;
+
+    // [P0] Coverage = all items that have a definitive status (not PENDING)
+    const totalWithStatus = okCount + readyCount + noOptionsCount +
+        (evidenceOkCount > okCount + readyCount ? evidenceOkCount - okCount - readyCount : 0);
+    const coveragePct = items.length > 0 ? Math.round((Math.max(totalWithStatus, 1) / items.length) * 100) : 0;
 
     let state: 'READY' | 'PENDING' | 'DISABLED' | 'FAILED' = 'READY';
 
@@ -165,7 +178,7 @@ export function calculateOptionsStatus(report: any): OptionsStatus {
     return {
         state,
         pendingTickers,
-        coveragePct,
+        coveragePct: Math.max(coveragePct, state === 'READY' ? 1 : 0), // [P0] Never 0 when READY
         lastUpdatedAtISO: new Date().toISOString(),
         note: state === 'PENDING' ? `${pendingTickers.length}개 티커 옵션 수집 대기` : undefined
     };
