@@ -113,7 +113,7 @@ export async function setMacroBundleToCache(macro: CachedMacroBundle): Promise<v
 
 export interface CachedOptionsChain {
     ticker: string;
-    status: 'OK' | 'READY' | 'NO_OPTIONS' | 'PENDING' | 'FAILED';
+    status: 'OK' | 'READY' | 'NO_OPTIONS' | 'PENDING' | 'FAILED' | 'BULLISH' | 'BEARISH' | 'NEUTRAL';
     callWall: number;
     putFloor: number;
     maxPain: number;
@@ -165,6 +165,7 @@ export interface CachedFlowBundle {
     largeTradesUsd: number;
     offExPct: number;
     offExDeltaPct: number;
+    netFlow?: number;
     complete: boolean;
     fetchedAtET: string;
 }

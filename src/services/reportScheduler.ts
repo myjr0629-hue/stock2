@@ -192,17 +192,82 @@ export async function generateReport(type: ReportType, force: boolean = false): 
     const enrichedItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
 
     // 4. Scoring & Quality Tiers
-    // Load yesterday's report for persistence bonuses
-    const yesterdayReport = await getYesterdayReport(type, marketDate);
+    // Load yesterday's report (T-1)
+
+    // [Phase 15.3] Robust History Backfill Logic
+    function getPreviousBusinessDay(dateStr: string): string {
+        const d = new Date(dateStr);
+        let day = d.getDay();
+        // If Mon(1) -> Fri(-3), Sun(0) -> Fri(-2), Sat(6) -> Fri(-1)
+        // Others -> -1
+        let sub = 1;
+        if (day === 1) sub = 3; // Monday -> Friday
+        else if (day === 0) sub = 2; // Sunday -> Friday
+        else if (day === 6) sub = 1; // Saturday -> Friday
+
+        d.setDate(d.getDate() - sub);
+        return d.toISOString().split('T')[0];
+    }
+
+    // Try to get T-1
+    let tMinus1Date = getPreviousBusinessDay(marketDate);
+    let yesterdayReport = await getYesterdayReport(type, tMinus1Date);
+
+    // If not found, try one more day back (just in case of holiday or gap)
+    if (!yesterdayReport) {
+        console.log(`[ReportScheduler] T-1 Report missing for ${tMinus1Date}, trying T-2 as fallback...`);
+        const fallbackDate = getPreviousBusinessDay(tMinus1Date);
+        yesterdayReport = await getYesterdayReport(type, fallbackDate);
+        if (yesterdayReport) tMinus1Date = fallbackDate;
+    }
+
+    // Try to get T-2 (relative to T-1)
+    // If we didn't find T-1, we assume T-2 is likely missing or we skip momentum
+    let tMinus2Report = null;
+    let tMinus2Date = null;
+
+    if (yesterdayReport) {
+        // Safe to calculate T-2
+        tMinus2Date = getPreviousBusinessDay(tMinus1Date);
+        tMinus2Report = await getYesterdayReport(type, tMinus2Date);
+    }
+
+    console.log(`[ReportScheduler] History Context: T-1=${tMinus1Date} (${yesterdayReport ? 'OK' : 'MISSING'}), T-2=${tMinus2Date} (${tMinus2Report ? 'OK' : 'MISSING'})`);
+
+    // Build History Map
     const prevSymbols = new Set<string>();
+    const historyMap: Record<string, any> = {};
     if (yesterdayReport?.items) {
-        yesterdayReport.items.forEach((i: any) => prevSymbols.add(i.ticker || i.symbol));
+        yesterdayReport.items.forEach((i: any) => {
+            const sym = i.ticker || i.symbol;
+            prevSymbols.add(sym);
+            if (!historyMap[sym]) historyMap[sym] = {};
+            historyMap[sym].tMinus1 = {
+                score: i.alphaScore || i.powerScore || 0,
+                vol: i.evidence?.flow?.vol || 0
+            };
+        });
+    }
+    if (tMinus2Report?.items) {
+        tMinus2Report.items.forEach((i: any) => {
+            const sym = i.ticker || i.symbol;
+            if (!historyMap[sym]) historyMap[sym] = {};
+            historyMap[sym].tMinus2 = {
+                score: i.alphaScore || i.powerScore || 0,
+                vol: i.evidence?.flow?.vol || 0
+            };
+        });
     }
 
     const scoredItems = enrichedItems.map(item => {
         // vNext computeQualityTier - use complete flag instead of backfilled
         const isBackfilled = item.complete !== true;
-        const qualityResult = computeQualityTier(item, prevSymbols, isBackfilled);
+
+        // Pass history context for Momentum Boost
+        const sym = item.ticker.toUpperCase();
+        const history = historyMap[sym];
+
+        const qualityResult = computeQualityTier(item, prevSymbols, isBackfilled, history);
 
         return {
             ...item,

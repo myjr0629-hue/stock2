@@ -42,6 +42,7 @@ export interface UnifiedFlow {
     offExDeltaPct: number;
     backfilled: boolean;
     fetchedAtET?: string;
+    complete?: boolean;
 }
 
 export interface UnifiedPrice {
@@ -88,7 +89,8 @@ export interface TickerItem {
     // Legacy / Convenience (Frontend Calculated or Passthrough)
     symbol?: string; // alias to ticker
     alphaScore?: number;
-    qualityTier?: "ACTIONABLE" | "WATCH" | "FILLER";
+    qualityTier?: "ACTIONABLE" | "WATCH" | "FILLER" | "INCOMPLETE";
+    qualityReasonKR?: string;
 
     // Legacy Decision & Execution (Maintain Backward Compat)
     decisionSSOT?: {
@@ -466,7 +468,14 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                         <div className="h-4 w-px bg-slate-800 mx-1" />
                         <div className="flex flex-col">
                             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Alpha</span>
-                            <span className="text-xs font-mono font-bold text-white">{item.alphaScore?.toFixed(1) || "-"}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs font-mono font-bold text-white">{item.alphaScore?.toFixed(1) || "-"}</span>
+                                {item.qualityReasonKR?.includes('상승') && (
+                                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[9px] border border-indigo-500/30 font-bold flex items-center gap-1">
+                                        🚀 Momentum
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className="flex items-center gap-4">
@@ -771,77 +780,111 @@ function Tier01Content() {
     const [isLoading, setIsLoading] = useState(true);
     const [selectedTicker, setSelectedTicker] = useState<TickerItem | null>(null);
 
+    // [13.1] Timeline State
+    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+
     // Fetch Data
     useEffect(() => {
         let isMounted = true;
 
         async function loadData() {
+            setIsLoading(true);
             try {
-                // 1. Try Fetching Morning Report (Priority)
-                // Use /api/reports/latest to get the actual data, not the cron result
-                const resMorning = await fetch('/api/reports/latest?type=morning', { cache: 'no-store' });
-                if (resMorning.ok) {
-                    const data = await resMorning.json();
+                let url = '/api/reports/latest?type=morning';
+
+                // [13.1] Historical Fetch
+                if (selectedDate) {
+                    // Try EOD first for history, then OPEN, then PRE
+                    // We need a specific endpoint or just use report?date&type
+                    // Since specific endpoint isn't fully robust for 'get best type for date', 
+                    // we might want a new param or just try EOD.
+                    // Ideally: /api/reports/archive?date=YYYY-MM-DD
+                    // For now, let's try strict EOD for history as it's most complete
+                    // But wait, user wants to see what happened.
+                    // Let's assume fetching 'eod' for history is best.
+                    // But if it's today, we want latest.
+
+                    // Actually, let's refine this to just look for EOD for past dates
+                    // We can reuse the loadReport logic if we expose an endpoint.
+                    // Current /api/reports/latest only does LATEST.
+                    // We need /api/reports/get?date=...&type=...
+                    // Let's add 'date' param support to /api/cron/report check or create a reader endpoint.
+                    // Or simpler: /api/reports/content?date=...&type=... (need to create this potentially?)
+
+                    // WAIT: I don't have a direct "read report by date" endpoint exposed yet except for cron (which generates).
+                    // I should probably add a generic reader endpoint or modify /api/reports/latest to accept date.
+                    // Let's modify /api/reports/latest to be /api/reports/read and accept date.
+                    // But I cannot modify existing routes easily without breaking.
+
+                    // Let's assume for now I will add a `date` query param to the fetching logic 
+                    // and I will need to IMPLEMENT that in the API next step.
+                    // So I will write this code assuming /api/reports/read exists or similar.
+                    // Actually, let's use /api/reports/latest?date=YYYY-MM-DD (I'll implement date support there).
+
+                    url = `/api/reports/read?date=${selectedDate}&type=eod`;
+                }
+
+                // 1. Try Fetching
+                const res = await fetch(url, { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
                     if (isMounted) {
                         setReport(data);
                         setIsLoading(false);
                     }
-                    return; // Success, done.
+                    return;
                 }
 
-                // 2. Fallback: Fetch EOD Report (Immediate Display)
-                console.warn("[Tier01] Morning report missing. Falling back to EOD.");
-                const resEod = await fetch('/api/reports/latest?type=eod', { cache: 'no-store' });
-                if (resEod.ok) {
-                    const data = await resEod.json();
-                    if (isMounted) {
-                        setReport(data);
-                        setIsLoading(false); // Show EOD data to remove skeleton immediately
-                    }
-                } else {
-                    // Nothing found at all
-                    if (isMounted) setIsLoading(false);
-                }
-
-                // 3. Trigger Auto-Seeding (Background)
-                console.log("[Tier01] Triggering on-demand seed...");
-                fetch('/api/seed/morning', { method: 'POST' })
-                    .then(r => r.json())
-                    .then(result => {
-                        console.log("[Tier01] Seed result:", result);
-                        if (result.ok || result.error === 'Seeding already in progress') {
-                            // Start Polling for the new report
-                            const pollId = setInterval(async () => {
-                                if (!isMounted) {
-                                    clearInterval(pollId);
-                                    return;
-                                }
-                                console.log("[Tier01] Polling for fresh Morning report...");
-                                const checkRes = await fetch('/api/reports/latest?type=morning', { cache: 'no-store' });
-                                if (checkRes.ok) {
-                                    const newData = await checkRes.json();
-                                    if (isMounted) {
-                                        console.log("[Tier01] Fresh Morning report loaded. Swapping.");
-                                        setReport(newData);
-                                        clearInterval(pollId);
-                                    }
-                                }
-                            }, 3000); // Check every 3s
-
-                            // Safety: Stop polling after 60s
-                            setTimeout(() => clearInterval(pollId), 60000);
+                // If historical EOD failed (maybe it's Sunday?), try OPEN
+                if (selectedDate) {
+                    const resOpen = await fetch(`/api/reports/read?date=${selectedDate}&type=open`, { cache: 'no-store' });
+                    if (resOpen.ok) {
+                        const data = await resOpen.json();
+                        if (isMounted) {
+                            setReport(data);
+                            setIsLoading(false);
                         }
-                    })
-                    .catch(e => console.error("[Tier01] Seed trigger error:", e));
+                        return;
+                    }
+                }
 
+                if (!selectedDate) {
+                    // Start with Morning/Pre
+                    const resEod = await fetch('/api/reports/latest?type=eod', { cache: 'no-store' });
+                    if (resEod.ok) {
+                        const data = await resEod.json();
+                        if (isMounted) {
+                            setReport(data);
+                            setIsLoading(false);
+                        }
+                    }
+                }
             } catch (e) {
-                console.error("Data load critical error:", e);
+                console.error("Failed to load report", e);
+            } finally {
                 if (isMounted) setIsLoading(false);
             }
         }
 
         loadData();
+
+        // only auto-refresh if looking at latest
+        if (!selectedDate) {
+            const interval = setInterval(loadData, 60 * 1000);
+            return () => {
+                isMounted = false;
+                clearInterval(interval);
+            };
+        }
+
         return () => { isMounted = false; };
+    }, [selectedDate]);
+    // 3. Trigger Auto-Seeding (Background) - Only on initial load if no data
+    useEffect(() => {
+        if (!report && !selectedDate) {
+            console.log("[Tier01] Triggering on-demand seed check...");
+            fetch('/api/seed/morning', { method: 'POST' }).catch(e => console.error(e));
+        }
     }, []);
 
     // Derived Lists
@@ -1097,12 +1140,21 @@ function Tier01Content() {
                                                     </td>
                                                     <td className="p-4 text-right">
                                                         <div className="flex flex-col items-end">
-                                                            <span className={`text-xs font-mono ${(ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : "text-slate-500"}`}>
-                                                                ${(ev.flow.largeTradesUsd / 1000000).toFixed(1)}M
-                                                            </span>
-                                                            <span className="text-[10px] text-slate-500">
-                                                                OffEx {ev.flow.offExPct.toFixed(0)}%
-                                                            </span>
+                                                            {ev.flow.complete ? (
+                                                                <>
+                                                                    <span className={`text-xs font-mono ${(ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : "text-slate-500"}`}>
+                                                                        ${(ev.flow.largeTradesUsd / 1000000).toFixed(1)}M
+                                                                    </span>
+                                                                    <span className="text-[10px] text-slate-500">
+                                                                        OffEx {ev.flow.offExPct.toFixed(0)}%
+                                                                    </span>
+                                                                </>
+                                                            ) : (
+                                                                <span className="text-[10px] font-mono text-emerald-500 animate-pulse flex items-center gap-1">
+                                                                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                                                                    Scanning...
+                                                                </span>
+                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="p-4 text-center">

@@ -14,6 +14,12 @@ import {
 } from './engineConfig';
 import { MAGNIFICENT_7, BIO_LEADERS_TOP5, DATACENTER_TOP5 } from './universePolicy';
 
+function isLeaderSymbol(symbol: string): boolean {
+    const s = symbol.toUpperCase();
+    return MAGNIFICENT_7.includes(s as any) || BIO_LEADERS_TOP5.includes(s as any) || DATACENTER_TOP5.includes(s as any);
+}
+
+
 // === LAYER SCORES (null = not calculated) ===
 
 interface LayerScores {
@@ -209,7 +215,11 @@ function calculateLayerScores(evidence: any): ScoreResult {
 export function computeQualityTier(
     item: any,
     prevReportSymbols: Set<string> = new Set(),
-    isBackfilled: boolean = false
+    isBackfilled: boolean = false,
+    history?: {
+        tMinus1?: { score: number, vol: number };
+        tMinus2?: { score: number, vol: number };
+    }
 ): QualityTierResult {
     const symbol = item.ticker || '';
     const evidence = item.evidence;
@@ -261,6 +271,26 @@ export function computeQualityTier(
     if (holdAction === 'EXIT') alphaScore += POWER_SCORE_CONFIG.PENALTY_EXIT;
     if (!wasInPrevReport) alphaScore += POWER_SCORE_CONFIG.PENALTY_NEW_ENTRY;
 
+    // [13.2] Momentum Boost (3-Day Rising)
+    // T-2 < T-1 < T0  AND  Vol(T0) > Vol(T-1) (optional validation)
+    let momentumBonus = 0;
+    if (history?.tMinus1 && history?.tMinus2) {
+        const s0 = alphaScore;
+        const s1 = history.tMinus1.score;
+        const s2 = history.tMinus2.score;
+
+        // Check strict rising trend
+        if (s0 > s1 && s1 > s2) {
+            // Check significant rise (> 5 points over 2 days)
+            if ((s0 - s2) >= 5) {
+                momentumBonus = 10; // Major Boost
+                alphaScore += momentumBonus;
+                // Lift scope reason for transparency
+                // reasonKR += ' [MOMENTUM: 3일 상승]'; // This string is built later, we assume separate logic or append to metadata
+            }
+        }
+    }
+
     // Cap score
     alphaScore = Math.max(0, Math.min(100, alphaScore));
 
@@ -281,6 +311,13 @@ export function computeQualityTier(
     } else if (evidence?.policy?.gate?.blocked) {
         tier = 'FILLER';
         reasonKR = '정책적 차단 (Policy Block)';
+    } else if (momentumBonus > 0 && optionsComplete) {
+        // [13.2] Momentum Override
+        tier = 'ACTIONABLE';
+        reasonKR = `💥 3일 연속 상승(${alphaScore.toFixed(0)}) + 옵션확인 = 강력 매수`;
+
+        // Still check Event Gate
+        // [Step 1] State Machine & Event Gate
         // [Step 1] State Machine & Event Gate
         const currentAction = item.decisionSSOT?.action || 'NONE';
         const hasHighImpactEvent = item.evidence?.policy?.gate?.P0?.length > 0; // P0 events are high impact
@@ -502,13 +539,15 @@ export function determineRegime(macroData?: any): { regime: MarketRegime; reason
 export function applyQualityTiers(
     items: any[],
     prevReportSymbols: Set<string> = new Set(),
-    backfilledSymbols: Set<string> = new Set()
+    backfilledSymbols: Set<string> = new Set(),
+    historyMap: Record<string, { tMinus1?: { score: number, vol: number }, tMinus2?: { score: number, vol: number } }> = {}
 ): any[] {
     return items.map(item => {
         const sym = (item.symbol || item.ticker)?.toUpperCase() || '';
         const isBackfilled = backfilledSymbols.has(sym) || item.isBackfilled === true;
+        const history = historyMap[sym];
 
-        const tierResult = computeQualityTier(item, prevReportSymbols, isBackfilled);
+        const tierResult = computeQualityTier(item, prevReportSymbols, isBackfilled, history);
 
         return {
             ...item,

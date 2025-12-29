@@ -1,0 +1,130 @@
+0: Regular Trade
+1: Sell Side
+2: Buy Side
+201: Canceled
+202: Late and Out Of Sequence
+203: Last and Canceled
+204: Late
+205: Opening Trade and Canceled
+206: Opening Trade, Late, and Out Of Sequence
+207: Only Trade and Canceled
+208: Opening Trade and Late
+209: Automatic Execution
+210: Reopening Trade
+219: Intermarket Sweep Order
+227: Single Leg Auction Non ISO
+228: Single Leg Auction ISO
+229: Single Leg Cross Non ISO
+230: Single Leg Cross ISO
+231: Single Leg Floor Trade
+232: Multi Leg auto-electronic trade
+233: Multi Leg Auction
+234: Multi Leg Cross
+235: Multi Leg floor trade
+236: Multi Leg auto-electronic trade against single leg(s)
+237: Stock Options Auction
+238: Multi Leg Auction against single leg(s)
+239: Multi Leg floor trade against single leg(s)
+240: Stock Options auto-electronic trade
+241: Stock Options Cross
+242: Stock Options floor trade
+243: Stock Options auto-electronic trade against single leg(s)
+244: Stock Options Auction against single leg(s)
+245: Stock Options floor trade against single leg(s)
+246: Multi Leg Floor Trade of Proprietary Products
+247: Multilateral Compression Trade of Proprietary Products
+248: Extended Hours Trade
+1: Acquisition
+2: Average Price Trade
+3: Automatic Execution
+4: Bunched Trade
+5: Bunched Sold Trade
+6: CAP Election
+7: Cash Sale
+8: Closing Prints
+9: Cross Trade
+10: Derivatively Priced
+11: Distribution
+12: Form T/Extended Hours
+13: Extended Hours (Sold Out Of Sequence)
+14: Intermarket Sweep
+15: Market Center Official Close
+16: Market Center Official Open
+17: Market Center Opening Trade
+18: Market Center Reopening Trade
+19: Market Center Closing Trade
+20: Next Day
+21: Price Variation Trade
+22: Prior Reference Price
+23: Rule 155 Trade (AMEX)
+24: Rule 127 (NYSE Only)
+25: Opening Prints
+27: Stopped Stock (Regular Trade)
+28: Re-Opening Prints
+29: Seller
+30: Sold Last
+31: Sold Last and Stopped Stock
+32: Sold (Out Of Sequence)
+33: Sold (Out of Sequence) and Stopped Stock
+34: Split Trade
+35: Stock Option
+36: Yellow Flag Regular Trade
+37: Odd Lot Trade
+38: Corrected Consolidated Close (per listing market)
+41: Trade Thru Exempt
+52: Contingent Trade
+53: Qualified Contingent Trade
+55: Opening Reopening Trade Detail
+57: Short Sale Restriction Activated
+58: Short Sale Restriction Continued
+59: Short Sale Restriction Deactivated
+60: Short Sale Restriction In Effect
+62: Financial Status - Bankrupt
+63: Financial Status - Deficient
+64: Financial Status - Delinquent
+65: Financial Status - Bankrupt and Deficient
+66: Financial Status - Bankrupt and Delinquent
+67: Financial Status - Deficient and Delinquent
+68: Financial Status - Deficient, Delinquent, and Bankrupt
+69: Financial Status - Liquidation
+70: Financial Status - Creations Suspended
+71: Financial Status - Redemptions Suspended
+1: Regular Two-Sided Open
+2: Regular One-Sided Open
+3: Slow Ask
+4: Slow Bid
+5: Slow Bid and Ask
+6: Slow Due LRP Bid
+7: Slow Due LRP Ask
+9: Slow Due Set Slow List Bid Ask
+10: Manual Ask Automated Bid
+11: Manual Bid Automated Ask
+12: Manual Bid and Ask
+13: Opening
+14: Closing
+15: Closed
+16: Resume
+17: Fast Trading
+18: Trading Range Indication
+19: Market Maker Quotes Closed
+20: Non-Firm
+21: News Dissemination
+22: Order Influx
+23: Order Imbalance
+26: Additional Information
+27: News Pending
+28: Additional Information Due To Related Security
+29: Due To Related Security
+30: In View Of Common
+30: Equipment Changeover
+32: No Open No Resume
+40: On Demand Auction
+41: Cash Only Settlement
+42: Next Day Settlement
+43: LULD Trading Pause
+71: Slow Due LRP Bid and Ask
+81: Corrected Price Indication
+82: SIP Generated
+84: Crossed Market
+85: Locked Market
+94: CQS Generated
