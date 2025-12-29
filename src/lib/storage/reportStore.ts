@@ -86,8 +86,8 @@ const PERF_TRACKER_PATH = path.join(process.cwd(), 'snapshots', 'performance_tra
 
 // [S-52.6] Environment check - USE_REDIS_SSOT allows local to use Redis
 const isVercel = () => process.env.VERCEL === '1' || !!process.env.VERCEL_ENV;
-// [S-Force] Force Redis SSOT to true as requested, if we have credentials
-export const useRedis = () => isVercel() || !!process.env.KV_URL || !!process.env.UPSTASH_REDIS_REST_URL;
+// [P0] HARDCODED: Always use Redis SSOT regardless of environment
+export const useRedis = () => true;
 
 // Get Redis client (lazy initialization)
 let redisClient: Redis | null = null;

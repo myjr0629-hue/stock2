@@ -29,7 +29,7 @@ export async function GET() {
         deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
         vercelEnv: process.env.VERCEL_ENV || null,
         nodeEnv: process.env.NODE_ENV || "unknown",
-        useRedisSSOT: process.env.USE_REDIS_SSOT || "false",
+        useRedisSSOT: "true", // [P0] Hardcoded to true - Redis SSOT always enabled
         massiveKeyPresent: !!MASSIVE_API_KEY,
         upstashUrlPresent: !!UPSTASH_URL,
         envType

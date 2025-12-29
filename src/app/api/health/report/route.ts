@@ -23,7 +23,8 @@ export async function GET(request: Request) {
     const includeSnapshot = searchParams.get('includeSnapshot') === 'true'; // [S-56.4.7b]
 
     const isVercelEnv = process.env.VERCEL === '1' || !!process.env.VERCEL_ENV;
-    const useRedisEnv = process.env.USE_REDIS_SSOT === '1' || isVercelEnv;
+    // [P0] HARDCODED: Always use Redis SSOT
+    const useRedisEnv = true;
 
     try {
         const report = await loadLatest(type);
@@ -68,14 +69,14 @@ export async function GET(request: Request) {
                 fullUniverse: report.alphaGrid?.fullUniverse?.length ?? 0
             },
             env: {
-                USE_REDIS_SSOT: process.env.USE_REDIS_SSOT,
+                USE_REDIS_SSOT: 'true', // [P0] HARDCODED
                 buildId: buildId.slice(0, 7)
             },
             // [S-56.4.5c] Env Diagnostics Fallback - for production route parity check
             envDiagnostics: {
                 MASSIVE_API_KEY_present: !!(process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY),
                 MASSIVE_BASE_URL_present: !!process.env.MASSIVE_BASE_URL || true,
-                USE_REDIS_SSOT: process.env.USE_REDIS_SSOT || 'false',
+                USE_REDIS_SSOT: 'true', // [P0] HARDCODED
                 buildId: buildId.slice(0, 7),
                 routeVersionTag: 'S-56.4.6d'
             },
