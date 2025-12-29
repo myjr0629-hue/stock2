@@ -277,9 +277,46 @@ export function computeQualityTier(
     } else if (evidence?.policy?.gate?.blocked) {
         tier = 'FILLER';
         reasonKR = '정책적 차단 (Policy Block)';
+        // [Step 1] State Machine & Event Gate
+        const currentAction = item.decisionSSOT?.action || 'NONE';
+        const hasHighImpactEvent = item.evidence?.policy?.gate?.P0?.length > 0; // P0 events are high impact
+
+        // Event Gate: Block actionable if high impact event imminent
+        if (hasHighImpactEvent && tier === 'ACTIONABLE') {
+            tier = 'WATCH';
+            reasonKR = `[Event Gate] 주요 이벤트 대기 (${item.evidence.policy.gate.P0.join(', ')})`;
+        }
+
+        // State Machine Transitions
+        // HOLD -> OBSERVE (if score drops but foundation holds)
+        // OBSERVE -> REBUILD (if score recovers)
+        // OBSERVE -> EARLY_HANDOFF (if structure breaks)
+
+        // Logic placeholder for state machine (needs persistence layer to be fully effective, currently just modifying logic based on current state)
+        if (currentAction === 'HOLD') {
+            if (alphaScore < 60 && alphaScore >= 45) {
+                // Degraded but not broken
+                reasonKR += ' [OBSERVE: 점수 하락 관찰]';
+            } else if (alphaScore < 45) {
+                // Structure broken
+                reasonKR += ' [EARLY_HANDOFF: 구조 붕괴]';
+            }
+        } else if (currentAction === 'OBSERVE') {
+            if (alphaScore >= 70) {
+                reasonKR += ' [REBUILD: 회복세 확인]';
+            }
+        }
+
     } else if (alphaScore >= QUALITY_TIER_CONFIG.ACTIONABLE_MIN_SCORE && optionsComplete) {
         tier = 'ACTIONABLE';
         reasonKR = `고강도(${alphaScore.toFixed(0)}) + 옵션확인 = 매수 적합`;
+
+        // [Step 1] Event Gate Check inside Actionable
+        if (hasHighImpactEvent) {
+            tier = 'WATCH';
+            reasonKR = `⛔ Event Gate: ${item.evidence.policy.gate.P0[0]} 대기 (매수 보류)`;
+        }
+
     } else if (alphaScore >= QUALITY_TIER_CONFIG.WATCH_MIN_SCORE) {
         tier = 'WATCH';
         reasonKR = optionsComplete

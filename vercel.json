@@ -1,12 +1,20 @@
 {
     "crons": [
         {
-            "path": "/api/cron/report?type=open30m",
+            "path": "/api/cron/report?type=pre",
+            "schedule": "0 11 * * 1-5"
+        },
+        {
+            "path": "/api/cron/report?type=open",
             "schedule": "0 14 * * 1-5"
         },
         {
             "path": "/api/cron/report?type=eod",
             "schedule": "30 21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/guard?mode=intraday",
+            "schedule": "*/15 14-20 * * 1-5"
         }
     ]
 }
