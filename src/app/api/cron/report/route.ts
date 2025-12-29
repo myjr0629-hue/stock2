@@ -30,7 +30,9 @@ export async function GET(request: Request) {
     const marketDate = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
 
     // Check for duplicate (avoid regenerating same report)
-    const existing = getArchivedReport(marketDate, type);
+    const force = searchParams.get('force') === 'true';
+    const existing = !force ? getArchivedReport(marketDate, type) : null;
+
     if (existing) {
         console.log(`[Cron] Report ${marketDate}-${type} already exists, skipping`);
         return NextResponse.json({
@@ -49,13 +51,22 @@ export async function GET(request: Request) {
             success: true,
             reportId: report.meta.id,
             type: report.meta.type,
-            generatedAt: report.meta.generatedAtET
+            generatedAt: report.meta.generatedAtET,
+            diagnostics: {
+                buildId: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || process.env.VERCEL_GIT_COMMIT_SHA || "local",
+                routeVersionTag: "S-56.4.6e",
+                savedTo: report.meta.optionsStatus?.state
+            }
         });
     } catch (error: any) {
         console.error('[Cron] Report generation failed:', error);
         return NextResponse.json({
             error: 'Generation failed',
-            message: error.message
+            message: error.message,
+            diagnostics: {
+                buildId: process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "local",
+                routeVersionTag: "S-56.4.6e"
+            }
         }, { status: 500 });
     }
 }

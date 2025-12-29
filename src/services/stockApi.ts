@@ -255,13 +255,13 @@ function calculateGemsGreeks(contracts: any[], spot: number) {
     return {
       maxPain: null,
       totalGex: null,
-      mmPos: "PENDING",
-      edge: "Options Pending",
-      comment: "[OI] Options: Pending (no contracts). Price-only decision authority.",
+      mmPos: "FAIL",
+      edge: "Options Unavailable",
+      comment: "[OI] Options: None found. Price-only decision authority.",
       strikes: [],
       putCallRatio: null,
-      options_status: "PENDING",
-      options_grade: "C",
+      options_status: "NO_OPTIONS" as any,
+      options_grade: "N/A",
       options_reason: "Target expiry contracts not found"
     };
   }
@@ -274,17 +274,18 @@ function calculateGemsGreeks(contracts: any[], spot: number) {
 
   // ✅ Pending => do NOT return fake numbers
   if (options_status === "PENDING") {
+    // If total OI is zero, it's effectively NO_OPTIONS for this expiry
     return {
       maxPain: null,
       totalGex: null,
-      mmPos: "PENDING",
-      edge: "Options Pending",
-      comment: "[OI] Options: Pending (Open Interest not available). Price-only decision authority.",
+      mmPos: "FAIL",
+      edge: "Options Inactive",
+      comment: "[OI] Options: Inactive (Zero OI). Price-only decision authority.",
       strikes: [],
       putCallRatio: null,
-      options_status,
+      options_status: "NO_OPTIONS" as any,
       options_grade: "C",
-      options_reason: "Official OI field is zero or delayed"
+      options_reason: "Official OI field is zero"
     };
   }
 
@@ -385,7 +386,7 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
       putsOI: [],
       putCallRatio: null,
       gems: { mmPos: "FAIL", edge: "Ineligible", gex: null, comment: "[S-38D] No listed options found. Removing from options pipeline." },
-      options_status: "FAILED",
+      options_status: "NO_OPTIONS" as any,
       options_grade: "N/A",
       options_reason: "NO_OPTIONS_LISTED"
     } as any;
@@ -403,7 +404,7 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
     const spotNum = chainData.spot || 0;
     analytics = calculateGemsGreeks(chainData.contracts, spotNum);
 
-    if (analytics.options_status === "OK") break;
+    if (analytics.options_status === "OK" || analytics.options_status === "NO_OPTIONS") break;
 
     attempt++;
     if (attempt < MAX_OI_RETRIES) {
@@ -417,6 +418,9 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
 
   // ✅ Pending => return NO fake options numbers
   if (!analytics || analytics.options_status !== "OK") {
+    // If we exhausted retries, it's a FAIL, not PENDING forever
+    const finalStatus = "FAILED"; // Was "PENDING"
+
     return {
       expirationDate: chainData?.expiry || "-",
       currentPrice: spotNum,
@@ -425,10 +429,10 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
       callsOI: [],
       putsOI: [],
       putCallRatio: null,
-      gems: { mmPos: "PENDING", edge: "Options Pending", gex: null, comment: "[OI] Options: Pending (OI not available). Price-only decision authority." },
-      options_status: "PENDING",
+      gems: { mmPos: "FAIL", edge: "Options Unavailable", gex: null, comment: "[OI] Options: Failed to fetch data. Price-only decision authority." },
+      options_status: finalStatus,
       options_grade: "C",
-      options_reason: analytics?.options_reason || "PENDING_OI_DELAYED"
+      options_reason: analytics?.options_reason || "DATA_FETCH_FAILED"
     } as any;
   }
 

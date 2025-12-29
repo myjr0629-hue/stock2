@@ -90,7 +90,7 @@ export interface PremiumReport {
 }
 
 const REPORTS_DIR = path.join(process.cwd(), 'snapshots', 'reports');
-const REPORT_VERSION = "S51.8-LIVE";
+const REPORT_VERSION = "S-56.4.6e";
 
 // Schedule definitions (ET time)
 export const REPORT_SCHEDULES: Record<ReportType, { hour: number, minute: number, description: string }> = {

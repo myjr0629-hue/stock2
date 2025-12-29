@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, ArrowUpRight, Activity, Newspaper, Smile, Frown, ShieldAlert, BarChart3, Megaphone, Waves } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
 import { NewsItem, MacroData } from '@/services/stockApi';
@@ -26,6 +26,12 @@ interface MarketPulseProps {
 }
 
 export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) {
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     if (!indices || indices.length === 0) return <div className="h-full bg-white rounded-2xl p-6 shadow-sm border border-slate-100 animate-pulse" />;
 
     const renderIndexCard = (data: IndexData, color: string) => {
@@ -46,27 +52,29 @@ export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) 
                     </div>
                 </div>
 
-                <div className="h-12 w-full mt-3">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={data.history}>
-                            <defs>
-                                <linearGradient id={`gradient-${data.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="5%" stopColor={color} stopOpacity={0.2} />
-                                    <stop offset="95%" stopColor={color} stopOpacity={0} />
-                                </linearGradient>
-                            </defs>
-                            <YAxis domain={['auto', 'auto']} hide />
-                            <Area
-                                type="monotone"
-                                dataKey="close"
-                                stroke={color}
-                                strokeWidth={2}
-                                fillOpacity={1}
-                                isAnimationActive={true}
-                                fill={`url(#gradient-${data.symbol})`}
-                            />
-                        </AreaChart>
-                    </ResponsiveContainer>
+                <div className="h-12 w-full mt-3 flex flex-col min-w-0 min-h-0">
+                    {isMounted ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={data.history}>
+                                <defs>
+                                    <linearGradient id={`gradient-${data.symbol}`} x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={color} stopOpacity={0.2} />
+                                        <stop offset="95%" stopColor={color} stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <YAxis domain={['auto', 'auto']} hide />
+                                <Area
+                                    type="monotone"
+                                    dataKey="close"
+                                    stroke={color}
+                                    strokeWidth={2}
+                                    fillOpacity={1}
+                                    isAnimationActive={true}
+                                    fill={`url(#gradient-${data.symbol})`}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    ) : <div className="w-full h-full bg-slate-100/50 rounded animate-pulse" />}
                 </div>
             </div>
         );

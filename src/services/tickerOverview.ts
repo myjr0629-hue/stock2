@@ -48,7 +48,7 @@ export interface TickerIndicators {
 }
 
 export interface TickerOptionsData {
-    status: "OK" | "PARTIAL" | "PENDING" | "ERROR";
+    status: "OK" | "PARTIAL" | "PENDING" | "ERROR" | "NO_OPTIONS";
     coveragePct: number;
     gammaExposure: number | null;
     gammaExposureReasonKR?: string;
@@ -326,9 +326,9 @@ export async function getTickerOverview(
                 reasonKR: result.options.reasonKR
             };
         } else {
-            result.options.status = "PENDING";
-            result.options.reasonKR = "옵션 스냅샷 응답이 비어있음";
-            diagnostics.options = { ok: false, code: "EMPTY_RESPONSE", reasonKR: result.options.reasonKR, state: "PENDING" };
+            result.options.status = "NO_OPTIONS" as any;
+            result.options.reasonKR = "옵션 스냅샷 응답이 비어있음 (NO_OPTIONS)";
+            diagnostics.options = { ok: true, code: "NO_OPTIONS", reasonKR: result.options.reasonKR, state: "NO_OPTIONS" };
         }
     } catch (e: any) {
         const errInfo = extractErrorInfo(e);

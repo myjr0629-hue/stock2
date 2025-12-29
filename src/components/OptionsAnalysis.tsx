@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from 'react';
 import { OptionData } from "@/services/stockTypes";
 import {
     BarChart,
@@ -19,6 +20,12 @@ interface OptionsAnalysisProps {
 }
 
 export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     // [수정 핵심] 데이터가 존재하지 않거나 필수 배열(strikes)이 없을 경우 에러 화면 방지
     // Also check for empty array (valid object but no data)
     if (!data || !data.strikes || !Array.isArray(data.strikes) || data.strikes.length === 0) {
@@ -183,33 +190,39 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                         </div>
                     </div>
                 </CardHeader>
-                <CardContent className="h-[300px] w-full p-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
-                            <XAxis
-                                dataKey="strike"
-                                stroke="#94a3b8"
-                                fontSize={10}
-                                tickFormatter={(val) => `$${val}`}
-                            />
-                            <YAxis
-                                stroke="#94a3b8"
-                                fontSize={10}
-                                tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
-                            />
-                            <Tooltip
-                                contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                                cursor={{ fill: '#f1f5f9', opacity: 0.5 }}
-                                labelFormatter={(label) => `Strike: $${label}`}
-                            />
-                            <ReferenceLine x={currentPrice} stroke="#3b82f6" strokeDasharray="3 3" label={{ value: 'Current', position: 'top', fill: '#3b82f6', fontSize: 10 }} />
-                            <ReferenceLine x={maxPain} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: 'Max Pain', position: 'top', fill: '#f59e0b', fontSize: 10 }} />
+                <CardContent className="h-[300px] w-full p-4 flex flex-col min-w-0 min-h-0">
+                    {isMounted ? (
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData} margin={{ top: 20, right: 30, left: 0, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.3} />
+                                <XAxis
+                                    dataKey="strike"
+                                    stroke="#94a3b8"
+                                    fontSize={10}
+                                    tickFormatter={(val) => `$${val}`}
+                                />
+                                <YAxis
+                                    stroke="#94a3b8"
+                                    fontSize={10}
+                                    tickFormatter={(val) => `${(val / 1000).toFixed(0)}k`}
+                                />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: 'rgba(255, 255, 255, 0.95)', borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                    cursor={{ fill: '#f1f5f9', opacity: 0.5 }}
+                                    labelFormatter={(label) => `Strike: $${label}`}
+                                />
+                                <ReferenceLine x={currentPrice} stroke="#3b82f6" strokeDasharray="3 3" label={{ value: 'Current', position: 'top', fill: '#3b82f6', fontSize: 10 }} />
+                                <ReferenceLine x={maxPain} stroke="#f59e0b" strokeDasharray="3 3" label={{ value: 'Max Pain', position: 'top', fill: '#f59e0b', fontSize: 10 }} />
 
-                            <Bar dataKey="calls" name="Call OI" fill="#fb7185" opacity={0.8} radius={[4, 4, 0, 0]} />
-                            <Bar dataKey="puts" name="Put OI" fill="#34d399" opacity={0.8} radius={[4, 4, 0, 0]} />
-                        </BarChart>
-                    </ResponsiveContainer>
+                                <Bar dataKey="calls" name="Call OI" fill="#fb7185" opacity={0.8} radius={[4, 4, 0, 0]} />
+                                <Bar dataKey="puts" name="Put OI" fill="#34d399" opacity={0.8} radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center bg-slate-50/50 rounded-lg">
+                            <span className="text-xs text-slate-400 font-medium">Loading Chart...</span>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
 

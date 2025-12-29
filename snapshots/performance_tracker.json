@@ -244,5 +244,32 @@
     },
     "winCount": 0,
     "tradeCount": 0
+  },
+  {
+    "date": "2025-12-28",
+    "reportType": "eod",
+    "sessionType": "regular",
+    "timestamp": "2025-12-28T23:56:09.277Z",
+    "tickers": [
+      {
+        "symbol": "TGT",
+        "rank": 1,
+        "baselinePrice": 99.5192,
+        "alphaScore": 81.3
+      },
+      {
+        "symbol": "FCX",
+        "rank": 2,
+        "baselinePrice": 53.4,
+        "alphaScore": 77.8
+      },
+      {
+        "symbol": "ASPC",
+        "rank": 3,
+        "baselinePrice": 19.4,
+        "alphaScore": 69.2
+      }
+    ],
+    "calculated": false
   }
 ]

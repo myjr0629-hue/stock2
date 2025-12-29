@@ -113,10 +113,9 @@ export function validateReportShape(report: any): { valid: boolean; reasons: str
     if (!report.macro) reasons.push('MACRO_MISSING');
 
     // Determine options status
-    const pendingTickers = (report.items || []).filter((t: any) => t.v71?.options_status !== 'OK');
+    const pendingTickers = (report.items || []).filter((t: any) => t.v71?.options_status === 'PENDING');
     const optionsGate: 'READY' | 'PENDING' | 'DISABLED' =
-        pendingTickers.length === 0 ? 'READY' :
-            pendingTickers.length < itemsCount ? 'PENDING' : 'DISABLED';
+        pendingTickers.length === 0 ? 'READY' : 'PENDING';
 
     // Determine integrity status
     let status: IntegrityStatus = 'OK';
@@ -142,17 +141,25 @@ export function validateReportShape(report: any): { valid: boolean; reasons: str
 
 export function calculateOptionsStatus(report: any): OptionsStatus {
     const items = report.items || [];
+
+    // Only strictly "PENDING" status blocks the gate
     const pendingTickers = items
-        .filter((t: any) => t.v71?.options_status !== 'OK')
+        .filter((t: any) => t.v71?.options_status === 'PENDING')
         .map((t: any) => t.ticker || t.symbol);
 
     const okCount = items.filter((t: any) => t.v71?.options_status === 'OK').length;
+    // NO_OPTIONS is considered "handled" but not "OK covered" for coverage stats, but definitely not pending.
+
     const coveragePct = items.length > 0 ? Math.round((okCount / items.length) * 100) : 0;
 
     let state: 'READY' | 'PENDING' | 'DISABLED' | 'FAILED' = 'READY';
-    if (pendingTickers.length > 0 && okCount > 0) state = 'PENDING';
-    else if (okCount === 0 && items.length > 0) state = 'FAILED';
-    else if (items.length === 0) state = 'DISABLED';
+
+    if (pendingTickers.length > 0) {
+        state = 'PENDING';
+    } else if (items.length === 0) {
+        state = 'DISABLED';
+    }
+    // If no pending, we are READY. Even if coverage is low (that's a data quality issue, not a pipeline block).
 
     return {
         state,
@@ -162,6 +169,8 @@ export function calculateOptionsStatus(report: any): OptionsStatus {
         note: state === 'PENDING' ? `${pendingTickers.length}개 티커 옵션 수집 대기` : undefined
     };
 }
+
+
 
 // ============ REPORT STORAGE ============
 
