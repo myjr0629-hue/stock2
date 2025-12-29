@@ -60,166 +60,185 @@ interface GateStatus {
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
+// ============================================================================
+// HELPER FUNCTIONS (STYLES)
+// ============================================================================
 const getRegimeColor = (regime?: string) => {
-    if (regime === "RISK_ON") return "bg-emerald-500";
-    if (regime === "RISK_OFF") return "bg-rose-500";
-    return "bg-amber-500";
+    // [Reskin] Cleaner, no gradients, use solid semantic colors but muted
+    if (regime === "RISK_ON") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+    if (regime === "RISK_OFF") return "text-rose-400 bg-rose-500/10 border-rose-500/20";
+    return "text-amber-400 bg-amber-500/10 border-amber-500/20";
 };
 
 const getRegimeText = (regime?: string) => {
-    if (regime === "RISK_ON") return "위험선호";
-    if (regime === "RISK_OFF") return "위험회피";
-    return "중립";
+    if (regime === "RISK_ON") return "RISK-ON";
+    if (regime === "RISK_OFF") return "RISK-OFF";
+    return "NEUTRAL";
 };
 
 const getTierStyle = (tier?: string) => {
-    if (tier === "ACTIONABLE") return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
-    if (tier === "WATCH") return "bg-amber-500/15 text-amber-400 border-amber-500/30";
-    return "bg-slate-500/15 text-slate-400 border-slate-500/30";
+    // [Reskin] Very minimal. Tiers are important but shouldn't scream.
+    if (tier === "ACTIONABLE") return "text-emerald-400 border border-emerald-500/30 bg-emerald-500/5";
+    if (tier === "WATCH") return "text-slate-300 border border-slate-700 bg-slate-800/50";
+    return "text-slate-500 border border-slate-800 bg-transparent";
 };
 
 const getOptionsStatus = (status?: string) => {
+    // [Reskin] Dot + Text style only
     if (status === "OK" || status === "READY") return { label: "OK", color: "bg-emerald-500" };
     if (status === "PARTIAL") return { label: "PARTIAL", color: "bg-amber-500" };
     if (status === "NO_OPTIONS") return { label: "N/A", color: "bg-slate-600" };
     if (status === "FAILED" || status === "ERR") return { label: "ERR", color: "bg-rose-500" };
-    return { label: "N/A", color: "bg-slate-500" };
+    return { label: "UNK", color: "bg-slate-500" };
 };
 
 const getActionStyle = (action?: string) => {
-    if (action === "ENTER" || action === "STRONG_BUY") return "text-emerald-400 bg-emerald-500/15";
-    if (action === "MAINTAIN") return "text-sky-400 bg-sky-500/15";
-    if (action === "EXIT" || action === "REPLACE") return "text-rose-400 bg-rose-500/15";
-    if (action === "NO_TRADE") return "text-slate-400 bg-slate-500/15";
-    return "text-amber-400 bg-amber-500/15";
+    // [Reskin] Unified simpler styles
+    if (action === "ENTER" || action === "STRONG_BUY") return "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20";
+    if (action === "MAINTAIN") return "text-sky-400 bg-sky-500/10 border border-sky-500/20";
+    if (action === "EXIT" || action === "REPLACE") return "text-rose-400 bg-rose-500/10 border border-rose-500/20";
+    if (action === "NO_TRADE") return "text-slate-400 bg-slate-800 border border-slate-700";
+    return "text-amber-400 bg-amber-500/10 border border-amber-500/20";
 };
 
 // ============================================================================
 // COMPONENTS
 // ============================================================================
 
-// Gate Badge Component
+// Gate Badge: Text + Dot (Minimalist)
 function GateBadge({ label, pass }: { label: string; pass: boolean }) {
     return (
-        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] font-bold ${pass ? "bg-emerald-500/15 text-emerald-400" : "bg-rose-500/15 text-rose-400"
+        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium border border-transparent ${pass ? "text-slate-300" : "text-rose-400 bg-rose-500/10 border-rose-500/20"
             }`}>
-            {pass ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
-            <span>{label}</span>
+            <div className={`w-1.5 h-1.5 rounded-full ${pass ? "bg-emerald-500" : "bg-rose-500"}`} />
+            <span className="uppercase tracking-wider">{label}</span>
         </div>
     );
 }
 
-// Evidence Card Component
+// Evidence Card: Professional Header + Grid Layout
 function EvidenceCardUI({ card }: { card: EvidenceCard }) {
+    // [Reskin] Removed confidence label mapping, use raw A/B/C badge
+    // [Reskin] No colored borders, use semantic icon color only
     const statusColor = {
-        BULLISH: "border-l-emerald-500",
-        BEARISH: "border-l-rose-500",
-        NEUTRAL: "border-l-amber-500",
-        PENDING: "border-l-slate-500"
+        BULLISH: "text-emerald-400",
+        BEARISH: "text-rose-400",
+        NEUTRAL: "text-amber-400",
+        PENDING: "text-slate-400"
     }[card.status];
 
-    const confidenceLabel = { A: "공식 2+소스", B: "1소스+반응", C: "추정값" }[card.confidence];
-
     return (
-        <div className={`bg-slate-900/70 border border-slate-800 rounded-lg p-4 border-l-4 ${statusColor}`}>
-            <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400">
-                        {card.icon}
+        <div className="bg-slate-900 border border-slate-800 rounded p-4 h-full flex flex-col hover:border-slate-700 transition-colors">
+            {/* Header */}
+            <div className="flex items-start justify-between mb-4 border-b border-slate-800/50 pb-3">
+                <div className="flex items-center gap-2.5">
+                    <div className={`p-1.5 rounded bg-slate-800 ${statusColor}`}>
+                        {React.cloneElement(card.icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4" })}
                     </div>
                     <div>
-                        <h4 className="text-[11px] font-black text-white tracking-tight">{card.titleKR}</h4>
-                        <p className="text-[9px] text-slate-500 uppercase tracking-widest">{card.title}</p>
+                        <div className="flex items-baseline gap-2">
+                            <h4 className="text-sm font-bold text-slate-200 tracking-tight">{card.titleKR}</h4>
+                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{card.title}</span>
+                        </div>
                     </div>
                 </div>
-                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${card.confidence === "A" ? "bg-emerald-500/20 text-emerald-400" :
-                    card.confidence === "B" ? "bg-amber-500/20 text-amber-400" :
-                        "bg-slate-500/20 text-slate-400"
-                    }`}>{card.confidence}</span>
+                <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${card.confidence === "A" ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" :
+                        card.confidence === "B" ? "text-amber-400 border-amber-500/20 bg-amber-500/5" :
+                            "text-slate-500 border-slate-700 bg-slate-800"
+                        }`}>
+                        GR.{card.confidence}
+                    </span>
+                </div>
             </div>
 
-            <div className="space-y-2 text-[11px]">
-                <div className="flex gap-2">
-                    <span className="text-slate-500 w-10 shrink-0">의미</span>
-                    <span className="text-slate-300">{card.meaning}</span>
+            {/* Body: 3-Row Data Grid */}
+            <div className="flex-1 space-y-3">
+                <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
+                    <span className="text-[10px] text-slate-500 font-medium text-right">의미</span>
+                    <span className="text-[11px] text-slate-400 leading-tight">{card.meaning}</span>
                 </div>
-                <div className="flex gap-2">
-                    <span className="text-slate-500 w-10 shrink-0">해석</span>
-                    <span className="text-slate-200 font-medium">{card.interpretation}</span>
+                <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
+                    <span className="text-[10px] text-slate-500 font-medium text-right">해석</span>
+                    <span className="text-[12px] text-slate-200 font-medium tabular-nums leading-tight tracking-tight">
+                        {card.interpretation}
+                    </span>
                 </div>
-                <div className="flex gap-2">
-                    <span className="text-slate-500 w-10 shrink-0">행동</span>
-                    <span className={`font-bold ${card.status === "BULLISH" ? "text-emerald-400" :
-                        card.status === "BEARISH" ? "text-rose-400" :
-                            "text-amber-400"
-                        }`}>{card.action}</span>
+                <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
+                    <span className="text-[10px] text-slate-500 font-medium text-right">행동</span>
+                    <span className={`text-[12px] font-bold ${statusColor}`}>
+                        {card.action}
+                    </span>
                 </div>
             </div>
         </div>
     );
 }
 
-// Top3 Execution Card
+// Top3 Execution Card: Simplified, cleaner typography
 function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
     const action = item.decisionSSOT?.action || "CAUTION";
     const isNoTrade = action === "NO_TRADE" || action === "EXIT";
 
     return (
-        <div className={`relative bg-slate-900/80 border rounded-xl p-5 ${isNoTrade ? "border-rose-500/50 opacity-60" : "border-indigo-500/30"
-            }`}>
-            {/* Rank Badge */}
-            <div className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-[10px] font-black text-white">
+        <div className={`relative bg-slate-900 border rounded p-4 ${isNoTrade ? "border-slate-800 opacity-70" : "border-slate-800 hover:border-slate-600 transition-colors"}`}>
+            {/* Rank - Subtle */}
+            <div className="absolute top-4 right-4 text-[40px] font-black text-slate-800/50 leading-none pointer-events-none select-none">
                 {rank}
             </div>
 
             {/* Header */}
-            <div className="flex items-start justify-between mb-4">
+            <div className="flex items-start justify-between mb-6 relative z-10">
                 <div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-lg font-black text-white">{item.ticker}</span>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getActionStyle(action)}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xl font-bold text-white tracking-tight">{item.ticker}</span>
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${getActionStyle(action)}`}>
                             {action}
                         </span>
                     </div>
-                    <p className="text-[10px] text-slate-500">{item.name || item.sector || "—"}</p>
                 </div>
                 <div className="text-right">
-                    <p className="text-sm font-mono font-bold text-white">${item.price?.toFixed(2) || "—"}</p>
-                    <p className={`text-[10px] font-bold ${(item.changePct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {(item.changePct || 0) >= 0 ? "+" : ""}{item.changePct?.toFixed(2) || 0}%
+                    <p className="text-base font-semibold font-mono text-white tabular-nums tracking-tight">
+                        {item.price?.toFixed(2)}
+                    </p>
+                    <p className={`text-[11px] font-medium tabular-nums ${(item.changePct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {(item.changePct || 0) >= 0 ? "+" : ""}{item.changePct?.toFixed(2)}%
                     </p>
                 </div>
             </div>
 
-            {/* Execution Levels */}
+            {/* Execution Levels - Clean Grid */}
             {!isNoTrade ? (
-                <div className="grid grid-cols-2 gap-3 text-[10px]">
-                    <div className="bg-slate-800/50 rounded-lg p-2">
-                        <p className="text-slate-500 mb-1">Entry Band</p>
-                        <p className="text-white font-mono font-bold">
-                            ${item.entryBand?.low?.toFixed(2) || "—"} - ${item.entryBand?.high?.toFixed(2) || "—"}
-                        </p>
+                <div className="space-y-2 relative z-10">
+                    <div className="flex items-center justify-between py-1 border-b border-slate-800/50">
+                        <span className="text-[11px] text-slate-500 font-medium">Entry</span>
+                        <div className="text-right">
+                            <span className="block text-[13px] font-mono font-medium text-white tabular-nums">
+                                ${item.entryBand?.low?.toFixed(2)} - {item.entryBand?.high?.toFixed(2)}
+                            </span>
+                        </div>
                     </div>
-                    <div className="bg-rose-500/10 rounded-lg p-2">
-                        <p className="text-rose-400 mb-1">Hard Cut</p>
-                        <p className="text-rose-300 font-mono font-bold">${item.hardCut?.toFixed(2) || "—"}</p>
+                    <div className="flex items-center justify-between py-1 border-b border-slate-800/50">
+                        <span className="text-[11px] text-rose-400/80 font-medium">Cut</span>
+                        <div className="text-right">
+                            <span className="block text-[13px] font-mono font-medium text-rose-300 tabular-nums">
+                                ${item.hardCut?.toFixed(2)}
+                            </span>
+                        </div>
                     </div>
-                    <div className="bg-emerald-500/10 rounded-lg p-2">
-                        <p className="text-emerald-400 mb-1">TP1</p>
-                        <p className="text-emerald-300 font-mono font-bold">${item.tp1?.toFixed(2) || "—"}</p>
-                    </div>
-                    <div className="bg-emerald-500/10 rounded-lg p-2">
-                        <p className="text-emerald-400 mb-1">TP2</p>
-                        <p className="text-emerald-300 font-mono font-bold">${item.tp2?.toFixed(2) || "—"}</p>
+                    <div className="flex items-center justify-between py-1">
+                        <span className="text-[11px] text-emerald-400/80 font-medium">Target</span>
+                        <div className="text-right flex items-center gap-3">
+                            <span className="text-[13px] font-mono font-medium text-emerald-300 tabular-nums">${item.tp1?.toFixed(2)}</span>
+                            <span className="text-[11px] text-slate-600">/</span>
+                            <span className="text-[13px] font-mono font-medium text-emerald-300 tabular-nums">${item.tp2?.toFixed(2)}</span>
+                        </div>
                     </div>
                 </div>
             ) : (
-                <div className="bg-rose-500/10 border border-rose-500/30 rounded-lg p-4 text-center">
-                    <Lock className="w-6 h-6 text-rose-400 mx-auto mb-2" />
-                    <p className="text-rose-400 font-bold text-sm">NO TRADE</p>
-                    <p className="text-rose-300/60 text-[10px] mt-1">
-                        {item.decisionSSOT?.triggersKR?.[0] || "이벤트 임박 또는 게이트 충돌"}
-                    </p>
+                <div className="h-[92px] flex flex-col items-center justify-center bg-slate-950/50 rounded border border-slate-800/50 border-dashed">
+                    <Lock className="w-4 h-4 text-slate-600 mb-2" />
+                    <p className="text-xs text-slate-500 font-medium">Trading restricted</p>
                 </div>
             )}
         </div>
@@ -227,38 +246,31 @@ function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
 }
 
 // ============================================================================
-// DRAWER COMPONENT (Ticker Evidence)
+// DRAWER COMPONENT (Ticker Evidence) - UPGRADED LOOK
 // ============================================================================
 function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: () => void }) {
     if (!item) return null;
 
-    const router = useRouter(); // Use main router
+    const router = useRouter();
     const action = item.decisionSSOT?.action || "CAUTION";
     const tier = item.qualityTier || "WATCH";
     const opt = getOptionsStatus(item.options_status);
 
     // 1) Confidence Normalization
     const getConfidence = (pct?: number) => {
-        if (pct === undefined || pct === null) return { grade: "UNKNOWN", label: "데이터 없음", color: "text-slate-500 bg-slate-500/10" };
-        if (pct >= 80) return { grade: "A", label: "공식/2소스", color: "text-emerald-400 bg-emerald-500/10" };
-        if (pct >= 50) return { grade: "B", label: "1소스+반응", color: "text-amber-400 bg-amber-500/10" };
-        return { grade: "C", label: "추정값", color: "text-slate-400 bg-slate-500/10" };
+        if (pct === undefined || pct === null) return { grade: "UNK", label: "No Data", color: "text-slate-500 border-slate-700 bg-slate-800" };
+        if (pct >= 80) return { grade: "A", label: "Official", color: "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" };
+        if (pct >= 50) return { grade: "B", label: "Secondary", color: "text-amber-400 border-amber-500/20 bg-amber-500/5" };
+        return { grade: "C", label: "Est.", color: "text-slate-400 border-slate-700 bg-slate-800" };
     };
     const conf = getConfidence(item.decisionSSOT?.confidencePct);
 
-    // 2) Execution Fallback Logic
-    // Logic: If value missing, use fallback based on price/vwap/prevClose (simulated for UI if fields missing)
-    // In real engine, this would be computed. Here we simulate "Fallback" badge if 0/null.
+    // 2) Execution Fallback Logic (Simulated)
     const getExecutionLevel = (val: number | undefined, type: "ENTRY" | "CUT" | "TP", price: number) => {
         if (val && val > 0) return { val, isFallback: false, note: "" };
-
-        // Fallback simulation (UI only)
-        // Entry: Price * 0.995 (Retest)
-        // Cut: Price * 0.98 (Support)
-        // TP: Price * 1.02 (Resist)
         if (type === "ENTRY") return { val: price * 0.995, isFallback: true, note: "VWAP Retest" };
-        if (type === "CUT") return { val: price * 0.98, isFallback: true, note: "Swing Low" };
-        if (type === "TP") return { val: price * 1.02, isFallback: true, note: "Resistance" };
+        if (type === "CUT") return { val: price * 0.98, isFallback: true, note: "struct. low" };
+        if (type === "TP") return { val: price * 1.02, isFallback: true, note: "resistance" };
         return { val: 0, isFallback: true, note: "N/A" };
     };
 
@@ -269,147 +281,155 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
     const tp2 = getExecutionLevel(item.tp2, "TP", item.price || 0);
 
     return (
-        <div className="fixed inset-0 z-[100] flex justify-end">
+        <div className="fixed inset-0 z-[100] flex justify-end font-sans">
             {/* Backdrop */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
 
             {/* Drawer Content */}
-            <div className="relative w-full max-w-md h-full bg-slate-950 border-l border-slate-800 shadow-2xl overflow-y-auto animate-in slide-in-from-right duration-300">
-                {/* Header */}
-                <div className="sticky top-0 z-10 bg-slate-950/95 backdrop-blur border-b border-slate-800 p-6 flex items-start justify-between">
-                    <div>
-                        <div className="flex items-center gap-3 mb-2">
-                            <h2 className="text-2xl font-black text-white">{item.ticker}</h2>
-                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getTierStyle(tier)}`}>{tier}</span>
-                            {/* Gate Mini Badges */}
-                            <div className="flex gap-1">
-                                {opt.label !== "OK" && <span className="w-2 h-2 rounded-full bg-rose-500" title="Options Issue" />}
-                                {item.decisionSSOT?.action === "NO_TRADE" && <span className="w-2 h-2 rounded-full bg-slate-500" title="No Trade" />}
-                            </div>
+            <div className="relative w-full max-w-lg h-full bg-slate-950 border-l border-slate-800 shadow-[0_0_50px_-12px_rgba(0,0,0,0.5)] overflow-hidden flex flex-col animate-in slide-in-from-right duration-200">
+
+                {/* Header: Clean & Professional */}
+                <div className="shrink-0 bg-slate-950 border-b border-slate-800 p-5 flex items-start justify-between select-none">
+                    <div className="flex gap-4 items-center">
+                        <h2 className="text-3xl font-bold text-white tracking-tight">{item.ticker}</h2>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getActionStyle(action)}`}>
+                            {action}
+                        </span>
+                        <div className="h-4 w-px bg-slate-800 mx-1" />
+                        <div className="flex flex-col">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Alpha</span>
+                            <span className="text-xs font-mono font-bold text-white">{item.alphaScore?.toFixed(1) || "—"}</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className={`text-xs font-bold px-2 py-1 rounded ${getActionStyle(action)}`}>
-                                {action}
-                            </span>
-                            <span className="text-xs text-slate-500 font-mono">
-                                Alpha {item.alphaScore?.toFixed(1) || "—"}
-                            </span>
-                            <button
-                                onClick={() => router.push(`/ticker?ticker=${item.ticker}`)}
-                                className="flex items-center gap-1 text-[10px] text-indigo-400 hover:text-indigo-300 ml-2"
-                            >
-                                Details <ChevronRight className="w-3 h-3" />
-                            </button>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Tier</span>
+                            <span className={`text-[10px] font-bold ${item.qualityTier === "ACTIONABLE" ? "text-emerald-400" : "text-slate-400"}`}>{tier}</span>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white transition-colors">
-                        <XCircle className="w-6 h-6" />
-                    </button>
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={() => router.push(`/ticker?ticker=${item.ticker}`)}
+                            className="group flex items-center gap-1 text-[11px] text-slate-400 hover:text-white transition-colors"
+                        >
+                            <span className="hidden sm:inline font-medium">Details</span>
+                            <div className="bg-slate-900 group-hover:bg-slate-800 p-1 rounded border border-slate-800 group-hover:border-slate-700 transition">
+                                <ArrowUpRight className="w-3 h-3" />
+                            </div>
+                        </button>
+                        <button onClick={onClose} className="p-1 text-slate-500 hover:text-white transition-colors">
+                            <XCircle className="w-6 h-6 stroke-1" />
+                        </button>
+                    </div>
                 </div>
 
-                <div className="p-6 space-y-8">
-                    {/* 1. Decision Evidence */}
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
-                            <Target className="w-4 h-4 text-indigo-500" />
-                            <span>Decision Evidence</span>
-                        </div>
-                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
-                            <div className="flex justify-between items-center mb-3">
-                                <span className="text-sm font-bold text-slate-200">Trigger Logic</span>
-                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${conf.color}`}>
-                                    Grade {conf.grade}
+                {/* Body: Scrollable */}
+                <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+                    <div className="space-y-8">
+
+                        {/* 1. Decision Evidence */}
+                        <section>
+                            <div className="flex items-center justify-between mb-3 px-1">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                    <Target className="w-3.5 h-3.5" />
+                                    Decision Logic
+                                </h3>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${conf.color}`}>
+                                    GRADE {conf.grade}
                                 </span>
                             </div>
-                            <ul className="space-y-2">
-                                {(item.decisionSSOT?.triggersKR || ["No specific triggers"]).map((t, i) => (
-                                    <li key={i} className="flex items-start gap-2 text-xs text-slate-400">
-                                        <div className="w-1 h-1 rounded-full bg-indigo-500 mt-1.5 shrink-0" />
-                                        {t}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
+                            <div className="bg-slate-900 border border-slate-800 rounded p-4">
+                                <ul className="space-y-3">
+                                    {(item.decisionSSOT?.triggersKR || ["No specific triggers"]).map((t, i) => (
+                                        <li key={i} className="flex gap-3 text-xs text-slate-300 leading-snug">
+                                            <div className="w-1 h-1 rounded-full bg-indigo-500 mt-1.5 shrink-0 box-content outline outline-2 outline-indigo-500/20" />
+                                            {t}
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        </section>
 
-                    {/* 2. Options Structure */}
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
-                            <BarChart3 className="w-4 h-4 text-amber-500" />
-                            <span>Options Structure</span>
-                        </div>
-                        <div className="bg-slate-900/50 border border-slate-800 rounded-xl p-4">
-                            <div className="flex items-center justify-between mb-4">
-                                <span className="text-sm font-bold text-slate-200">Status</span>
+                        {/* 2. Options Structure */}
+                        <section>
+                            <div className="flex items-center justify-between mb-3 px-1">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                    <BarChart3 className="w-3.5 h-3.5" />
+                                    Options Structure
+                                </h3>
                                 <div className="flex items-center gap-2">
-                                    <span className={`w-2 h-2 rounded-full ${opt.color}`} />
-                                    <span className="text-xs text-slate-400 font-medium">{opt.label}</span>
+                                    <div className={`w-1.5 h-1.5 rounded-full ${opt.color}`} />
+                                    <span className="text-[10px] font-bold text-slate-400">{opt.label}</span>
                                 </div>
                             </div>
+                            <div className="bg-slate-900 border border-slate-800 rounded p-0 overflow-hidden divide-y divide-slate-800">
+                                <div className="grid grid-cols-2 divide-x divide-slate-800">
+                                    <div className="p-4 text-center">
+                                        <span className="block text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">Call Wall</span>
+                                        <span className="block text-sm font-mono font-medium text-slate-500">N/A (Cov)</span>
+                                    </div>
+                                    <div className="p-4 text-center">
+                                        <span className="block text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-1">Put Floor</span>
+                                        <span className="block text-sm font-mono font-medium text-slate-500">N/A (Cov)</span>
+                                    </div>
+                                </div>
+                                <div className="bg-slate-950/30 p-2 text-center text-[9px] text-slate-600 font-medium italic">
+                                    Options data provided for context only. Check full details for major levels.
+                                </div>
+                            </div>
+                        </section>
 
-                            <div className="grid grid-cols-2 gap-3 text-center">
-                                <div className="bg-slate-950 rounded p-2 border border-slate-800">
-                                    <span className="block text-[9px] text-slate-500 uppercase">Call Wall</span>
-                                    {/* Fallback reason if data missing */}
-                                    <span className="block text-xs font-mono font-bold text-slate-500">N/A (Coverage)</span>
+                        {/* 3. Execution Plan */}
+                        <section>
+                            <div className="flex items-center justify-between mb-3 px-1">
+                                <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                                    <Zap className="w-3.5 h-3.5" />
+                                    Execution Plan
+                                </h3>
+                            </div>
+                            <div className="grid grid-cols-1 gap-px bg-slate-800 border border-slate-800 rounded overflow-hidden">
+                                {/* Entry */}
+                                <div className="bg-slate-900 p-4 flex items-center justify-between">
+                                    <div>
+                                        <span className="block text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Entry Zone</span>
+                                        {entryLow.isFallback && <span className="text-[9px] text-slate-600 font-medium">Fallback: {entryLow.note}</span>}
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="block text-base font-mono font-semibold text-white tabular-nums tracking-tight">
+                                            ${entryLow.val.toFixed(2)} - ${entryHigh.val.toFixed(2)}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="bg-slate-950 rounded p-2 border border-slate-800">
-                                    <span className="block text-[9px] text-slate-500 uppercase">Put Floor</span>
-                                    <span className="block text-xs font-mono font-bold text-slate-500">N/A (Coverage)</span>
+                                {/* Hard Cut */}
+                                <div className="bg-slate-900 p-4 flex items-center justify-between">
+                                    <div>
+                                        <span className="block text-[10px] text-rose-400 font-bold uppercase tracking-wider mb-0.5">Hard Cut</span>
+                                        {hardCut.isFallback && <span className="text-[9px] text-slate-600 font-medium">Fallback: {hardCut.note}</span>}
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="block text-base font-mono font-semibold text-rose-400 tabular-nums tracking-tight">
+                                            ${hardCut.val.toFixed(2)}
+                                        </span>
+                                    </div>
+                                </div>
+                                {/* Targets */}
+                                <div className="bg-slate-900 p-4 flex items-center justify-between">
+                                    <div>
+                                        <span className="block text-[10px] text-emerald-400 font-bold uppercase tracking-wider mb-0.5">Targets</span>
+                                        {tp1.isFallback && <span className="text-[9px] text-slate-600 font-medium">Fallback: {tp1.note}</span>}
+                                    </div>
+                                    <div className="text-right flex items-center gap-4">
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[9px] text-slate-500 mr-1">TP1</span>
+                                            <span className="text-sm font-mono font-medium text-emerald-400 tabular-nums">${tp1.val.toFixed(2)}</span>
+                                        </div>
+                                        <div className="w-px h-6 bg-slate-800" />
+                                        <div className="flex flex-col items-end">
+                                            <span className="text-[9px] text-slate-500 mr-1">TP2</span>
+                                            <span className="text-sm font-mono font-medium text-emerald-400 tabular-nums">${tp2.val.toFixed(2)}</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
-                            <p className="mt-3 text-[10px] text-slate-500 text-center italic">
-                                * 상세 옵션 레벨은 Ticker Detail에서 확인 가능
-                            </p>
-                        </div>
-                    </div>
-
-                    {/* 3. Execution Plan */}
-                    <div className="space-y-3">
-                        <div className="flex items-center gap-2 text-xs font-black text-slate-500 uppercase tracking-widest">
-                            <Zap className="w-4 h-4 text-emerald-500" />
-                            <span>Execution Plan</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="bg-slate-800/20 border border-slate-800 rounded-lg p-3">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] text-slate-500">Entry Band</span>
-                                    {entryLow.isFallback && <span className="text-[8px] bg-slate-700 px-1 rounded text-slate-300">Fallback</span>}
-                                </div>
-                                <span className="block text-sm font-mono font-bold text-white">
-                                    ${entryLow.val.toFixed(2)} - ${entryHigh.val.toFixed(2)}
-                                </span>
-                                {entryLow.isFallback && <span className="block text-[9px] text-slate-500 mt-1">({entryLow.note})</span>}
-                            </div>
-                            <div className="bg-rose-500/10 border border-rose-500/20 rounded-lg p-3">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] text-rose-400">Hard Cut</span>
-                                    {hardCut.isFallback && <span className="text-[8px] bg-rose-500/20 px-1 rounded text-rose-300">Fallback</span>}
-                                </div>
-                                <span className="block text-sm font-mono font-bold text-rose-300">
-                                    ${hardCut.val.toFixed(2)}
-                                </span>
-                                {hardCut.isFallback && <span className="block text-[9px] text-rose-400/60 mt-1">({hardCut.note})</span>}
-                            </div>
-                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] text-emerald-400">TP1</span>
-                                    {tp1.isFallback && <span className="text-[8px] bg-emerald-500/20 px-1 rounded text-emerald-300">Fallback</span>}
-                                </div>
-                                <span className="block text-sm font-mono font-bold text-emerald-300">
-                                    ${tp1.val.toFixed(2)}
-                                </span>
-                            </div>
-                            <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-lg p-3">
-                                <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] text-emerald-400">TP2</span>
-                                    {tp2.isFallback && <span className="text-[8px] bg-emerald-500/20 px-1 rounded text-emerald-300">Fallback</span>}
-                                </div>
-                                <span className="block text-sm font-mono font-bold text-emerald-300">
-                                    ${tp2.val.toFixed(2)}
-                                </span>
-                            </div>
-                        </div>
+                        </section>
                     </div>
                 </div>
             </div>
@@ -631,21 +651,25 @@ export default function Tier01Terminal() {
 
                 {/* Alpha12 Scan */}
                 <section>
-                    <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Alpha12 Scan</h2>
-                    <div className="bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xs font-black text-slate-500 uppercase tracking-widest">Alpha12 Scan</h2>
+                        <div className="text-[10px] text-slate-600 font-mono">LIVE RANKING</div>
+                    </div>
+
+                    <div className="border border-slate-800 rounded-lg overflow-hidden">
                         <table className="w-full">
-                            <thead className="bg-slate-900">
+                            <thead className="bg-slate-950 border-b border-slate-800">
                                 <tr>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">#</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Ticker</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Tier</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Alpha</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Action</th>
-                                    <th className="px-4 py-3 text-left text-[10px] font-black text-slate-500 uppercase tracking-widest">Options</th>
-                                    <th className="px-4 py-3 text-right text-[10px] font-black text-slate-500 uppercase tracking-widest"></th>
+                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">#</th>
+                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Ticker</th>
+                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Tier</th>
+                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Alpha</th>
+                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Action</th>
+                                    <th className="px-4 py-2 text-left text-[9px] font-bold text-slate-500 uppercase tracking-wider">Options</th>
+                                    <th className="px-4 py-2 text-right text-[9px] font-bold text-slate-500 uppercase tracking-wider">Details</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-800/50">
+                            <tbody className="divide-y divide-slate-800/50 bg-slate-900/20">
                                 {items.slice(0, 12).map((item, i) => {
                                     const opt = getOptionsStatus(item.options_status);
                                     const action = item.decisionSSOT?.action || "CAUTION";
@@ -654,43 +678,45 @@ export default function Tier01Terminal() {
                                     return (
                                         <tr
                                             key={item.ticker}
-                                            className="hover:bg-slate-800/30 cursor-pointer transition-colors"
+                                            className="hover:bg-slate-800/40 cursor-pointer transition-colors group"
                                             // [Changed] Open drawer on row click
                                             onClick={() => setSelectedTickerItem(item)}
                                         >
-                                            <td className="px-4 py-3">
-                                                <span className="text-[10px] font-mono text-slate-600">{String(i + 1).padStart(2, "0")}</span>
+                                            <td className="px-4 py-2.5">
+                                                <span className="text-[10px] font-mono text-slate-600 group-hover:text-slate-500">{String(i + 1).padStart(2, "0")}</span>
                                             </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-[12px] font-bold text-white">{item.ticker}</span>
+                                            <td className="px-4 py-2.5">
+                                                <span className="text-[13px] font-bold text-slate-200 group-hover:text-white transition-colors tracking-tight">{item.ticker}</span>
                                             </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`text-[9px] font-bold px-2 py-1 rounded border ${getTierStyle(tier)}`}>
+                                            <td className="px-4 py-2.5">
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${getTierStyle(tier)}`}>
                                                     {tier}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3">
-                                                <span className="text-[11px] font-bold text-indigo-400">{item.alphaScore?.toFixed(1) || "—"}</span>
+                                            <td className="px-4 py-2.5">
+                                                <span className="text-[12px] font-mono font-bold text-indigo-400 tabular-nums">{item.alphaScore?.toFixed(1) || "—"}</span>
                                             </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`text-[10px] font-bold px-2 py-1 rounded ${getActionStyle(action)}`}>
+                                            <td className="px-4 py-2.5">
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${getActionStyle(action)}`}>
                                                     {action}
                                                 </span>
                                             </td>
-                                            <td className="px-4 py-3">
-                                                <span className={`w-2 h-2 rounded-full inline-block ${opt.color}`} title={opt.label} />
-                                                <span className="text-[10px] text-slate-500 ml-2">{opt.label}</span>
+                                            <td className="px-4 py-2.5">
+                                                <div className="flex items-center gap-2">
+                                                    <div className={`w-1.5 h-1.5 rounded-full ${opt.color}`} />
+                                                    <span className="text-[10px] text-slate-500 font-medium">{opt.label}</span>
+                                                </div>
                                             </td>
                                             {/* [Changed] Details Button ONLY for navigation */}
-                                            <td className="px-4 py-3 text-right">
+                                            <td className="px-4 py-2.5 text-right">
                                                 <button
                                                     onClick={(e) => {
                                                         e.stopPropagation(); // Prevent drawer
                                                         router.push(`/ticker?ticker=${item.ticker}`);
                                                     }}
-                                                    className="p-1 hover:bg-slate-700 rounded transition-colors"
+                                                    className="p-1 hover:bg-slate-800 rounded text-slate-600 hover:text-indigo-400 transition-colors"
                                                 >
-                                                    <ChevronRight className="w-4 h-4 text-slate-600 hover:text-white" />
+                                                    <ChevronRight className="w-3.5 h-3.5" />
                                                 </button>
                                             </td>
                                         </tr>
