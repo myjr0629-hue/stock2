@@ -336,16 +336,38 @@ export async function generateReport(type: ReportType, force: boolean = false): 
                 backfillCount: 0
             },
             top3Stats: stats,
-            // [P0] Add macroSSOT for health/report
-            macroSSOT: {
-                ndx: macro?.factors?.nasdaq100 || { label: 'NDX', value: 0, changePct: 0, status: 'N/A' },
-                vix: macro?.factors?.vix || { label: 'VIX', value: 0, changePct: 0, status: 'N/A' },
-                us10y: macro?.factors?.us10y || { label: 'US10Y', value: 0, changePct: 0, status: 'N/A' },
-                dxy: macro?.factors?.dxy || { label: 'DXY', value: 0, changePct: 0, status: 'N/A' },
-                regime: regimeResult.regime,
-                fetchedAtET: macro?.fetchedAtET || new Date().toISOString(),
-                ageSeconds: macro?.ageSeconds || 0
-            }
+            // [P0] Add macroSSOT for health/report - use evidence macro from first complete item
+            macroSSOT: (() => {
+                // Try to get macro from enriched items' evidence
+                const itemWithMacro = finalItems.find((i: any) => i.evidence?.macro?.complete);
+                const evidenceMacro = itemWithMacro?.evidence?.macro;
+
+                // Also try getMacroSnapshotSSOT structure (factors.xxx)
+                const factorsMacro = macro?.factors;
+
+                return {
+                    ndx: {
+                        value: evidenceMacro?.ndx?.price || (factorsMacro?.nasdaq100 as any)?.level || macro?.nq || 0,
+                        changePct: evidenceMacro?.ndx?.changePct || (factorsMacro?.nasdaq100 as any)?.chgPct || macro?.nqChangePercent || 0,
+                        label: 'NDX'
+                    },
+                    vix: {
+                        value: evidenceMacro?.vix?.value || (factorsMacro?.vix as any)?.level || macro?.vix || 0,
+                        label: 'VIX'
+                    },
+                    us10y: {
+                        value: evidenceMacro?.us10y?.yield || (factorsMacro?.us10y as any)?.level || macro?.us10y || 0,
+                        label: 'US10Y'
+                    },
+                    dxy: {
+                        value: evidenceMacro?.dxy?.value || (factorsMacro?.dxy as any)?.level || macro?.dxy || 0,
+                        label: 'DXY'
+                    },
+                    regime: regimeResult.regime,
+                    fetchedAtET: evidenceMacro?.fetchedAtET || macro?.fetchedAtET || new Date().toISOString(),
+                    ageSeconds: evidenceMacro?.ageSeconds || macro?.ageSeconds || 0
+                };
+            })()
         } as any, // Cast to match PowerMeta if needed
         diffs,
         continuation: undefined // Deprecated or re-integrated
