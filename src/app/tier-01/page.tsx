@@ -190,11 +190,27 @@ function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
             {/* Header */}
             <div className="flex items-start justify-between mb-6 relative z-10">
                 <div>
-                    <div className="flex items-center gap-2 mb-1">
-                        <span className="text-xl font-bold text-white tracking-tight">{item.ticker}</span>
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${getActionStyle(action)}`}>
-                            {action}
-                        </span>
+                    <div className="flex items-center gap-3 mb-1">
+                        <div className="w-8 h-8 rounded-full bg-white p-0.5 shadow-sm overflow-hidden flex items-center justify-center">
+                            <img
+                                src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
+                                alt={item.ticker}
+                                className="w-full h-full object-contain"
+                                onError={(e) => {
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement!.style.backgroundColor = '#1e293b'; // slate-800
+                                    e.currentTarget.parentElement!.innerHTML = `<span class="text-[10px] font-bold text-slate-400">${item.ticker[0]}</span>`;
+                                }}
+                            />
+                        </div>
+                        <div className="flex flex-col">
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl font-bold text-white tracking-tight leading-none">{item.ticker}</span>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getActionStyle(action)}`}>
+                                    {action}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
                 <div className="text-right">
