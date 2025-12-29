@@ -641,26 +641,75 @@ function Tier01Content() {
 
     // Fetch Data
     useEffect(() => {
-        async function fetchReport() {
-            try {
-                // Fetch the Morning Report (default)
-                // In a real scenario, this might need to determine if it's Pre/Post/Regular market
-                const res = await fetch('/api/cron/report?type=morning');
+        let isMounted = true;
 
-                if (res.ok) {
-                    const data = await res.json();
-                    setReport(data);
-                } else {
-                    console.error("Failed to fetch report, status:", res.status);
-                    // Handle error state or retry
+        async function loadData() {
+            try {
+                // 1. Try Fetching Morning Report (Priority)
+                // Use /api/reports/latest to get the actual data, not the cron result
+                const resMorning = await fetch('/api/reports/latest?type=morning', { cache: 'no-store' });
+                if (resMorning.ok) {
+                    const data = await resMorning.json();
+                    if (isMounted) {
+                        setReport(data);
+                        setIsLoading(false);
+                    }
+                    return; // Success, done.
                 }
+
+                // 2. Fallback: Fetch EOD Report (Immediate Display)
+                console.warn("[Tier01] Morning report missing. Falling back to EOD.");
+                const resEod = await fetch('/api/reports/latest?type=eod', { cache: 'no-store' });
+                if (resEod.ok) {
+                    const data = await resEod.json();
+                    if (isMounted) {
+                        setReport(data);
+                        setIsLoading(false); // Show EOD data to remove skeleton immediately
+                    }
+                } else {
+                    // Nothing found at all
+                    if (isMounted) setIsLoading(false);
+                }
+
+                // 3. Trigger Auto-Seeding (Background)
+                console.log("[Tier01] Triggering on-demand seed...");
+                fetch('/api/seed/morning', { method: 'POST' })
+                    .then(r => r.json())
+                    .then(result => {
+                        console.log("[Tier01] Seed result:", result);
+                        if (result.ok || result.error === 'Seeding already in progress') {
+                            // Start Polling for the new report
+                            const pollId = setInterval(async () => {
+                                if (!isMounted) {
+                                    clearInterval(pollId);
+                                    return;
+                                }
+                                console.log("[Tier01] Polling for fresh Morning report...");
+                                const checkRes = await fetch('/api/reports/latest?type=morning', { cache: 'no-store' });
+                                if (checkRes.ok) {
+                                    const newData = await checkRes.json();
+                                    if (isMounted) {
+                                        console.log("[Tier01] Fresh Morning report loaded. Swapping.");
+                                        setReport(newData);
+                                        clearInterval(pollId);
+                                    }
+                                }
+                            }, 3000); // Check every 3s
+
+                            // Safety: Stop polling after 60s
+                            setTimeout(() => clearInterval(pollId), 60000);
+                        }
+                    })
+                    .catch(e => console.error("[Tier01] Seed trigger error:", e));
+
             } catch (e) {
-                console.error("Report fetch error:", e);
-            } finally {
-                setIsLoading(false);
+                console.error("Data load critical error:", e);
+                if (isMounted) setIsLoading(false);
             }
         }
-        fetchReport();
+
+        loadData();
+        return () => { isMounted = false; };
     }, []);
 
     // Derived Lists
@@ -773,10 +822,10 @@ function Tier01Content() {
                                     {getRegimeText(regime)}
                                 </span>
                             </h1>
-                            <p className="text-sm text-slate-400 mt-1 flex items-center gap-2">
+                            <div className="text-sm text-slate-400 mt-1 flex items-center gap-2">
                                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                                 Unified Output • {report?.meta?.generatedAtET || <Skeleton className="w-16 h-3 inline-block" />}
-                            </p>
+                            </div>
                         </div>
                         {/* Debug & Meta */}
                         <div className="flex items-center gap-3">

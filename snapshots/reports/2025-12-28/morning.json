@@ -1,0 +1,4342 @@
+{
+  "meta": {
+    "id": "2025-12-28-morning",
+    "type": "morning",
+    "generatedAt": "2025-12-29T09:30:32.562Z",
+    "generatedAtET": "12/29/2025, 04:30:32 AM",
+    "marketDate": "2025-12-28",
+    "version": "S-56.4.6e",
+    "pipelineVersion": "56.4.1",
+    "top3": [],
+    "baseline": {
+      "source": "MASSIVE",
+      "session": "pre",
+      "tsISO": "2025-12-29T09:30:32.562Z",
+      "tsET": "12/29/2025, 04:30:32 AM",
+      "items": []
+    },
+    "freshness": {
+      "generatedAtISO": "2025-12-29T09:30:32.562Z",
+      "ageMin": 0,
+      "isStale": false
+    },
+    "optionsStatus": {
+      "state": "READY",
+      "pendingTickers": [],
+      "coveragePct": 0,
+      "lastUpdatedAtISO": "2025-12-29T09:30:35.483Z",
+      "note": " [FORCE FINALIZED]"
+    },
+    "integrity": {
+      "status": "PARTIAL",
+      "reasons": [
+        "TOP3_LT_3",
+        "UNIVERSE_LT_100"
+      ],
+      "expected": {
+        "items": 12,
+        "top3": 3,
+        "fullUniverse": 100
+      },
+      "actual": {
+        "items": 12,
+        "top3": 0,
+        "fullUniverse": 12
+      },
+      "gates": {
+        "options": "READY",
+        "macro": "OK"
+      }
+    },
+    "validationScore": 60,
+    "hardFails": [
+      "TOP3_LT_3"
+    ],
+    "softFails": [
+      "UNIVERSE_LT_100"
+    ]
+  },
+  "macro": {
+    "asOfET": "12/29/2025, 4:30:30 AM",
+    "marketStatus": {
+      "market": "extended-hours",
+      "session": "pre",
+      "isHoliday": false,
+      "serverTime": "2025-12-29T09:30:30.211Z",
+      "asOfET": "12/29/2025, 4:30:30 AM",
+      "source": "MASSIVE",
+      "cacheAgeSec": 0
+    },
+    "factors": {
+      "nasdaq100": {
+        "level": 25644.39,
+        "chgPct": -0.045638207,
+        "chgAbs": -11.708984,
+        "label": "NASDAQ 100",
+        "source": "YAHOO",
+        "status": "OK",
+        "symbolUsed": "^NDX"
+      },
+      "vix": {
+        "level": 14.8,
+        "chgPct": 8.823528,
+        "chgAbs": 1.1999998,
+        "label": "VIX",
+        "source": "YAHOO",
+        "status": "OK",
+        "symbolUsed": "^VIX"
+      },
+      "us10y": {
+        "level": 4.136,
+        "chgPct": 0,
+        "chgAbs": 0,
+        "label": "US10Y",
+        "source": "YAHOO",
+        "status": "OK",
+        "symbolUsed": "^TNX"
+      },
+      "dxy": {
+        "level": 98.028,
+        "chgPct": 0.0061177746,
+        "chgAbs": 0.005996704,
+        "label": "DXY",
+        "source": "YAHOO",
+        "status": "OK",
+        "symbolUsed": "DX-Y.NYB"
+      }
+    },
+    "fed": {
+      "treasury": {
+        "date": "2025-12-29",
+        "us2y": null,
+        "us5y": null,
+        "us10y": null,
+        "us30y": null,
+        "spread2s10s": null,
+        "source": "FAIL",
+        "updatedAt": "2025-12-29T09:30:31.999Z"
+      },
+      "inflation": {
+        "date": "2025-12-29",
+        "cpi": null,
+        "cpiYoY": null,
+        "pce": null,
+        "pceYoY": null,
+        "expectations": null,
+        "source": "FAIL",
+        "updatedAt": "2025-12-29T09:30:32.000Z"
+      },
+      "asOfET": "12/29/25, 4:30 AM"
+    }
+  },
+  "events": {
+    "asOfET": "12/29/25, 4:30 AM",
+    "events": [
+      {
+        "date": "2025-12-30",
+        "time": "09:00",
+        "name": "S&P/Case-Shiller Home Price",
+        "nameKR": "케이스-쉴러 주택가격지수",
+        "importance": "MEDIUM",
+        "expectedImpact": "부동산 시장 건전성. 급등 시 인플레이션 우려.",
+        "sourceGrade": "A",
+        "category": "ECONOMIC"
+      },
+      {
+        "date": "2025-12-31",
+        "time": "13:00",
+        "name": "Early Market Close",
+        "nameKR": "조기 마감 (1PM ET)",
+        "importance": "HIGH",
+        "expectedImpact": "신년 전야 조기마감. 거래량 감소로 변동성 확대 가능.",
+        "sourceGrade": "A",
+        "category": "HOLIDAY"
+      },
+      {
+        "date": "2025-12-31",
+        "time": "09:45",
+        "name": "Chicago PMI",
+        "nameKR": "시카고 PMI",
+        "importance": "MEDIUM",
+        "expectedImpact": "제조업 경기 선행지표. 50 이하는 위축 신호.",
+        "sourceGrade": "A",
+        "category": "ECONOMIC"
+      },
+      {
+        "date": "2026-01-01",
+        "time": "00:00",
+        "name": "New Year's Day - Market Closed",
+        "nameKR": "신년 휴장",
+        "importance": "HIGH",
+        "expectedImpact": "미국 증시 전체 휴장.",
+        "sourceGrade": "A",
+        "category": "HOLIDAY"
+      },
+      {
+        "date": "2026-01-03",
+        "time": "10:00",
+        "name": "ISM Manufacturing PMI",
+        "nameKR": "ISM 제조업 PMI",
+        "importance": "HIGH",
+        "expectedImpact": "핵심 제조업 지표. 50 기준 확장/위축 판단. 연준 정책에 직접 영향.",
+        "sourceGrade": "A",
+        "category": "ECONOMIC"
+      }
+    ],
+    "shakeReasons": [
+      "케이스-쉴러 주택가격지수 (2025-12-30 09:00 ET) - 부동산 시장 건전성. 급등 시 인플레이션 우려."
+    ]
+  },
+  "policy": {
+    "asOfET": "12/29/25, 4:30 AM",
+    "policies72h": [],
+    "policies7d": [],
+    "policyGateSummary": [
+      "현재 72시간 내 P0급 정책 이벤트 없음."
+    ]
+  },
+  "news": {
+    "asOfET": "12/29/25, 4:30 AM",
+    "marketHeadlines": [
+      {
+        "id": "mkt-001",
+        "headline": "Fed Officials Signal Patience on Rate Cuts in 2025",
+        "summaryKR": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAt": "2025-12-26T14:30:00Z",
+        "sentiment": "negative",
+        "catalystType": "fed",
+        "publishedAtET": "Dec 26, 09:30 AM",
+        "catalystAge": 67,
+        "isStale": false
+      },
+      {
+        "id": "mkt-002",
+        "headline": "Tech Stocks Lead Holiday Rally as Santa Claus Effect Takes Hold",
+        "summaryKR": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAt": "2025-12-25T18:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "market",
+        "publishedAtET": "Dec 25, 01:00 PM",
+        "catalystAge": 87,
+        "isStale": true
+      },
+      {
+        "id": "mkt-003",
+        "headline": "China Stimulus Hopes Boost Asian Markets Overnight",
+        "summaryKR": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAt": "2025-12-26T08:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "global",
+        "publishedAtET": "Dec 26, 03:00 AM",
+        "catalystAge": 73,
+        "isStale": true
+      },
+      {
+        "id": "mkt-004",
+        "headline": "Oil Prices Rise on Middle East Tensions",
+        "summaryKR": "중동 긴장 고조로 유가 상승. 에너지 섹터 강세 예상.",
+        "source": "WSJ",
+        "publishedAt": "2025-12-26T10:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "commodities",
+        "publishedAtET": "Dec 26, 05:00 AM",
+        "catalystAge": 71,
+        "isStale": false
+      },
+      {
+        "id": "mkt-005",
+        "headline": "Year-End Rebalancing Could Drive Volatility This Week",
+        "summaryKR": "연말 리밸런싱으로 이번 주 변동성 확대 가능. 대형 펀드 매도세 주의.",
+        "source": "MarketWatch",
+        "publishedAt": "2025-12-26T06:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "technical",
+        "publishedAtET": "Dec 26, 01:00 AM",
+        "catalystAge": 75,
+        "isStale": true
+      }
+    ],
+    "stockNews": [],
+    "marketLikes": [
+      {
+        "text": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAtET": "Dec 25, 01:00 PM",
+        "isStale": true,
+        "catalystAgeHours": 87
+      },
+      {
+        "text": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAtET": "Dec 26, 03:00 AM",
+        "isStale": true,
+        "catalystAgeHours": 73
+      }
+    ],
+    "marketDislikes": [
+      {
+        "text": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAtET": "Dec 26, 09:30 AM",
+        "isStale": false,
+        "catalystAgeHours": 67
+      }
+    ]
+  },
+  "shakeReasons": [
+    "케이스-쉴러 주택가격지수 (2025-12-30 09:00 ET) - 부동산 시장 건전성. 급등 시 인플레이션 우려."
+  ],
+  "marketSentiment": {
+    "likes": [
+      {
+        "text": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAtET": "Dec 25, 01:00 PM",
+        "isStale": true,
+        "catalystAgeHours": 87
+      },
+      {
+        "text": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAtET": "Dec 26, 03:00 AM",
+        "isStale": true,
+        "catalystAgeHours": 73
+      }
+    ],
+    "dislikes": [
+      {
+        "text": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAtET": "Dec 26, 09:30 AM",
+        "isStale": false,
+        "catalystAgeHours": 67
+      }
+    ]
+  },
+  "items": [
+    {
+      "ticker": "MSFT",
+      "evidence": {
+        "price": {
+          "last": 485.92,
+          "prevClose": 487.71,
+          "changePct": -0.3670213856595034,
+          "vwap": 485.92,
+          "vwapDistPct": 0,
+          "rsi14": 50.23188537474397,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 55.5,
+      "isBackfilled": true,
+      "score": 55.5,
+      "rank": 1,
+      "symbol": "MSFT",
+      "changePct": -0.3670213856595034,
+      "price": 485.92,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "AMZN",
+      "evidence": {
+        "price": {
+          "last": 231.94,
+          "prevClose": 232.52,
+          "changePct": -0.24944090830896803,
+          "vwap": 231.94,
+          "vwapDistPct": 0,
+          "rsi14": 55.259094863937975,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 55.5,
+      "isBackfilled": true,
+      "score": 55.5,
+      "rank": 2,
+      "symbol": "AMZN",
+      "changePct": -0.24944090830896803,
+      "price": 231.94,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "NVDA",
+      "evidence": {
+        "price": {
+          "last": 188.02,
+          "prevClose": 190.53,
+          "changePct": -1.3173778407599805,
+          "vwap": 188.02,
+          "vwapDistPct": 0,
+          "rsi14": 58.674437398352595,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 55.5,
+      "isBackfilled": true,
+      "score": 55.5,
+      "rank": 3,
+      "symbol": "NVDA",
+      "changePct": -1.3173778407599805,
+      "price": 188.02,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "GOOGL",
+      "evidence": {
+        "price": {
+          "last": 311.85,
+          "prevClose": 313.51,
+          "changePct": -0.5294886925456822,
+          "vwap": 311.85,
+          "vwapDistPct": 0,
+          "rsi14": 57.595604079667105,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 55.5,
+      "isBackfilled": true,
+      "score": 55.5,
+      "rank": 4,
+      "symbol": "GOOGL",
+      "changePct": -0.5294886925456822,
+      "price": 311.85,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "META",
+      "evidence": {
+        "price": {
+          "last": 660.58,
+          "prevClose": 663.29,
+          "changePct": -0.4085694040314075,
+          "vwap": 660.58,
+          "vwapDistPct": 0,
+          "rsi14": 54.541096662821865,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 55.5,
+      "isBackfilled": true,
+      "score": 55.5,
+      "rank": 5,
+      "symbol": "META",
+      "changePct": -0.4085694040314075,
+      "price": 660.58,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "TSLA",
+      "evidence": {
+        "price": {
+          "last": 468.39,
+          "prevClose": 475.19,
+          "changePct": -1.4310065447505234,
+          "vwap": 468.39,
+          "vwapDistPct": 0,
+          "rsi14": 57.35056431893187,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 55.5,
+      "isBackfilled": true,
+      "score": 55.5,
+      "rank": 6,
+      "symbol": "TSLA",
+      "changePct": -1.4310065447505234,
+      "price": 468.39,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "XOM",
+      "evidence": {
+        "price": {
+          "last": 119.71,
+          "prevClose": 119.11,
+          "changePct": 0.5037360423138227,
+          "vwap": 119.71,
+          "vwapDistPct": 0,
+          "rsi14": 56.379541388441446,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 55.5,
+      "isBackfilled": true,
+      "score": 55.5,
+      "rank": 7,
+      "symbol": "XOM",
+      "changePct": 0.5037360423138227,
+      "price": 119.71,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "AAPL",
+      "evidence": {
+        "price": {
+          "last": 272.79,
+          "prevClose": 273.4,
+          "changePct": -0.22311631309435143,
+          "vwap": 272.79,
+          "vwapDistPct": 0,
+          "rsi14": 49.349233248888275,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 53,
+      "isBackfilled": true,
+      "score": 53,
+      "rank": 8,
+      "symbol": "AAPL",
+      "changePct": -0.22311631309435143,
+      "price": 272.79,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "UNH",
+      "evidence": {
+        "price": {
+          "last": 330.52,
+          "prevClose": 331.83,
+          "changePct": -0.39478045987403254,
+          "vwap": 330.52,
+          "vwapDistPct": 0,
+          "rsi14": 51.20339698384131,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 50.5,
+      "isBackfilled": true,
+      "score": 50.5,
+      "rank": 9,
+      "symbol": "UNH",
+      "changePct": -0.39478045987403254,
+      "price": 330.52,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "JNJ",
+      "evidence": {
+        "price": {
+          "last": 207.63,
+          "prevClose": 207.63,
+          "changePct": 0,
+          "vwap": 207.63,
+          "vwapDistPct": 0,
+          "rsi14": 56.58174497644357,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 50.5,
+      "isBackfilled": true,
+      "score": 50.5,
+      "rank": 10,
+      "symbol": "JNJ",
+      "changePct": 0,
+      "price": 207.63,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "V",
+      "evidence": {
+        "price": {
+          "last": 355,
+          "prevClose": 355,
+          "changePct": 0,
+          "vwap": 355,
+          "vwapDistPct": 0,
+          "rsi14": 69.3185951979286,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 50.5,
+      "isBackfilled": true,
+      "score": 50.5,
+      "rank": 11,
+      "symbol": "V",
+      "changePct": 0,
+      "price": 355,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "BRK.B",
+      "evidence": {
+        "price": {
+          "last": 498.27,
+          "prevClose": 498.3,
+          "changePct": -0.006020469596634469,
+          "vwap": 498.27,
+          "vwapDistPct": 0,
+          "rsi14": 47.98402743228469,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION"
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 40,
+          "offExDeltaPct": 0,
+          "backfilled": true
+        },
+        "options": {
+          "status": "PENDING",
+          "coveragePct": 0,
+          "gammaRegime": "Neutral",
+          "gex": 0,
+          "pcr": 0.8,
+          "callWall": 105,
+          "putFloor": 95,
+          "pinZone": 100,
+          "maxPain": 100,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "backfilled": true
+        },
+        "macro": {
+          "asOfET": "12/29/2025, 4:30:30 AM",
+          "marketStatus": {
+            "market": "extended-hours",
+            "session": "pre",
+            "isHoliday": false,
+            "serverTime": "2025-12-29T09:30:30.211Z",
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "source": "MASSIVE",
+            "cacheAgeSec": 0
+          },
+          "factors": {
+            "nasdaq100": {
+              "level": 25644.39,
+              "chgPct": -0.045638207,
+              "chgAbs": -11.708984,
+              "label": "NASDAQ 100",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^NDX"
+            },
+            "vix": {
+              "level": 14.8,
+              "chgPct": 8.823528,
+              "chgAbs": 1.1999998,
+              "label": "VIX",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^VIX"
+            },
+            "us10y": {
+              "level": 4.136,
+              "chgPct": 0,
+              "chgAbs": 0,
+              "label": "US10Y",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "^TNX"
+            },
+            "dxy": {
+              "level": 98.028,
+              "chgPct": 0.0061177746,
+              "chgAbs": 0.005996704,
+              "label": "DXY",
+              "source": "YAHOO",
+              "status": "OK",
+              "symbolUsed": "DX-Y.NYB"
+            }
+          },
+          "fed": {
+            "treasury": {
+              "date": "2025-12-29",
+              "us2y": null,
+              "us5y": null,
+              "us10y": null,
+              "us30y": null,
+              "spread2s10s": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:31.999Z"
+            },
+            "inflation": {
+              "date": "2025-12-29",
+              "cpi": null,
+              "cpiYoY": null,
+              "pce": null,
+              "pceYoY": null,
+              "expectations": null,
+              "source": "FAIL",
+              "updatedAt": "2025-12-29T09:30:32.000Z"
+            },
+            "asOfET": "12/29/25, 4:30 AM"
+          }
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "OffEx"
+          ],
+          "impact": "NEUTRAL"
+        }
+      },
+      "alphaScore": 0,
+      "qualityTier": "PENDING",
+      "tier": "FILLER",
+      "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+      "powerScore": 48,
+      "isBackfilled": true,
+      "score": 48,
+      "rank": 12,
+      "symbol": "BRK.B",
+      "changePct": -0.006020469596634469,
+      "price": 498.27,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    }
+  ],
+  "alphaGrid": {
+    "top3": [
+      {
+        "ticker": "MSFT",
+        "evidence": {
+          "price": {
+            "last": 485.92,
+            "prevClose": 487.71,
+            "changePct": -0.3670213856595034,
+            "vwap": 485.92,
+            "vwapDistPct": 0,
+            "rsi14": 50.23188537474397,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 1,
+        "symbol": "MSFT",
+        "changePct": -0.3670213856595034,
+        "price": 485.92,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "AMZN",
+        "evidence": {
+          "price": {
+            "last": 231.94,
+            "prevClose": 232.52,
+            "changePct": -0.24944090830896803,
+            "vwap": 231.94,
+            "vwapDistPct": 0,
+            "rsi14": 55.259094863937975,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 2,
+        "symbol": "AMZN",
+        "changePct": -0.24944090830896803,
+        "price": 231.94,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "NVDA",
+        "evidence": {
+          "price": {
+            "last": 188.02,
+            "prevClose": 190.53,
+            "changePct": -1.3173778407599805,
+            "vwap": 188.02,
+            "vwapDistPct": 0,
+            "rsi14": 58.674437398352595,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 3,
+        "symbol": "NVDA",
+        "changePct": -1.3173778407599805,
+        "price": 188.02,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      }
+    ],
+    "fullUniverse": [
+      {
+        "ticker": "MSFT",
+        "evidence": {
+          "price": {
+            "last": 485.92,
+            "prevClose": 487.71,
+            "changePct": -0.3670213856595034,
+            "vwap": 485.92,
+            "vwapDistPct": 0,
+            "rsi14": 50.23188537474397,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 1,
+        "symbol": "MSFT",
+        "changePct": -0.3670213856595034,
+        "price": 485.92,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "AMZN",
+        "evidence": {
+          "price": {
+            "last": 231.94,
+            "prevClose": 232.52,
+            "changePct": -0.24944090830896803,
+            "vwap": 231.94,
+            "vwapDistPct": 0,
+            "rsi14": 55.259094863937975,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 2,
+        "symbol": "AMZN",
+        "changePct": -0.24944090830896803,
+        "price": 231.94,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "NVDA",
+        "evidence": {
+          "price": {
+            "last": 188.02,
+            "prevClose": 190.53,
+            "changePct": -1.3173778407599805,
+            "vwap": 188.02,
+            "vwapDistPct": 0,
+            "rsi14": 58.674437398352595,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 3,
+        "symbol": "NVDA",
+        "changePct": -1.3173778407599805,
+        "price": 188.02,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "GOOGL",
+        "evidence": {
+          "price": {
+            "last": 311.85,
+            "prevClose": 313.51,
+            "changePct": -0.5294886925456822,
+            "vwap": 311.85,
+            "vwapDistPct": 0,
+            "rsi14": 57.595604079667105,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 4,
+        "symbol": "GOOGL",
+        "changePct": -0.5294886925456822,
+        "price": 311.85,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "META",
+        "evidence": {
+          "price": {
+            "last": 660.58,
+            "prevClose": 663.29,
+            "changePct": -0.4085694040314075,
+            "vwap": 660.58,
+            "vwapDistPct": 0,
+            "rsi14": 54.541096662821865,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 5,
+        "symbol": "META",
+        "changePct": -0.4085694040314075,
+        "price": 660.58,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "TSLA",
+        "evidence": {
+          "price": {
+            "last": 468.39,
+            "prevClose": 475.19,
+            "changePct": -1.4310065447505234,
+            "vwap": 468.39,
+            "vwapDistPct": 0,
+            "rsi14": 57.35056431893187,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 6,
+        "symbol": "TSLA",
+        "changePct": -1.4310065447505234,
+        "price": 468.39,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "XOM",
+        "evidence": {
+          "price": {
+            "last": 119.71,
+            "prevClose": 119.11,
+            "changePct": 0.5037360423138227,
+            "vwap": 119.71,
+            "vwapDistPct": 0,
+            "rsi14": 56.379541388441446,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 55.5,
+        "isBackfilled": true,
+        "score": 55.5,
+        "rank": 7,
+        "symbol": "XOM",
+        "changePct": 0.5037360423138227,
+        "price": 119.71,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "AAPL",
+        "evidence": {
+          "price": {
+            "last": 272.79,
+            "prevClose": 273.4,
+            "changePct": -0.22311631309435143,
+            "vwap": 272.79,
+            "vwapDistPct": 0,
+            "rsi14": 49.349233248888275,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 53,
+        "isBackfilled": true,
+        "score": 53,
+        "rank": 8,
+        "symbol": "AAPL",
+        "changePct": -0.22311631309435143,
+        "price": 272.79,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "UNH",
+        "evidence": {
+          "price": {
+            "last": 330.52,
+            "prevClose": 331.83,
+            "changePct": -0.39478045987403254,
+            "vwap": 330.52,
+            "vwapDistPct": 0,
+            "rsi14": 51.20339698384131,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 50.5,
+        "isBackfilled": true,
+        "score": 50.5,
+        "rank": 9,
+        "symbol": "UNH",
+        "changePct": -0.39478045987403254,
+        "price": 330.52,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "JNJ",
+        "evidence": {
+          "price": {
+            "last": 207.63,
+            "prevClose": 207.63,
+            "changePct": 0,
+            "vwap": 207.63,
+            "vwapDistPct": 0,
+            "rsi14": 56.58174497644357,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 50.5,
+        "isBackfilled": true,
+        "score": 50.5,
+        "rank": 10,
+        "symbol": "JNJ",
+        "changePct": 0,
+        "price": 207.63,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "V",
+        "evidence": {
+          "price": {
+            "last": 355,
+            "prevClose": 355,
+            "changePct": 0,
+            "vwap": 355,
+            "vwapDistPct": 0,
+            "rsi14": 69.3185951979286,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 50.5,
+        "isBackfilled": true,
+        "score": 50.5,
+        "rank": 11,
+        "symbol": "V",
+        "changePct": 0,
+        "price": 355,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "BRK.B",
+        "evidence": {
+          "price": {
+            "last": 498.27,
+            "prevClose": 498.3,
+            "changePct": -0.006020469596634469,
+            "vwap": 498.27,
+            "vwapDistPct": 0,
+            "rsi14": 47.98402743228469,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION"
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 0,
+            "offExPct": 40,
+            "offExDeltaPct": 0,
+            "backfilled": true
+          },
+          "options": {
+            "status": "PENDING",
+            "coveragePct": 0,
+            "gammaRegime": "Neutral",
+            "gex": 0,
+            "pcr": 0.8,
+            "callWall": 105,
+            "putFloor": 95,
+            "pinZone": 100,
+            "maxPain": 100,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "backfilled": true
+          },
+          "macro": {
+            "asOfET": "12/29/2025, 4:30:30 AM",
+            "marketStatus": {
+              "market": "extended-hours",
+              "session": "pre",
+              "isHoliday": false,
+              "serverTime": "2025-12-29T09:30:30.211Z",
+              "asOfET": "12/29/2025, 4:30:30 AM",
+              "source": "MASSIVE",
+              "cacheAgeSec": 0
+            },
+            "factors": {
+              "nasdaq100": {
+                "level": 25644.39,
+                "chgPct": -0.045638207,
+                "chgAbs": -11.708984,
+                "label": "NASDAQ 100",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^NDX"
+              },
+              "vix": {
+                "level": 14.8,
+                "chgPct": 8.823528,
+                "chgAbs": 1.1999998,
+                "label": "VIX",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^VIX"
+              },
+              "us10y": {
+                "level": 4.136,
+                "chgPct": 0,
+                "chgAbs": 0,
+                "label": "US10Y",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "^TNX"
+              },
+              "dxy": {
+                "level": 98.028,
+                "chgPct": 0.0061177746,
+                "chgAbs": 0.005996704,
+                "label": "DXY",
+                "source": "YAHOO",
+                "status": "OK",
+                "symbolUsed": "DX-Y.NYB"
+              }
+            },
+            "fed": {
+              "treasury": {
+                "date": "2025-12-29",
+                "us2y": null,
+                "us5y": null,
+                "us10y": null,
+                "us30y": null,
+                "spread2s10s": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:31.999Z"
+              },
+              "inflation": {
+                "date": "2025-12-29",
+                "cpi": null,
+                "cpiYoY": null,
+                "pce": null,
+                "pceYoY": null,
+                "expectations": null,
+                "source": "FAIL",
+                "updatedAt": "2025-12-29T09:30:32.000Z"
+              },
+              "asOfET": "12/29/25, 4:30 AM"
+            }
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "OffEx"
+            ],
+            "impact": "NEUTRAL"
+          }
+        },
+        "alphaScore": 0,
+        "qualityTier": "PENDING",
+        "tier": "FILLER",
+        "reasonKR": "Backfill 충원 종목 (Top3 승격 불가)",
+        "powerScore": 48,
+        "isBackfilled": true,
+        "score": 48,
+        "rank": 12,
+        "symbol": "BRK.B",
+        "changePct": -0.006020469596634469,
+        "price": 498.27,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      }
+    ]
+  },
+  "engine": {
+    "regime": "NEUTRAL",
+    "regimeReasonKR": "NQ=F 0.00% (중립 모드)",
+    "counts": {
+      "actionableCount": 0,
+      "watchCount": 0,
+      "fillerCount": 0,
+      "backfillCount": 0
+    },
+    "top3Stats": {
+      "actionableUsed": 0,
+      "watchUsed": 0,
+      "noTradeSlots": 3,
+      "changelogKR": [
+        "[NO_TRADE] 3개 슬롯 - ACTIONABLE 부족 (regime: NEUTRAL)"
+      ]
+    }
+  },
+  "diffs": []
+}

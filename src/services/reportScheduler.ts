@@ -93,6 +93,7 @@ export interface PremiumReport {
         likes: string[];
         dislikes: string[];
     };
+    items: any[]; // [vNext] Unified Terminal items
     // TODO: Add report sections 1-10 integration
 }
 
