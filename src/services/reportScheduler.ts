@@ -198,8 +198,9 @@ export async function generateReport(type: ReportType, force: boolean = false): 
     }
 
     const scoredItems = enrichedItems.map(item => {
-        // vNext computeQualityTier expects TerminalItem
-        const qualityResult = computeQualityTier(item, prevSymbols, item.evidence.flow.backfilled || item.evidence.options.backfilled);
+        // vNext computeQualityTier - use complete flag instead of backfilled
+        const isBackfilled = item.complete !== true;
+        const qualityResult = computeQualityTier(item, prevSymbols, isBackfilled);
 
         return {
             ...item,

@@ -14,6 +14,8 @@ export interface MacroFactor {
 
 export interface MacroSnapshot {
     asOfET: string;
+    fetchedAtET: string;       // [Phase 7] Exact fetch timestamp
+    ageSeconds: number;        // [Phase 7] Age of data in seconds
     marketStatus: MarketStatusResult;
     factors: {
         nasdaq100: MacroFactor;
@@ -21,10 +23,17 @@ export interface MacroSnapshot {
         us10y: MacroFactor;
         dxy: MacroFactor;
     };
+    // [Phase 7] Flattened for easy access
+    nq?: number;
+    nqChangePercent?: number;
+    vix?: number;
+    us10y?: number;
+    dxy?: number;
 }
 
-const CACHE_TTL_MS = 30000; // 30s
-let cache: { data: MacroSnapshot | null; expiry: number } = { data: null, expiry: 0 };
+// [Phase 7] TTL 45 seconds for macro data
+const CACHE_TTL_MS = 45000; // 45s
+let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = { data: null, expiry: 0, fetchedAt: 0 };
 
 // Yahoo Finance Symbols
 const SYMBOLS = {
@@ -78,13 +87,15 @@ function createFailFactor(label: string, symbolUsed: string): MacroFactor {
 export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const now = Date.now();
 
-    // Cache Check
+    // Cache Check - return with updated ageSeconds
     if (cache.data && cache.expiry > now) {
+        cache.data.ageSeconds = Math.floor((now - cache.fetchedAt) / 1000);
         return cache.data;
     }
 
+    console.log('[MacroHub] Fetching fresh macro data (TTL 45s)...');
     const marketStatus = await getMarketStatusSSOT();
-    const asOfET = marketStatus.asOfET || new Date().toISOString();
+    const fetchedAtET = new Date().toISOString();
 
     // Parallel Fetch from Yahoo Finance
     const [nasdaq100, vix, us10y, dxy] = await Promise.all([
@@ -95,16 +106,25 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     ]);
 
     const snapshot: MacroSnapshot = {
-        asOfET,
+        asOfET: marketStatus.asOfET || fetchedAtET,
+        fetchedAtET,
+        ageSeconds: 0,
         marketStatus,
         factors: {
             nasdaq100,
             vix,
             us10y,
             dxy
-        }
+        },
+        // [Phase 7] Flattened access for convenience
+        nq: nasdaq100.level ?? 0,
+        nqChangePercent: nasdaq100.chgPct ?? 0,
+        vix: vix.level ?? 0,
+        us10y: us10y.level ?? 0,
+        dxy: dxy.level ?? 0
     };
 
-    cache = { data: snapshot, expiry: now + CACHE_TTL_MS };
+    cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };
+    console.log(`[MacroHub] Cached: NDX=${snapshot.nq?.toFixed(0)}, VIX=${snapshot.vix?.toFixed(2)}`);
     return snapshot;
 }
