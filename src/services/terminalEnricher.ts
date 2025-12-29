@@ -2,7 +2,7 @@
 // Completeness Gate v2: NO estimation, NO N/A - only real data with backfill
 // Batch processing with retry and Redis cache
 
-import { getStockData } from './stockApi';
+import { getStockData, getOptionsData } from './stockApi'; // [Phase 16] Imported getOptionsData
 import { getMacroSnapshotSSOT } from './macroHubProvider';
 import { getEventsFromRedis } from '@/lib/storage/eventStore';
 import { getPoliciesFromRedis } from '@/lib/storage/policyStore';
@@ -234,7 +234,7 @@ async function fetchPriceData(ticker: string, session: string): Promise<any> {
     }
 }
 
-async function fetchOptionsChain(ticker: string): Promise<CachedOptionsChain | null> {
+async function fetchOptionsChain(ticker: string, currentPrice?: number): Promise<CachedOptionsChain | null> {
     // Check cache first
     const cached = await getOptionsFromCache(ticker);
     if (cached && cached.status !== 'PENDING' && cached.status !== 'FAILED') {
@@ -242,152 +242,64 @@ async function fetchOptionsChain(ticker: string): Promise<CachedOptionsChain | n
     }
 
     try {
-        // [P0] 1. Calculate Upcoming Friday (Strict)
-        const today = new Date();
-        const dayOfWeek = today.getDay(); // 0=Sun, 5=Fri
-        const daysUntilFri = (5 - dayOfWeek + 7) % 7;
-        const nextFri = new Date(today);
-        nextFri.setDate(today.getDate() + daysUntilFri);
-        const expiryDate = nextFri.toISOString().split('T')[0];
-
-        // Fetch from Massive API
-        let response;
-        let attempt = 0;
-
-        while (attempt < CONFIG.OPTIONS_RETRY_LIMIT) {
-            response = await fetchMassive(`/v3/reference/options/contracts`, {
-                underlying_ticker: ticker,
-                limit: '500', // Need more to filter
-                expiration_date: expiryDate, // Strict usage
-                expired: 'false'
-            }, true);
-
-            if (response && response.results && response.results.length > 0) break;
-
-            attempt++;
-            if (attempt < CONFIG.OPTIONS_RETRY_LIMIT) {
-                console.log(`[TerminalEnricher v2] Options retry ${attempt}/${CONFIG.OPTIONS_RETRY_LIMIT} for ${ticker}`);
-                await delay(FLOW_RETRY_DELAY);
-            }
+        // [Phase 16] Reuse Detail Page Logic (Single Source of Truth)
+        // Ensure we have a price (if not provided, getOptionsData will try to fetch, but providing it is better)
+        let spot = currentPrice;
+        if (!spot) {
+            const priceData = await getStockData(ticker, '1d');
+            // [Fix] Use standardized StockData properties
+            spot = priceData?.price || priceData?.regPrice || 0;
         }
 
-        if (!response || !response.results || response.results.length === 0) {
-            // No options available for this ticker
-            const noOptions: CachedOptionsChain = {
-                ticker,
-                status: 'NO_OPTIONS',
-                callWall: 0,
-                putFloor: 0,
-                maxPain: 0,
-                pinZone: 0,
-                pcr: 0,
-                gex: 0,
-                gammaRegime: 'N/A',
-                coveragePct: 0,
-                oiClusters: { callsTop: [], putsTop: [] },
-                fetchedAtET: new Date().toISOString()
-            };
-            await setOptionsToCache(ticker, noOptions);
-            return noOptions;
-        }
+        // Call the trusted logic
+        const analytics = await getOptionsData(ticker, spot);
 
-        // [P0] 2. Strike Scope Filter (±20% of Spot)
-        // Need current price first - optimistic fetch or pass in?
-        // We'll trust the contracts' inherent clustering or fetch price if needed.
-        // For simplicity/perf, let's use the strike clustering itself to find the "center" or assume we want valid data.
-        // Actually, we can fetch price quickly or just filter extreme outliers if we had price.
-        // Better approach: Calculate median strike or weighted average to find center if price unknown.
-        // But we usually enrich options in parallel with price.
-        // Let's rely on Valid Data: contracts with OI > 0 usually center around price.
-
-        let contracts = response.results;
-
-        // Smart Filter: Remove strikes with 0 OI first
-        contracts = contracts.filter((c: any) => (c.open_interest || 0) > 0);
-
-        // Filter outliers (heuristic: remove top/bottom 5% of strikes if huge spread?)
-        // Or strictly use price if we had it. Since we are inside enrichment, we might not have price yet.
-        // Let's stick to cleaning up Zero OI.
-
-        const callContracts = contracts.filter((c: any) => c.contract_type === 'call');
-        const putContracts = contracts.filter((c: any) => c.contract_type === 'put');
-
-        // Sort by OI and get top 5
-        const callsTop = callContracts
-            .sort((a: any, b: any) => (b.open_interest || 0) - (a.open_interest || 0))
-            .slice(0, 5)
-            .map((c: any) => ({ strike: c.strike_price, oi: c.open_interest }));
-
-        const putsTop = putContracts
-            .sort((a: any, b: any) => (b.open_interest || 0) - (a.open_interest || 0))
-            .slice(0, 5)
-            .map((c: any) => ({ strike: c.strike_price, oi: c.open_interest }));
-
-        // Calculate walls from OI clusters
-        let callWall = callsTop.length > 0 ? callsTop[0].strike : 0;
-        let putFloor = putsTop.length > 0 ? putsTop[0].strike : 0;
-
-        // [P0] 3. Strict Validation: Data Error if Wall is 0
-        if (callWall === 0 || putFloor === 0) {
-            const errorResult: CachedOptionsChain = {
-                ticker,
-                status: 'FAILED', // Force Red Badge
-                callWall: 0,
-                putFloor: 0,
-                maxPain: 0,
-                pinZone: 0,
-                pcr: 0,
-                gex: 0,
-                gammaRegime: 'N/A',
-                coveragePct: 0, // Force 0%
-                oiClusters: { callsTop: [], putsTop: [] },
-                fetchedAtET: new Date().toISOString()
-            };
-            await setOptionsToCache(ticker, errorResult);
-            return errorResult;
-        }
-
-        // Calculate PCR
-        const totalCallOI = callContracts.reduce((sum: number, c: any) => sum + (c.open_interest || 0), 0);
-        const totalPutOI = putContracts.reduce((sum: number, c: any) => sum + (c.open_interest || 0), 0);
-        const pcr = totalCallOI > 0 ? totalPutOI / totalCallOI : 0;
-
-        // Max Pain calculation (simplified)
-        // [P0] Filter Scope for Max Pain: Only consider strikes within Range of Walls
-        const relevantStrikes = [...new Set(contracts.map((c: any) => c.strike_price))]
-            .filter((s: unknown) => {
-                const sVal = s as number;
-                // Heuristic: Must be within 50% of the Wall range to filter absurd $80 outliers
-                const min = Math.min(callWall, putFloor) * 0.5;
-                const max = Math.max(callWall, putFloor) * 1.5;
-                return sVal >= min && sVal <= max;
-            });
-
-        let maxPain = callWall;
-        if (relevantStrikes.length > 0) {
-            maxPain = relevantStrikes.sort((a: unknown, b: unknown) => {
-                const aVal = a as number;
-                const bVal = b as number;
-                const aOI = contracts.filter((c: any) => c.strike_price === aVal).reduce((s: number, c: any) => s + (c.open_interest || 0), 0);
-                const bOI = contracts.filter((c: any) => c.strike_price === bVal).reduce((s: number, c: any) => s + (c.open_interest || 0), 0);
-                return bOI - aOI;
-            })[0] as number || callWall;
-        }
-
+        // Map to CachedOptionsChain
         const optionsResult: CachedOptionsChain = {
             ticker,
-            status: 'OK', // Strict: Only if walls > 0
-            callWall,
-            putFloor,
-            maxPain,
-            pinZone: (callWall + putFloor) / 2,
-            pcr: Math.round(pcr * 100) / 100,
-            gex: 0,
-            gammaRegime: pcr < 0.7 ? 'Long Gamma' : pcr > 1.3 ? 'Short Gamma' : 'Neutral',
-            coveragePct: 100, // Valid
-            oiClusters: { callsTop, putsTop },
+            status: analytics.options_status === 'OK' ? 'OK' :
+                analytics.options_status === 'NO_OPTIONS' ? 'NO_OPTIONS' : 'FAILED',
+
+            // Re-deriving Walls from the arrays returned by getOptionsData is safer
+            callWall: 0,
+            putFloor: 0,
+            maxPain: analytics.maxPain || 0,
+            pinZone: 0,
+            pcr: analytics.putCallRatio || 0,
+            gex: analytics.gems?.gex || 0,
+            gammaRegime: (analytics.gems?.gex || 0) > 0 ? 'Long Gamma' : 'Short Gamma',
+
+            coveragePct: analytics.options_status === 'OK' ? 100 : 0,
+            oiClusters: { callsTop: [], putsTop: [] },
             fetchedAtET: new Date().toISOString()
         };
+
+        // Re-calculate Walls from the returned standardized data
+        if (analytics.options_status === 'OK' && analytics.strikes && analytics.callsOI && analytics.putsOI) {
+
+            // Map arrays to objects
+            const calls = analytics.strikes.map((s: number, i: number) => ({ strike: s, oi: analytics.callsOI[i] }));
+            const puts = analytics.strikes.map((s: number, i: number) => ({ strike: s, oi: analytics.putsOI[i] }));
+
+            // Sort by OI
+            calls.sort((a: any, b: any) => b.oi - a.oi);
+            puts.sort((a: any, b: any) => b.oi - a.oi);
+
+            optionsResult.callWall = calls.length > 0 ? calls[0].strike : 0;
+            optionsResult.putFloor = puts.length > 0 ? puts[0].strike : 0;
+            optionsResult.pinZone = (optionsResult.callWall + optionsResult.putFloor) / 2;
+
+            optionsResult.oiClusters = {
+                callsTop: calls.slice(0, 5),
+                putsTop: puts.slice(0, 5)
+            };
+        }
+
+        // [Phase 16.2] Strict Validation (Fail if Walls are 0)
+        if (optionsResult.status === 'OK' && (optionsResult.callWall === 0 || optionsResult.putFloor === 0)) {
+            optionsResult.status = 'FAILED';
+            optionsResult.coveragePct = 0;
+        }
 
         await setOptionsToCache(ticker, optionsResult);
         return optionsResult;
@@ -424,6 +336,7 @@ async function fetchFlowData(ticker: string): Promise<CachedFlowBundle | null> {
         }
 
         const snapshot = snapshotResponse?.ticker;
+
 
         // [P0] Advanced Flow Calculation (Dark Pool & Net Flow) via Trade Sample
         // We fetch the last 1000 trades to estimate current flow dynamics if not provided by snapshot

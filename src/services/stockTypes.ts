@@ -33,7 +33,7 @@ export interface OptionData {
     putsOI: number[];
     putCallRatio?: number;
     gems?: { mmPos: string; edge: string; gex: number; comment?: string; };
-    options_status?: 'OK' | 'PENDING' | 'FAILED';
+    options_status?: 'OK' | 'PENDING' | 'FAILED' | 'NO_OPTIONS';
     options_grade?: 'A' | 'B' | 'C' | 'N/A';
     options_reason?: string;
 }

@@ -276,25 +276,25 @@
     "date": "2025-12-29",
     "reportType": "morning",
     "sessionType": "regular",
-    "timestamp": "2025-12-29T16:30:25.076Z",
+    "timestamp": "2025-12-29T16:50:46.024Z",
     "tickers": [
       {
-        "symbol": "GOOGL",
+        "symbol": "XOM",
         "rank": 1,
-        "baselinePrice": 312.56,
-        "alphaScore": 44.640629047006044
+        "baselinePrice": 120.905,
+        "alphaScore": 43.840727406081314
       },
       {
-        "symbol": "XOM",
+        "symbol": "GOOGL",
         "rank": 2,
-        "baselinePrice": 121.025,
-        "alphaScore": 44.57036309969183
+        "baselinePrice": 312.4668,
+        "alphaScore": 42.564461463855615
       },
       {
         "symbol": "AMZN",
         "rank": 3,
-        "baselinePrice": 231.64,
-        "alphaScore": 44.40345255361788
+        "baselinePrice": 231.617,
+        "alphaScore": 42.34442945312664
       }
     ],
     "calculated": false
