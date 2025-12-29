@@ -276,25 +276,25 @@
     "date": "2025-12-29",
     "reportType": "morning",
     "sessionType": "post",
-    "timestamp": "2025-12-29T23:17:01.429Z",
+    "timestamp": "2025-12-29T23:32:52.062Z",
     "tickers": [
       {
-        "symbol": "AMZN",
+        "symbol": "NVDA",
         "rank": 1,
-        "baselinePrice": 232.07,
-        "alphaScore": 45.78586395617332
+        "baselinePrice": 187.96,
+        "alphaScore": 45.878791307430504
       },
       {
-        "symbol": "NVDA",
+        "symbol": "AMZN",
         "rank": 2,
-        "baselinePrice": 187.9,
-        "alphaScore": 45.7787303521046
+        "baselinePrice": 232.0112,
+        "alphaScore": 45.54003230287399
       },
       {
         "symbol": "GOOGL",
         "rank": 3,
-        "baselinePrice": 313.43,
-        "alphaScore": 45.34644459735876
+        "baselinePrice": 313.12,
+        "alphaScore": 44.65246295792167
       }
     ],
     "calculated": false

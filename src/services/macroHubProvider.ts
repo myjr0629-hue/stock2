@@ -83,9 +83,12 @@ async function fetchYahooQuote(symbol: string, label: string): Promise<MacroFact
             };
         }
 
+        // [Phase 21] Silent Fallback: Return 0 instead of failing
+        console.warn(`[Alpha] Yahoo quote empty for ${symbol}, using fallback.`);
         return createFailFactor(label, symbol);
     } catch (e: any) {
-        console.error(`[MacroHub] Yahoo Error ${symbol}: ${e.message}`);
+        // [Phase 21] Silent exception handling - log but don't crash
+        console.error(`[MacroHub] Yahoo Error ${symbol}: ${e.message}. Using fallback.`);
         return createFailFactor(label, symbol);
     }
 }

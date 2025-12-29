@@ -256,6 +256,8 @@ async function fetchOptionsChain(ticker: string, currentPrice?: number, force: b
         // Call the trusted logic
         // [Phase 20] Pass useCache = !force
         const analytics = await getOptionsData(ticker, spot, undefined, !force);
+        // [Phase 21] Debug: Log raw API response count
+        console.log(`[CHECK_OPTIONS] ${ticker}: strikes=${analytics.strikes?.length || 0}, status=${analytics.options_status}`);
 
         // Map to CachedOptionsChain
         const optionsResult: CachedOptionsChain = {
@@ -351,6 +353,8 @@ async function fetchFlowData(ticker: string): Promise<CachedFlowBundle | null> {
             // Only fetch trades if volume exists to avoid empty calls
             if (snapshot?.day?.v > 0) {
                 const tradesResp = await fetchMassive(`/v3/trades/${ticker}`, { limit: '1000', sort: 'timestamp', order: 'desc' }, true);
+                // [Phase 21] Debug: Log raw API response count
+                console.log(`[CHECK_FLOW] ${ticker}: Raw trades count = ${tradesResp?.results?.length || 0}`);
                 if (tradesResp?.results) {
                     const trades = tradesResp.results;
 
