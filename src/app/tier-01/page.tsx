@@ -139,27 +139,72 @@ const Skeleton = ({ className }: { className: string }) => (
     <div className={`animate-pulse bg-slate-800/50 rounded ${className}`} />
 );
 
-const ScoreBreakdown = ({ evidence, score }: { evidence: UnifiedEvidence, score: number }) => {
-    // 2.0 Weights: Price(25), Options(25), Flow(20), Macro(15), Stealth(15)
-    // NOTE: This visualizes specific contributions. 
-    // If backend doesn't provide specific score breakdown yet, we estimate or just show the bars 
-    // proportional to the weights if high score, or use placeholders.
-    // For now, simpler visualization: Score Bar.
+const ScoreBreakdown = ({ evidence, item }: { evidence: UnifiedEvidence, item: TickerItem }) => {
+    // [9.1] Transparency: Use real decomposition if available
+    const decomp = (item as any).scoreDecomposition || {
+        momentum: 0,
+        options: 0,
+        structure: 0,
+        regime: 0,
+        risk: 0
+    };
+
+    const hasDecomp = (item as any).scoreDecomposition;
+    const score = item.alphaScore || 0;
+
+    // Helper for bar width/color
+    const getBarParams = (val: number, max: number, colorClass: string) => {
+        const pct = Math.min(100, Math.max(0, (val / max) * 100));
+        return { width: `${pct}%`, className: `${colorClass} ${val === 0 ? 'opacity-30' : ''}` };
+    };
 
     return (
-        <div className="w-full space-y-1">
+        <div className="w-full space-y-2 select-none group">
             <div className="flex justify-between items-end">
-                <span className="text-[10px] uppercase font-bold text-slate-500">Alpha Contribution</span>
-                <span className="text-[10px] font-mono font-bold text-emerald-400">{score.toFixed(1)} / 100</span>
+                <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1">
+                    Alpha Contribution
+                    <div className="hidden group-hover:flex absolute z-50 bg-slate-800 border border-slate-700 p-2 rounded shadow-xl -mt-8 ml-24 text-[10px] text-slate-300 w-48 flex-col gap-1">
+                        <div className="font-bold text-slate-200 border-b border-slate-700 pb-1 mb-1">Scoring Factors (Alpha 2.0)</div>
+                        <div className="flex justify-between"><span>Momentum:</span> <span className="font-mono text-emerald-400">Price + Vol Surge</span></div>
+                        <div className="flex justify-between"><span>Options:</span> <span className="font-mono text-sky-400">PCR + OI Heat</span></div>
+                        <div className="flex justify-between"><span>Structure:</span> <span className="font-mono text-indigo-400">GEX + Walls</span></div>
+                        <div className="flex justify-between"><span>Regime:</span> <span className="font-mono text-amber-400">Macro + VIX</span></div>
+                        <div className="flex justify-between"><span>Risk:</span> <span className="font-mono text-rose-400">RSI + Variance</span></div>
+                    </div>
+                    <Search className="w-3 h-3 text-slate-600" />
+                </span>
+                <span className="text-[10px] font-mono font-bold text-white bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
+                    {score.toFixed(1)} <span className="text-slate-500">/ 100</span>
+                </span>
             </div>
-            <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-slate-800">
-                {/* Visual approximation based on Alpha Score */}
-                <div style={{ width: '25%' }} className={`bg-emerald-500/80 ${score < 20 ? 'opacity-30' : ''}`} title="Price (25%)" />
-                <div style={{ width: '25%' }} className={`bg-sky-500/80 ${score < 40 ? 'opacity-30' : ''}`} title="Options (25%)" />
-                <div style={{ width: '20%' }} className={`bg-indigo-500/80 ${score < 60 ? 'opacity-30' : ''}`} title="Flow (20%)" />
-                <div style={{ width: '15%' }} className={`bg-amber-500/80 ${score < 80 ? 'opacity-30' : ''}`} title="Macro (15%)" />
-                <div style={{ width: '15%' }} className={`bg-purple-500/80 ${score < 90 ? 'opacity-30' : ''}`} title="Stealth (15%)" />
-            </div>
+
+            {hasDecomp ? (
+                <div className="grid grid-cols-5 gap-0.5 h-2 w-full rounded-sm overflow-hidden bg-slate-800/50">
+                    <div className={`h-full bg-emerald-500 transition-all duration-500`} style={{ width: `${(decomp.momentum / 20) * 100}%` }} title={`Momentum: ${decomp.momentum}/20`} />
+                    <div className={`h-full bg-sky-500 transition-all duration-500`} style={{ width: `${(decomp.options / 20) * 100}%` }} title={`Options: ${decomp.options}/20`} />
+                    <div className={`h-full bg-indigo-500 transition-all duration-500`} style={{ width: `${(decomp.structure / 20) * 100}%` }} title={`Structure: ${decomp.structure}/20`} />
+                    <div className={`h-full bg-amber-500 transition-all duration-500`} style={{ width: `${(decomp.regime / 20) * 100}%` }} title={`Regime: ${decomp.regime}/20`} />
+                    <div className={`h-full bg-purple-500 transition-all duration-500`} style={{ width: `${(decomp.risk / 20) * 100}%` }} title={`Risk: ${decomp.risk}/20`} />
+                </div>
+            ) : (
+                <div className="flex h-1.5 w-full rounded-full overflow-hidden bg-slate-800">
+                    <div style={{ width: '25%' }} className={`bg-emerald-500/80 ${score < 20 ? 'opacity-30' : ''}`} title="Price Est." />
+                    <div style={{ width: '25%' }} className={`bg-sky-500/80 ${score < 40 ? 'opacity-30' : ''}`} title="Options Est." />
+                    <div style={{ width: '20%' }} className={`bg-indigo-500/80 ${score < 60 ? 'opacity-30' : ''}`} title="Flow Est." />
+                    <div style={{ width: '15%' }} className={`bg-amber-500/80 ${score < 80 ? 'opacity-30' : ''}`} title="Macro Est." />
+                    <div style={{ width: '15%' }} className={`bg-purple-500/80 ${score < 90 ? 'opacity-30' : ''}`} title="Stealth Est." />
+                </div>
+            )}
+
+            {hasDecomp && (
+                <div className="grid grid-cols-5 text-[9px] text-slate-500 font-mono text-center opacity-70">
+                    <span>MOM</span>
+                    <span>OPT</span>
+                    <span>STR</span>
+                    <span>RGM</span>
+                    <span>RSK</span>
+                </div>
+            )}
         </div>
     );
 };
@@ -380,8 +425,27 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
 
+    // [9.4] Interactive Heatmap State
+    const [showHeatmap, setShowHeatmap] = useState(false);
+
     const action = item.decisionSSOT?.action || "CAUTION";
+
     const tier = item.qualityTier || "WATCH";
+
+    // [Emergency Patch] Defensive check for missing evidence (Legacy Data Support)
+    if (!ev) {
+        return (
+            <div className="fixed inset-0 z-[100] flex justify-end font-sans">
+                <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
+                <div className="relative w-full max-w-lg h-full bg-slate-950 border-l border-slate-800 shadow-2xl p-10 flex flex-col items-center justify-center">
+                    <div className="animate-spin w-8 h-8 border-4 border-slate-700 border-t-emerald-500 rounded-full mb-4" />
+                    <p className="text-slate-400 font-mono text-sm">Synchronizing Engine Data...</p>
+                    <button onClick={onClose} className="mt-8 text-slate-500 hover:text-white underline text-xs">Close</button>
+                </div>
+            </div>
+        );
+    }
+
     const opt = getOptionsStatus(ev.options.status);
 
     // Derived states
@@ -426,7 +490,7 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
 
                         <div className="bg-slate-900 border border-slate-800 rounded p-4 space-y-4">
                             {/* Score Breakdown */}
-                            <ScoreBreakdown evidence={ev} score={item.alphaScore || 0} />
+                            <ScoreBreakdown evidence={ev} item={item} />
 
                             {/* Decision Triggers */}
                             <ul className="space-y-2 mt-2">
@@ -485,98 +549,142 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                         </div>
                     </section>
 
-                    {/* 3. FLOW DYNAMICS */}
+                    {/* 3. FLOW DYNAMICS (Institutional) */}
                     <section>
                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <Layers className="w-3.5 h-3.5" /> Flow Dynamics
                         </h3>
-                        <div className="bg-slate-900 border border-slate-800 rounded p-4 grid grid-cols-2 gap-4">
-                            <div>
-                                <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Off-Exchange</span>
-                                <div className="flex items-end gap-2">
-                                    <span className="text-sm font-mono font-bold text-white">{ev.flow.offExPct.toFixed(1)}%</span>
-                                    <span className={`text-[10px] font-bold ${ev.flow.offExDeltaPct > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
-                                        ({ev.flow.offExDeltaPct > 0 ? '+' : ''}{ev.flow.offExDeltaPct.toFixed(1)}%)
+                        {/* [9.2] Dark Pool / Condition Codes */}
+                        <div className="bg-slate-900 border border-slate-800 rounded p-4 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Dark Pool (Off-Ex)</span>
+                                    <div className="flex items-end gap-2">
+                                        {ev.flow.offExPct > 0 ? (
+                                            <>
+                                                <span className="text-sm font-mono font-bold text-white">{ev.flow.offExPct.toFixed(1)}%</span>
+                                                <span className={`text-[10px] font-bold ${ev.flow.offExDeltaPct > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
+                                                    ({ev.flow.offExDeltaPct > 0 ? '+' : ''}{ev.flow.offExDeltaPct.toFixed(1)}%)
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <div className="flex items-center gap-2 h-5">
+                                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+                                                <span className="text-[10px] font-mono text-emerald-500 animate-pulse">Scanning...</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="w-full bg-slate-800 h-1 mt-2 rounded-full overflow-hidden">
+                                        <div
+                                            className={`h-full ${ev.flow.offExPct > 40 ? 'bg-amber-400' : 'bg-slate-600'}`}
+                                            style={{ width: `${Math.min(100, ev.flow.offExPct)}%` }}
+                                        />
+                                    </div>
+                                </div>
+                                <div>
+                                    <div className="flex justify-between">
+                                        <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Net Prem (Est)</span>
+                                        <span className="text-[8px] bg-slate-800 text-slate-400 px-1 rounded">COND: I, T</span>
+                                    </div>
+                                    <span className={`text-sm font-mono font-bold ${ev.flow.largeTradesUsd > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        ${(ev.flow.largeTradesUsd / 1_000_000).toFixed(1)}M
                                     </span>
                                 </div>
-                            </div>
-                            <div>
-                                <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Net Flow (Est)</span>
-                                <span className={`text-sm font-mono font-bold ${ev.flow.largeTradesUsd > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    ${(ev.flow.largeTradesUsd / 1_000_000).toFixed(1)}M
-                                </span>
                             </div>
                         </div>
                     </section>
 
-                    {/* 4. OPTIONS STRUCTURE (GEMS) */}
+
+                    {/* 4. OPTIONS STRUCTURE (GEMS) [9.4] Interactive Heatmap */}
                     <section>
                         <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:text-slate-300 transition-colors"
+                                onClick={() => setShowHeatmap(!showHeatmap)}>
                                 <BarChart3 className="w-3.5 h-3.5" /> Options Structure
+                                <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded ml-1">
+                                    {showHeatmap ? 'HIDE MAP' : 'VIEW MAP'}
+                                </span>
                             </h3>
                             <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${opt.color} text-white`}>
                                 {opt.label} ({ev.options.coveragePct}%)
                             </div>
                         </div>
 
-                        <div className="space-y-3">
-                            {/* Key Levels */}
-                            <div className="grid grid-cols-3 gap-px bg-slate-800 border border-slate-800 rounded overflow-hidden text-center">
-                                <div className="bg-slate-900 p-2">
-                                    <span className="text-[9px] text-slate-500 block">Call Wall</span>
-                                    <span className="text-xs font-mono font-bold text-emerald-400">${ev.options.callWall}</span>
-                                </div>
-                                <div className="bg-slate-900 p-2">
-                                    <span className="text-[9px] text-slate-500 block">Max Pain</span>
-                                    <span className="text-xs font-mono font-bold text-amber-400">${ev.options.maxPain}</span>
-                                </div>
-                                <div className="bg-slate-900 p-2">
-                                    <span className="text-[9px] text-slate-500 block">Put Floor</span>
-                                    <span className="text-xs font-mono font-bold text-rose-400">${ev.options.putFloor}</span>
-                                </div>
-                            </div>
-
-                            {/* GEX / PCR */}
-                            <div className="grid grid-cols-2 gap-4 bg-slate-900 border border-slate-800 rounded p-3">
-                                <div>
-                                    <span className="text-[9px] text-slate-500 uppercase font-bold">Gamma Regime</span>
-                                    <div className="text-xs font-bold text-slate-200 mt-1">{ev.options.gammaRegime}</div>
-                                    <div className="text-[10px] text-slate-500 font-mono">GEX: ${ev.options.gex.toFixed(2)}M</div>
-                                </div>
-                                <div className="text-right">
-                                    <span className="text-[9px] text-slate-500 uppercase font-bold">Put/Call Ratio</span>
-                                    <div className={`text-lg font-mono font-bold mt-0.5 ${ev.options.pcr > 1.2 ? 'text-rose-400' : ev.options.pcr < 0.7 ? 'text-emerald-400' : 'text-slate-300'}`}>
-                                        {ev.options.pcr.toFixed(2)}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* OI Clusters Table */}
-                            {ev.options.oiClusters && (
-                                <div className="bg-slate-900 border border-slate-800 rounded p-3">
-                                    <span className="text-[9px] text-slate-500 uppercase font-bold mb-2 block">OI Clusters (Major Magnets)</span>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <span className="text-[9px] text-emerald-500/80 block mb-1">Calls Top</span>
-                                            <div className="flex flex-wrap gap-1">
-                                                {ev.options.oiClusters.callsTop.map(k => (
-                                                    <span key={k} className="px-1.5 py-0.5 bg-emerald-950 text-emerald-400 text-[10px] font-mono rounded border border-emerald-900">${k}</span>
-                                                ))}
-                                            </div>
+                        {/* [9.4] Toggleable View */}
+                        {showHeatmap ? (
+                            <div className="bg-slate-900 border border-slate-800 rounded p-4 animate-in fade-in duration-300">
+                                <span className="text-[9px] text-slate-500 uppercase font-bold mb-3 block">OI Cluster Heatmap (Dark Pool Magnets)</span>
+                                <div className="space-y-4">
+                                    <div>
+                                        <div className="flex justify-between text-[9px] font-bold text-emerald-500 mb-1">
+                                            <span>CALL WALL RESISTANCE</span>
+                                            <span>OI VOL</span>
                                         </div>
-                                        <div>
-                                            <span className="text-[9px] text-rose-500/80 block mb-1">Puts Top</span>
-                                            <div className="flex flex-wrap gap-1">
-                                                {ev.options.oiClusters.putsTop.map(k => (
-                                                    <span key={k} className="px-1.5 py-0.5 bg-rose-950 text-rose-400 text-[10px] font-mono rounded border border-rose-900">${k}</span>
-                                                ))}
-                                            </div>
+                                        <div className="space-y-1">
+                                            {(ev.options.oiClusters?.callsTop || []).slice(0, 3).map((strike, i) => (
+                                                <div key={i} className="flex items-center gap-2">
+                                                    <span className="w-12 text-[10px] font-mono text-right text-slate-300">${strike}</span>
+                                                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-emerald-500/50" style={{ width: `${100 - (i * 20)}%` }} />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                            {(ev.options.oiClusters?.callsTop || []).length === 0 && <span className="text-[10px] text-slate-600">No data</span>}
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="flex justify-between text-[9px] font-bold text-rose-500 mb-1">
+                                            <span>PUT FLOOR SUPPORT</span>
+                                            <span>OI VOL</span>
+                                        </div>
+                                        <div className="space-y-1">
+                                            {(ev.options.oiClusters?.putsTop || []).slice(0, 3).map((strike, i) => (
+                                                <div key={i} className="flex items-center gap-2">
+                                                    <span className="w-12 text-[10px] font-mono text-right text-slate-300">${strike}</span>
+                                                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-rose-500/50" style={{ width: `${100 - (i * 20)}%` }} />
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
                                 </div>
-                            )}
-                        </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-3">
+                                {/* Key Levels (Clickable) */}
+                                <div className="grid grid-cols-3 gap-px bg-slate-800 border border-slate-800 rounded overflow-hidden text-center cursor-pointer group"
+                                    onClick={() => setShowHeatmap(true)}>
+                                    <div className="bg-slate-900 p-2 group-hover:bg-slate-800/80 transition-colors">
+                                        <span className="text-[9px] text-slate-500 block">Call Wall</span>
+                                        <span className="text-xs font-mono font-bold text-emerald-400">${ev.options.callWall}</span>
+                                    </div>
+                                    <div className="bg-slate-900 p-2 group-hover:bg-slate-800/80 transition-colors">
+                                        <span className="text-[9px] text-slate-500 block">Max Pain</span>
+                                        <span className="text-xs font-mono font-bold text-amber-400">${ev.options.maxPain}</span>
+                                    </div>
+                                    <div className="bg-slate-900 p-2 group-hover:bg-slate-800/80 transition-colors">
+                                        <span className="text-[9px] text-slate-500 block">Put Floor</span>
+                                        <span className="text-xs font-mono font-bold text-rose-400">${ev.options.putFloor}</span>
+                                    </div>
+                                </div>
+
+                                {/* GEX / PCR */}
+                                <div className="grid grid-cols-2 gap-4 bg-slate-900 border border-slate-800 rounded p-3">
+                                    <div>
+                                        <span className="text-[9px] text-slate-500 uppercase font-bold">Gamma Regime</span>
+                                        <div className="text-xs font-bold text-slate-200 mt-1">{ev.options.gammaRegime}</div>
+                                        <div className="text-[10px] text-slate-500 font-mono">GEX: ${ev.options.gex.toFixed(2)}M</div>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[9px] text-slate-500 uppercase font-bold">Put/Call Ratio</span>
+                                        <div className={`text-lg font-mono font-bold mt-0.5 ${ev.options.pcr > 1.2 ? 'text-rose-400' : ev.options.pcr < 0.7 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                                            {ev.options.pcr.toFixed(2)}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </section>
 
                     {/* 5. MACRO & STEALTH */}

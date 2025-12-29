@@ -271,5 +271,32 @@
       }
     ],
     "calculated": false
+  },
+  {
+    "date": "2025-12-29",
+    "reportType": "morning",
+    "sessionType": "regular",
+    "timestamp": "2025-12-29T15:05:10.437Z",
+    "tickers": [
+      {
+        "symbol": "XOM",
+        "rank": 1,
+        "baselinePrice": 120.07,
+        "alphaScore": 46
+      },
+      {
+        "symbol": "TSLA",
+        "rank": 2,
+        "baselinePrice": 470.65,
+        "alphaScore": 45.3
+      },
+      {
+        "symbol": "AMZN",
+        "rank": 3,
+        "baselinePrice": 232.72,
+        "alphaScore": 44.5
+      }
+    ],
+    "calculated": false
   }
 ]
