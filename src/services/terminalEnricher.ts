@@ -177,9 +177,10 @@ function checkLayerCompleteness(evidence: Partial<UnifiedEvidence>): Completenes
 
 export async function enrichTerminalItems(
     tickers: string[],
-    session: 'pre' | 'regular' | 'post' = 'regular'
+    session: 'pre' | 'regular' | 'post' = 'regular',
+    force: boolean = false // [P0] If true, bypass all cache
 ): Promise<TerminalItem[]> {
-    console.log(`[TerminalEnricher v2] Starting enrichment for ${tickers.length} tickers...`);
+    console.log(`[TerminalEnricher v2] Starting enrichment for ${tickers.length} tickers... (force=${force})`);
     const startTime = Date.now();
 
     // 1. Fetch Global Context (Macro, Policy, Events) - with cache
@@ -201,7 +202,7 @@ export async function enrichTerminalItems(
         console.log(`[TerminalEnricher v2] Processing batch ${Math.floor(i / CONFIG.BATCH_SIZE) + 1}/${Math.ceil(tickers.length / CONFIG.BATCH_SIZE)}`);
 
         const batchResults = await Promise.all(
-            batch.map(ticker => enrichSingleTickerWithRetry(ticker, session, macro, eventList, policyList))
+            batch.map(ticker => enrichSingleTickerWithRetry(ticker, session, macro, eventList, policyList, force))
         );
 
         batchResults.forEach(item => {
@@ -227,7 +228,7 @@ export async function enrichTerminalItems(
             console.log(`[TerminalEnricher v2] Retry ${retry + 1}: ${stillIncomplete.length} tickers`);
 
             const retryResults = await Promise.all(
-                stillIncomplete.map(ticker => enrichSingleTickerWithRetry(ticker, session, macro, eventList, policyList))
+                stillIncomplete.map(ticker => enrichSingleTickerWithRetry(ticker, session, macro, eventList, policyList, force))
             );
 
             // Merge retry results
@@ -254,19 +255,24 @@ async function enrichSingleTickerWithRetry(
     session: 'pre' | 'regular' | 'post',
     macro: UnifiedMacro,
     events: any[],
-    policies: any[]
+    policies: any[],
+    force: boolean = false // [P0] Bypass cache
 ): Promise<TerminalItem> {
-    // 1. Check cache first
-    const cached = await getEvidenceFromCache(ticker);
-    if (cached && cached.complete) {
-        console.log(`[TerminalEnricher v2] Using cached evidence for ${ticker}`);
-        return {
-            ticker,
-            evidence: cached as unknown as UnifiedEvidence,
-            alphaScore: null, // Calculated later by powerEngine
-            qualityTier: 'PENDING',
-            complete: true
-        };
+    // 1. Check cache first (skip if force=true)
+    if (!force) {
+        const cached = await getEvidenceFromCache(ticker);
+        if (cached && cached.complete) {
+            console.log(`[TerminalEnricher v2] Using cached evidence for ${ticker}`);
+            return {
+                ticker,
+                evidence: cached as unknown as UnifiedEvidence,
+                alphaScore: null, // Calculated later by powerEngine
+                qualityTier: 'PENDING',
+                complete: true
+            };
+        }
+    } else {
+        console.log(`[TerminalEnricher v2] Force mode: bypassing cache for ${ticker}`);
     }
 
     try {
@@ -304,7 +310,7 @@ async function enrichSingleTickerWithRetry(
         evidence.macro.complete = completeness.macro;
         evidence.stealth.complete = completeness.stealth;
 
-        // 5. Cache if complete
+        // 5. Cache if complete (and not force mode)
         if (evidence.complete) {
             await setEvidenceToCache(ticker, {
                 ticker,

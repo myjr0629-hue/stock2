@@ -188,7 +188,8 @@ export async function generateReport(type: ReportType, force: boolean = false): 
     };
     const sessionParam = badgeMap[sessionInfo.badge] || 'regular';
 
-    const enrichedItems = await enrichTerminalItems(candidateTickers, sessionParam);
+    // [P0] Pass force to enrichTerminalItems to bypass cache when force=true
+    const enrichedItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
 
     // 4. Scoring & Quality Tiers
     // Load yesterday's report for persistence bonuses
