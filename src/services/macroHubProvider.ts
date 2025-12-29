@@ -40,7 +40,8 @@ const SYMBOLS = {
     NDX: "^NDX",
     VIX: "^VIX",
     US10Y: "^TNX",
-    DXY: "DX-Y.NYB"
+    DXY: "DX-Y.NYB",
+    NQF: "NQ=F" // [Phase 17] Added Futures
 };
 
 // [S-48.3] Yahoo Finance Fetcher
@@ -52,9 +53,11 @@ async function fetchYahooQuote(symbol: string, label: string): Promise<MacroFact
 
         const quote = await yf.quote(symbol);
 
-        if (quote && quote.regularMarketPrice != null) {
+        if (quote && (quote.regularMarketPrice != null || quote.ask != null)) {
+            // Futures often use bid/ask or regularMarketPrice
+            const price = quote.regularMarketPrice || quote.ask || 0;
             return {
-                level: quote.regularMarketPrice,
+                level: price,
                 chgPct: quote.regularMarketChangePercent ?? null,
                 chgAbs: quote.regularMarketChange ?? null,
                 label,
@@ -97,13 +100,38 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const marketStatus = await getMarketStatusSSOT();
     const fetchedAtET = new Date().toISOString();
 
+    // [Phase 17] Context Logic: Use Futures if Market Closed/Extended
+    const useFutures = marketStatus.market === 'closed' || marketStatus.market === 'extended-hours';
+
     // Parallel Fetch from Yahoo Finance
-    const [nasdaq100, vix, us10y, dxy] = await Promise.all([
+    // [Phase 17] Fetch NQ=F if needed, otherwise normal behavior
+    const promises = [
         fetchYahooQuote(SYMBOLS.NDX, "NASDAQ 100"),
         fetchYahooQuote(SYMBOLS.VIX, "VIX"),
         fetchYahooQuote(SYMBOLS.US10Y, "US10Y"),
         fetchYahooQuote(SYMBOLS.DXY, "DXY")
-    ]);
+    ];
+
+    if (useFutures) {
+        promises.push(fetchYahooQuote(SYMBOLS.NQF, "NASDAQ 100 Futures"));
+    }
+
+    const results = await Promise.all(promises);
+    let nasdaq100 = results[0];
+    const vix = results[1];
+    const us10y = results[2];
+    const dxy = results[3];
+    const futuresNq = useFutures ? results[4] : null;
+
+    // [Phase 17] Override Logic
+    if (useFutures && futuresNq && futuresNq.status === 'OK') {
+        // console.log(`[MacroHub] Using Futures (NQ=F) for After-Hours context. Level: ${futuresNq.level}`);
+        nasdaq100 = {
+            ...futuresNq,
+            label: "NASDAQ 100 (F)", // Mark as Futures
+            symbolUsed: SYMBOLS.NQF
+        };
+    }
 
     const snapshot: MacroSnapshot = {
         asOfET: marketStatus.asOfET || fetchedAtET,
@@ -125,6 +153,6 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     };
 
     cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };
-    console.log(`[MacroHub] Cached: NDX=${snapshot.nq?.toFixed(0)}, VIX=${snapshot.vix?.toFixed(2)}`);
+    console.log(`[MacroHub] Cached: ${nasdaq100.label}=${snapshot.nq?.toFixed(0)}, VIX=${snapshot.vix?.toFixed(2)}`);
     return snapshot;
 }

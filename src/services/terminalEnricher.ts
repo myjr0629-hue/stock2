@@ -370,7 +370,7 @@ async function fetchFlowData(ticker: string): Promise<CachedFlowBundle | null> {
                         totalSampleVol += size;
 
                         // Dark Pool Check
-                        if (current.conditions?.some((c: number) => DARK_POOL_CONDITIONS.includes(c))) {
+                        if (current.conditions?.some((c: any) => DARK_POOL_CONDITIONS.includes(Number(c)))) {
                             darkVol += size;
                         }
 
