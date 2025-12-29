@@ -3,6 +3,7 @@
 // [S-51.5.2] Enhanced with Vercel KV storage support
 // [S-51.7] Enhanced with live data enrichment for Top3
 // [S-53.0] Enhanced with Continuation Track and State Machine
+// [P1] Enhanced with FED API and Redis-based events/policy
 // Generates 3 report types: EOD, Pre+2h, Open-30m
 // Supports both scheduled (cron) and manual trigger
 
@@ -12,6 +13,9 @@ import { getEventHubSnapshot } from './eventHubProvider';
 import { getPolicyHubSnapshot } from './policyHubProvider';
 import { getNewsHubSnapshot } from './newsHubProvider';
 import { getMacroSnapshotSSOT } from './macroHubProvider';
+import { getFedSnapshot } from './fedApiClient'; // [P1] FED data
+import { getEventsFromRedis, filterUpcoming } from '@/lib/storage/eventStore'; // [P1] Redis events
+import { getPoliciesFromRedis, splitPolicyWindows } from '@/lib/storage/policyStore'; // [P1] Redis policy
 import { saveReport, purgeReportCaches, getYesterdayReport, appendPerformanceRecord, PerformanceRecord } from "@/lib/storage/reportStore";
 import { getETNow, determineSessionInfo } from "@/services/marketDaySSOT";
 import { fetchMassive, RunBudget } from "@/services/massiveClient";

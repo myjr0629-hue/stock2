@@ -33,14 +33,15 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     const [loading, setLoading] = useState(false);
     const [range, setRange] = useState(initialRange);
     const [baseDateET, setBaseDateET] = useState<string>("");
-    const [isMounted, setIsMounted] = useState(false);
+    // [P0-2] Simplified: track data readiness instead of mount state
+    const [dataReady, setDataReady] = useState(data && data.length > 0);
 
+    // [P0-2] Sync data and mark ready when valid data arrives
     useEffect(() => {
-        setIsMounted(true);
-    }, []);
-
-    useEffect(() => {
-        setChartData(data);
+        if (data && data.length > 0) {
+            setChartData(data);
+            setDataReady(true);
+        }
         setRange(initialRange);
     }, [data, ticker, initialRange]);
 
@@ -193,8 +194,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 </Tabs>
             </CardHeader>
             <CardContent className="pt-6">
-                <div className="h-[360px] w-full flex flex-col min-w-0 min-h-0">
-                    {isMounted ? (
+                {/* [P0-2] Key-based remount for stability */}
+                <div key={`${ticker}-${range}`} className="h-[360px] w-full flex flex-col min-w-0 min-h-0">
+                    {dataReady && processedData.length > 0 ? (
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                                 <defs>

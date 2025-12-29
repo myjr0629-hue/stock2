@@ -26,6 +26,7 @@ interface TickerItem {
     };
     v71?: {
         gate?: string;
+        options_status?: string; // [P0-1] Added for lint fix
         gateStatus?: {
             eligible: string;
             summary: string;
@@ -56,6 +57,29 @@ interface ReportSnapshot {
     };
     alphaGrid?: {
         top3?: TickerItem[];
+    };
+    // [P0-3] Events and Policy structures
+    events?: {
+        asOfET?: string;
+        events?: Array<{
+            date: string;
+            name: string;
+            nameKR: string;
+            importance: string;
+            category: string;
+        }>;
+        shakeReasons?: string[];
+    };
+    policy?: {
+        asOfET?: string;
+        policies72h?: Array<{
+            id: string;
+            category: string;
+            titleKR: string;
+            impact: string;
+        }>;
+        policies7d?: Array<any>;
+        policyGateSummary?: string[];
     };
 }
 
@@ -165,12 +189,25 @@ export default function Tier01Page() {
     // Selected ticker data
     const selectedTickerData = selectedTicker ? items.find((i: any) => i.ticker === selectedTicker || i.symbol === selectedTicker) : null;
 
-    // Options status helper
+    // [P0-1] Options status normalize helper
+    const normalizeOptionsStatus = (itemStatus?: string, globalStatus?: string): string => {
+        // Priority: item-level > global-level > UNKNOWN
+        const status = itemStatus || globalStatus || "UNKNOWN";
+        // Map legacy/edge cases
+        if (status === "READY") return "OK";
+        if (status === "NO_OPTIONS") return "N/A";
+        if (status === "FAILED") return "ERR";
+        return status; // OK, PARTIAL, PENDING, UNKNOWN
+    };
+
+    // Options status color helper
     const getOptionsStatusColor = (status?: string) => {
         if (status === "OK") return "bg-emerald-500";
         if (status === "PARTIAL") return "bg-amber-500";
-        if (status === "PENDING") return "bg-slate-500";
-        return "bg-rose-500";
+        if (status === "PENDING") return "bg-amber-600 animate-pulse";
+        if (status === "N/A") return "bg-slate-600";
+        if (status === "ERR") return "bg-rose-500";
+        return "bg-slate-500"; // UNKNOWN
     };
 
     // Decision action helper
@@ -273,6 +310,58 @@ export default function Tier01Page() {
                     <p className="text-sm text-slate-500">Real-time engine analysis and Top 12 portfolio</p>
                 </div>
 
+                {/* [P0-3] Events/Policy Compact Panel */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    {/* Events Panel */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Activity className="w-4 h-4 text-amber-500" />
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Economic Events (7일)</span>
+                        </div>
+                        {snapshot.events?.events && snapshot.events.events.length > 0 ? (
+                            <div className="space-y-2">
+                                {snapshot.events.events.slice(0, 3).map((e, i) => (
+                                    <div key={i} className="flex items-center justify-between text-[11px]">
+                                        <span className="text-slate-300">{e.nameKR || e.name}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-slate-500">{e.date}</span>
+                                            <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${e.importance === 'HIGH' ? 'bg-rose-500/20 text-rose-400' :
+                                                    e.importance === 'MEDIUM' ? 'bg-amber-500/20 text-amber-400' :
+                                                        'bg-slate-500/20 text-slate-400'
+                                                }`}>{e.importance}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-[11px] text-slate-600 italic">이벤트 데이터 없음</p>
+                        )}
+                    </div>
+
+                    {/* Policy Panel */}
+                    <div className="bg-slate-900/50 border border-slate-800 rounded-lg p-4">
+                        <div className="flex items-center gap-2 mb-3">
+                            <AlertCircle className="w-4 h-4 text-indigo-500" />
+                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Policy Gate (72h)</span>
+                        </div>
+                        {snapshot.policy?.policies72h && snapshot.policy.policies72h.length > 0 ? (
+                            <div className="space-y-2">
+                                {snapshot.policy.policies72h.slice(0, 2).map((p, i) => (
+                                    <div key={i} className="flex items-center justify-between text-[11px]">
+                                        <span className="text-slate-300">{p.titleKR}</span>
+                                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold ${p.category === 'P0' ? 'bg-rose-500/20 text-rose-400' :
+                                                p.category === 'P1' ? 'bg-amber-500/20 text-amber-400' :
+                                                    'bg-slate-500/20 text-slate-400'
+                                            }`}>{p.category}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-[11px] text-emerald-500/60 italic">72h 내 P0급 정책 이벤트 없음 ✓</p>
+                        )}
+                    </div>
+                </div>
+
                 {/* [S-56.4.7b] Error Panel */}
                 {(error || items.length === 0) && (
                     <div className="rounded-xl border border-rose-500/50 bg-rose-500/10 p-6 mb-8 flex items-start gap-4">
@@ -308,7 +397,11 @@ export default function Tier01Page() {
                                     {final12.map((t: TickerItem, i: number) => {
                                         const decision = t.decisionSSOT || t.v71?.decisionSSOT;
                                         const action = decision?.action || "CAUTION";
-                                        const optStatus = t.options_status || "PENDING";
+                                        // [P0-1] Use normalize function with global fallback
+                                        const optStatus = normalizeOptionsStatus(
+                                            t.options_status || t.v71?.options_status,
+                                            storageDebug?.optionsStatus?.state
+                                        );
 
                                         return (
                                             <tr
