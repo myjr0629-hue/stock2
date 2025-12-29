@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { LandingHeader } from "@/components/landing/LandingHeader";
 import {
     AlertCircle, TrendingUp, TrendingDown, Activity,
     ChevronRight, Shield, Clock, Zap, DollarSign,
@@ -132,8 +133,8 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
                     </div>
                 </div>
                 <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${card.confidence === "A" ? "bg-emerald-500/20 text-emerald-400" :
-                        card.confidence === "B" ? "bg-amber-500/20 text-amber-400" :
-                            "bg-slate-500/20 text-slate-400"
+                    card.confidence === "B" ? "bg-amber-500/20 text-amber-400" :
+                        "bg-slate-500/20 text-slate-400"
                     }`}>{card.confidence}</span>
             </div>
 
@@ -149,8 +150,8 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
                 <div className="flex gap-2">
                     <span className="text-slate-500 w-10 shrink-0">행동</span>
                     <span className={`font-bold ${card.status === "BULLISH" ? "text-emerald-400" :
-                            card.status === "BEARISH" ? "text-rose-400" :
-                                "text-amber-400"
+                        card.status === "BEARISH" ? "text-rose-400" :
+                            "text-amber-400"
                         }`}>{card.action}</span>
                 </div>
             </div>
@@ -368,6 +369,9 @@ export default function Tier01Terminal() {
 
     return (
         <div className="min-h-screen bg-slate-950 text-white">
+            {/* Navigation Header */}
+            <LandingHeader />
+
             {/* ================================================================
                 SECTION 1: DECISION HEADER (항상 상단 고정)
             ================================================================ */}
