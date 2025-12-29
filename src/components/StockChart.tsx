@@ -73,13 +73,33 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     // [HOTFIX S-55] For 1D, use etMinute as X-axis; for others use timestamp
     const processedData = (chartData || [])
         .map((item: any) => {
-            if (isIntraday && item.etMinute !== undefined) {
-                // 1D: Use etMinute directly
-                return {
-                    ...item,
-                    xValue: item.etMinute,
-                    xLabel: item.dateET || formatEtMinute(item.etMinute),
-                };
+            if (isIntraday) {
+                // [HOTFIX] Ensure etMinute exists. If not, derive from date/timestamp
+                let minute = item.etMinute;
+                if (minute === undefined && item.date) {
+                    try {
+                        const d = new Date(item.date);
+                        // Convert to ET
+                        const etTime = d.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: '2-digit', minute: '2-digit' });
+                        const [h, m] = etTime.split(':').map(Number);
+                        if (!isNaN(h) && !isNaN(m)) {
+                            minute = h * 60 + m;
+                        }
+                    } catch (e) {
+                        // Fallback safe (will be filtered or invalid)
+                    }
+                }
+
+                if (minute !== undefined) {
+                    return {
+                        ...item,
+                        xValue: minute,
+                        xLabel: item.dateET || formatEtMinute(minute),
+                    };
+                }
+                // If still undefined, mapped later logic might fail or filter it, 
+                // but at least we tried. If we can't get minute, we can't plot on minute-based axis.
+                return item;
             } else {
                 // Non-1D: Use timestamp
                 return {
@@ -89,7 +109,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 };
             }
         })
-        .filter((item: any) => item.close !== null) // [HOTFIX] Filter nulls for gap handling
+        .filter((item: any) => item.close !== null && (!isIntraday || item.xValue !== undefined)) // [HOTFIX] Filter nulls and invalid 1D points
         .sort((a: any, b: any) => a.xValue - b.xValue);
 
     // [HOTFIX S-55] Domain for 1D: etMinute range (240-1200 = 04:00-20:00)

@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 
-type ReportType = 'eod' | 'pre2h' | 'open30m';
+type ReportType = 'post_market' | 'night_watch' | 'pre_market' | 'eod' | 'pre2h' | 'open30m'; // Backward compat
 
 interface ArchiveItem {
     date: string;
@@ -33,9 +33,12 @@ interface PremiumReport {
 }
 
 const REPORT_LABELS: Record<ReportType, { label: string; labelKR: string; time: string }> = {
-    'eod': { label: 'EOD Final', labelKR: 'EOD 최종', time: '16:30 ET' },
-    'pre2h': { label: 'Pre+2h', labelKR: '프리+2h', time: '06:30 ET' },
-    'open30m': { label: 'Open-30m', labelKR: '개장-30분', time: '09:00 ET' }
+    'post_market': { label: 'Post-Market', labelKR: '장마감 (Post)', time: '16:30 ET' },
+    'night_watch': { label: 'Night-Watch', labelKR: '야간 (Night)', time: '20:00 ET' },
+    'pre_market': { label: 'Pre-Market', labelKR: '장전 (Pre)', time: '04:00 ET' },
+    'eod': { label: 'EOD Final', labelKR: 'EOD (구)', time: '16:30 ET' },
+    'pre2h': { label: 'Pre+2h', labelKR: 'Pre+2h (구)', time: '06:30 ET' },
+    'open30m': { label: 'Open-30m', labelKR: 'Open (구)', time: '09:00 ET' }
 };
 
 interface ReportSelectorProps {
@@ -156,7 +159,7 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
                 <div className="flex flex-col gap-1">
                     <label className="text-[9px] text-slate-500 uppercase tracking-wider">타입</label>
                     <div className="flex gap-1">
-                        {(['eod', 'pre2h', 'open30m'] as ReportType[]).map(type => (
+                        {(['post_market', 'night_watch', 'pre_market'] as ReportType[]).map(type => (
                             <button
                                 key={type}
                                 onClick={() => setSelectedType(type)}
