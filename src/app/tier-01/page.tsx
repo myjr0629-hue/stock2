@@ -521,26 +521,45 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                             <div className="bg-slate-900 p-3">
                                 <span className="text-[9px] text-slate-500 font-bold uppercase block">Last / Change</span>
                                 <div className="flex gap-2 items-baseline">
-                                    <span className="text-sm font-mono font-bold text-white">${ev.price.last.toFixed(2)}</span>
-                                    <span className={`text-xs font-bold ${ev.price.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {ev.price.changePct > 0 ? '+' : ''}{ev.price.changePct.toFixed(2)}%
-                                    </span>
+                                    {ev.price.last > 0 ? (
+                                        <>
+                                            <span className="text-sm font-mono font-bold text-white">${ev.price.last.toFixed(2)}</span>
+                                            <span className={`text-xs font-bold ${ev.price.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {ev.price.changePct > 0 ? '+' : ''}{ev.price.changePct.toFixed(2)}%
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-4 w-12 bg-slate-800 animate-pulse rounded" />
+                                            <span className="text-[10px] text-slate-500 animate-pulse">Syncing...</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className="bg-slate-900 p-3">
                                 <span className="text-[9px] text-slate-500 font-bold uppercase block">VWAP Dist</span>
                                 <div className="flex gap-2 items-baseline">
-                                    <span className="text-sm font-mono font-bold text-slate-300">${ev.price.vwap.toFixed(2)}</span>
-                                    <span className={`text-xs font-bold ${ev.price.vwapDistPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {ev.price.vwapDistPct > 0 ? '+' : ''}{ev.price.vwapDistPct.toFixed(1)}%
-                                    </span>
+                                    {ev.price.last > 0 ? (
+                                        <>
+                                            <span className="text-sm font-mono font-bold text-slate-300">${ev.price.vwap.toFixed(2)}</span>
+                                            <span className={`text-xs font-bold ${ev.price.vwapDistPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {ev.price.vwapDistPct > 0 ? '+' : ''}{ev.price.vwapDistPct.toFixed(1)}%
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <div className="h-4 w-16 bg-slate-800 animate-pulse rounded" />
+                                    )}
                                 </div>
                             </div>
                             <div className="bg-slate-900 p-3">
                                 <span className="text-[9px] text-slate-500 font-bold uppercase block">RSI (14)</span>
-                                <span className={`text-sm font-mono font-bold ${ev.price.rsi14 > 70 ? 'text-rose-400' : ev.price.rsi14 < 30 ? 'text-emerald-400' : 'text-slate-300'}`}>
-                                    {ev.price.rsi14.toFixed(1)}
-                                </span>
+                                {ev.price.rsi14 > 0 ? (
+                                    <span className={`text-sm font-mono font-bold ${ev.price.rsi14 > 70 ? 'text-rose-400' : ev.price.rsi14 < 30 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                                        {ev.price.rsi14.toFixed(1)}
+                                    </span>
+                                ) : (
+                                    <span className="text-xs font-mono text-slate-600 animate-pulse">Calc...</span>
+                                )}
                             </div>
                             <div className="bg-slate-900 p-3">
                                 <span className="text-[9px] text-slate-500 font-bold uppercase block">Structure</span>
@@ -611,7 +630,12 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                         </div>
 
                         {/* [9.4] Toggleable View */}
-                        {showHeatmap ? (
+                        {ev.options.status === 'PENDING' || (ev.options.callWall === 0 && ev.options.putFloor === 0) ? (
+                            <div className="h-24 bg-slate-900 border border-slate-800 rounded p-4 flex flex-col items-center justify-center space-y-2 animate-pulse">
+                                <div className="w-8 h-8 rounded-full border-2 border-slate-700 border-t-emerald-500 animate-spin" />
+                                <span className="text-[10px] text-slate-400 font-mono">Analyzing Options Chain...</span>
+                            </div>
+                        ) : showHeatmap ? (
                             <div className="bg-slate-900 border border-slate-800 rounded p-4 animate-in fade-in duration-300">
                                 <span className="text-[9px] text-slate-500 uppercase font-bold mb-3 block">OI Cluster Heatmap (Dark Pool Magnets)</span>
                                 <div className="space-y-4">

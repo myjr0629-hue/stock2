@@ -23,197 +23,30 @@ import {
 } from '@/lib/storage/evidenceCache';
 
 // === CONFIGURATION v2.1 ===
+// === CONFIGURATION v2.2 (Persistent) ===
 const CONFIG = {
-    BATCH_SIZE: 4,
+    BATCH_SIZE: 20,           // [Phase 12] Increased batch size
     BATCH_CONCURRENCY: 2,
-    MAX_RETRIES: 2,
-    BACKOFF_MS: [400, 1200],  // [P0] Increased backoff
-    MAX_ENRICHMENT_TIME_MS: 20000, // 20 seconds max
-    OPTIONS_RETRY_LIMIT: 3,   // Extra retries for options
-    MACRO_CACHE_THRESHOLD_S: 30 // [P0] 30s macro cache
+    MAX_RETRIES: 5,           // [Phase 12] Persistent retry (was 2)
+    BACKOFF_BASE_MS: 500,     // [Phase 12] Jitter base
+    MAX_ENRICHMENT_TIME_MS: 45000, // [Phase 12] Extended window (45s)
+    OPTIONS_RETRY_LIMIT: 3,
+    MACRO_CACHE_THRESHOLD_S: 30
 };
 
-// === UNIFIED EVIDENCE SCHEMA (Strict) ===
-
-export interface UnifiedPrice {
-    last: number;
-    prevClose: number;
-    changePct: number;
-    vwap: number;
-    vwapDistPct: number;
-    rsi14: number;
-    return3D: number;
-    structureState: 'BREAKOUT' | 'BREAKDOWN' | 'CONSOLIDATION' | 'TRENDING' | 'REVERSAL';
-    complete: boolean;
-}
-
-export interface UnifiedFlow {
-    vol: number;
-    relVol: number;
-    gapPct: number;
-    largeTradesUsd: number;
-    offExPct: number;
-    offExDeltaPct: number;
-    complete: boolean;
-}
-
-export interface UnifiedOptions {
-    status: 'OK' | 'READY' | 'NO_OPTIONS' | 'PENDING' | 'FAILED';
-    coveragePct: number;
-    gammaRegime: string;
-    gex: number;
-    pcr: number;
-    callWall: number;
-    putFloor: number;
-    pinZone: number;
-    maxPain: number;
-    oiClusters: {
-        callsTop: Array<{ strike: number; oi: number }>;
-        putsTop: Array<{ strike: number; oi: number }>;
-    };
-    complete: boolean;
-}
-
-export interface UnifiedStealth {
-    label: 'A' | 'B' | 'C';
-    tags: string[];
-    impact: 'BOOST' | 'WARN' | 'NEUTRAL';
-    complete: boolean;
-}
-
-export interface UnifiedMacro {
-    ndx: { price: number; changePct: number };
-    vix: { value: number };
-    us10y: { yield: number };
-    dxy: { value: number };
-    fetchedAtET: string;
-    ageSeconds: number;
-    complete: boolean;
-}
-
-export interface UnifiedEvidence {
-    price: UnifiedPrice;
-    flow: UnifiedFlow;
-    options: UnifiedOptions;
-    macro: UnifiedMacro;
-    policy: {
-        gate: { P0: string[]; P1: string[]; P2: string[]; blocked: boolean };
-        gradeA_B_C_counts: { A: number; B: number; C: number };
-    };
-    stealth: UnifiedStealth;
-    complete: boolean; // All layers complete
-    fetchedAtET: string;
-}
-
-export interface TerminalItem {
-    ticker: string;
-    evidence: UnifiedEvidence;
-    alphaScore: number | null; // null = not yet calculated (incomplete)
-    qualityTier: string;
-    complete: boolean;
-}
-
-// [vNext P1] Validity Result with per-layer missing fields
-interface LayerValidity {
-    ok: boolean;
-    missing: string[];
-}
-
-export interface ValidityResult {
-    price: LayerValidity;
-    options: LayerValidity & { coveragePct: number };
-    flow: LayerValidity;
-    macro: LayerValidity;
-    stealth: LayerValidity;
-    completeCount: number;  // 0-5
-    complete: boolean;      // completeCount === 5
-    missingLayers: string[];
-}
-
-// [vNext P1] STRICT validity check - 0 is INVALID
-function checkLayerCompleteness(evidence: Partial<UnifiedEvidence>): ValidityResult {
-    // === PRICE VALIDITY ===
-    const priceMissing: string[] = [];
-    const p = evidence.price;
-    if (!p || p.last <= 0) priceMissing.push('last');
-    if (!p || p.prevClose <= 0) priceMissing.push('prevClose');
-    if (!p || !isFinite(p.changePct)) priceMissing.push('changePct');
-    if (!p || p.vwap <= 0) priceMissing.push('vwap');
-    if (!p || p.rsi14 <= 0 || p.rsi14 >= 100) priceMissing.push('rsi14');
-    const priceOk = priceMissing.length === 0;
-
-    // === OPTIONS VALIDITY (0 is INVALID) ===
-    const optionsMissing: string[] = [];
-    const o = evidence.options;
-    const optCoveragePct = o?.coveragePct || 0;
-    if (!o) {
-        optionsMissing.push('options_missing');
-    } else if (o.status === 'NO_OPTIONS') {
-        // NO_OPTIONS is valid (stock has no options)
-    } else {
-        // Require actual values, not just status=OK/READY
-        if (optCoveragePct < 15) optionsMissing.push('coveragePct<15');
-        if (o.maxPain <= 0) optionsMissing.push('maxPain');
-        if (o.callWall <= 0 && o.putFloor <= 0) optionsMissing.push('walls');
-        if (o.pcr <= 0 && Math.abs(o.gex || 0) <= 0) optionsMissing.push('pcr/gex');
-    }
-    const optionsOk = optionsMissing.length === 0 || o?.status === 'NO_OPTIONS';
-
-    // === FLOW VALIDITY (0 is INVALID) ===
-    const flowMissing: string[] = [];
-    const f = evidence.flow;
-    if (!f || (f.vol <= 0 && f.relVol <= 0)) flowMissing.push('vol/relVol');
-    if (!f || !isFinite(f.gapPct)) flowMissing.push('gapPct');
-    const flowOk = flowMissing.length === 0;
-
-    // === MACRO VALIDITY (ALL 4 must be >0) ===
-    const macroMissing: string[] = [];
-    const m = evidence.macro;
-    if (!m || (m.ndx?.price || 0) <= 0) macroMissing.push('ndx');
-    if (!m || (m.vix?.value || 0) <= 0) macroMissing.push('vix');
-    if (!m || (m.us10y?.yield || 0) <= 0) macroMissing.push('us10y');
-    if (!m || (m.dxy?.value || 0) <= 0) macroMissing.push('dxy');
-    const macroOk = macroMissing.length === 0;
-
-    // === STEALTH VALIDITY ===
-    const stealthMissing: string[] = [];
-    const s = evidence.stealth;
-    if (!s || !['A', 'B', 'C'].includes(s.label)) stealthMissing.push('label');
-    const stealthOk = stealthMissing.length === 0;
-
-    // === AGGREGATE ===
-    const completeCount = [priceOk, optionsOk, flowOk, macroOk, stealthOk].filter(Boolean).length;
-    const missingLayers: string[] = [];
-    if (!priceOk) missingLayers.push('price');
-    if (!optionsOk) missingLayers.push('options');
-    if (!flowOk) missingLayers.push('flow');
-    if (!macroOk) missingLayers.push('macro');
-    if (!stealthOk) missingLayers.push('stealth');
-
-    return {
-        price: { ok: priceOk, missing: priceMissing },
-        options: { ok: optionsOk, missing: optionsMissing, coveragePct: optCoveragePct },
-        flow: { ok: flowOk, missing: flowMissing },
-        macro: { ok: macroOk, missing: macroMissing },
-        stealth: { ok: stealthOk, missing: stealthMissing },
-        completeCount,
-        complete: completeCount === 5,
-        missingLayers
-    };
-}
-
+// ... (schema definitions skipped) ...
 
 // === CORE ENRICHMENT FUNCTION ===
 
 export async function enrichTerminalItems(
     tickers: string[],
     session: 'pre' | 'regular' | 'post' = 'regular',
-    force: boolean = false // [P0] If true, bypass all cache
+    force: boolean = false
 ): Promise<TerminalItem[]> {
-    console.log(`[TerminalEnricher v2] Starting enrichment for ${tickers.length} tickers... (force=${force})`);
+    console.log(`[TerminalEnricher v2.2] Persistent Enrichment for ${tickers.length} tickers... (force=${force})`);
     const startTime = Date.now();
 
-    // 1. Fetch Global Context (Macro, Policy, Events) - with cache
+    // 1. Fetch Global Context
     const [macro, events, policies] = await Promise.all([
         fetchMacroWithCache(),
         getEventsFromRedis(),
@@ -223,51 +56,57 @@ export async function enrichTerminalItems(
     const eventList = events?.events || [];
     const policyList = policies?.policies || [];
 
-    // 2. Batch Processing (4 tickers per batch, 2 concurrent)
+    // 2. Batch Processing
     const results: TerminalItem[] = [];
-    const incompleteTickers: string[] = [];
 
+    // Batch Loop
     for (let i = 0; i < tickers.length; i += CONFIG.BATCH_SIZE) {
         const batch = tickers.slice(i, i + CONFIG.BATCH_SIZE);
-        console.log(`[TerminalEnricher v2] Processing batch ${Math.floor(i / CONFIG.BATCH_SIZE) + 1}/${Math.ceil(tickers.length / CONFIG.BATCH_SIZE)}`);
+        console.log(`[TerminalEnricher v2.2] Processing batch ${Math.floor(i / CONFIG.BATCH_SIZE) + 1}/${Math.ceil(tickers.length / CONFIG.BATCH_SIZE)} (${batch.length} items)`);
 
         const batchResults = await Promise.all(
             batch.map(ticker => enrichSingleTickerWithRetry(ticker, session, macro, eventList, policyList, force))
         );
-
-        batchResults.forEach(item => {
-            results.push(item);
-            if (!item.complete) {
-                incompleteTickers.push(item.ticker);
-            }
-        });
+        results.push(...batchResults);
     }
 
-    // 3. Retry Loop for Incomplete Items (max 2 retries with backoff)
-    if (incompleteTickers.length > 0 && Date.now() - startTime < CONFIG.MAX_ENRICHMENT_TIME_MS) {
-        console.log(`[TerminalEnricher v2] Retrying ${incompleteTickers.length} incomplete items...`);
+    // 3. Persistent Retry Loop (Smart Staggering)
+    let incompleteTickers = results.filter(r => !r.complete).map(r => r.ticker);
+    let attempt = 0;
 
-        for (let retry = 0; retry < CONFIG.MAX_RETRIES; retry++) {
-            if (Date.now() - startTime >= CONFIG.MAX_ENRICHMENT_TIME_MS) break;
+    while (incompleteTickers.length > 0 && attempt < CONFIG.MAX_RETRIES) {
+        if (Date.now() - startTime >= CONFIG.MAX_ENRICHMENT_TIME_MS) {
+            console.warn(`[TerminalEnricher v2.2] Time budget exceeded. Stopping retries.`);
+            break;
+        }
 
-            await delay(CONFIG.BACKOFF_MS[retry] || 900);
+        attempt++;
+        // [Phase 12] Smart Jitter: 500ms ~ 1000ms + exponential backoff factor
+        const jitter = Math.floor(Math.random() * 500) + 500;
+        const delayMs = jitter + (attempt * 200);
 
-            const stillIncomplete = results.filter(r => !r.complete).map(r => r.ticker);
-            if (stillIncomplete.length === 0) break;
+        console.log(`[TerminalEnricher v2.2] Retry ${attempt}/${CONFIG.MAX_RETRIES}: ${incompleteTickers.length} incomplete. Waiting ${delayMs}ms...`);
+        await delay(delayMs);
 
-            console.log(`[TerminalEnricher v2] Retry ${retry + 1}: ${stillIncomplete.length} tickers`);
+        const retryResults = await Promise.all(
+            incompleteTickers.map(ticker => enrichSingleTickerWithRetry(ticker, session, macro, eventList, policyList, force))
+        );
 
-            const retryResults = await Promise.all(
-                stillIncomplete.map(ticker => enrichSingleTickerWithRetry(ticker, session, macro, eventList, policyList, force))
-            );
+        // Merge updates
+        let fixedCount = 0;
+        retryResults.forEach(newItem => {
+            const idx = results.findIndex(r => r.ticker === newItem.ticker);
+            if (idx >= 0 && newItem.complete) {
+                results[idx] = newItem;
+                fixedCount++;
+            }
+        });
 
-            // Merge retry results
-            retryResults.forEach(newItem => {
-                const idx = results.findIndex(r => r.ticker === newItem.ticker);
-                if (idx >= 0 && newItem.complete) {
-                    results[idx] = newItem;
-                }
-            });
+        // Update incomplete list
+        incompleteTickers = results.filter(r => !r.complete).map(r => r.ticker);
+
+        if (fixedCount > 0) {
+            console.log(`[TerminalEnricher v2.2] Retry ${attempt} fixed ${fixedCount} items.`);
         }
     }
 
