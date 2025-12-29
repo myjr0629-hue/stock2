@@ -113,65 +113,95 @@ export interface TerminalItem {
     complete: boolean;
 }
 
-// === COMPLETENESS GATE v2 (STRICT) ===
-
-interface CompletenessResult {
-    price: boolean;
-    options: boolean;
-    flow: boolean;
-    macro: boolean;
-    stealth: boolean;
-    overall: boolean;
-    missingFields: string[];
+// [vNext P1] Validity Result with per-layer missing fields
+interface LayerValidity {
+    ok: boolean;
+    missing: string[];
 }
 
-function checkLayerCompleteness(evidence: Partial<UnifiedEvidence>): CompletenessResult {
-    const missing: string[] = [];
+export interface ValidityResult {
+    price: LayerValidity;
+    options: LayerValidity & { coveragePct: number };
+    flow: LayerValidity;
+    macro: LayerValidity;
+    stealth: LayerValidity;
+    completeCount: number;  // 0-5
+    complete: boolean;      // completeCount === 5
+    missingLayers: string[];
+}
 
-    // Price: last, prevClose, changePct, vwap, rsi14 must exist and be valid
-    const priceOk = evidence.price &&
-        evidence.price.last > 0 &&
-        evidence.price.prevClose > 0 &&
-        evidence.price.vwap > 0 &&
-        typeof evidence.price.rsi14 === 'number';
-    if (!priceOk) missing.push('price');
+// [vNext P1] STRICT validity check - 0 is INVALID
+function checkLayerCompleteness(evidence: Partial<UnifiedEvidence>): ValidityResult {
+    // === PRICE VALIDITY ===
+    const priceMissing: string[] = [];
+    const p = evidence.price;
+    if (!p || p.last <= 0) priceMissing.push('last');
+    if (!p || p.prevClose <= 0) priceMissing.push('prevClose');
+    if (!p || !isFinite(p.changePct)) priceMissing.push('changePct');
+    if (!p || p.vwap <= 0) priceMissing.push('vwap');
+    if (!p || p.rsi14 <= 0 || p.rsi14 >= 100) priceMissing.push('rsi14');
+    const priceOk = priceMissing.length === 0;
 
-    // Options: status in (OK/READY/NO_OPTIONS) AND walls exist (unless NO_OPTIONS)
-    const optOk = evidence.options &&
-        ['OK', 'READY', 'NO_OPTIONS'].includes(evidence.options.status) &&
-        (evidence.options.status === 'NO_OPTIONS' ||
-            (evidence.options.callWall > 0 && evidence.options.putFloor > 0 && evidence.options.maxPain > 0));
-    if (!optOk) missing.push('options');
+    // === OPTIONS VALIDITY (0 is INVALID) ===
+    const optionsMissing: string[] = [];
+    const o = evidence.options;
+    const optCoveragePct = o?.coveragePct || 0;
+    if (!o) {
+        optionsMissing.push('options_missing');
+    } else if (o.status === 'NO_OPTIONS') {
+        // NO_OPTIONS is valid (stock has no options)
+    } else {
+        // Require actual values, not just status=OK/READY
+        if (optCoveragePct < 15) optionsMissing.push('coveragePct<15');
+        if (o.maxPain <= 0) optionsMissing.push('maxPain');
+        if (o.callWall <= 0 && o.putFloor <= 0) optionsMissing.push('walls');
+        if (o.pcr <= 0 && Math.abs(o.gex || 0) <= 0) optionsMissing.push('pcr/gex');
+    }
+    const optionsOk = optionsMissing.length === 0 || o?.status === 'NO_OPTIONS';
 
-    // Flow: vol + relVol must exist (non-zero)
-    const flowOk = evidence.flow &&
-        evidence.flow.vol > 0 &&
-        evidence.flow.relVol > 0;
-    if (!flowOk) missing.push('flow');
+    // === FLOW VALIDITY (0 is INVALID) ===
+    const flowMissing: string[] = [];
+    const f = evidence.flow;
+    if (!f || (f.vol <= 0 && f.relVol <= 0)) flowMissing.push('vol/relVol');
+    if (!f || !isFinite(f.gapPct)) flowMissing.push('gapPct');
+    const flowOk = flowMissing.length === 0;
 
-    // Macro: ndx/vix/us10y/dxy must exist + fetchedAtET
-    const macroOk = evidence.macro &&
-        evidence.macro.ndx?.price > 0 &&
-        evidence.macro.vix?.value > 0 &&
-        evidence.macro.fetchedAtET;
-    if (!macroOk) missing.push('macro');
+    // === MACRO VALIDITY (ALL 4 must be >0) ===
+    const macroMissing: string[] = [];
+    const m = evidence.macro;
+    if (!m || (m.ndx?.price || 0) <= 0) macroMissing.push('ndx');
+    if (!m || (m.vix?.value || 0) <= 0) macroMissing.push('vix');
+    if (!m || (m.us10y?.yield || 0) <= 0) macroMissing.push('us10y');
+    if (!m || (m.dxy?.value || 0) <= 0) macroMissing.push('dxy');
+    const macroOk = macroMissing.length === 0;
 
-    // Stealth: label A/B/C + tags minimum 1
-    const stealthOk = evidence.stealth &&
-        ['A', 'B', 'C'].includes(evidence.stealth.label) &&
-        evidence.stealth.tags.length >= 1;
-    if (!stealthOk) missing.push('stealth');
+    // === STEALTH VALIDITY ===
+    const stealthMissing: string[] = [];
+    const s = evidence.stealth;
+    if (!s || !['A', 'B', 'C'].includes(s.label)) stealthMissing.push('label');
+    const stealthOk = stealthMissing.length === 0;
+
+    // === AGGREGATE ===
+    const completeCount = [priceOk, optionsOk, flowOk, macroOk, stealthOk].filter(Boolean).length;
+    const missingLayers: string[] = [];
+    if (!priceOk) missingLayers.push('price');
+    if (!optionsOk) missingLayers.push('options');
+    if (!flowOk) missingLayers.push('flow');
+    if (!macroOk) missingLayers.push('macro');
+    if (!stealthOk) missingLayers.push('stealth');
 
     return {
-        price: !!priceOk,
-        options: !!optOk,
-        flow: !!flowOk,
-        macro: !!macroOk,
-        stealth: !!stealthOk,
-        overall: !priceOk || !optOk || !flowOk || !macroOk || !stealthOk ? false : true,
-        missingFields: missing
+        price: { ok: priceOk, missing: priceMissing },
+        options: { ok: optionsOk, missing: optionsMissing, coveragePct: optCoveragePct },
+        flow: { ok: flowOk, missing: flowMissing },
+        macro: { ok: macroOk, missing: macroMissing },
+        stealth: { ok: stealthOk, missing: stealthMissing },
+        completeCount,
+        complete: completeCount === 5,
+        missingLayers
     };
 }
+
 
 // === CORE ENRICHMENT FUNCTION ===
 
@@ -303,12 +333,12 @@ async function enrichSingleTickerWithRetry(
         };
 
         const completeness = checkLayerCompleteness(evidence);
-        evidence.complete = completeness.overall;
-        evidence.price.complete = completeness.price;
-        evidence.options.complete = completeness.options;
-        evidence.flow.complete = completeness.flow;
-        evidence.macro.complete = completeness.macro;
-        evidence.stealth.complete = completeness.stealth;
+        evidence.complete = completeness.complete;
+        evidence.price.complete = completeness.price.ok;
+        evidence.options.complete = completeness.options.ok;
+        evidence.flow.complete = completeness.flow.ok;
+        evidence.macro.complete = completeness.macro.ok;
+        evidence.stealth.complete = completeness.stealth.ok;
 
         // 5. Cache if complete (and not force mode)
         if (evidence.complete) {
@@ -323,7 +353,7 @@ async function enrichSingleTickerWithRetry(
                 ageSeconds: 0
             });
         } else {
-            console.warn(`[TerminalEnricher v2] ${ticker} INCOMPLETE: ${completeness.missingFields.join(', ')}`);
+            console.warn(`[TerminalEnricher v2] ${ticker} INCOMPLETE (${completeness.completeCount}/5): ${completeness.missingLayers.join(', ')}`);
         }
 
         return {
