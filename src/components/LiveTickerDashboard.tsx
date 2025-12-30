@@ -256,7 +256,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // Extended Selection (Requirement 3: Prefer POST, else PRE)
     const activeExtType = e?.postPrice ? 'POST' : (e?.prePrice ? 'PRE' : null);
     const activeExtPrice = activeExtType === 'POST' ? e?.postPrice : e?.prePrice;
-    const activeExtPct = activeExtType === 'POST' ? e?.postChangePct : e?.preChangePct;
+    // [Phase 23.5] Fix: Convert fraction to percentage (* 100) for display
+    const activeExtPctFrac = activeExtType === 'POST' ? e?.postChangePct : e?.preChangePct;
+    const activeExtPct = activeExtPctFrac !== null && activeExtPctFrac !== undefined
+        ? activeExtPctFrac * 100
+        : null;
 
     // T-6 Market Context Logic
     const pinZone = structure?.levels?.pinZone;
