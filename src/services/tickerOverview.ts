@@ -227,8 +227,29 @@ export async function getTickerOverview(
             const prevDay = tick.prevDay || {};
             const lastTrade = tick.lastTrade || {};
 
-            // Price
-            result.price.last = lastTrade.p || day.c || prevDay.c || null;
+            // [Phase 23] Session-Aware Main Price Selection
+            // - PRE: Use preMarket price if available
+            // - REG: Use lastTrade (current trading) or today's close
+            // - POST/CLOSED: Use afterHours price if available
+            const todayClose = day.c || null;
+            const afterHoursPrice = tick.afterHours?.p || null;
+            const preMarketPrice = tick.preMarket?.p || null;
+            const regularPrice = lastTrade.p || todayClose || prevDay.c || null;
+
+            // Select main display price based on session
+            let mainPrice = regularPrice; // Default fallback
+            if (sessionInfo.badge === 'POST' || sessionInfo.badge === 'CLOSED') {
+                // Post-Market/Closed: Prefer afterHours, fallback to regular
+                mainPrice = afterHoursPrice || todayClose || regularPrice;
+            } else if (sessionInfo.badge === 'PRE') {
+                // Pre-Market: Prefer preMarket, fallback to prevClose
+                mainPrice = preMarketPrice || prevDay.c || regularPrice;
+            } else {
+                // Regular session: Use live trading price
+                mainPrice = lastTrade.p || todayClose || regularPrice;
+            }
+
+            result.price.last = mainPrice;
             result.price.open = day.o || prevDay.o || null;
             result.price.high = day.h || prevDay.h || null;
             result.price.low = day.l || prevDay.l || null;
@@ -237,12 +258,11 @@ export async function getTickerOverview(
             // [Phase 23] Session-Aware Change Calculation
             // - Pre-Market: Change vs prevClose (yesterday's close)
             // - Regular: Change vs prevClose (yesterday's close)
-            // - Post-Market: Change vs today's close (day.c)
-            const todayClose = day.c || null;
+            // - Post-Market/Closed: Change vs today's close (day.c)
             let changeBase: number | null = result.price.prevClose || null;
 
-            // For POST session, use today's close as the reference
-            if (sessionInfo.badge === 'POST' && todayClose) {
+            // For POST/CLOSED session, use today's close as the reference
+            if ((sessionInfo.badge === 'POST' || sessionInfo.badge === 'CLOSED') && todayClose) {
                 changeBase = todayClose;
             }
 
@@ -251,9 +271,9 @@ export async function getTickerOverview(
                 result.price.changePct = (result.price.changeAbs / changeBase) * 100;
             }
 
-            // Extended hours data (if available)
-            if (tick.preMarket?.p) result.price.preMarketLast = tick.preMarket.p;
-            if (tick.afterHours?.p) result.price.afterHoursLast = tick.afterHours.p;
+            // Extended hours data (for badge display)
+            if (preMarketPrice) result.price.preMarketLast = preMarketPrice;
+            if (afterHoursPrice) result.price.afterHoursLast = afterHoursPrice;
 
             diagnostics.price = {
                 ok: result.price.last !== null,
