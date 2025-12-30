@@ -2,6 +2,7 @@
 // Path: /api/debug/probe
 
 import { NextRequest, NextResponse } from "next/server";
+import { CentralDataHub } from "@/services/centralDataHub";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -92,8 +93,25 @@ export async function GET(req: NextRequest) {
             env: process.env.NODE_ENV,
             vercel: process.env.VERCEL ? "YES" : "NO"
         },
+        centralHub: {},
         yahooComparison: {}
     };
+
+    // [Phase 24] Test Central Data Hub
+    try {
+        console.log(`[PROBE] Testing CentralDataHub for ${ticker}...`);
+        const hubQuote = await CentralDataHub.getQuote(ticker);
+        results.centralHub = {
+            status: "OK",
+            data: hubQuote
+        };
+    } catch (e: any) {
+        console.error(`[PROBE] CentralDataHub Failed:`, e);
+        results.centralHub = {
+            status: "FAIL",
+            error: e.message
+        };
+    }
 
     // === COMPARATIVE TEST: VIX (control) vs NQ=F (test subject) ===
     console.log(`[PROBE] Running comparative Yahoo test...`);
@@ -134,6 +152,7 @@ export async function GET(req: NextRequest) {
         nqfPrice: results.yahooComparison["NQ=F"].price,
         nqfStatus: results.yahooComparison["NQ=F"].status,
         nqfError: results.yahooComparison["NQ=F"].error?.message || null,
+        centralHubStatus: results.centralHub.status,
         diagnosis: nqfResult.success
             ? "NQ=F is working!"
             : `NQ=F FAILED: ${nqfResult.fullError?.message || "Unknown"}`

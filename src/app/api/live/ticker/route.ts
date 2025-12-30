@@ -201,6 +201,20 @@ export async function GET(req: NextRequest) {
 
             baselineLabel = "Today vs Prev Close";
             priceLabel = regularCloseToday ? "Today's Close" : "Last Close";
+
+            // [Phase 24.0] Rollover Fix: If change is 0% (because date rolled over, so Today==Prev),
+            // show PREVIOUS session's change instead (e.g. 12/29 Change).
+            if ((changePctFrac === 0 || changePctFrac === null) && historicalResults.length >= 2) {
+                // H[0] = 12/29 (Today for the user perspective logic), H[1] = 12/28 (Yesterday)
+                const lastClose = historicalResults[0].c;
+                const prevLastClose = historicalResults[1].c;
+                if (lastClose && prevLastClose) {
+                    changePctFrac = (lastClose - prevLastClose) / prevLastClose;
+                    baselineLabel = "Prev Session Change"; // Informative label
+                    // Keep activePrice as is (it's the correct Last Close)
+                }
+            }
+            break;
     }
 
     // [S-52.2.1] Calculate Pct and Abs

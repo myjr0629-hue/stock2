@@ -1,59 +1,79 @@
-import { getStockData, getOptionsData } from './stockApi';
-import { getMacroSnapshotSSOT } from './macroHubProvider';
-import { fetchMassive } from './massiveClient';
-import { UnifiedEvidence, UnifiedMacro, TerminalItem } from '../types';
-import { enrichTerminalItems } from './terminalEnricher';
-import { computeQualityTier } from './powerEngine';
+import { fetchMassive, CACHE_POLICY } from './massiveClient';
+import { getMarketStatusSSOT } from './marketStatusProvider';
 
-// Central Data Hub (Phase 17)
-// Aggregates all data sources into a single coherent state.
-
-export interface AlphaState {
+export interface CentralQuote {
     ticker: string;
-    price: any;
-    options: any;
-    flow: any;
-    macro: UnifiedMacro;
-    score: {
-        total: number;
-        tier: string;
-        components: any;
+    price: number; // The "Golden" Price (Session Aware)
+    changePct: number; // The "Golden" Change % (Session Aware)
+
+    // Raw Components
+    snapshot: any; // /v2/snapshot
+    openClose: any; // /v1/open-close
+    prevClose: number;
+
+    // Session Info
+    session: "PRE" | "REG" | "POST" | "CLOSED";
+    isRollover: boolean; // True if date changed but market hasn't opened (0% change fix)
+
+    // Display Hints
+    display: {
+        priceLabel: string;
+        baselineLabel: string;
+        color: "green" | "red" | "grey";
     };
-    timestamp: string;
 }
 
-export async function getAlphaState(ticker: string): Promise<AlphaState | null> {
-    // 1. Fetch Terminal Item (Enriched Evidence)
-    // We reuse enrichTerminalItems for now as it orchestrates the low-level fetches
-    // efficiently with caching.
-    const items = await enrichTerminalItems([ticker], 'regular', false); // Default safe params
-    const item = items[0];
+/**
+ * Central Data Hub - Single Source of Truth for Stock Data
+ * Aggregates Snapshot, Open-Close, and Market Status to provide a unified quote.
+ */
+export const CentralDataHub = {
+    /**
+     * Get the authoritative quote for a ticker.
+     * specificDate can be passed to force a historical look (default: today).
+     */
+    getQuote: async (ticker: string, specificDate?: string): Promise<CentralQuote> => {
+        // 1. Get Market Status (SSOT)
+        const marketStatus = await getMarketStatusSSOT();
+        const session = marketStatus.session.toUpperCase() as "PRE" | "REG" | "POST" | "CLOSED";
 
-    if (!item) return null;
+        // 2. Fetch Data (Parallel)
+        // Snapshot is the primary source for Real-Time & Extended Hours
+        // Open-Close is the source for Official Closes
+        const [snapshotRes, ocRes] = await Promise.all([
+            fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`, {}, true),
+            // For now, always try to fetch today's open-close, fallback handled in logic
+            fetchMassive(`/v1/open-close/${ticker}/${specificDate || new Date().toISOString().split('T')[0]}`, {}, true)
+        ]);
 
-    // 2. Calculate Alpha Score (Power Engine)
-    // Ensure score is computed fresh if missing
-    let alphaScoreVal = item.alphaScore;
-    let qualityTier = item.qualityTier;
+        const S = snapshotRes.data?.ticker || {};
+        const OC = ocRes.data || {};
 
-    if (alphaScoreVal === undefined || alphaScoreVal === null) {
-        // Just-in-time calculation if not present
-        const calculated = computeQualityTier(item.evidence);
-        alphaScoreVal = calculated.powerScore;
-        qualityTier = calculated.tier;
+        // 3. Determine Prices (Session Aware Logic - Placeholder for logic migration)
+        const price = S.lastTrade?.p || 0;
+        const changePct = S.todaysChangePerc || 0;
+
+        return {
+            ticker,
+            price,
+            changePct,
+            snapshot: S,
+            openClose: OC,
+            prevClose: S.prevDay?.c || 0,
+            session,
+            isRollover: false, // TODO: Implement detection
+            display: {
+                priceLabel: "Market",
+                baselineLabel: "Prev Close",
+                color: "grey"
+            }
+        };
+    },
+
+    /**
+     * Get authoritative market status
+     */
+    getMarketStatus: async () => {
+        return await getMarketStatusSSOT();
     }
-
-    return {
-        ticker,
-        price: item.evidence?.price,
-        options: item.evidence?.options,
-        flow: item.evidence?.flow,
-        macro: item.evidence?.macro,
-        score: {
-            total: alphaScoreVal || 0,
-            tier: qualityTier || 'FILLER',
-            components: {} // Layer components not exposed by computeQualityTier yet
-        },
-        timestamp: new Date().toISOString()
-    };
-}
+};
