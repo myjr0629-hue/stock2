@@ -114,31 +114,7 @@ function createFailFactor(label: string, symbolUsed: string): MacroFactor {
     };
 }
 
-// Fallback logic for NDX
-async function fetchMassiveNDXFallback(): Promise<MacroFactor | null> {
-    try {
-        // Import purely for fallback to avoid circular deps if possible
-        const { fetchMassive } = require('./massiveClient');
-        // Try I:NDX or just NDX
-        const res = await fetchMassive(`/v2/snapshot/locale/us/markets/indices/tickers/I:NDX`, {}, false); // No cache for fallback
-        const t = res?.ticker;
-        if (t && t.day && t.day.c) {
-            console.log(`[Alpha] Fallback NDX Success: ${t.day.c}`);
-            return {
-                level: t.day.c,
-                chgPct: t.todaysChangePerc || 0,
-                chgAbs: t.todaysChange || 0,
-                label: "NASDAQ 100 (Fallback)",
-                source: "YAHOO", // Use YAHOO type to satisfy interface but it's really Massive
-                status: "OK",
-                symbolUsed: "I:NDX"
-            };
-        }
-    } catch (e) {
-        console.error("[MacroHub] Massive NDX Fallback failed");
-    }
-    return null;
-}
+// [Phase 22.1] Massive NDX Fallback REMOVED - user confirmed Massive has no NDX data
 
 // --- Main SSOT Provider ---
 export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
@@ -175,10 +151,9 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const dxy = results[3];
     const futuresNq = useFutures ? results[4] : null;
 
-    // [Phase 20] NDX Fallback
+    // [Phase 22.1] Massive NDX Fallback REMOVED - Yahoo-only mode
     if (nasdaq100.status !== 'OK') {
-        const fallback = await fetchMassiveNDXFallback();
-        if (fallback) nasdaq100 = fallback;
+        console.warn(`[MacroHub] NDX fetch failed, no fallback available. NQ=${nasdaq100.level}`);
     }
 
     // [Phase 17] Futures Override
