@@ -174,12 +174,14 @@ export async function GET(req: NextRequest) {
             baselineLabel = regularCloseToday ? "POST vs Today Close" : "POST vs Prev Close";
             priceLabel = "After-Hours";
             break;
-        default:
-            activePrice = prevRegularClose;
-            baselinePrice = null;
-            changePctFrac = null;
-            baselineLabel = "Market Closed";
-            priceLabel = "Last Close";
+        default: // CLOSED session
+            // [Phase 23.4] Fix: For CLOSED, use today's close (if available), not yesterday's
+            // Priority: regularCloseToday > postPrice > liveLast > prevRegularClose
+            activePrice = regularCloseToday || postPrice || liveLast || prevRegularClose;
+            baselinePrice = regularCloseToday || prevRegularClose; // For change calculation if needed
+            changePctFrac = null; // No active change when market closed
+            baselineLabel = regularCloseToday ? "Today's Close" : "Last Close";
+            priceLabel = regularCloseToday ? "Today's Close" : "Last Close";
     }
 
     // [S-52.2.1] Calculate Pct and Abs
