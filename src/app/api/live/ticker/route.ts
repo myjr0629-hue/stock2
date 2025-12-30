@@ -175,12 +175,21 @@ export async function GET(req: NextRequest) {
             priceLabel = "After-Hours";
             break;
         default: // CLOSED session
-            // [Phase 23.4] Fix: For CLOSED, use today's close (if available), not yesterday's
-            // Priority: regularCloseToday > postPrice > liveLast > prevRegularClose
+            // [Phase 23.5] Fix: For CLOSED, show today's close price with change vs yesterday
+            // Display: Today's Close ($188.22)
+            // Baseline: Yesterday's Close ($190.53) for change calculation
+            // Change: (188.22 - 190.53) / 190.53 = -1.21%
             activePrice = regularCloseToday || postPrice || liveLast || prevRegularClose;
-            baselinePrice = regularCloseToday || prevRegularClose; // For change calculation if needed
-            changePctFrac = null; // No active change when market closed
-            baselineLabel = regularCloseToday ? "Today's Close" : "Last Close";
+            baselinePrice = prevRegularClose; // Always use prevClose as baseline for main change%
+
+            // Calculate change if we have today's close
+            if (regularCloseToday && prevRegularClose && prevRegularClose !== 0) {
+                changePctFrac = (regularCloseToday - prevRegularClose) / prevRegularClose;
+            } else {
+                changePctFrac = null;
+            }
+
+            baselineLabel = "Today vs Prev Close";
             priceLabel = regularCloseToday ? "Today's Close" : "Last Close";
     }
 
