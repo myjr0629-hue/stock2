@@ -234,10 +234,21 @@ export async function getTickerOverview(
             result.price.low = day.l || prevDay.l || null;
             result.price.prevClose = prevDay.c || null;
 
-            // Change calculation
-            if (result.price.last && result.price.prevClose) {
-                result.price.changeAbs = result.price.last - result.price.prevClose;
-                result.price.changePct = (result.price.changeAbs / result.price.prevClose) * 100;
+            // [Phase 23] Session-Aware Change Calculation
+            // - Pre-Market: Change vs prevClose (yesterday's close)
+            // - Regular: Change vs prevClose (yesterday's close)
+            // - Post-Market: Change vs today's close (day.c)
+            const todayClose = day.c || null;
+            let changeBase: number | null = result.price.prevClose || null;
+
+            // For POST session, use today's close as the reference
+            if (sessionInfo.badge === 'POST' && todayClose) {
+                changeBase = todayClose;
+            }
+
+            if (result.price.last && changeBase) {
+                result.price.changeAbs = result.price.last - changeBase;
+                result.price.changePct = (result.price.changeAbs / changeBase) * 100;
             }
 
             // Extended hours data (if available)
