@@ -129,10 +129,10 @@ export async function GET(req: NextRequest) {
 
     const liveLast = S.lastTrade?.p || S.min?.c || null;
     const prePrice = OC.preMarket || S.preMarket?.p || (session === "PRE" ? liveLast : null);
-    // [Phase 23.6] Fix: Prioritize snapshot afterHours close over open-close lastTrade
-    // S.afterHours.c = final after-hours close ($187.96)
-    // OC.afterHours = last trade during after-hours ($187.62)
-    const postPrice = S.afterHours?.c || OC.afterHours || (session === "POST" ? liveLast : null);
+    // [Phase 23.6] Fix: Prioritize snapshot afterHours.p over open-close lastTrade
+    // S.afterHours.p = snapshot after-hours price (may differ from OC.afterHours)
+    // OC.afterHours = last trade from open-close endpoint
+    const postPrice = S.afterHours?.p || OC.afterHours || (session === "POST" ? liveLast : null);
 
     const warnings: string[] = [];
 
