@@ -129,10 +129,8 @@ export async function GET(req: NextRequest) {
 
     const liveLast = S.lastTrade?.p || S.min?.c || null;
     const prePrice = OC.preMarket || S.preMarket?.p || (session === "PRE" ? liveLast : null);
-    // [Phase 23.6] Fix: Prioritize snapshot afterHours.p over open-close lastTrade
-    // S.afterHours.p = snapshot after-hours price (may differ from OC.afterHours)
-    // OC.afterHours = last trade from open-close endpoint
-    const postPrice = S.afterHours?.p || OC.afterHours || (session === "POST" ? liveLast : null);
+    // [Phase 23.7] Fix: Prioritize OC.afterHoursClose (confirmed close) > S.afterHours.p > OC.afterHours
+    const postPrice = OC.afterHoursClose || S.afterHours?.p || OC.afterHours || (session === "POST" ? liveLast : null);
 
     const warnings: string[] = [];
 
@@ -171,11 +169,20 @@ export async function GET(req: NextRequest) {
             if (baselinePrice !== prevRegularClose) warnings.push("BASELINE_DRIFT_REG");
             break;
         case "POST":
-            activePrice = postPrice;
-            baselinePrice = postBaseline;
-            changePctFrac = changePctFrac_POST;
-            baselineLabel = regularCloseToday ? "POST vs Today Close" : "POST vs Prev Close";
-            priceLabel = "After-Hours";
+            // [Phase 23.7] Fix: Isolate Main Change%. Main Display always shows Regular data.
+            // Post data moves to badge.
+            activePrice = regularCloseToday || liveLast; // Fallback to liveLast if close not ready
+            baselinePrice = prevRegularClose;
+
+            // Calculate Main Change (Reg vs PrevReg)
+            if (activePrice && baselinePrice && baselinePrice !== 0) {
+                changePctFrac = (activePrice - baselinePrice) / baselinePrice;
+            } else {
+                changePctFrac = null;
+            }
+
+            baselineLabel = "Today vs Prev Close";
+            priceLabel = "Today's Close";
             break;
         default: // CLOSED session
             // [Phase 23.5] Fix: For CLOSED, show today's close price with change vs yesterday

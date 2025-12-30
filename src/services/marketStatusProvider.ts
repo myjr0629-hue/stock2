@@ -16,6 +16,26 @@ export interface MarketStatusResult extends MarketStatus {
 let statusCache: { data: MarketStatusResult; timestamp: number } | null = null;
 const CACHE_TTL_MS = 60 * 1000; // 60s
 
+const HOLIDAYS: Record<string, string> = {
+    "01-01": "New Year's Day",
+    "01-20": "MLK Jr. Day", // Approximate
+    "02-17": "Washington's Birthday", // Approximate
+    "04-18": "Good Friday", // 2025
+    "05-26": "Memorial Day", // 2025
+    "06-19": "Juneteenth",
+    "07-04": "Independence Day",
+    "09-01": "Labor Day", // 2025
+    "11-27": "Thanksgiving Day", // 2025
+    "12-25": "Christmas Day"
+};
+
+function checkHardcodedHoliday(etDate: Date): string | null {
+    const mo = String(etDate.getMonth() + 1).padStart(2, '0');
+    const d = String(etDate.getDate()).padStart(2, '0');
+    const dateKey = `${mo}-${d}`;
+    return HOLIDAYS[dateKey] || null;
+}
+
 export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
     const now = Date.now();
 
@@ -29,7 +49,6 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
     }
 
     try {
-        // 1. Polygon/Massive API (Priority 1)
         // 1. Polygon/Massive API (Priority 1)
         const data = await fetchMassive('/v1/marketstatus/now', {}, true, undefined, CACHE_POLICY.LIVE);
 
@@ -46,9 +65,12 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
         const isOpen = stocksStatus === "open";
         const isExtended = stocksStatus === "extended-hours";
 
-        // Holiday Check (Polygon data usage)
-        const isPolygonHoliday = data.exchanges?.nasdaq === "closed" && data.exchanges?.nyse === "closed" &&
-            etDate.getDay() !== 0 && etDate.getDay() !== 6;
+        // [Phase 23.7] Fix: Strict Holiday Check
+        // Only consider it a holiday if Polygon actually returns a holiday name, or if our hardcoded list matches.
+        // Do NOT assume closed weekday = holiday (that was the bug).
+        const hardcodedHoliday = checkHardcodedHoliday(etDate);
+        const isPolygonHoliday = !!data.holiday || !!hardcodedHoliday;
+        const holidayName = data.holiday || hardcodedHoliday || undefined;
 
         let session: "pre" | "regular" | "post" | "closed" = "closed";
 
@@ -67,7 +89,7 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
             market: isOpen ? "open" : isExtended ? "extended-hours" : "closed",
             session,
             isHoliday: isPolygonHoliday,
-            holidayName: isPolygonHoliday ? (data.holiday || "Market Holiday") : undefined,
+            holidayName,
             serverTime: new Date().toISOString(),
             asOfET: etStr,
             source: "MASSIVE",
@@ -100,24 +122,8 @@ function calculateFallbackStatus(): MarketStatusResult {
 
     const isWeekend = day === 0 || day === 6;
 
-    // Quick Holiday Dictionary (Hardcoded - add more as needed)
-    // MM-DD format
-    const mo = String(etDate.getMonth() + 1).padStart(2, '0');
-    const d = String(etDate.getDate()).padStart(2, '0');
-    const dateKey = `${mo}-${d}`;
-
-    const HOLIDAYS: Record<string, string> = {
-        "01-01": "New Year's Day",
-        "01-20": "MLK Jr. Day", // Approximate
-        "02-17": "Washington's Birthday", // Approximate
-        "06-19": "Juneteenth",
-        "07-04": "Independence Day",
-        "09-01": "Labor Day", // Approximate
-        "11-27": "Thanksgiving Day", // Approximate
-        "12-25": "Christmas Day"
-    };
-
-    const holidayName = HOLIDAYS[dateKey];
+    // Use shared holiday checker
+    const holidayName = checkHardcodedHoliday(etDate);
     const isHoliday = !!holidayName;
 
     // Default Closed
