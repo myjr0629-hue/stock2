@@ -695,31 +695,47 @@ export async function getStockData(symbol: string, range: Range = "1d"): Promise
   // Base Reference (Regular Close)
   const prevClose = t?.prevDay?.c || 0;
   const todayClose = t?.day?.c || prevClose;
+
+  // [Phase 23] Session-Aware Change Base:
+  // - Pre-Market: Change vs prevClose (yesterday's close)
+  // - Regular: Change vs prevClose (yesterday's close)  
+  // - Post-Market: Change vs todayClose (same-day regular close)
+  let changeBase = prevClose; // Default for pre/regular
+  if (session === 'post') {
+    changeBase = todayClose; // Post uses today's close as base
+  }
+
+  // regPrice = the regular session price to display
   const regPrice = (session === 'pre') ? prevClose : todayClose;
 
-  // Latest Spot
+  // Latest Spot (Real-time current price)
   const latestPrice = t?.lastTrade?.p || t?.min?.c || t?.day?.c || t?.prevDay?.c || 0;
 
-  // Extended Hours
+  // [Phase 23] Extended Hours Logic
   const isExtended = session !== 'reg';
   const extPrice = isExtended ? latestPrice : undefined;
-  const extChange = isExtended ? (latestPrice - regPrice) : undefined;
-  const extChangePercent = isExtended ? (regPrice !== 0 ? ((latestPrice - regPrice) / regPrice) * 100 : 0) : undefined;
+  const extChange = isExtended ? (latestPrice - changeBase) : undefined;
+  const extChangePercent = isExtended ? (changeBase !== 0 ? ((latestPrice - changeBase) / changeBase) * 100 : 0) : undefined;
 
-  // Regular Session Change
+  // Regular Session Change (always vs prevClose)
   const regChange = t?.todaysChange || (todayClose - prevClose);
   const regChangePercent = t?.todaysChangePerc || (prevClose !== 0 ? ((todayClose - prevClose) / prevClose) * 100 : 0);
 
-  // 3-Day Return
+  // [Phase 23] 3-Day Return (Trading Days Only)
+  // Fetch 10 calendar days to ensure we get 3+ trading days
   let return3d = 0;
   try {
     const dailyHist = await getAggregates(symbol, 1, 'day',
-      new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0],
+      new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0],
       new Date().toISOString().split('T')[0]
     );
+    // Use last 4 trading candles (today + 3 previous trading days)
     if (dailyHist.length >= 4) {
-      const price3dAgo = dailyHist[dailyHist.length - 4].close;
-      return3d = ((todayClose - price3dAgo) / price3dAgo) * 100;
+      // Get exactly 3 trading days back from the most recent candle
+      const recentCandles = dailyHist.slice(-4);
+      const price3dAgo = recentCandles[0].close; // 3 trading days ago
+      const currentClose = recentCandles[recentCandles.length - 1].close; // Most recent
+      return3d = ((currentClose - price3dAgo) / price3dAgo) * 100;
     }
   } catch (e) { }
 
