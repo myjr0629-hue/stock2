@@ -297,6 +297,29 @@ export function computeQualityTier(
     const currentAction = item.decisionSSOT?.action || 'NONE';
     const hasHighImpactEvent = item.evidence?.policy?.gate?.P0?.length > 0;
 
+    // [Upgraded] Advanced Reasoning Builder
+    const buildAdvancedReason = (baseScore: number) => {
+        const details: string[] = [];
+
+        // A. GEX Logic
+        const gex = evidence?.options?.gex || 0;
+        if (gex > 2000000) details.push('GEX안전지대');
+        else if (gex < -2000000) details.push('CallWall돌파'); // Short gamma often implies volatility or breakout attempt
+
+        // B. Flow Logic
+        const netFlow = evidence?.flow?.largeTradesUsd || 0;
+        if (netFlow > 5000000) details.push('고래유입');
+        else if (netFlow < -5000000) details.push('매도우위');
+
+        // C. Wall Logic
+        const lastPrice = evidence?.price?.last || 0;
+        const callWall = evidence?.options?.callWall || 0;
+        if (callWall > 0 && Math.abs(lastPrice - callWall) / lastPrice < 0.02) details.push('저항테스트');
+
+        const detailStr = details.length > 0 ? `(${details.join('/')})` : '';
+        return `${baseScore.toFixed(0)}${detailStr}`;
+    };
+
     if (holdAction === 'EXIT') {
         tier = 'FILLER';
         reasonKR = '매도 신호 (EXIT)';
@@ -306,13 +329,7 @@ export function computeQualityTier(
     } else if (momentumBonus > 0 && optionsComplete) {
         // [13.2] Momentum Override
         tier = 'ACTIONABLE';
-        reasonKR = `💥 3일 연속 상승(${alphaScore.toFixed(0)}) + 옵션확인 = 강력 매수`;
-
-        // Still check Event Gate
-        // [Step 1] State Machine & Event Gate
-        // [Step 1] State Machine & Event Gate
-        const currentAction = item.decisionSSOT?.action || 'NONE';
-        const hasHighImpactEvent = item.evidence?.policy?.gate?.P0?.length > 0; // P0 events are high impact
+        reasonKR = `💥 3일 연속 상승(${alphaScore.toFixed(0)}) + ${buildAdvancedReason(alphaScore)} = 강력 매수`;
 
         // Event Gate: Block actionable if high impact event imminent
         if (hasHighImpactEvent && tier === 'ACTIONABLE') {
@@ -321,17 +338,10 @@ export function computeQualityTier(
         }
 
         // State Machine Transitions
-        // HOLD -> OBSERVE (if score drops but foundation holds)
-        // OBSERVE -> REBUILD (if score recovers)
-        // OBSERVE -> EARLY_HANDOFF (if structure breaks)
-
-        // Logic placeholder for state machine (needs persistence layer to be fully effective, currently just modifying logic based on current state)
         if (currentAction === 'HOLD') {
             if (alphaScore < 60 && alphaScore >= 45) {
-                // Degraded but not broken
                 reasonKR += ' [OBSERVE: 점수 하락 관찰]';
             } else if (alphaScore < 45) {
-                // Structure broken
                 reasonKR += ' [EARLY_HANDOFF: 구조 붕괴]';
             }
         } else if (currentAction === 'OBSERVE') {
@@ -342,7 +352,10 @@ export function computeQualityTier(
 
     } else if (alphaScore >= QUALITY_TIER_CONFIG.ACTIONABLE_MIN_SCORE && optionsComplete) {
         tier = 'ACTIONABLE';
-        reasonKR = `고강도(${alphaScore.toFixed(0)}) + 옵션확인 = 매수 적합`;
+        const detailInfo = buildAdvancedReason(alphaScore);
+        // Clean format: "고강도(95/GEX안전지대/고래유입) + 옵션확인 = 매수 적합"
+        // actually buildAdvancedReason returns "95(GEX...)"
+        reasonKR = `고강도 ${detailInfo} + 옵션확인 = 매수 적합`;
 
         // [Step 1] Event Gate Check inside Actionable
         if (hasHighImpactEvent) {
@@ -365,8 +378,9 @@ export function computeQualityTier(
 
     } else if (alphaScore >= QUALITY_TIER_CONFIG.WATCH_MIN_SCORE) {
         tier = 'WATCH';
+        const detailInfo = buildAdvancedReason(alphaScore);
         reasonKR = optionsComplete
-            ? `관심권(${alphaScore.toFixed(0)})`
+            ? `관심권 ${detailInfo}`
             : `관심권(${alphaScore.toFixed(0)}) - 옵션 미확인`;
     } else {
         tier = 'FILLER';
