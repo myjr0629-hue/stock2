@@ -305,6 +305,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 pb-6 border-b border-white/10">
                 <div>
                     <div className="flex items-center gap-3">
+                        {/* Company Logo */}
+                        <div className="relative w-10 h-10 lg:w-14 lg:h-14 rounded-full overflow-hidden bg-white/10 flex items-center justify-center mb-2">
+                            <img
+                                src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                                alt={`${ticker} logo`}
+                                className="w-full h-full object-contain p-1"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).parentElement!.classList.add('hidden'); // Hide container if fails
+                                }}
+                            />
+                        </div>
                         <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter mb-2">{ticker}</h1>
                         <FavoriteToggle ticker={ticker} />
                         {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={14} />}
