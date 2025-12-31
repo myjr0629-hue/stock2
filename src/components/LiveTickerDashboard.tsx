@@ -310,7 +310,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             <img
                                 src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
                                 alt={`${ticker} logo`}
-                                className="w-full h-full object-contain p-1"
+                                className="w-full h-full object-cover"
                                 onError={(e) => {
                                     (e.target as HTMLImageElement).style.display = 'none';
                                     (e.target as HTMLImageElement).parentElement!.classList.add('hidden'); // Hide container if fails
