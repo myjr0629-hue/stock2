@@ -386,7 +386,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 {/* Gamma Structure */}
                                 <Card className="border-white/10 bg-slate-900/40 shadow-sm">
                                     <CardHeader className="pb-2 border-b border-white/5 bg-slate-800/20">
-                                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Key Market Levels</CardTitle>
+                                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                                            <span>Key Market Levels</span>
+                                            {structure?.maxPain && (
+                                                <span className="text-[10px] text-amber-500 font-black">
+                                                    Max Pain: ${structure.maxPain}
+                                                </span>
+                                            )}
+                                        </CardTitle>
                                     </CardHeader>
                                     <CardContent className="p-0 h-[300px]">
                                         <GammaLevelsViz
