@@ -33,6 +33,8 @@ function convertToStockData(overview: TickerOverview): StockData {
         dayLow: overview.price.low,
         vwap: overview.price.vwap || undefined,
         session: overview.price.session === "REG" ? "reg" : overview.price.session === "PRE" ? "pre" : overview.price.session === "POST" ? "post" : undefined,
+        priceSource: overview.price.priceSource, // [Phase 25.1]
+        prevClose: overview.price.prevClose, // [Phase 31] Previous close for PRE display
         // [S-56.4.7] SSOT Indicator Mapping
         rsi: overview.indicators.rsi14 || undefined,
         return3d: overview.indicators.return3D || undefined

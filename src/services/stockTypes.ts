@@ -13,7 +13,9 @@ export interface StockData {
     return3d?: number; marketCap?: number; description?: string;
     extPrice?: number; extChange?: number; extChangePercent?: number; session?: 'pre' | 'reg' | 'post';
     vwap?: number;
+    prevClose?: number; // [Phase 31] Previous day's close price
     regPrice?: number; regChange?: number; regChangePercent?: number;
+    priceSource?: "OFFICIAL_CLOSE" | "LIVE_SNAPSHOT" | "POST_CLOSE" | "PRE_OPEN"; // [Phase 25.1]
     freshness?: {
         asOfET: string;
         asOfISO: string;
@@ -140,12 +142,18 @@ export interface MultiTFScore {
         s1M?: number;
     };
     fallbackReasonKR?: string;
+    isDayTradeOnly?: boolean; // [Phase 36]
 }
 
 export interface HoldConfidence {
     action: 'MAINTAIN' | 'CAUTION' | 'EXIT' | 'SWAP';
     confidence: number;
     reason: string;
+    isDayTradeOnly?: boolean;
+    // [Phase 37] Final Lock Fields
+    entryBand?: [number, number];
+    cutPrice?: number;
+    isLocked?: boolean;
 }
 
 export enum ReportDiffReason {

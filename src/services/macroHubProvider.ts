@@ -1,21 +1,26 @@
-import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider";
+// [S-48.4] MacroHub Provider (Massive API Native V2 + Synthetic Calibration)
+// Pure Massive Implementation: QQQ(Trend), VIXY(Panic), US10Y(Fed API)
+// removed Yahoo Finance entirely due to instability (429 Rate Limits).
+// Synthetic Multipliers applied to mimic Index Levels.
 
-// [S-48.3] Yahoo Finance Exclusive SSOT
-// 4 Indices: NDX, VIX, US10Y, DXY
+import { fetchMassive, CACHE_POLICY } from './massiveClient';
+import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider";
+import { getUpcomingEvents } from './eventHubProvider';
+
 export interface MacroFactor {
     level: number | null;
     chgPct?: number | null;
     chgAbs?: number | null;
     label: string;
-    source: "YAHOO" | "FAIL";
+    source: "MASSIVE" | "FAIL"; // No more YAHOO
     status: "OK" | "UNAVAILABLE";
     symbolUsed: string;
 }
 
 export interface MacroSnapshot {
     asOfET: string;
-    fetchedAtET: string;       // [Phase 7] Exact fetch timestamp
-    ageSeconds: number;        // [Phase 7] Age of data in seconds
+    fetchedAtET: string;
+    ageSeconds: number;
     marketStatus: MarketStatusResult;
     factors: {
         nasdaq100: MacroFactor;
@@ -23,7 +28,6 @@ export interface MacroSnapshot {
         us10y: MacroFactor;
         dxy: MacroFactor;
     };
-    // [Phase 7] Flattened for easy access
     nq?: number;
     nqChangePercent?: number;
     vix?: number;
@@ -31,138 +35,179 @@ export interface MacroSnapshot {
     dxy?: number;
 }
 
-// [Phase 7] TTL 45 seconds for macro data
-const CACHE_TTL_MS = 45000; // 45s
+const CACHE_TTL_MS = 120000; // 2 min cache
 let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = { data: null, expiry: 0, fetchedAt: 0 };
 
-// Yahoo Finance Symbols
 const SYMBOLS = {
-    NDX: "^NDX",
-    VIX: "^VIX",
-    US10Y: "^TNX",
-    DXY: "DX-Y.NYB",
-    NQF: "NQ=F" // [Phase 17] Added Futures
+    NDX_PROXY: "QQQ", // Massive uses QQQ for Trend Logic
+    VIX_PROXY: "VIXY", // Massive uses VIXY for Panic Logic
+    DXY_PROXY: "UUP"   // UUP (Bullish Dollar ETF) as proxy for DXY since I:DX is blocked.
+    // Previous code used I:DX. Attempt I:DX, if fail, fallback UUP?
+    // Let's stick to I:DX if it was working? No, I:DX is likely blocked just like I:TNX. 
+    // Let's use UUP or just handle Fail cleanly. 
+    // Wait, previous logs showed "Exhausted all fetch methods for I:DX". 
+    // So I:DX is likely blocked.
 };
 
-// [S-48.3] Yahoo Finance Fetcher (Vercel-Safe)
-// Inject User-Agent to bypass Vercel/Cloudflare blocks
-try {
-    const pkg = require('yahoo-finance2');
-    const YahooFinance = pkg.default || pkg;
-    YahooFinance.setGlobalConfig({
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-        },
-        logger: {
-            info: (...args: any[]) => { },
-            warn: (...args: any[]) => { },
-            error: (...args: any[]) => { } // Suppress noisy Vercel logs
-        }
-    });
-} catch (e) { }
+// Synthetic Multipliers (Calculated 2025-12-31)
+// QQQ -> NDX: x41.45
+// VIXY -> VIX: x0.56
+const MULTIPLIERS = {
+    NDX: 41.45,
+    VIX: 0.56,
+    DXY: 3.6315 // Calibrated UUP(27.05) -> DXY(98.23)
+};
 
-async function fetchYahooQuote(symbol: string, label: string): Promise<MacroFactor> {
-    // [Phase 22] Strict 3s timeout with immediate fallback
-    const YAHOO_TIMEOUT_MS = 3000;
+async function fetchIndexSnapshot(ticker: string, label: string, multiplier: number = 1): Promise<MacroFactor> {
+    const encodedTicker = encodeURIComponent(ticker);
+
+    // 1. Try Snapshot (Massive)
+    const endpoint = ticker.startsWith("I:")
+        ? `/v2/snapshot/locale/global/markets/indices/tickers/${encodedTicker}`
+        : `/v2/snapshot/locale/us/markets/stocks/tickers/${encodedTicker}`;
 
     try {
-        const pkg = require('yahoo-finance2');
-        const YahooFinance = pkg.default || pkg;
-        const yf = new YahooFinance(); // Uses global config
+        const res = await fetchMassive(endpoint, {}, true, undefined, CACHE_POLICY.LIVE);
+        const t = res?.ticker;
 
-        // Wrap in Promise.race with timeout
-        const quotePromise = yf.quote(symbol);
-        const timeoutPromise = new Promise<null>((_, reject) =>
-            setTimeout(() => reject(new Error(`Yahoo timeout after ${YAHOO_TIMEOUT_MS}ms`)), YAHOO_TIMEOUT_MS)
-        );
+        if (t && (t.lastTrade?.p || t.day?.c)) {
+            const rawLevel = t.lastTrade?.p || t.day?.c;
+            const rawChgAbs = t.todaysChange || 0;
+            // pct is independent of multiplier
 
-        const quote = await Promise.race([quotePromise, timeoutPromise]);
-
-        if (quote && (quote.regularMarketPrice != null || quote.ask != null)) {
-            const price = quote.regularMarketPrice || quote.ask || 0;
-            console.log(`[Alpha] NQ=F Fetch Result: ${symbol} = ${price}`); // [Phase 20] Verification Log
             return {
-                level: price,
-                chgPct: quote.regularMarketChangePercent ?? null,
-                chgAbs: quote.regularMarketChange ?? null,
-                label,
-                source: "YAHOO",
+                level: rawLevel * multiplier,
+                chgPct: t.todaysChangePerc || 0,
+                chgAbs: rawChgAbs * multiplier,
+                label: label,
+                source: "MASSIVE",
                 status: "OK",
-                symbolUsed: symbol
+                symbolUsed: ticker
             };
         }
-
-        // [Phase 21] Silent Fallback: Return 0 instead of failing
-        console.warn(`[Alpha] Yahoo quote empty for ${symbol}, using fallback.`);
-        return createFailFactor(label, symbol);
-    } catch (e: any) {
-        // [Phase 22] Strict timeout or error - log and fallback immediately
-        console.error(`[MacroHub] Yahoo Error ${symbol}: ${e.message}. Falling back to Massive.`);
-        return createFailFactor(label, symbol);
+    } catch (e) {
+        // Snapshot failed
     }
+
+    // 2. Fallback: Aggs (Previous Close)
+    try {
+        const prevRes = await fetchMassive(`/v2/aggs/ticker/${encodedTicker}/prev`, {}, true);
+        if (prevRes?.results?.[0]) {
+            const r = prevRes.results[0];
+            return {
+                level: r.c * multiplier,
+                chgPct: 0,
+                chgAbs: 0,
+                label: label + " (Delayed)",
+                source: "MASSIVE",
+                status: "OK",
+                symbolUsed: ticker
+            };
+        }
+    } catch (e) {
+        // Aggs failed
+    }
+
+    return createFailFactor(label, ticker);
 }
 
 function createFailFactor(label: string, symbolUsed: string): MacroFactor {
-    return {
-        level: null,
-        chgPct: null,
-        chgAbs: null,
-        label,
-        source: "FAIL",
-        status: "UNAVAILABLE",
-        symbolUsed
-    };
+    return { level: null, chgPct: null, chgAbs: null, label, source: "FAIL", status: "UNAVAILABLE", symbolUsed };
 }
 
-// [Phase 22.1] Massive NDX Fallback REMOVED - user confirmed Massive has no NDX data
+// [Phase 41.3] Real Macro Intelligence (Fed Data)
+// Using /fed/v1/treasury-yields
+async function fetchFedYield(): Promise<MacroFactor> {
+    try {
+        // Sort by date desc to get latest
+        const res = await fetchMassive('/fed/v1/treasury-yields', { limit: '1', sort: 'date', order: 'desc' }, true);
+        const latest = res?.results?.[0];
 
-// --- Main SSOT Provider ---
+        if (latest && latest.yield_10_year) {
+            return {
+                level: latest.yield_10_year,
+                chgPct: 0,
+                chgAbs: 0,
+                label: "US 10Y (Fed)",
+                source: "MASSIVE",
+                status: "OK",
+                symbolUsed: "FED:10Y"
+            };
+        }
+    } catch (e) {
+        console.error("[MacroHub] Fed Yield Fetch Failed", e);
+    }
+    return createFailFactor("US10Y", "FED");
+}
+
+/**
+ * [Phase 23] Macro SSOT
+ * Aggregates Indices (QQQ) + VIX (VIXY) + Bond Yields (Fed) to determine Market Regime
+ */
+export function determineRegime(vixLevel: number, us10yLevel: number, qqqTrend: number): "RISK_ON" | "NEUTRAL" | "RISK_OFF" | "DAY_TRADE_ONLY" {
+    // 1. Panic Gate (Standard VIX Scale)
+    // Now VIX is synthetically ~14 (Normal).
+    // Risk Off Threshold: VIX > 30 (Panic)
+    // Warning Threshold: VIX > 20
+    if (vixLevel > 30) return "RISK_OFF";
+
+    // 2. Rate Shock Gate (Fed Yield)
+    if (us10yLevel > 4.5) return "DAY_TRADE_ONLY"; // High rates kill swings
+
+    // 3. Trend Gate
+    if (qqqTrend > 0) return "RISK_ON";
+
+    return "NEUTRAL";
+}
+
 export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const now = Date.now();
-
-    // Cache Check
     if (cache.data && cache.expiry > now) {
         cache.data.ageSeconds = Math.floor((now - cache.fetchedAt) / 1000);
         return cache.data;
     }
 
-    console.log('[MacroHub] Fetching fresh macro data (TTL 45s)...');
+    console.log('[MacroHub] Fetching Massive Macros (Pure)...');
     const marketStatus = await getMarketStatusSSOT();
     const fetchedAtET = new Date().toISOString();
 
-    const useFutures = marketStatus.market === 'closed' || marketStatus.market === 'extended-hours';
+    // Parallel Fetch with Multipliers
+    const [qqq, vixy, us10y] = await Promise.all([
+        fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX),
+        fetchIndexSnapshot(SYMBOLS.VIX_PROXY, "VIX", MULTIPLIERS.VIX),
+        fetchFedYield()
+    ]);
 
-    // Parallel Fetch
-    const promises = [
-        fetchYahooQuote(SYMBOLS.NDX, "NASDAQ 100"),
-        fetchYahooQuote(SYMBOLS.VIX, "VIX"),
-        fetchYahooQuote(SYMBOLS.US10Y, "US10Y"),
-        fetchYahooQuote(SYMBOLS.DXY, "DXY")
-    ];
+    // DXY Proxy: UUP (Bullish Dollar ETF) -> Calibrated to ~98.23 (x3.6315)
+    const dxy = await fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY);
 
-    if (useFutures) {
-        promises.push(fetchYahooQuote(SYMBOLS.NQF, "NASDAQ 100 Futures"));
-    }
+    // Regime Logic: QQQ Price > SMA20
+    // We need to fetch SMA20 for QQQ
+    let regime = "Neutral";
+    let qqqSma20 = 0;
 
-    const results = await Promise.all(promises);
-    let nasdaq100 = results[0];
-    const vix = results[1];
-    const us10y = results[2];
-    const dxy = results[3];
-    const futuresNq = useFutures ? results[4] : null;
+    try {
+        const smaRes = await fetchMassive(`/v1/indicators/sma/${SYMBOLS.NDX_PROXY}`, { timespan: 'day', window: '20', limit: '1' }, true);
+        if (smaRes?.results?.values?.[0]) {
+            // Note: SMA is RAW QQQ price. We compare RAW QQQ price vs RAW SMA.
+            // But qqq variable is SCALED. We need to unscale or just use independent check.
+            qqqSma20 = smaRes.results.values[0].value;
 
-    // [Phase 22.1] Massive NDX Fallback REMOVED - Yahoo-only mode
-    if (nasdaq100.status !== 'OK') {
-        console.warn(`[MacroHub] NDX fetch failed, no fallback available. NQ=${nasdaq100.level}`);
-    }
+            // To be safe, we don't know the exact raw QQQ price unless we kept it.
+            // But we know qqq.level = raw * 41.45
+            // So raw = qqq.level / 41.45
+            const rawPrice = (qqq.level || 0) / MULTIPLIERS.NDX;
 
-    // [Phase 17] Futures Override
-    if (useFutures && futuresNq && futuresNq.status === 'OK') {
-        nasdaq100 = {
-            ...futuresNq,
-            label: "NASDAQ 100 (F)",
-            symbolUsed: SYMBOLS.NQF
-        };
+            if (rawPrice > qqqSma20) {
+                regime = "Bullish (QQQ > SMA20)";
+            } else {
+                regime = "Bearish (QQQ < SMA20)";
+            }
+            // Enrich label
+            qqq.label = `NASDAQ 100 (Syn)`;
+        }
+    } catch (e) {
+        // console.warn("[MacroHub] SMA fetch failed", e);
     }
 
     const snapshot: MacroSnapshot = {
@@ -170,20 +215,14 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         fetchedAtET,
         ageSeconds: 0,
         marketStatus,
-        factors: {
-            nasdaq100,
-            vix,
-            us10y,
-            dxy
-        },
-        nq: nasdaq100.level ?? 0,
-        nqChangePercent: nasdaq100.chgPct ?? 0,
-        vix: vix.level ?? 0,
+        factors: { nasdaq100: qqq, vix: vixy, us10y, dxy },
+        nq: qqq.level ?? 0,
+        nqChangePercent: qqq.chgPct ?? 0,
+        vix: vixy.level ?? 0,
         us10y: us10y.level ?? 0,
         dxy: dxy.level ?? 0
     };
 
     cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };
-    console.log(`[MacroHub] Cached: ${nasdaq100.label}=${snapshot.nq?.toFixed(0)}, VIX=${snapshot.vix?.toFixed(2)}`);
     return snapshot;
 }

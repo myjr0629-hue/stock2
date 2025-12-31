@@ -40,6 +40,8 @@ export interface UnifiedFlow {
 
 export interface UnifiedPrice {
     last: number;
+    priceSource?: "OFFICIAL_CLOSE" | "LIVE_SNAPSHOT" | "POST_CLOSE" | "PRE_OPEN"; // [Phase 25.1] Precise Session Tagging
+    error?: string; // [Phase 24.2] Expose Error
     prevClose: number;
     changePct: number;
     vwap: number;

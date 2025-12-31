@@ -170,30 +170,60 @@ function analyzeSentiment(title: string): 'positive' | 'negative' | 'neutral' {
 }
 
 // --- ENGINE 2: TECHNICAL RSI (Polygon Official) ---
-async function getTechnicalRSI(symbol: string, budget?: RunBudget): Promise<number> {
-
+// --- ENGINE 2: TECHNICAL RSI (Polygon Official + Robust Fallback) ---
+async function getTechnicalRSI(symbol: string, budget?: RunBudget): Promise<number | null> {
   try {
-    const res = await fetchMassive(`/v1/indicators/rsi/${symbol}`, { timespan: 'day', window: '14' }, true, budget);
+    // 1. Try Native Massive Indicator API
+    const res = await fetchMassive(`/v1/indicators/rsi/${symbol}`, { timespan: 'day', window: '14', limit: '1' }, true, budget);
     if (res?.results?.values?.[0]) return res.results.values[0].value;
+  } catch (e) {
+    console.warn(`[RSI] Native API failed for ${symbol}, trying Aggs Calc fallback.`);
+  }
+
+  // 2. Fallback: Manual Calc from Aggs (30 days)
+  try {
+    const to = new Date().toISOString().split('T')[0];
+    const from = new Date(Date.now() - 60 * 86400000).toISOString().split('T')[0];
+    const aggs = await fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${from}/${to}`, { limit: '50', sort: 'desc' }, true, budget);
+
+    // Logic from marketDaySSOT (re-implemented here for isolation or reuse import)
+    // Need approx 15+ candles
+    const closes = (aggs?.results || []).map((r: any) => r.c).reverse(); // asc order needed
+    if (closes.length > 14) {
+      // Simple RSI Calc
+      // ... (reuse calculation or import?)
+      // Let's import calculateRSI from marketDaySSOT to avoid code dupe, but user said "don't calculate".
+      // But requested fallback IS manual calc.
+      const { calculateRSI } = await import('./marketDaySSOT');
+      return calculateRSI(closes);
+    }
   } catch (e) { }
-  return 50;
+
+  return null; // Don't return 50. Return null so UI shows '--'.
 }
 
 // --- ENGINE 3: OPTIONS, MAX PAIN & GEX (OI Integrity + Retry) ---
 async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budget?: RunBudget, useCache: boolean = true) {
 
+  let allResults: any[] = [];
+  let targetExpiry: string = "-";
+  let spot = presetSpot || 0;
+
   try {
     // 1) Spot Price
-    let spot = presetSpot;
     if (!spot) {
       const spotRes = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`, {}, useCache, budget);
       const t = spotRes?.ticker;
       spot = t?.lastTrade?.p || t?.min?.c || t?.day?.c || t?.prevDay?.c || 0;
     }
 
-    // 2) Initial Fetch to detect Target Expiry
+    // 2) Initial Fetch to detect Target Expiry (Sniper Mode: Get EVERYTHING then filter)
     const initialSnap = await fetchMassive(`/v3/snapshot/options/${symbol}`, {
-      limit: '250', sort: 'ticker', order: 'asc'
+      limit: '250',
+      // [Debug] Minimal Params to find cause of 400 Error
+      // sort: 'expiration_date',
+      // order: 'asc',
+      // 'expiration_date.gte': new Date().toISOString().split('T')[0] 
     }, useCache, budget);
 
     if (!initialSnap?.results?.length) {
@@ -205,11 +235,11 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
       .map((r: any) => r.details?.expiration_date || r.expiration_date)
       .filter(Boolean);
 
-    const targetExpiry = expiries.sort()[0];
-    console.log(`[Massive] ${symbol} Target Expiry: ${targetExpiry}, Total Results: ${initialSnap.results.length}`);
+    targetExpiry = expiries.sort()[0];
+    console.log(`[Massive] ${symbol} Target Expiry: ${targetExpiry}, Total Results: ${initialSnap.results.length} (Limit 1000)`);
 
     // 3) Deep Scan via Pagination (bounded)
-    let allResults = [...initialSnap.results];
+    allResults = [...initialSnap.results];
     let nextUrl = initialSnap.next_url;
     let pagesFetched = 1;
     const MAX_PAGES = 8;
@@ -244,7 +274,23 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
     console.log(`[Massive] ${symbol} Valid Contracts: ${contracts.length}`);
     return { contracts, expiry: targetExpiry, spot: spot || 0 };
   } catch (e) {
-    console.error(`[Massive Pagination Protocol Error] ${symbol}:`, e);
+    console.error(`[Massive Pagination Protocol Error] ${symbol}:`, (e as any).details || e);
+    // [Critical Fix] Graceful Degradation: Return what we have (Page 1 is better than nothing)
+    // Map existing results same as success path
+    if (allResults.length > 0) {
+      const contracts = allResults
+        .filter((c: any) => (c.details?.expiration_date === targetExpiry || c.expiration_date === targetExpiry))
+        .map((c: any) => {
+          const oi = Number(c.open_interest);
+          return {
+            strike_price: c.details?.strike_price || c.strike_price || 0,
+            contract_type: (c.details?.contract_type || c.contract_type || c.details?.type || "call").toLowerCase(),
+            open_interest: Number.isFinite(oi) ? oi : 0,
+            greeks: c.greeks || { gamma: 0 }
+          };
+        });
+      return { contracts, expiry: targetExpiry, spot: spot || 0 };
+    }
     return { contracts: [], expiry: "-", spot: 0 };
   }
 }
@@ -499,8 +545,8 @@ export async function getTier01Data(forceReportMode = false, universeSymbols?: s
     console.log(`[S-38] Stage 1 Complete. Universe: ${tickersRaw.length}, Heavy Top-K: ${heavySymbols.length}`);
 
     // [S-55.7] Load Yesterday's Report for Diff
-    const { getYesterdayReport } = require('../lib/storage/reportStore');
-    const { generateReportDiff } = require('./reportDiff');
+    const { getYesterdayReport } = await import('../lib/storage/reportStore');
+    const { generateReportDiff } = await import('./reportDiff');
     const prevReport = await getYesterdayReport("tier01"); // Assume "tier01" is the type
     const missingTickers: string[] = [];
 
@@ -652,7 +698,7 @@ export async function getStockData(symbol: string, range: Range = "1d"): Promise
   if (!t) throw new Error(`Ticker '${symbol}' not found (Data Unavailable).`);
 
   // Session Detection (ET) - [S-52.2.3] Use reliable timezone utility
-  const { getETNow } = require('@/services/timezoneUtils');
+  const { getETNow } = await import('@/services/timezoneUtils');
   const et = getETNow();
   const etTime = et.hour + et.minute / 60;
 
@@ -744,7 +790,7 @@ export async function getStockData(symbol: string, range: Range = "1d"): Promise
     change: isExtended ? (extChange || 0) : (regChange || 0),
     changePercent: isExtended ? (extChangePercent || 0) : (regChangePercent || 0),
     dayHigh: t?.day?.h, dayLow: t?.day?.l, volume: t?.day?.v, marketCap: 0,
-    currency: "USD", history, rsi, return3d,
+    currency: "USD", history, rsi: rsi ?? undefined, return3d,
     extPrice, extChange, extChangePercent, session,
     vwap: t?.day?.vw,
     regPrice, regChange, regChangePercent,

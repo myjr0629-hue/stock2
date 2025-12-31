@@ -27,8 +27,8 @@ import { applyQualityTiers, selectTop3, determineRegime, computePowerMeta, compu
 import { BUILD_PIPELINE_VERSION, orchestrateGemsEngine } from '../engine/reportOrchestrator'; // [S-56.4.5c]
 import crypto from 'crypto';
 
-// [P0] Fixed 3-report schedule + morning for legacy
-export type ReportType = 'eod' | 'pre' | 'open' | 'morning';
+// [P0] Fixed 3-report schedule + morning for legacy + [Phase 37] 3-Stage Protocol
+export type ReportType = 'eod' | 'pre' | 'open' | 'morning' | 'draft' | 'revised' | 'final';
 
 // [S-51.5] Top3 and Baseline interfaces for performance tracking
 export interface Top3Item {
@@ -106,7 +106,10 @@ export const REPORT_SCHEDULES: Record<ReportType, { hour: number; minute: number
     'eod': { hour: 16, minute: 30, description: 'EOD Final Report', labelKR: '장마감 후 확정' },
     'pre': { hour: 6, minute: 30, description: 'Premarket +2h', labelKR: '프리마켓 후 2시간' },
     'open': { hour: 9, minute: 0, description: 'Open -30m', labelKR: '본장 30분 전' },
-    'morning': { hour: 8, minute: 0, description: 'Morning Brief', labelKR: '장전 브리핑 (레거시)' }
+    'morning': { hour: 8, minute: 0, description: 'Morning Brief', labelKR: '장전 브리핑 (레거시)' },
+    'draft': { hour: 16, minute: 10, description: 'Draft Report', labelKR: '초안 생성 (장마감)' },
+    'revised': { hour: 6, minute: 0, description: 'Audit Report', labelKR: '감사 및 수정 (프리장)' },
+    'final': { hour: 9, minute: 0, description: 'Final Order', labelKR: '최종 확정 (본장 전)' }
 };
 
 // ============================================================================
@@ -144,8 +147,9 @@ function ensureReportDir(date: string): string {
 // ============================================================================
 
 export async function generateReport(type: ReportType, force: boolean = false): Promise<PremiumReport> {
-    console.log(`[ReportScheduler] Generating ${type} report (vNext Unified Engine)...`);
+    console.log(`[ReportScheduler] Generating ${type} report (Phase 37 3-Stage Protocol)...`);
     const startTime = Date.now();
+    const marketDate = getMarketDate();
 
     // 1. Fetch Global Context
     const [macro, events, policy, news] = await Promise.all([
@@ -163,36 +167,99 @@ export async function generateReport(type: ReportType, force: boolean = false): 
     }
 
     const now = new Date();
-    const marketDate = getMarketDate();
     const sessionInfo = determineSessionInfo(now);
-
-    // 2. Universe Selection (Target 12)
-    // Convert string[] pool to objects for policy function
-    const universePoolStrings = await loadStockUniversePool();
-    const universePoolObjects = universePoolStrings.map(s => ({ ticker: s }));
-
-    const universeResult = await applyUniversePolicyWithBackfill(universePoolObjects);
-    const candidateTickers = universeResult.final.map(i => i.ticker);
-
-    console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items (${candidateTickers.join(',')})`);
-
-    // 3. Unified Terminal Enrichment
-    const { enrichTerminalItems } = await import('./terminalEnricher');
-    // Fix session type: determineSessionInfo returns badge='REG'|'PRE'|'POST'|'CLOSED'
-    // Map to 'regular'|'pre'|'post'
     const badgeMap: Record<string, 'regular' | 'pre' | 'post'> = {
-        'REG': 'regular',
-        'PRE': 'pre',
-        'POST': 'post',
-        'CLOSED': 'regular' // Fallback
+        'REG': 'regular', 'PRE': 'pre', 'POST': 'post', 'CLOSED': 'regular'
     };
     const sessionParam = badgeMap[sessionInfo.badge] || 'regular';
+    const { enrichTerminalItems } = await import('./terminalEnricher');
 
-    // [P0] Pass force to enrichTerminalItems to bypass cache when force=true
-    const enrichedItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
+    let candidateTickers: string[] = [];
+    let enrichedItems: any[] = [];
 
-    // 4. Scoring & Quality Tiers
-    // Load yesterday's report (T-1)
+    // === STAGE LOGIC ===
+    if (type === 'revised') { // STAGE 2: AUDIT
+        console.log(`[ReportScheduler] Stage 2: Auditing DRAFT...`);
+        const draft = await getArchivedReport(marketDate, 'draft') || await getArchivedReport(marketDate, 'eod');
+        if (!draft) throw new Error(`Audit Failed: No DRAFT found for ${marketDate}`);
+
+        // Re-verify tickers
+        const draftTickers = draft.items.map((i: any) => i.ticker);
+        const auditItems = await enrichTerminalItems(draftTickers, sessionParam, true); // Force fresh
+
+        // Filter Drops (> 5% Gap Down)
+        enrichedItems = auditItems.filter(item => {
+            const change = item.evidence?.price?.changePct || 0;
+            if (change < -5.0) {
+                console.warn(`[Audit] Dropping ${item.ticker} (Crash: ${change}%)`);
+                return false;
+            }
+            return true;
+        });
+
+    } else if (type === 'final') { // STAGE 3: LOCK
+        console.log(`[ReportScheduler] Stage 3: Finalizing REVISED...`);
+        const revised = await getArchivedReport(marketDate, 'revised') || await getArchivedReport(marketDate, 'pre') || await getArchivedReport(marketDate, 'draft');
+        if (!revised) throw new Error(`Finalize Failed: No Prior Report for ${marketDate}`);
+
+        const finalTickers = revised.items.map((i: any) => i.ticker);
+        const finalItems = await enrichTerminalItems(finalTickers, sessionParam, true);
+
+        // Lock Logic: Entry Bands
+        enrichedItems = finalItems.map(item => {
+            const pre = item.evidence?.price?.last || 0;
+            const close = item.evidence?.price?.prevClose || pre;
+            const entryMin = Math.min(pre, close);
+            const entryMax = Math.max(pre, close) * 1.002; // Small buffer
+            return {
+                ...item,
+                decisionSSOT: {
+                    ...item.decisionSSOT,
+                    entryBand: [Number(entryMin.toFixed(2)), Number(entryMax.toFixed(2))],
+                    cutPrice: Number((entryMin * 0.97).toFixed(2)),
+                    isLocked: true // [Phase 37] Lock Flag
+                }
+            };
+        });
+
+    } else {
+        // STAGE 1: DRAFT (Standard Universe Selection)
+        // Convert string[] pool to objects for policy function
+        const universePoolStrings = await loadStockUniversePool();
+        const universePoolObjects = universePoolStrings.map(s => ({ ticker: s }));
+        const universeResult = await applyUniversePolicyWithBackfill(universePoolObjects);
+        candidateTickers = universeResult.final.map(i => i.ticker);
+
+        console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items`);
+        enrichedItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
+    }
+
+    return generateReportFromItems(type, enrichedItems, force, marketDate, macro, events, policy, news);
+}
+
+// [Phase 37] Shared Logic for Report Assembly (from enriched items)
+async function generateReportFromItems(
+    type: ReportType,
+    enrichedItems: any[],
+    force: boolean,
+    marketDate: string,
+    macro?: any, events?: any, policy?: any, news?: any
+): Promise<PremiumReport> {
+
+    // If context missing (e.g. Stage 2/3 shortcut), fetch it
+    const startTime = Date.now();
+    if (!macro) macro = await getMacroSnapshotSSOT();
+    if (!events) events = getEventHubSnapshot();
+    if (!policy) policy = getPolicyHubSnapshot();
+    if (!news) news = await getNewsHubSnapshot();
+
+    const now = new Date();
+    // Re-determine session for context
+    const sessionInfo = determineSessionInfo(now);
+    const badgeMap: Record<string, 'regular' | 'pre' | 'post'> = {
+        'REG': 'regular', 'PRE': 'pre', 'POST': 'post', 'CLOSED': 'regular'
+    };
+    const sessionParam = badgeMap[sessionInfo.badge] || 'regular';
 
     // [Phase 15.3] Robust History Backfill Logic
     function getPreviousBusinessDay(dateStr: string): string {

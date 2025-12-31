@@ -8,9 +8,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as ReportType | null;
 
-    // [P0] Validate type - 3 fixed reports + legacy morning
-    if (!type || !['eod', 'pre', 'open', 'morning'].includes(type)) {
-        return NextResponse.json({ error: 'Invalid type. Use: eod, pre, open' }, { status: 400 });
+    // [P0] Validate type - 3 fixed reports + legacy morning + [Phase 37] 3-Stage Protocol
+    if (!type || !['eod', 'pre', 'open', 'morning', 'draft', 'revised', 'final'].includes(type)) {
+        return NextResponse.json({ error: 'Invalid type. Use: eod, pre, open, draft, revised, final' }, { status: 400 });
     }
 
     // [P0] Security: Check CRON_SECRET - supports both header and query param

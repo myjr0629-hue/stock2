@@ -65,12 +65,29 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
         const isOpen = stocksStatus === "open";
         const isExtended = stocksStatus === "extended-hours";
 
-        // [Phase 23.7] Fix: Strict Holiday Check
-        // Only consider it a holiday if Polygon actually returns a holiday name, or if our hardcoded list matches.
-        // Do NOT assume closed weekday = holiday (that was the bug).
+        // [Phase 24.1] Strict Holiday Validation (User Requirement)
+        // Check upcoming holidays to confirm if today is TRULY a holiday.
+        const upcomingRes = await fetchMassive('/v1/marketstatus/upcoming', {}, true, undefined, CACHE_POLICY.LIVE);
+        const upcomingList = upcomingRes.data || [];
+
+        // Check if today matches any "market-closed" event in upcoming list
+        const todayStr = etStr.split(',')[0]; // M/D/YYYY or similar depending on locale, safer to use YYYY-MM-DD from etDate
+        const yyyy = etDate.getFullYear();
+        const mm = String(etDate.getMonth() + 1).padStart(2, '0');
+        const dd = String(etDate.getDate()).padStart(2, '0');
+        const todayIso = `${yyyy}-${mm}-${dd}`;
+
+        const isRealHoliday = upcomingList.some((h: any) => h.date === todayIso && h.status === "closed");
         const hardcodedHoliday = checkHardcodedHoliday(etDate);
-        const isPolygonHoliday = !!data.holiday || !!hardcodedHoliday;
-        const holidayName = data.holiday || hardcodedHoliday || undefined;
+
+        // Priority: Upcoming API > Hardcoded > 'now' status (which might be flaky)
+        const isPolygonHoliday = isRealHoliday || !!hardcodedHoliday;
+        let holidayName = hardcodedHoliday;
+
+        if (isRealHoliday) {
+            const h = upcomingList.find((x: any) => x.date === todayIso);
+            holidayName = h?.name || holidayName;
+        }
 
         let session: "pre" | "regular" | "post" | "closed" = "closed";
 
@@ -89,7 +106,7 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
             market: isOpen ? "open" : isExtended ? "extended-hours" : "closed",
             session,
             isHoliday: isPolygonHoliday,
-            holidayName,
+            holidayName: holidayName || undefined,
             serverTime: new Date().toISOString(),
             asOfET: etStr,
             source: "MASSIVE",
@@ -106,8 +123,10 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
 
         // 2. Fallback Logic (Priority 2)
         const fall = calculateFallbackStatus();
-        statusCache = { data: fall, timestamp: now }; // Cache fallback too
-        return fall;
+        return {
+            ...fall,
+            holidayName: (fall.holidayName || undefined) as string | undefined
+        };
     }
 }
 
@@ -123,8 +142,8 @@ function calculateFallbackStatus(): MarketStatusResult {
     const isWeekend = day === 0 || day === 6;
 
     // Use shared holiday checker
-    const holidayName = checkHardcodedHoliday(etDate);
-    const isHoliday = !!holidayName;
+    const holidayNameString = checkHardcodedHoliday(etDate); // Explicitly string | null
+    const isHoliday = !!holidayNameString;
 
     // Default Closed
     let market: "closed" | "open" | "extended-hours" = "closed";
@@ -147,7 +166,7 @@ function calculateFallbackStatus(): MarketStatusResult {
         market,
         session,
         isHoliday: isHoliday || (isWeekend && false),
-        holidayName: isHoliday ? holidayName : undefined,
+        holidayName: holidayNameString || undefined,
         serverTime: new Date().toISOString(),
         asOfET: etStr,
         source: "FALLBACK",

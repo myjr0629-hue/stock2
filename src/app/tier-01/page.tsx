@@ -10,6 +10,9 @@ import {
     Lock, Unlock, Eye, ArrowUpRight, ArrowDownRight,
     Search, Layers
 } from "lucide-react";
+import { ReportArchive } from "@/components/ReportArchive";
+import { TacticalCard } from "@/components/TacticalCard";
+
 
 // ============================================================================
 // TYPES (vNext Unified Evidence Model)
@@ -40,13 +43,18 @@ export interface UnifiedFlow {
     largeTradesUsd: number;
     offExPct: number;
     offExDeltaPct: number;
+    netFlow?: number;
+    netPremium?: number; // [Phase 40] Explicit Net Premium in $
     backfilled: boolean;
     fetchedAtET?: string;
     complete?: boolean;
 }
 
+
 export interface UnifiedPrice {
     last: number;
+    priceSource?: "OFFICIAL_CLOSE" | "LIVE_SNAPSHOT" | "POST_CLOSE" | "PRE_OPEN"; // [Phase 25.1] Precise Session Tagging
+    error?: string; // [Phase 24.2] Expose Error
     prevClose: number;
     changePct: number;
     vwap: number;
@@ -55,6 +63,7 @@ export interface UnifiedPrice {
     return3D: number;
     structureState: 'BREAKOUT' | 'BREAKDOWN' | 'CONSOLIDATION' | 'TRENDING' | 'REVERSAL';
     fetchedAtET?: string;
+    history3d?: any[]; // [Phase 36]
 }
 
 export interface UnifiedStealth {
@@ -97,6 +106,9 @@ export interface TickerItem {
         action: string;
         confidencePct: number;
         triggersKR: string[];
+        entryBand?: { min: number; max: number };
+        cutPrice?: number;
+        isLocked?: boolean;
     };
     entryBand?: { low: number; high: number };
     hardCut?: number;
@@ -138,7 +150,7 @@ interface GateStatus {
 // ============================================================================
 
 const Skeleton = ({ className }: { className: string }) => (
-    <div className={`animate-pulse bg-slate-800/50 rounded ${className}`} />
+    <span className={`animate-pulse bg-slate-800/50 rounded ${className}`} />
 );
 
 const ScoreBreakdown = ({ evidence, item }: { evidence: UnifiedEvidence, item: TickerItem }) => {
@@ -335,6 +347,14 @@ function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
     // vNext Price Logic
     const price = ev?.price?.last || 0;
     const changePct = ev?.price?.changePct || 0;
+    const source = ev?.price?.priceSource;
+
+    let tag = "";
+    let tagStyle = "text-slate-500";
+    if (source === "OFFICIAL_CLOSE") { tag = "CLOSE"; tagStyle = "text-slate-500 bg-slate-800/50 border-slate-700"; }
+    else if (source === "POST_CLOSE") { tag = "POST"; tagStyle = "text-indigo-300 bg-indigo-500/10 border-indigo-500/30"; }
+    else if (source === "PRE_OPEN") { tag = "PRE"; tagStyle = "text-amber-300 bg-amber-500/10 border-amber-500/30"; }
+    else if (source === "LIVE_SNAPSHOT") { tag = "LIVE"; tagStyle = "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"; }
 
     return (
         <div className={`relative bg-slate-900 border rounded p-4 ${isNoTrade ? "border-slate-800 opacity-70" : "border-slate-800 hover:border-slate-600 transition-colors"}`}>
@@ -370,9 +390,16 @@ function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
                     </div>
                 </div>
                 <div className="text-right">
-                    <p className="text-base font-semibold font-mono text-white tabular-nums tracking-tight">
-                        {price > 0 ? price.toFixed(2) : <Skeleton className="w-12 h-4 inline-block" />}
-                    </p>
+                    <div className="flex items-center justify-end gap-2 mb-0.5">
+                        {tag && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${tagStyle}`}>{tag}</span>}
+                        <p className="text-base font-semibold font-mono text-white tabular-nums tracking-tight">
+                            {price > 0 ? price.toFixed(2) : (
+                                (item.evidence.price as any).error ?
+                                    <span className="text-xs text-rose-500 font-bold">{(item.evidence.price as any).error}</span> :
+                                    <Skeleton className="w-12 h-4 inline-block" />
+                            )}
+                        </p>
+                    </div>
                     <p className={`text-[11px] font-medium tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
                     </p>
@@ -562,12 +589,14 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                             </div>
                             <div className="bg-slate-900 p-3">
                                 <span className="text-[9px] text-slate-500 font-bold uppercase block">RSI (14)</span>
-                                {ev.price.rsi14 > 0 ? (
+                                {ev.price.rsi14 > 0 && ev.price.rsi14 !== 50 ? (
                                     <span className={`text-sm font-mono font-bold ${ev.price.rsi14 > 70 ? 'text-rose-400' : ev.price.rsi14 < 30 ? 'text-emerald-400' : 'text-slate-300'}`}>
                                         {ev.price.rsi14.toFixed(1)}
                                     </span>
                                 ) : (
-                                    <span className="text-xs font-mono text-slate-600 animate-pulse">Calc...</span>
+                                    <span className="text-xs font-mono text-slate-500">
+                                        {ev.price.rsi14 === 50 ? "Low Data" : "Calc..."}
+                                    </span>
                                 )}
                             </div>
                             <div className="bg-slate-900 p-3">
@@ -596,10 +625,7 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                                 </span>
                                             </>
                                         ) : (
-                                            <div className="flex items-center gap-2 h-5">
-                                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-                                                <span className="text-[10px] font-mono text-emerald-500 animate-pulse">Scanning...</span>
-                                            </div>
+                                            <span className="text-[10px] font-mono text-slate-500">Waiting for Whales</span>
                                         )}
                                     </div>
                                     <div className="w-full bg-slate-800 h-1 mt-2 rounded-full overflow-hidden">
@@ -611,11 +637,12 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                 </div>
                                 <div>
                                     <div className="flex justify-between">
-                                        <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Net Prem (Est)</span>
+                                        <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Net Flow (Options)</span>
                                         <span className="text-[8px] bg-slate-800 text-slate-400 px-1 rounded">COND: I, T</span>
                                     </div>
-                                    <span className={`text-sm font-mono font-bold ${ev.flow.largeTradesUsd > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        ${(ev.flow.largeTradesUsd / 1_000_000).toFixed(1)}M
+                                    {/* [Phase 40] Use netPremium if available, else largeTradesUsd */}
+                                    <span className={`text-sm font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1_000_000).toFixed(1)}M
                                     </span>
                                 </div>
                             </div>
@@ -689,7 +716,7 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                 <div className="grid grid-cols-3 gap-px bg-slate-800 border border-slate-800 rounded overflow-hidden text-center cursor-pointer group"
                                     onClick={() => setShowHeatmap(true)}>
                                     <div className="bg-slate-900 p-2 group-hover:bg-slate-800/80 transition-colors">
-                                        <span className="text-[9px] text-slate-500 block">Call Wall</span>
+                                        <span className="text-[9px] text-slate-500 block">Target Resistance (Call Wall)</span>
                                         <span className="text-xs font-mono font-bold text-emerald-400">${ev.options.callWall}</span>
                                     </div>
                                     <div className="bg-slate-900 p-2 group-hover:bg-slate-800/80 transition-colors">
@@ -697,7 +724,7 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                         <span className="text-xs font-mono font-bold text-amber-400">${ev.options.maxPain}</span>
                                     </div>
                                     <div className="bg-slate-900 p-2 group-hover:bg-slate-800/80 transition-colors">
-                                        <span className="text-[9px] text-slate-500 block">Put Floor</span>
+                                        <span className="text-[9px] text-slate-500 block">Stop Loss Support (Put Floor)</span>
                                         <span className="text-xs font-mono font-bold text-rose-400">${ev.options.putFloor}</span>
                                     </div>
                                 </div>
@@ -705,8 +732,12 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                 {/* GEX / PCR */}
                                 <div className="grid grid-cols-2 gap-4 bg-slate-900 border border-slate-800 rounded p-3">
                                     <div>
-                                        <span className="text-[9px] text-slate-500 uppercase font-bold">Gamma Regime</span>
-                                        <div className="text-xs font-bold text-slate-200 mt-1">{ev.options.gammaRegime}</div>
+                                        <span className="text-[9px] text-slate-500 uppercase font-bold">Volatility State</span>
+                                        <div className="text-xs font-bold text-slate-200 mt-1">
+                                            {ev.options.gammaRegime === 'Long Gamma' ? 'Support/Resistance Play (가두리)' :
+                                                ev.options.gammaRegime === 'Short Gamma' ? 'Breakout Ready (변동성 확대)' :
+                                                    ev.options.gammaRegime}
+                                        </div>
                                         <div className="text-[10px] text-slate-500 font-mono">GEX: ${ev.options.gex.toFixed(2)}M</div>
                                     </div>
                                     <div className="text-right">
@@ -770,6 +801,14 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
 // ============================================================================
 // MAIN PAGE COMPONENT
 // ============================================================================
+// Helper for date formatting (YYYY-MM-DD) in local time roughly or UTC
+const formatDateKey = (d: Date) => {
+    // We want the simple YYYY-MM-DD string.
+    // To safe, we can use local time if the user is in US, but simple ISO split is usually fine for "Date selected".
+    // Better: use simple string construction to avoid timezone shifts if possible, or just ISO.
+    return d.toISOString().split('T')[0];
+};
+
 function Tier01Content() {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -778,10 +817,11 @@ function Tier01Content() {
     // State
     const [report, setReport] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
     const [selectedTicker, setSelectedTicker] = useState<TickerItem | null>(null);
 
-    // [13.1] Timeline State
-    const [selectedDate, setSelectedDate] = useState<string | null>(null);
+    // [13.1] Timeline State (Time Machine)
+    const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
     // Fetch Data
     useEffect(() => {
@@ -790,77 +830,50 @@ function Tier01Content() {
         async function loadData() {
             setIsLoading(true);
             try {
-                let url = '/api/reports/latest?type=morning';
+                const targetDate = formatDateKey(currentDate);
+                const todayStr = formatDateKey(new Date());
+                const isToday = targetDate === todayStr;
 
-                // [13.1] Historical Fetch
-                if (selectedDate) {
-                    // Try EOD first for history, then OPEN, then PRE
-                    // We need a specific endpoint or just use report?date&type
-                    // Since specific endpoint isn't fully robust for 'get best type for date', 
-                    // we might want a new param or just try EOD.
-                    // Ideally: /api/reports/archive?date=YYYY-MM-DD
-                    // For now, let's try strict EOD for history as it's most complete
-                    // But wait, user wants to see what happened.
-                    // Let's assume fetching 'eod' for history is best.
-                    // But if it's today, we want latest.
+                let url = '';
 
-                    // Actually, let's refine this to just look for EOD for past dates
-                    // We can reuse the loadReport logic if we expose an endpoint.
-                    // Current /api/reports/latest only does LATEST.
-                    // We need /api/reports/get?date=...&type=...
-                    // Let's add 'date' param support to /api/cron/report check or create a reader endpoint.
-                    // Or simpler: /api/reports/content?date=...&type=... (need to create this potentially?)
+                // If Today, prefer Archive if available (for uniformity) or Latest
+                // Start with Archive logic for all.
+                url = `/api/reports/archive?date=${targetDate}`;
 
-                    // WAIT: I don't have a direct "read report by date" endpoint exposed yet except for cron (which generates).
-                    // I should probably add a generic reader endpoint or modify /api/reports/latest to accept date.
-                    // Let's modify /api/reports/latest to be /api/reports/read and accept date.
-                    // But I cannot modify existing routes easily without breaking.
-
-                    // Let's assume for now I will add a `date` query param to the fetching logic 
-                    // and I will need to IMPLEMENT that in the API next step.
-                    // So I will write this code assuming /api/reports/read exists or similar.
-                    // Actually, let's use /api/reports/latest?date=YYYY-MM-DD (I'll implement date support there).
-
-                    url = `/api/reports/read?date=${selectedDate}&type=eod`;
-                }
-
-                // 1. Try Fetching
                 const res = await fetch(url, { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
                     if (isMounted) {
                         setReport(data);
-                        setIsLoading(false);
+                        setError(null);
                     }
-                    return;
-                }
-
-                // If historical EOD failed (maybe it's Sunday?), try OPEN
-                if (selectedDate) {
-                    const resOpen = await fetch(`/api/reports/read?date=${selectedDate}&type=open`, { cache: 'no-store' });
-                    if (resOpen.ok) {
-                        const data = await resOpen.json();
-                        if (isMounted) {
-                            setReport(data);
-                            setIsLoading(false);
+                } else {
+                    // Fallback logic if needed, e.g. if today and not archived yet, try latest
+                    if (isToday) {
+                        const resLatest = await fetch('/api/reports/latest?type=morning');
+                        if (resLatest.ok) {
+                            const data = await resLatest.json();
+                            if (isMounted) {
+                                setReport(data);
+                                setError(null);
+                            }
+                        } else {
+                            if (isMounted) {
+                                setReport(null);
+                                setError("No report available for this date.");
+                            }
                         }
-                        return;
-                    }
-                }
-
-                if (!selectedDate) {
-                    // Start with Morning/Pre
-                    const resEod = await fetch('/api/reports/latest?type=eod', { cache: 'no-store' });
-                    if (resEod.ok) {
-                        const data = await resEod.json();
+                    } else {
                         if (isMounted) {
-                            setReport(data);
-                            setIsLoading(false);
+                            setReport(null);
+                            setError("No archive found for this date.");
                         }
                     }
                 }
+
             } catch (e) {
                 console.error("Failed to load report", e);
+                if (isMounted) setError("Connection failed.");
             } finally {
                 if (isMounted) setIsLoading(false);
             }
@@ -868,8 +881,8 @@ function Tier01Content() {
 
         loadData();
 
-        // only auto-refresh if looking at latest
-        if (!selectedDate) {
+        // Auto-refresh only if viewing today
+        if (formatDateKey(currentDate) === formatDateKey(new Date())) {
             const interval = setInterval(loadData, 60 * 1000);
             return () => {
                 isMounted = false;
@@ -878,99 +891,77 @@ function Tier01Content() {
         }
 
         return () => { isMounted = false; };
-    }, [selectedDate]);
-    // 3. Trigger Auto-Seeding (Background) - Only on initial load if no data
-    useEffect(() => {
-        if (!report && !selectedDate) {
-            console.log("[Tier01] Triggering on-demand seed check...");
-            fetch('/api/seed/morning', { method: 'POST' }).catch(e => console.error(e));
-        }
-    }, []);
+    }, [currentDate]);
 
     // Derived Lists
     const items: TickerItem[] = report?.items || [];
-    // Ensure Top 3 are actually the ones ranked 1, 2, 3
-    const top3 = items.filter(i => (i as any).rank <= 3).sort((a, b) => ((a as any).rank || 99) - ((b as any).rank || 99));
-    const alpha12 = items.sort((a, b) => ((a as any).rank || 99) - ((b as any).rank || 99));
+    // Enhanced Logic: Explicitly get ranks 1-3, 4-10, 11-12
+    const sortedItems = [...items].sort((a, b) => ((a as any).rank || 99) - ((b as any).rank || 99));
+
+    const top3 = sortedItems.slice(0, 3);
+    const middle7 = sortedItems.slice(3, 10);
+    const moonshot = sortedItems.slice(10, 12); // Ranks 11, 12
+
+    // Check if we are in a "Locked/Final" state to show the Tactical UI fully
+    // We treat Final or Revised as tactical-ready.
+    const isTacticalView = report?.type === 'final' || report?.type === 'revised' || sortedItems.length > 0;
 
     // Market Context Cards (derived from report.macro/sentiment)
-    // We construct these dynamically based on the fetched report data
     const marketCards: EvidenceCard[] = [];
-
     if (report) {
-        // 1. Regime Card
-        const regime = report.engine?.regime || "NEUTRAL";
+        // [Phase 40] 1. Regime Card (Refactored for QQQ Proxy)
+        const engineRegime = report.engine?.regime; // RISK_ON, RISK_OFF, NEUTRAL
+        // Native Data path: macro.regime_proxy (containing QQQ trend)
+        const proxy = report.macro?.regime_proxy || {};
+        const isBullish = proxy.trend === 'BULLISH';
+
         marketCards.push({
             id: "regime",
             title: "MARKET REGIME",
             titleKR: "시장 국면",
-            meaning: "시장 전체의 위험 선호도",
-            interpretation: report.engine?.regimeReasonKR || "데이터 분석 중...",
-            action: regime === "RISK_ON" ? "비중 확대" : regime === "RISK_OFF" ? "리스크 관리" : "선별 대응",
+            meaning: "QQQ 기준 시장 추세 (Proxy)",
+            interpretation: proxy.message || `Trend: ${proxy.trend || engineRegime}`,
+            action: engineRegime === "RISK_ON" ? "비중 확대" : engineRegime === "RISK_OFF" ? "리스크 관리" : "선별 대응",
             confidence: "A",
             icon: <Activity />,
-            status: regime === "RISK_ON" ? "BULLISH" : regime === "RISK_OFF" ? "BEARISH" : "NEUTRAL",
+            status: isBullish ? "BULLISH" : "BEARISH", // Strict Bull/Bear
             meta: { fetchedAtET: report.meta?.generatedAtET }
         });
 
-        // 2. Policy/Event Card (Combined or Highest Priority)
-        const events = report.events?.events || [];
-        const policies = report.policy?.policies72h || [];
-        const highRiskEvents = events.filter((e: any) => e.importance === "HIGH");
-        const p0Policies = policies.filter((p: any) => p.category === "P0");
+        // [Phase 40] 2. Market Status / Events (Native marketStatus)
+        const marketStatus = report.meta?.marketStatus || {};
+        const isClosed = marketStatus.state === 'CLOSED';
 
-        if (p0Policies.length > 0) {
-            marketCards.push({
-                id: "policy",
-                title: "POLICY GATE",
-                titleKR: "정책 리스크",
-                meaning: "행정명령 및 규제 충돌",
-                interpretation: `P0급 충돌: ${p0Policies[0].titleKR}`,
-                action: "신규 진입 금지",
-                confidence: "A",
-                icon: <Shield />,
-                status: "BEARISH"
-            });
-        } else if (highRiskEvents.length > 0) {
-            marketCards.push({
-                id: "event",
-                title: "MACRO EVENT",
-                titleKR: "주요 이벤트",
-                meaning: "경제 지표 발표 및 연준 일정",
-                interpretation: `${highRiskEvents[0].nameKR} 등 ${highRiskEvents.length}건`,
-                action: "변동성 주의",
-                confidence: "B",
-                icon: <Clock />,
-                status: "NEUTRAL"
-            });
-        } else {
-            // Default if quiet
-            marketCards.push({
-                id: "macro_ok",
-                title: "MACRO",
-                titleKR: "거시 환경",
-                meaning: "주요 경제 이벤트 및 정책",
-                interpretation: "특이사항 없음 (72h)",
-                action: "전략 정상 실행",
-                confidence: "A",
-                icon: <Zap />,
-                status: "BULLISH"
-            });
-        }
-
-        // 3. Options Status Card
-        const optState = report.meta?.optionsStatus?.state || "UNKNOWN";
-        const optCov = report.meta?.optionsStatus?.coveragePct || 0;
         marketCards.push({
-            id: "options",
-            title: "OPTIONS",
-            titleKR: "옵션 시장",
-            meaning: "파생상품 수급 및 구조",
-            interpretation: `커버리지 ${optCov}% (${optState})`,
-            action: optState === "READY" ? "레벨 신뢰 가능" : "보수적 운용",
-            confidence: optState === "READY" ? "A" : "C",
-            icon: <BarChart3 />,
-            status: optState === "READY" ? "BULLISH" : optState === "FAILED" ? "PENDING" : "NEUTRAL"
+            id: "event",
+            title: "MARKET STATUS",
+            titleKR: "마켓 상태",
+            meaning: "거래소 개장 및 휴장 정보",
+            interpretation: isClosed
+                ? `CLOSED (Next: ${marketStatus.next_open || 'Unknown'})`
+                : `OPEN (Close in ${marketStatus.time_until_close || '??'})`,
+            action: isClosed ? "주문 예약" : "실시간 대응",
+            confidence: "A",
+            icon: <Clock />,
+            status: isClosed ? "NEUTRAL" : "BULLISH"
+        });
+
+        // [Phase 40] 3. Rates (US10Y) - Replacing Options Card
+        const us10y = report.macro?.us10y; // Should be { level, chgAbs }
+        const rateVal = us10y?.level || 0;
+        const rateChg = us10y?.chgAbs || 0;
+        const isRateRising = rateChg > 0; // Rising rates usually bad for tech
+
+        marketCards.push({
+            id: "rates",
+            title: "RATES (10Y)",
+            titleKR: "미국채 10년물",
+            meaning: "무위험 수익률 (Valuation 압박)",
+            interpretation: `${rateVal.toFixed(2)}% (${rateChg > 0 ? '+' : ''}${rateChg.toFixed(2)})`,
+            action: isRateRising ? "Valuation 주의" : "우호적 환경",
+            confidence: "A",
+            icon: <BarChart3 />, // Or DollarSign
+            status: isRateRising ? "BEARISH" : "BULLISH"
         });
     }
 
@@ -978,47 +969,58 @@ function Tier01Content() {
     const regime = report?.engine?.regime || "NEUTRAL";
 
     return (
-        <main className="min-h-screen bg-slate-950 font-sans selection:bg-emerald-500/30 selection:text-emerald-200">
+        <main className="min-h-screen bg-[#050510] font-sans selection:bg-emerald-500/30 selection:text-emerald-200 relative overflow-hidden">
+            {/* Background Effects */}
+            <div className="fixed inset-0 pointer-events-none">
+                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-900/10 rounded-full blur-[128px]" />
+                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-900/10 rounded-full blur-[128px]" />
+            </div>
+
             {isDebug && (
                 <div className="fixed top-0 left-0 right-0 h-1 bg-indigo-500 z-[200]" title="Debug Mode Active" />
             )}
 
             <LandingHeader />
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12 relative z-10">
 
-                {/* 1. HEADER & MARKET CONTEXT */}
+                {/* 1. HEADER & ARCHIVE CONTROLS */}
                 <section>
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-6 gap-4">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 pb-6 border-b border-slate-800/50">
                         <div>
-                            <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-3">
-                                Alpha12 Terminal
+                            <h1 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
+                                <Target className="w-8 h-8 text-emerald-500" />
+                                STOCK2 DIRECTIVE
                                 <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${getRegimeColor(regime)}`}>
                                     {getRegimeText(regime)}
                                 </span>
                             </h1>
-                            <div className="text-sm text-slate-400 mt-1 flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                                Unified Output • {report?.meta?.generatedAtET || <Skeleton className="w-16 h-3 inline-block" />}
+                            <div className="text-sm text-slate-400 mt-2 flex items-center gap-2 font-medium">
+                                <span className={`w-2 h-2 rounded-full ${report ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-600'} animate-pulse`} />
+                                Systems Online • {report?.meta?.generatedAtET || "Connecting..."}
                             </div>
                         </div>
-                        {/* Debug & Meta */}
-                        <div className="flex items-center gap-3">
-                            <div className="text-right hidden md:block">
-                                <span className="block text-[10px] text-slate-500 font-bold uppercase tracking-wider">PIPELINE</span>
-                                <span className="block text-xs font-mono text-slate-300">{report?.meta?.pipelineVersion || "v--"}</span>
-                            </div>
-                        </div>
+
+                        {/* Archive Component */}
+                        <ReportArchive
+                            currentDate={currentDate}
+                            onDateChange={setCurrentDate}
+                            stage={report?.type}
+                            isLoading={isLoading}
+                        />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {isLoading ? (
                             [1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-900 rounded border border-slate-800 animate-pulse" />)
+                        ) : error ? (
+                            <div className="col-span-3 text-center p-8 border border-rose-900/50 bg-rose-900/10 rounded text-rose-400 text-sm">
+                                {error}
+                            </div>
                         ) : (
                             marketCards.map(card => <EvidenceCardUI key={card.id} card={card} />)
                         )}
-                        {/* Fallback if no cards yet (loading or empty report) */}
-                        {!isLoading && marketCards.length === 0 && (
+                        {!isLoading && !error && marketCards.length === 0 && (
                             <div className="col-span-3 text-center p-8 border border-slate-800 border-dashed rounded text-slate-500 text-sm">
                                 Waiting for Market Snapshot...
                             </div>
@@ -1026,11 +1028,11 @@ function Tier01Content() {
                     </div>
                 </section>
 
-                {/* 2. TOP 3 ALPHA */}
+                {/* 2. TOP 3 ALPHA (TACTICAL HERO SECTION) */}
                 <section>
                     <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
                         <Zap className="w-5 h-5 text-amber-400" />
-                        Alpha Picks (Top 3)
+                        Tactical Alpha (Top 3)
                     </h2>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         {isLoading ? (
@@ -1038,28 +1040,33 @@ function Tier01Content() {
                         ) : (
                             top3.map((item, idx) => (
                                 <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
-                                    <Top3Card item={item} rank={idx + 1} />
+                                    <TacticalCard
+                                        ticker={item.ticker}
+                                        rank={idx + 1}
+                                        price={item.evidence.price.last}
+                                        change={item.evidence.price.changePct}
+                                        entryBand={item.decisionSSOT?.entryBand}
+                                        cutPrice={item.decisionSSOT?.cutPrice}
+                                        isLocked={item.decisionSSOT?.isLocked}
+                                        name={item.symbol}
+                                        rsi={item.evidence.price.rsi14}
+                                        score={item.alphaScore}
+                                        isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
+                                    />
                                 </div>
                             ))
                         )}
                     </div>
                 </section>
 
-                {/* 3. ALPHA 12 SCAN TABLE */}
+                {/* 3. ALPHA 12 SCAN TABLE (Places 4-10 + Generic fallback for top 3 if tactical fails) */}
+                {/* Visual Logic: We display Middle 7 here. */}
                 <section>
                     <div className="flex justify-between items-center mb-4">
                         <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
                             <Search className="w-5 h-5 text-slate-400" />
-                            Live Scan
+                            Live Scan (Core)
                         </h2>
-                        <div className="flex gap-4">
-                            <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Options Ready
-                            </span>
-                            <span className="text-[10px] text-slate-500 flex items-center gap-1.5">
-                                <div className="w-1.5 h-1.5 rounded-full bg-slate-600" /> No Data
-                            </span>
-                        </div>
                     </div>
 
                     <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-sm">
@@ -1079,45 +1086,28 @@ function Tier01Content() {
                                 </thead>
                                 <tbody className="divide-y divide-slate-800/50">
                                     {isLoading ? (
-                                        [1, 2, 3, 4, 5].map(i => (
-                                            <tr key={i}>
-                                                <td colSpan={8} className="p-4"><Skeleton className="h-12 w-full" /></td>
-                                            </tr>
+                                        [1, 2, 3].map(i => (
+                                            <tr key={i}><td colSpan={8} className="p-4"><Skeleton className="h-12 w-full" /></td></tr>
                                         ))
                                     ) : (
-                                        alpha12.map((item, idx) => {
+                                        middle7.map((item, idx) => {
                                             const ev = item.evidence;
-
-                                            // Safety check: if ev is missing (legacy report), fallback
                                             if (!ev) return null;
-
                                             const optStatus = getOptionsStatus(ev.options?.status);
                                             const actStyle = getActionStyle(item.decisionSSOT?.action);
-                                            const isTop3 = idx < 3;
-
-                                            // Debug highlighting
-                                            const rowBg = isDebug && ev.options?.backfilled ? "bg-indigo-950/10" : isTop3 ? "bg-slate-800/30 hover:bg-slate-800/60" : "hover:bg-slate-800/50";
+                                            // Real rank is offset by 3 since we sliced from 3
+                                            const realRank = (item as any).rank || (idx + 4);
 
                                             return (
                                                 <tr key={item.ticker}
                                                     onClick={() => setSelectedTicker(item)}
-                                                    className={`cursor-pointer transition-colors group ${rowBg}`}
+                                                    className={`cursor-pointer transition-colors group hover:bg-slate-800/50`}
                                                 >
-                                                    <td className={`p-4 text-center font-mono text-xs ${isTop3 ? "font-bold text-white" : "text-slate-500"}`}>
-                                                        {(item as any).rank || idx + 1}
+                                                    <td className="p-4 text-center font-mono text-xs text-slate-500">
+                                                        {realRank}
                                                     </td>
                                                     <td className="p-4">
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 bg-white rounded-full p-0.5 flex-shrink-0 shadow-sm">
-                                                                <img
-                                                                    src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
-                                                                    className="w-full h-full object-contain rounded-full"
-                                                                    onError={(e) => {
-                                                                        e.currentTarget.style.display = 'none';
-                                                                        e.currentTarget.parentElement!.style.backgroundColor = '#334155';
-                                                                    }}
-                                                                />
-                                                            </div>
                                                             <div>
                                                                 <span className="block text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{item.ticker}</span>
                                                                 <span className="block text-[10px] text-slate-500">{item.symbol || item.ticker}</span>
@@ -1125,10 +1115,7 @@ function Tier01Content() {
                                                         </div>
                                                     </td>
                                                     <td className="p-4 text-right">
-                                                        <span className={`font-mono font-bold text-sm ${(item.alphaScore || 0) > 80 ? "text-emerald-400" : (item.alphaScore || 0) > 50 ? "text-slate-300" : "text-slate-500"
-                                                            }`}>
-                                                            {item.alphaScore?.toFixed(0) || "-"}
-                                                        </span>
+                                                        <span className="font-mono font-bold text-sm text-slate-300">{item.alphaScore?.toFixed(0) || "-"}</span>
                                                     </td>
                                                     <td className="p-4 text-right">
                                                         <div className="flex flex-col items-end">
@@ -1140,19 +1127,16 @@ function Tier01Content() {
                                                     </td>
                                                     <td className="p-4 text-right">
                                                         <div className="flex flex-col items-end">
+                                                            {/* Snippet Logic: XAI Snippet or Flow */}
                                                             {ev.flow.complete ? (
                                                                 <>
-                                                                    <span className={`text-xs font-mono ${(ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : "text-slate-500"}`}>
-                                                                        ${(ev.flow.largeTradesUsd / 1000000).toFixed(1)}M
-                                                                    </span>
-                                                                    <span className="text-[10px] text-slate-500">
-                                                                        OffEx {ev.flow.offExPct.toFixed(0)}%
+                                                                    <span className={`text-xs font-mono ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-500"}`}>
+                                                                        {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1000000).toFixed(1)}M` : "-"}
                                                                     </span>
                                                                 </>
                                                             ) : (
-                                                                <span className="text-[10px] font-mono text-emerald-500 animate-pulse flex items-center gap-1">
-                                                                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
-                                                                    Scanning...
+                                                                <span className="text-[10px] font-mono text-slate-500">
+                                                                    {ev.options?.pcr > 0 ? `PCR ${ev.options.pcr.toFixed(2)}` : "Waiting for Whales"}
                                                                 </span>
                                                             )}
                                                         </div>
@@ -1162,22 +1146,16 @@ function Tier01Content() {
                                                     </td>
                                                     <td className="p-4 hidden md:table-cell">
                                                         <div className="flex flex-wrap gap-1 justify-end md:justify-start">
-                                                            {(item.decisionSSOT?.triggersKR || []).slice(0, 2).map((t, i) => (
+                                                            {(item.decisionSSOT?.triggersKR || []).slice(0, 1).map((t, i) => (
                                                                 <span key={i} className="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] text-slate-400 border border-slate-700 whitespace-nowrap">
                                                                     {t}
                                                                 </span>
                                                             ))}
-                                                            {(item.decisionSSOT?.triggersKR?.length || 0) > 2 && (
-                                                                <span className="text-[9px] text-slate-600">+{(item.decisionSSOT?.triggersKR?.length || 0) - 2}</span>
-                                                            )}
-                                                            {(item.decisionSSOT?.triggersKR?.length || 0) === 0 && (
-                                                                <span className="text-[9px] text-slate-700">-</span>
-                                                            )}
                                                         </div>
                                                     </td>
                                                     <td className="p-4 text-center">
                                                         <span className={`px-2 py-1 rounded text-[10px] font-bold border ${actStyle}`}>
-                                                            {item.decisionSSOT?.action || "WAIT"}
+                                                            {item.decisionSSOT?.action || "WATCH"}
                                                         </span>
                                                     </td>
                                                 </tr>
@@ -1190,7 +1168,62 @@ function Tier01Content() {
                     </div>
                 </section>
 
-                {/* 4. FOOTER / DEBUG INFO */}
+                {/* 4. MOONSHOT SECTION (10+2) */}
+                {moonshot.length > 0 && (
+                    <section>
+                        <h2 className="text-lg font-bold text-rose-200 mb-4 flex items-center gap-2">
+                            <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
+                            Moonshot Zone (High Risk)
+                        </h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {moonshot.map((item, idx) => (
+                                <div key={item.ticker}
+                                    onClick={() => setSelectedTicker(item)}
+                                    className="cursor-pointer bg-slate-900/50 border border-rose-900/40 rounded-xl p-6 relative overflow-hidden group hover:border-rose-500/50 transition-colors">
+
+                                    <div className="absolute top-0 right-0 p-2 opacity-50">
+                                        <Activity className="w-12 h-12 text-rose-900/20" />
+                                    </div>
+
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-8 rounded-full bg-rose-950 flex items-center justify-center border border-rose-900 text-rose-500 font-bold font-mono">
+                                                {(item as any).rank || (idx + 11)}
+                                            </div>
+                                            <div>
+                                                <div className="text-xl font-black text-white">{item.ticker}</div>
+                                                <div className="text-[10px] text-rose-400/80 font-bold uppercase tracking-wider">Gamma Play</div>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className="text-lg font-mono text-rose-200">${item.evidence.price.last.toFixed(2)}</div>
+                                            <div className={`text-xs font-bold ${item.evidence.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                {item.evidence.price.changePct > 0 ? "+" : ""}{item.evidence.price.changePct.toFixed(2)}%
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between text-xs border-t border-rose-900/30 pt-2">
+                                            <span className="text-slate-500">RSI (14)</span>
+                                            <span className="text-slate-300 font-mono">
+                                                {item.evidence.price.rsi14 && item.evidence.price.rsi14 !== 50
+                                                    ? item.evidence.price.rsi14.toFixed(0)
+                                                    : "--"}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between text-xs">
+                                            <span className="text-slate-500">Target</span>
+                                            <span className="text-rose-300 font-mono">${(item.evidence.price.last * 1.15).toFixed(2)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* 5. FOOTER / DEBUG INFO */}
                 {isDebug && report && (
                     <section className="bg-slate-900 p-4 rounded border border-indigo-500/30 overflow-x-auto">
                         <h3 className="text-xs font-bold text-indigo-400 mb-2 font-mono">DEBUG INSPECTOR (?debug=1)</h3>
@@ -1220,6 +1253,7 @@ function Tier01Content() {
             </div>
 
             {/* DRAWER PORTAL */}
+            // Note: In Next.js App Router we might prefer a parallel route or context, but inline conditional is fine for this scale.
             {selectedTicker && (
                 <TickerEvidenceDrawer item={selectedTicker} onClose={() => setSelectedTicker(null)} />
             )}

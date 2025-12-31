@@ -13,6 +13,8 @@ import {
 } from "./marketDaySSOT";
 import { getBuildId, getEnvType } from "./buildIdSSOT";
 
+import { CentralDataHub } from "./centralDataHub";
+
 // --- Types ---
 export interface TickerOverviewMeta {
     buildId: string;
@@ -22,6 +24,7 @@ export interface TickerOverviewMeta {
 
 export interface TickerPriceData {
     last: number | null;
+    volume?: number; // [Phase 25]
     changePct: number | null;
     changeAbs: number | null;
     vwap: number | null;
@@ -35,8 +38,10 @@ export interface TickerPriceData {
     open?: number;
     prevClose?: number;
     // [S-56.4.6] Extended session data
+    todayClose?: number; // [Phase 23]
     afterHoursLast?: number;
     preMarketLast?: number;
+    priceSource?: "OFFICIAL_CLOSE" | "LIVE_SNAPSHOT" | "POST_CLOSE" | "PRE_OPEN"; // [Phase 25.1]
 }
 
 export interface TickerIndicators {
@@ -212,103 +217,68 @@ export async function getTickerOverview(
     };
 
     // --- 1. Fetch Price Snapshot ---
+    // --- 1. Fetch Central Data (SSOT) ---
+    // [Phase 25.1] Use CentralDataHub to prevent Split Brain
     try {
-        const snapshot = await fetchMassive(
-            `/v2/snapshot/locale/us/markets/stocks/tickers/${tickerUpper}`,
-            {},
-            false,
-            undefined,
-            CACHE_POLICY.LIVE
-        );
+        const unified = await CentralDataHub.getUnifiedData(tickerUpper);
+        const S = unified.snapshot || {};
+        const day = S.day || {};
+        const prevDay = S.prevDay || {};
 
-        const tick = snapshot?.ticker;
-        if (tick) {
-            const day = tick.day || {};
-            const prevDay = tick.prevDay || {};
-            const lastTrade = tick.lastTrade || {};
+        // Price Mapping
+        result.price.last = unified.price;
+        result.price.changePct = unified.changePct;
+        result.price.changeAbs = (unified.price && unified.prevClose) ? unified.price - unified.prevClose : null;
+        result.price.prevClose = unified.prevClose;
+        result.price.open = day.o || prevDay.o || null; // Fallback to prev
+        result.price.high = day.h || prevDay.h || null;
+        result.price.low = day.l || prevDay.l || null;
+        result.price.volume = unified.volume;
+        result.price.priceSource = unified.priceSource; // [New]
 
-            // [Phase 23] Session-Aware Main Price Selection
-            // - PRE: Use preMarket price if available
-            // - REG: Use lastTrade (current trading) or today's close
-            // - POST/CLOSED: Use afterHours price if available
-            const todayClose = day.c || null;
-            const afterHoursPrice = tick.afterHours?.p || null;
-            const preMarketPrice = tick.preMarket?.p || null;
-            const regularPrice = lastTrade.p || todayClose || prevDay.c || null;
-
-            // Select main display price based on session
-            let mainPrice = regularPrice; // Default fallback
-            if (sessionInfo.badge === 'POST' || sessionInfo.badge === 'CLOSED') {
-                // Post-Market/Closed: Prefer afterHours, fallback to regular
-                mainPrice = afterHoursPrice || todayClose || regularPrice;
-            } else if (sessionInfo.badge === 'PRE') {
-                // Pre-Market: Prefer preMarket, fallback to prevClose
-                mainPrice = preMarketPrice || prevDay.c || regularPrice;
-            } else {
-                // Regular session: Use live trading price
-                mainPrice = lastTrade.p || todayClose || regularPrice;
-            }
-
-            result.price.last = mainPrice;
-            result.price.open = day.o || prevDay.o || null;
-            result.price.high = day.h || prevDay.h || null;
-            result.price.low = day.l || prevDay.l || null;
-            result.price.prevClose = prevDay.c || null;
-
-            // [Phase 23] Session-Aware Change Calculation
-            // - Pre-Market: Change vs prevClose (yesterday's close)
-            // - Regular: Change vs prevClose (yesterday's close)
-            // - Post-Market/Closed: Change vs today's close (day.c)
-            let changeBase: number | null = result.price.prevClose || null;
-
-            // For POST/CLOSED session, use today's close as the reference
-            if ((sessionInfo.badge === 'POST' || sessionInfo.badge === 'CLOSED') && todayClose) {
-                changeBase = todayClose;
-            }
-
-            if (result.price.last && changeBase) {
-                result.price.changeAbs = result.price.last - changeBase;
-                result.price.changePct = (result.price.changeAbs / changeBase) * 100;
-            }
-
-            // Extended hours data (for badge display)
-            if (preMarketPrice) result.price.preMarketLast = preMarketPrice;
-            if (afterHoursPrice) result.price.afterHoursLast = afterHoursPrice;
-
-            diagnostics.price = {
-                ok: result.price.last !== null,
-                updatedAtISO: tick.updated ? new Date(tick.updated / 1000000).toISOString() : fetchedAt
-            };
-            if (!result.price.last) {
-                diagnostics.price.code = "NO_DATA";
-                diagnostics.price.reasonKR = "가격 데이터 없음 (스냅샷 비어있음)";
-            }
-
-            // VWAP
-            if (day.vw && day.vw > 0) {
-                result.price.vwap = day.vw;
-                diagnostics.vwap = { ok: true, value: day.vw, updatedAtISO: fetchedAt };
-            } else if (prevDay.vw && prevDay.vw > 0) {
-                result.price.vwap = prevDay.vw;
-                result.price.vwapReasonKR = "전일 VWAP (당일 거래량 부족)";
-                diagnostics.vwap = { ok: true, value: prevDay.vw, reasonKR: result.price.vwapReasonKR, updatedAtISO: fetchedAt };
-            } else {
-                result.price.vwap = null;
-                result.price.vwapReasonKR = "VWAP 불가: 거래량 데이터 없음";
-                diagnostics.vwap = { ok: false, code: "NO_VOLUME", reasonKR: result.price.vwapReasonKR };
-            }
-
-            result.price.updatedAtISO = tick.updated ? new Date(tick.updated / 1000000).toISOString() : fetchedAt;
+        // Session Source Mapping
+        // Map CentralDataHub "pre_open" | "post_close" | "official_close" | "live_snapshot"
+        // to TickerPriceData "session" badge: REG | PRE | POST | CLOSED
+        if (unified.priceSource === "OFFICIAL_CLOSE") {
+            result.price.session = "CLOSED";
+            result.price.sessionReasonKR = "정규장 마감 (공식 종가)";
+        } else if (unified.priceSource === "POST_CLOSE") {
+            result.price.session = "POST";
+            result.price.sessionReasonKR = "시간외 거래 (Post-Market)";
+        } else if (unified.priceSource === "PRE_OPEN") {
+            result.price.session = "PRE";
+            result.price.sessionReasonKR = "장전 거래 (Pre-Market)";
         } else {
-            diagnostics.price = { ok: false, code: "EMPTY_RESPONSE", reasonKR: "스냅샷 응답이 비어있습니다" };
-            diagnostics.vwap = { ok: false, code: "NO_SNAPSHOT", reasonKR: "스냅샷 없음으로 VWAP 계산 불가" };
+            result.price.session = "REG";
+            result.price.sessionReasonKR = "정규장 진행 중";
         }
+
+        // VWAP
+        if (day.vw && day.vw > 0) {
+            result.price.vwap = day.vw;
+            diagnostics.vwap = { ok: true, value: day.vw, updatedAtISO: fetchedAt };
+        } else {
+            result.price.vwap = null; // Basic fallback
+            diagnostics.vwap = { ok: false, code: "NO_VWAP_YET", reasonKR: "당일 거래량 부족" };
+        }
+
+        // Extended Hours (Pass through if available in snapshot)
+        if (S.preMarket?.p) result.price.preMarketLast = S.preMarket.p;
+        if (S.afterHours?.p) result.price.afterHoursLast = S.afterHours.p;
+
+        diagnostics.price = {
+            ok: unified.price > 0,
+            updatedAtISO: fetchedAt,
+            dataSource: "CentralDataHub"
+        };
+
+        // Options from CentralDataHub (Basic Flow)
+        // Note: CentralDataHub returns PREMIUM flow but not structure (yet).
+        // We still need detailed structure below, but we can use this for basic check.
+
     } catch (e: any) {
-        const errInfo = extractErrorInfo(e);
-        console.error(`[tickerOverview] Price fetch error for ${tickerUpper}:`, errInfo);
-        diagnostics.price = { ok: false, code: errInfo.code, reasonKR: errInfo.reasonKR };
-        diagnostics.vwap = { ok: false, code: errInfo.code, reasonKR: `가격 조회 실패로 VWAP 불가: ${errInfo.reasonKR}` };
-        result.price.vwapReasonKR = diagnostics.vwap.reasonKR;
+        console.error(`[tickerOverview] CentralDataHub Error for ${tickerUpper}:`, e);
+        diagnostics.price = { ok: false, code: "HUB_ERROR", reasonKR: "데이터 허브 연동 실패" };
     }
 
     // --- 2. Fetch Company Info ---

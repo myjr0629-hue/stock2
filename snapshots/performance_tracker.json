@@ -275,26 +275,53 @@
   {
     "date": "2025-12-29",
     "reportType": "morning",
-    "sessionType": "regular",
-    "timestamp": "2025-12-30T01:12:08.280Z",
+    "sessionType": "pre",
+    "timestamp": "2025-12-30T12:56:23.375Z",
     "tickers": [
       {
-        "symbol": "AMZN",
-        "rank": 1,
-        "baselinePrice": 231.8262,
-        "alphaScore": 44.961686890732146
-      },
-      {
         "symbol": "NVDA",
-        "rank": 2,
-        "baselinePrice": 187.7,
-        "alphaScore": 44.89313783957636
+        "rank": 1,
+        "baselinePrice": 188.54,
+        "alphaScore": 70
       },
       {
         "symbol": "GOOGL",
+        "rank": 2,
+        "baselinePrice": 313.47,
+        "alphaScore": 70
+      },
+      {
+        "symbol": "TSLA",
         "rank": 3,
-        "baselinePrice": 313.12,
-        "alphaScore": 44.55191034721212
+        "baselinePrice": 462.6,
+        "alphaScore": 70
+      }
+    ],
+    "calculated": false
+  },
+  {
+    "date": "2025-12-29",
+    "reportType": "draft",
+    "sessionType": "pre",
+    "timestamp": "2025-12-30T13:57:28.903Z",
+    "tickers": [
+      {
+        "symbol": "TSLA",
+        "rank": 1,
+        "baselinePrice": 462.92,
+        "alphaScore": 18.51304281611696
+      },
+      {
+        "symbol": "META",
+        "rank": 2,
+        "baselinePrice": 659.3451,
+        "alphaScore": 17.323909957643185
+      },
+      {
+        "symbol": "NVDA",
+        "rank": 3,
+        "baselinePrice": 188.42,
+        "alphaScore": 17.31626554032516
       }
     ],
     "calculated": false

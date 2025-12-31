@@ -1,12 +1,9 @@
 // [P1] /api/cron/events - Economic Calendar Refresh
-// Refreshes events:macro:14d from static JSON (MVP) or external API
+// Refreshes events:macro:14d from Massive API via EventHubProvider
 
 import { NextRequest, NextResponse } from "next/server";
 import { saveEventsToRedis, StoredEvent } from "@/lib/storage/eventStore";
-import path from "path";
-import fs from "fs";
-
-const STATIC_DATA_PATH = path.join(process.cwd(), 'src', 'data', 'events.static.json');
+import { getUpcomingEvents } from "@/services/eventHubProvider";
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -18,25 +15,21 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-        // MVP: Load from static JSON
-        let events: StoredEvent[] = [];
-
-        if (fs.existsSync(STATIC_DATA_PATH)) {
-            const raw = fs.readFileSync(STATIC_DATA_PATH, 'utf-8');
-            events = JSON.parse(raw);
-        }
-
-        // TODO: In future, fetch from external API
-        // const externalEvents = await fetchFromTradingEconomics();
-        // events = [...events, ...externalEvents];
+        // [Fix] Use Real API via Provider
+        const events = await getUpcomingEvents(30);
 
         // Save to Redis
-        const saved = await saveEventsToRedis(events);
+        const storedEvents: StoredEvent[] = events.map(e => ({
+            ...e,
+            id: `${e.date}-${e.name}`.replace(/\s+/g, '-').toLowerCase()
+        }));
+
+        const saved = await saveEventsToRedis(storedEvents);
 
         return NextResponse.json({
             success: saved,
             count: events.length,
-            source: "static",
+            source: "massive-api",
             updatedAt: new Date().toISOString()
         });
     } catch (e: any) {

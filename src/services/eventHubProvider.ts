@@ -1,8 +1,7 @@
-// [S-50.0] EventHub Provider - 7-Day Economic Calendar
-// Source: Static JSON (MVP)
+// [S-50.0] EventHub Provider - Real-time Market Status Events
+// Source: Massive API /v1/marketstatus/upcoming
 
-import path from 'path';
-import fs from 'fs';
+import { fetchMassive, CACHE_POLICY } from './massiveClient';
 
 export interface EconomicEvent {
     date: string;           // YYYY-MM-DD
@@ -12,27 +11,34 @@ export interface EconomicEvent {
     importance: "HIGH" | "MEDIUM" | "LOW";
     expectedImpact: string; // Korean description of expected impact
     sourceGrade: "A" | "B" | "C";
-    category: "FOMC" | "ECONOMIC" | "EARNINGS" | "OPTIONS" | "HOLIDAY" | "OTHER";
+    category: "HOLIDAY" | "OTHER";
 }
 
 interface EventHubSnapshot {
     asOfET: string;
     events: EconomicEvent[];
-    shakeReasons: string[];  // "오늘 흔들릴 이유 3가지"
+    shakeReasons: string[];
 }
 
-const STATIC_DATA_PATH = path.join(process.cwd(), 'src', 'data', 'events.static.json');
-
-function loadStaticEvents(): EconomicEvent[] {
+async function fetchUpcomingHolidays(): Promise<EconomicEvent[]> {
     try {
-        if (fs.existsSync(STATIC_DATA_PATH)) {
-            const raw = fs.readFileSync(STATIC_DATA_PATH, 'utf-8');
-            return JSON.parse(raw);
-        }
+        const res = await fetchMassive('/v1/marketstatus/upcoming', {}, true, undefined, CACHE_POLICY.LIVE);
+        const data = res?.data || res || [];
+
+        return data.map((item: any) => ({
+            date: item.date,
+            time: "00:00",
+            name: item.name,
+            nameKR: `휴장: ${item.name}`,
+            importance: "HIGH",
+            expectedImpact: "시장 휴장 (Market Closed)",
+            sourceGrade: "A",
+            category: "HOLIDAY"
+        }));
     } catch (e) {
-        console.error('[EventHub] Failed to load static events:', e);
+        console.error('[EventHub] API Fetch Error:', e);
+        return [];
     }
-    return [];
 }
 
 function getETDate(): string {
@@ -44,63 +50,32 @@ function getETDate(): string {
     });
 }
 
-function parseDate(dateStr: string): Date {
-    const [year, month, day] = dateStr.split('-').map(Number);
-    return new Date(year, month - 1, day);
-}
-
-export function getUpcomingEvents(days: number = 7): EconomicEvent[] {
-    const events = loadStaticEvents();
+export async function getUpcomingEvents(days: number = 7): Promise<EconomicEvent[]> {
+    const events = await fetchUpcomingHolidays();
     const now = new Date();
     const nowET = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
     const cutoff = new Date(nowET);
     cutoff.setDate(cutoff.getDate() + days);
 
-    return events
-        .filter(e => {
-            const eventDate = parseDate(e.date);
-            return eventDate >= nowET && eventDate <= cutoff;
-        })
-        .sort((a, b) => {
-            // Sort by date first, then by importance
-            const dateCompare = a.date.localeCompare(b.date);
-            if (dateCompare !== 0) return dateCompare;
-            const importanceOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-            return importanceOrder[a.importance] - importanceOrder[b.importance];
-        });
+    // Filter by date range (simple string comparison for YYYY-MM-DD is safe)
+    const todayStr = nowET.toISOString().split('T')[0];
+    const cutoffStr = cutoff.toISOString().split('T')[0];
+
+    return events.filter(e => e.date >= todayStr && e.date <= cutoffStr);
 }
 
-export function getTodayShakeReasons(limit: number = 3): string[] {
-    const events = loadStaticEvents();
-    const todayET = new Date().toLocaleString('en-US', {
-        timeZone: 'America/New_York',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-    }).split('/').reverse().join('-'); // MM/DD/YYYY -> YYYY-MM-DD (rough)
 
-    // Get today and tomorrow's HIGH importance events
-    const relevantEvents = events
-        .filter(e => e.importance === 'HIGH' || e.importance === 'MEDIUM')
-        .filter(e => {
-            const eventDate = parseDate(e.date);
-            const today = new Date();
-            const tomorrow = new Date(today);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            return eventDate >= today && eventDate <= tomorrow;
-        })
-        .sort((a, b) => {
-            const importanceOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-            return importanceOrder[a.importance] - importanceOrder[b.importance];
-        })
-        .slice(0, limit);
-
-    return relevantEvents.map(e =>
-        `${e.nameKR} (${e.date} ${e.time} ET) - ${e.expectedImpact}`
+export async function getTodayShakeReasons(limit: number = 3): Promise<string[]> {
+    const events = await getUpcomingEvents(3); // Look ahead 3 days
+    // Filter for very near term events
+    return events.slice(0, limit).map(e =>
+        `${e.nameKR} (${e.date})`
     );
 }
 
-export function getEventHubSnapshot(): EventHubSnapshot {
+
+// Note: Snapshot is now async due to API call
+export async function getEventHubSnapshot(): Promise<EventHubSnapshot> {
     const now = new Date().toLocaleString('en-US', {
         timeZone: 'America/New_York',
         dateStyle: 'short',
@@ -109,7 +84,7 @@ export function getEventHubSnapshot(): EventHubSnapshot {
 
     return {
         asOfET: now,
-        events: getUpcomingEvents(7),
-        shakeReasons: getTodayShakeReasons(3)
+        events: await getUpcomingEvents(14),
+        shakeReasons: await getTodayShakeReasons(3)
     };
 }

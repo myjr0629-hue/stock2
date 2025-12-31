@@ -9,14 +9,35 @@ export async function GET(request: Request) {
     const type = searchParams.get('type') as ReportType | null;
 
     try {
-        // If date and type provided, return specific report
-        if (date && type) {
-            const report = await loadReport(date, type);
+        // If date provided, return specific report
+        if (date) {
+            let targetType = type;
+
+            // Auto-resolve type if missing: final > revised > draft > eod > morning
+            if (!targetType) {
+                const priority: ReportType[] = ['final', 'revised', 'draft', 'eod', 'morning', 'pre', 'open'];
+                for (const t of priority) {
+                    const exists = await loadReport(date, t);
+                    if (exists) {
+                        targetType = t;
+                        break;
+                    }
+                }
+            }
+
+            if (!targetType) {
+                return new Response(JSON.stringify({
+                    error: 'No report found for date',
+                    date
+                }), { status: 404, headers: { 'Content-Type': 'application/json' } });
+            }
+
+            const report = await loadReport(date, targetType);
             if (!report) {
                 return new Response(JSON.stringify({
                     error: 'Report not found',
                     date,
-                    type
+                    type: targetType
                 }), {
                     status: 404,
                     headers: { 'Content-Type': 'application/json; charset=utf-8' }

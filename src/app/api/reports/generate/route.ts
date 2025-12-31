@@ -2,6 +2,9 @@
 // [S-51.5.2] Updated with UTF-8 charset
 import { generateReport, ReportType, REPORT_SCHEDULES } from '@/services/reportScheduler';
 
+export const maxDuration = 60; // [Phase 24.1] Extended timeout for reliable enrichment
+
+
 export async function POST(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as ReportType | null;
