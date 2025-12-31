@@ -70,8 +70,8 @@ async function fetchIndexSnapshot(ticker: string, label: string, multiplier: num
         const res = await fetchMassive(endpoint, {}, true, undefined, CACHE_POLICY.LIVE);
         const t = res?.ticker;
 
-        if (t && (t.lastTrade?.p || t.day?.c)) {
-            const rawLevel = t.lastTrade?.p || t.day?.c;
+        if (t && (t.lastTrade?.p || t.min?.c || t.day?.c)) {
+            const rawLevel = t.lastTrade?.p || t.min?.c || t.day?.c;
             const rawChgAbs = t.todaysChange || 0;
             // pct is independent of multiplier
 
