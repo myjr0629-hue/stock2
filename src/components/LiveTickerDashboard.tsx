@@ -12,6 +12,7 @@ import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { MarketStatusBadge } from "@/components/common/MarketStatusBadge";
 import { GammaLevelsViz } from "@/components/GammaLevelsViz";
 import { FlowSniper } from "@/components/FlowSniper";
+import { FlowRadar } from "@/components/FlowRadar";
 
 // [S-56.4.7] Imported or defined locally to avoid server-module leakage
 interface ChartDiagnostics {
@@ -107,38 +108,41 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
     }
 
     return (
-        <Card className={`shadow-sm border-l-4 ${status === 'PASS' ? 'border-l-emerald-500 bg-white' :
-            status === 'WATCH' ? 'border-l-amber-500 bg-white' :
-                'border-l-rose-500 bg-white'
-            } overflow-hidden hover:shadow-md transition-shadow`}>
+        <Card className={`shadow-sm border-l-4 ${status === 'PASS' ? 'border-l-emerald-500 bg-emerald-950/20' :
+            status === 'WATCH' ? 'border-l-amber-500 bg-amber-950/20' :
+                'border-l-rose-500 bg-rose-950/20'
+            } overflow-hidden hover:shadow-md transition-shadow border-t-0 border-r-0 border-b-0`}>
             <CardContent className="py-4 px-4">
-                <div className="flex items-center justify-between mb-3 pb-2 border-b border-slate-50">
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
                     <div className="flex items-center gap-2">
                         <ShieldAlert className={`h-4 w-4 ${status === 'PASS' ? 'text-emerald-500' :
                             status === 'WATCH' ? 'text-amber-500' :
                                 'text-rose-500'
                             }`} />
-                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Decision Gate</span>
+                        <div>
+                            <span className="block text-[10px] font-black uppercase tracking-widest text-slate-300 leading-none">Decision Gate</span>
+                            <span className="block text-[9px] text-amber-500 font-bold mt-0.5">종합 리스크 통제실</span>
+                        </div>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-black ${status === 'PASS' ? 'bg-emerald-500 text-white' :
-                        status === 'WATCH' ? 'bg-amber-500 text-white' :
-                            'bg-rose-500 text-white'
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black ${status === 'PASS' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                        status === 'WATCH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                            'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                         }`}>
                         {status}
                     </span>
                 </div>
                 <div className="space-y-1.5 mb-3">
                     {reasons.slice(0, 4).map((r, i) => (
-                        <div key={i} className="text-[11px] font-bold text-slate-600 flex items-start gap-2">
-                            <span className="mt-1 w-1 h-1 rounded-full bg-slate-200 shrink-0" />
+                        <div key={i} className="text-[11px] font-bold text-slate-400 flex items-start gap-2">
+                            <span className="mt-1 w-1 h-1 rounded-full bg-slate-600 shrink-0" />
                             <span className="leading-tight">{r}</span>
                         </div>
                     ))}
-                    {reasons.length === 0 && <div className="text-[11px] text-slate-400 italic">특이 사항 없음</div>}
+                    {reasons.length === 0 && <div className="text-[11px] text-slate-500 italic">특이 사항 없음 (안전)</div>}
                 </div>
-                <div className="text-[11px] font-black text-slate-500 border-t border-slate-100 pt-2 flex items-center gap-2">
+                <div className="text-[11px] font-black text-slate-400 border-t border-white/5 pt-2 flex items-center gap-2">
                     <Zap size={10} className="text-amber-400 shrink-0" />
-                    <span className="truncate">{actionHint}</span>
+                    <span className="truncate text-slate-300">{actionHint}</span>
                 </div>
             </CardContent>
         </Card>
@@ -156,6 +160,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [quoteLoading, setQuoteLoading] = useState(false);
     const [newsLoading, setNewsLoading] = useState(false);
     const [selectedExp, setSelectedExp] = useState<string>("");
+
+    // [Phase 50] Tab Navigation
+    const [activeTab, setActiveTab] = useState<'COMMAND' | 'FLOW'>('COMMAND');
 
     // [S-45] SSOT Integration
     const { status: marketStatus } = useMarketStatus();
@@ -246,7 +253,27 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const e = liveQuote?.extended;
 
     const displayPrice = d?.price ?? initialStockData.price;
-    const displayChangePct = liveQuote?.changePct ?? initialStockData.changePercent;
+
+    // [Fix Phase 52] Accurate Intraday Change Logic
+    // API returns 'changePctPct' (e.g. -0.22) and 'changePctFrac' (e.g. -0.0022) inside 'display'.
+    // We must prioritize the pre-calculated PctPct from the engine.
+    let displayChangePct = 0;
+
+    if (d?.changePctPct !== undefined && d?.changePctPct !== null) {
+        displayChangePct = d.changePctPct;
+    } else if (d?.changePctFrac !== undefined && d?.changePctFrac !== null) {
+        displayChangePct = d.changePctFrac * 100;
+    } else {
+        displayChangePct = liveQuote?.changePct ?? initialStockData.changePercent;
+    }
+
+    // Fallback: Calculate manually if API returns 0/null but we have prices
+    if (!displayChangePct && displayPrice) {
+        const prevClose = liveQuote?.prevClose || initialStockData.prevClose;
+        if (prevClose > 0) {
+            displayChangePct = ((displayPrice - prevClose) / prevClose) * 100;
+        }
+    }
 
     // Extended Selection
     const activeExtType = e?.postPrice ? 'POST' : (e?.prePrice ? 'PRE' : null);
@@ -261,10 +288,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     let pTag = "";
     let pTagStyle = "";
 
-    if (pSource === "OFFICIAL_CLOSE") { pTag = "CLOSE"; pTagStyle = "text-slate-500 bg-slate-100 border-slate-200"; }
-    else if (pSource === "POST_CLOSE") { pTag = "POST"; pTagStyle = "text-indigo-600 bg-indigo-50 border-indigo-200"; }
-    else if (pSource === "PRE_OPEN") { pTag = "PRE"; pTagStyle = "text-amber-600 bg-amber-50 border-amber-200"; }
-    else if (pSource === "LIVE_SNAPSHOT") { pTag = "LIVE"; pTagStyle = "text-emerald-600 bg-emerald-50 border-emerald-200"; }
+    if (pSource === "OFFICIAL_CLOSE") { pTag = "CLOSE"; pTagStyle = "text-slate-400 bg-slate-800 border-slate-700"; }
+    else if (pSource === "POST_CLOSE") { pTag = "POST"; pTagStyle = "text-indigo-400 bg-indigo-950/50 border-indigo-500/30"; }
+    else if (pSource === "PRE_OPEN") { pTag = "PRE"; pTagStyle = "text-amber-400 bg-amber-950/50 border-amber-500/30"; }
+    else if (pSource === "LIVE_SNAPSHOT") { pTag = "LIVE"; pTagStyle = "text-emerald-400 bg-emerald-950/50 border-emerald-500/30"; }
 
     // ATM Integrity
     const showOptionsTable = options && options.options_status !== 'PENDING' && options.atmSlice && options.atmSlice.length > 0;
@@ -278,15 +305,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 pb-6 border-b border-white/10">
                 <div>
                     <div className="flex items-center gap-3">
-                        <h1 className="text-4xl lg:text-6xl font-black text-slate-900 tracking-tighter mb-2">{ticker}</h1>
+                        <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter mb-2">{ticker}</h1>
                         <FavoriteToggle ticker={ticker} />
-                        {quoteLoading && <RefreshCw className="animate-spin text-slate-300" size={14} />}
+                        {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={14} />}
                     </div>
                     <p className="text-xl text-slate-500 font-medium tracking-tight uppercase">{initialStockData.name}</p>
                 </div>
 
                 <div className="text-right">
-                    <div className="text-5xl lg:text-6xl font-black text-slate-900 tracking-tighter tabular-nums">
+                    <div className="text-5xl lg:text-6xl font-black text-white tracking-tighter tabular-nums">
                         ${displayPrice?.toFixed(2)}
                     </div>
                     <div className={`text-xl font-bold font-mono tracking-tighter ${displayChangePct && displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
@@ -295,119 +322,232 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
             </div>
 
-            {/* 2. COMMAND GRID (12 Cols) */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-
-                {/* LEFT: STRATEGY (3 Cols) */}
-                <div className="xl:col-span-3 space-y-6">
-                    <DecisionGate
-                        ticker={ticker}
-                        displayPrice={displayPrice}
-                        session={effectiveSession}
-                        structure={structure}
-                        krNews={krNews}
-                    />
-
-                    {/* Gamma Levels Visualizer */}
-                    <div className="h-[450px]">
-                        <GammaLevelsViz
-                            currentPrice={displayPrice}
-                            callWall={structure?.levels?.callWall}
-                            putFloor={structure?.levels?.putFloor}
-                            pinZone={structure?.levels?.pinZone}
-                        />
-                    </div>
-                </div>
-
-                {/* CENTER: BATTLEFIELD (6 Cols) */}
-                <div className="xl:col-span-6 space-y-6">
-                    {/* Main Chart */}
-                    <div className="h-[500px] rounded-2xl border border-slate-200 overflow-hidden shadow-sm relative">
-                        <StockChart
-                            key={`${ticker}:${range}:${initialStockData.history.length}`}
-                            data={initialStockData.history}
-                            color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
-                            ticker={ticker}
-                            initialRange={range}
-                        />
-                    </div>
-
-                    {/* Flow Sniper Bar */}
-                    <FlowSniper
-                        netPremium={liveQuote?.flow?.netPremium || 0}
-                        callPremium={liveQuote?.flow?.callPremium || 0}
-                        putPremium={liveQuote?.flow?.putPremium || 0}
-                        optionsCount={liveQuote?.flow?.optionsCount || 0}
-                    />
-                </div>
-
-                {/* RIGHT: EVIDENCE (3 Cols) */}
-                <div className="xl:col-span-3 space-y-6">
-                    {/* Advanced Options Card (Existing NetGex) */}
-                    <Card className="border-slate-200 shadow-sm overflow-hidden h-fit">
-                        <CardHeader className="pb-3 border-b border-slate-100 bg-slate-50/50">
-                            <div className="flex items-center justify-between">
-                                <CardTitle className="text-sm font-bold text-slate-900">Advanced Structure</CardTitle>
-                                <Layers size={14} className="text-indigo-500" />
-                            </div>
-                        </CardHeader>
-                        <CardContent className="pt-6 space-y-6 p-4">
-                            {/* Net Gex */}
-                            <div>
-                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Net Gex</span>
-                                <div className={`text-3xl font-black ${structure?.netGex > 0 ? "text-emerald-500" : structure?.netGex < 0 ? "text-rose-500" : "text-slate-900"}`}>
-                                    {structure?.netGex ? (structure.netGex > 0 ? "+" : "") + (structure.netGex / 1000000).toFixed(2) + "M" : "—"}
-                                </div>
-                            </div>
-
-                            {/* OI Chart Minimal */}
-                            <div className="h-40">
-                                {showStructure && (
-                                    <OIChart
-                                        strikes={structure.structure.strikes}
-                                        callsOI={structure.structure.callsOI}
-                                        putsOI={structure.structure.putsOI}
-                                        currentPrice={displayPrice}
-                                        maxPain={structure.maxPain}
-                                        callWall={structure.levels?.callWall}
-                                        putFloor={structure.levels?.putFloor}
-                                    />
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Live Chain Table */}
-                    <Card className="border-slate-200 shadow-sm opacity-90 hover:opacity-100 transition-opacity">
-                        <CardHeader className="pb-3 border-b border-slate-100 flex flex-row items-center justify-between bg-slate-50/30">
-                            <CardTitle className="text-sm font-bold text-slate-700">ATM Chain</CardTitle>
-                            {optionsPending && <span className="text-[10px] bg-amber-100 text-amber-700 px-1 rounded">PENDING</span>}
-                        </CardHeader>
-                        <CardContent className="p-0">
-                            {showOptionsTable ? (
-                                <table className="w-full text-[10px] font-mono">
-                                    <thead className="bg-slate-50 text-slate-500">
-                                        <tr>
-                                            <th className="px-2 py-1 text-right">Strike</th>
-                                            <th className="px-2 py-1 text-center">Type</th>
-                                            <th className="px-2 py-1 text-right">OI</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-slate-100">
-                                        {(options.atmSlice as any[]).slice(0, 5).map((row, idx) => (
-                                            <tr key={idx}>
-                                                <td className={`px-2 py-1 text-right font-bold ${Math.abs(row.strike - displayPrice) < displayPrice * 0.005 ? "text-blue-600" : "text-slate-700"}`}>{row.strike}</td>
-                                                <td className={`px-2 py-1 text-center font-bold ${row.type === 'call' ? "text-emerald-600" : "text-rose-500"}`}>{row.type === 'call' ? "C" : "P"}</td>
-                                                <td className="px-2 py-1 text-right">{row.oi?.toLocaleString()}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            ) : <div className="p-4 text-center text-xs text-slate-400">Loading...</div>}
-                        </CardContent>
-                    </Card>
-                </div>
+            {/* [Phase 50] Tab Navigation */}
+            <div className="flex items-center gap-1 bg-slate-900/50 w-fit p-1 rounded-lg border border-white/5 mb-6">
+                <button
+                    onClick={() => setActiveTab('COMMAND')}
+                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] ${activeTab === 'COMMAND' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                >
+                    Command
+                </button>
+                <button
+                    onClick={() => setActiveTab('FLOW')}
+                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] flex items-center gap-2 ${activeTab === 'FLOW' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                >
+                    <Target size={12} />
+                    Flow Radar
+                </button>
             </div>
+
+            {/* 2. COMMAND GRID (12 Cols) */}
+            {/* 2. COMMAND GRID (2 Columns: Main vs Sidebar) */}
+            {activeTab === 'COMMAND' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+                    {/* MAIN COLUMN (8 Cols) - Breathing Room */}
+                    <div className="lg:col-span-8 space-y-8">
+                        {/* A. Main Chart Section */}
+                        <section className="space-y-2">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-1 h-4 bg-indigo-500 rounded-full" />
+                                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Price History</h3>
+                            </div>
+                            <div className="h-[500px] rounded-2xl border border-white/10 bg-slate-900/40 overflow-hidden shadow-sm relative backdrop-blur-sm">
+                                <StockChart
+                                    key={`${ticker}:${range}:${initialStockData.history.length}`}
+                                    data={initialStockData.history}
+                                    color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
+                                    ticker={ticker}
+                                    initialRange={range}
+                                />
+                            </div>
+                        </section>
+
+                        {/* B. Advanced Options Analysis */}
+                        <section className="space-y-4">
+                            <div className="flex items-center gap-2 pt-4 border-t border-white/5">
+                                <div className="w-1 h-4 bg-purple-500 rounded-full" />
+                                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Advanced Options Analysis</h3>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {/* Gamma Structure */}
+                                <Card className="border-white/10 bg-slate-900/40 shadow-sm">
+                                    <CardHeader className="pb-2 border-b border-white/5 bg-slate-800/20">
+                                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Key Market Levels</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-0 h-[300px]">
+                                        <GammaLevelsViz
+                                            currentPrice={displayPrice}
+                                            callWall={structure?.levels?.callWall}
+                                            putFloor={structure?.levels?.putFloor}
+                                            pinZone={structure?.levels?.pinZone}
+                                        />
+                                    </CardContent>
+                                </Card>
+
+                                {/* Net GEX & Strikes */}
+                                <Card className="border-white/10 bg-slate-900/40 shadow-sm">
+                                    <CardHeader className="pb-2 border-b border-white/5 bg-slate-800/20">
+                                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Net Gamma Exposure</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="pt-6 px-4 space-y-6">
+                                        <div className="text-center">
+                                            <div className={`text-4xl font-black ${structure?.netGex > 0 ? "text-emerald-400" : structure?.netGex < 0 ? "text-rose-400" : "text-white"}`}>
+                                                {structure?.netGex ? (structure.netGex > 0 ? "+" : "") + (structure.netGex / 1000000).toFixed(2) + "M" : "—"}
+                                            </div>
+                                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Net GEX Notional</div>
+                                            {/* Expert Interpretation */}
+                                            <div className={`mt-2 text-[10px] font-bold px-2 py-1 rounded inline-block ${structure?.netGex > 0 ? "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" : structure?.netGex < 0 ? "bg-rose-950/30 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400"}`}>
+                                                {structure?.netGex > 0 ? "지지력 강화 (변동성 축소)" : structure?.netGex < 0 ? "변동성 확대 (가속 구간)" : "중립 (방향성 부재)"}
+                                            </div>
+                                            <div className="mt-4 flex justify-center gap-4 text-[9px] font-medium text-slate-500 border-t border-white/5 pt-2">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                                    <span>(+) 안전지대</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
+                                                    <span>(-) 가속구간</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="h-40">
+                                            {showStructure && (
+                                                <OIChart
+                                                    strikes={structure.structure.strikes}
+                                                    callsOI={structure.structure.callsOI}
+                                                    putsOI={structure.structure.putsOI}
+                                                    currentPrice={displayPrice}
+                                                    maxPain={structure.maxPain}
+                                                    callWall={structure.levels?.callWall}
+                                                    putFloor={structure.levels?.putFloor}
+                                                />
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </section>
+
+                        {/* C. ATM Chain (Raw) - REMOVED per user request (redundant with Flow Radar) */}
+                        <section className="hidden">
+                        </section>
+                    </div>
+
+                    {/* SIDEBAR (4 Cols) - Strategy & Intel */}
+                    <div className="lg:col-span-4 space-y-6">
+
+                        {/* 1. Decision Gate (Sticky) */}
+                        <div className="sticky top-24 z-30">
+                            <div className="mb-2 flex items-center gap-2">
+                                <ShieldAlert size={14} className="text-slate-500" />
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Decision Gate</span>
+                            </div>
+                            <DecisionGate
+                                ticker={ticker}
+                                displayPrice={displayPrice}
+                                session={effectiveSession}
+                                structure={structure}
+                                krNews={krNews}
+                            />
+                        </div>
+
+                        {/* 2. Flow Dynamics */}
+                        <Card className="border-white/10 bg-slate-900/40">
+                            <CardHeader className="pb-3 border-b border-white/5 bg-slate-800/20">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2">
+                                        <Activity size={14} className="text-sky-400" />
+                                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Flow Unit</span>
+                                    </div>
+                                    <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">REALTIME</span>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-4">
+                                <FlowSniper
+                                    netPremium={liveQuote?.flow?.netPremium || 0}
+                                    callPremium={liveQuote?.flow?.callPremium || 0}
+                                    putPremium={liveQuote?.flow?.putPremium || 0}
+                                    optionsCount={liveQuote?.flow?.optionsCount || 0}
+                                />
+                            </CardContent>
+                        </Card>
+
+                        {/* 3. Technical Pulse (Placeholder/Simple) */}
+                        <Card className="border-white/10 bg-slate-900/40">
+                            <CardHeader className="pb-3 border-b border-white/5 bg-slate-800/20">
+                                <div className="flex items-center gap-2">
+                                    <Zap size={14} className="text-amber-400" />
+                                    <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Technical Pulse</span>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-4 space-y-4">
+                                {/* RSI Row */}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-500 font-bold">RSI (14)</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] font-bold text-slate-500">
+                                            {(initialStockData.rsi || 50) > 70 ? "과매수 (Oversold)" :
+                                                (initialStockData.rsi || 50) < 30 ? "과매도 (Undersold)" : "중립 (Neutral)"}
+                                        </span>
+                                        <span className={`text-sm font-black ${(initialStockData.rsi || 50) > 70 ? "text-rose-400" :
+                                            (initialStockData.rsi || 50) < 30 ? "text-emerald-400" : "text-white"
+                                            }`}>
+                                            {initialStockData.rsi?.toFixed(1) || "-"}
+                                        </span>
+                                    </div>
+                                </div>
+                                {/* 3D Return */}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs text-slate-500 font-bold">3D Return</span>
+                                    <span className={`text-sm font-black ${(initialStockData.return3d || 0) > 0 ? "text-emerald-400" : "text-rose-400"
+                                        }`}>
+                                        {initialStockData.return3d ? (initialStockData.return3d > 0 ? "+" : "") + initialStockData.return3d.toFixed(2) + "%" : "-"}
+                                    </span>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        {/* 4. Intel Feed (Native KR) */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 pt-2">
+                                <Newspaper size={14} className="text-slate-500" />
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Intel Feed (Native KR)</h3>
+                            </div>
+                            <div className="space-y-2">
+                                {krNews.slice(0, 3).map((n, i) => (
+                                    <a key={i} href={n.link} target="_blank" rel="noreferrer" className="block group">
+                                        <Card className="border-white/5 bg-slate-900/30 hover:bg-slate-800/50 transition-colors">
+                                            <CardContent className="p-3">
+                                                <div className="text-[10px] text-indigo-400 font-bold mb-1">{n.publisher}</div>
+                                                <div className="text-xs text-slate-300 font-medium leading-tight group-hover:text-white transition-colors line-clamp-2">
+                                                    {n.title}
+                                                </div>
+                                                <div className="text-[9px] text-slate-600 mt-2 flex justify-between">
+                                                    <span>{n.time.split('T')[0]}</span>
+                                                    <span className={n.sentiment === 'positive' ? 'text-emerald-500' : 'text-slate-600'}>
+                                                        {n.sentiment === 'positive' ? 'Bullish' : ''}
+                                                    </span>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+
+                    </div>
+
+                </div>
+            ) : (
+                <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                    <FlowRadar
+                        rawChain={liveQuote?.flow?.rawChain || initialStockData?.flow?.rawChain || []}
+                        currentPrice={displayPrice}
+                    />
+                </div>
+            )}
         </div>
     );
 }

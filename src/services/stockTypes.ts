@@ -24,6 +24,7 @@ export interface StockData {
         source: 'realtime' | 'delayed' | 'eod';
         message?: string;
     };
+    flow?: any;
 }
 
 export interface OptionData {

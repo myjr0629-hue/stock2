@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import {
@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { ReportArchive } from "@/components/ReportArchive";
 import { TacticalCard } from "@/components/TacticalCard";
+import { PremiumBlur } from "@/components/PremiumBlur";
 
 
 // ============================================================================
@@ -34,6 +35,7 @@ export interface UnifiedOptions {
     };
     backfilled: boolean;
     fetchedAtET?: string;
+    rawChain?: any[]; // [Phase 50] Raw Chain for UI
 }
 
 export interface UnifiedFlow {
@@ -456,6 +458,68 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
 
     // [9.4] Interactive Heatmap State
     const [showHeatmap, setShowHeatmap] = useState(false);
+    const [selectedExpiry, setSelectedExpiry] = useState<string | null>(null);
+
+    // [Phase 50] Options Chain Processing
+    const chainData = useMemo(() => {
+        const raw = ev.options.rawChain || [];
+        if (!raw.length) return null;
+
+        // 1. Extract Unique Expirations
+        const dates = Array.from(new Set(raw.map((c: any) => c.details?.expiration_date))).filter(Boolean).sort();
+        if (dates.length === 0) return null;
+
+        // 2. Select Date
+        const targetDate = selectedExpiry && dates.includes(selectedExpiry) ? selectedExpiry : dates[0];
+
+        // 3. Filter Chain for Date
+        const chain = raw.filter((c: any) => c.details?.expiration_date === targetDate);
+
+        // 4. Create Pivot Table (Strike -> Call/Put)
+        const strikesMap = new Map<number, { call?: any, put?: any }>();
+        chain.forEach((c: any) => {
+            const k = c.details?.strike_price;
+            if (!k) return;
+            const current = strikesMap.get(k) || {};
+            if (c.details?.contract_type === 'call') current.call = c;
+            else if (c.details?.contract_type === 'put') current.put = c;
+            strikesMap.set(k, current);
+        });
+
+        // 5. Sort by Strike
+        const strikes = Array.from(strikesMap.keys()).sort((a, b) => a - b);
+
+        // 6. Find ATM Index
+        const currentPrice = ev.price.last;
+        let atmIndex = 0;
+        let minDiff = Number.MAX_VALUE;
+        strikes.forEach((k, i) => {
+            const diff = Math.abs(k - currentPrice);
+            if (diff < minDiff) {
+                minDiff = diff;
+                atmIndex = i;
+            }
+        });
+
+        // 7. Windowing (Center ATM) - Show e.g. 5 ITM, 5 OTM (Total ~10)
+        // If list is small, show all.
+        let start = Math.max(0, atmIndex - 5);
+        let end = Math.min(strikes.length, atmIndex + 6);
+
+        // Adjust if near edges
+        if (end - start < 11) {
+            if (start === 0) end = Math.min(strikes.length, 11);
+            else if (end === strikes.length) start = Math.max(0, strikes.length - 11);
+        }
+
+        const visibleStrikes = strikes.slice(start, end);
+
+        return {
+            dates,
+            targetDate,
+            rows: visibleStrikes.map(k => ({ strike: k, ...strikesMap.get(k) }))
+        };
+    }, [ev.options.rawChain, selectedExpiry, ev.price.last]);
 
     const action = item.decisionSSOT?.action || "CAUTION";
 
@@ -749,6 +813,75 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                 </div>
                             </div>
                         )}
+
+                        {/* [Phase 50] ATM Option Chain Table */}
+                        {chainData && chainData.rows.length > 0 && (
+                            <div className="mt-4 bg-slate-900 border border-slate-800 rounded p-4">
+                                <div className="flex justify-between items-center mb-4">
+                                    <span className="text-[10px] text-slate-500 font-bold uppercase">ATM Chain (Next 35 Days)</span>
+                                    {/* Expiration Tabs */}
+                                    <div className="flex gap-1 overflow-x-auto max-w-[200px] scrollbar-hide">
+                                        {chainData.dates.map(d => (
+                                            <button
+                                                key={d}
+                                                onClick={() => setSelectedExpiry(d)}
+                                                className={`text-[9px] px-2 py-1 rounded whitespace-nowrap font-bold transition-colors ${chainData.targetDate === d ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
+                                            >
+                                                {d.slice(5)}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-[9px] font-mono leading-tight">
+                                        <thead>
+                                            <tr className="text-slate-500 border-b border-slate-800">
+                                                <th className="pb-2 text-right w-[15%]">Call Vol</th>
+                                                <th className="pb-2 text-right w-[15%]">Call OI</th>
+                                                <th className="pb-2 text-center w-[10%] text-slate-300">Strike</th>
+                                                <th className="pb-2 text-left w-[15%]">Put OI</th>
+                                                <th className="pb-2 text-left w-[15%]">Put Vol</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {chainData.rows.map((row: any) => {
+                                                const isATM = Math.abs(row.strike - ev.price.last) / ev.price.last < 0.005;
+                                                const cVol = row.call?.day?.volume || row.call?.volume || 0;
+                                                const cOI = row.call?.open_interest || 0;
+                                                const pVol = row.put?.day?.volume || row.put?.volume || 0;
+                                                const pOI = row.put?.open_interest || 0;
+
+                                                return (
+                                                    <tr key={row.strike} className={`hover:bg-slate-800/30 transition-colors ${isATM ? 'bg-indigo-500/10' : ''}`}>
+                                                        {/* Call Side */}
+                                                        <td className={`py-1 pr-2 text-right ${cVol > 1000 ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>
+                                                            {cVol > 0 ? cVol.toLocaleString() : '-'}
+                                                        </td>
+                                                        <td className="py-1 pr-2 text-right text-slate-500">
+                                                            {cOI > 0 ? cOI.toLocaleString() : '-'}
+                                                        </td>
+
+                                                        {/* Strike */}
+                                                        <td className={`py-1 text-center font-bold ${isATM ? 'text-indigo-400' : 'text-slate-300'}`}>
+                                                            {row.strike}
+                                                        </td>
+
+                                                        {/* Put Side */}
+                                                        <td className="py-1 pl-2 text-left text-slate-500">
+                                                            {pOI > 0 ? pOI.toLocaleString() : '-'}
+                                                        </td>
+                                                        <td className={`py-1 pl-2 text-left ${pVol > 1000 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
+                                                            {pVol > 0 ? pVol.toLocaleString() : '-'}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        )}
                     </section>
 
                     {/* 5. MACRO & STEALTH */}
@@ -965,66 +1098,69 @@ function Tier01Content() {
         });
     }
 
+
+
     // Regime for Header
     const regime = report?.engine?.regime || "NEUTRAL";
 
     return (
-        <main className="min-h-screen bg-[#050510] font-sans selection:bg-emerald-500/30 selection:text-emerald-200 relative overflow-hidden">
-            {/* Background Effects */}
-            <div className="fixed inset-0 pointer-events-none">
-                <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-900/10 rounded-full blur-[128px]" />
-                <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-emerald-900/10 rounded-full blur-[128px]" />
+        <main className="min-h-screen bg-slate-950 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 relative overflow-hidden">
+            {/* Premium Background Effects */}
+            <div className="fixed inset-0 pointer-events-none z-0">
+                {/* Subtle base gradient */}
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-950 via-[#0a0a15] to-slate-900" />
+                {/* Cinematic Orbs */}
+                <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-indigo-900/10 rounded-full blur-[160px] opacity-40" />
+                <div className="absolute bottom-[-20%] right-[-10%] w-[60%] h-[60%] bg-emerald-900/5 rounded-full blur-[160px] opacity-30" />
+                {/* Scanlines Overlay for 'Terminal' feel */}
+                <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" style={{ opacity: 0.03 }} />
             </div>
 
             {isDebug && (
                 <div className="fixed top-0 left-0 right-0 h-1 bg-indigo-500 z-[200]" title="Debug Mode Active" />
             )}
 
-            <LandingHeader />
+            <div className="relative z-10">
+                <LandingHeader />
+            </div>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12 relative z-10">
+            <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
 
-                {/* 1. HEADER & ARCHIVE CONTROLS */}
-                <section>
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4 pb-6 border-b border-slate-800/50">
-                        <div>
-                            <h1 className="text-3xl font-black text-white tracking-tighter flex items-center gap-3">
-                                <Target className="w-8 h-8 text-emerald-500" />
-                                STOCK2 DIRECTIVE
-                                <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded border ${getRegimeColor(regime)}`}>
-                                    {getRegimeText(regime)}
-                                </span>
-                            </h1>
-                            <div className="text-sm text-slate-400 mt-2 flex items-center gap-2 font-medium">
-                                <span className={`w-2 h-2 rounded-full ${report ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-600'} animate-pulse`} />
-                                Systems Online • {report?.meta?.generatedAtET || "Connecting..."}
-                            </div>
+                {/* 1. HERO HEADER (Premium Open Design) */}
+                <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10">
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <span className="text-[10px] font-bold text-indigo-400 tracking-widest uppercase flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                                Alpha Engine v8.2
+                            </span>
+                            <span className="text-[10px] text-slate-600">|</span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                                UTC {(new Date()).getUTCHours()}:{(new Date()).getUTCMinutes().toString().padStart(2, '0')}
+                            </span>
                         </div>
-
-                        {/* Archive Component */}
-                        <ReportArchive
-                            currentDate={currentDate}
-                            onDateChange={setCurrentDate}
-                            stage={report?.type}
-                            isLoading={isLoading}
-                        />
+                        <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter flex items-center gap-4">
+                            COMMAND CENTER
+                            <span className={`text-base font-bold font-mono px-3 py-1 rounded-full border border-opacity-20 flex items-center gap-2 ${getRegimeColor(regime)}`}>
+                                {getRegimeText(regime)}
+                            </span>
+                        </h1>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {isLoading ? (
-                            [1, 2, 3].map(i => <div key={i} className="h-32 bg-slate-900 rounded border border-slate-800 animate-pulse" />)
-                        ) : error ? (
-                            <div className="col-span-3 text-center p-8 border border-rose-900/50 bg-rose-900/10 rounded text-rose-400 text-sm">
-                                {error}
+                    {/* Archive & Status Controls */}
+                    <div className="flex flex-col sm:flex-row items-center gap-4">
+                        {marketCards.map(card => (
+                            <div key={card.id} className="hidden lg:flex items-center gap-3 px-4 py-2 bg-slate-900/50 border border-slate-800 rounded-lg backdrop-blur-sm">
+                                <div className={`p-1.5 rounded bg-slate-900 text-slate-400`}>
+                                    {React.cloneElement(card.icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4" })}
+                                </div>
+                                <div className="flex flex-col">
+                                    <span className={`text-xs font-bold ${card.status === 'BEARISH' ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                        {card.interpretation.split('(')[0]}
+                                    </span>
+                                </div>
                             </div>
-                        ) : (
-                            marketCards.map(card => <EvidenceCardUI key={card.id} card={card} />)
-                        )}
-                        {!isLoading && !error && marketCards.length === 0 && (
-                            <div className="col-span-3 text-center p-8 border border-slate-800 border-dashed rounded text-slate-500 text-sm">
-                                Waiting for Market Snapshot...
-                            </div>
-                        )}
+                        ))}
                     </div>
                 </section>
 

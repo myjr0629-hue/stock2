@@ -2,6 +2,7 @@
 import { NextRequest } from 'next/server';
 import { getBuildMeta } from '@/services/buildMeta';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
+import { CentralDataHub } from "@/services/centralDataHub";
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
@@ -10,8 +11,6 @@ const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io
 // [S-52.2.3] Force dynamic rendering - no static optimization
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
-
-
 
 type SessionType = "PRE" | "REG" | "POST" | "CLOSED";
 
@@ -131,6 +130,15 @@ export async function GET(req: NextRequest) {
     const prePrice = OC.preMarket || S.preMarket?.p || (session === "PRE" ? liveLast : null);
     // [Phase 23.7] Fix: Prioritize OC.afterHoursClose (confirmed close) > S.afterHours.p > OC.afterHours
     const postPrice = OC.afterHoursClose || S.afterHours?.p || OC.afterHours || (session === "POST" ? liveLast : null);
+
+    // [Fix] Fetch Options Flow Data using CentralDataHub
+    const flowPriceDetect = liveLast || S.day?.c || S.prevDay?.c || 0;
+    const flowRes = await CentralDataHub._fetchOptionsChain(ticker, flowPriceDetect).catch(err => ({
+        dataSource: "NONE",
+        rawChain: [],
+        error: err.message
+    }));
+    const flowData = flowRes; // Defines flowData for use in response
 
     const warnings: string[] = [];
 
@@ -254,6 +262,9 @@ export async function GET(req: NextRequest) {
         changePct: changePctFrac,  // DEPRECATED: fraction
         prevClose: prevRegularClose,
         vwap: S.day?.vw || S.prevDay?.vw || null,
+
+        // [Fix] Include Options Flow Data in Response
+        flow: flowData,
 
         // [S-52.2.1] PRIMARY DISPLAY BLOCK
         display: {

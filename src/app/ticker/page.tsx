@@ -115,7 +115,7 @@ function DiagnosticsPanel({ diagnostics }: { diagnostics: TickerDiagnostics }) {
     const failures = [
         { key: "price", ...diagnostics.price },
         { key: "chart", ...diagnostics.chart },
-        { key: "vwap", ...diagnostics.vwap },
+        // { key: "vwap", ...diagnostics.vwap }, // [User Request] Ignored for now
         { key: "session", ...diagnostics.session },
         { key: "options", ...diagnostics.options },
         { key: "news", ...diagnostics.news }
@@ -157,13 +157,13 @@ export default async function TickerPage({ searchParams }: Props) {
 
     if (!ticker) {
         return (
-            <div className="min-h-screen font-sans bg-white">
+            <div className="min-h-screen font-sans bg-slate-950 text-slate-200">
                 <LandingHeader />
                 <main className="mx-auto max-w-5xl px-6 pt-28 pb-12">
-                    <Card className="border-slate-200 bg-white">
+                    <Card className="border-slate-800 bg-slate-900/50">
                         <CardContent className="pt-6">
-                            <div className="text-lg font-bold mb-2 text-slate-900">Ticker required</div>
-                            <div className="text-sm text-slate-500">Example: /ticker?ticker=NVDA</div>
+                            <div className="text-lg font-bold mb-2 text-white">Ticker required</div>
+                            <div className="text-sm text-slate-400">Example: /ticker?ticker=NVDA</div>
                         </CardContent>
                     </Card>
                 </main>
@@ -197,12 +197,12 @@ export default async function TickerPage({ searchParams }: Props) {
     }
 
     return (
-        <div className="min-h-screen selection:bg-blue-100 selection:text-blue-900 font-sans bg-white">
+        <div className="min-h-screen selection:bg-emerald-500/30 selection:text-emerald-200 font-sans bg-slate-950 text-slate-200">
             <LandingHeader />
 
             {/* [S-56.4.6f] PRODUCTION DRIFT GUARD BANNER */}
             {isDrifted && (
-                <div className="bg-rose-600 text-white px-4 py-1 text-center text-[10px] font-bold tracking-widest animate-pulse sticky top-0 z-50">
+                <div className="bg-rose-900/80 text-rose-200 px-4 py-1 text-center text-[10px] font-bold tracking-widest animate-pulse sticky top-0 z-50 border-b border-rose-500/20">
                     ⚠️ CRITICAL: PRODUCTION ENVIRONMENT RUNNING LOCAL BUILD - DEPLOYMENT DRIFT DETECTED ⚠️
                 </div>
             )}
@@ -215,12 +215,12 @@ export default async function TickerPage({ searchParams }: Props) {
                 {overview && <DiagnosticsPanel diagnostics={overview.diagnostics} />}
 
                 {error && (
-                    <Card className="border-red-200 bg-red-50/50 backdrop-blur-sm">
-                        <CardContent className="pt-6 text-red-600 flex items-center gap-2">
+                    <Card className="border-rose-900/50 bg-rose-950/30 backdrop-blur-sm">
+                        <CardContent className="pt-6 text-rose-400 flex items-center gap-2">
                             <AlertCircle className="w-5 h-5" />
                             <div>
                                 <div className="font-bold">Data Fetch Error</div>
-                                <div className="text-sm">{error}</div>
+                                <div className="text-sm text-rose-300/80">{error}</div>
                             </div>
                         </CardContent>
                     </Card>

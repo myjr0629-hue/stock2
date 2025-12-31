@@ -17,7 +17,7 @@ const REPORT_CONCURRENCY = 2;
 const SPOT_CONCURRENCY = 5;
 const FIXED_DELAY_MS = 200;
 
-const DISABLE_OPTIONS_IN_DEV = process.env.NODE_ENV !== "production";
+// const DISABLE_OPTIONS_IN_DEV = process.env.NODE_ENV !== "production"; // [S-17] Force Unblock for Demo
 
 // --- S-28: Global status callback (Moved to massiveClient, re-exported or used via import) ---
 export type { StatusUpdate };
@@ -394,7 +394,8 @@ function calculateGemsGreeks(contracts: any[], spot: number) {
 export async function getOptionsData(symbol: string, presetSpot?: number, budget?: RunBudget, useCache: boolean = true): Promise<OptionData> {
 
 
-  // [S-17] Safe Unblock: Only allow if ALLOW_MASSIVE_FOR_SNAPSHOT is '1'
+  // [S-17] Options Block REMOVED by User Request (Unlimited API)
+  /*
   if (DISABLE_OPTIONS_IN_DEV && process.env.ALLOW_MASSIVE_FOR_SNAPSHOT !== "1") {
     return {
       expirationDate: "-",
@@ -415,6 +416,7 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
       options_reason: "DEV server: options calls disabled"
     } as any;
   }
+  */
 
   // [S-38D] Options-Eligibility Gate (Just-In-Time)
   // Step 1: Probe presence of ANY contracts for this ticker

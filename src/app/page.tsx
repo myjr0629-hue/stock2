@@ -140,7 +140,7 @@ function TickerCard({ symbol }: { symbol: string }) {
     <>
       <div
         onClick={() => setDrawerOpen(true)}
-        className="bg-[#1E293B]/50 backdrop-blur-md border border-white/5 rounded-2xl p-6 hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-all group flex flex-col justify-between h-[380px] cursor-pointer relative overflow-hidden"
+        className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 hover:bg-slate-800/60 hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-all group flex flex-col justify-between h-[380px] cursor-pointer relative overflow-hidden"
       >
         <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-10 transition-opacity">
           <Target size={100} className="text-emerald-500" />
@@ -243,7 +243,7 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#0F172A] text-slate-200 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 scroll-smooth">
+    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 scroll-smooth">
       <LandingHeader />
 
       {/* 0) MACRO TICKER TAPE (Moved below header as requested) */}
@@ -266,7 +266,7 @@ export default function Page() {
             className="w-full h-full object-cover opacity-40"
           />
           {/* Gradient Overlay for Text Readability - Stronger Scrim */}
-          <div className="absolute inset-0 bg-gradient-to-b from-[#020617]/60 via-[#020617]/40 to-[#020617] h-full mix-blend-multiply" />
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/40 to-slate-950 h-full mix-blend-multiply" />
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#020617_100%)] opacity-90" />
         </div>
 
@@ -325,7 +325,7 @@ export default function Page() {
       </section>
 
       {/* 2) LIVE DEMO */}
-      <section id="live-demo" className="py-24 px-6 bg-[#0B1120] relative border-y border-white/5 scroll-mt-20">
+      <section id="live-demo" className="py-24 px-6 bg-slate-900/50 relative border-y border-white/5 scroll-mt-20">
         <div className="max-w-6xl mx-auto space-y-12 relative z-10">
           <div className="flex justify-between items-end">
             <div className="space-y-2">
@@ -334,7 +334,7 @@ export default function Page() {
             </div>
           </div>
 
-          <div className="bg-[#1E293B] rounded-3xl p-8 border border-white/5 relative overflow-hidden">
+          <div className="bg-slate-900 rounded-3xl p-8 border border-white/5 relative overflow-hidden shadow-2xl shadow-black/50">
             {/* Macro HUD Row */}
 
 
@@ -349,7 +349,7 @@ export default function Page() {
       </section>
 
       {/* Footer */}
-      <footer className="py-12 px-6 border-t border-white/5 bg-[#0F172A]">
+      <footer className="py-12 px-6 border-t border-white/5 bg-slate-950">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
           <div className="flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
             <svg className="w-6 h-6 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

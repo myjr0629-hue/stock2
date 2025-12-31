@@ -26,12 +26,18 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount }
             <CardHeader className="pb-2 pt-3 border-b border-white/5 flex flex-row items-center justify-between">
                 <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <Target className="w-3 h-3 text-rose-400" />
-                    Flow Sniper
+                    <div>
+                        Flow Sniper
+                        <span className="block text-[8px] text-indigo-400 font-bold normal-case opacity-90">실시간 금일 옵션 자금 추적</span>
+                        <div className="flex items-center gap-1 mt-1.5 p-1 rounded bg-sky-500/10 border border-sky-500/20">
+                            <span className="text-[9px] text-sky-400 font-bold">👉 상세 세력 분석: Flow Radar 기관지표 확인</span>
+                        </div>
+                    </div>
                 </CardTitle>
                 <div className="flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${isBullish ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
-                    <span className={`text-[10px] font-black ${isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {isBullish ? "BULLISH" : "BEARISH"} PRESSURE
+                    <span className={`text-[9px] font-black ${isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
+                        {isBullish ? "BULLISH (공격수 기세 우위)" : "BEARISH (공격수 기세 약화)"}
                     </span>
                 </div>
             </CardHeader>
@@ -39,7 +45,10 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount }
             <CardContent className="space-y-4 pt-4">
                 {/* 1. NET PREMIUM BIG DISPLAY */}
                 <div className="text-center">
-                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">Net Premium Flow</div>
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                        Net Premium Flow
+                        {/* <span className="block text-[8px] opacity-70">오늘의 순수 공격 자금</span> */}
+                    </div>
                     <div className={`text-3xl font-black tabular-nums tracking-tighter ${isBullish ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isBullish ? "+" : "-"}${netFormatted}
                     </div>

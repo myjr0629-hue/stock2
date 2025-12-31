@@ -40,6 +40,9 @@ export interface UnifiedQuote {
     rsi?: number;
     relVol?: number;
     gapPct?: number;
+
+    // [Phase 42] Raw Options Chain (Filtered)
+    rawChain?: any[];
 }
 
 const MAX_RETRIES = 2; // User Requirement: Max 2 Retries
@@ -217,6 +220,8 @@ export const CentralDataHub = {
      */
     _fetchOptionsChain: async (ticker: string, currentPrice: number) => {
         // [S-17] Safe Unblock: Check Dev Flag
+        // FORCE ENABLE FOR DEMO: Checks bypassed
+        /*
         const DISABLE_OPTIONS_IN_DEV = process.env.NODE_ENV !== "production";
         if (DISABLE_OPTIONS_IN_DEV && process.env.ALLOW_MASSIVE_FOR_SNAPSHOT !== "1") {
             return {
@@ -224,6 +229,7 @@ export const CentralDataHub = {
                 optionsCount: 0, dataSource: 'NONE', isAfterHours: false
             };
         }
+        */
 
         try {
             if (!currentPrice || currentPrice <= 0) return {
@@ -240,16 +246,21 @@ export const CentralDataHub = {
 
             console.log(`[CentralDataHub] Fetching ALL options for ${ticker} -> In-Memory Filter < ${dateStr}`);
 
-            // Limit 1000 to get broad coverage in one go (Massive limit is usually 250 unless specified)
+            // [Fix] Enforce Date Range at API Level to ensure 250 limit contains RELEVANT options
+            // Otherwise we get LEAPS (2026+) and filter them all out locally.
+            const todayStr = new Date().toISOString().split('T')[0];
+            const maxExpiryDate = new Date();
+            // [User Request] Tighten window to 35 days (Weeklies + Next Monthly)
+            maxExpiryDate.setDate(maxExpiryDate.getDate() + 35);
+            const maxExpiryStr = maxExpiryDate.toISOString().split('T')[0];
+
             const params: any = {
                 limit: '250',
-                // [Debug] Minimal Params to Fix 400 Error
-                // sort: 'expiration_date', 
-                // order: 'asc',
-                // 'expiration_date.gte': new Date().toISOString().split('T')[0] // Only future/today
+                'expiration_date.gte': todayStr,
+                'expiration_date.lte': maxExpiryStr
             };
 
-            const res = await fetchMassive(`/v3/snapshot/options/${ticker}`, params, true);
+            const res = await fetchMassive(`/v3/snapshot/options/${ticker}`, params, false);
             const results = res.data?.results || res?.results || [];
 
             let callPremium = 0;
@@ -328,7 +339,8 @@ export const CentralDataHub = {
             const isAfterHours = contractsProcessed === 0 && results.length > 0;
             let dataSource: 'LIVE' | 'PREVIOUS_CLOSE' | 'CALCULATED' | 'NONE' = 'LIVE';
             if (usedFallback && contractsProcessed > 0) dataSource = 'CALCULATED';
-            if (isAfterHours) dataSource = 'NONE';
+            // [Fix] Even if isAfterHours (no volume processed), if we have results, we show CALCULATED (OI-based) for Radar
+            if (isAfterHours && results.length > 0) dataSource = 'CALCULATED';
 
             return {
                 netPremium: callPremium - putPremium,
@@ -340,6 +352,7 @@ export const CentralDataHub = {
                 dataSource, // 'LIVE', 'CALCULATED', or 'NONE'
                 isAfterHours,
                 gamma: totalGamma, // [Phase 35] Expose Gamma
+                rawChain: results, // [Phase 42] Expose Raw Chain for UI
                 error: null
             };
 
@@ -348,10 +361,13 @@ export const CentralDataHub = {
             const isAuthError = e.code === 'AUTH_ERROR' || e.httpStatus === 403 || e.httpStatus === 401;
             const isMissing = e.httpStatus === 404;
 
+            // [Fix] Handle MassiveError object structure (e.message might be undefined)
+            const errorMessage = e.message || e.reasonKR || JSON.stringify(e);
+
             if (isAuthError || isMissing) {
                 console.warn(`[CentralDataHub] Options access restricted for ${ticker} (${e.httpStatus || e.code}). Returning empty flow.`);
             } else {
-                console.error(`[CentralDataHub] Options Flow Calc Failed for ${ticker}: ${e.message}`, { code: e.code });
+                console.error(`[CentralDataHub] Options Flow Calc Failed for ${ticker}: ${errorMessage}`, { code: e.code });
             }
 
             return {
