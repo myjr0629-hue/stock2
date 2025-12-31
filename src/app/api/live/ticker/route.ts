@@ -169,12 +169,27 @@ export async function GET(req: NextRequest) {
             if (baselinePrice !== prevRegularClose) warnings.push("BASELINE_DRIFT_REG");
             break;
         case "POST":
-            // [Phase 23.7] Fix: Isolate Main Change%. Main Display always shows Regular data.
-            // Post data moves to badge.
-            activePrice = regularCloseToday || liveLast; // Fallback to liveLast if close not ready
+            // [Phase 23.7] Updated: Prioritize Post-Market (After Hours) Price
+            activePrice = postPrice || liveLast || regularCloseToday;
             baselinePrice = prevRegularClose;
 
-            // Calculate Main Change (Reg vs PrevReg)
+            // Calculate Main Change (Reg vs PrevReg) OR (Post vs PrevReg)?
+            // User wants "All Data Open". Let's show Post vs PrevReg (Total Change)
+            if (activePrice && baselinePrice && baselinePrice !== 0) {
+                changePctFrac = (activePrice - baselinePrice) / baselinePrice;
+            } else {
+                changePctFrac = null;
+            }
+
+            baselineLabel = "Today vs Prev Close (Inc. Post)";
+            priceLabel = "After Hours";
+            break;
+        default: // CLOSED session
+            // Show Final Price (Post Close if available, else Reg Close)
+            activePrice = postPrice || regularCloseToday || liveLast || prevRegularClose;
+            baselinePrice = prevRegularClose; // Always use prevClose as baseline for main change%
+
+            // Calculate change
             if (activePrice && baselinePrice && baselinePrice !== 0) {
                 changePctFrac = (activePrice - baselinePrice) / baselinePrice;
             } else {
@@ -182,25 +197,7 @@ export async function GET(req: NextRequest) {
             }
 
             baselineLabel = "Today vs Prev Close";
-            priceLabel = "Today's Close";
-            break;
-        default: // CLOSED session
-            // [Phase 23.5] Fix: For CLOSED, show today's close price with change vs yesterday
-            // Display: Today's Close ($188.22)
-            // Baseline: Yesterday's Close ($190.53) for change calculation
-            // Change: (188.22 - 190.53) / 190.53 = -1.21%
-            activePrice = regularCloseToday || postPrice || liveLast || prevRegularClose;
-            baselinePrice = prevRegularClose; // Always use prevClose as baseline for main change%
-
-            // Calculate change if we have today's close
-            if (regularCloseToday && prevRegularClose && prevRegularClose !== 0) {
-                changePctFrac = (regularCloseToday - prevRegularClose) / prevRegularClose;
-            } else {
-                changePctFrac = null;
-            }
-
-            baselineLabel = "Today vs Prev Close";
-            priceLabel = regularCloseToday ? "Today's Close" : "Last Close";
+            priceLabel = "Last Price";
 
             // [Phase 24.0] Rollover Fix: If change is 0% (because date rolled over, so Today==Prev),
             // show PREVIOUS session's change instead (e.g. 12/29 Change).
