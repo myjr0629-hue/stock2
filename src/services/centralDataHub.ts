@@ -139,6 +139,25 @@ export const CentralDataHub = {
         // 3. Determine Prices (Session Aware Logic)
         const liveLast = S.lastTrade?.p || null;
         let regClose = S.day?.c || S.prevDay?.c || OC.close || 0;
+
+        const prevDay = S.prevDay || {};
+        let prevClose = prevDay.c || 0;
+
+        // [Fix] Robust Fallback if Snapshot is empty
+        if (regClose === 0 && prevClose === 0) {
+            // Try fallback from history or OC
+            if (OC.close) regClose = OC.close;
+            else if (fullHistory.length > 0) {
+                // Use last available history close
+                regClose = fullHistory[fullHistory.length - 1].c;
+                prevClose = fullHistory.length > 1 ? fullHistory[fullHistory.length - 2].c : regClose;
+            }
+        }
+        if (prevClose === 0 && OC.from) {
+            // If we have OC from specific date but no prevClose from Snapshot
+            // We can't do much without history, but logic above handles history.
+        }
+
         let price = liveLast || regClose; // Estimated price for options filter
 
         // [Phase 27] Fetch Smart Options (Dark Pool) using estimated price
@@ -148,36 +167,41 @@ export const CentralDataHub = {
 
         const flowData = optionsRes as any;
 
+        // ... existing options fetch ... 
+
+        // ... flow calc ...
+
         // Reg Close Logic: Explicit OC > Snapshot Day Close > Last Trade (if Closed)
-        // User Requirement: If CLOSED, use OC.close ($188.22)
         if (isClosed && OC.close) {
             regClose = OC.close;
         } else {
-            regClose = S.day?.c || S.min?.c || liveLast || 0;
+            regClose = S.day?.c || S.min?.c || liveLast || regClose; // Use enhanced regClose
         }
 
-        const prevDay = S.prevDay || {};
-        let prevClose = prevDay.c || 0;
-
         // Price Selection
-        let changePct = S.todaysChangePerc || 0; // [Critical Fix] Use todaysChangePerc from snapshot
-        let priceSource: UnifiedQuote['priceSource'] = "LIVE_SNAPSHOT"; // Default
+        let changePct = S.todaysChangePerc || 0;
+        let priceSource: UnifiedQuote['priceSource'] = "LIVE_SNAPSHOT";
 
         if (session === "PRE") {
-            // Pre-Market
             price = S.min?.c || liveLast || regClose;
             priceSource = "PRE_OPEN";
         } else if (session === "POST") {
-            // Post-Market
             price = S.min?.c || liveLast || regClose;
             priceSource = "POST_CLOSE";
         } else if (session === "CLOSED") {
             price = regClose;
             priceSource = "OFFICIAL_CLOSE";
         } else {
-            // REG (Open)
             price = liveLast || regClose;
             priceSource = "LIVE_SNAPSHOT";
+        }
+
+        // [Final Safety Net]
+        if (!price || price === 0) {
+            if (prevClose > 0) {
+                price = prevClose;
+                priceSource = "OFFICIAL_CLOSE"; // Fallback to prev close
+            }
         }
 
         if (price && prevClose && changePct === 0) {

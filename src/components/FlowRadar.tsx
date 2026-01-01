@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Progress } from "./ui/progress";
 
 interface FlowRadarProps {
     rawChain: any[];
@@ -171,7 +171,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
     return (
         <div className="space-y-4 animate-in fade-in zoom-in duration-500">
             {/* Header / Control Bar */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/50 p-2 px-4 rounded-xl border border-white/5 backdrop-blur-md">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/50 p-2 px-4 rounded-md border border-white/5 backdrop-blur-md">
                 {/* 1. Left: Branding with Prestige */}
                 <div className="flex items-center gap-3 min-w-[200px]">
                     <div className="h-9 w-9 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
@@ -200,7 +200,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                 </div>
 
                 {/* 3. Right: Toggles */}
-                <div className="flex bg-slate-950 rounded-lg p-1 border border-white/10 shrink-0">
+                <div className="flex bg-slate-950 rounded-md p-1 border border-white/10 shrink-0">
                     <button
                         onClick={() => setUserViewMode('VOLUME')}
                         className={`px-4 py-1.5 text-[10px] font-black rounded transition-all uppercase tracking-wider ${effectiveViewMode === 'VOLUME' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
@@ -306,7 +306,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                         <CardContent className="p-5 space-y-4 flex-1 flex flex-col">
 
                             {/* NEW: Data Source Prestige Block */}
-                            <div className="bg-gradient-to-r from-amber-950/20 to-slate-900 border border-amber-500/10 p-3 rounded-xl mb-2">
+                            <div className="bg-gradient-to-r from-amber-950/20 to-slate-900 border border-amber-500/10 p-3 rounded-md mb-2">
                                 <div className="flex items-center gap-2 mb-1">
                                     <Lock size={10} className="text-amber-400" />
                                     <span className="text-[9px] font-black text-amber-200 uppercase tracking-widest">
@@ -319,14 +319,14 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                             </div>
 
                             {/* Status Block */}
-                            <div className="bg-white/5 rounded-xl p-3 border border-white/10 text-center">
+                            <div className="bg-white/5 rounded-md p-3 border border-white/10 text-center">
                                 <span className="text-[9px] text-slate-500 uppercase tracking-wider block mb-1">현재 포지션 제안</span>
                                 <div className={`text-sm font-black ${analysis?.color || "text-slate-300"}`}>{analysis?.status}</div>
                             </div>
 
                             {/* Probability Meter */}
                             {analysis?.probability && analysis.probability !== 50 && (
-                                <div className="bg-slate-950/50 p-3 rounded-xl border border-white/5 space-y-2">
+                                <div className="bg-slate-950/50 p-3 rounded-md border border-white/5 space-y-2">
                                     <div className="flex justify-between items-center text-[10px]">
                                         <span className="text-slate-400 flex items-center gap-1"><Percent size={10} /> 확률 분석 (Beta)</span>
                                         <span className={`font-black ${analysis.probColor}`}>{analysis.probLabel}</span>
@@ -378,7 +378,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
 
                             {/* Key Levels Dashboard (Restored at Bottom) */}
                             <div className="mt-auto pt-4 border-t border-white/5 grid grid-cols-1 gap-3">
-                                <div className="bg-emerald-950/20 border border-emerald-500/20 p-3 rounded-xl flex items-center justify-between">
+                                <div className="bg-emerald-950/20 border border-emerald-500/20 p-3 rounded-md flex items-center justify-between">
                                     <div>
                                         <div className="text-[10px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-1">
                                             <div className="w-2 h-2 bg-emerald-500 rounded-sm" /> Call Wall (저항)
@@ -388,7 +388,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                                     <div className="text-xl font-black text-emerald-400 font-mono">${callWall}</div>
                                 </div>
 
-                                <div className="bg-rose-950/20 border border-rose-500/20 p-3 rounded-xl flex items-center justify-between">
+                                <div className="bg-rose-950/20 border border-rose-500/20 p-3 rounded-md flex items-center justify-between">
                                     <div>
                                         <div className="text-[10px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-1">
                                             <div className="w-2 h-2 bg-rose-500 rounded-sm" /> Put Wall (지지)

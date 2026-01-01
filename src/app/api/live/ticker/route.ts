@@ -24,7 +24,10 @@ async function fetchMassiveWithRetry(url: string, attempts = 3): Promise<any> {
     }
 }
 
-function getSessionType(etHour: number, etMin: number, isWeekend: boolean): SessionType {
+function getSessionType(etHour: number, etMin: number, isWeekend: boolean, etMonth: number, etDay: number): SessionType {
+    // [Fix] Holiday Logic (New Year's Day)
+    if (etMonth === 1 && etDay === 1) return "CLOSED";
+
     if (isWeekend) return "CLOSED";
     const etTime = etHour + etMin / 60;
     if (etTime >= 4.0 && etTime < 9.5) return "PRE";
@@ -87,7 +90,7 @@ export async function GET(req: NextRequest) {
     twoWeeksAgoET.setUTCDate(twoWeeksAgoET.getUTCDate() - 14);
     const twoWeeksAgoStr = `${twoWeeksAgoET.getUTCFullYear()}-${String(twoWeeksAgoET.getUTCMonth() + 1).padStart(2, '0')}-${String(twoWeeksAgoET.getUTCDate()).padStart(2, '0')}`;
 
-    const session: SessionType = getSessionType(etHour, etMin, isWeekend);
+    const session: SessionType = getSessionType(etHour, etMin, isWeekend, etMonth, etDay);
 
     const etStr = `${etMonth}/${etDay}/${etYear}, ${etHour}:${String(etMin).padStart(2, '0')}`;
 
@@ -193,8 +196,9 @@ export async function GET(req: NextRequest) {
             priceLabel = "After Hours";
             break;
         default: // CLOSED session
-            // Show Final Price (Post Close if available, else Reg Close)
-            activePrice = postPrice || regularCloseToday || liveLast || prevRegularClose;
+            // [Fix] Show Regular Close Logic (Intraday) because Post Market is separately displayed
+            // Prioritize Regular Close > Post Price (if Reg missing) > Last Trade
+            activePrice = regularCloseToday || postPrice || liveLast || prevRegularClose;
             baselinePrice = prevRegularClose; // Always use prevClose as baseline for main change%
 
             // Calculate change

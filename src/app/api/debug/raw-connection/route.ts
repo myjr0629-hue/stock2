@@ -4,14 +4,14 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-    const apiKey = process.env.MASSIVE_API_KEY;
+    const apiKey = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
 
     if (!apiKey) {
         return NextResponse.json({ error: "MASSIVE_API_KEY is missing in env" }, { status: 500 });
     }
 
     const ticker = "NVDA";
-    const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${apiKey}`;
+    const url = `https://api.polygon.io/v1/open-close/${ticker}/2025-12-31?adjusted=true&apiKey=${apiKey}`;
 
     try {
         const start = Date.now();

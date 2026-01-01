@@ -91,14 +91,25 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
         }
     }
 
+
     // 3. News safety downgrade
     const hasMajorEvent = krNews.some((n: any) => {
         return n.ageHours <= 24 && (n.tag === 'EARNINGS' || n.tag === 'REGULATION');
     });
+    // [New] Rumor Check (Gemini AI)
+    const hasRumor = krNews.some((n: any) => n.isRumor && n.ageHours <= 24);
+
     if (hasMajorEvent) {
         reasons.push("중대 이벤트 뉴스: 보수 운용");
         if (status === 'PASS') status = 'WATCH';
         else if (status === 'WATCH') status = 'FAIL';
+    }
+
+    if (hasRumor) {
+        reasons.push("⚠️ [AI 감지] 미확인 루머/찌라시 유입");
+        // Rumors are high risk, but could be opportunity. We flag it ensuring visibility.
+        // We force at least WATCH if currently PASS.
+        if (status === 'PASS') status = 'WATCH';
     }
 
     if (!actionHint) {
@@ -112,18 +123,10 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
             status === 'WATCH' ? 'border-l-amber-500 bg-amber-950/20' :
                 'border-l-rose-500 bg-rose-950/20'
             } overflow-hidden hover:shadow-md transition-shadow border-t-0 border-r-0 border-b-0`}>
-            <CardContent className="py-4 px-4">
-                <div className="flex items-center justify-between mb-3 pb-2 border-b border-white/5">
-                    <div className="flex items-center gap-2">
-                        <ShieldAlert className={`h-4 w-4 ${status === 'PASS' ? 'text-emerald-500' :
-                            status === 'WATCH' ? 'text-amber-500' :
-                                'text-rose-500'
-                            }`} />
-                        <div>
-                            <span className="block text-[10px] font-black uppercase tracking-widest text-slate-300 leading-none">Decision Gate</span>
-                            <span className="block text-[9px] text-amber-500 font-bold mt-0.5">종합 리스크 통제실</span>
-                        </div>
-                    </div>
+            <CardContent className="py-3 px-3">
+                {/* Status Badge (Compact) */}
+                <div className="flex justify-between items-center mb-2">
+                    <span className="text-[9px] text-amber-500 font-bold">종합 리스크 통제실</span>
                     <span className={`px-2 py-0.5 rounded text-[10px] font-black ${status === 'PASS' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
                         status === 'WATCH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                             'bg-rose-500/20 text-rose-400 border border-rose-500/30'
@@ -131,7 +134,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
                         {status}
                     </span>
                 </div>
-                <div className="space-y-1.5 mb-3">
+                <div className="space-y-1.5 mb-2">
                     {reasons.slice(0, 4).map((r, i) => (
                         <div key={i} className="text-[11px] font-bold text-slate-400 flex items-start gap-2">
                             <span className="mt-1 w-1 h-1 rounded-full bg-slate-600 shrink-0" />
@@ -139,6 +142,17 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
                         </div>
                     ))}
                     {reasons.length === 0 && <div className="text-[11px] text-slate-500 italic">특이 사항 없음 (안전)</div>}
+                </div>
+                {/* Rumor Detection Status (Always Shown) */}
+                <div className="flex items-center justify-between text-[10px] mb-2 py-1.5 px-2 rounded bg-slate-800/50 border border-white/5">
+                    <span className="text-slate-500 font-bold uppercase tracking-wider">AI 루머 감지</span>
+                    {hasRumor ? (
+                        <span className="text-rose-400 font-black flex items-center gap-1">
+                            <AlertCircle size={10} /> 감지됨
+                        </span>
+                    ) : (
+                        <span className="text-emerald-400 font-black">✓ 미감지</span>
+                    )}
                 </div>
                 <div className="text-[11px] font-black text-slate-400 border-t border-white/5 pt-2 flex items-center gap-2">
                     <Zap size={10} className="text-amber-400 shrink-0" />
@@ -301,41 +315,106 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     return (
         <div className="w-full max-w-[1600px] mx-auto space-y-6">
 
-            {/* 1. TOP HEADER (Ticker & Price) */}
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6 pb-6 border-b border-white/10">
-                <div>
+            {/* 1. TOP HEADER (Consolidated Left Layout) */}
+            <div className="flex flex-col gap-4 pb-6 border-b border-white/10">
+                {/* Row 1: Identity & Price & Extended (Inline) */}
+                <div className="flex items-end gap-x-6 flex-wrap">
+                    {/* Identity Group */}
                     <div className="flex items-center gap-3">
-                        {/* Company Logo */}
-                        <div className="relative w-10 h-10 lg:w-14 lg:h-14 rounded-full overflow-hidden bg-white/10 flex items-center justify-center mb-2">
+                        <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
                             <img
                                 src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
                                 alt={`${ticker} logo`}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {
                                     (e.target as HTMLImageElement).style.display = 'none';
-                                    (e.target as HTMLImageElement).parentElement!.classList.add('hidden'); // Hide container if fails
+                                    (e.target as HTMLImageElement).parentElement!.classList.add('hidden');
                                 }}
                             />
                         </div>
-                        <h1 className="text-4xl lg:text-6xl font-black text-white tracking-tighter mb-2">{ticker}</h1>
-                        <FavoriteToggle ticker={ticker} />
-                        {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={14} />}
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter">{ticker}</h1>
+                                <FavoriteToggle ticker={ticker} />
+                                {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={14} />}
+                            </div>
+                            <p className="text-sm text-slate-500 font-bold tracking-tight uppercase">{initialStockData.name}</p>
+                        </div>
                     </div>
-                    <p className="text-xl text-slate-500 font-medium tracking-tight uppercase">{initialStockData.name}</p>
+
+                    {/* Main Price Group (Inline, Reduced Size) */}
+                    <div className="hidden sm:block pb-1">
+                        <div className="flex items-baseline gap-3">
+                            <div className="text-2xl lg:text-3xl font-black text-white tracking-tighter tabular-nums">
+                                ${(liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice)?.toFixed(2)}
+                            </div>
+                            <div className={`text-lg font-bold font-mono tracking-tighter ${(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500"
+                                }`}>
+                                {(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0) > 0 ? "+" : ""}
+                                {(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0)?.toFixed(2)}%
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Extended Session Badge (Inline with Price) */}
+                    {activeExtPrice && (
+                        <div className="hidden sm:block pb-1.5">
+                            <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
+                                <div className={`w-1.5 h-1.5 rounded-full ${activeExtType === 'PRE' ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
+
+                                <div className="flex flex-col leading-none">
+                                    <div className="flex items-baseline gap-2">
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                            {activeExtType === 'PRE' ? 'Pre' : 'Post'}
+                                        </span>
+                                        <span className="text-xs font-bold text-slate-200 tabular-nums">
+                                            ${activeExtPrice.toFixed(2)}
+                                        </span>
+                                        <span className={`text-[10px] font-mono font-bold ${(activeExtPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                            {(activeExtPct || 0) > 0 ? "+" : ""}{(activeExtPct || 0).toFixed(2)}%
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
-                <div className="text-right">
-                    <div className="text-5xl lg:text-6xl font-black text-white tracking-tighter tabular-nums">
-                        ${displayPrice?.toFixed(2)}
+                {/* Mobile Only: Price & Extended Row */}
+                <div className="flex flex-col gap-2 sm:hidden">
+                    <div className="flex items-baseline gap-3">
+                        <div className="text-4xl font-black text-white tracking-tighter tabular-nums">
+                            ${(liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice)?.toFixed(2)}
+                        </div>
+                        <div className={`text-xl font-bold font-mono tracking-tighter ${(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500"
+                            }`}>
+                            {(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0) > 0 ? "+" : ""}
+                            {(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0)?.toFixed(2)}%
+                        </div>
                     </div>
-                    <div className={`text-xl font-bold font-mono tracking-tighter ${displayChangePct && displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                        {displayChangePct && displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
-                    </div>
+
+                    {/* Extended Mobile */}
+                    {activeExtPrice && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md w-fit">
+                            <div className={`w-1.5 h-1.5 rounded-full ${activeExtType === 'PRE' ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
+                            <div className="flex items-baseline gap-2">
+                                <span className={`text-[10px] font-black uppercase tracking-widest ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                    {activeExtType === 'PRE' ? 'Pre' : 'Post'}
+                                </span>
+                                <span className="text-sm font-bold text-slate-200 tabular-nums">
+                                    ${activeExtPrice.toFixed(2)}
+                                </span>
+                                <span className={`text-xs font-mono font-bold ${(activeExtPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                    {(activeExtPct || 0) > 0 ? "+" : ""}{(activeExtPct || 0).toFixed(2)}%
+                                </span>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
             {/* [Phase 50] Tab Navigation */}
-            <div className="flex items-center gap-1 bg-slate-900/50 w-fit p-1 rounded-lg border border-white/5 mb-6">
+            <div className="flex items-center gap-1 bg-slate-900/50 w-fit p-1 rounded-md border border-white/5 mb-6">
                 <button
                     onClick={() => setActiveTab('COMMAND')}
                     className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] ${activeTab === 'COMMAND' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
@@ -364,13 +443,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="w-1 h-4 bg-indigo-500 rounded-full" />
                                 <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Price History</h3>
                             </div>
-                            <div className="h-[500px] rounded-2xl border border-white/10 bg-slate-900/40 overflow-hidden shadow-sm relative backdrop-blur-sm">
+                            <div className="h-[500px] rounded-md border border-white/10 bg-slate-900/40 overflow-hidden shadow-sm relative backdrop-blur-sm">
                                 <StockChart
                                     key={`${ticker}:${range}:${initialStockData.history.length}`}
                                     data={initialStockData.history}
                                     color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
                                     ticker={ticker}
                                     initialRange={range}
+                                    prevClose={liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose}
                                 />
                             </div>
                         </section>
@@ -384,68 +464,74 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 {/* Gamma Structure */}
-                                <Card className="border-white/10 bg-slate-900/40 shadow-sm">
-                                    <CardHeader className="pb-2 border-b border-white/5 bg-slate-800/20">
-                                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
-                                            <span>Key Market Levels</span>
-                                            {structure?.maxPain && (
-                                                <span className="text-[10px] text-amber-500 font-black">
-                                                    Max Pain: ${structure.maxPain}
-                                                </span>
-                                            )}
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-0 h-[300px]">
-                                        <GammaLevelsViz
-                                            currentPrice={displayPrice}
-                                            callWall={structure?.levels?.callWall}
-                                            putFloor={structure?.levels?.putFloor}
-                                            pinZone={structure?.levels?.pinZone}
-                                        />
-                                    </CardContent>
-                                </Card>
+                                <div className="space-y-2">
+                                    <div className="flex items-center justify-between px-1">
+                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <div className="w-1 h-3 bg-slate-500 rounded-full" /> Key Market Levels
+                                        </h4>
+                                        {structure?.maxPain && (
+                                            <span className="text-[10px] text-amber-500 font-black">
+                                                Max Pain (최대고통): ${structure.maxPain}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <Card className="border-white/10 bg-slate-900/40 shadow-sm p-0 overflow-hidden">
+                                        <CardContent className="p-0 h-[300px]">
+                                            <GammaLevelsViz
+                                                currentPrice={displayPrice}
+                                                callWall={structure?.levels?.callWall}
+                                                putFloor={structure?.levels?.putFloor}
+                                                pinZone={structure?.levels?.pinZone}
+                                            />
+                                        </CardContent>
+                                    </Card>
+                                </div>
 
                                 {/* Net GEX & Strikes */}
-                                <Card className="border-white/10 bg-slate-900/40 shadow-sm">
-                                    <CardHeader className="pb-2 border-b border-white/5 bg-slate-800/20">
-                                        <CardTitle className="text-xs font-bold text-slate-400 uppercase tracking-wider">Net Gamma Exposure</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="pt-6 px-4 space-y-6">
-                                        <div className="text-center">
-                                            <div className={`text-4xl font-black ${structure?.netGex > 0 ? "text-emerald-400" : structure?.netGex < 0 ? "text-rose-400" : "text-white"}`}>
-                                                {structure?.netGex ? (structure.netGex > 0 ? "+" : "") + (structure.netGex / 1000000).toFixed(2) + "M" : "—"}
-                                            </div>
-                                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">Net GEX Notional</div>
-                                            {/* Expert Interpretation */}
-                                            <div className={`mt-2 text-[10px] font-bold px-2 py-1 rounded inline-block ${structure?.netGex > 0 ? "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" : structure?.netGex < 0 ? "bg-rose-950/30 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400"}`}>
-                                                {structure?.netGex > 0 ? "지지력 강화 (변동성 축소)" : structure?.netGex < 0 ? "변동성 확대 (가속 구간)" : "중립 (방향성 부재)"}
-                                            </div>
-                                            <div className="mt-4 flex justify-center gap-4 text-[9px] font-medium text-slate-500 border-t border-white/5 pt-2">
-                                                <div className="flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                                    <span>(+) 안전지대</span>
+                                <div className="space-y-2">
+                                    <div className="flex items-center px-1">
+                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                            <div className="w-1 h-3 bg-slate-500 rounded-full" /> Net Gamma Exposure
+                                        </h4>
+                                    </div>
+                                    <Card className="border-white/10 bg-slate-900/40 shadow-sm p-0 overflow-hidden">
+                                        <CardContent className="pt-6 px-4 space-y-6">
+                                            <div className="text-center">
+                                                <div className={`text-4xl font-black ${structure?.netGex > 0 ? "text-emerald-400" : structure?.netGex < 0 ? "text-rose-400" : "text-white"}`}>
+                                                    {structure?.netGex ? (structure.netGex > 0 ? "+" : "") + (structure.netGex / 1000000).toFixed(2) + "M" : "—"}
                                                 </div>
-                                                <div className="flex items-center gap-1">
-                                                    <span className="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
-                                                    <span>(-) 가속구간</span>
+                                                <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">순 감마 에너지 (Net GEX)</div>
+                                                {/* Expert Interpretation */}
+                                                <div className={`mt-2 text-[10px] font-bold px-2 py-1 rounded inline-block ${structure?.netGex > 0 ? "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" : structure?.netGex < 0 ? "bg-rose-950/30 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400"}`}>
+                                                    {structure?.netGex > 0 ? "지지력 강화 (변동성 축소)" : structure?.netGex < 0 ? "변동성 확대 (가속 구간)" : "중립 (방향성 부재)"}
+                                                </div>
+                                                <div className="mt-4 flex justify-center gap-4 text-[9px] font-medium text-slate-500 border-t border-white/5 pt-2">
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                                        <span>(+) 안전지대</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
+                                                        <span>(-) 가속구간</span>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <div className="h-40">
-                                            {showStructure && (
-                                                <OIChart
-                                                    strikes={structure.structure.strikes}
-                                                    callsOI={structure.structure.callsOI}
-                                                    putsOI={structure.structure.putsOI}
-                                                    currentPrice={displayPrice}
-                                                    maxPain={structure.maxPain}
-                                                    callWall={structure.levels?.callWall}
-                                                    putFloor={structure.levels?.putFloor}
-                                                />
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                            <div className="h-auto min-h-[250px]">
+                                                {showStructure && (
+                                                    <OIChart
+                                                        strikes={structure.structure.strikes}
+                                                        callsOI={structure.structure.callsOI}
+                                                        putsOI={structure.structure.putsOI}
+                                                        currentPrice={displayPrice}
+                                                        maxPain={structure.maxPain}
+                                                        callWall={structure.levels?.callWall}
+                                                        putFloor={structure.levels?.putFloor}
+                                                    />
+                                                )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
                             </div>
                         </section>
 
@@ -457,8 +543,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* SIDEBAR (4 Cols) - Strategy & Intel */}
                     <div className="lg:col-span-4 space-y-6">
 
-                        {/* 1. Decision Gate (Sticky) */}
-                        <div className="sticky top-24 z-30">
+                        {/* 1. Decision Gate (Sticky Removed per user feedback) */}
+                        <div>
                             <div className="mb-2 flex items-center gap-2">
                                 <ShieldAlert size={14} className="text-slate-500" />
                                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Decision Gate</span>
@@ -473,66 +559,67 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* 2. Flow Dynamics */}
-                        <Card className="border-white/10 bg-slate-900/40">
-                            <CardHeader className="pb-3 border-b border-white/5 bg-slate-800/20">
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-2">
-                                        <Activity size={14} className="text-sky-400" />
-                                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Flow Unit</span>
-                                    </div>
-                                    <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded">REALTIME</span>
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-center px-1">
+                                <div className="flex items-center gap-2">
+                                    <Activity size={12} className="text-sky-400" />
+                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Flow Unit</span>
                                 </div>
-                            </CardHeader>
-                            <CardContent className="p-4">
-                                <FlowSniper
-                                    netPremium={liveQuote?.flow?.netPremium || 0}
-                                    callPremium={liveQuote?.flow?.callPremium || 0}
-                                    putPremium={liveQuote?.flow?.putPremium || 0}
-                                    optionsCount={liveQuote?.flow?.optionsCount || 0}
-                                />
-                            </CardContent>
-                        </Card>
+                                <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-sm">INTRADAY(당일)</span>
+                            </div>
+                            <Card className="border-white/10 bg-slate-900/40 p-0 overflow-hidden">
+                                <CardContent className="p-1">
+                                    <FlowSniper
+                                        netPremium={liveQuote?.flow?.netPremium || 0}
+                                        callPremium={liveQuote?.flow?.callPremium || 0}
+                                        putPremium={liveQuote?.flow?.putPremium || 0}
+                                        optionsCount={liveQuote?.flow?.optionsCount || 0}
+                                        onClickFlowRadar={() => setActiveTab('FLOW')}
+                                    />
+                                </CardContent>
+                            </Card>
+                        </div>
 
                         {/* 3. Technical Pulse (Placeholder/Simple) */}
-                        <Card className="border-white/10 bg-slate-900/40">
-                            <CardHeader className="pb-3 border-b border-white/5 bg-slate-800/20">
-                                <div className="flex items-center gap-2">
-                                    <Zap size={14} className="text-amber-400" />
-                                    <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">Technical Pulse</span>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="p-4 space-y-4">
-                                {/* RSI Row */}
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs text-slate-500 font-bold">RSI (14)</span>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-[10px] font-bold text-slate-500">
-                                            {(initialStockData.rsi || 50) > 70 ? "과매수 (Oversold)" :
-                                                (initialStockData.rsi || 50) < 30 ? "과매도 (Undersold)" : "중립 (Neutral)"}
-                                        </span>
-                                        <span className={`text-sm font-black ${(initialStockData.rsi || 50) > 70 ? "text-rose-400" :
-                                            (initialStockData.rsi || 50) < 30 ? "text-emerald-400" : "text-white"
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 px-1">
+                                <Zap size={12} className="text-amber-400" />
+                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Technical Pulse</span>
+                            </div>
+                            <Card className="border-white/10 bg-slate-900/40 p-0 overflow-hidden">
+                                <CardContent className="p-4 space-y-4">
+                                    {/* RSI Row */}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-500 font-bold">RSI (14)</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] font-bold text-slate-500">
+                                                {(initialStockData.rsi || 50) > 70 ? "과매수 (Oversold)" :
+                                                    (initialStockData.rsi || 50) < 30 ? "과매도 (Undersold)" : "중립 (Neutral)"}
+                                            </span>
+                                            <span className={`text-sm font-black ${(initialStockData.rsi || 50) > 70 ? "text-rose-400" :
+                                                (initialStockData.rsi || 50) < 30 ? "text-emerald-400" : "text-white"
+                                                }`}>
+                                                {initialStockData.rsi?.toFixed(1) || "-"}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    {/* 3D Return */}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs text-slate-500 font-bold">3D Return</span>
+                                        <span className={`text-sm font-black ${(initialStockData.return3d || 0) > 0 ? "text-emerald-400" : "text-rose-400"
                                             }`}>
-                                            {initialStockData.rsi?.toFixed(1) || "-"}
+                                            {initialStockData.return3d ? (initialStockData.return3d > 0 ? "+" : "") + initialStockData.return3d.toFixed(2) + "%" : "-"}
                                         </span>
                                     </div>
-                                </div>
-                                {/* 3D Return */}
-                                <div className="flex justify-between items-center">
-                                    <span className="text-xs text-slate-500 font-bold">3D Return</span>
-                                    <span className={`text-sm font-black ${(initialStockData.return3d || 0) > 0 ? "text-emerald-400" : "text-rose-400"
-                                        }`}>
-                                        {initialStockData.return3d ? (initialStockData.return3d > 0 ? "+" : "") + initialStockData.return3d.toFixed(2) + "%" : "-"}
-                                    </span>
-                                </div>
-                            </CardContent>
-                        </Card>
+                                </CardContent>
+                            </Card>
+                        </div>
 
                         {/* 4. Intel Feed (Native KR) */}
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 pt-2">
                                 <Newspaper size={14} className="text-slate-500" />
-                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Intel Feed (Native KR)</h3>
+                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Intel Feed (Global AI)</h3>
                             </div>
                             <div className="space-y-2">
                                 {krNews.slice(0, 3).map((n, i) => (

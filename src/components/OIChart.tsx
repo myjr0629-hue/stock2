@@ -49,7 +49,7 @@ export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callW
     };
 
     return (
-        <div className="w-full overflow-x-auto scrollbar-hide">
+        <div className="w-full overflow-x-auto custom-scrollbar">
             <div className="h-[240px] relative mt-2" style={{ width: Math.max(svgWidth, 500) }}>
                 <svg width="100%" height="100%" viewBox={`0 0 ${svgWidth} ${svgHeight}`} preserveAspectRatio="none">
                     {/* Horizontal Grid */}

@@ -11,6 +11,7 @@ export interface NewsItem {
     headline: string;
     summaryKR: string;       // Korean summary
     source: string;
+    link?: string;           // Article URL
     publishedAt: string;     // ISO datetime
     publishedAtET: string;   // Formatted ET time
     sentiment: "positive" | "negative" | "neutral";
@@ -19,6 +20,9 @@ export interface NewsItem {
     catalystAge: number;     // Hours since publication
     isStale: boolean;        // > 72h = stale (for engine penalty)
 }
+
+
+
 
 // [S-53.8] Like/Dislike item with source transparency
 export interface LikeDislikeItem {
@@ -74,6 +78,109 @@ function formatETTime(isoDate: string): string {
     });
 }
 
+// Google Gemini Integration
+import { GoogleGenAI } from "@google/genai";
+// @ts-ignore
+import translate from "google-translate-api-x";
+
+const MODEL_NAME = "gemini-1.5-flash"; // Target model
+
+interface AIAnalysisResult {
+    id: string;
+    summaryKR: string;
+    isRumor: boolean;
+}
+
+let genAI: GoogleGenAI | null = null;
+
+function getGenAIClient() {
+    if (genAI) return genAI;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey) {
+        genAI = new GoogleGenAI({ apiKey });
+        return genAI;
+    }
+    return null;
+}
+
+// [Gemini Logic] Batch Analysis to respect Rate Limits (15 RPM)
+// We process up to 10 items in one go.
+export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]> {
+    const client = getGenAIClient();
+
+    // Try Gemini First
+    if (client) {
+        try {
+            const promptItems = items.map(item => ({
+                id: item.id || `news-${Math.random().toString(36).substr(2, 9)}`,
+                text: `${item.title} - ${item.description || ""}`
+            }));
+
+            const prompt = `
+            You are a top-tier financial analyst for the Korean market (Yeouido style).
+            Translate the following news headlines/summaries into professional Korean.
+            Also, enable 'Rumor Detection': precise identification of unverified reports, leaks, or speculation vs confirmed news.
+            
+            Input Data (JSON):
+            ${JSON.stringify(promptItems)}
+
+            Task:
+            1. Translated 'summaryKR': concise, professional tone (e.g. "상승 마감" instead of "오르고 끝났다").
+            2. 'isRumor': boolean (true if sources are 'sources say', 'reportedly', 'leaks', 'rumor', 'speculation').
+
+            Output MUST be a valid JSON Array of objects:
+            [ { "id": "...", "summaryKR": "...", "isRumor": boolean } ]
+            DO NOT output markdown code blocks. Just the raw JSON.
+            `;
+
+            const result = await client.models.generateContent({
+                model: MODEL_NAME,
+                contents: prompt,
+            });
+            const responseText = result.text || "";
+
+            // Clean up markdown if present
+            const jsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+            const analysis = JSON.parse(jsonStr) as AIAnalysisResult[];
+
+            return analysis;
+        } catch (e) {
+            console.warn("[NewsHub] Gemini Analysis Failed (404/Quota), switching to Fallback:", e);
+            // Fall through to fallback
+        }
+    }
+
+    // Fallback: Google Translate + Regex Rumor Detection
+    try {
+        const fallbackResults = await Promise.all(items.map(async (item) => {
+            const textToTranslate = item.description || item.title || "";
+            let translated = textToTranslate;
+
+            try {
+                const res = await translate(textToTranslate, { to: 'ko' });
+                translated = (res as any).text;
+            } catch (err) {
+                console.error("Translation fail:", err);
+            }
+
+            // Simple Regex for Rumors (English Source)
+            const fullText = (item.title + " " + (item.description || "")).toLowerCase();
+            const rumorKeywords = [/sources say/i, /reportedly/i, /rumor/i, /unconfirmed/i, /speculation/i, /considering a bid/i, /people familiar with/i];
+            const isRumor = rumorKeywords.some(rx => rx.test(fullText));
+
+            return {
+                id: item.id || `news-${Math.random().toString(36).substr(2, 9)}`,
+                summaryKR: translated,
+                isRumor
+            };
+        }));
+        return fallbackResults;
+    } catch (e) {
+        console.error("[NewsHub] Fallback Failed:", e);
+        return [];
+    }
+}
+
 // Fetch stock news from Massive (Polygon) API
 export async function fetchStockNews(tickers: string[], limit: number = 10): Promise<NewsItem[]> {
     try {
@@ -85,11 +192,24 @@ export async function fetchStockNews(tickers: string[], limit: number = 10): Pro
             return [];
         }
 
-        return data.results.map((article: any, idx: number) => {
+        // Prep raw items
+        const rawItems = data.results.map((article: any, idx: number) => ({
+            ...article,
+            internalId: article.id || `news-${idx}`
+        }));
+
+        // Run Gemini Analysis (Parallel to save time? No, simple await is safer for now)
+        // Only run if we have a key
+        let aiResults: AIAnalysisResult[] = [];
+        if (process.env.GEMINI_API_KEY) {
+            aiResults = await analyzeNewsBatch(rawItems);
+        }
+
+        return rawItems.map((article: any) => {
             const publishedAt = article.published_utc || new Date().toISOString();
             const age = calculateAge(publishedAt);
 
-            // Simple sentiment detection from keywords
+            // Simple sentiment detection from keywords (Fallback/Base)
             let sentiment: "positive" | "negative" | "neutral" = "neutral";
             const title = (article.title || "").toLowerCase();
             if (title.includes('surge') || title.includes('rally') || title.includes('beat') || title.includes('upgrade')) {
@@ -110,11 +230,27 @@ export async function fetchStockNews(tickers: string[], limit: number = 10): Pro
                 catalystType = 'regulatory';
             }
 
+            // Merge AI Result
+            const aiMatch = aiResults.find(r => r.id === article.internalId);
+            // If AI detects rumor, we can tag it. For now, we put it in text or logic?
+            // Let's prepend [루머] if confirmed rumor
+            let finalSummary = article.description?.substring(0, 100) || article.title || "—";
+
+            if (aiMatch) {
+                finalSummary = aiMatch.summaryKR;
+                if (aiMatch.isRumor) {
+                    finalSummary = `[루머/비확인] ${finalSummary}`;
+                    // Maybe degrade sentiment or score? 
+                    // For now, visual warning is enough.
+                }
+            }
+
             return {
-                id: article.id || `news-${idx}`,
+                id: article.internalId,
                 headline: article.title || "No Title",
-                summaryKR: article.description?.substring(0, 100) || article.title || "—", // TODO: Translate
+                summaryKR: finalSummary,
                 source: article.publisher?.name || "Unknown",
+                link: article.article_url,
                 publishedAt,
                 publishedAtET: formatETTime(publishedAt),
                 sentiment,

@@ -8,9 +8,10 @@ interface FlowSniperProps {
     callPremium: number;
     putPremium: number;
     optionsCount: number;
+    onClickFlowRadar?: () => void;
 }
 
-export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount }: FlowSniperProps) {
+export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, onClickFlowRadar }: FlowSniperProps) {
     const totalVol = callPremium + putPremium;
     // Prevent divide by zero
     const callPct = totalVol > 0 ? (callPremium / totalVol) * 100 : 50;
@@ -30,7 +31,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount }
                 "bg-slate-900/50"
             }`}>
             {/* Header */}
-            <CardHeader className="pb-2 pt-3 border-b border-white/5 flex flex-row items-center justify-between">
+            <CardHeader className="py-2 border-b border-white/5 flex flex-row items-center justify-between">
                 <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <Target className={`w-3 h-3 ${isGammaSqueeze ? "text-indigo-400 animate-pulse" : isPanicSelling ? "text-rose-400 animate-pulse" : "text-rose-400"}`} />
                     <div>
@@ -44,8 +45,11 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount }
                                 <span className="block text-[8px] text-indigo-400 font-bold normal-case opacity-90">실시간 금일 옵션 자금 추적</span>
                             )}
                         </div>
-                        <div className="flex items-center gap-1 mt-1.5 p-1 rounded bg-sky-500/10 border border-sky-500/20">
-                            <span className="text-[9px] text-sky-400 font-bold">👉 상세 세력 분석: Flow Radar 기관지표 확인</span>
+                        <div
+                            className={`flex items-center gap-1 mt-1.5 p-1 rounded bg-sky-500/10 border border-sky-500/20 ${onClickFlowRadar ? "cursor-pointer hover:bg-sky-500/20 transition-colors" : ""}`}
+                            onClick={onClickFlowRadar}
+                        >
+                            <span className="text-[9px] text-sky-400 font-bold">Flow Radar 기관지표 확인</span>
                         </div>
                     </div>
                 </CardTitle>
@@ -59,7 +63,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount }
                 </div>
             </CardHeader>
 
-            <CardContent className="space-y-4 pt-4">
+            <CardContent className="space-y-2 pt-2 pb-3 px-3">
                 {/* 1. NET PREMIUM BIG DISPLAY */}
                 <div className="text-center">
                     <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">
@@ -99,7 +103,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount }
                 </div>
 
                 {/* 3. RELVOL / ACTIVITY (Placeholder for Logic) */}
-                <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-2">
                     <span className="text-[9px] font-bold text-slate-500 uppercase">Volume Strength</span>
                     <div className="flex items-center gap-1 text-[9px] font-black text-amber-400">
                         <TrendingUp size={10} />

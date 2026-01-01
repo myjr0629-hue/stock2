@@ -1040,9 +1040,12 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
 
     let fromDate = new Date();
     const multiplier = 1;
-    const timespan = 'day';
+    let timespan = 'day';
 
-    if (range === "1w") fromDate.setDate(now.getDate() - 7);
+    if (range === "1w") {
+      fromDate.setDate(now.getDate() - 7);
+      timespan = 'hour'; // [HOTFIX] Use Hourly for 5D to avoid straight line
+    }
     else if (range === "1m") fromDate.setMonth(now.getMonth() - 1);
     else if (range === "3m") fromDate.setMonth(now.getMonth() - 3);
     else if (range === "6m") fromDate.setMonth(now.getMonth() - 6);

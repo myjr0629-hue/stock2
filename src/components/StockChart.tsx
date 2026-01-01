@@ -3,15 +3,16 @@
 
 import { useState, useEffect } from "react";
 import {
-    Area,
-    AreaChart,
+    Line,
+    LineChart,
     CartesianGrid,
     ResponsiveContainer,
     Tooltip,
     XAxis,
     YAxis,
     ReferenceLine,
-    Label
+    Label,
+    Customized
 } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +22,7 @@ interface StockChartProps {
     data: { date: string; close: number }[];
     color?: string;
     ticker: string;
+    prevClose?: number;
 }
 
 // [HOTFIX S-55] etMinute to HH:MM ET formatter
@@ -30,7 +32,7 @@ const formatEtMinute = (etMinute: number): string => {
     return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ET`;
 };
 
-export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d" }: StockChartProps & { initialRange?: string }) {
+export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose }: StockChartProps & { initialRange?: string }) {
     const [chartData, setChartData] = useState(data);
     const [loading, setLoading] = useState(false);
     const [range, setRange] = useState(initialRange);
@@ -132,7 +134,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     // Loading & Empty State
     if (!loading && (!processedData || processedData.length === 0)) {
         return (
-            <Card className="shadow-none border border-slate-200 bg-white rounded-xl overflow-hidden">
+            <Card className="shadow-none border border-slate-200 bg-white rounded-md overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-slate-100 bg-slate-50/30">
                     <CardTitle className="text-sm font-bold text-slate-700 flex items-center gap-2">
                         <span className="w-1.5 h-4 bg-primary rounded-full"></span>
@@ -141,7 +143,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                     <Tabs defaultValue={range} onValueChange={handleRangeChange}>
                         <TabsList className="h-8 bg-slate-100 p-1 gap-1 rounded-lg">
                             {["1d", "1w", "1mo", "1y", "max"].map((r) => (
-                                <TabsTrigger key={r} value={r} className="h-6 px-3 text-xs font-medium rounded-md data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all">
+                                <TabsTrigger key={r} value={r} className="h-6 px-3 text-xs font-medium rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all">
                                     {r.toUpperCase().replace('MAX', 'ALL')}
                                 </TabsTrigger>
                             ))}
@@ -166,56 +168,115 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 0;
     const padding = (maxPrice - minPrice) * 0.1;
 
-    // [HOTFIX S-55] X-axis tick formatter based on range
-    const xAxisTickFormatter = (xValue: number) => {
-        if (isIntraday) {
-            // xValue is etMinute, format as HH:MM ET
-            return formatEtMinute(xValue);
-        } else {
-            // xValue is timestamp
-            const date = new Date(xValue);
-            return date.toLocaleDateString("en-US", {
-                timeZone: "America/New_York",
-                month: "numeric",
-                day: "numeric"
-            });
-        }
+    // [HOTFIX] Yahoo Style Dark Mode Colors
+    const chartConfig = {
+        background: "#0b1219", // Dark Navy/Black like Yahoo
+        lineColor: "#e2e8f0", // White/Silver line (regular session)
+        preMarketColor: "#fbbf24", // Yellow/Gold for pre-market
+        postMarketColor: "#60a5fa", // Light blue for post-market
+        textColor: "#94a3b8",
+        gridColor: "#1e293b",
+        crosshair: "#f8fafc"
     };
 
-    // [HOTFIX S-55] Custom ticks for 1D (session boundaries)
+    // Session time boundaries (in etMinute: hour * 60 + minute)
+    const SESSION_PRE_END = 570; // 09:30 = Pre-market ends
+    const SESSION_REG_END = 960; // 16:00 = Regular ends
+
+    // Helper function to get line color based on session or time
+    const getSessionColor = (session: string | undefined, etMinute: number) => {
+        if (session === 'PRE' || etMinute < SESSION_PRE_END) return chartConfig.preMarketColor;
+        if (session === 'POST' || etMinute >= SESSION_REG_END) return chartConfig.postMarketColor;
+        return chartConfig.lineColor;
+    };
+
+    // Split data into session segments for multi-colored line
+    const sessionSegments = isIntraday ? (() => {
+        const segments: { data: any[], color: string }[] = [];
+        let currentSegment: any[] = [];
+        let currentColor = '';
+
+        processedData.forEach((point: any, idx: number) => {
+            const pointColor = getSessionColor(point.session, point.xValue);
+
+            if (currentColor !== pointColor && currentSegment.length > 0) {
+                // Save current segment and start new one
+                // Add last point as bridge to next segment
+                segments.push({ data: [...currentSegment], color: currentColor });
+                currentSegment = [currentSegment[currentSegment.length - 1]]; // Bridge point
+            }
+
+            currentSegment.push(point);
+            currentColor = pointColor;
+        });
+
+        if (currentSegment.length > 0) {
+            segments.push({ data: currentSegment, color: currentColor });
+        }
+
+        return segments;
+    })() : [{ data: processedData, color: chartConfig.lineColor }];
+
+    // [HOTFIX] Custom ticks for 1D (session boundaries) - Formatted like Yahoo (6:00 AM)
     const getCustomTicks = () => {
         if (isIntraday) {
-            // ET session markers: 04:00, 09:30, 12:00, 16:00, 20:00
-            return [240, 570, 720, 960, 1140]; // 04:00, 09:30, 12:00, 16:00, 19:00
+            // ET session markers: 06:00, 12:00, 18:00
+            return [360, 720, 1080];
         }
         return undefined;
     };
 
+    const xAxisTickFormatter = (xValue: number) => {
+        if (isIntraday) {
+            // 360 -> 6:00 AM
+            const h = Math.floor(xValue / 60);
+            const m = xValue % 60;
+            const ampm = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
+        } else {
+            return new Date(xValue).toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
+        }
+    };
+
     return (
-        <Card className="shadow-none border border-slate-200 bg-white rounded-xl overflow-hidden relative">
+        <Card className="shadow-none border border-slate-800 bg-[#0b1219] rounded-md overflow-hidden relative">
             {/* Loading Overlay */}
             {loading && (
-                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
+                <div className="absolute inset-0 bg-[#0b1219]/80 backdrop-blur-sm z-50 flex items-center justify-center">
                     <Loader2 className="w-8 h-8 text-primary animate-spin" />
                 </div>
             )}
 
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-slate-100 bg-slate-50/30">
-                <CardTitle className="text-sm font-bold text-slate-700 flex items-center gap-2">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-slate-800 bg-[#0b1219]">
+                <CardTitle className="text-sm font-bold text-slate-200 flex items-center gap-2">
                     <span className="w-1.5 h-4 bg-primary rounded-full"></span>
                     Price History
-                    {/* [HOTFIX] Show baseDateET for 1D */}
+                    <span className="text-[11px] text-slate-500 font-medium ml-1">
+                        EST
+                    </span>
                     {isIntraday && baseDateET && (
-                        <span className="text-[10px] text-slate-400 font-normal ml-2">
-                            ({baseDateET} ET)
+                        <span className="text-[10px] text-slate-600 font-normal ml-1">
+                            • {baseDateET.split(',')[0]}
                         </span>
                     )}
                 </CardTitle>
                 <Tabs value={range} onValueChange={handleRangeChange}>
-                    <TabsList className="h-8 bg-slate-100 p-1 gap-1 rounded-lg">
-                        {["1d", "1w", "1mo", "1y", "max"].map((r) => (
-                            <TabsTrigger key={r} value={r} className="h-6 px-3 text-xs font-medium rounded-md data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all">
-                                {r.toUpperCase().replace('MAX', 'ALL')}
+                    <TabsList className="h-8 bg-slate-800 p-1 gap-1 rounded-md">
+                        {[
+                            { v: "1d", l: "1D" },
+                            { v: "1w", l: "5D" },
+                            { v: "1mo", l: "1M" },
+                            { v: "6m", l: "6M" },
+                            { v: "1y", l: "1Y" },
+                            { v: "max", l: "All" }
+                        ].map((r) => (
+                            <TabsTrigger
+                                key={r.v}
+                                value={r.v}
+                                className="h-6 px-3 text-xs font-medium rounded-sm text-slate-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white transition-all"
+                            >
+                                {r.l}
                             </TabsTrigger>
                         ))}
                     </TabsList>
@@ -223,105 +284,121 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             </CardHeader>
             <CardContent className="pt-6">
                 {/* [P0-2] Key-based remount for stability */}
-                <div key={`${ticker}-${range}`} className="h-[360px] w-full flex flex-col min-w-0 min-h-0">
+                <div key={`${ticker}-${range}`} className="h-[360px] w-full flex flex-col min-w-0 min-h-0 relative">
                     {dataReady && processedData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                                <defs>
-                                    <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={color} stopOpacity={0.1} />
-                                        <stop offset="95%" stopColor={color} stopOpacity={0} />
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#e2e8f0" strokeOpacity={0.4} />
-                                <XAxis
-                                    dataKey="xValue"
-                                    domain={xDomain}
-                                    type="number"
-                                    scale={isIntraday ? "linear" : "time"}
-                                    tickFormatter={xAxisTickFormatter}
-                                    ticks={getCustomTicks()}
-                                    stroke="#94a3b8"
-                                    fontSize={11}
-                                    fontWeight={500}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    minTickGap={30}
-                                />
-                                <YAxis
-                                    orientation="right"
-                                    domain={[minPrice - padding, maxPrice + padding]}
-                                    stroke="#94a3b8"
-                                    fontSize={11}
-                                    fontWeight={500}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(value) => `${value.toFixed(2)}`}
-                                    width={50}
-                                    dx={0}
-                                />
-                                <Tooltip
-                                    cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '4 4' }}
-                                    labelFormatter={(xValue) => {
-                                        if (isIntraday) {
-                                            return formatEtMinute(xValue as number);
-                                        }
-                                        return new Date(xValue).toLocaleString("en-US", {
-                                            timeZone: "America/New_York",
-                                            month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true
-                                        }) + " ET";
-                                    }}
-                                    contentStyle={{
-                                        backgroundColor: "rgba(30, 41, 59, 0.95)",
-                                        backdropFilter: "blur(4px)",
-                                        borderColor: "#334155",
-                                        color: "#f8fafc",
-                                        borderRadius: "6px",
-                                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.3)",
-                                        padding: "8px 12px",
-                                        fontSize: "12px",
-                                        fontWeight: 500
-                                    }}
-                                    itemStyle={{ color: '#f8fafc' }}
-                                    formatter={(value: any) => [`${(Number(value) || 0).toFixed(2)}`, "Close"]}
-                                />
-                                {/* Previous Close Line (Dashed) */}
-                                {isIntraday && processedData.length > 0 && (
-                                    <ReferenceLine
-                                        y={processedData[0]?.close}
-                                        stroke="#94a3b8"
-                                        strokeDasharray="3 3"
-                                        strokeWidth={1}
-                                        opacity={0.7}
-                                    >
-                                        <Label
-                                            value="Prev Close"
-                                            position="insideLeft"
-                                            style={{ fill: '#94a3b8', fontSize: '10px', opacity: 0.8 }}
-                                            offset={10}
+                        <>
+                            <ResponsiveContainer width="100%" height="100%">
+                                <LineChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="2 2" vertical={true} horizontal={true} stroke={chartConfig.gridColor} />
+                                    <XAxis
+                                        dataKey="xValue"
+                                        domain={xDomain}
+                                        type="number"
+                                        scale={isIntraday ? "linear" : "time"}
+                                        tickFormatter={xAxisTickFormatter}
+                                        ticks={getCustomTicks()}
+                                        stroke={chartConfig.textColor}
+                                        fontSize={11}
+                                        fontWeight={500}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        minTickGap={30}
+                                    />
+                                    <YAxis
+                                        orientation="right"
+                                        domain={[minPrice - padding, maxPrice + padding]}
+                                        stroke={chartConfig.textColor}
+                                        fontSize={11}
+                                        fontWeight={500}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(value) => `${value.toFixed(2)}`}
+                                        width={50}
+                                        dx={0}
+                                    />
+                                    <Tooltip
+                                        cursor={{ stroke: chartConfig.crosshair, strokeWidth: 1, strokeDasharray: '4 4' }}
+                                        labelFormatter={(xValue) => {
+                                            if (isIntraday) {
+                                                return formatEtMinute(xValue as number);
+                                            }
+                                            return new Date(xValue).toLocaleString("en-US", {
+                                                timeZone: "America/New_York",
+                                                month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true
+                                            }) + " ET";
+                                        }}
+                                        contentStyle={{
+                                            backgroundColor: "rgba(11, 18, 25, 0.95)",
+                                            border: "1px solid #334155",
+                                            color: "#f8fafc",
+                                            borderRadius: "6px",
+                                            boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.5)",
+                                            fontSize: "12px"
+                                        }}
+                                        itemStyle={{ color: '#f8fafc' }}
+                                        formatter={(value: any) => [`${(Number(value) || 0).toFixed(2)}`, "Close"]}
+                                    />
+                                    {isIntraday && prevClose !== undefined && (
+                                        <ReferenceLine
+                                            y={prevClose}
+                                            stroke="#64748b"
+                                            strokeDasharray="4 2"
+                                            strokeWidth={1}
+                                            ifOverflow="extendDomain"
                                         />
-                                    </ReferenceLine>
-                                )}
-                                <Area
-                                    type="monotone"
-                                    dataKey="close"
-                                    stroke={color}
-                                    strokeWidth={2}
-                                    fillOpacity={1}
-                                    fill="url(#colorPrice)"
-                                    animationDuration={500}
-                                    connectNulls={false}
-                                    isAnimationActive={false}
-                                />
-                            </AreaChart>
-                        </ResponsiveContainer>
+                                    )}
+                                    {/* Session-based multi-colored lines */}
+                                    {sessionSegments.map((segment, idx) => (
+                                        <Line
+                                            key={`session-line-${idx}`}
+                                            type="monotone"
+                                            data={segment.data}
+                                            dataKey="close"
+                                            stroke={segment.color}
+                                            strokeWidth={1.5}
+                                            dot={false}
+                                            activeDot={{ r: 3, fill: segment.color }}
+                                            animationDuration={500}
+                                            connectNulls={false}
+                                            isAnimationActive={false}
+                                            fill="none"
+                                        />
+                                    ))}
+                                </LineChart>
+                            </ResponsiveContainer>
+                            {/* Previous Close Badge - DOM overlay outside Recharts */}
+                            {isIntraday && prevClose !== undefined && (() => {
+                                const domainMin = minPrice - padding;
+                                const domainMax = maxPrice + padding;
+                                // X-axis takes approximately 25px at bottom, need to scale percentage to plotting area only
+                                const xAxisHeight = 25; // approximate X-axis height in pixels
+                                const containerHeight = 360; // matches h-[360px]
+                                const plotAreaHeight = containerHeight - xAxisHeight;
+                                const badgeYRatio = (domainMax - prevClose) / (domainMax - domainMin);
+                                const badgeYPixels = badgeYRatio * plotAreaHeight; // position within plot area
+
+                                return (
+                                    <div
+                                        className="absolute right-0 pointer-events-none z-10 flex justify-end"
+                                        style={{
+                                            top: `${badgeYPixels}px`,
+                                            transform: 'translateY(-50%)' // Center vertically on the line
+                                        }}
+                                    >
+                                        <div className="bg-blue-500 text-white text-xs font-bold px-[4px] py-[1px] rounded-[2px] shadow-sm whitespace-nowrap min-w-0 leading-none">
+                                            {Number(prevClose).toFixed(2)}
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </>
                     ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-slate-50/50">
-                            <Loader2 className="h-8 w-8 animate-spin text-slate-200" />
+                        <div className="flex h-full w-full items-center justify-center bg-[#0b1219]">
+                            <Loader2 className="h-8 w-8 animate-spin text-slate-600" />
                         </div>
                     )}
                 </div>
             </CardContent>
-        </Card>
+        </Card >
     );
 }

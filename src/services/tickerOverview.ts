@@ -272,6 +272,11 @@ export async function getTickerOverview(
             dataSource: "CentralDataHub"
         };
 
+        if (!diagnostics.price.ok) {
+            diagnostics.price.code = "PRICE_ZERO";
+            diagnostics.price.reasonKR = unified.error || "가격 데이터 응답 0 (Hub)";
+        }
+
         // Options from CentralDataHub (Basic Flow)
         // Note: CentralDataHub returns PREMIUM flow but not structure (yet).
         // We still need detailed structure below, but we can use this for basic check.
