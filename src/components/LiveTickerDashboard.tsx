@@ -451,6 +451,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     ticker={ticker}
                                     initialRange={range}
                                     prevClose={liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose}
+                                    rsi={initialStockData.rsi}
+                                    return3d={initialStockData.return3d}
                                 />
                             </div>
                         </section>
@@ -576,41 +578,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         optionsCount={liveQuote?.flow?.optionsCount || 0}
                                         onClickFlowRadar={() => setActiveTab('FLOW')}
                                     />
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                        {/* 3. Technical Pulse (Placeholder/Simple) */}
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 px-1">
-                                <Zap size={12} className="text-amber-400" />
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Technical Pulse</span>
-                            </div>
-                            <Card className="border-white/10 bg-slate-900/40 p-0 overflow-hidden">
-                                <CardContent className="p-4 space-y-4">
-                                    {/* RSI Row */}
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs text-slate-500 font-bold">RSI (14)</span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-bold text-slate-500">
-                                                {(initialStockData.rsi || 50) > 70 ? "과매수 (Oversold)" :
-                                                    (initialStockData.rsi || 50) < 30 ? "과매도 (Undersold)" : "중립 (Neutral)"}
-                                            </span>
-                                            <span className={`text-sm font-black ${(initialStockData.rsi || 50) > 70 ? "text-rose-400" :
-                                                (initialStockData.rsi || 50) < 30 ? "text-emerald-400" : "text-white"
-                                                }`}>
-                                                {initialStockData.rsi?.toFixed(1) || "-"}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    {/* 3D Return */}
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs text-slate-500 font-bold">3D Return</span>
-                                        <span className={`text-sm font-black ${(initialStockData.return3d || 0) > 0 ? "text-emerald-400" : "text-rose-400"
-                                            }`}>
-                                            {initialStockData.return3d ? (initialStockData.return3d > 0 ? "+" : "") + initialStockData.return3d.toFixed(2) + "%" : "-"}
-                                        </span>
-                                    </div>
                                 </CardContent>
                             </Card>
                         </div>
