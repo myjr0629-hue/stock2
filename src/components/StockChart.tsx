@@ -264,7 +264,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                     )}
                 </CardTitle>
                 {/* RSI & 3D Return Indicators */}
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-3 text-[11px]">
                     {rsi !== undefined && (
                         <div className="flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1 rounded border border-white/5">
                             <span className="text-slate-500 font-bold">RSI(14)</span>
