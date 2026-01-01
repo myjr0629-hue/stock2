@@ -10,6 +10,8 @@ import {
     Tooltip,
     XAxis,
     YAxis,
+    ReferenceLine,
+    Label
 } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -227,11 +229,11 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                             <AreaChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                                 <defs>
                                     <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor={color} stopOpacity={0.2} />
+                                        <stop offset="5%" stopColor={color} stopOpacity={0.1} />
                                         <stop offset="95%" stopColor={color} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#f1f5f9" />
+                                <CartesianGrid strokeDasharray="3 3" vertical={true} horizontal={true} stroke="#e2e8f0" strokeOpacity={0.4} />
                                 <XAxis
                                     dataKey="xValue"
                                     domain={xDomain}
@@ -247,15 +249,16 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                     minTickGap={30}
                                 />
                                 <YAxis
+                                    orientation="right"
                                     domain={[minPrice - padding, maxPrice + padding]}
                                     stroke="#94a3b8"
                                     fontSize={11}
                                     fontWeight={500}
                                     tickLine={false}
                                     axisLine={false}
-                                    tickFormatter={(value) => `$${value.toFixed(0)}`}
-                                    width={45}
-                                    dx={-10}
+                                    tickFormatter={(value) => `${value.toFixed(2)}`}
+                                    width={50}
+                                    dx={0}
                                 />
                                 <Tooltip
                                     cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '4 4' }}
@@ -269,26 +272,46 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         }) + " ET";
                                     }}
                                     contentStyle={{
-                                        backgroundColor: "rgba(255, 255, 255, 0.9)",
-                                        backdropFilter: "blur(8px)",
-                                        borderColor: "#e2e8f0",
-                                        color: "#1e293b",
-                                        borderRadius: "12px",
-                                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                                        padding: "12px",
-                                        fontSize: "13px"
+                                        backgroundColor: "rgba(30, 41, 59, 0.95)",
+                                        backdropFilter: "blur(4px)",
+                                        borderColor: "#334155",
+                                        color: "#f8fafc",
+                                        borderRadius: "6px",
+                                        boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.3)",
+                                        padding: "8px 12px",
+                                        fontSize: "12px",
+                                        fontWeight: 500
                                     }}
-                                    formatter={(value: any) => [`$${(Number(value) || 0).toFixed(2)}`, "Close"]}
+                                    itemStyle={{ color: '#f8fafc' }}
+                                    formatter={(value: any) => [`${(Number(value) || 0).toFixed(2)}`, "Close"]}
                                 />
+                                {/* Previous Close Line (Dashed) */}
+                                {isIntraday && processedData.length > 0 && (
+                                    <ReferenceLine
+                                        y={processedData[0]?.close}
+                                        stroke="#94a3b8"
+                                        strokeDasharray="3 3"
+                                        strokeWidth={1}
+                                        opacity={0.7}
+                                    >
+                                        <Label
+                                            value="Prev Close"
+                                            position="insideLeft"
+                                            style={{ fill: '#94a3b8', fontSize: '10px', opacity: 0.8 }}
+                                            offset={10}
+                                        />
+                                    </ReferenceLine>
+                                )}
                                 <Area
                                     type="monotone"
                                     dataKey="close"
                                     stroke={color}
-                                    strokeWidth={2.5}
+                                    strokeWidth={2}
                                     fillOpacity={1}
                                     fill="url(#colorPrice)"
                                     animationDuration={500}
                                     connectNulls={false}
+                                    isAnimationActive={false}
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
