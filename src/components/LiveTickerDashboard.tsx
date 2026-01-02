@@ -606,7 +606,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </div>
 
                     {/* SIDEBAR (4 Cols) - Strategy & Intel */}
-                    <div className="lg:col-span-4 space-y-6">
+                    <div className="lg:col-span-4 space-y-6 flex flex-col h-full">
 
                         {/* 1. Decision Gate (Sticky Removed per user feedback) */}
                         <div>
@@ -646,15 +646,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* 4. Intel Feed (Native KR) */}
-                        <div className="space-y-2 h-full">
+                        <div className="space-y-2 flex-1 flex flex-col min-h-0">
                             <div className="flex items-center gap-2 pt-2">
                                 <Newspaper size={14} className="text-slate-500" />
                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Intel Feed (Global AI)</h3>
                             </div>
 
                             {/* Consolidated Card for Height Alignment (Natural Height) */}
-                            <Card className="border-white/5 bg-slate-900/30 overflow-hidden flex flex-col">
-                                <CardContent className="p-0 flex flex-col">
+                            <Card className="border-white/5 bg-slate-900/30 overflow-hidden flex flex-col h-full flex-1">
+                                <CardContent className="p-0 flex flex-col h-full">
                                     {krNews.slice(0, 4).map((n, i) => (
                                         <a key={i} href={n.link} target="_blank" rel="noreferrer" className="block group border-b border-white/5 last:border-0 hover:bg-slate-800/50 transition-colors relative min-h-[85px]">
                                             {/* Hover Accent */}
