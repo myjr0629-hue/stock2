@@ -160,7 +160,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
 
     if (!rawChain || rawChain.length === 0) {
         return (
-            <div className="h-[400px] flex flex-col items-center justify-center text-slate-500 bg-slate-900/50 rounded-2xl border border-white/5">
+            <div className="h-[400px] flex flex-col items-center justify-center text-slate-500 bg-slate-900/50 rounded-sm border border-white/5">
                 <Radar size={48} className="mb-4 opacity-20" />
                 <p>No Flow Data Available</p>
                 <p className="text-xs opacity-50">Waiting for live options stream...</p>
@@ -220,7 +220,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
 
                 {/* 1. Main Radar Chart */}
-                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1">
+                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-sm">
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
                     <CardContent className="p-6 relative z-10">
                         <div className="grid grid-cols-[1fr_80px_1fr] gap-4 mb-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 text-center">
@@ -302,7 +302,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
 
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
                 <div className="space-y-4 order-1 lg:order-2">
-                    <Card className="bg-slate-900/60 border-white/10 h-full flex flex-col">
+                    <Card className="bg-slate-900/60 border-white/10 h-full flex flex-col rounded-sm">
                         <CardContent className="p-5 space-y-4 flex-1 flex flex-col">
 
                             {/* NEW: Data Source Prestige Block */}
