@@ -78,6 +78,20 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         fetchInitialData();
     }, [ticker]); // Only run once per ticker
 
+    // [FIX] Real-time Chart Update: Update last data point with currentPrice
+    useEffect(() => {
+        if (range === '1d' && currentPrice && chartData && chartData.length > 0) {
+            setChartData(prev => {
+                if (!prev || prev.length === 0) return prev;
+                const newData = [...prev];
+                const lastIdx = newData.length - 1;
+                // Update the last candle's close to the live price so the line connects to the badge
+                newData[lastIdx] = { ...newData[lastIdx], close: currentPrice };
+                return newData;
+            });
+        }
+    }, [currentPrice, range]);
+
     const handleRangeChange = async (value: string) => {
         setRange(value);
         setLoading(true);
@@ -452,7 +466,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             dot={false}
                                             activeDot={{ r: 3, fill: segment.color }}
                                             isAnimationActive={false}
-                                            connectNulls={false}
+                                            connectNulls={true}
                                         />
                                     ))}
                                 </LineChart>
