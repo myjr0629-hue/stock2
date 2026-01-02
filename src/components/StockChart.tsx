@@ -407,17 +407,21 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             ifOverflow="extendDomain"
                                         />
                                     )}
-                                    {/* [FIX] Single stable Line - no SSR/hydration issues */}
-                                    <Line
-                                        type="monotone"
-                                        dataKey="close"
-                                        stroke={chartConfig.lineColor}
-                                        strokeWidth={1.5}
-                                        dot={false}
-                                        activeDot={{ r: 3, fill: chartConfig.lineColor }}
-                                        isAnimationActive={false}
-                                        connectNulls={false}
-                                    />
+                                    {/* Session-based multi-colored lines */}
+                                    {sessionSegments.map((segment, idx) => (
+                                        <Line
+                                            key={`session-line-${idx}`}
+                                            type="monotone"
+                                            data={segment.data}
+                                            dataKey="close"
+                                            stroke={segment.color}
+                                            strokeWidth={1.5}
+                                            dot={false}
+                                            activeDot={{ r: 3, fill: segment.color }}
+                                            isAnimationActive={false}
+                                            connectNulls={false}
+                                        />
+                                    ))}
                                 </LineChart>
                             </ResponsiveContainer>
                             {/* Previous Close Badge - DOM overlay outside Recharts */}
