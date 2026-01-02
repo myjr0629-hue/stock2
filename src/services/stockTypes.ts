@@ -35,7 +35,7 @@ export interface OptionData {
     callsOI: number[];
     putsOI: number[];
     putCallRatio?: number;
-    gems?: { mmPos: string; edge: string; gex: number; comment?: string; };
+    gems?: { mmPos: string; edge: string; gex: number; gexZeroDte?: number; gexZeroDteRatio?: number; comment?: string; };
     options_status?: 'OK' | 'PENDING' | 'FAILED' | 'NO_OPTIONS';
     options_grade?: 'A' | 'B' | 'C' | 'N/A';
     options_reason?: string;

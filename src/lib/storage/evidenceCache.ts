@@ -120,6 +120,8 @@ export interface CachedOptionsChain {
     pinZone: number;
     pcr: number;
     gex: number;
+    gexZeroDte?: number;
+    gexZeroDteRatio?: number;
     gammaRegime: string;
     coveragePct: number;
     oiClusters: {

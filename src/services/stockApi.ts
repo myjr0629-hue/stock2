@@ -355,14 +355,30 @@ function calculateGemsGreeks(contracts: any[], spot: number) {
     }
   });
 
-  // Net GEX
+  // Net GEX & 0DTE GEX
   let totalGex = 0;
+  let gexZeroDte = 0;
+
+  // [S-45] 0DTE Logic: "Today" in NY Time
+  const todayNY = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
+  const todayDate = new Date(todayNY).toISOString().split('T')[0];
+
   contracts.forEach((c: any) => {
     const gamma = c.greeks?.gamma || 0;
     const OI = Number(c.open_interest) || 0;
-    if (c.contract_type === 'call') totalGex += (gamma * OI * 100);
-    else totalGex -= (gamma * OI * 100);
+    const val = (gamma * OI * 100);
+    const flow = c.contract_type === 'call' ? val : -val;
+
+    totalGex += flow;
+
+    // 0DTE Check: Expiry matches today or tomorrow (handling timezones loosely for "Near Term")
+    // Note: c.expiration_date is YYYY-MM-DD
+    if (c.expiration_date <= todayDate) {
+      gexZeroDte += flow;
+    }
   });
+
+  const gexZeroDteRatio = totalGex !== 0 ? Math.abs(gexZeroDte / totalGex) : 0;
 
   const mmPos = totalGex > 0 ? "Dealer Long Gamma" : "Dealer Short Gamma";
   const edge = totalGex > 0 ? "Range-friendly (Vol Crush)" : "Breakout/Risk (Vol Expand)";
@@ -375,11 +391,13 @@ function calculateGemsGreeks(contracts: any[], spot: number) {
     .reduce((acc: number, c: any) => acc + (Number(c.open_interest) || 0), 0);
   const putCallRatio = totalCallsOI > 0 ? (totalPutsOI / totalCallsOI) : null;
 
-  const comment = `[Options] ${mmPos}. NetGEX ${totalGex > 0 ? "positive" : "negative"}. MaxPain ~$${Number(maxPain).toFixed(2)}. Spot $${Number(spot).toFixed(2)}.`;
+  const comment = `[Options] NetGEX ${totalGex > 0 ? "+" : ""}${(totalGex / 1000000).toFixed(1)}M. 0DTE Impact: ${(gexZeroDteRatio * 100).toFixed(0)}%. MaxPain $${Number(maxPain).toFixed(2)}.`;
 
   return {
     maxPain,
     totalGex,
+    gexZeroDte,
+    gexZeroDteRatio,
     mmPos,
     edge,
     comment,

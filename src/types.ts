@@ -8,6 +8,8 @@ export interface UnifiedOptions {
     coveragePct: number;
     gammaRegime: string;
     gex: number;
+    gexZeroDte?: number;
+    gexZeroDteRatio?: number;
     pcr: number;
     callWall: number;
     putFloor: number;
