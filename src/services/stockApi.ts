@@ -982,19 +982,8 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
           } else {
             droppedPost8pmCount++;
           }
-          // Insert null gap if previous point was tradeable
-          const last = acc[acc.length - 1];
-          if (last && last.close !== null) {
-            acc.push({
-              date: curr.date,
-              close: null,
-              dateET: classified.etFormatted,
-              etMinute: classified.etHour * 60 + classified.etMinute,
-              etDate: classified.etDateYYYYMMDD,
-              session: null
-            });
-            insertedGapsCount++;
-          }
+          // [S-65] REMOVED: Null gap injection was causing filled shapes in Recharts.
+          // The gradient handles session color transitions without needing null points.
           prevSession = 'CLOSED';
           return acc;
         }
@@ -1010,16 +999,7 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
           if (!boundariesHit.includes(boundaryKey)) {
             boundariesHit.push(boundaryKey);
           }
-          // Insert null gap at session boundary (line break)
-          acc.push({
-            date: curr.date,
-            close: null,
-            dateET: classified.etFormatted,
-            etMinute: classified.etHour * 60 + classified.etMinute,
-            etDate: classified.etDateYYYYMMDD,
-            session: null
-          });
-          insertedGapsCount++;
+          // [S-65] REMOVED: No null gap needed. Gradient handles session color changes.
         }
 
         // [S-54.2] Add dateET, etMinute, session to each point
