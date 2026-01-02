@@ -124,6 +124,12 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         .filter((item: any) => item.close !== null && (!isIntraday || item.xValue !== undefined) && !isNaN(item.xValue)) // [HOTFIX] Filter NaNs
         .sort((a: any, b: any) => a.xValue - b.xValue);
 
+    // [HOTFIX] Fix hydration mismatch / zero-width initial render
+    const [mounted, setMounted] = useState(false);
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
     // [HOTFIX S-55] Domain for 1D: etMinute range (240-1200 = 04:00-20:00)
     let xDomain: [number | string, number | string] | undefined = undefined;
     if (isIntraday && processedData.length > 0) {
@@ -309,7 +315,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             <CardContent className="pt-6">
                 {/* [P0-2] Key-based remount for stability */}
                 <div key={`${ticker}-${range}`} className="h-[360px] w-full flex flex-col min-w-0 min-h-0 relative">
-                    {dataReady && processedData.length > 0 ? (
+                    {mounted && dataReady && processedData.length > 0 ? (
                         <>
                             <ResponsiveContainer width="100%" height="100%">
                                 <LineChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
