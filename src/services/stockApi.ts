@@ -1039,8 +1039,13 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       // [S-65] ALWAYS filter to TODAY's date (ET) for 1D chart
       // This ensures the chart shows only the current trading day, regardless of session
       const todayDateET = currentClassified.etDateYYYYMMDD;
+
+      // Debug: Log unique dates in processed data
+      const uniqueDates = [...new Set(processed.map((p: any) => p.etDate))];
+      console.log(`[1D Chart Debug] AvailableDates: ${uniqueDates.join(', ')}, TodayET: ${todayDateET}`);
+
       finalProcessed = processed.filter((p: any) => p.etDate === todayDateET);
-      console.log(`[1D Chart Filter] Today: ${todayDateET}, Session: ${currentClassified.session}, Filtered: ${finalProcessed.length} points from ${processed.length}`);
+      console.log(`[1D Chart Filter] Today: ${todayDateET}, Session: ${currentClassified.session}, Filtered: ${finalProcessed.length} from ${processed.length}`);
 
       // Preserve sessionMaskDebug
       (finalProcessed as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
