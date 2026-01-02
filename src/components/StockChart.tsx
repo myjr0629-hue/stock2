@@ -163,7 +163,18 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             }
         })
         .filter((item: any) => item.close !== null && item.close > 0 && (!isIntraday || item.xValue !== undefined) && !isNaN(item.xValue)) // [HOTFIX] Filter NaNs and Zeros
-        .sort((a: any, b: any) => a.xValue - b.xValue);
+        .sort((a: any, b: any) => a.xValue - b.xValue)
+        .reduce((acc: any[], item: any) => {
+            // [S-65] Deduplication: Keep only ONE point per xValue (etMinute) to prevent vertical bands
+            const lastItem = acc[acc.length - 1];
+            if (lastItem && lastItem.xValue === item.xValue) {
+                // Same minute - replace with latest (higher close takes precedence, or just use the newer one)
+                acc[acc.length - 1] = item;
+            } else {
+                acc.push(item);
+            }
+            return acc;
+        }, []);
 
     // [HOTFIX] Fix hydration mismatch / zero-width initial render
     const [mounted, setMounted] = useState(false);
