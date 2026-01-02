@@ -186,11 +186,19 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         return () => clearTimeout(timer);
     }, []);
 
-    // [HOTFIX S-55] Domain for 1D: etMinute range (240-1200 = 04:00-20:00)
+    // [S-65] Domain for 1D: Use ACTUAL data extent so gradient colors only cover real data
+    // This prevents showing Post-market color (blue) when Post hasn't started yet
     let xDomain: [number | string, number | string] | undefined = undefined;
+    let xDataMin = 240; // Default Pre-market start
+    let xDataMax = 1199; // Default Post-market end
+
     if (isIntraday && processedData.length > 0) {
-        // Fixed 04:00-20:00 ET range (etMinute 240-1199)
-        xDomain = [240, 1199];
+        // Get actual data extent
+        xDataMin = Math.min(...processedData.map((d: any) => d.xValue));
+        xDataMax = Math.max(...processedData.map((d: any) => d.xValue));
+        // Ensure Pre-market start is always visible
+        xDataMin = Math.min(xDataMin, 240);
+        xDomain = [xDataMin, xDataMax];
     } else {
         xDomain = ["dataMin", "dataMax"];
     }
