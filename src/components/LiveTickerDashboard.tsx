@@ -652,9 +652,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Intel Feed (Global AI)</h3>
                             </div>
 
-                            {/* Consolidated Card for Height Alignment */}
-                            <Card className="border-white/5 bg-slate-900/30 min-h-[340px] h-full overflow-hidden flex flex-col">
-                                <CardContent className="p-0 flex-1 flex flex-col">
+                            {/* Consolidated Card for Height Alignment (Natural Height) */}
+                            <Card className="border-white/5 bg-slate-900/30 overflow-hidden flex flex-col">
+                                <CardContent className="p-0 flex flex-col">
                                     {krNews.slice(0, 4).map((n, i) => (
                                         <a key={i} href={n.link} target="_blank" rel="noreferrer" className="block group border-b border-white/5 last:border-0 hover:bg-slate-800/50 transition-colors relative min-h-[85px]">
                                             {/* Hover Accent */}

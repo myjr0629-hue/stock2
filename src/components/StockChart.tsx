@@ -162,7 +162,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 };
             }
         })
-        .filter((item: any) => item.close !== null && (!isIntraday || item.xValue !== undefined) && !isNaN(item.xValue)) // [HOTFIX] Filter NaNs
+        .filter((item: any) => item.close !== null && item.close > 0 && (!isIntraday || item.xValue !== undefined) && !isNaN(item.xValue)) // [HOTFIX] Filter NaNs and Zeros
         .sort((a: any, b: any) => a.xValue - b.xValue);
 
     // [HOTFIX] Fix hydration mismatch / zero-width initial render
