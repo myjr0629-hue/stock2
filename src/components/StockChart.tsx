@@ -186,19 +186,16 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         return () => clearTimeout(timer);
     }, []);
 
-    // [S-65] Domain for 1D: Use ACTUAL data extent so gradient colors only cover real data
-    // This prevents showing Post-market color (blue) when Post hasn't started yet
+    // [S-65] Domain for 1D: FIXED 04:00-20:00 (240-1199) for consistent X-axis
+    // Track actual data extent separately for gradient color calculation
     let xDomain: [number | string, number | string] | undefined = undefined;
-    let xDataMin = 240; // Default Pre-market start
-    let xDataMax = 1199; // Default Post-market end
+    let xDataMax = 1199; // Track where data actually ends (for gradient)
 
     if (isIntraday && processedData.length > 0) {
-        // Get actual data extent
-        xDataMin = Math.min(...processedData.map((d: any) => d.xValue));
+        // xDomain is FIXED for consistent X-axis display
+        xDomain = [240, 1199];
+        // Track actual data end for gradient calculation
         xDataMax = Math.max(...processedData.map((d: any) => d.xValue));
-        // Ensure Pre-market start is always visible
-        xDataMin = Math.min(xDataMin, 240);
-        xDomain = [xDataMin, xDataMax];
     } else {
         xDomain = ["dataMin", "dataMax"];
     }
@@ -475,17 +472,18 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             />
                                         </ReferenceLine>
                                     )}
-                                    {/* [Fix] Gradient Definition for Session Coloring (Smooth Continuous Line) */}
+                                    {/* [S-65] Gradient based on ACTUAL data extent, not full domain */}
                                     <defs>
                                         {(() => {
-                                            const xMin = xDomain ? Number(xDomain[0]) : 0;
-                                            const xMax = xDomain ? Number(xDomain[1]) : 1; // avoid /0
-                                            const totalRange = xMax - xMin || 1;
+                                            const xMin = 240; // Fixed Pre-market start
+                                            const totalRange = xDataMax - xMin || 1;
 
-                                            // Offsets for 09:30 (570) and 16:00 (960)
-                                            // Ensure bounded between 0 and 1
+                                            // Offsets based on actual data range
                                             const preEndOffset = Math.max(0, Math.min(1, (SESSION_PRE_END - xMin) / totalRange));
-                                            const postStartOffset = Math.max(0, Math.min(1, (SESSION_REG_END - xMin) / totalRange));
+                                            // Only show Post color if data extends past REG_END (16:00)
+                                            const postStartOffset = xDataMax > SESSION_REG_END
+                                                ? Math.max(0, Math.min(1, (SESSION_REG_END - xMin) / totalRange))
+                                                : 1; // No Post color if data hasn't reached 16:00
 
                                             return (
                                                 <linearGradient id="chartGradient" x1="0" y1="0" x2="1" y2="0">
@@ -497,9 +495,13 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                     <stop offset={preEndOffset} stopColor={chartConfig.lineColor} />
                                                     <stop offset={postStartOffset} stopColor={chartConfig.lineColor} />
 
-                                                    {/* Post Market: Blue */}
-                                                    <stop offset={postStartOffset} stopColor={chartConfig.postMarketColor} />
-                                                    <stop offset={1} stopColor={chartConfig.postMarketColor} />
+                                                    {/* Post Market: Blue (only if data > 16:00) */}
+                                                    {xDataMax > SESSION_REG_END && (
+                                                        <>
+                                                            <stop offset={postStartOffset} stopColor={chartConfig.postMarketColor} />
+                                                            <stop offset={1} stopColor={chartConfig.postMarketColor} />
+                                                        </>
+                                                    )}
                                                 </linearGradient>
                                             );
                                         })()}
