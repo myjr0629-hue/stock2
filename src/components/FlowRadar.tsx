@@ -223,20 +223,20 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
 
                 {/* 1. Main Radar Chart */}
-                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg">
+                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg h-full flex flex-col">
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
-                    <CardContent className="p-6 relative z-10">
-                        <div className="grid grid-cols-[1fr_80px_1fr] gap-4 mb-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 text-center">
+                    <CardContent className="p-6 relative z-10 flex-1 flex flex-col">
+                        <div className="grid grid-cols-[1fr_80px_1fr] gap-4 mb-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 text-center shrink-0">
                             <div className="text-rose-500/50 flex items-center justify-end gap-2">
-                                <span className="hidden md:inline">Put Flow (하락)</span> <div className="w-2 h-2 bg-rose-500 rounded-full" />
+                                <span className="hidden md:inline">Put Flow (하락)</span> <div className="w-2 h-2 bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
                             </div>
                             <div className="text-slate-300">Strike (행사가)</div>
                             <div className="text-emerald-500/50 flex items-center gap-2">
-                                <div className="w-2 h-2 bg-emerald-500 rounded-full" /> <span className="hidden md:inline">Call Flow (상승)</span>
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" /> <span className="hidden md:inline">Call Flow (상승)</span>
                             </div>
                         </div>
 
-                        <div className="space-y-1.5 max-h-[600px] overflow-y-auto pr-2 scrollbar-hide relative">
+                        <div className="space-y-1.5 overflow-y-auto pr-2 scrollbar-hide relative flex-1 min-h-0">
                             {flowMap.map((row, index) => {
                                 const isAtMoney = Math.abs(row.strike - currentPrice) / currentPrice < 0.005;
                                 const callVal = effectiveViewMode === 'VOLUME' ? row.callVol : row.callOI;
@@ -260,25 +260,33 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                                                     {putVal > 0 ? putVal.toLocaleString() : ""}
                                                 </span>
                                                 <div
-                                                    className={`h-4 rounded-l-sm transition-all duration-700 ${isPutWallStrike ? "bg-rose-500 shadow-[0_0_15px_rgba(244,63,94,0.8)] animate-pulse" : isPutWhale ? "bg-rose-500/80 animate-pulse" : "bg-rose-500/30"}`}
+                                                    className={`h-4 rounded-l-sm transition-all duration-700 relative overflow-hidden ${isPutWallStrike ? "shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse" : ""}`}
                                                     style={{ width: `${putPct}%` }}
-                                                />
+                                                >
+                                                    <div className={`absolute inset-0 ${isPutWallStrike ? "bg-gradient-to-l from-rose-500 to-rose-700" : "bg-gradient-to-l from-rose-500/80 to-rose-900/50"}`} />
+                                                    {/* Glass Sheen */}
+                                                    <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                                                </div>
                                             </div>
 
                                             <div className="flex justify-center relative">
                                                 {isAtMoney && <div className="absolute inset-0 bg-indigo-500/20 blur-md rounded-full animate-pulse" />}
-                                                <span className={`text-xs font-mono font-bold z-10 ${isAtMoney ? "text-white scale-110" : isCallWallStrike || isPutWallStrike ? "text-amber-200" : "text-slate-500 group-hover:text-slate-300"}`}>
+                                                <span className={`text-xs font-mono font-bold z-10 ${isAtMoney ? "text-white scale-110 drop-shadow-[0_0_5px_rgba(99,102,241,0.8)]" : isCallWallStrike || isPutWallStrike ? "text-amber-200" : "text-slate-500 group-hover:text-slate-300"}`}>
                                                     {row.strike}
                                                 </span>
-                                                {isCallWallStrike && <div className="absolute -right-3 top-1 text-[8px] text-emerald-500 font-black animate-bounce">R</div>}
-                                                {isPutWallStrike && <div className="absolute -left-3 top-1 text-[8px] text-rose-500 font-black animate-bounce">S</div>}
+                                                {isCallWallStrike && <div className="absolute -right-3 top-1 text-[8px] text-emerald-500 font-black animate-bounce drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]">R</div>}
+                                                {isPutWallStrike && <div className="absolute -left-3 top-1 text-[8px] text-rose-500 font-black animate-bounce drop-shadow-[0_0_5px_rgba(244,63,94,0.8)]">S</div>}
                                             </div>
 
                                             <div className="flex justify-start items-center h-6 relative">
                                                 <div
-                                                    className={`h-4 rounded-r-sm transition-all duration-700 ${isCallWallStrike ? "bg-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.8)] animate-pulse" : isCallWhale ? "bg-emerald-500/80 animate-pulse" : "bg-emerald-500/30"}`}
+                                                    className={`h-4 rounded-r-sm transition-all duration-700 relative overflow-hidden ${isCallWallStrike ? "shadow-[0_0_15px_rgba(16,185,129,0.6)] animate-pulse" : ""}`}
                                                     style={{ width: `${callPct}%` }}
-                                                />
+                                                >
+                                                    <div className={`absolute inset-0 ${isCallWallStrike ? "bg-gradient-to-r from-emerald-500 to-emerald-700" : "bg-gradient-to-r from-emerald-500/80 to-emerald-900/50"}`} />
+                                                    {/* Glass Sheen */}
+                                                    <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                                                </div>
                                                 <span className={`text-[9px] font-mono ml-2 ${callVal > 0 ? "text-emerald-400" : "text-slate-700"}`}>
                                                     {callVal > 0 ? callVal.toLocaleString() : ""}
                                                 </span>
@@ -287,8 +295,8 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
 
                                         {showCurrentLineHere && (
                                             <div className="col-span-3 py-1 relative">
-                                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1px] bg-sky-500/50 border-t border-dashed border-sky-400" />
-                                                <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 bg-slate-900 border border-sky-500 px-3 py-0.5 rounded-full z-20 shadow-[0_0_10px_rgba(14,165,233,0.5)] flex items-center gap-2 animate-pulse">
+                                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1px] bg-sky-500/30 border-t border-dashed border-sky-400/50 shadow-[0_0_5px_rgba(14,165,233,0.3)]" />
+                                                <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 bg-slate-900 border border-sky-500/50 px-3 py-0.5 rounded-full z-20 shadow-[0_0_15px_rgba(14,165,233,0.4)] flex items-center gap-2 animate-pulse backdrop-blur-sm">
                                                     <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-ping" />
                                                     <span className="text-[10px] font-black text-sky-400 tracking-wide">
                                                         ${currentPrice.toFixed(2)}
@@ -304,12 +312,12 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                 </Card>
 
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
-                <div className="space-y-4 order-1 lg:order-2">
+                <div className="space-y-4 order-1 lg:order-2 h-full">
                     <Card className="bg-slate-900/60 border-white/10 h-full flex flex-col rounded-lg">
                         <CardContent className="p-5 space-y-4 flex-1 flex flex-col">
 
                             {/* NEW: Level 3 Header */}
-                            <div className="flex items-center gap-2 mb-2 select-none">
+                            <div className="flex items-center gap-2 mb-2 select-none shrink-0">
                                 <Lock size={12} className="text-amber-500" />
                                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">
                                     LEVEL 3 INSTITUTIONAL
@@ -317,7 +325,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                             </div>
 
                             {/* 1. Current Position Status (Hero Block) */}
-                            <div className="bg-[#0f172a] rounded-xl border border-slate-800 p-5 text-center shadow-inner relative overflow-hidden group">
+                            <div className="bg-[#0f172a] rounded-xl border border-slate-800 p-5 text-center shadow-inner relative overflow-hidden group shrink-0">
                                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                 <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-2">현재 포지션 제안</span>
                                 <div className={`text-xl font-black tracking-tight flex items-center justify-center gap-2 ${analysis?.color || "text-slate-300"}`}>
@@ -330,24 +338,26 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
 
                             {/* 2. Probability Meter */}
                             {analysis?.probability && analysis.probability !== 50 && (
-                                <div className="space-y-2">
+                                <div className="space-y-2 shrink-0">
                                     <div className="flex justify-between items-end px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">% 확률 분석 (Beta)</span>
                                         <span className={`text-[10px] font-bold ${analysis.probColor}`}>{analysis.probLabel}</span>
                                     </div>
-                                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden relative">
+                                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden relative shadow-inner">
                                         <div
                                             className={`h-full rounded-full shadow-[0_0_10px_currentColor] transition-all duration-1000 ${analysis.probColor.replace('text', 'bg')}`}
                                             style={{ width: `${analysis.probability}%` }}
                                         />
+                                        {/* Gloss effect */}
+                                        <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
                                     </div>
                                     <div className="text-[9px] text-right text-slate-500">{analysis.probability.toFixed(0)}%</div>
                                 </div>
                             )}
 
                             {/* 3. Analysis Message Box */}
-                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-4 relative">
-                                <div className="absolute left-0 top-4 bottom-4 w-1 bg-indigo-500 rounded-r-full" />
+                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-4 relative shrink-0">
+                                <div className="absolute left-0 top-4 bottom-4 w-1 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
                                 <div className="flex gap-3 pl-2">
                                     <div className="mt-0.5">
                                         {analysis?.status === 'BULLISH' ? <TrendingUp size={14} className="text-emerald-400" /> :
@@ -360,59 +370,63 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
                             </div>
 
+                            <div className="flex-1 min-h-[20px]" /> {/* Spacer */}
+
                             <hr className="border-slate-800/50 my-2" />
 
-                            {/* 4. Chart Interpretation Legend */}
-                            <div className="space-y-3">
-                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest block mb-2">차트 해석 비법</span>
-
-                                <div className="space-y-3 pl-1">
-                                    <div className="flex gap-3 items-start group">
-                                        <div className="mt-1"><Zap size={12} className="text-amber-400 group-hover:drop-shadow-[0_0_8px_rgba(251,191,36,0.5)] transition-all" /></div>
-                                        <div>
-                                            <div className="text-[11px] font-bold text-amber-400">깜빡이는 바 (Pulse)</div>
-                                            <div className="text-[10px] text-slate-500 leading-tight">지금 세력 자금이 몰리는 <span className="text-slate-300 font-bold">핫스팟</span>입니다.</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-3 items-start group">
-                                        <div className="mt-1"><TrendingUp size={12} className="text-emerald-400" /></div>
-                                        <div>
-                                            <div className="text-[11px] font-bold text-emerald-400">전술 활용 (매수)</div>
-                                            <div className="text-[10px] text-slate-500 leading-tight">주가가 <span className="text-emerald-400">녹색 벽(저항)</span>을 강하게 뚫으면 '추격 매수' 기회입니다.</div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-3 items-start group">
-                                        <div className="mt-1"><TrendingDown size={12} className="text-rose-400" /></div>
-                                        <div>
-                                            <div className="text-[11px] font-bold text-rose-400">전술 활용 (매도/방어)</div>
-                                            <div className="text-[10px] text-slate-500 leading-tight">주가가 <span className="text-rose-400">붉은 벽(지지)</span> 아래로 깨지면 '손절' 혹은 '하락 베팅' 타이밍입니다.</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* 5. Key Levels (Walls) - Restored */}
-                            <div className="mt-auto pt-4 border-t border-slate-800/50 grid grid-cols-1 gap-2">
-                                <div className="bg-[#0f172a] border border-emerald-900/30 p-3 rounded-lg flex items-center justify-between group hover:border-emerald-500/30 transition-colors">
+                            {/* 5. Key Levels (Dynamic Ladder) - Redesigned */}
+                            <div className="mt-auto pt-2 grid grid-cols-1 gap-1">
+                                {/* Top: Call Wall */}
+                                <div className="bg-gradient-to-b from-emerald-950/30 to-[#0f172a] border border-emerald-900/30 p-2.5 rounded-t-lg flex items-center justify-between group relative overflow-hidden">
+                                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-50" />
                                     <div>
-                                        <div className="text-[10px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-1.5">
-                                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> CALL WALL (저항)
+                                        <div className="text-[9px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full shadow-[0_0_5px_rgba(16,185,129,0.8)] animate-pulse" /> CALL WALL (저항)
                                         </div>
-                                        <div className="text-[9px] text-slate-500 mt-0.5 group-hover:text-slate-400 transition-colors">뚫으면 급등 (Bullish)</div>
                                     </div>
-                                    <div className="text-lg font-black text-emerald-400 font-mono tracking-tight">${callWall}</div>
+                                    <div className="text-base font-black text-emerald-400 font-mono tracking-tight">${callWall}</div>
                                 </div>
 
-                                <div className="bg-[#0f172a] border border-rose-900/30 p-3 rounded-lg flex items-center justify-between group hover:border-rose-500/30 transition-colors">
+                                {/* Middle: Ladder Visual */}
+                                <div className="relative h-12 bg-[#0f172a] border-x border-slate-800/50 mx-2 flex flex-col justify-center items-center">
+                                    {/* Vertical Line */}
+                                    <div className="absolute top-0 bottom-0 w-[1px] bg-slate-800" />
+
+                                    {/* Current Price Indicator (Relative Position) */}
+                                    {(() => {
+                                        // Calculate relative position percentage (clamped 10%~90%)
+                                        const totalRange = callWall - putWall;
+                                        const currentPos = currentPrice - putWall;
+                                        let pct = (currentPos / totalRange) * 100;
+                                        pct = Math.max(10, Math.min(90, pct)); // Clamp inside visual area
+
+                                        // Inverse for CSS 'top' (100% is bottom, but we want 100% to be call wall at top... actually HTML layout is top-down)
+                                        // So 100% pct (closer to call) means 0% top.
+                                        const topPct = 100 - pct;
+
+                                        return (
+                                            <div
+                                                className="absolute w-full flex items-center justify-center transition-all duration-1000 ease-out"
+                                                style={{ top: `${topPct}%`, transform: 'translateY(-50%)' }}
+                                            >
+                                                <div className="bg-slate-900 border border-indigo-500 text-[9px] font-bold text-indigo-300 px-2 py-0.5 rounded-full shadow-[0_0_10px_rgba(99,102,241,0.3)] z-10 flex items-center gap-1">
+                                                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
+                                                </div>
+                                                <div className="absolute w-[calc(100%+8px)] h-[1px] bg-indigo-500/30 border-t border-dotted border-indigo-500/50" />
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+
+                                {/* Bottom: Put Floor */}
+                                <div className="bg-gradient-to-t from-rose-950/30 to-[#0f172a] border border-rose-900/30 p-2.5 rounded-b-lg flex items-center justify-between group relative overflow-hidden">
+                                    <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-500/50 to-transparent opacity-50" />
                                     <div>
-                                        <div className="text-[10px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-1.5">
-                                            <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" /> PUT WALL (지지)
+                                        <div className="text-[9px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 bg-rose-500 rounded-full shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse" /> PUT FLOOR (지지)
                                         </div>
-                                        <div className="text-[9px] text-slate-500 mt-0.5 group-hover:text-slate-400 transition-colors">깨지면 급락 (Bearish)</div>
                                     </div>
-                                    <div className="text-lg font-black text-rose-400 font-mono tracking-tight">${putWall}</div>
+                                    <div className="text-base font-black text-rose-400 font-mono tracking-tight">${putWall}</div>
                                 </div>
                             </div>
 
