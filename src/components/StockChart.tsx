@@ -51,6 +51,32 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         setRange(initialRange);
     }, [data, ticker, initialRange]);
 
+    // [FIX] Fetch fresh data on mount to ensure etMinute is present for 1D charts
+    useEffect(() => {
+        const fetchInitialData = async () => {
+            if (range === '1d') {
+                setLoading(true);
+                try {
+                    const t = Date.now();
+                    const res = await fetch(`/api/chart?symbol=${ticker}&range=1d&t=${t}`, { cache: 'no-store' });
+                    if (res.ok) {
+                        const json = await res.json();
+                        const newData = Array.isArray(json) ? json : (json.data || []);
+                        if (newData.length > 0) {
+                            setChartData(newData);
+                            setDataReady(true);
+                            if (json.meta?.sessionMaskDebug?.baseDateET) {
+                                setBaseDateET(json.meta.sessionMaskDebug.baseDateET);
+                            }
+                        }
+                    }
+                } catch (e) { console.error('[StockChart] Initial fetch error:', e); }
+                setLoading(false);
+            }
+        };
+        fetchInitialData();
+    }, [ticker]); // Only run once per ticker
+
     const handleRangeChange = async (value: string) => {
         setRange(value);
         setLoading(true);
