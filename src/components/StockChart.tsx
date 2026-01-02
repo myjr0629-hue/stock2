@@ -127,7 +127,11 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     // [HOTFIX] Fix hydration mismatch / zero-width initial render
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
-        setMounted(true);
+        // [S-55] Small delay to ensure layout is computed before Recharts initializes
+        const timer = setTimeout(() => {
+            setMounted(true);
+        }, 100);
+        return () => clearTimeout(timer);
     }, []);
 
     // [HOTFIX S-55] Domain for 1D: etMinute range (240-1200 = 04:00-20:00)
@@ -317,7 +321,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 <div key={`${ticker}-${range}`} className="h-[360px] w-full flex flex-col min-w-0 min-h-0 relative">
                     {mounted && dataReady && processedData.length > 0 ? (
                         <>
-                            <ResponsiveContainer width="100%" height="100%">
+                            <ResponsiveContainer width="99%" height="100%">
                                 <LineChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="2 2" vertical={true} horizontal={true} stroke={chartConfig.gridColor} />
                                     <XAxis
