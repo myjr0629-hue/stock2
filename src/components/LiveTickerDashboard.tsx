@@ -1,10 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
-import { StockChart } from "@/components/StockChart";
+import dynamic from 'next/dynamic';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity } from "lucide-react";
+import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2 } from "lucide-react";
 import { StockData, OptionData, NewsItem } from "@/services/stockTypes";
 import { OIChart } from "@/components/OIChart";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
@@ -13,6 +13,16 @@ import { MarketStatusBadge } from "@/components/common/MarketStatusBadge";
 import { GammaLevelsViz } from "@/components/GammaLevelsViz";
 import { FlowSniper } from "@/components/FlowSniper";
 import { FlowRadar } from "@/components/FlowRadar";
+
+// [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
+const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
+    ssr: false,
+    loading: () => (
+        <div className="h-[500px] flex items-center justify-center bg-slate-900/40 rounded-md border border-white/10">
+            <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+    )
+});
 
 // [S-56.4.7] Imported or defined locally to avoid server-module leakage
 interface ChartDiagnostics {
