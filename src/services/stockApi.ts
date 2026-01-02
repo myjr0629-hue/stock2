@@ -1033,9 +1033,26 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
 
       console.log(`[S-54.2] Chart Session Mask: kept=${keptCount}, droppedPre4am=${droppedPre4amCount}, droppedPost8pm=${droppedPost8pmCount}, baseDateET=${baseDateET}, earliest=${earliestKeptET}`);
 
+      // [User Fix] During Pre-Market, only show TODAY's data (fresh chart start)
+      // Classify current time to check if we're in Pre-Market
+      const currentClassified = classifyPoint(new Date());
+      let finalProcessed = processed;
+
+      if (currentClassified.session === 'PRE') {
+        // In Pre-Market: filter to ONLY today's date data
+        const todayDateET = currentClassified.etDateYYYYMMDD;
+        finalProcessed = processed.filter((p: any) => p.etDate === todayDateET);
+        console.log(`[PreMarket Filter] Today: ${todayDateET}, Filtered: ${finalProcessed.length} points from ${processed.length}`);
+
+        // Preserve sessionMaskDebug
+        (finalProcessed as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
+        (finalProcessed as any).sessionMaskDebug.isPreMarketFiltered = true;
+        (finalProcessed as any).sessionMaskDebug.todayDateET = todayDateET;
+      }
+
       // Limit to max points for performance
-      if (processed.length > 1200) return processed.slice(-1200);
-      return processed;
+      if (finalProcessed.length > 1200) return finalProcessed.slice(-1200);
+      return finalProcessed;
     }
 
     let fromDate = new Date();

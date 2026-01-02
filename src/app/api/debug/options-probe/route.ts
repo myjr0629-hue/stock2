@@ -30,7 +30,8 @@ export async function GET(request: Request) {
         return NextResponse.json({
             status: "OK",
             count: results.length,
-            sample: results.slice(0, 3),
+            // [Debug] Return FULL results to verify calculation
+            sample: results,
             headers: res.headers || "No Headers captured in client",
             rawResKeys: Object.keys(res),
             paramsUsed: params

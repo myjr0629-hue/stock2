@@ -273,39 +273,75 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     if (!initialStockData) return <div>Data Unavailable</div>;
 
     // Derived Display Values (Truth Table from API)
-    const d = liveQuote?.display;
-    const e = liveQuote?.extended;
+    // [User Requirement] Main Price = Official Intraday Close ONLY.
+    // Pre/Post prices must ONLY be shown in the badge.
 
-    const displayPrice = d?.price ?? initialStockData.price;
+    // Get key reference prices
+    // CRITICAL: "Intraday Close" = LAST Regular Session Close.
+    // API returns: regularCloseToday (today's close if market closed) or prevRegularClose (yesterday's close).
+    // During Pre-Market Jan 2, prevRegularClose = Dec 31 Close ($186.50)
+    const officialClose = liveQuote?.prices?.regularCloseToday   // Today's Close (if market already closed today)
+        || liveQuote?.prices?.prevRegularClose   // Last Trading Day's Close
+        || liveQuote?.prevClose                  // Legacy fallback
+        || initialStockData.prevClose;           // SSR fallback
 
-    // [Fix Phase 52] Accurate Intraday Change Logic
-    // API returns 'changePctPct' (e.g. -0.22) and 'changePctFrac' (e.g. -0.0022) inside 'display'.
-    // We must prioritize the pre-calculated PctPct from the engine.
+    // prevDayClose = The day BEFORE the officialClose (for change % calculation)
+    // If officialClose is Dec 31, prevDayClose should be Dec 30 close.
+    // API now exposes prevPrevRegularClose for this purpose.
+    const prevDayClose = liveQuote?.prices?.prevPrevRegularClose
+        || liveQuote?.baseline?.value
+        || initialStockData.prevClose;
+
+    // 1. Determine Main Display Price (Intraday ONLY)
+    // ALWAYS show officialClose. During REG session, we can show live price,
+    // but user wants Intraday (Close) to be fixed, not live ticking.
+    // Actually re-reading user: "항상 intraday 가격만 나오게 하라고" = ALWAYS Intraday only.
+    // So even during REG, we show the LATEST official close, not live tick.
+    // Wait, that doesn't make sense during REG...
+    // Let me re-interpret: Main = Intraday Close (not Pre/Post price).
+    // During REG, intraday close IS the live price (it updates tick by tick).
+    // During PRE/POST/CLOSED, intraday close is locked to last REG close.
+    let displayPrice = officialClose; // Default to Official Close
+
+    if (effectiveSession === 'REG' || effectiveSession === 'RTH' || effectiveSession === 'MARKET') {
+        // Regular Session: Use live price (this IS the current intraday price)
+        displayPrice = liveQuote?.prices?.lastTrade || liveQuote?.price || officialClose;
+    }
+    // For PRE, POST, CLOSED: displayPrice remains as officialClose (locked)
+
+    // 2. Determine Extended Price (for Badge)
+    let activeExtPrice = 0;
+    let activeExtType = "";
+
+    if (effectiveSession === "PRE") {
+        // API returns extended.prePrice and prices.prePrice
+        activeExtPrice = liveQuote?.extended?.prePrice || liveQuote?.prices?.prePrice || initialStockData.extPrice || 0;
+        activeExtType = "PRE";
+    } else if (effectiveSession === "POST") {
+        activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || initialStockData.extPrice || 0;
+        activeExtType = "POST";
+    }
+
+    // 3. Change Calculation (Main Price vs Previous Day Close)
+    // Example: If officialClose = 186.50 and prevDayClose = 187.54, change = -0.55%
     let displayChangePct = 0;
 
-    if (d?.changePctPct !== undefined && d?.changePctPct !== null) {
-        displayChangePct = d.changePctPct;
-    } else if (d?.changePctFrac !== undefined && d?.changePctFrac !== null) {
-        displayChangePct = d.changePctFrac * 100;
+    if (displayPrice && prevDayClose && prevDayClose > 0) {
+        displayChangePct = ((displayPrice - prevDayClose) / prevDayClose) * 100;
     } else {
-        displayChangePct = liveQuote?.changePct ?? initialStockData.changePercent;
+        displayChangePct = initialStockData.changePercent || 0;
     }
 
-    // Fallback: Calculate manually if API returns 0/null but we have prices
-    if (!displayChangePct && displayPrice) {
-        const prevClose = liveQuote?.prevClose || initialStockData.prevClose;
-        if (prevClose > 0) {
-            displayChangePct = ((displayPrice - prevClose) / prevClose) * 100;
+    // [Fix] Calculate Extended Percent for Badge - ALWAYS calculate locally for consistency
+    // PRE: vs officialClose (가장 최근 Intraday 종가)
+    // POST: vs displayPrice (당일 Regular 종가)
+    let activeExtPct = 0;
+    if (activeExtPrice && activeExtType) {
+        const refPrice = activeExtType === 'PRE' ? officialClose : displayPrice;
+        if (refPrice > 0) {
+            activeExtPct = ((activeExtPrice - refPrice) / refPrice) * 100;
         }
     }
-
-    // Extended Selection
-    const activeExtType = e?.postPrice ? 'POST' : (e?.prePrice ? 'PRE' : null);
-    const activeExtPrice = activeExtType === 'POST' ? e?.postPrice : e?.prePrice;
-    const activeExtPctFrac = activeExtType === 'POST' ? e?.postChangePct : e?.preChangePct;
-    const activeExtPct = activeExtPctFrac !== null && activeExtPctFrac !== undefined
-        ? activeExtPctFrac * 100
-        : null;
 
     // Price Source Badge
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;
@@ -353,15 +389,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </div>
 
                     {/* Main Price Group (Inline, Reduced Size) */}
+                    {/* [Fix] ALWAYS use displayPrice = Intraday Close. No fallback to lastTrade. */}
                     <div className="hidden sm:block pb-1">
                         <div className="flex items-baseline gap-3">
                             <div className="text-2xl lg:text-3xl font-black text-white tracking-tighter tabular-nums">
-                                ${(liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice)?.toFixed(2)}
+                                ${displayPrice?.toFixed(2) || '—'}
                             </div>
-                            <div className={`text-lg font-bold font-mono tracking-tighter ${(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500"
-                                }`}>
-                                {(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0) > 0 ? "+" : ""}
-                                {(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0)?.toFixed(2)}%
+                            <div className={`text-lg font-bold font-mono tracking-tighter ${displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
                             </div>
                         </div>
                     </div>
@@ -391,15 +426,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
 
                 {/* Mobile Only: Price & Extended Row */}
+                {/* [Fix] ALWAYS use displayPrice = Intraday Close. No fallback to lastTrade. */}
                 <div className="flex flex-col gap-2 sm:hidden">
                     <div className="flex items-baseline gap-3">
                         <div className="text-4xl font-black text-white tracking-tighter tabular-nums">
-                            ${(liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice)?.toFixed(2)}
+                            ${displayPrice?.toFixed(2) || '—'}
                         </div>
-                        <div className={`text-xl font-bold font-mono tracking-tighter ${(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0) >= 0 ? "text-emerald-500" : "text-rose-500"
-                            }`}>
-                            {(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0) > 0 ? "+" : ""}
-                            {(liveQuote?.changesPct?.REG ?? displayChangePct ?? 0)?.toFixed(2)}%
+                        <div className={`text-xl font-bold font-mono tracking-tighter ${displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                            {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
                         </div>
                     </div>
 
@@ -456,10 +490,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             <div className="h-[500px] rounded-md border border-white/10 bg-slate-900/40 overflow-hidden shadow-sm relative backdrop-blur-sm">
                                 <StockChart
                                     key={`${ticker}:${range}:${initialStockData.history.length}`}
-                                    data={initialStockData.history}
+                                    data={initialStockData.history} // [Restore] Data prop required
                                     color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
                                     ticker={ticker}
                                     initialRange={range}
+                                    // [Fix] Pass ACTIVE price (Pre/Post or Regular) to chart for live reference
+                                    currentPrice={activeExtPrice || displayPrice}
                                     prevClose={liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose}
                                     rsi={initialStockData.rsi}
                                     return3d={initialStockData.return3d}
@@ -481,9 +517,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                             <div className="w-1 h-3 bg-slate-500 rounded-full" /> Key Market Levels
                                         </h4>
-                                        {structure?.maxPain && (
+                                        {(structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone) && (
                                             <span className="text-[10px] text-amber-500 font-black">
-                                                Max Pain (최대고통): ${structure.maxPain}
+                                                Max Pain (최대고통): ${structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone}
                                             </span>
                                         )}
                                     </div>
@@ -491,9 +527,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <CardContent className="p-0 h-[300px]">
                                             <GammaLevelsViz
                                                 currentPrice={displayPrice}
-                                                callWall={structure?.levels?.callWall}
-                                                putFloor={structure?.levels?.putFloor}
-                                                pinZone={structure?.levels?.pinZone}
+                                                callWall={structure?.levels?.callWall || initialStockData.flow?.callWall}
+                                                putFloor={structure?.levels?.putFloor || initialStockData.flow?.putFloor}
+                                                pinZone={structure?.levels?.pinZone || initialStockData.flow?.pinZone}
                                             />
                                         </CardContent>
                                     </Card>

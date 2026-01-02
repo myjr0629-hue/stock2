@@ -25,6 +25,13 @@ export interface UnifiedQuote {
         totalPremium: number;
         optionsCount: number; // Number of contracts processed
         gamma?: number; // [Phase 35] Total Gamma Exposure
+        rawChain?: any[]; // [Phase 42] Raw Options Chain
+        dataSource?: string; // [Phase 42] Data Source
+        // [Phase 42.1] Structure Data (Walls)
+        callWall?: number;
+        putFloor?: number;
+        pinZone?: number;
+        maxPain?: number; // [Phase 42.1] Real Max Pain
     };
 
     // Status
@@ -376,7 +383,15 @@ export const CentralDataHub = {
                 dataSource, // 'LIVE', 'CALCULATED', or 'NONE'
                 isAfterHours,
                 gamma: totalGamma, // [Phase 35] Expose Gamma
-                rawChain: results, // [Phase 42] Expose Raw Chain for UI
+                // [Phase 42] Expose Raw Chain for UI
+                rawChain: results,
+
+                // [Phase 42.1] Wall Calculation (Nearest Expiry Only)
+                // Filter chain to only include the nearest expiration date for more accurate pinning levels
+                callWall: calcMaxOI(filterNearestExpiry(results), 'call'),
+                putFloor: calcMaxOI(filterNearestExpiry(results), 'put'),
+                pinZone: calcMaxTotalOI(filterNearestExpiry(results)),
+                maxPain: calcMaxPain(filterNearestExpiry(results)),
                 error: null
             };
 
@@ -409,3 +424,96 @@ export const CentralDataHub = {
         return await getMarketStatusSSOT();
     }
 };
+
+// [Helper] Max OI Calculation for Wall/Floor
+function calcMaxOI(chain: any[], type: 'call' | 'put'): number | null {
+    let maxOI = -1;
+    let maxStrike = 0;
+    for (const c of chain) {
+        if (c.details?.contract_type === type) {
+            const oi = c.open_interest || 0;
+            if (oi > maxOI) { maxOI = oi; maxStrike = c.details.strike_price; }
+        }
+    }
+    return maxStrike > 0 ? maxStrike : null;
+}
+
+// [Helper] Pin Zone (Max Combined OI Strike)
+function calcMaxTotalOI(chain: any[]): number | null {
+    const strikeMap = new Map<number, number>();
+    let maxTotal = -1;
+    let maxStrike = 0;
+
+    for (const c of chain) {
+        const s = c.details?.strike_price;
+        const oi = c.open_interest || 0;
+        if (!s) continue;
+        strikeMap.set(s, (strikeMap.get(s) || 0) + oi);
+    }
+
+    strikeMap.forEach((total, strike) => {
+        if (total > maxTotal) { maxTotal = total; maxStrike = strike; }
+    });
+
+    return maxStrike > 0 ? maxStrike : null;
+}
+
+// [Helper] Filter for Nearest Expiry (0DTE/1DTE)
+function filterNearestExpiry(chain: any[]): any[] {
+    if (!chain || chain.length === 0) return [];
+
+    // 1. Extract all expiration dates
+    const expirations = chain
+        .map(c => c.details?.expiration_date)
+        .filter(d => !!d)
+        .sort(); // String sort works for ISO dates (YYYY-MM-DD)
+
+    if (expirations.length === 0) return chain; // Fallback
+
+    // 2. Pick the nearest (first) one
+    const nearestDate = expirations[0];
+
+    // 3. Filter
+    return chain.filter(c => c.details?.expiration_date === nearestDate);
+}
+
+// [Helper] Real Max Pain Calculation (Total Loss Minimization)
+function calcMaxPain(chain: any[]): number | null {
+    if (!chain || chain.length === 0) return null;
+
+    const strikes = new Set<number>();
+    chain.forEach(c => {
+        if (c.details?.strike_price) strikes.add(c.details.strike_price);
+    });
+
+    const sortedStrikes = Array.from(strikes).sort((a, b) => a - b);
+
+    let minPain = Infinity;
+    let maxPainStrike = 0;
+
+    // Evaluate Total Pain at each specific strike price
+    for (const pricePoint of sortedStrikes) {
+        let totalPain = 0;
+        for (const c of chain) {
+            const K = c.details?.strike_price;
+            const oi = c.open_interest || 0;
+            const type = c.details?.contract_type;
+
+            if (!K) continue;
+
+            // Intrinsic Value Calculation
+            if (type === 'call') {
+                if (pricePoint > K) totalPain += (pricePoint - K) * oi;
+            } else if (type === 'put') {
+                if (pricePoint < K) totalPain += (K - pricePoint) * oi;
+            }
+        }
+
+        if (totalPain < minPain) {
+            minPain = totalPain;
+            maxPainStrike = pricePoint;
+        }
+    }
+
+    return maxPainStrike > 0 ? maxPainStrike : null;
+}

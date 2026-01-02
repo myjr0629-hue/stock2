@@ -61,8 +61,15 @@ export interface TickerOptionsData {
     callWall: number | null;
     putFloor: number | null;
     pinZone: number | null;
+    maxPain?: number | null; // [Phase 42.1] Real Max Pain
     updatedAtISO: string;
     reasonKR?: string;
+    // [Phase 42] Expose Raw Chain & Flow Metrics for FlowRadar/Sniper
+    rawChain?: any[];
+    netPremium?: number;
+    callPremium?: number;
+    putPremium?: number;
+    optionsCount?: number;
 }
 
 export interface TickerNewsItem {
@@ -263,8 +270,12 @@ export async function getTickerOverview(
         }
 
         // Extended Hours (Pass through if available in snapshot)
+        // Extended Hours (Pass through if available in snapshot, OR usage unified price if session matches)
         if (S.preMarket?.p) result.price.preMarketLast = S.preMarket.p;
+        else if (unified.session === "PRE") result.price.preMarketLast = unified.price;
+
         if (S.afterHours?.p) result.price.afterHoursLast = S.afterHours.p;
+        else if (unified.session === "POST") result.price.afterHoursLast = unified.price;
 
         diagnostics.price = {
             ok: unified.price > 0,
@@ -278,8 +289,26 @@ export async function getTickerOverview(
         }
 
         // Options from CentralDataHub (Basic Flow)
-        // Note: CentralDataHub returns PREMIUM flow but not structure (yet).
-        // We still need detailed structure below, but we can use this for basic check.
+        if (unified.flow) {
+            // [Phase 42] Inject rawChain from SSOT
+            if (unified.flow.rawChain && unified.flow.rawChain.length > 0) {
+                result.options.rawChain = unified.flow.rawChain;
+                result.options.netPremium = unified.flow.netPremium;
+                result.options.callPremium = unified.flow.callPremium;
+                result.options.putPremium = unified.flow.putPremium;
+                result.options.optionsCount = unified.flow.optionsCount;
+
+                // [Phase 42.1] Inject Structure from SSOT
+                result.options.callWall = unified.flow.callWall || null;
+                result.options.putFloor = unified.flow.putFloor || null;
+                result.options.pinZone = unified.flow.pinZone || null;
+                result.options.maxPain = unified.flow.maxPain || null;
+
+                // Pre-fill status if we have chain
+                result.options.status = "OK";
+                result.options.coveragePct = 100; // Assumed if we have flow
+            }
+        }
 
     } catch (e: any) {
         console.error(`[tickerOverview] CentralDataHub Error for ${tickerUpper}:`, e);

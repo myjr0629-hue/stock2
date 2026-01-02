@@ -23,6 +23,7 @@ interface StockChartProps {
     color?: string;
     ticker: string;
     prevClose?: number;
+    currentPrice?: number; // [New] Live Price for Ref Line
     rsi?: number;
     return3d?: number;
 }
@@ -34,7 +35,7 @@ const formatEtMinute = (etMinute: number): string => {
     return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ET`;
 };
 
-export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, rsi, return3d }: StockChartProps & { initialRange?: string }) {
+export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d }: StockChartProps & { initialRange?: string }) {
     const [chartData, setChartData] = useState(data);
     const [loading, setLoading] = useState(false);
     const [range, setRange] = useState(initialRange);
@@ -169,8 +170,8 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         xDomain = ["dataMin", "dataMax"];
     }
 
-    // Loading & Empty State
-    if (!loading && (!processedData || processedData.length === 0)) {
+    // Loading & Empty State (Allow empty data if we have a currentPrice to show)
+    if (!loading && (!processedData || processedData.length === 0) && !currentPrice) {
         return (
             <Card className="shadow-none border border-slate-200 bg-white rounded-md overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-slate-100 bg-slate-50/30">
@@ -179,6 +180,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                         Price History
                     </CardTitle>
                     <Tabs defaultValue={range} onValueChange={handleRangeChange}>
+                        {/* Tabs content same as before ... */}
                         <TabsList className="h-8 bg-slate-100 p-1 gap-1 rounded-lg">
                             {["1d", "1w", "1mo", "1y", "max"].map((r) => (
                                 <TabsTrigger key={r} value={r} className="h-6 px-3 text-xs font-medium rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all">
@@ -201,10 +203,13 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         );
     }
 
+    // Determine Min/Max for Y-Axis (Include currentPrice in range)
     const validPrices = processedData.filter((d: any) => d.close != null).map((d: any) => d.close);
+    if (currentPrice) validPrices.push(currentPrice); // Ensure live price is in domain
+
     const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
     const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 0;
-    const padding = (maxPrice - minPrice) * 0.1;
+    const padding = (maxPrice - minPrice) * 0.1 || (maxPrice * 0.01); // fallback padding if flat
 
     // [HOTFIX] Yahoo Style Dark Mode Colors
     const chartConfig = {
@@ -401,11 +406,39 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                     {isIntraday && prevClose !== undefined && (
                                         <ReferenceLine
                                             y={prevClose}
-                                            stroke="#64748b"
+                                            stroke="#ffffff"
                                             strokeDasharray="4 2"
                                             strokeWidth={1}
                                             ifOverflow="extendDomain"
-                                        />
+                                        >
+                                            <Label
+                                                value={prevClose.toFixed(2)}
+                                                position="right"
+                                                fill="#ffffff"
+                                                fontSize={11}
+                                                fontWeight="bold"
+                                                offset={5}
+                                            />
+                                        </ReferenceLine>
+                                    )}
+                                    {/* [Fix] Live Price Reference for Pre/Post Market visibility */}
+                                    {currentPrice !== undefined && (
+                                        <ReferenceLine
+                                            y={currentPrice}
+                                            stroke="#10b981" // Emerald for live pulse
+                                            strokeDasharray="3 3"
+                                            strokeWidth={1.5}
+                                            ifOverflow="extendDomain"
+                                        >
+                                            <Label
+                                                value={currentPrice.toFixed(2)}
+                                                position="right"
+                                                fill="#10b981"
+                                                fontSize={11}
+                                                fontWeight="bold"
+                                                offset={5}
+                                            />
+                                        </ReferenceLine>
                                     )}
                                     {/* Session-based multi-colored lines */}
                                     {sessionSegments.map((segment, idx) => (
@@ -449,6 +482,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                     </div>
                                 );
                             })()}
+                            {/* Current Price Badge - Now rendered via ReferenceLine Label instead of DOM overlay */}
                         </>
                     ) : (
                         <div className="flex h-full w-full items-center justify-center bg-[#0b1219]">

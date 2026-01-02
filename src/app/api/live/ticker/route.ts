@@ -116,6 +116,7 @@ export async function GET(req: NextRequest) {
 
     // [S-52.3] BASELINE SOURCE TRACKING - Identify where prevClose comes from
     let prevRegularClose: number | null = null;
+    let prevPrevRegularClose: number | null = null; // [New] Day BEFORE prevRegularClose
     let baselineSource: string = "UNKNOWN";
 
     if (historicalResults[0]?.c) {
@@ -126,13 +127,27 @@ export async function GET(req: NextRequest) {
         baselineSource = "snapshot.prevDay.c";
     }
 
+    // [New] Get the close from 2 days ago (for intraday change calculation)
+    if (historicalResults[1]?.c) {
+        prevPrevRegularClose = historicalResults[1].c;
+    }
+
     const hasMarketClosed = session === "POST" || session === "CLOSED";
     const regularCloseToday = hasMarketClosed ? (S.day?.c || OC.close || null) : null;
 
     const liveLast = S.lastTrade?.p || S.min?.c || null;
-    const prePrice = OC.preMarket || S.preMarket?.p || (session === "PRE" ? liveLast : null);
-    // [Phase 23.7] Fix: Prioritize OC.afterHoursClose (confirmed close) > S.afterHours.p > OC.afterHours
-    const postPrice = OC.afterHoursClose || S.afterHours?.p || OC.afterHours || (session === "POST" ? liveLast : null);
+
+    // [Fix] Pre-Market: Prioritize REAL-TIME liveLast during PRE session
+    // Fallback to OC.preMarket (static daily snapshot) only if liveLast unavailable
+    const prePrice = (session === "PRE" ? liveLast : null)
+        || OC.preMarket
+        || S.preMarket?.p;
+
+    // [Fix] Post-Market: Prioritize REAL-TIME liveLast during POST session
+    const postPrice = (session === "POST" ? liveLast : null)
+        || OC.afterHoursClose
+        || S.afterHours?.p
+        || OC.afterHours;
 
     // [Fix] Fetch Options Flow Data using CentralDataHub
     const flowPriceDetect = liveLast || S.day?.c || S.prevDay?.c || 0;
@@ -301,6 +316,7 @@ export async function GET(req: NextRequest) {
             lastTrade: liveLast,
             postPrice,
             prevRegularClose,
+            prevPrevRegularClose, // [New] Day BEFORE prevRegularClose (for intraday change)
             regularCloseToday
         },
 

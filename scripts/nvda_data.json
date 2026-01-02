@@ -1,0 +1,105 @@
+{
+    "status": "OK",
+    "count": 250,
+    "sample": [
+        {
+            "day": {
+                "change": 0,
+                "change_percent": 0,
+                "close": 137.37,
+                "high": 138.71,
+                "last_updated": 1767214800000000000,
+                "low": 137.37,
+                "open": 138.71,
+                "previous_close": 137.37,
+                "volume": 5,
+                "vwap": 138.032
+            },
+            "details": {
+                "contract_type": "call",
+                "exercise_style": "american",
+                "expiration_date": "2026-01-02",
+                "shares_per_contract": 100,
+                "strike_price": 50,
+                "ticker": "O:NVDA260102C00050000"
+            },
+            "greeks": {
+                "delta": 0.9929770558604045,
+                "gamma": 0.00016760544088911111,
+                "theta": -1.7051994172173104,
+                "vega": 0.002008061041244664
+            },
+            "implied_volatility": 14.540374655086193,
+            "open_interest": 26,
+            "underlying_asset": {
+                "ticker": "NVDA"
+            }
+        },
+        {
+            "day": {
+                "change": 0,
+                "change_percent": 0,
+                "close": 132.42,
+                "high": 133.86,
+                "last_updated": 1767214800000000000,
+                "low": 132.42,
+                "open": 133.86,
+                "previous_close": 132.42,
+                "volume": 4,
+                "vwap": 133.0325
+            },
+            "details": {
+                "contract_type": "call",
+                "exercise_style": "american",
+                "expiration_date": "2026-01-02",
+                "shares_per_contract": 100,
+                "strike_price": 55,
+                "ticker": "O:NVDA260102C00055000"
+            },
+            "greeks": {
+                "delta": 0.9924089730427763,
+                "gamma": 0.00019307172693311435,
+                "theta": -1.6971653602583239,
+                "vega": 0.002120080360539989
+            },
+            "implied_volatility": 13.520367048757798,
+            "open_interest": 15,
+            "underlying_asset": {
+                "ticker": "NVDA"
+            }
+        },
+        {
+            "day": {
+                "change": 0,
+                "change_percent": 0,
+                "close": 127.43,
+                "high": 127.7,
+                "last_updated": 1767128400000000000,
+                "low": 127.43,
+                "open": 127.46,
+                "previous_close": 127.43,
+                "volume": 10,
+                "vwap": 127.481
+            },
+            "details": {
+                "contract_type": "call",
+                "exercise_style": "american",
+                "expiration_date": "2026-01-02",
+                "shares_per_contract": 100,
+                "strike_price": 60,
+                "ticker": "O:NVDA260102C00060000"
+            },
+            "greeks": {
+                "delta": 0.9918186952193144,
+                "gamma": 0.00022139898196989278,
+                "theta": -1.6875906577567021,
+                "vega": 0.0022267842480841586
+            },
+            "implied_volatility": 12.593600819233835,
+            "open_interest": 6,
+            "underlying_asset": {
+                "ticker": "NVDA"
+            }
+        }
+    ]
+}

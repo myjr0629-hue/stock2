@@ -33,11 +33,26 @@ function convertToStockData(overview: TickerOverview): StockData {
         dayLow: overview.price.low,
         vwap: overview.price.vwap || undefined,
         session: overview.price.session === "REG" ? "reg" : overview.price.session === "PRE" ? "pre" : overview.price.session === "POST" ? "post" : undefined,
+        // [Phase 31] Extended Hours Mapping
+        extPrice: overview.price.session === "PRE" ? overview.price.preMarketLast : overview.price.session === "POST" ? overview.price.afterHoursLast : undefined,
         priceSource: overview.price.priceSource, // [Phase 25.1]
         prevClose: overview.price.prevClose, // [Phase 31] Previous close for PRE display
         // [S-56.4.7] SSOT Indicator Mapping
         rsi: overview.indicators.rsi14 || undefined,
-        return3d: overview.indicators.return3D || undefined
+        return3d: overview.indicators.return3D || undefined,
+        // [Phase 42] Flow Data Injection for SSR
+        flow: {
+            rawChain: overview.options.rawChain || [],
+            netPremium: overview.options.netPremium || 0,
+            callPremium: overview.options.callPremium || 0,
+            putPremium: overview.options.putPremium || 0,
+            optionsCount: overview.options.optionsCount || 0,
+            // [Phase 42.1] Structure & Levels (SSR)
+            callWall: overview.options.callWall || 0,
+            putFloor: overview.options.putFloor || 0,
+            pinZone: overview.options.pinZone || 0,
+            maxPain: overview.options.maxPain || 0 // [Phase 42.1] Real Max Pain
+        }
     };
 }
 

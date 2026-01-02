@@ -182,7 +182,10 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                             FLOW RADAR <span className="text-amber-400 text-[9px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1"><Shield size={8} /> GEMS INSTITUTIONAL</span>
                         </h3>
                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
-                            {isMarketClosed ? <span className="text-amber-500 flex items-center gap-1"><Zap size={9} /> Market Closed</span> : <span className="text-emerald-400 flex items-center gap-1"><Zap size={9} /> Live Action • MM Tracking</span>}
+                            {isMarketClosed ?
+                                <span className="text-amber-500 flex items-center gap-1"><Zap size={9} /> PRE-MARKET • PREVIOUS CLOSE DATA (OI)</span>
+                                : <span className="text-emerald-400 flex items-center gap-1"><Zap size={9} /> Live Action • MM Tracking</span>
+                            }
                         </p>
                     </div>
                 </div>
@@ -193,7 +196,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                         <Lightbulb size={12} className="text-indigo-300" />
                         <span className="text-[10px] text-indigo-200 font-bold tracking-wide">
                             {effectiveViewMode === 'VOLUME'
-                                ? "⚡ Volume(거래량): '단타/모멘텀' - 오늘 고래들이 싸우는 현장"
+                                ? (isMarketClosed ? "⚡ Volume(거래량): 장전(Pre) 대기중 - 본장 시작 시 활성화" : "⚡ Volume(거래량): '단타/모멘텀' - 오늘 고래들이 싸우는 현장")
                                 : "🏰 OI(누적매물): '스윙/추세' - MM이 설계한 진짜 지지/저항 성벽"}
                         </span>
                     </div>

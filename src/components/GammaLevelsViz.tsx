@@ -11,7 +11,16 @@ interface GammaLevelsVizProps {
 }
 
 export function GammaLevelsViz({ currentPrice, callWall, putFloor, pinZone }: GammaLevelsVizProps) {
-    if (!currentPrice || !callWall || !putFloor) return null;
+    // [Fix] Explicit null check - 0 is a valid value (though unlikely for price)
+    if (currentPrice === null || currentPrice === undefined ||
+        callWall === null || callWall === undefined ||
+        putFloor === null || putFloor === undefined) {
+        return (
+            <div className="h-full flex items-center justify-center text-slate-500 text-xs">
+                <p>Levels data loading...</p>
+            </div>
+        );
+    }
 
     // Calculate relative percentages for positioning
     const max = Math.max(currentPrice, callWall, pinZone || 0) * 1.02;
