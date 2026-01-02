@@ -655,13 +655,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             {/* Consolidated Card for Height Alignment */}
                             <Card className="border-white/5 bg-slate-900/30 min-h-[340px] h-full overflow-hidden flex flex-col">
                                 <CardContent className="p-0 flex-1 flex flex-col">
-                                    {krNews.slice(0, 3).map((n, i) => (
-                                        <a key={i} href={n.link} target="_blank" rel="noreferrer" className="block group flex-1 border-b border-white/5 last:border-0 hover:bg-slate-800/50 transition-colors relative">
+                                    {krNews.slice(0, 4).map((n, i) => (
+                                        <a key={i} href={n.link} target="_blank" rel="noreferrer" className="block group border-b border-white/5 last:border-0 hover:bg-slate-800/50 transition-colors relative min-h-[85px]">
                                             {/* Hover Accent */}
                                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500/0 group-hover:bg-indigo-500 transition-all duration-300" />
 
-                                            <div className="p-4 flex flex-col h-full justify-center">
-                                                <div className="text-[9px] text-indigo-400 font-bold mb-1.5 flex justify-between">
+                                            <div className="p-3 flex flex-col justify-center h-full">
+                                                <div className="text-[9px] text-indigo-400 font-bold mb-1 flex justify-between">
                                                     <span>{n.publisher}</span>
                                                     <span className={n.sentiment === 'positive' ? 'text-emerald-500' : 'text-slate-600'}>
                                                         {n.sentiment === 'positive' ? 'Bullish' : ''}
@@ -670,12 +670,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className="text-xs text-slate-300 font-medium leading-snug group-hover:text-white transition-colors line-clamp-2">
                                                     {n.title}
                                                 </div>
-                                                <div className="text-[9px] text-slate-600 mt-2">
+                                                <div className="text-[9px] text-slate-600 mt-1.5">
                                                     {n.time.split('T')[0]}
                                                 </div>
                                             </div>
                                         </a>
                                     ))}
+                                    <div className="flex-1 bg-transparent min-h-0" />
                                     {krNews.length === 0 && (
                                         <div className="flex-1 flex items-center justify-center text-slate-600 text-xs">
                                             No recent intel
