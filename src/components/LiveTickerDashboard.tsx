@@ -280,70 +280,71 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // CRITICAL: "Intraday Close" = LAST Regular Session Close.
     // API returns: regularCloseToday (today's close if market closed) or prevRegularClose (yesterday's close).
     // During Pre-Market Jan 2, prevRegularClose = Dec 31 Close ($186.50)
-    const officialClose = liveQuote?.prices?.regularCloseToday   // Today's Close (if market already closed today)
-        || liveQuote?.prices?.prevRegularClose   // Last Trading Day's Close
-        || liveQuote?.prevClose                  // Legacy fallback
-        || initialStockData.prevClose;           // SSR fallback
+    // [S-45] Price Display Logic (Strict Engine Operational Mode)
+    // 1. Session Status
+    // - PRE: Main = PrevRegularClose, Badge = PrePrice
+    // - REG: Main = LastTrade (Live), Badge = PreRegularClose (Static)
+    // - POST: Main = RegularCloseToday, Badge = PostPrice
+    // - CLOSED: Main = RegularClose, Badge = Hidden (or PostClose)
 
-    // prevDayClose = The day BEFORE the officialClose (for change % calculation)
-    // If officialClose is Dec 31, prevDayClose should be Dec 30 close.
-    // API now exposes prevPrevRegularClose for this purpose.
-    const prevDayClose = liveQuote?.prices?.prevPrevRegularClose
-        || liveQuote?.baseline?.value
-        || initialStockData.prevClose;
+    // A. Main Display Price (White Big Number)
+    let displayPrice = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose || 0;
 
-    // 1. Determine Main Display Price (Intraday ONLY)
-    // ALWAYS show officialClose. During REG session, we can show live price,
-    // but user wants Intraday (Close) to be fixed, not live ticking.
-    // Actually re-reading user: "항상 intraday 가격만 나오게 하라고" = ALWAYS Intraday only.
-    // So even during REG, we show the LATEST official close, not live tick.
-    // Wait, that doesn't make sense during REG...
-    // Let me re-interpret: Main = Intraday Close (not Pre/Post price).
-    // During REG, intraday close IS the live price (it updates tick by tick).
-    // During PRE/POST/CLOSED, intraday close is locked to last REG close.
-    let displayPrice = officialClose; // Default to Official Close
-
+    // During REG or POST, the "Intraday" anchor moves to today's activity
     if (effectiveSession === 'REG' || effectiveSession === 'RTH' || effectiveSession === 'MARKET') {
-        // Regular Session: Use live price (this IS the current intraday price)
-        displayPrice = liveQuote?.prices?.lastTrade || liveQuote?.price || officialClose;
+        displayPrice = liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice;
+    } else if (effectiveSession === 'POST') {
+        displayPrice = liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice;
     }
-    // For PRE, POST, CLOSED: displayPrice remains as officialClose (locked)
 
-    // 2. Determine Extended Price (for Badge)
+    // B. Sub-Badge (Extended Session Info)
     let activeExtPrice = 0;
-    let activeExtType = "";
+    let activeExtType = ""; // 'PRE', 'PRE_CLOSE', 'POST'
+    let activeExtLabel = "";
 
-    if (effectiveSession === "PRE") {
-        // API returns extended.prePrice and prices.prePrice
-        activeExtPrice = liveQuote?.extended?.prePrice || liveQuote?.prices?.prePrice || initialStockData.extPrice || 0;
-        activeExtType = "PRE";
-    } else if (effectiveSession === "POST") {
-        activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || initialStockData.extPrice || 0;
-        activeExtType = "POST";
+    if (effectiveSession === 'PRE') {
+        activeExtPrice = liveQuote?.extended?.prePrice || liveQuote?.prices?.prePrice || 0;
+        activeExtType = 'PRE';
+        activeExtLabel = 'PRE';
+    } else if (effectiveSession === 'REG' || effectiveSession === 'RTH' || effectiveSession === 'MARKET') {
+        // Show Pre-Market Close if we are in Regular Session
+        activeExtPrice = liveQuote?.extended?.preClose || liveQuote?.prices?.prePrice || 0; // Use prePrice as proxy for close if undefined
+        if (activeExtPrice > 0) {
+            activeExtType = 'PRE_CLOSE';
+            activeExtLabel = 'PRE CLOSE';
+        }
+    } else if (effectiveSession === 'POST') {
+        activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || 0;
+        activeExtType = 'POST';
+        activeExtLabel = 'POST';
     }
 
-    // 3. Change Calculation (Main Price vs Previous Day Close)
-    // Example: If officialClose = 186.50 and prevDayClose = 187.54, change = -0.55%
+    // C. Change Percentages (Strict Baselines)
+    // Main Change: Always DisplayPrice vs PrevRegularClose (Yesterday's Close)
+    // EXCEPTION: During PRE, Main Display is PrevClose, so Change is 0.00%. 
+    // This is correct "Intraday" behavior (market hasn't opened).
+    const referenceClose = liveQuote?.prices?.prevRegularClose || liveQuote?.baseline?.value || initialStockData.prevClose || 0;
     let displayChangePct = 0;
 
-    if (displayPrice && prevDayClose && prevDayClose > 0) {
-        displayChangePct = ((displayPrice - prevDayClose) / prevDayClose) * 100;
-    } else {
-        displayChangePct = initialStockData.changePercent || 0;
+    if (displayPrice && referenceClose && referenceClose > 0) {
+        displayChangePct = ((displayPrice - referenceClose) / referenceClose) * 100;
     }
 
-    // [Fix] Calculate Extended Percent for Badge - ALWAYS calculate locally for consistency
-    // PRE: vs officialClose (가장 최근 Intraday 종가)
-    // POST: vs displayPrice (당일 Regular 종가)
+    // Extended Change:
+    // PRE: PrePrice vs PrevRegularClose
+    // PRE_CLOSE: PreClose vs PrevRegularClose
+    // POST: PostPrice vs RegularCloseToday
     let activeExtPct = 0;
-    if (activeExtPrice && activeExtType) {
-        const refPrice = activeExtType === 'PRE' ? officialClose : displayPrice;
-        if (refPrice > 0) {
-            activeExtPct = ((activeExtPrice - refPrice) / refPrice) * 100;
+    if (activeExtPrice > 0) {
+        if (activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') {
+            const base = referenceClose;
+            if (base > 0) activeExtPct = ((activeExtPrice - base) / base) * 100;
+        } else if (activeExtType === 'POST') {
+            const base = liveQuote?.prices?.regularCloseToday || displayPrice;
+            if (base > 0) activeExtPct = ((activeExtPrice - base) / base) * 100;
         }
     }
 
-    // Price Source Badge
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;
     let pTag = "";
     let pTagStyle = "";
@@ -402,15 +403,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </div>
 
                     {/* Extended Session Badge (Inline with Price) */}
-                    {activeExtPrice && (
+                    {activeExtPrice > 0 && (
                         <div className="hidden sm:block pb-1.5">
                             <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
-                                <div className={`w-1.5 h-1.5 rounded-full ${activeExtType === 'PRE' ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
+                                <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
 
                                 <div className="flex flex-col leading-none">
                                     <div className="flex items-baseline gap-2">
-                                        <span className={`text-[9px] font-black uppercase tracking-widest ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
-                                            {activeExtType === 'PRE' ? 'Pre' : 'Post'}
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                            {activeExtLabel}
                                         </span>
                                         <span className="text-xs font-bold text-slate-200 tabular-nums">
                                             ${activeExtPrice.toFixed(2)}

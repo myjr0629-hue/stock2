@@ -456,21 +456,47 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             />
                                         </ReferenceLine>
                                     )}
-                                    {/* Session-based multi-colored lines */}
-                                    {sessionSegments.map((segment, idx) => (
-                                        <Line
-                                            key={`session-line-${idx}`}
-                                            type="monotone"
-                                            data={segment.data}
-                                            dataKey="close"
-                                            stroke={segment.color}
-                                            strokeWidth={1.5}
-                                            dot={false}
-                                            activeDot={{ r: 3, fill: segment.color }}
-                                            isAnimationActive={false}
-                                            connectNulls={true}
-                                        />
-                                    ))}
+                                    {/* [Fix] Gradient Definition for Session Coloring (Smooth Continuous Line) */}
+                                    <defs>
+                                        {(() => {
+                                            const xMin = xDomain ? Number(xDomain[0]) : 0;
+                                            const xMax = xDomain ? Number(xDomain[1]) : 1; // avoid /0
+                                            const totalRange = xMax - xMin || 1;
+
+                                            // Offsets for 09:30 (570) and 16:00 (960)
+                                            // Ensure bounded between 0 and 1
+                                            const preEndOffset = Math.max(0, Math.min(1, (SESSION_PRE_END - xMin) / totalRange));
+                                            const postStartOffset = Math.max(0, Math.min(1, (SESSION_REG_END - xMin) / totalRange));
+
+                                            return (
+                                                <linearGradient id="chartGradient" x1="0" y1="0" x2="1" y2="0">
+                                                    {/* Pre Market: Yellow */}
+                                                    <stop offset={0} stopColor={chartConfig.preMarketColor} />
+                                                    <stop offset={preEndOffset} stopColor={chartConfig.preMarketColor} />
+
+                                                    {/* Regular Market: White/Silver */}
+                                                    <stop offset={preEndOffset} stopColor={chartConfig.lineColor} />
+                                                    <stop offset={postStartOffset} stopColor={chartConfig.lineColor} />
+
+                                                    {/* Post Market: Blue */}
+                                                    <stop offset={postStartOffset} stopColor={chartConfig.postMarketColor} />
+                                                    <stop offset={1} stopColor={chartConfig.postMarketColor} />
+                                                </linearGradient>
+                                            );
+                                        })()}
+                                    </defs>
+
+                                    {/* Single Continuous Line */}
+                                    <Line
+                                        type="monotone"
+                                        dataKey="close"
+                                        stroke={isIntraday ? "url(#chartGradient)" : chartConfig.lineColor}
+                                        strokeWidth={1.5}
+                                        dot={false}
+                                        activeDot={{ r: 4, fill: "#fff", stroke: chartConfig.background, strokeWidth: 2 }}
+                                        isAnimationActive={false}
+                                        connectNulls={true}
+                                    />
                                 </LineChart>
                             </ResponsiveContainer>
                             {/* Previous Close Badge - DOM overlay outside Recharts */}
