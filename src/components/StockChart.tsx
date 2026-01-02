@@ -223,7 +223,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
 
     const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
     const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 0;
-    const padding = (maxPrice - minPrice) * 0.1 || (maxPrice * 0.01); // fallback padding if flat
+    const padding = (maxPrice - minPrice) * 0.04 || (maxPrice * 0.01); // fallback padding if flat
 
     // [HOTFIX] Yahoo Style Dark Mode Colors
     const chartConfig = {
