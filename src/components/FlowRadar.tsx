@@ -160,7 +160,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
 
     if (!rawChain || rawChain.length === 0) {
         return (
-            <div className="h-[400px] flex flex-col items-center justify-center text-slate-500 bg-slate-900/50 rounded-sm border border-white/5">
+            <div className="h-[400px] flex flex-col items-center justify-center text-slate-500 bg-slate-900/50 rounded-lg border border-white/5">
                 <Radar size={48} className="mb-4 opacity-20" />
                 <p>No Flow Data Available</p>
                 <p className="text-xs opacity-50">Waiting for live options stream...</p>
@@ -220,7 +220,7 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
 
                 {/* 1. Main Radar Chart */}
-                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-sm">
+                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg">
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
                     <CardContent className="p-6 relative z-10">
                         <div className="grid grid-cols-[1fr_80px_1fr] gap-4 mb-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 text-center">
@@ -302,100 +302,90 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
 
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
                 <div className="space-y-4 order-1 lg:order-2">
-                    <Card className="bg-slate-900/60 border-white/10 h-full flex flex-col rounded-sm">
+                    <Card className="bg-slate-900/60 border-white/10 h-full flex flex-col rounded-lg">
                         <CardContent className="p-5 space-y-4 flex-1 flex flex-col">
 
-                            {/* NEW: Data Source Prestige Block */}
-                            <div className="bg-gradient-to-r from-amber-950/20 to-slate-900 border border-amber-500/10 p-3 rounded-md mb-2">
-                                <div className="flex items-center gap-2 mb-1">
-                                    <Lock size={10} className="text-amber-400" />
-                                    <span className="text-[9px] font-black text-amber-200 uppercase tracking-widest">
-                                        LEVEL 3 INSTITUTIONAL DATA
-                                    </span>
+                            {/* NEW: Level 3 Header */}
+                            <div className="flex items-center gap-2 mb-2 select-none">
+                                <Lock size={12} className="text-amber-500" />
+                                <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">
+                                    LEVEL 3 INSTITUTIONAL
+                                </span>
+                            </div>
+
+                            {/* 1. Current Position Status (Hero Block) */}
+                            <div className="bg-[#0f172a] rounded-xl border border-slate-800 p-5 text-center shadow-inner relative overflow-hidden group">
+                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-2">Current Position Status</span>
+                                <div className={`text-xl font-black tracking-tight flex items-center justify-center gap-2 ${analysis?.color || "text-slate-300"}`}>
+                                    {analysis?.status === 'RANGE BOUND' && <Activity size={20} />}
+                                    {analysis?.status === 'BULLISH' && <TrendingUp size={20} />}
+                                    {analysis?.status === 'BEARISH' && <TrendingDown size={20} />}
+                                    {analysis?.status}
                                 </div>
-                                <p className="text-[9px] text-slate-400 leading-tight">
-                                    이 차트는 일반 투자자는 볼 수 없는 <strong className="text-amber-300">"고래(Whale)와 마켓메이커(MM)"</strong>의 숨겨진 포지션과 헷징 구간을 실시간 분석합니다. 단순 차트가 아닌, 세력의 설계도입니다.
-                                </p>
                             </div>
 
-                            {/* Status Block */}
-                            <div className="bg-white/5 rounded-md p-3 border border-white/10 text-center">
-                                <span className="text-[9px] text-slate-500 uppercase tracking-wider block mb-1">현재 포지션 제안</span>
-                                <div className={`text-sm font-black ${analysis?.color || "text-slate-300"}`}>{analysis?.status}</div>
-                            </div>
-
-                            {/* Probability Meter */}
+                            {/* 2. Probability Meter */}
                             {analysis?.probability && analysis.probability !== 50 && (
-                                <div className="bg-slate-950/50 p-3 rounded-md border border-white/5 space-y-2">
-                                    <div className="flex justify-between items-center text-[10px]">
-                                        <span className="text-slate-400 flex items-center gap-1"><Percent size={10} /> 확률 분석 (Beta)</span>
-                                        <span className={`font-black ${analysis.probColor}`}>{analysis.probLabel}</span>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-end px-1">
+                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">PROB (BETA)</span>
+                                        <span className={`text-[10px] font-bold ${analysis.probColor}`}>{analysis.probLabel} ({analysis.probability.toFixed(0)}%)</span>
                                     </div>
-                                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden relative">
                                         <div
-                                            className={`h-full transition-all duration-1000 ${analysis.probColor.replace('text', 'bg')}`}
+                                            className={`h-full rounded-full shadow-[0_0_10px_currentColor] transition-all duration-1000 ${analysis.probColor.replace('text', 'bg')}`}
                                             style={{ width: `${analysis.probability}%` }}
                                         />
                                     </div>
-                                    <div className="text-[9px] text-right text-slate-500">{analysis.probability.toFixed(0)}%</div>
                                 </div>
                             )}
 
-                            <p className="text-[11px] leading-relaxed text-slate-300 font-medium whitespace-pre-line bg-slate-950/30 p-3 rounded-lg border border-white/5">
-                                📢 {analysis?.message}
-                            </p>
-
-                            {/* RESTORED: Legend / Education (차트 해석 비법) */}
-                            <div className="space-y-3 pt-2">
-                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block border-b border-white/5 pb-1">차트 해석 비법</span>
-
-                                <div className="space-y-2">
-                                    <div className="flex gap-2 items-start">
-                                        <Zap size={12} className="text-yellow-400 mt-0.5" />
-                                        <div className="text-[10px] text-slate-400 leading-tight">
-                                            <strong className="text-yellow-400">깜빡이는 바 (Pulse)</strong>
-                                            <br />지금 세력 자금이 몰리는 <span className="text-white font-bold">핫스팟</span>입니다.
-                                        </div>
+                            {/* 3. Analysis Message Box */}
+                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-4 relative">
+                                <div className="absolute left-0 top-4 bottom-4 w-1 bg-indigo-500 rounded-r-full" />
+                                <div className="flex gap-3 pl-2">
+                                    <div className="mt-0.5">
+                                        {analysis?.status === 'BULLISH' ? <TrendingUp size={14} className="text-emerald-400" /> :
+                                            analysis?.status === 'BEARISH' ? <TrendingDown size={14} className="text-rose-400" /> :
+                                                <Activity size={14} className="text-indigo-400" />}
                                     </div>
-
-                                    <div className="flex gap-2 items-start">
-                                        <TrendingUp size={12} className="text-emerald-400 mt-0.5" />
-                                        <div className="text-[10px] text-slate-400 leading-tight">
-                                            <strong className="text-emerald-400">전술 활용 (매수)</strong>
-                                            <br />주가가 <span className="text-emerald-400">녹색 벽(저항)</span>을 강하게 뚫으면 '추격 매수' 기회입니다.
-                                        </div>
-                                    </div>
-
-                                    <div className="flex gap-2 items-start">
-                                        <TrendingDown size={12} className="text-rose-400 mt-0.5" />
-                                        <div className="text-[10px] text-slate-400 leading-tight">
-                                            <strong className="text-rose-400">전술 활용 (매도/방어)</strong>
-                                            <br />주가가 <span className="text-rose-400">붉은 벽(지지)</span> 아래로 깨지면 '손절' 혹은 '하락 베팅' 타이밍입니다.
-                                        </div>
-                                    </div>
+                                    <p className="text-[11px] leading-relaxed text-slate-300 font-mono">
+                                        {analysis?.message}
+                                    </p>
                                 </div>
                             </div>
 
-                            {/* Key Levels Dashboard (Restored at Bottom) */}
-                            <div className="mt-auto pt-4 border-t border-white/5 grid grid-cols-1 gap-3">
-                                <div className="bg-emerald-950/20 border border-emerald-500/20 p-3 rounded-md flex items-center justify-between">
-                                    <div>
-                                        <div className="text-[10px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-emerald-500 rounded-sm" /> Call Wall (저항)
-                                        </div>
-                                        <div className="text-[9px] text-slate-400 mt-0.5">뚫으면 급등 (Bullish)</div>
-                                    </div>
-                                    <div className="text-xl font-black text-emerald-400 font-mono">${callWall}</div>
-                                </div>
+                            <hr className="border-slate-800/50 my-2" />
 
-                                <div className="bg-rose-950/20 border border-rose-500/20 p-3 rounded-md flex items-center justify-between">
-                                    <div>
-                                        <div className="text-[10px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-1">
-                                            <div className="w-2 h-2 bg-rose-500 rounded-sm" /> Put Wall (지지)
+                            {/* 4. Chart Interpretation Legend */}
+                            <div className="space-y-3">
+                                <span className="text-[10px] font-black text-slate-600 uppercase tracking-widest block mb-2">Chart Interpretation</span>
+
+                                <div className="space-y-3 pl-1">
+                                    <div className="flex gap-3 items-start group">
+                                        <div className="mt-1"><Zap size={12} className="text-amber-400 group-hover:drop-shadow-[0_0_8px_rgba(251,191,36,0.5)] transition-all" /></div>
+                                        <div>
+                                            <div className="text-[11px] font-bold text-amber-400">Pulse (Gamma)</div>
+                                            <div className="text-[10px] text-slate-500">Institutional money flow hotspot.</div>
                                         </div>
-                                        <div className="text-[9px] text-slate-400 mt-0.5">깨지면 급락 (Bearish)</div>
                                     </div>
-                                    <div className="text-xl font-black text-rose-400 font-mono">${putWall}</div>
+
+                                    <div className="flex gap-3 items-start group">
+                                        <div className="mt-1"><TrendingUp size={12} className="text-emerald-400" /></div>
+                                        <div>
+                                            <div className="text-[11px] font-bold text-emerald-400">Tactical Long</div>
+                                            <div className="text-[10px] text-slate-500">Break above green wall triggers squeeze.</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-3 items-start group">
+                                        <div className="mt-1"><TrendingDown size={12} className="text-rose-400" /></div>
+                                        <div>
+                                            <div className="text-[11px] font-bold text-rose-400">Tactical Short</div>
+                                            <div className="text-[10px] text-slate-500">Break below red wall triggers flush.</div>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 
