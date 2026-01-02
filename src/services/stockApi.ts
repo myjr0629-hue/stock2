@@ -1036,16 +1036,26 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       const currentClassified = classifyPoint(new Date());
       let finalProcessed = processed;
 
-      // [S-65] ALWAYS filter to TODAY's date (ET) for 1D chart
-      // This ensures the chart shows only the current trading day, regardless of session
+      // [S-65] Determine TARGET trading day for 1D chart
+      // - During CLOSED session (00:00-04:00 next day): Show PREVIOUS trading day
+      // - During PRE/REG/POST: Show current day
       const todayDateET = currentClassified.etDateYYYYMMDD;
+      let targetTradingDayET = todayDateET;
+
+      if (currentClassified.session === 'CLOSED' && currentClassified.etHour < 4) {
+        // Overnight CLOSED (00:00-03:59): Show previous calendar day
+        const yesterday = new Date(new Date().getTime() - 24 * 60 * 60 * 1000);
+        const yesterdayClassified = classifyPoint(yesterday);
+        targetTradingDayET = yesterdayClassified.etDateYYYYMMDD;
+        console.log(`[1D Chart] Overnight CLOSED - showing previous day: ${targetTradingDayET}`);
+      }
 
       // Debug: Log unique dates in processed data
       const uniqueDates = [...new Set(processed.map((p: any) => p.etDate))];
-      console.log(`[1D Chart Debug] AvailableDates: ${uniqueDates.join(', ')}, TodayET: ${todayDateET}`);
+      console.log(`[1D Chart Debug] AvailableDates: ${uniqueDates.join(', ')}, TargetDay: ${targetTradingDayET}, Session: ${currentClassified.session}`);
 
-      finalProcessed = processed.filter((p: any) => p.etDate === todayDateET);
-      console.log(`[1D Chart Filter] Today: ${todayDateET}, Session: ${currentClassified.session}, Filtered: ${finalProcessed.length} from ${processed.length}`);
+      finalProcessed = processed.filter((p: any) => p.etDate === targetTradingDayET);
+      console.log(`[1D Chart Filter] TargetDay: ${targetTradingDayET}, Filtered: ${finalProcessed.length} from ${processed.length}`);
 
       // Preserve sessionMaskDebug
       (finalProcessed as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
