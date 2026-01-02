@@ -223,9 +223,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
 
     const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
     const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 0;
-    // [User Request] Range should be wider (approx +/- 4% of stock price)
-    // Old: (max - min) * 0.04 (Too tight) -> New: maxPrice * 0.04
-    const padding = maxPrice * 0.04;
+    // [User Request] Range adjustment: NVDA 187-191 means approx +/- 1% padding
+    // 0.04 was too wide (flat chart). 0.01 is closer to the desired "focused but not too zoomed" look.
+    const padding = maxPrice * 0.01;
 
     // [HOTFIX] Yahoo Style Dark Mode Colors
     const chartConfig = {
