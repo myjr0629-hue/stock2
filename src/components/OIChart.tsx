@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useId } from 'react';
 
 interface OIChartProps {
     strikes: number[];
@@ -13,6 +13,7 @@ interface OIChartProps {
 }
 
 export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callWall, putFloor }: OIChartProps) {
+    const chartId = useId().replace(/:/g, ""); // Safe ID for SVG
     if (!strikes.length) return <div className="h-40 flex items-center justify-center text-slate-500 text-sm">No structure data</div>;
 
     // Filter to ±15% range around current price to zoom in
@@ -53,15 +54,15 @@ export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callW
             <div className="h-[240px] relative mt-2" style={{ width: Math.max(svgWidth, 500) }}>
                 <svg width="100%" height="100%" viewBox={`0 0 ${svgWidth} ${svgHeight}`} preserveAspectRatio="none">
                     <defs>
-                        <linearGradient id="callGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id={`callGradient-${chartId}`} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#10b981" stopOpacity="0.9" />
                             <stop offset="100%" stopColor="#064e3b" stopOpacity="0.3" />
                         </linearGradient>
-                        <linearGradient id="putGradient" x1="0" y1="0" x2="0" y2="1">
+                        <linearGradient id={`putGradient-${chartId}`} x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.9" />
                             <stop offset="100%" stopColor="#881337" stopOpacity="0.3" />
                         </linearGradient>
-                        <filter id="glowCall" x="-20%" y="-20%" width="140%" height="140%">
+                        <filter id={`glowCall-${chartId}`} x="-20%" y="-20%" width="140%" height="140%">
                             <feGaussianBlur stdDeviation="2" result="blur" />
                             <feComposite in="SourceGraphic" in2="blur" operator="over" />
                         </filter>
@@ -85,8 +86,8 @@ export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callW
                                 <rect x={x} y={0} width={spacing} height={chartHeight} fill="transparent" />
 
                                 {/* Bars with Gradient */}
-                                <rect x={x + 2} y={chartHeight - callH} width={7} height={callH} fill="url(#callGradient)" rx="2" className="transition-all duration-300 hover:brightness-125" />
-                                <rect x={x + 11} y={chartHeight - putH} width={7} height={putH} fill="url(#putGradient)" rx="2" className="transition-all duration-300 hover:brightness-125" />
+                                <rect x={x + 2} y={chartHeight - callH} width={7} height={callH} fill={`url(#callGradient-${chartId})`} rx="2" className="transition-all duration-300 hover:brightness-125" />
+                                <rect x={x + 11} y={chartHeight - putH} width={7} height={putH} fill={`url(#putGradient-${chartId})`} rx="2" className="transition-all duration-300 hover:brightness-125" />
 
                                 {/* Label */}
                                 <text x={x + 10} y={chartHeight + 20} textAnchor="middle" fontSize="9" fill={isPinStrike ? "#fbbf24" : "#64748b"} fontWeight={isPinStrike ? "bold" : "normal"} className="font-mono tabular-nums">

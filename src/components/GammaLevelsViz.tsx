@@ -129,6 +129,13 @@ export function GammaLevelsViz({ currentPrice, callWall, putFloor, pinZone }: Ga
                         </div>
                     </div>
                 </div>
+
+                {/* Data Period Label */}
+                <div className="absolute bottom-1 w-full text-center pointer-events-none z-0">
+                    <span className="text-[8px] text-slate-600 font-medium uppercase tracking-wider bg-slate-900/80 px-2 py-0.5 rounded-full backdrop-blur-sm border border-white/5">
+                        Data Source: Full Chain Options Cycle (All Expiries)
+                    </span>
+                </div>
             </CardContent>
         </Card>
     );

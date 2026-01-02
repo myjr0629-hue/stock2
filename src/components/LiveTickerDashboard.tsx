@@ -646,31 +646,43 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* 4. Intel Feed (Native KR) */}
-                        <div className="space-y-2">
+                        <div className="space-y-2 h-full">
                             <div className="flex items-center gap-2 pt-2">
                                 <Newspaper size={14} className="text-slate-500" />
                                 <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Intel Feed (Global AI)</h3>
                             </div>
-                            <div className="space-y-2">
-                                {krNews.slice(0, 3).map((n, i) => (
-                                    <a key={i} href={n.link} target="_blank" rel="noreferrer" className="block group">
-                                        <Card className="border-white/5 bg-slate-900/30 hover:bg-slate-800/50 transition-colors">
-                                            <CardContent className="p-3">
-                                                <div className="text-[10px] text-indigo-400 font-bold mb-1">{n.publisher}</div>
-                                                <div className="text-xs text-slate-300 font-medium leading-tight group-hover:text-white transition-colors line-clamp-2">
-                                                    {n.title}
-                                                </div>
-                                                <div className="text-[9px] text-slate-600 mt-2 flex justify-between">
-                                                    <span>{n.time.split('T')[0]}</span>
+
+                            {/* Consolidated Card for Height Alignment */}
+                            <Card className="border-white/5 bg-slate-900/30 min-h-[340px] h-full overflow-hidden flex flex-col">
+                                <CardContent className="p-0 flex-1 flex flex-col">
+                                    {krNews.slice(0, 3).map((n, i) => (
+                                        <a key={i} href={n.link} target="_blank" rel="noreferrer" className="block group flex-1 border-b border-white/5 last:border-0 hover:bg-slate-800/50 transition-colors relative">
+                                            {/* Hover Accent */}
+                                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500/0 group-hover:bg-indigo-500 transition-all duration-300" />
+
+                                            <div className="p-4 flex flex-col h-full justify-center">
+                                                <div className="text-[9px] text-indigo-400 font-bold mb-1.5 flex justify-between">
+                                                    <span>{n.publisher}</span>
                                                     <span className={n.sentiment === 'positive' ? 'text-emerald-500' : 'text-slate-600'}>
                                                         {n.sentiment === 'positive' ? 'Bullish' : ''}
                                                     </span>
                                                 </div>
-                                            </CardContent>
-                                        </Card>
-                                    </a>
-                                ))}
-                            </div>
+                                                <div className="text-xs text-slate-300 font-medium leading-snug group-hover:text-white transition-colors line-clamp-2">
+                                                    {n.title}
+                                                </div>
+                                                <div className="text-[9px] text-slate-600 mt-2">
+                                                    {n.time.split('T')[0]}
+                                                </div>
+                                            </div>
+                                        </a>
+                                    ))}
+                                    {krNews.length === 0 && (
+                                        <div className="flex-1 flex items-center justify-center text-slate-600 text-xs">
+                                            No recent intel
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
                         </div>
 
                     </div>

@@ -63,25 +63,25 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                 </div>
             </CardHeader>
 
-            <CardContent className="space-y-2 pt-2 pb-3 px-3">
+            <CardContent className="space-y-1.5 pt-1.5 pb-2 px-3">
                 {/* 1. NET PREMIUM BIG DISPLAY */}
                 <div className="text-center">
-                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-1">
+                    <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
                         Net Premium Flow
                         {/* <span className="block text-[8px] opacity-70">오늘의 순수 공격 자금</span> */}
                     </div>
-                    <div className={`text-3xl font-black tabular-nums tracking-tighter ${isBullish ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <div className={`text-2xl font-black tabular-nums tracking-tighter ${isBullish ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isBullish ? "+" : "-"}${netFormatted}
                     </div>
                 </div>
 
                 {/* 2. CALL vs PUT BATTLE BAR */}
-                <div className="space-y-1">
-                    <div className="flex justify-between text-[9px] font-bold text-slate-400 uppercase">
+                <div className="space-y-0.5">
+                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase">
                         <span className="text-emerald-500">Call Prem (${(callPremium / 1000000).toFixed(1)}M)</span>
                         <span className="text-rose-500">Put Prem (${(putPremium / 1000000).toFixed(1)}M)</span>
                     </div>
-                    <div className="h-2 w-full bg-slate-800 rounded-full overflow-hidden flex relative">
+                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex relative">
                         {/* Center Marker */}
                         <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-white/20 z-10" />
 
@@ -96,17 +96,17 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                             style={{ width: `${putPct}%` }}
                         />
                     </div>
-                    <div className="flex justify-between text-[8px] font-mono text-slate-600">
+                    <div className="flex justify-between text-[7px] font-mono text-slate-600">
                         <span>{callPct.toFixed(0)}%</span>
                         <span>{putPct.toFixed(0)}%</span>
                     </div>
                 </div>
 
                 {/* 3. RELVOL / ACTIVITY (Placeholder for Logic) */}
-                <div className="flex items-center justify-between pt-2 border-t border-white/5 mt-2">
-                    <span className="text-[9px] font-bold text-slate-500 uppercase">Volume Strength</span>
-                    <div className="flex items-center gap-1 text-[9px] font-black text-amber-400">
-                        <TrendingUp size={10} />
+                <div className="flex items-center justify-between pt-1.5 border-t border-white/5 mt-1.5">
+                    <span className="text-[8px] font-bold text-slate-500 uppercase">Volume Strength</span>
+                    <div className="flex items-center gap-1 text-[8px] font-black text-amber-400">
+                        <TrendingUp size={9} />
                         <span>ACTIVE ({optionsCount} Contracts)</span>
                     </div>
                 </div>
