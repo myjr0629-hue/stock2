@@ -13,7 +13,7 @@ interface OIChartProps {
 }
 
 export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callWall, putFloor }: OIChartProps) {
-    if (!strikes.length) return <div className="h-40 flex items-center justify-center text-slate-400 text-sm">No structure data</div>;
+    if (!strikes.length) return <div className="h-40 flex items-center justify-center text-slate-500 text-sm">No structure data</div>;
 
     // Filter to ±15% range around current price to zoom in
     const center = currentPrice || strikes[Math.floor(strikes.length / 2)];
@@ -21,7 +21,7 @@ export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callW
     const rangeMax = center * 1.15;
 
     const visibleIndices = strikes.map((k, i) => ({ k, i })).filter(({ k }) => k >= rangeMin && k <= rangeMax);
-    if (visibleIndices.length === 0) return <div className="h-40 flex items-center justify-center text-slate-400 text-sm">Out of range</div>;
+    if (visibleIndices.length === 0) return <div className="h-40 flex items-center justify-center text-slate-500 text-sm">Out of range</div>;
 
     const filteredStrikes = visibleIndices.map(v => strikes[v.i]);
     const filteredCalls = visibleIndices.map(v => callsOI[v.i] || 0);
@@ -52,36 +52,55 @@ export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callW
         <div className="w-full overflow-x-auto custom-scrollbar">
             <div className="h-[240px] relative mt-2" style={{ width: Math.max(svgWidth, 500) }}>
                 <svg width="100%" height="100%" viewBox={`0 0 ${svgWidth} ${svgHeight}`} preserveAspectRatio="none">
-                    {/* Horizontal Grid */}
-                    <line x1="0" y1={chartHeight} x2={svgWidth} y2={chartHeight} stroke="#e2e8f0" strokeWidth="1" />
+                    <defs>
+                        <linearGradient id="callGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#10b981" stopOpacity="0.9" />
+                            <stop offset="100%" stopColor="#064e3b" stopOpacity="0.3" />
+                        </linearGradient>
+                        <linearGradient id="putGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.9" />
+                            <stop offset="100%" stopColor="#881337" stopOpacity="0.3" />
+                        </linearGradient>
+                        <filter id="glowCall" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="2" result="blur" />
+                            <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                        </filter>
+                    </defs>
+
+                    {/* Horizontal Base Line */}
+                    <line x1="0" y1={chartHeight} x2={svgWidth} y2={chartHeight} stroke="#334155" strokeWidth="1" />
 
                     {filteredStrikes.map((strike, i) => {
                         const x = i * spacing + 10;
-                        const callH = (filteredCalls[i] / maxVal) * (chartHeight - 40);
-                        const putH = (filteredPuts[i] / maxVal) * (chartHeight - 40);
+                        const callH = Math.max(2, (filteredCalls[i] / maxVal) * (chartHeight - 40));
+                        const putH = Math.max(2, (filteredPuts[i] / maxVal) * (chartHeight - 40));
+                        const isPinStrike = maxPain && Math.abs(strike - maxPain) < 1;
 
                         return (
-                            <g key={strike}>
-                                {/* Grid line */}
-                                <line x1={x + 10} y1={0} x2={x + 10} y2={chartHeight} stroke="#f8fafc" strokeWidth="1" />
+                            <g key={strike} className="group hover:opacity-100 transition-opacity">
+                                {/* Grid Vertical Line - Faint */}
+                                <line x1={x + 10} y1={0} x2={x + 10} y2={chartHeight} stroke="#1e293b" strokeWidth="1" strokeDasharray="2 2" />
 
-                                {/* Bars */}
-                                <rect x={x + 2} y={chartHeight - callH} width={7} height={callH} fill="#10b981" rx="1.5" opacity={0.7} />
-                                <rect x={x + 11} y={chartHeight - putH} width={7} height={putH} fill="#f43f5e" rx="1.5" opacity={0.7} />
+                                {/* Interactive Hover Zone (Invisible) */}
+                                <rect x={x} y={0} width={spacing} height={chartHeight} fill="transparent" />
+
+                                {/* Bars with Gradient */}
+                                <rect x={x + 2} y={chartHeight - callH} width={7} height={callH} fill="url(#callGradient)" rx="2" className="transition-all duration-300 hover:brightness-125" />
+                                <rect x={x + 11} y={chartHeight - putH} width={7} height={putH} fill="url(#putGradient)" rx="2" className="transition-all duration-300 hover:brightness-125" />
 
                                 {/* Label */}
-                                <text x={x + 10} y={chartHeight + 20} textAnchor="middle" fontSize="9" fill="#94a3b8" className="font-mono tabular-nums">
+                                <text x={x + 10} y={chartHeight + 20} textAnchor="middle" fontSize="9" fill={isPinStrike ? "#fbbf24" : "#64748b"} fontWeight={isPinStrike ? "bold" : "normal"} className="font-mono tabular-nums">
                                     {strike}
                                 </text>
                             </g>
                         );
                     })}
 
-                    {/* OVERLAY LEVELS */}
+                    {/* OVERLAY LEVELS - Premium Badges */}
                     {[
-                        { val: callWall, label: "CALL WALL", color: "rgba(99, 102, 241, 0.5)", textColor: "#6366f1", offset: -25 },
-                        { val: putFloor, label: "PUT FLOOR", color: "rgba(244, 63, 94, 0.5)", textColor: "#f43f5e", offset: -10 },
-                        { val: maxPain, label: "PIN ZONE", color: "rgba(245, 158, 11, 0.5)", textColor: "#f59e0b", offset: -40 }
+                        { val: callWall, label: "CALL WALL", color: "#6366f1", offset: -25 },
+                        { val: putFloor, label: "PUT FLOOR", color: "#f43f5e", offset: -10 },
+                        { val: maxPain, label: "PIN ZONE", color: "#f59e0b", offset: -40 }
                     ].map((lv, idx) => {
                         if (!lv.val) return null;
                         const x = getX(lv.val);
@@ -89,10 +108,10 @@ export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callW
 
                         return (
                             <g key={lv.label} className="transition-all duration-500">
-                                <line x1={x} y1={0} x2={x} y2={chartHeight} stroke={lv.textColor} strokeWidth="1.5" strokeDasharray="4 2" opacity={0.6} />
-                                <rect x={x - 35} y={lv.offset + idx * 0} width={70} height={14} rx="4" fill="white" stroke={lv.textColor} strokeWidth="1" opacity={0.9} />
-                                <text x={x} y={lv.offset + 10} textAnchor="middle" fontSize="8" fontWeight="bold" fill={lv.textColor} className="tracking-tighter uppercase">
-                                    {lv.label} ${lv.val}
+                                <line x1={x} y1={0} x2={x} y2={chartHeight} stroke={lv.color} strokeWidth="1" strokeDasharray="4 2" opacity={0.6} />
+                                <rect x={x - 30} y={lv.offset} width={60} height={14} rx="4" fill="#0f172a" stroke={lv.color} strokeWidth="1" opacity={0.9} />
+                                <text x={x} y={lv.offset + 10} textAnchor="middle" fontSize="8" fontWeight="bold" fill={lv.color} className="tracking-tighter uppercase">
+                                    {lv.label}
                                 </text>
                             </g>
                         );
@@ -112,24 +131,18 @@ export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callW
                                         {/* Reference Line */}
                                         <line
                                             x1={x} y1={0} x2={x} y2={chartHeight}
-                                            stroke="#0f172a" strokeWidth="1" opacity={isPinNearby ? 0.6 : 0.3}
+                                            stroke="#10b981" strokeWidth="1" opacity={0.8}
                                         />
 
                                         {/* Label Badge */}
                                         <g transform={`translate(${x}, -55)`}>
-                                            <rect x="-35" y="0" width="70" height="14" rx="4" fill="white" stroke="#0f172a" strokeWidth="1" opacity={0.6} />
-                                            <text x="0" y="10" textAnchor="middle" fontSize="7" fontWeight="black" fill="#0f172a" className="tracking-tighter uppercase">
+                                            <rect x="-35" y="0" width="70" height="16" rx="4" fill="#10b981" stroke="#064e3b" strokeWidth="1" />
+                                            <text x="0" y="11" textAnchor="middle" fontSize="8" fontWeight="black" fill="#022c22" className="tracking-tighter uppercase">
                                                 PRICE ${currentPrice.toFixed(1)}
                                             </text>
-                                            {isPinNearby && (
-                                                <text x="0" y="22" textAnchor="middle" fontSize="6" fontWeight="black" fill="#f59e0b" className="tracking-widest uppercase animate-pulse">
-                                                    Inside Magnet
-                                                </text>
-                                            )}
-                                        </g>
 
-                                        {/* Foot indicator */}
-                                        <circle cx={x} cy={chartHeight} r="2.5" fill="#0f172a" opacity={0.5} />
+                                        </g>
+                                        <circle cx={x} cy={chartHeight} r="3" fill="#10b981" className="animate-pulse" />
                                     </>
                                 );
                             })()}
@@ -141,23 +154,11 @@ export function OIChart({ strikes, callsOI, putsOI, currentPrice, maxPain, callW
             <div className="flex justify-center flex-wrap gap-x-6 gap-y-2 text-[10px] mt-4 font-bold uppercase tracking-wider text-slate-500">
                 <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 bg-emerald-500 rounded-sm opacity-70"></div>
-                    <span>Calls</span>
+                    <span>Calls (Open Interest)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                     <div className="w-2.5 h-2.5 bg-rose-500 rounded-sm opacity-70"></div>
-                    <span>Puts</span>
-                </div>
-                <div className="flex items-center gap-1.5 border-l border-slate-200 pl-4">
-                    <div className="w-3 h-0.5 bg-indigo-500 opacity-50 border-t border-dashed border-indigo-500"></div>
-                    <span className="text-indigo-600">Call Wall</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-0.5 bg-rose-500 opacity-50 border-t border-dashed border-rose-500"></div>
-                    <span className="text-rose-600">Put Floor</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-3 h-0.5 bg-amber-500 opacity-50 border-t border-dashed border-amber-500"></div>
-                    <span className="text-amber-600">Pin Zone</span>
+                    <span>Puts (Open Interest)</span>
                 </div>
             </div>
         </div>
