@@ -1036,17 +1036,16 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       const currentClassified = classifyPoint(new Date());
       let finalProcessed = processed;
 
-      if (currentClassified.session === 'PRE') {
-        // In Pre-Market: filter to ONLY today's date data
-        const todayDateET = currentClassified.etDateYYYYMMDD;
-        finalProcessed = processed.filter((p: any) => p.etDate === todayDateET);
-        console.log(`[PreMarket Filter] Today: ${todayDateET}, Filtered: ${finalProcessed.length} points from ${processed.length}`);
+      // [S-65] ALWAYS filter to TODAY's date (ET) for 1D chart
+      // This ensures the chart shows only the current trading day, regardless of session
+      const todayDateET = currentClassified.etDateYYYYMMDD;
+      finalProcessed = processed.filter((p: any) => p.etDate === todayDateET);
+      console.log(`[1D Chart Filter] Today: ${todayDateET}, Session: ${currentClassified.session}, Filtered: ${finalProcessed.length} points from ${processed.length}`);
 
-        // Preserve sessionMaskDebug
-        (finalProcessed as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
-        (finalProcessed as any).sessionMaskDebug.isPreMarketFiltered = true;
-        (finalProcessed as any).sessionMaskDebug.todayDateET = todayDateET;
-      }
+      // Preserve sessionMaskDebug
+      (finalProcessed as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
+      (finalProcessed as any).sessionMaskDebug.todayDateET = todayDateET;
+      (finalProcessed as any).sessionMaskDebug.currentSession = currentClassified.session;
 
       // Limit to max points for performance
       if (finalProcessed.length > 1200) return finalProcessed.slice(-1200);
