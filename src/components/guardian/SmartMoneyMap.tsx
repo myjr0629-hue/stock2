@@ -284,12 +284,16 @@ function SceneContent({ sectors, onSectorClick, sourceId, targetId, vectors }: {
     );
 }
 
-export default function SmartMoneyMap({ sectors = MOCK_SECTORS, vectors, sourceId, targetId }: SmartMoneyMapProps) {
+export default function SmartMoneyMap({ sectors = MOCK_SECTORS, vectors, sourceId, targetId, onSectorSelect }: SmartMoneyMapProps) {
     const [selected, setSelected] = useState<SectorData | null>(null);
 
     const handleSectorClick = (d: SectorData) => {
         setSelected(d);
         console.log("Selected Sector:", d);
+        // Notify parent component
+        if (onSectorSelect) {
+            onSectorSelect(d.id);
+        }
     };
 
     return (
