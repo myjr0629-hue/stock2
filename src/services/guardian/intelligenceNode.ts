@@ -5,8 +5,8 @@ import * as path from 'path';
 
 // Robust API Key Loader
 const getApiKey = (): string => {
-    // 1. Try Process Env (Prioritize VERDICT KEY)
-    if (process.env.GEMINI_VERDICT_KEY) return process.env.GEMINI_VERDICT_KEY;
+    // 1. Try Process Env (SWAPPED: Use NEWS KEY for Verdict)
+    if (process.env.GEMINI_NEWS_KEY) return process.env.GEMINI_NEWS_KEY;
     if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
     if (process.env.GOOGLE_API_KEY) return process.env.GOOGLE_API_KEY;
 

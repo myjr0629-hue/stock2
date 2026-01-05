@@ -96,8 +96,8 @@ let genAI: GoogleGenAI | null = null;
 function getGenAIClient() {
     if (genAI) return genAI;
 
-    // 1. Try Process Env (Prioritize NEWS KEY)
-    let apiKey = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_API_KEY;
+    // 1. Try Process Env (SWAPPED: Use VERDICT KEY for News)
+    let apiKey = process.env.GEMINI_VERDICT_KEY || process.env.GEMINI_API_KEY;
 
     // 2. Manual Fallback if process.env fails (Robust Loader)
     if (!apiKey) {
