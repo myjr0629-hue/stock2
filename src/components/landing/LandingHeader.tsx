@@ -50,6 +50,7 @@ export function LandingHeader() {
                 {/* 2. NAVIGATION (COMMAND / INTEL / PORTFOLIO / WATCHLIST) */}
                 <nav className="hidden md:flex items-center gap-1">
                     {[
+                        { label: "GUARDIAN", href: "/guardian", path: "/guardian", active: false },
                         { label: "COMMAND", href: "/ticker?ticker=NVDA", path: "/ticker", active: false },
                         { label: "INTEL", href: "/tier-01", path: "/tier-01", active: false },
                         { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", active: false },
@@ -99,12 +100,44 @@ export function LandingHeader() {
                     </button>
 
                     {/* Login Button */}
-                    <Link href="/login">
+                    <Link href="/login" className="hidden md:block">
                         <Button className="bg-emerald-600 hover:bg-emerald-500 text-white h-9 px-5 rounded-lg text-[10px] font-black tracking-widest uppercase shadow-[0_0_15px_rgba(5,150,105,0.4)] hover:shadow-[0_0_25px_rgba(5,150,105,0.6)] transition-all border border-emerald-400/20">
                             <LogIn size={12} className="mr-2" />
                             Login
                         </Button>
                     </Link>
+
+                    {/* [Mobile Menu Toggle] */}
+                    <div className="md:hidden flex items-center">
+                        <details className="group relative">
+                            <summary className="list-none cursor-pointer p-2 text-slate-400 hover:text-white transition-colors">
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                                </svg>
+                            </summary>
+                            <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 p-2 space-y-1">
+                                {[
+                                    { label: "GUARDIAN", href: "/guardian" },
+                                    { label: "COMMAND", href: "/ticker?ticker=NVDA" },
+                                    { label: "INTEL", href: "/tier-01" },
+                                    { label: "PORTFOLIO", href: "/portfolio" },
+                                    { label: "WATCHLIST", href: "/favorites" }
+                                ].map((item) => (
+                                    <Link
+                                        key={item.label}
+                                        href={item.href}
+                                        className="block px-4 py-3 text-xs font-black text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors uppercase tracking-widest"
+                                    >
+                                        {item.label}
+                                    </Link>
+                                ))}
+                                <div className="h-px bg-slate-800 my-1" />
+                                <Link href="/login" className="block px-4 py-3 text-xs font-black text-emerald-400 hover:bg-emerald-950/30 rounded-lg uppercase tracking-widest">
+                                    Login
+                                </Link>
+                            </div>
+                        </details>
+                    </div>
                 </div>
             </div>
         </header>
