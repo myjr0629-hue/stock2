@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2 } from "lucide-react";
+import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info } from "lucide-react";
 import { StockData, OptionData, NewsItem } from "@/services/stockTypes";
 import { OIChart } from "@/components/OIChart";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
@@ -178,7 +178,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [liveQuote, setLiveQuote] = useState<any>(null);
     const [options, setOptions] = useState<any>(null);
     const [structure, setStructure] = useState<any>(null);
-    const [krNews, setKrNews] = useState<any[]>([]);
+    const [krNews, setKrNews] = useState<any[]>(initialNews || []);
     const [optionsLoading, setOptionsLoading] = useState(false);
     const [structLoading, setStructLoading] = useState(false);
     const [quoteLoading, setQuoteLoading] = useState(false);
@@ -276,25 +276,45 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [User Requirement] Main Price = Official Intraday Close ONLY.
     // Pre/Post prices must ONLY be shown in the badge.
 
-    // Get key reference prices
-    // CRITICAL: "Intraday Close" = LAST Regular Session Close.
-    // API returns: regularCloseToday (today's close if market closed) or prevRegularClose (yesterday's close).
-    // During Pre-Market Jan 2, prevRegularClose = Dec 31 Close ($186.50)
-    // [S-45] Price Display Logic (Strict Engine Operational Mode)
-    // 1. Session Status
-    // - PRE: Main = PrevRegularClose, Badge = PrePrice
-    // - REG: Main = LastTrade (Live), Badge = PreRegularClose (Static)
-    // - POST: Main = RegularCloseToday, Badge = PostPrice
-    // - CLOSED: Main = RegularClose, Badge = Hidden (or PostClose)
+    // Derived Display Values (Truth Table from API)
+    // [User Requirement] Main Price = Official Intraday Close ONLY.
+    // Pre/Post prices must ONLY be shown in the badge.
 
-    // A. Main Display Price (White Big Number)
-    let displayPrice = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose || 0;
+    // [Fix] Trust API's calculated display values (SSOT)
+    // The API now handles T-2 corrections and proper session logic.
+    let displayPrice = liveQuote?.display?.price || liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose || 0;
 
-    // During REG or POST, the "Intraday" anchor moves to today's activity
-    if (effectiveSession === 'REG' || effectiveSession === 'RTH' || effectiveSession === 'MARKET') {
-        displayPrice = liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice;
-    } else if (effectiveSession === 'POST') {
-        displayPrice = liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice;
+    // [Fix] Use API's pre-calculated percentage (pct) directly
+    let displayChangePct = liveQuote?.display?.changePctPct; // e.g. -2.59
+    if (displayChangePct === undefined || displayChangePct === null) {
+        // Fallback for initial load
+        displayChangePct = initialStockData.changePercent || 0;
+    }
+
+    // [User Requirement] IF SESSION IS 'PRE', Main Price (= Intraday) should be STATIC (Prev Close).
+    // The "Pre-market Price" is shown in the badge only.
+    if (effectiveSession === 'PRE') {
+        const staticClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose;
+        if (staticClose) {
+            displayPrice = staticClose;
+            // [Fix-Requested] Show Yesterday's change (Intraday Standard) until market opens.
+            // Do NOT reset to 0.00%. Show "Last Regular Session Change".
+            const prevDayChange = liveQuote?.prices?.prevChangePct ?? initialStockData.prevChangePercent;
+            displayChangePct = prevDayChange ?? 0;
+        }
+    }
+
+    // A. Main Display Price (White Big Number) - Fallback Logic
+    if (!liveQuote?.display?.price) {
+        // Legacy local calc just in case
+        if (effectiveSession === 'REG' || effectiveSession === 'RTH' || effectiveSession === 'MARKET') {
+            displayPrice = liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice;
+        } else if (effectiveSession === 'POST') {
+            displayPrice = liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice;
+        } else if (effectiveSession === 'CLOSED') {
+            // For CLOSED, API display.price is usually Regular Close or Post Price
+            displayPrice = liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice;
+        }
     }
 
     // B. Sub-Badge (Extended Session Info)
@@ -308,7 +328,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         activeExtLabel = 'PRE';
     } else if (effectiveSession === 'REG' || effectiveSession === 'RTH' || effectiveSession === 'MARKET') {
         // Show Pre-Market Close if we are in Regular Session
-        activeExtPrice = liveQuote?.extended?.preClose || liveQuote?.prices?.prePrice || 0; // Use prePrice as proxy for close if undefined
+        activeExtPrice = liveQuote?.extended?.preClose || liveQuote?.prices?.prePrice || 0;
         if (activeExtPrice > 0) {
             activeExtType = 'PRE_CLOSE';
             activeExtLabel = 'PRE CLOSE';
@@ -317,31 +337,34 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || 0;
         activeExtType = 'POST';
         activeExtLabel = 'POST';
+    } else if (effectiveSession === 'CLOSED') {
+        // [Fix] Allow Post-Market display even when CLOSED (e.g. Weekend)
+        activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || 0;
+        if (activeExtPrice > 0) {
+            activeExtType = 'POST';
+            activeExtLabel = 'POST (CLOSED)';
+        }
     }
 
     // C. Change Percentages (Strict Baselines)
-    // Main Change: Always DisplayPrice vs PrevRegularClose (Yesterday's Close)
-    // EXCEPTION: During PRE, Main Display is PrevClose, so Change is 0.00%. 
-    // This is correct "Intraday" behavior (market hasn't opened).
-    const referenceClose = liveQuote?.prices?.prevRegularClose || liveQuote?.baseline?.value || initialStockData.prevClose || 0;
-    let displayChangePct = 0;
-
-    if (displayPrice && referenceClose && referenceClose > 0) {
-        displayChangePct = ((displayPrice - referenceClose) / referenceClose) * 100;
-    }
-
-    // Extended Change:
-    // PRE: PrePrice vs PrevRegularClose
-    // PRE_CLOSE: PreClose vs PrevRegularClose
-    // POST: PostPrice vs RegularCloseToday
+    // [Fix] Trust API for Extended Change Percentages too
     let activeExtPct = 0;
     if (activeExtPrice > 0) {
         if (activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') {
-            const base = referenceClose;
-            if (base > 0) activeExtPct = ((activeExtPrice - base) / base) * 100;
+            activeExtPct = liveQuote?.extended?.preChangePct !== undefined
+                ? (liveQuote.extended.preChangePct * 100) // API returns fraction
+                : 0;
         } else if (activeExtType === 'POST') {
-            const base = liveQuote?.prices?.regularCloseToday || displayPrice;
-            if (base > 0) activeExtPct = ((activeExtPrice - base) / base) * 100;
+            activeExtPct = liveQuote?.extended?.postChangePct !== undefined
+                ? (liveQuote.extended.postChangePct * 100)
+                : 0;
+            // If CLOSED and using POST Badge, we might need manual calc if API didn't flag it as POST session
+            if (effectiveSession === 'CLOSED' && activeExtType === 'POST') {
+                // displayPrice is Regular Close. activeExtPrice is Post Close.
+                if (displayPrice > 0) {
+                    activeExtPct = ((activeExtPrice - displayPrice) / displayPrice) * 100;
+                }
+            }
         }
     }
 
@@ -549,7 +572,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className={`text-4xl font-black ${structure?.netGex > 0 ? "text-emerald-400" : structure?.netGex < 0 ? "text-rose-400" : "text-white"}`}>
                                                     {structure?.netGex ? (structure.netGex > 0 ? "+" : "") + (structure.netGex / 1000000).toFixed(2) + "M" : "—"}
                                                 </div>
-                                                <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">순 감마 에너지 (Net GEX)</div>
+                                                <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1 flex items-center justify-center gap-1">
+                                                    순 감마 에너지 (Net GEX)
+                                                    <span title={`시장 조성자(MM)들의 포지션에 따른 변동성 성향입니다.\n(+) 양수: 주가 변동 억제 (안정/지루함)\n(-) 음수: 주가 변동 증폭 (급등락/스퀴즈 위험)`}>
+                                                        <Info size={10} className="text-slate-600 hover:text-slate-400 cursor-help" />
+                                                    </span>
+                                                </div>
 
                                                 {/* 0DTE Pulse Indicator (New) */}
                                                 {structure?.gexZeroDteRatio !== undefined && (
@@ -656,23 +684,36 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             {/* Consolidated Card for Height Alignment (Natural Height) */}
                             <Card className="border-white/5 bg-slate-900/30 overflow-hidden flex flex-col h-full flex-1">
                                 <CardContent className="p-0 flex flex-col h-full">
-                                    {krNews.slice(0, 4).map((n, i) => (
-                                        <a key={i} href={n.link} target="_blank" rel="noreferrer" className="block group border-b border-white/5 last:border-0 hover:bg-slate-800/50 transition-colors relative min-h-[85px]">
+                                    {krNews.slice(0, 4).map((n: any, i) => (
+                                        <a key={i} href={n.url || n.link || "#"} target="_blank" rel="noreferrer" className="block group border-b border-white/5 last:border-0 hover:bg-slate-800/50 transition-colors relative min-h-[85px]">
                                             {/* Hover Accent */}
                                             <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500/0 group-hover:bg-indigo-500 transition-all duration-300" />
 
                                             <div className="p-3 flex flex-col justify-center h-full">
-                                                <div className="text-[9px] text-indigo-400 font-bold mb-1 flex justify-between">
-                                                    <span>{n.publisher}</span>
+                                                <div className="text-[9px] text-indigo-400 font-bold mb-1 flex justify-between items-center">
+                                                    <span className="flex items-center gap-2">
+                                                        {n.source || n.publisher || "Unknown"}
+                                                        {/* [S-53.9] Official Badge */}
+                                                        {n.isOfficial && (
+                                                            <span className="text-[8px] px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-extrabold tracking-wider">
+                                                                OFFICIAL
+                                                            </span>
+                                                        )}
+                                                        {n.isRumor && (
+                                                            <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">
+                                                                RUMOR
+                                                            </span>
+                                                        )}
+                                                    </span>
                                                     <span className={n.sentiment === 'positive' ? 'text-emerald-500' : 'text-slate-600'}>
-                                                        {n.sentiment === 'positive' ? 'Bullish' : ''}
+                                                        {n.sentiment === 'positive' ? 'BULLISH' : ''}
                                                     </span>
                                                 </div>
                                                 <div className="text-xs text-slate-300 font-medium leading-snug group-hover:text-white transition-colors line-clamp-2">
-                                                    {n.title}
+                                                    {n.summaryKR || n.title}
                                                 </div>
-                                                <div className="text-[9px] text-slate-600 mt-1.5">
-                                                    {n.time.split('T')[0]}
+                                                <div className="text-[9px] text-slate-600 mt-1.5 flex justify-between">
+                                                    <span>{(n.publishedAt || n.time || "").split('T')[0]}</span>
                                                 </div>
                                             </div>
                                         </a>

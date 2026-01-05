@@ -24,18 +24,6 @@ async function fetchMassiveWithRetry(url: string, attempts = 3): Promise<any> {
     }
 }
 
-function getSessionType(etHour: number, etMin: number, isWeekend: boolean, etMonth: number, etDay: number): SessionType {
-    // [Fix] Holiday Logic (New Year's Day)
-    if (etMonth === 1 && etDay === 1) return "CLOSED";
-
-    if (isWeekend) return "CLOSED";
-    const etTime = etHour + etMin / 60;
-    if (etTime >= 4.0 && etTime < 9.5) return "PRE";
-    else if (etTime >= 9.5 && etTime < 16.0) return "REG";
-    else if (etTime >= 16.0 && etTime < 20.0) return "POST";
-    else return "CLOSED";
-}
-
 // [S-52.2.1] Helper: fraction to pct conversion
 function fracToPct(frac: number | null): number | null {
     return frac !== null ? Math.round(frac * 10000) / 100 : null;  // 0.00144 -> 0.14
@@ -90,7 +78,14 @@ export async function GET(req: NextRequest) {
     twoWeeksAgoET.setUTCDate(twoWeeksAgoET.getUTCDate() - 14);
     const twoWeeksAgoStr = `${twoWeeksAgoET.getUTCFullYear()}-${String(twoWeeksAgoET.getUTCMonth() + 1).padStart(2, '0')}-${String(twoWeeksAgoET.getUTCDate()).padStart(2, '0')}`;
 
-    const session: SessionType = getSessionType(etHour, etMin, isWeekend, etMonth, etDay);
+    // [SSOT] Use CentralDataHub/MarketStatusProvider for Session Logic (Handles Holidays/Weekends correctly)
+    const marketStatus = await CentralDataHub.getMarketStatus();
+    let session: SessionType = "CLOSED";
+    const sRaw = marketStatus.session;
+    if (sRaw === "pre") session = "PRE";
+    else if (sRaw === "regular") session = "REG";
+    else if (sRaw === "post") session = "POST";
+    else session = "CLOSED";
 
     const etStr = `${etMonth}/${etDay}/${etYear}, ${etHour}:${String(etMin).padStart(2, '0')}`;
 
@@ -104,15 +99,42 @@ export async function GET(req: NextRequest) {
         fetchMassiveWithRetry(aggUrl)
     ]);
 
+    // [Fix] Determine Last Trading Day from Aggregates to safely fetch OC (Open-Close)
+    // This ensures we get Friday's Pre/Post data even on a Sunday.
+    const historicalResults = aggRes.data?.results || [];
+    let ocDateStr = todayStr;
+
+    // Use the most recent trading day from history if available
+    if (historicalResults.length > 0 && historicalResults[0].t) {
+        // Simple formatter for the agg timestamp (which is UTC midnight usually, but safe for YYYY-MM-DD)
+        const dateObj = new Date(historicalResults[0].t);
+        // Polygon Agg timestamps are UTC. 
+        // We need YYYY-MM-DD. 
+        const y = dateObj.getUTCFullYear();
+        const m = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+        const d = String(dateObj.getUTCDate()).padStart(2, '0');
+        ocDateStr = `${y}-${m}-${d}`;
+    } else {
+        // Fallback logic if agg failed
+        ocDateStr = yesterdayStr;
+    }
+
     let ocRes = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${todayStr}?apiKey=${MASSIVE_API_KEY}`);
+
+    // If today's OC failed (e.g. weekend/pre-market), try the detected last trading day
     if (!ocRes.success || !ocRes.data?.preMarket) {
-        ocRes = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${yesterdayStr}?apiKey=${MASSIVE_API_KEY}`);
+        if (ocDateStr !== todayStr) {
+            ocRes = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${ocDateStr}?apiKey=${MASSIVE_API_KEY}`);
+        } else {
+            // Fallback to yesterday if agg didn't help (rare)
+            ocRes = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${yesterdayStr}?apiKey=${MASSIVE_API_KEY}`);
+        }
     }
 
 
     const S = snapshotRes.data?.ticker || {};
     const OC = ocRes.data || {};
-    const historicalResults = aggRes.data?.results || [];
+    // historicalResults is already declared above
 
     // [S-52.3] BASELINE SOURCE TRACKING - Identify where prevClose comes from
     let prevRegularClose: number | null = null;
@@ -170,6 +192,12 @@ export async function GET(req: NextRequest) {
     const postBaseline = regularCloseToday || prevRegularClose;
     const changePctFrac_POST = (postPrice !== null && postBaseline !== null && postBaseline !== 0)
         ? (postPrice - postBaseline) / postBaseline : null;
+
+    // [New] Calculate Previous Session Change (Yesterday vs Day Before)
+    let prevChangePctFrac: number | null = null;
+    if (prevRegularClose && prevPrevRegularClose && prevPrevRegularClose !== 0) {
+        prevChangePctFrac = (prevRegularClose - prevPrevRegularClose) / prevPrevRegularClose;
+    }
 
     // Build display values
     let activePrice: number | null = null;
@@ -317,6 +345,7 @@ export async function GET(req: NextRequest) {
             postPrice,
             prevRegularClose,
             prevPrevRegularClose, // [New] Day BEFORE prevRegularClose (for intraday change)
+            prevChangePct: fracToPct(prevChangePctFrac), // [New] Pct format (e.g. 1.25)
             regularCloseToday
         },
 

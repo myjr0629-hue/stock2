@@ -790,6 +790,7 @@ export async function getStockData(symbol: string, range: Range = "1d"): Promise
   // [Phase 23] 3-Day Return (Trading Days Only)
   // Fetch 10 calendar days to ensure we get 3+ trading days
   let return3d = 0;
+  let prevChangePercent = 0; // [Phase 56]
   try {
     const dailyHist = await getAggregates(symbol, 1, 'day',
       new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0],
@@ -803,12 +804,34 @@ export async function getStockData(symbol: string, range: Range = "1d"): Promise
       const currentClose = recentCandles[recentCandles.length - 1].close; // Most recent
       return3d = ((currentClose - price3dAgo) / price3dAgo) * 100;
     }
+    // [Phase 56] Previous Trading Day Change (for Pre-market static display)
+    if (dailyHist.length >= 2) {
+      // Logic: If last candle is Today (partial), ignore it.
+      // Get last COMPLETED candle.
+      const todayDate = new Date().toISOString().split('T')[0];
+      const lastCandle = dailyHist[dailyHist.length - 1];
+      const lastDate = lastCandle.date.split('T')[0];
+
+      let targetIndex = dailyHist.length - 1;
+      if (lastDate === todayDate && dailyHist.length >= 3) {
+        targetIndex = dailyHist.length - 2; // Move back one if today is present
+      }
+
+      if (targetIndex >= 1) {
+        const yesterdayNode = dailyHist[targetIndex];
+        const dayBeforeNode = dailyHist[targetIndex - 1];
+        if (dayBeforeNode.close > 0) {
+          prevChangePercent = ((yesterdayNode.close - dayBeforeNode.close) / dayBeforeNode.close) * 100;
+        }
+      }
+    }
   } catch (e) { }
 
   return {
     symbol, name: symbol, price: latestPrice,
     change: isExtended ? (extChange || 0) : (regChange || 0),
     changePercent: isExtended ? (extChangePercent || 0) : (regChangePercent || 0),
+    prevChangePercent, // [Phase 56]
     dayHigh: t?.day?.h, dayLow: t?.day?.l, volume: t?.day?.v, marketCap: 0,
     currency: "USD", history, rsi: rsi ?? undefined, return3d,
     extPrice, extChange, extChangePercent, session,

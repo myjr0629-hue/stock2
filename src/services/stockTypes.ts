@@ -15,6 +15,7 @@ export interface StockData {
     vwap?: number;
     prevClose?: number; // [Phase 31] Previous day's close price
     regPrice?: number; regChange?: number; regChangePercent?: number;
+    prevChangePercent?: number; // [Phase 56] Change % of the previous trading day (for Pre-market static display)
     priceSource?: "OFFICIAL_CLOSE" | "LIVE_SNAPSHOT" | "POST_CLOSE" | "PRE_OPEN"; // [Phase 25.1]
     freshness?: {
         asOfET: string;
@@ -213,6 +214,9 @@ export interface NewsItem {
     sentiment: 'positive' | 'negative' | 'neutral';
     type: "Official" | "News" | "Opinion";
     originalTitle?: string;
+    // [S-50.2] Added Enriched Fields (Gemini)
+    summaryKR?: string;
+    isRumor?: boolean;
 }
 
 // --- ENGINE 4: TIER 0.1 GEMS ANALYTICS (PulseScore Logic) ---
@@ -767,3 +771,4 @@ export function normalizeGemsSnapshot(input: unknown): GemsSnapshot {
         items: normalizedItems
     };
 }
+
