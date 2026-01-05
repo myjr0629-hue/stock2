@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "./ui/progress";
@@ -12,6 +12,7 @@ interface FlowRadarProps {
 
 export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
+    const scrollContainerRef = useRef<HTMLDivElement>(null);
 
     // Process Data: Group by Strike
     const { flowMap, totalVolume } = useMemo(() => {
@@ -58,6 +59,24 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
             totalVolume: totalVol
         };
     }, [rawChain, currentPrice]);
+
+    // Auto-scroll to ATM (current price) on mount
+    useEffect(() => {
+        if (scrollContainerRef.current && flowMap.length > 0) {
+            // Use setTimeout to ensure DOM is rendered
+            setTimeout(() => {
+                const atmIndex = flowMap.findIndex(row =>
+                    Math.abs(row.strike - currentPrice) / currentPrice < 0.02
+                );
+                if (atmIndex >= 0 && scrollContainerRef.current) {
+                    const rows = scrollContainerRef.current.children;
+                    if (rows[atmIndex]) {
+                        rows[atmIndex].scrollIntoView({ block: 'center', behavior: 'auto' });
+                    }
+                }
+            }, 100);
+        }
+    }, [flowMap, currentPrice]);
 
     // Intelligent Default Mode
     const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
@@ -223,9 +242,9 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
 
                 {/* 1. Main Radar Chart */}
-                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg h-full flex flex-col">
+                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-[780px]">
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
-                    <CardContent className="p-6 relative z-10 flex-1 flex flex-col">
+                    <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0">
                         <div className="grid grid-cols-[1fr_80px_1fr] gap-4 mb-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 text-center shrink-0">
                             <div className="text-rose-500/50 flex items-center justify-end gap-2">
                                 <span className="hidden md:inline">Put Flow (하락)</span> <div className="w-2 h-2 bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
@@ -236,102 +255,136 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                             </div>
                         </div>
 
-                        <div className="space-y-1.5 overflow-y-auto pr-2 scrollbar-hide relative flex-1 min-h-0">
-                            {flowMap.map((row, index) => {
-                                const isAtMoney = Math.abs(row.strike - currentPrice) / currentPrice < 0.005;
-                                const callVal = effectiveViewMode === 'VOLUME' ? row.callVol : row.callOI;
-                                const putVal = effectiveViewMode === 'VOLUME' ? row.putVol : row.putOI;
-                                const callPct = Math.min((callVal / maxVal) * 100, 100);
-                                const putPct = Math.min((putVal / maxVal) * 100, 100);
+                        <div
+                            ref={scrollContainerRef}
+                            className="space-y-1.5 overflow-y-auto pr-2 relative flex-1 min-h-0"
+                            style={{
+                                scrollbarWidth: 'auto',
+                                scrollbarColor: '#64748b #1e293b'
+                            }}
+                        >
+                            <style jsx>{`
+                                div::-webkit-scrollbar {
+                                    width: 8px;
+                                }
+                                div::-webkit-scrollbar-track {
+                                    background: #1e293b;
+                                    border-radius: 4px;
+                                }
+                                div::-webkit-scrollbar-thumb {
+                                    background: #64748b;
+                                    border-radius: 4px;
+                                }
+                                div::-webkit-scrollbar-thumb:hover {
+                                    background: #94a3b8;
+                                }
+                            `}</style>
+                            {flowMap.length === 0 ? (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-500 text-xs">
+                                    <p>No Options Data</p>
+                                </div>
+                            ) : (
+                                flowMap.map((row, index) => {
+                                    const isAtMoney = Math.abs(row.strike - currentPrice) / currentPrice < 0.005;
+                                    const callVal = effectiveViewMode === 'VOLUME' ? row.callVol : row.callOI;
+                                    const putVal = effectiveViewMode === 'VOLUME' ? row.putVol : row.putOI;
+                                    const callPct = Math.min((callVal / maxVal) * 100, 100);
+                                    const putPct = Math.min((putVal / maxVal) * 100, 100);
 
-                                const isCallWallStrike = row.strike === callWall;
-                                const isPutWallStrike = row.strike === putWall;
-                                const isCallWhale = callPct > 30 || isCallWallStrike;
-                                const isPutWhale = putPct > 30 || isPutWallStrike;
+                                    const isCallWallStrike = row.strike === callWall;
+                                    const isPutWallStrike = row.strike === putWall;
 
-                                const nextRow = flowMap[index + 1];
-                                const showCurrentLineHere = nextRow && row.strike >= currentPrice && nextRow.strike < currentPrice;
+                                    // Logic for 'showCurrentLineHere'
+                                    // Assuming descending sort (High Strike -> Low Strike)
+                                    // We show the line AFTER this row if: Current Price is between this row(High) and next row(Low)
+                                    const nextRow = flowMap[index + 1];
+                                    const showCurrentLineHere = nextRow && (row.strike >= currentPrice && nextRow.strike < currentPrice);
 
-                                return (
-                                    <React.Fragment key={row.strike}>
-                                        <div className={`grid grid-cols-[1fr_80px_1fr] gap-4 items-center group hover:bg-white/5 rounded-lg py-1 transition-colors ${isAtMoney ? "bg-indigo-500/10 border border-indigo-500/20" : ""}`}>
-                                            <div className="flex justify-end items-center h-6 relative">
-                                                <span className={`text-[9px] font-mono mr-2 ${putVal > 0 ? "text-rose-400" : "text-slate-700"}`}>
-                                                    {putVal > 0 ? putVal.toLocaleString() : ""}
-                                                </span>
-                                                <div
-                                                    className={`h-4 rounded-l-sm transition-all duration-700 relative overflow-hidden ${isPutWallStrike ? "shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse" : ""}`}
-                                                    style={{ width: `${putPct}%` }}
-                                                >
-                                                    <div className={`absolute inset-0 ${isPutWallStrike ? "bg-gradient-to-l from-rose-500 to-rose-700" : "bg-gradient-to-l from-rose-500/80 to-rose-900/50"}`} />
-                                                    {/* Glass Sheen */}
-                                                    <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                                    return (
+                                        <React.Fragment key={row.strike}>
+                                            <div className={`grid grid-cols-[1fr_80px_1fr] gap-4 items-center group hover:bg-white/5 rounded-lg py-1 transition-colors ${isAtMoney ? "bg-indigo-500/10 border border-indigo-500/20" : ""}`}>
+                                                {/* PUT Side */}
+                                                <div className="flex justify-end items-center h-6 relative">
+                                                    <span className={`text-[9px] font-mono mr-2 ${putVal > 0 ? "text-rose-400" : "text-slate-700"}`}>
+                                                        {putVal > 0 ? putVal.toLocaleString() : ""}
+                                                    </span>
+                                                    <div
+                                                        className={`h-4 rounded-l-sm transition-all duration-700 relative overflow-hidden ${isPutWallStrike ? "shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse" : ""}`}
+                                                        style={{ width: `${putPct}%` }}
+                                                    >
+                                                        <div className={`absolute inset-0 ${isPutWallStrike ? "bg-gradient-to-l from-rose-500 to-rose-700" : "bg-gradient-to-l from-rose-500/80 to-rose-900/50"}`} />
+                                                        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            <div className="flex justify-center relative">
-                                                {isAtMoney && <div className="absolute inset-0 bg-indigo-500/20 blur-md rounded-full animate-pulse" />}
-                                                <span className={`text-xs font-mono font-bold z-10 ${isAtMoney ? "text-white scale-110 drop-shadow-[0_0_5px_rgba(99,102,241,0.8)]" : isCallWallStrike || isPutWallStrike ? "text-amber-200" : "text-slate-500 group-hover:text-slate-300"}`}>
-                                                    {row.strike}
-                                                </span>
-                                                {isCallWallStrike && <div className="absolute -right-3 top-1 text-[8px] text-emerald-500 font-black animate-bounce drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]">R</div>}
-                                                {isPutWallStrike && <div className="absolute -left-3 top-1 text-[8px] text-rose-500 font-black animate-bounce drop-shadow-[0_0_5px_rgba(244,63,94,0.8)]">S</div>}
-                                            </div>
-
-                                            <div className="flex justify-start items-center h-6 relative">
-                                                <div
-                                                    className={`h-4 rounded-r-sm transition-all duration-700 relative overflow-hidden ${isCallWallStrike ? "shadow-[0_0_15px_rgba(16,185,129,0.6)] animate-pulse" : ""}`}
-                                                    style={{ width: `${callPct}%` }}
-                                                >
-                                                    <div className={`absolute inset-0 ${isCallWallStrike ? "bg-gradient-to-r from-emerald-500 to-emerald-700" : "bg-gradient-to-r from-emerald-500/80 to-emerald-900/50"}`} />
-                                                    {/* Glass Sheen */}
-                                                    <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                                                {/* Strike */}
+                                                <div className="flex justify-center relative">
+                                                    {isAtMoney && <div className="absolute inset-0 bg-indigo-500/20 blur-md rounded-full animate-pulse" />}
+                                                    <span className={`text-xs font-mono font-bold z-10 ${isAtMoney ? "text-white scale-110 drop-shadow-[0_0_5px_rgba(99,102,241,0.8)]" : isCallWallStrike || isPutWallStrike ? "text-amber-200" : "text-slate-500 group-hover:text-slate-300"}`}>
+                                                        {row.strike}
+                                                    </span>
+                                                    {isCallWallStrike && <div className="absolute -right-3 top-1 text-[8px] text-emerald-500 font-black animate-bounce drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]">R</div>}
+                                                    {isPutWallStrike && <div className="absolute -left-3 top-1 text-[8px] text-rose-500 font-black animate-bounce drop-shadow-[0_0_5px_rgba(244,63,94,0.8)]">S</div>}
                                                 </div>
-                                                <span className={`text-[9px] font-mono ml-2 ${callVal > 0 ? "text-emerald-400" : "text-slate-700"}`}>
-                                                    {callVal > 0 ? callVal.toLocaleString() : ""}
-                                                </span>
-                                            </div>
-                                        </div>
 
-                                        {showCurrentLineHere && (
-                                            <div className="col-span-3 py-1 relative">
-                                                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1px] bg-sky-500/30 border-t border-dashed border-sky-400/50 shadow-[0_0_5px_rgba(14,165,233,0.3)]" />
-                                                <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 bg-slate-900 border border-sky-500/50 px-3 py-0.5 rounded-full z-20 shadow-[0_0_15px_rgba(14,165,233,0.4)] flex items-center gap-2 animate-pulse backdrop-blur-sm">
-                                                    <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-ping" />
-                                                    <span className="text-[10px] font-black text-sky-400 tracking-wide">
-                                                        ${currentPrice.toFixed(2)}
+                                                {/* CALL Side */}
+                                                <div className="flex justify-start items-center h-6 relative">
+                                                    <div
+                                                        className={`h-4 rounded-r-sm transition-all duration-700 relative overflow-hidden ${isCallWallStrike ? "shadow-[0_0_15px_rgba(16,185,129,0.6)] animate-pulse" : ""}`}
+                                                        style={{ width: `${callPct}%` }}
+                                                    >
+                                                        <div className={`absolute inset-0 ${isCallWallStrike ? "bg-gradient-to-r from-emerald-500 to-emerald-700" : "bg-gradient-to-r from-emerald-500/80 to-emerald-900/50"}`} />
+                                                        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                                                    </div>
+                                                    <span className={`text-[9px] font-mono ml-2 ${callVal > 0 ? "text-emerald-400" : "text-slate-700"}`}>
+                                                        {callVal > 0 ? callVal.toLocaleString() : ""}
                                                     </span>
                                                 </div>
                                             </div>
-                                        )}
-                                    </React.Fragment>
-                                );
-                            })}
+
+                                            {showCurrentLineHere && (
+                                                <div className="col-span-3 py-1 relative">
+                                                    <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1px] bg-sky-500/30 border-t border-dashed border-sky-400/50 shadow-[0_0_5px_rgba(14,165,233,0.3)]" />
+                                                    <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 bg-slate-900 border border-sky-500/50 px-3 py-0.5 rounded-full z-20 shadow-[0_0_15px_rgba(14,165,233,0.4)] flex items-center gap-2 animate-pulse backdrop-blur-sm">
+                                                        <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-ping" />
+                                                        <span className="text-[10px] font-black text-sky-400 tracking-wide">
+                                                            ${currentPrice.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </React.Fragment>
+                                    );
+                                })
+                            )}
                         </div>
                     </CardContent>
                 </Card>
 
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
-                <div className="space-y-4 order-1 lg:order-2 h-full">
-                    <Card className="bg-slate-900/60 border-white/10 h-full flex flex-col rounded-lg">
+                <div className="order-1 lg:order-2">
+                    <Card className="bg-slate-900/60 border-white/10 flex flex-col rounded-lg h-[780px]">
                         <CardContent className="p-5 space-y-4 flex-1 flex flex-col">
-
-                            {/* NEW: Level 3 Header */}
                             <div className="flex items-center gap-2 mb-2 select-none shrink-0">
                                 <Lock size={12} className="text-amber-500" />
                                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">
-                                    LEVEL 3 INSTITUTIONAL
+                                    LEVEL 3 INSTITUTIONAL DATA
                                 </span>
                             </div>
 
-                            {/* 1. Current Position Status (Hero Block) */}
-                            <div className="bg-[#0f172a] rounded-xl border border-slate-800 p-5 text-center shadow-inner relative overflow-hidden group shrink-0">
+                            {/* Institutional Data Description */}
+                            <p className="text-[10px] text-slate-400 leading-relaxed mb-3 shrink-0">
+                                이 차트는 일반 투자자들은 볼 수 없는 <span className="text-emerald-400 font-bold">"고래(Whale)와 마켓메이커(MM)"</span>의 숨겨진 포지션과 헷징 구조를 실시간 분석합니다. 단순 차트가 아닌 세력의 설계도입니다.
+                            </p>
+
+                            {/* 1. Current Position Status (Hero Block) - Compact */}
+                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-2 text-center shadow-inner relative overflow-hidden group shrink-0">
                                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider block mb-2">현재 포지션 제안</span>
-                                <div className={`text-xl font-black tracking-tight flex items-center justify-center gap-2 ${analysis?.color || "text-slate-300"}`}>
-                                    {analysis?.status === 'RANGE BOUND' && <Activity size={20} />}
-                                    {analysis?.status === 'BULLISH' && <TrendingUp size={20} />}
-                                    {analysis?.status === 'BEARISH' && <TrendingDown size={20} />}
+                                <span className="text-[10px] text-white font-bold uppercase tracking-wider block mb-1">현재 포지션 제안</span>
+                                <div className={`text-sm font-black tracking-tight flex items-center justify-center gap-1.5 ${analysis?.color || "text-slate-300"}`}>
+                                    {analysis?.status === 'RANGE BOUND' && <Activity size={14} />}
+                                    {analysis?.status === 'BULLISH' && <TrendingUp size={14} />}
+                                    {analysis?.status === 'BEARISH' && <TrendingDown size={14} />}
                                     {analysis?.status}
                                 </div>
                             </div>
@@ -348,7 +401,6 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                                             className={`h-full rounded-full shadow-[0_0_10px_currentColor] transition-all duration-1000 ${analysis.probColor.replace('text', 'bg')}`}
                                             style={{ width: `${analysis.probability}%` }}
                                         />
-                                        {/* Gloss effect */}
                                         <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
                                     </div>
                                     <div className="text-[9px] text-right text-slate-500">{analysis.probability.toFixed(0)}%</div>
@@ -374,6 +426,34 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
 
                             <hr className="border-slate-800/50 my-2" />
 
+                            {/* Chart Interpretation Tips */}
+                            <div className="space-y-2 shrink-0">
+                                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">차트 해석 비법</div>
+                                <div className="space-y-1.5 text-[10px]">
+                                    <div className="flex items-start gap-2">
+                                        <Zap size={10} className="text-amber-400 mt-0.5 shrink-0" />
+                                        <div>
+                                            <span className="text-amber-400 font-bold">깜빡이는 바 (Pulse)</span>
+                                            <p className="text-slate-400">지금 세력 자금이 몰리는 <span className="text-amber-300">핫스팟</span>입니다.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <TrendingUp size={10} className="text-emerald-400 mt-0.5 shrink-0" />
+                                        <div>
+                                            <span className="text-emerald-400 font-bold">전술 활용 (매수)</span>
+                                            <p className="text-slate-400">주가가 <span className="text-emerald-300">녹색 벽(저항)</span>을 강하게 뚫으면 추격 매수 기회입니다.</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <TrendingDown size={10} className="text-rose-400 mt-0.5 shrink-0" />
+                                        <div>
+                                            <span className="text-rose-400 font-bold">전술 활용 (매도/방어)</span>
+                                            <p className="text-slate-400">주가가 <span className="text-rose-300">붉은 벽(지지)</span> 아래로 깨지면 손절 혹은 하락 베팅 타이밍입니다.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             {/* 5. Key Levels (Dynamic Ladder) - Redesigned */}
                             <div className="mt-auto pt-2 grid grid-cols-1 gap-1">
                                 {/* Top: Call Wall */}
@@ -389,19 +469,12 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
 
                                 {/* Middle: Ladder Visual */}
                                 <div className="relative h-12 bg-[#0f172a] border-x border-slate-800/50 mx-2 flex flex-col justify-center items-center">
-                                    {/* Vertical Line */}
                                     <div className="absolute top-0 bottom-0 w-[1px] bg-slate-800" />
-
-                                    {/* Current Price Indicator (Relative Position) */}
                                     {(() => {
-                                        // Calculate relative position percentage (clamped 10%~90%)
                                         const totalRange = callWall - putWall;
                                         const currentPos = currentPrice - putWall;
                                         let pct = (currentPos / totalRange) * 100;
-                                        pct = Math.max(10, Math.min(90, pct)); // Clamp inside visual area
-
-                                        // Inverse for CSS 'top' (100% is bottom, but we want 100% to be call wall at top... actually HTML layout is top-down)
-                                        // So 100% pct (closer to call) means 0% top.
+                                        pct = Math.max(10, Math.min(90, pct));
                                         const topPct = 100 - pct;
 
                                         return (
@@ -429,7 +502,6 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                                     <div className="text-base font-black text-rose-400 font-mono tracking-tight">${putWall}</div>
                                 </div>
                             </div>
-
                         </CardContent>
                     </Card>
                 </div>

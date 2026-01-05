@@ -25,6 +25,8 @@ import { generateReportDiff } from './reportDiff'; // [S-56.1] Decision Continui
 import { applyUniversePolicy, applyUniversePolicyWithBackfill, buildLeadersTrack, getMacroSSOT, validateNoETFInItems, loadStockUniversePool } from './universePolicy'; // [S-56.2] + [S-56.3]
 import { applyQualityTiers, selectTop3, determineRegime, computePowerMeta, computeQualityTier } from './powerEngine'; // [S-56.4]
 import { BUILD_PIPELINE_VERSION, orchestrateGemsEngine } from '../engine/reportOrchestrator'; // [S-56.4.5c]
+import { GuardianDataHub } from './guardian/unifiedDataStream'; // [Phase 4]
+import { GuardianSignal } from './powerEngine'; // [Phase 4]
 import crypto from 'crypto';
 
 // [P0] Fixed 3-report schedule + morning for legacy + [Phase 37] 3-Stage Protocol
@@ -152,11 +154,12 @@ export async function generateReport(type: ReportType, force: boolean = false): 
     const marketDate = getMarketDate();
 
     // 1. Fetch Global Context
-    const [macro, events, policy, news] = await Promise.all([
+    const [macro, events, policy, news, guardian] = await Promise.all([
         getMacroSnapshotSSOT(),
         Promise.resolve(getEventHubSnapshot()),
         Promise.resolve(getPolicyHubSnapshot()),
-        getNewsHubSnapshot()
+        getNewsHubSnapshot(),
+        GuardianDataHub.getGuardianSnapshot(force) // [Phase 4] Logic Injection
     ]);
 
     // [FED API] - Integrator
@@ -167,6 +170,7 @@ export async function generateReport(type: ReportType, force: boolean = false): 
     }
 
     const now = new Date();
+    // Note: To avoid huge diff, we keep existing logic and just pass 'guardian' later
     const sessionInfo = determineSessionInfo(now);
     const badgeMap: Record<string, 'regular' | 'pre' | 'post'> = {
         'REG': 'regular', 'PRE': 'pre', 'POST': 'post', 'CLOSED': 'regular'
@@ -234,7 +238,7 @@ export async function generateReport(type: ReportType, force: boolean = false): 
         enrichedItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
     }
 
-    return generateReportFromItems(type, enrichedItems, force, marketDate, macro, events, policy, news);
+    return generateReportFromItems(type, enrichedItems, force, marketDate, macro, events, policy, news, guardian);
 }
 
 // [Phase 37] Shared Logic for Report Assembly (from enriched items)
@@ -243,15 +247,16 @@ async function generateReportFromItems(
     enrichedItems: any[],
     force: boolean,
     marketDate: string,
-    macro?: any, events?: any, policy?: any, news?: any
+    macro?: any, events?: any, policy?: any, news?: any,
+    guardian?: any // [Phase 4]
 ): Promise<PremiumReport> {
 
-    // If context missing (e.g. Stage 2/3 shortcut), fetch it
     const startTime = Date.now();
     if (!macro) macro = await getMacroSnapshotSSOT();
     if (!events) events = getEventHubSnapshot();
     if (!policy) policy = getPolicyHubSnapshot();
     if (!news) news = await getNewsHubSnapshot();
+    if (!guardian) guardian = await GuardianDataHub.getGuardianSnapshot(force); // Fetch if missing
 
     const now = new Date();
     // Re-determine session for context
@@ -326,24 +331,14 @@ async function generateReportFromItems(
         });
     }
 
-    const scoredItems = enrichedItems.map(item => {
-        // vNext computeQualityTier - use complete flag instead of backfilled
-        const isBackfilled = item.complete !== true;
+    // [Phase 4] Construct Guardian Signal
+    const guardianSignal: GuardianSignal | undefined = guardian ? {
+        marketStatus: guardian.marketStatus,
+        divCaseId: guardian.divergence?.caseId || 'N',
+        divScore: guardian.divergence?.score || 0
+    } : undefined;
 
-        // Pass history context for Momentum Boost
-        const sym = item.ticker.toUpperCase();
-        const history = historyMap[sym];
-
-        const qualityResult = computeQualityTier(item, prevSymbols, isBackfilled, history);
-
-        return {
-            ...item,
-            ...qualityResult,
-            score: qualityResult.powerScore, // Legacy compat
-            alphaScore: qualityResult.powerScore, // [FIX] Update alphaScore for UI
-            rank: 0 // Will assign later
-        };
-    });
+    const scoredItems = applyQualityTiers(enrichedItems, prevSymbols, new Set(), historyMap, guardianSignal);
 
     // 5. Select Top 3 & Rank
     const regimeResult = determineRegime(macro);

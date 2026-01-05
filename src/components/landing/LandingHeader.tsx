@@ -50,7 +50,7 @@ export function LandingHeader() {
                 {/* 2. NAVIGATION (COMMAND / INTEL / PORTFOLIO / WATCHLIST) */}
                 <nav className="hidden md:flex items-center gap-1">
                     {[
-                        { label: "GUARDIAN", href: "/guardian", path: "/guardian", active: false },
+                        { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", active: false },
                         { label: "COMMAND", href: "/ticker?ticker=NVDA", path: "/ticker", active: false },
                         { label: "INTEL", href: "/tier-01", path: "/tier-01", active: false },
                         { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", active: false },
@@ -117,7 +117,7 @@ export function LandingHeader() {
                             </summary>
                             <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 p-2 space-y-1">
                                 {[
-                                    { label: "GUARDIAN", href: "/guardian" },
+                                    { label: "GUARDIAN", href: "/intel-guardian" },
                                     { label: "COMMAND", href: "/ticker?ticker=NVDA" },
                                     { label: "INTEL", href: "/tier-01" },
                                     { label: "PORTFOLIO", href: "/portfolio" },

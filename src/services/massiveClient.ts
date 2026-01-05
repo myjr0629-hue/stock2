@@ -4,7 +4,7 @@ import { StockData } from "./stockTypes";
 // --- CONFIGURATION ---
 // [S-56.4.5b] Use environment variable with fallback to hardcoded key for backwards compatibility
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
-const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
+const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.massive.com";
 
 export const CACHE_POLICY = {
     // Critical for decision making (Report Generation, Live Status) - NO STALE DATA
@@ -96,6 +96,7 @@ function assertLiveApiEnabled(context: string, isReportRun = false): void {
 
     // ONLY enforce snapshot-mode block if we are actually in a strict report run context
     if (isReportRun && isSnapshotMode && !allowBypass) {
+        console.error(`[Massive] BLOCKED: isReportRun=${isReportRun}, SnapshotMode=${isSnapshotMode}, Bypass=${allowBypass}, Context=${context}`);
         throw new Error(`Snapshot-only mode: Massive API calls are disabled. Set ALLOW_MASSIVE_FOR_SNAPSHOT=1 to bypass. (${context})`);
     }
 }
@@ -213,31 +214,44 @@ export async function fetchMassive(
                     fetchOptions = { next: { revalidate: 30 } };
                 }
 
-                const res = await fetch(url, {
-                    headers: { 'Authorization': `Bearer ${MASSIVE_API_KEY}` },
-                    ...fetchOptions
-                });
+                // Create a timeout signal (15 seconds default)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-                lastHttpStatus = res.status;
-                notifyStatus({ lastEndpoint: endpoint, lastHttpStatus: res.status });
+                try {
+                    const res = await fetch(url, {
+                        headers: { 'Authorization': `Bearer ${MASSIVE_API_KEY}` },
+                        signal: controller.signal,
+                        ...fetchOptions
+                    });
 
-                if (res.ok) {
-                    const data = await res.json();
-                    // Only cache in-memory if useCache is explicitly true (for short-term dupes during 1 run)
-                    if (useCache) massiveCache.set(cacheKey, { data, expiry: Date.now() + 60000 }); // 60s
-                    return data;
+                    clearTimeout(timeoutId);
+
+                    lastHttpStatus = res.status;
+                    notifyStatus({ lastEndpoint: endpoint, lastHttpStatus: res.status });
+
+                    if (res.ok) {
+                        const data = await res.json();
+                        // Only cache in-memory if useCache is explicitly true (for short-term dupes during 1 run)
+                        if (useCache) massiveCache.set(cacheKey, { data, expiry: Date.now() + 60000 }); // 60s
+                        return data;
+                    }
+
+                    if (res.status === 429) {
+                        attempt++;
+                        const waitTime = 1000 * Math.pow(2, attempt);
+                        console.warn(`[Massive] 429 Rate Limit. Retrying in ${waitTime}ms...`);
+                        await new Promise(r => setTimeout(r, waitTime));
+                        continue;
+                    }
+
+                    // [S-56.4.5b] Throw standardized error
+                    throw normalizeError(new Error(`Massive API Status: ${res.status}`), res.status);
+
+                } catch (err: any) {
+                    clearTimeout(timeoutId);
+                    throw err;
                 }
-
-                if (res.status === 429) {
-                    attempt++;
-                    const waitTime = 1000 * Math.pow(2, attempt);
-                    console.warn(`[Massive] 429 Rate Limit. Retrying in ${waitTime}ms...`);
-                    await new Promise(r => setTimeout(r, waitTime));
-                    continue;
-                }
-
-                // [S-56.4.5b] Throw standardized error
-                throw normalizeError(new Error(`Massive API Status: ${res.status}`), res.status);
 
             } catch (e: any) {
                 // If it's already a MassiveError, rethrow
@@ -253,4 +267,44 @@ export async function fetchMassive(
     } finally {
         releaseQueue(isReport);
     }
+}
+
+// --- Helper for Pagination ---
+export async function fetchMassiveAll(
+    endpoint: string,
+    params: Record<string, string> = {},
+    useCache = true,
+    budget?: RunBudget
+) {
+    let allResults: any[] = [];
+    let nextUrl: string | undefined = undefined;
+    let page = 0;
+    const MAX_PAGES = 20; // Safety cap
+
+    do {
+        // Prepare URL: First run uses endpoint, subsequent uses nextUrl
+        // Note: nextUrl from Polygon is full URL. fetchMassive handles full URL detection.
+        const target = nextUrl || endpoint;
+        // nextUrl already includes params (apiKey etc might be needed if fetchMassive adds them, but nextUrl usually has cursor)
+        // fetchMassive logic: if url includes apiKey... 
+        // We pass empty params for nextUrl to avoid double query params if fetchMassive adds them. 
+        const currentParams = nextUrl ? {} : params;
+
+        // Short sleep between pages to be kind to rate limit
+        if (page > 0) await new Promise(r => setTimeout(r, 250));
+
+        // Use false for cache on pagination to avoid stale partial pages? 
+        // Actually useCache argument is better.
+        const res = await fetchMassive(target, currentParams, useCache, budget);
+        const results = res.results || res.data?.results || [];
+        allResults = [...allResults, ...results];
+
+        nextUrl = res.next_url;
+        page++;
+
+        console.log(`[Massive] Page ${page} fetched. Items: ${results.length}. Total: ${allResults.length}. Next: ${!!nextUrl} URL: ${nextUrl?.substring(0, 50)}...`);
+
+    } while (nextUrl && page < MAX_PAGES);
+
+    return { results: allResults, status: "OK", count: allResults.length };
 }

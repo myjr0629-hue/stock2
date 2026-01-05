@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Target, TrendingUp, TrendingDown } from "lucide-react";
+import { Target, TrendingUp, TrendingDown, Info } from "lucide-react";
 
 interface FlowSniperProps {
     netPremium: number;
@@ -68,7 +68,9 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                 <div className="text-center">
                     <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
                         Net Premium Flow
-                        {/* <span className="block text-[8px] opacity-70">오늘의 순수 공격 자금</span> */}
+                        <span title={`오늘 시장 참여자들의 실제 베팅 방향입니다.\n(+) 양수: 상승 베팅(Call 매수) 우위\n(-) 음수: 하락 베팅(Put 매수) 우위`}>
+                            <Info size={10} className="inline ml-1 text-slate-600 hover:text-slate-400 cursor-help" />
+                        </span>
                     </div>
                     <div className={`text-2xl font-black tabular-nums tracking-tighter ${isBullish ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isBullish ? "+" : "-"}${netFormatted}

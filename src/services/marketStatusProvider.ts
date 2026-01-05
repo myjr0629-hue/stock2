@@ -17,15 +17,16 @@ let statusCache: { data: MarketStatusResult; timestamp: number } | null = null;
 const CACHE_TTL_MS = 60 * 1000; // 60s
 
 const HOLIDAYS: Record<string, string> = {
+    // 2026 Holidays (Current Year)
     "01-01": "New Year's Day",
-    "01-20": "MLK Jr. Day", // Approximate
-    "02-17": "Washington's Birthday", // Approximate
-    "04-18": "Good Friday", // 2025
-    "05-26": "Memorial Day", // 2025
+    "01-19": "MLK Jr. Day",
+    "02-16": "Washington's Birthday",
+    "04-03": "Good Friday",
+    "05-25": "Memorial Day",
     "06-19": "Juneteenth",
-    "07-04": "Independence Day",
-    "09-01": "Labor Day", // 2025
-    "11-27": "Thanksgiving Day", // 2025
+    "07-03": "Independence Day", // Observed
+    "09-07": "Labor Day",
+    "11-26": "Thanksgiving Day",
     "12-25": "Christmas Day"
 };
 

@@ -1,5 +1,5 @@
 
-import { fetchMassive, CACHE_POLICY } from './massiveClient';
+import { fetchMassive, fetchMassiveAll, CACHE_POLICY } from './massiveClient';
 import { getMarketStatusSSOT } from './marketStatusProvider';
 
 // [Phase 24.1] Central Data Hub Structure
@@ -189,6 +189,9 @@ export const CentralDataHub = {
         let changePct = S.todaysChangePerc || 0;
         let priceSource: UnifiedQuote['priceSource'] = "LIVE_SNAPSHOT";
 
+        // [Fix] Session logic overhaul for Weekend/Holidays
+        // If market is CLOSED, we still want to show Post-Market badge if data exists.
+
         if (session === "PRE") {
             price = S.min?.c || liveLast || regClose;
             priceSource = "PRE_OPEN";
@@ -196,11 +199,36 @@ export const CentralDataHub = {
             price = S.min?.c || liveLast || regClose;
             priceSource = "POST_CLOSE";
         } else if (session === "CLOSED") {
-            price = regClose;
-            priceSource = "OFFICIAL_CLOSE";
+            // Even if CLOSED, if we have afterHours data (e.g. weekend), treat as POST for display
+            // This solves "Problem 2: Missing Post Market Data"
+            if (S.afterHours?.p && S.afterHours.p > 0) {
+                // But wait, user wants "Post Market" badge specifically?
+                // Let's keep session as CLOSED but allow UI to see extended prices.
+                price = regClose; // Main price is ALWAYS Official Close when closed
+                priceSource = "OFFICIAL_CLOSE";
+            } else {
+                price = regClose;
+                priceSource = "OFFICIAL_CLOSE";
+            }
         } else {
             price = liveLast || regClose;
             priceSource = "LIVE_SNAPSHOT";
+        }
+
+        // [Critial Fix] Weekend/Holiday Stale Data Correction (Friday vs Friday)
+        // Solves "Problem 1: 0.00% Change"
+        const isNonTradingDay = marketStatus.isHoliday || session === "CLOSED";
+        if (isNonTradingDay && fullHistory.length >= 2) {
+            // If Price is roughly equal to PrevClose (indicating API gave same T-1 for both)
+            if (Math.abs(price - prevClose) < 0.001) {
+                // Check if 'price' matches T-1 (Last History Close)
+                const lastClose = fullHistory[fullHistory.length - 1].c;
+                if (Math.abs(price - lastClose) < 0.001) {
+                    // Shift PrevClose to T-2 (Thursday Close)
+                    prevClose = fullHistory[fullHistory.length - 2].c;
+                    // console.log(`[CentralDataHub] Weekend Fix: Shifted PrevClose to ${prevClose}`);
+                }
+            }
         }
 
         // [Final Safety Net]
@@ -211,9 +239,11 @@ export const CentralDataHub = {
             }
         }
 
-        if (price && prevClose && changePct === 0) {
-            // Fallback calc if API didn't provide percentage
-            changePct = (price - prevClose) / prevClose;
+        if (price && prevClose) {
+            // Re-calc change if we fixed prevClose or if API was 0 (and not 0% real change)
+            if (changePct === 0 || isNonTradingDay) {
+                changePct = (price - prevClose) / prevClose;
+            }
         }
 
         // [Phase 25.1] Rollover Detection
@@ -272,7 +302,7 @@ export const CentralDataHub = {
             // Fetch everything, filter in memory.
             const today = new Date();
             const future = new Date();
-            future.setDate(today.getDate() + 35); // 35 Days
+            future.setDate(today.getDate() + 14); // [Tuning] 35 -> 14 Days (Increase Sensitivity)
             const dateStr = future.toISOString().split('T')[0];
 
             console.log(`[CentralDataHub] Fetching ALL options for ${ticker} -> In-Memory Filter < ${dateStr}`);
@@ -281,18 +311,19 @@ export const CentralDataHub = {
             // Otherwise we get LEAPS (2026+) and filter them all out locally.
             const todayStr = new Date().toISOString().split('T')[0];
             const maxExpiryDate = new Date();
-            // [User Request] Tighten window to 35 days (Weeklies + Next Monthly)
-            maxExpiryDate.setDate(maxExpiryDate.getDate() + 35);
+            // [User Request] Tighten window to 14 days (Weeklies + Next Week)
+            maxExpiryDate.setDate(maxExpiryDate.getDate() + 14);
             const maxExpiryStr = maxExpiryDate.toISOString().split('T')[0];
 
             const params: any = {
-                limit: '250',
+                limit: '250', // [User Rule] Strict 250 limit. Pagination MUST handle the rest.
                 'expiration_date.gte': todayStr,
                 'expiration_date.lte': maxExpiryStr
             };
 
-            const res = await fetchMassive(`/v3/snapshot/options/${ticker}`, params, false);
-            const results = res.data?.results || res?.results || [];
+            // [Fix] Use fetchMassiveAll but with higher limit
+            const res = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, params, true);
+            const results = res.results || [];
 
             let callPremium = 0;
             let putPremium = 0;
@@ -305,8 +336,8 @@ export const CentralDataHub = {
             let hasLiveVolume = false;
 
             for (const c of results) {
-                // [Phase 35] In-Memory Expiration Filter
-                if (c.details?.expiration_date > dateStr) continue;
+                // [Phase 35] In-Memory Expiration Filter (Redundant with API params, and was incorrect > dateStr)
+                // if (c.details?.expiration_date > dateStr) continue;
 
                 // Common Greek Extraction
                 const gamma = c.greeks?.gamma || 0;

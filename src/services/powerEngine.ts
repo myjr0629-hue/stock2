@@ -14,6 +14,13 @@ import {
 } from './engineConfig';
 import { MAGNIFICENT_7, BIO_LEADERS_TOP5, DATACENTER_TOP5 } from './universePolicy';
 
+// === GUARDIAN SIGNAL INTEGRATION (Phase 4) ===
+export interface GuardianSignal {
+    marketStatus: 'GO' | 'WAIT' | 'STOP';
+    divCaseId: 'A' | 'B' | 'C' | 'D' | 'N';
+    divScore: number;
+}
+
 // [Phase 36] Export checkOvernightRisk for use in analysis
 export function checkOvernightRisk(evidence: any): boolean {
     // 1. IV Rank (Proxy: PCR extremely low/high or VIX high)
@@ -211,7 +218,8 @@ export function computeQualityTier(
     history?: {
         tMinus1?: { score: number, vol: number };
         tMinus2?: { score: number, vol: number };
-    }
+    },
+    guardianSignal?: GuardianSignal // [Phase 4] Guardian Integration
 ): QualityTierResult {
     const symbol = item.ticker || '';
     const evidence = item.evidence;
@@ -297,17 +305,31 @@ export function computeQualityTier(
     const currentAction = item.decisionSSOT?.action || 'NONE';
     const hasHighImpactEvent = item.evidence?.policy?.gate?.P0?.length > 0;
 
-    // [Upgraded] Advanced Reasoning Builder
+    // [Upgraded] Advanced Reasoning Builder with Flow/GEX Signal
     const buildAdvancedReason = (baseScore: number) => {
         const details: string[] = [];
 
-        // A. GEX Logic
-        const gex = evidence?.options?.gex || 0;
-        if (gex > 2000000) details.push('GEX안전지대');
-        else if (gex < -2000000) details.push('CallWall돌파'); // Short gamma often implies volatility or breakout attempt
+        // [NEW] Combined Flow + GEX Signal (Primary Interpretation)
+        const netFlow = evidence?.flow?.largeTradesUsd || evidence?.flow?.netFlow || 0;
+        const gex = evidence?.options?.gex || evidence?.flow?.gammaExposure || 0;
+        const isPremiumBullish = netFlow > 0;
+        const isGexNegative = gex < 0;
 
-        // B. Flow Logic
-        const netFlow = evidence?.flow?.largeTradesUsd || 0;
+        if (isPremiumBullish && isGexNegative) {
+            details.push('🚀감마스퀴즈'); // Rocket fuel + Igniter
+        } else if (isPremiumBullish && !isGexNegative && gex > 1000000) {
+            details.push('📈상방억제'); // Bullish but suppressed by +GEX
+        } else if (!isPremiumBullish && isGexNegative) {
+            details.push('📉가속하락'); // Panic selling amplified
+        } else if (!isPremiumBullish && !isGexNegative && gex > 1000000) {
+            details.push('🔻조정구간'); // Slow bleed, supported drop
+        }
+
+        // A. GEX Detail (Secondary)
+        if (gex > 2000000) details.push('GEX안전지대');
+        else if (gex < -2000000) details.push('CallWall돌파');
+
+        // B. Flow Detail (Secondary - only if significant)
         if (netFlow > 5000000) details.push('고래유입');
         else if (netFlow < -5000000) details.push('매도우위');
 
@@ -385,6 +407,57 @@ export function computeQualityTier(
     } else {
         tier = 'FILLER';
         reasonKR = `저강도(${alphaScore.toFixed(0)})`;
+    }
+
+    // === PHASE 4: GUARDIAN SIGNAL INJECTION ===
+    let guardianPenaltyStr = "";
+    if (guardianSignal && optionsComplete) {
+        const { marketStatus, divCaseId } = guardianSignal;
+
+        // 1. Divergence Case A (False Rally)
+        if (divCaseId === 'A') {
+            console.log(`[AlphaEngine] Applying 'False Rally' penalty to ${symbol}`);
+            alphaScore -= 20; // Global Penalty
+            guardianPenaltyStr = " [⚠️ 가짜 상승장 경고: -20]";
+        }
+        // 2. Divergence Case B (Hidden Opportunity)
+        else if (divCaseId === 'B') {
+            // Boost only High Quality (already > 60)
+            if (alphaScore > 60) {
+                console.log(`[AlphaEngine] Applying 'Hidden Opportunity' boost to ${symbol}`);
+                alphaScore += 15;
+                guardianPenaltyStr = " [💎 숨겨진 기회: +15]";
+            }
+        }
+        // 3. Divergence Case D (Deep Freeze)
+        else if (divCaseId === 'D') {
+            console.log(`[AlphaEngine] Applying 'Deep Freeze' penalty to ${symbol}`);
+            alphaScore = Math.min(alphaScore, 50); // Hard Cap
+            guardianPenaltyStr = " [🚨 시장 붕괴: 점수 제한]";
+            tier = 'WATCH'; // Force Downgrade
+        }
+
+        // 4. Market Status: STOP
+        if (marketStatus === 'STOP') {
+            if (alphaScore > 70) {
+                alphaScore -= 10;
+                guardianPenaltyStr += " [⛔ 시장 정지: -10]";
+            }
+            if (tier === 'ACTIONABLE' && alphaScore < 90) {
+                tier = 'WATCH'; // [Phase 4] Guardian Global Stop
+                guardianPenaltyStr += " (가디언 정지)";
+            }
+        } else if (marketStatus === 'GO') {
+            alphaScore += 5; // Slight momentum boost
+        }
+    }
+
+    // Re-Cap
+    alphaScore = Math.max(0, Math.min(100, alphaScore));
+
+    // Append Penalty Reason
+    if (guardianPenaltyStr) {
+        reasonKR += guardianPenaltyStr;
     }
 
     return {
@@ -546,14 +619,15 @@ export function applyQualityTiers(
     items: any[],
     prevReportSymbols: Set<string> = new Set(),
     backfilledSymbols: Set<string> = new Set(),
-    historyMap: Record<string, { tMinus1?: { score: number, vol: number }, tMinus2?: { score: number, vol: number } }> = {}
+    historyMap: Record<string, { tMinus1?: { score: number, vol: number }, tMinus2?: { score: number, vol: number } }> = {},
+    guardianSignal?: GuardianSignal // [Phase 4]
 ): any[] {
     return items.map(item => {
         const sym = (item.symbol || item.ticker)?.toUpperCase() || '';
         const isBackfilled = backfilledSymbols.has(sym) || item.isBackfilled === true;
         const history = historyMap[sym];
 
-        const tierResult = computeQualityTier(item, prevReportSymbols, isBackfilled, history);
+        const tierResult = computeQualityTier(item, prevReportSymbols, isBackfilled, history, guardianSignal);
 
         return {
             ...item,

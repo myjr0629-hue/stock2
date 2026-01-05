@@ -48,18 +48,23 @@ export async function getTreasuryYields(): Promise<TreasuryYields> {
     };
 
     try {
-        // Massive API endpoint for treasury yields
-        const data = await fetchMassive("/fed/v1/treasury-yields", {}, true);
+        // Massive API endpoint for treasury yields (New Structure)
+        const data = await fetchMassive("/fed/v1/treasury-yields", {
+            limit: "1",
+            sort: "date.desc"
+        }, true);
 
-        if (data && data.rates) {
-            const us2y = data.rates["2Y"] ?? null;
-            const us10y = data.rates["10Y"] ?? null;
+        if (data && data.results && data.results.length > 0) {
+            const latest = data.results[0];
+            const us2y = latest.yield_2_year ?? null;
+            const us10y = latest.yield_10_year ?? null;
+
             return {
-                date: data.date || now.split('T')[0],
+                date: latest.date || now.split('T')[0],
                 us2y,
-                us5y: data.rates["5Y"] ?? null,
+                us5y: latest.yield_5_year ?? null,
                 us10y,
-                us30y: data.rates["30Y"] ?? null,
+                us30y: latest.yield_30_year ?? null,
                 spread2s10s: (us2y !== null && us10y !== null) ? us10y - us2y : null,
                 source: "MASSIVE",
                 updatedAt: now

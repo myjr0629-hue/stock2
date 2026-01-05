@@ -83,7 +83,7 @@ import { GoogleGenAI } from "@google/genai";
 // @ts-ignore
 import translate from "google-translate-api-x";
 
-const MODEL_NAME = "gemini-1.5-flash"; // Target model
+const MODEL_NAME = "gemini-2.5-flash"; // [STABLE] Fast & Reliable
 
 interface AIAnalysisResult {
     id: string;
@@ -95,12 +95,60 @@ let genAI: GoogleGenAI | null = null;
 
 function getGenAIClient() {
     if (genAI) return genAI;
-    const apiKey = process.env.GEMINI_API_KEY;
+
+    // 1. Try Process Env (Prioritize NEWS KEY)
+    let apiKey = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_API_KEY;
+
+    // 2. Manual Fallback if process.env fails (Robust Loader)
+    if (!apiKey) {
+        try {
+            const envPath = path.join(process.cwd(), '.env.local');
+            if (fs.existsSync(envPath)) {
+                const content = fs.readFileSync(envPath, 'utf-8');
+                const lines = content.split('\n');
+                for (const line of lines) {
+                    const trimmed = line.trim();
+                    if (trimmed.startsWith('GEMINI_NEWS_KEY=')) {
+                        apiKey = trimmed.split('=')[1].trim();
+                        break;
+                    }
+                    if (!apiKey && trimmed.startsWith('GEMINI_API_KEY=')) {
+                        apiKey = trimmed.split('=')[1].trim();
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[NewsHub] Env fetch failed:', e);
+        }
+    }
+
     if (apiKey) {
         genAI = new GoogleGenAI({ apiKey });
         return genAI;
     }
     return null;
+}
+
+// Helper for Timeout
+async function withTimeout<T>(promise: Promise<T>, ms: number, fallbackValue: T): Promise<T> {
+    let timeoutId: NodeJS.Timeout;
+    const timeoutPromise = new Promise<T>((resolve) => {
+        timeoutId = setTimeout(() => {
+            console.warn(`[NewsHub] Timeout after ${ms}ms`);
+            resolve(fallbackValue);
+        }, ms);
+    });
+
+    return Promise.race([
+        promise.then((res) => {
+            clearTimeout(timeoutId);
+            return res;
+        }).catch((err) => {
+            clearTimeout(timeoutId);
+            throw err;
+        }),
+        timeoutPromise
+    ]);
 }
 
 // [Gemini Logic] Batch Analysis to respect Rate Limits (15 RPM)
@@ -133,10 +181,16 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
             DO NOT output markdown code blocks. Just the raw JSON.
             `;
 
-            const result = await client.models.generateContent({
-                model: MODEL_NAME,
-                contents: prompt,
-            });
+            // Wrap Gemini call with 10s Timeout
+            const result = await withTimeout(
+                client.models.generateContent({
+                    model: MODEL_NAME,
+                    contents: prompt,
+                }),
+                10000, // 10s timeout
+                { text: "[]" } as any // fallback empty result
+            );
+
             const responseText = result.text || "";
 
             // Clean up markdown if present
@@ -145,7 +199,7 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
 
             return analysis;
         } catch (e) {
-            console.warn("[NewsHub] Gemini Analysis Failed (404/Quota), switching to Fallback:", e);
+            console.warn("[NewsHub] Gemini Analysis Failed (404/Quota/Timeout), switching to Fallback:", e);
             // Fall through to fallback
         }
     }
@@ -157,7 +211,12 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
             let translated = textToTranslate;
 
             try {
-                const res = await translate(textToTranslate, { to: 'ko' });
+                // Wrap Translate with 5s Timeout
+                const res = await withTimeout(
+                    translate(textToTranslate, { to: 'ko' }),
+                    5000,
+                    { text: textToTranslate } as any
+                );
                 translated = (res as any).text;
             } catch (err) {
                 console.error("Translation fail:", err);
@@ -199,9 +258,9 @@ export async function fetchStockNews(tickers: string[], limit: number = 10): Pro
         }));
 
         // Run Gemini Analysis (Parallel to save time? No, simple await is safer for now)
-        // Only run if we have a key
+        // Only run if we have a valid key
         let aiResults: AIAnalysisResult[] = [];
-        if (process.env.GEMINI_API_KEY) {
+        if (process.env.GEMINI_NEWS_KEY || process.env.GEMINI_API_KEY) {
             aiResults = await analyzeNewsBatch(rawItems);
         }
 
@@ -230,6 +289,18 @@ export async function fetchStockNews(tickers: string[], limit: number = 10): Pro
                 catalystType = 'regulatory';
             }
 
+            // [S-53.9] Official Source Detection
+            const publisher = (article.publisher?.name || "").toLowerCase();
+            const officialSources = [
+                "business wire",
+                "pr newswire",
+                "globenewswire",
+                "accesswire",
+                "sec",
+                "thear" // Often aggregates official PRs
+            ];
+            const isOfficial = officialSources.some(src => publisher.includes(src));
+
             // Merge AI Result
             const aiMatch = aiResults.find(r => r.id === article.internalId);
             // If AI detects rumor, we can tag it. For now, we put it in text or logic?
@@ -257,7 +328,8 @@ export async function fetchStockNews(tickers: string[], limit: number = 10): Pro
                 relatedTickers: article.tickers || [],
                 catalystType,
                 catalystAge: age,
-                isStale: age > 72
+                isStale: age > 72,
+                isOfficial
             };
         });
     } catch (e) {

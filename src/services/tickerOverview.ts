@@ -14,6 +14,7 @@ import {
 import { getBuildId, getEnvType } from "./buildIdSSOT";
 
 import { CentralDataHub } from "./centralDataHub";
+import { fetchStockNews } from "./newsHubProvider";
 
 // --- Types ---
 export interface TickerOverviewMeta {
@@ -78,6 +79,8 @@ export interface TickerNewsItem {
     source: string;
     publishedAt: string;
     sentiment?: "positive" | "negative" | "neutral";
+    summaryKR?: string;
+    isRumor?: boolean;
 }
 
 export interface TickerNewsData {
@@ -518,23 +521,22 @@ export async function getTickerOverview(
     }
 
     // --- 5. Fetch News ---
+    // --- 5. Fetch News (Enriched via NewsHubProvider) ---
     if (includeNews) {
         try {
-            const newsData = await fetchMassive(
-                `/v2/reference/news`,
-                { ticker: tickerUpper, limit: "10", order: "desc", sort: "published_utc" },
-                true,
-                undefined,
-                CACHE_POLICY.DISPLAY_NEWS
-            );
+            // [Fix] Use NewsHubProvider to get AI Rumor Filtering + Korean Summaries
+            const enrichedNews = await fetchStockNews([tickerUpper], 10);
 
-            if (newsData?.results?.length > 0) {
-                result.news.items = newsData.results.map((n: any) => ({
-                    title: n.title,
-                    url: n.article_url,
-                    source: n.publisher?.name || "Unknown",
-                    publishedAt: n.published_utc,
-                    sentiment: n.insights?.[0]?.sentiment || "neutral"
+            if (enrichedNews.length > 0) {
+                result.news.items = enrichedNews.map(n => ({
+                    title: n.headline,
+                    url: n.link || "",
+                    source: n.source,
+                    publishedAt: n.publishedAt,
+                    sentiment: n.sentiment,
+                    // Map Enriched Fields
+                    summaryKR: n.summaryKR,
+                    isRumor: (n.summaryKR || "").includes("[루머") // Simple check based on NewsHub logic
                 }));
                 result.news.updatedAtISO = new Date().toISOString();
                 diagnostics.news = { ok: true, items: result.news.items.length, updatedAtISO: result.news.updatedAtISO };
@@ -542,8 +544,8 @@ export async function getTickerOverview(
                 diagnostics.news = { ok: false, code: "EMPTY_RESPONSE", reasonKR: "뉴스 데이터 없음", items: 0 };
             }
         } catch (e: any) {
-            const errInfo = extractErrorInfo(e);
-            diagnostics.news = { ok: false, code: errInfo.code, reasonKR: `뉴스 조회 실패: ${errInfo.reasonKR}`, items: 0 };
+            console.error("News Fetch Error:", e);
+            diagnostics.news = { ok: false, code: "FETCH_ERROR", reasonKR: "뉴스 조회 실패 (NewsHub)", items: 0 };
         }
     }
 
