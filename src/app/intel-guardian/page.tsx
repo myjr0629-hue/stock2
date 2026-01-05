@@ -290,7 +290,7 @@ export default function GuardianPage() {
                                             </div>
                                             <div className="space-y-2">
                                                 {topTickers.map((ticker, i) => (
-                                                    <a key={ticker} href={`/terminal?t=${ticker}`} target="_self" className="flex items-center justify-between bg-white/5 p-2 rounded border border-white/5 hover:bg-white/10 hover:border-purple-500/30 transition-colors group cursor-pointer block">
+                                                    <a key={ticker} href={`/ticker?ticker=${ticker}`} target="_self" className="flex items-center justify-between bg-white/5 p-2 rounded border border-white/5 hover:bg-white/10 hover:border-purple-500/30 transition-colors group cursor-pointer block">
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-300 group-hover:text-white">
                                                                 {i + 1}
