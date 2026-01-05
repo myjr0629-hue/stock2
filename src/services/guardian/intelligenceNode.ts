@@ -116,14 +116,16 @@ export class IntelligenceNode {
 
                 // New SDK response structure
                 console.log("[DEBUG] GenAI Result Keys:", Object.keys(result));
-                const generatedText = result.text || "Market Data processed.";
+                const generatedText = result.text || "";
 
-                // === CACHE UPDATE ===
-                _cachedVerdict = generatedText;
-                _cachedVerdictTime = Date.now();
-                console.log("[IntelligenceNode] Verdict CACHED for 2 minutes.");
+                // === CACHE UPDATE (Only cache valid responses) ===
+                if (generatedText && generatedText.length > 20 && !generatedText.includes("System Busy")) {
+                    _cachedVerdict = generatedText;
+                    _cachedVerdictTime = Date.now();
+                    console.log("[IntelligenceNode] Verdict CACHED for 2 minutes.");
+                }
 
-                return generatedText;
+                return generatedText || "Market Data processed.";
             } catch (e: any) {
                 console.error(`[IntelligenceNode] Attempt ${attempts} Failed (Model: 2.5-flash):`, e.message);
 
