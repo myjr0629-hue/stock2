@@ -120,7 +120,7 @@ export class IntelligenceNode {
                 // If not retryable or max attempts reached, check if we should fallback?
                 // For now, return friendly error.
                 if (attempts === maxAttempts) {
-                    return "System Busy: High Intelligence Traffic. Analysis queued.";
+                    return `System Busy: High Intelligence Traffic. (Code: ${e.status || 'ERR'})`;
                 }
             }
         }

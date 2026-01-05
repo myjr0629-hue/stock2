@@ -91,10 +91,7 @@ export default function GuardianPage() {
     const data = globalData as GuardianContext | null;
     const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
 
-    useEffect(() => {
-        // Trigger refresh on mount just in case, or rely on Provider's interval
-        refresh();
-    }, []);
+    // useEffect removed to prevent double-fetch (Provider handles it)
 
     // Auto-select the 'Target' sector if available and nothing selected
     useEffect(() => {
