@@ -48,13 +48,25 @@ interface IntelligenceContext {
     vix: number;
 }
 
+// === VERDICT CACHE (Prevents 429 Rate Limiting) ===
+let _cachedVerdict: string | null = null;
+let _cachedVerdictTime: number = 0;
+const VERDICT_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes (strict)
+
 export class IntelligenceNode {
 
     /**
      * Generate a ruthless, professional tactical verdict.
      * Model Locked: gemini-2.5-flash (Supported by New SDK)
+     * NOTE: This method has a 2-minute cache to prevent API rate limiting.
      */
     static async generateVerdict(ctx: IntelligenceContext): Promise<string> {
+        // === CACHE CHECK (Priority) ===
+        const now = Date.now();
+        if (_cachedVerdict && (now - _cachedVerdictTime < VERDICT_CACHE_TTL_MS)) {
+            console.log("[IntelligenceNode] Returning CACHED Verdict (TTL Active).");
+            return _cachedVerdict;
+        }
         // API Key check (User provided key: AIza... starts with AIza, length check)
         const apiKey = getApiKey();
         if (!apiKey) return "SYSTEM_OFFLINE: INTELLIGENCE MODULE DISCONNECTED (NO API KEY).";
@@ -104,8 +116,14 @@ export class IntelligenceNode {
 
                 // New SDK response structure
                 console.log("[DEBUG] GenAI Result Keys:", Object.keys(result));
-                // console.log("[DEBUG] GenAI Result:", JSON.stringify(result, null, 2)); // Reduce log noise
-                return result.text || "Market Data processed.";
+                const generatedText = result.text || "Market Data processed.";
+
+                // === CACHE UPDATE ===
+                _cachedVerdict = generatedText;
+                _cachedVerdictTime = Date.now();
+                console.log("[IntelligenceNode] Verdict CACHED for 2 minutes.");
+
+                return generatedText;
             } catch (e: any) {
                 console.error(`[IntelligenceNode] Attempt ${attempts} Failed (Model: 2.5-flash):`, e.message);
 
