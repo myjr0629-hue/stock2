@@ -1,5 +1,5 @@
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -37,7 +37,8 @@ const getApiKey = (): string => {
 };
 
 const API_KEY = getApiKey();
-const genAI = new GoogleGenerativeAI(API_KEY);
+// Use New SDK Client
+const genAI = new GoogleGenAI({ apiKey: API_KEY });
 
 interface IntelligenceContext {
     rlsiScore: number;
@@ -49,12 +50,9 @@ interface IntelligenceContext {
 
 export class IntelligenceNode {
 
-    // [STABLE] gemini-2.5-flash (High Speed, Lower Limit)
-    private static modelFlash = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
     /**
      * Generate a ruthless, professional tactical verdict.
-     * Model Locked: gemini-2.5-flash
+     * Model Locked: gemini-2.5-flash (Supported by New SDK)
      */
     static async generateVerdict(ctx: IntelligenceContext): Promise<string> {
         // API Key check (User provided key: AIza... starts with AIza, length check)
@@ -92,11 +90,16 @@ export class IntelligenceNode {
         `;
 
         try {
-            // STRICT: gemini-2.5-flash ONLY
-            const result = await this.modelFlash.generateContent(prompt);
-            return result.response.text().trim();
+            // STRICT: gemini-2.5-flash using New SDK
+            const result = await genAI.models.generateContent({
+                model: "gemini-2.5-flash",
+                contents: prompt, // New SDK expects 'contents' not prompt
+            });
+
+            // New SDK response structure
+            return result.text || "Market Data processed.";
         } catch (e: any) {
-            console.error("Critical Intelligence Failure (Flash):", e.message);
+            console.error("Critical Intelligence Failure (Flash 2.5):", e.message);
             // Fallback safe message
             return "Market Data processed. Maintain discipline.";
         }
