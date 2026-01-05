@@ -89,19 +89,41 @@ export class IntelligenceNode {
         - **CONTENT**: If citing sectors, use Korean names (금융, 기술 등).
         `;
 
-        try {
-            // STRICT: gemini-2.5-flash using New SDK
-            const result = await genAI.models.generateContent({
-                model: "gemini-2.5-flash",
-                contents: prompt, // New SDK expects 'contents' not prompt
-            });
+        // Retry Logic for Rate Limits (429) - 3 Attempts
+        let attempts = 0;
+        const maxAttempts = 3;
 
-            // New SDK response structure
-            return result.text || "Market Data processed.";
-        } catch (e: any) {
-            console.error("Critical Intelligence Failure (Flash 2.5):", e.message);
-            // Fallback safe message
-            return "Market Data processed. Maintain discipline.";
+        while (attempts < maxAttempts) {
+            try {
+                attempts++;
+                // STRICT: gemini-2.5-flash using New SDK
+                const result = await genAI.models.generateContent({
+                    model: "gemini-2.5-flash",
+                    contents: prompt,
+                });
+
+                // New SDK response structure
+                console.log("[DEBUG] GenAI Result Keys:", Object.keys(result));
+                // console.log("[DEBUG] GenAI Result:", JSON.stringify(result, null, 2)); // Reduce log noise
+                return result.text || "Market Data processed.";
+            } catch (e: any) {
+                console.error(`[IntelligenceNode] Attempt ${attempts} Failed (Model: 2.5-flash):`, e.message);
+
+                // If 429 or 503, wait and retry
+                if ((e.status === 429 || e.status === 503) && attempts < maxAttempts) {
+                    const delay = Math.pow(2, attempts) * 1000; // 2s, 4s, 8s...
+                    console.warn(`[IntelligenceNode] Rate Limited. Retrying in ${delay}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    continue;
+                }
+
+                // If not retryable or max attempts reached, check if we should fallback?
+                // For now, return friendly error.
+                if (attempts === maxAttempts) {
+                    return "System Busy: High Intelligence Traffic. Analysis queued.";
+                }
+            }
         }
+        return "Market Data processed. Maintain discipline.";
     }
 }
