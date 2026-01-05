@@ -49,12 +49,12 @@ interface IntelligenceContext {
 
 export class IntelligenceNode {
 
-    // [STABLE] gemini-2.5-flash (High Speed, Lower Limit)
-    private static modelFlash = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+    // [STABLE] gemini-1.5-flash (High Speed, Lower Limit)
+    private static modelFlash = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     /**
      * Generate a ruthless, professional tactical verdict.
-     * Model Locked: gemini-2.5-flash
+     * Model Locked: gemini-1.5-flash
      */
     static async generateVerdict(ctx: IntelligenceContext): Promise<string> {
         // API Key check (User provided key: AIza... starts with AIza, length check)
@@ -92,7 +92,7 @@ export class IntelligenceNode {
         `;
 
         try {
-            // STRICT: gemini-2.5-flash ONLY
+            // STRICT: gemini-1.5-flash ONLY
             const result = await this.modelFlash.generateContent(prompt);
             return result.response.text().trim();
         } catch (e: any) {
