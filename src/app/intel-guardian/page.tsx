@@ -228,7 +228,7 @@ export default function GuardianPage() {
                                     <span>TACTICAL VERDICT</span>
                                     <span className="text-[8px] font-mono text-emerald-500/80 bg-emerald-950/20 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
                                         <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        Google Gemini 1.5 Flash (Stabilized)
+                                        Google Gemini 2.5 Flash (Stabilized)
                                     </span>
                                 </h3>
 

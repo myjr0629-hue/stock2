@@ -83,7 +83,7 @@ import { GoogleGenAI } from "@google/genai";
 // @ts-ignore
 import translate from "google-translate-api-x";
 
-const MODEL_NAME = "gemini-1.5-flash"; // [STABLE] Fast & Reliable
+const MODEL_NAME = "gemini-2.5-flash"; // [STABLE] Fast & Reliable
 
 interface AIAnalysisResult {
     id: string;
