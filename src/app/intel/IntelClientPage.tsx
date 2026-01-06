@@ -1175,11 +1175,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                 rank={idx + 1}
                                                 price={item.evidence.price.last}
                                                 change={item.evidence.price.changePct}
-                                                entryBand={
-                                                    item.decisionSSOT?.entryBand
-                                                        ? { min: item.decisionSSOT.entryBand[0], max: item.decisionSSOT.entryBand[1] } // SSOT is [min, max]
-                                                        : undefined
-                                                }
+                                                entryBand={item.decisionSSOT?.entryBand}
                                                 cutPrice={item.decisionSSOT?.cutPrice}
                                                 isLocked={true} // Hunters are locked targets
                                                 name={item.symbol}
