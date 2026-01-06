@@ -306,7 +306,9 @@ export function loadStockUniversePool(): string[] {
 
     try {
         // Node.js 환경에서 파일 로드
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const fs = require('fs');
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const path = require('path');
         const filePath = path.join(process.cwd(), 'data', 'stock_universe_us300.json');
 

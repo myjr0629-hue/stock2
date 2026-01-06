@@ -1244,6 +1244,7 @@ export async function getMarketStatus_LEGACY(): Promise<MarketStatus> {
 // [S-45] SSOT Delegator
 export async function getMarketStatus(): Promise<MarketStatus> {
   // Use require to avoid top-level import cycles
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { getMarketStatusSSOT } = require('./marketStatusProvider');
   const ssot = await getMarketStatusSSOT();
 

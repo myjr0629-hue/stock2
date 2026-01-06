@@ -14,6 +14,7 @@ async function testYahooSymbol(symbol: string): Promise<{
     fullError: any;
 }> {
     try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
         const pkg = require("yahoo-finance2");
         const YahooFinance = pkg.default || pkg;
         const yf = new YahooFinance();

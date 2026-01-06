@@ -169,7 +169,7 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter }: {
                         }}
                     >
                         {/* ICON */}
-                        {Icon && <Icon size={sizePx * 0.4} color={isActive ? "white" : color} strokeWidth={isCenter ? 2 : 1.5} />}
+                        {Icon && <Icon size={sizePx * 0.4} color={isActive ? "white" : color} strokeWidth={isCenter ? "2" : "1.5"} />}
                     </div>
 
                     {/* LABELS (Below) */}

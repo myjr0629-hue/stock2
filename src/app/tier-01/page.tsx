@@ -450,8 +450,7 @@ function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
 // DRAWER COMPONENT - Unified Evidence 5-Layers
 // ============================================================================
 function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: () => void }) {
-    if (!item) return null;
-    const ev = item.evidence;
+    const ev = item?.evidence; // Defensive access
     const router = useRouter();
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
@@ -462,6 +461,7 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
 
     // [Phase 50] Options Chain Processing
     const chainData = useMemo(() => {
+        if (!item || !ev) return null;
         const raw = ev.options.rawChain || [];
         if (!raw.length) return null;
 
@@ -519,14 +519,9 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
             targetDate,
             rows: visibleStrikes.map(k => ({ strike: k, ...strikesMap.get(k) }))
         };
-    }, [ev.options.rawChain, selectedExpiry, ev.price.last]);
+    }, [item, ev, selectedExpiry]);
 
-    const action = item.decisionSSOT?.action || "CAUTION";
-
-    const tier = item.qualityTier || "WATCH";
-
-    // [Emergency Patch] Defensive check for missing evidence (Legacy Data Support)
-    if (!ev) {
+    if (!item || !ev) {
         return (
             <div className="fixed inset-0 z-[100] flex justify-end font-sans">
                 <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
@@ -539,6 +534,8 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
         );
     }
 
+    const action = item.decisionSSOT?.action || "CAUTION";
+    const tier = item.qualityTier || "WATCH";
     const opt = getOptionsStatus(ev.options.status);
 
     // Derived states

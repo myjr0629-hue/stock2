@@ -35,6 +35,7 @@ export type SessionType = 'pre' | 'regular' | 'post';
 
 function getSessionType(): SessionType {
     // [S-52.2.3] Use reliable timezone utility
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { getETNow } = require('@/services/timezoneUtils');
     const et = getETNow();
     const etTime = et.hour + et.minute / 60;

@@ -75,6 +75,19 @@ function convertToNewsItems(overview: TickerOverview): NewsItem[] {
     });
 }
 
+// [S-56.4.5b] Extracted Status Components
+const StatusIcon = ({ ok }: { ok: boolean }) => ok
+    ? <CheckCircle className="w-3 h-3 text-emerald-400" />
+    : <XCircle className="w-3 h-3 text-rose-400" />;
+
+const StatusBadge = ({ ok, label, code }: { ok: boolean; label: string; code?: string }) => (
+    <span className="flex items-center gap-1">
+        <StatusIcon ok={ok} />
+        <span className={ok ? "text-emerald-400" : "text-rose-400"}>{label}</span>
+        {code && !ok && <span className="text-rose-300/60 text-[8px]">({code})</span>}
+    </span>
+);
+
 // [S-56.4.5b] Enhanced Parity Diagnostics Component with sub-call status
 function ParityDiagnostics({ overview }: { overview: TickerOverview }) {
     const d = overview.diagnostics;
@@ -85,18 +98,6 @@ function ParityDiagnostics({ overview }: { overview: TickerOverview }) {
     const commitSha = process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || "HEAD";
     const shortSha = commitSha.slice(0, 7);
     const envCode = envType === 'production' ? 'PROD' : 'DEV';
-
-    const StatusIcon = ({ ok }: { ok: boolean }) => ok
-        ? <CheckCircle className="w-3 h-3 text-emerald-400" />
-        : <XCircle className="w-3 h-3 text-rose-400" />;
-
-    const StatusBadge = ({ ok, label, code }: { ok: boolean; label: string; code?: string }) => (
-        <span className="flex items-center gap-1">
-            <StatusIcon ok={ok} />
-            <span className={ok ? "text-emerald-400" : "text-rose-400"}>{label}</span>
-            {code && !ok && <span className="text-rose-300/60 text-[8px]">({code})</span>}
-        </span>
-    );
 
     return (
         <div className="bg-slate-900 text-white py-2 px-4 flex flex-wrap items-center justify-between gap-2 text-[9px] font-mono sticky top-[48px] z-40 border-b border-slate-800">

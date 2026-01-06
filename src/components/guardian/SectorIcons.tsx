@@ -11,11 +11,12 @@ import {
     Wifi,         // XLC - Comm
     Building2,    // XLRE - Real Estate
     Droplets,      // XLU - Utilities
-    Activity      // AI_PWR - Pulse
+    Activity,      // AI_PWR - Pulse
+    LucideIcon
 } from "lucide-react";
 
 export interface SectorVisualInfo {
-    icon: React.ElementType;
+    icon: LucideIcon;
     color: string;
     label: string;
 }
