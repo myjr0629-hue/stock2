@@ -81,7 +81,7 @@ export function OracleHeader({ nasdaq, rlsi, verdictTitle, isDivergent }: Oracle
 
             {/* CENTER: PROPHECY TICKER */}
             <div className="flex-1 flex justify-center items-center relative z-10 mx-4 overflow-hidden">
-                <div className={`${messageIndex === 1 ? "text-[10px]" : "text-xs"} font-mono font-bold text-slate-300 transition-all duration-300`}>
+                <div className="text-[11px] font-mono font-bold text-slate-300 transition-all duration-300">
                     <TypewriterText text={messages[messageIndex]} speed={20} />
                 </div>
             </div>
