@@ -7,6 +7,11 @@ const nextConfig = {
                 destination: '/intel-guardian',
                 permanent: true,
             },
+            {
+                source: '/tier-01',
+                destination: '/intel',
+                permanent: false, // Temporary redirect until we ensure everyone is migrated
+            },
         ]
     },
 }
