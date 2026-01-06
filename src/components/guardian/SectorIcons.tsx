@@ -10,7 +10,8 @@ import {
     Pickaxe,      // XLB - Materials (using Pickaxe/Hammer)
     Wifi,         // XLC - Comm
     Building2,    // XLRE - Real Estate
-    Droplets      // XLU - Utilities
+    Droplets,      // XLU - Utilities
+    Activity      // AI_PWR - Pulse
 } from "lucide-react";
 
 export interface SectorVisualInfo {
@@ -30,7 +31,8 @@ export const SECTOR_VISUALS: Record<string, SectorVisualInfo> = {
     "XLB": { icon: Pickaxe, color: "#a855f7", label: "Materials" },     // Purple-500
     "XLC": { icon: Wifi, color: "#06b6d4", label: "Comm." },            // Cyan-500
     "XLRE": { icon: Building2, color: "#14b8a6", label: "Real Estate" },// Teal-500
-    "XLU": { icon: Droplets, color: "#3b82f6", label: "Utilities" }     // Blue-500 (Water/Elec)
+    "XLU": { icon: Droplets, color: "#3b82f6", label: "Utilities" },     // Blue-500 (Water/Elec)
+    "AI_PWR": { icon: Activity, color: "#00FFF2", label: "AI Infra" }  // Electric Cyan
 };
 
 // Pastel/Matte variants for background fills to avoid "Blinding Neon"
@@ -45,5 +47,6 @@ export const SECTOR_BG_COLORS: Record<string, string> = {
     "XLB": "rgba(168, 85, 247, 0.15)",
     "XLC": "rgba(6, 182, 212, 0.15)",
     "XLRE": "rgba(20, 184, 166, 0.15)",
-    "XLU": "rgba(59, 130, 246, 0.15)"
+    "XLU": "rgba(59, 130, 246, 0.15)",
+    "AI_PWR": "rgba(0, 255, 242, 0.15)"
 };

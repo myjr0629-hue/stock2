@@ -80,8 +80,8 @@ export class IntelligenceNode {
             : "No significant rotation";
 
         const prompt = `
-        ACT AS A VETERAN HEDGE FUND TRADER.
-        ANALYZE SECTOR ROTATION & MONEY FLOW ONLY.
+        ACT AS AN ELITE INSTITUTIONAL STRATEGIST (WALL STREET VETERAN).
+        ANALYZE SECTOR ROTATION WITH HIGH-RESOLUTION PRECISION.
         
         MARKET DATA:
         - NASDAQ CHANGE: ${ctx.nasdaqChange.toFixed(2)}%
@@ -89,14 +89,18 @@ export class IntelligenceNode {
         - VIX: ${ctx.vix}
 
         TASK:
-        Describe WHERE the money is moving. Is it rotating into defensives? Is it chasing Tech?
+        Provide a professional analysis of money flow.
+        - Is this a "Risk-On" rotation into Tech/Cyclicals?
+        - Is this a "Flight to Safety" (Risk-Off) into Utilities/Staples?
+        - Is liquidity concentrating in specific themes (e.g., AI Infra)?
         
         CRITICAL OUTPUT RULES:
-        1. **NO TICKER SYMBOLS**: DO NOT use codes like XLK, XLU, XLV, XLI.
-        2. **USE KOREAN NAMES**: Must use '기술주', '유틸리티', '헬스케어', '금융', '산업재' instead.
-        3. Lang: Korean (Professional, Traders Talk).
-        4. Detail: 2-3 sentences. Be specific about the flow direction.
-        5. Tone: Fast, Observational, Tactical.
+        1. **VOICE**: PROFESSIONAL, ANALYTICAL, SHARP. Use industry-standard terminology (Risk-On, Beta, Sector Rotation).
+        2. **TONE**: Confident but grounded in data. Avoid "Commander" drama, use "Analyst" precision.
+        3. **NO TICKER SYMBOLS**: Use Korean sector names only (기술주, 헬스케어, etc.).
+        4. **AI INFRA**: If 'AI 전력망' is active, explicitly mention "AI 인프라 슈퍼사이클에 따른 수급 집중".
+        5. **Lang**: Korean (High-level Expert Style - e.g., "판단됩니다" is okay here if backed by strong logic, or "관측됩니다").
+        6. **Length**: 2-3 sentences. Dense with insight.
         `;
 
         const result = await this.callGemini(prompt, "ROTATION");
@@ -122,25 +126,33 @@ export class IntelligenceNode {
         if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
 
         const prompt = `
-        ACT AS A MARKET PHILOSOPHER & STRATEGIST.
-        ANALYZE THE "TRUTH" OF THE CURRENT MOVE.
-
+        ACT AS "THE ORACLE OF TRUTH".
+        YOUR MISSION: REVEAL THE CORE REALITY BEHIND THE PRICE.
+        
         MARKET DATA:
-        - RLSI (Internal Strength): ${ctx.rlsiScore.toFixed(0)}/100 (0=Weak, 100=Strong).
-        - PRICE (External Move): ${ctx.nasdaqChange.toFixed(2)}%
-        - RVOL (Conviction): ${ctx.rvol.toFixed(2)}x (1.0 = Avg, >1.5 = Strong).
+        - RLSI (Internal Truth): ${ctx.rlsiScore.toFixed(0)}/100.
+        - PRICE (External Mask): ${ctx.nasdaqChange.toFixed(2)}%.
+        - RVOL (Conviction): ${ctx.rvol.toFixed(2)}x.
         
         TASK:
-        Compare Price vs RLSI.
-        - If Price is UP but RLSI is LOW (<45): Warn about a "Empty Rally" (Fake).
-        - If Price is DOWN but RLSI is HIGH (>55): Hint at "Hidden Strength" (Opportunity).
-        - If Both align: Confirm "Healthy Trends".
+        Compare Price vs RLSI and DECLARE the verdict.
+        
+        CONTEXTUAL VOCABULARY RULE (CRITICAL):
+        1. **IF ALIGNED (Good)**: Use "입증합니다 (Prove)", "확증합니다 (Confirm)", "지목합니다 (Point to)". 
+           - Example: "내부 데이터가 상승의 정당성을 입증합니다."
+           - BAD Example: "견고함을 폭로합니다" (Awkward).
+        2. **IF DIVERGENT (Bad/Fake)**: Use "폭로합니다 (Expose)", "경고합니다 (Warn)", "간파했습니다 (Detected)".
+           - Example: "상승의 허구성을 폭로합니다."
+        
+        SCENARIOS:
+        - Price UP / RLSI LOW: "지수의 상승은 기만입니다 (DECEPTION). 내부는 썩어가고 있음을 폭로합니다."
+        - Price DOWN / RLSI HIGH: "하락은 속임수입니다 (TRAP). 세력은 바닥을 쓸어담고 있음을 간파했습니다."
+        - Both ALIGN: "시장의 방향성은 진실입니다 (TRUE). 상승/하락 추세가 데이터로 확증되었습니다."
         
         OUTPUT RULES:
-        - Lang: Korean (Profound, Insightful).
-        - Detail: 2-3 sentences. Explain WHY this is happening.
-        - Tone: Decisive, Clear, Penetrating. (Avoid vague philosophy).
-        - Directness: Be explicit about whether the move is Real or Fake.
+        1. **VOICE**: PROPHETIC, ABSOLUTE, BUT NATURAL.
+        2. **Lang**: Korean (High-Impact).
+        3. **Structure**: [Fact] -> [Revelation]. 2 sentences.
         `;
 
         const result = await this.callGemini(prompt, "REALITY");

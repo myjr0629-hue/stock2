@@ -63,13 +63,26 @@ export class RvolEngine {
                     const endOfDayMinute = 16 * 60;
                     const baselineTotal = baseline?.get(endOfDayMinute) || baseline?.get(endOfDayMinute - 5) || 0;
 
-                    const finalRvol = baselineTotal > 0 ? (prevVol / baselineTotal) : 0;
+                    // [ADJUSTMENT] For PRE_MARKET (Yesterday's Data), we must exclude 'Yesterday' 
+                    // from the 20-day baseline average to show the true "Closing Figure" as seen yesterday.
+                    // Logic: The current 'baselineTotal' likely INCLUDES 'prevVol' (if rolled over).
+                    // We back it out: (Avg * 20 - Current) / 19
+                    let adjustedBaseline = baselineTotal;
+                    if (baselineTotal > 0) {
+                        const sum20 = baselineTotal * 20;
+                        // Safety check: ensure we don't divide by zero or get negative if data is weird
+                        if (sum20 > prevVol) {
+                            adjustedBaseline = (sum20 - prevVol) / 19;
+                        }
+                    }
+
+                    const finalRvol = adjustedBaseline > 0 ? (prevVol / adjustedBaseline) : 0;
 
                     return {
                         ticker,
                         rvol: finalRvol,
                         currentVol: prevVol,
-                        baselineVol: baselineTotal,
+                        baselineVol: adjustedBaseline,
                         timestamp: prevBar.t || Date.now(), // Use data timestamp if available
                         status: "CLOSED" // Display as Closed/Final
                     };

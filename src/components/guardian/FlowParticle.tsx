@@ -7,9 +7,10 @@ interface FlowParticleProps {
     delay: number;
     speed?: number;
     size?: number;
+    color?: string; // [V3.0] Support Golden Sparkle
 }
 
-export function FlowParticle({ curve, delay, speed = 0.3, size = 1.0 }: FlowParticleProps) {
+export function FlowParticle({ curve, delay, speed = 0.3, size = 1.0, color = "#00ffaa" }: FlowParticleProps) {
     const meshRef = useRef<THREE.Mesh>(null);
     const progressRef = useRef(0);
 
@@ -44,14 +45,14 @@ export function FlowParticle({ curve, delay, speed = 0.3, size = 1.0 }: FlowPart
         <mesh ref={meshRef}>
             <sphereGeometry args={[0.08, 16, 16]} />
             <meshStandardMaterial
-                color="#00ffaa"
-                emissive="#00ffaa"
+                color={color}
+                emissive={color}
                 emissiveIntensity={3}
                 toneMapped={false}
                 transparent
                 opacity={0}
             />
-            <pointLight color="#00ffaa" intensity={2} distance={1} />
+            <pointLight color={color} intensity={2} distance={1} />
         </mesh>
     );
 }

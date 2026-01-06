@@ -32,6 +32,7 @@ interface SmartMoneyMapProps {
     sourceId?: string | null;
     targetId?: string | null;
     onSectorSelect?: (sectorId: string) => void;
+    isBullMode?: boolean; // [V3.0] Regime Flag
 }
 
 // === CONSTANTS ===
@@ -141,9 +142,20 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter }: {
                     onMouseEnter={() => setHovered(true)}
                     onMouseLeave={() => setHovered(false)}
                 >
-                    {/* RING ANIMATION FOR CENTER */}
-                    {isCenter && (
-                        <div className="absolute inset-[-15px] rounded-full border-2 border-dashed animate-spin-slow opacity-20" style={{ borderColor: color }} />
+                    {/* RING ANIMATION FOR CENTER or AI_PWR (Turbo) */}
+                    {(isCenter || data.id === 'AI_PWR') && (
+                        <div
+                            className={`absolute inset-[-15px] rounded-full border-2 border-dashed opacity-30 ${isCenter ? 'animate-spin-slow' : 'animate-spin'}`}
+                            style={{
+                                borderColor: color,
+                                animationDuration: data.id === 'AI_PWR' ? '1.5s' : '10s' // Turbo mode for AI_PWR
+                            }}
+                        />
+                    )}
+
+                    {/* EXTRA PULSE FOR AI_PWR (High Voltage) */}
+                    {data.id === 'AI_PWR' && (
+                        <div className="absolute inset-[-5px] rounded-full border border-cyan-400 opacity-60 animate-ping" />
                     )}
 
                     {/* MAIN CIRCLE */}
@@ -186,7 +198,7 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter }: {
 }
 
 // === COMPONENT: CURVED ARROW ===
-function CurvedFlowArrow({ start, end, strength, color = "#3b82f6" }: { start: THREE.Vector3, end: THREE.Vector3, strength: number, color?: string }) {
+function CurvedFlowArrow({ start, end, strength, color = "#3b82f6", isBullMode = false }: { start: THREE.Vector3, end: THREE.Vector3, strength: number, color?: string, isBullMode?: boolean }) {
     // Logic: Lift the curve in Y to jump over other nodes if needed.
     const mid = start.clone().lerp(end, 0.5);
 
@@ -200,7 +212,16 @@ function CurvedFlowArrow({ start, end, strength, color = "#3b82f6" }: { start: T
     // Back off slightly from center to avoid hitting the icon
     const arrowHeadPos = end.clone().sub(endTangent.clone().multiplyScalar(2.0));
 
-    const speed = Math.min(2.0, 0.5 + (strength / 40));
+    // [VISUAL PHYSICS V3.0]
+    // Speed: dynamic based on Strength (0.5 ~ 3.0)
+    const speed = Math.min(3.0, 0.5 + (strength / 15));
+
+    // Golden Sparkle: If strength is massive (>25), OR if Regime is Bull and strength is moderate (>15), use GOLD.
+    const isTorrent = strength > 25;
+    const isGolden = isTorrent || (isBullMode && strength > 15);
+
+    const particleColor = isGolden ? "#FFD700" : (color === "#ffffff" ? "#818cf8" : color);
+    const particleSize = isTorrent ? 1.5 : (isBullMode ? 1.2 : 1.0);
 
     return (
         <group>
@@ -209,12 +230,12 @@ function CurvedFlowArrow({ start, end, strength, color = "#3b82f6" }: { start: T
                 start={start}
                 end={end}
                 mid={controlPoint}
-                color={color}
-                lineWidth={2}
+                color={particleColor} // Tint the line too
+                lineWidth={isTorrent ? 3 : 2}
                 transparent
-                opacity={0.4}
+                opacity={isTorrent ? 0.6 : 0.4}
             />
-            {/* WHITE CORE */}
+            {/* WHITE CORE (Reduced opacity for Gold to shine) */}
             <QuadraticBezierLine
                 start={start}
                 end={end}
@@ -222,14 +243,21 @@ function CurvedFlowArrow({ start, end, strength, color = "#3b82f6" }: { start: T
                 color="white"
                 lineWidth={0.5}
                 transparent
-                opacity={0.6}
+                opacity={0.4}
             />
-            {/* PARTICLES */}
-            <FlowParticle curve={curve} delay={0} speed={speed} size={1.0} />
-            <FlowParticle curve={curve} delay={0.5 / speed} speed={speed} size={0.8} />
+            {/* PARTICLES - High Velocity */}
+            <FlowParticle curve={curve} delay={0} speed={speed} size={particleSize} color={particleColor} />
+            {/* Secondary Particle only for strong flows */}
+            {strength > 10 && (
+                <FlowParticle curve={curve} delay={0.3 / speed} speed={speed * 1.1} size={particleSize * 0.7} color={particleColor} />
+            )}
+            {/* Torrent gets a third particle! */}
+            {isTorrent && (
+                <FlowParticle curve={curve} delay={0.6 / speed} speed={speed * 0.9} size={particleSize * 0.8} color="#ffffff" />
+            )}
 
             {/* ARROW HEAD */}
-            <ArrowHead position={arrowHeadPos} lookAtTarget={end} color={color} />
+            <ArrowHead position={arrowHeadPos} lookAtTarget={end} color={particleColor} />
         </group>
     )
 }
@@ -252,7 +280,7 @@ function ArrowHead({ position, lookAtTarget, color }: { position: THREE.Vector3,
 
 
 // === MAIN SCENE ===
-export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, targetId, onSectorSelect }: SmartMoneyMapProps) {
+export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, targetId, onSectorSelect, isBullMode = false }: SmartMoneyMapProps) {
 
     // Layout: Hub & Spoke
     const nodes = useMemo(() => calculateHubLayout(sectors, vectors, targetId), [sectors, vectors, targetId]);
@@ -278,6 +306,7 @@ export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, ta
                             end={tPos}
                             strength={v.strength}
                             color={color}
+                            isBullMode={isBullMode} // Pass Regime
                         />
                     );
                 }
@@ -294,12 +323,13 @@ export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, ta
                         end={tPos}
                         strength={20}
                         color="#ffffff"
+                        isBullMode={isBullMode}
                     />
                 );
             }
         }
         return els;
-    }, [nodes, vectors, sourceId, targetId]);
+    }, [nodes, vectors, sourceId, targetId, isBullMode]); // Added isBullMode dep
 
     return (
         <div className="w-full h-full relative" style={{ background: '#0a0e14' }}>

@@ -31,6 +31,13 @@ export interface GuardianContext {
     verdictTargetId: string | null;
     marketStatus: 'GO' | 'WAIT' | 'STOP';
     rvol?: { ndx: RvolProfile; dow: RvolProfile }; // NEW: RVOL Data
+    tripleA?: {
+        regime: 'BULL' | 'BEAR' | 'NEUTRAL';
+        alignment: boolean;
+        acceleration: boolean;
+        accumulation: boolean;
+        isTargetLock: boolean;
+    };
     timestamp: string;
 }
 
@@ -74,42 +81,42 @@ export class GuardianDataHub {
             const nq = macro?.nqChangePercent || 0;
             const score = rlsi.score;
 
+            // caseId: 'N' (Neutral)
             let divCase: DivergenceAnalysis = {
                 caseId: 'N',
-                verdictTitle: "MARKET SYNCED",
-                verdictDesc: "지수와 내부 유동성이 동조화되고 있습니다.",
+                verdictTitle: "MARKET SYNCHRONIZED",
+                verdictDesc: "지수와 유동성이 동기화됨. 특이사항 없음.",
                 isDivergent: false,
                 score: 0
             };
 
-            // CASE A (False Rally): Index UP (+), RLSI LOW (<40) or Falling (Not handled here deeply yet)
-            // RVOL Booster: If Rally + Low Volume => Very Likely False.
+            // CASE A (False Rally): Index UP (+), RLSI LOW (<40)
             if (nq > 0.3 && score < 40) {
                 divCase = {
                     caseId: 'A',
-                    verdictTitle: "⚠️ FALSE RALLY (가짜 상승)",
-                    verdictDesc: "시장 왜곡 감지. 소수 대형주에 의한 가짜 상승입니다. 추격 매수를 중단하세요.",
+                    verdictTitle: "⚠️ RETAIL TRAP (개미지옥)",
+                    verdictDesc: "지수는 상승하나 유동성은 이탈 중. 추격 매수 금지.",
                     isDivergent: true,
-                    score: 80
+                    score: 90
                 };
             }
-            // CASE B (Hidden Opportunity): Index DOWN (-), RLSI HIGH (>60 - Adjusted threshold for sensitivity)
+            // CASE B (Hidden Opportunity): Index DOWN (-), RLSI HIGH (>60)
             else if (nq < -0.2 && score > 60) {
                 divCase = {
                     caseId: 'B',
-                    verdictTitle: "💎 HIDDEN OPPORTUNITY",
-                    verdictDesc: "매수 기회. 지수는 과매도 구간이나 스마트 머니의 유입이 강력합니다. 분할 매수를 시작하세요.",
+                    verdictTitle: "💎 SILENT ACCUMULATION (침묵의 매집)",
+                    verdictDesc: "가격 하락 중 스마트 머니 강력 유입. 분할 매수 적기.",
                     isDivergent: true,
-                    score: 80
+                    score: 90
                 };
             }
             // CASE C (Full Bull): Index UP, RLSI HIGH (>70)
             else if (nq > 0.5 && score > 70) {
                 divCase = {
                     caseId: 'C',
-                    verdictTitle: "✅ FULL BULL (강력 매수)",
-                    verdictDesc: "강력한 매수 신호. 유동성과 모멘텀이 일치합니다. 비중 확대를 권장합니다.",
-                    isDivergent: false,
+                    verdictTitle: "🚀 QUANTUM LEAP (상승 폭발)",
+                    verdictDesc: "강력한 유동성 동반 상승. 수익 극대화 구간.",
+                    isDivergent: false, // Not a divergence, but a strong signal
                     score: 0
                 };
             }
@@ -117,8 +124,8 @@ export class GuardianDataHub {
             else if (nq < -0.5 && score < 30) {
                 divCase = {
                     caseId: 'D',
-                    verdictTitle: "🚨 DEEP FREEZE (대피 신호)",
-                    verdictDesc: "대피 신호. 시장의 중력이 사라졌습니다. 현금을 확보하고 관망하세요.",
+                    verdictTitle: "❄️ DEEP FREEZE (빙하기)",
+                    verdictDesc: "모멘텀 소멸. 현금 확보 필수.",
                     isDivergent: false,
                     score: 0
                 };
@@ -137,8 +144,8 @@ export class GuardianDataHub {
             } else {
                 // Standard Market: Use Dual Stream AI
                 const staticVerdict: GuardianVerdict = {
-                    title: "MARKET STABLE",
-                    description: "시장이 안정적인 흐름을 유지하고 있습니다. 섹터별 순환매를 주시하세요.",
+                    title: "SYSTEM STABLE",
+                    description: "특이 징후 없음. 섹터 순환매 감시 중.",
                     sentiment: 'NEUTRAL',
                 };
 
@@ -192,6 +199,48 @@ export class GuardianDataHub {
                 else marketStatus = 'WAIT';
             }
 
+            // === STEP 5: TRIPLE-A LOGIC (TARGET LOCK) ===
+            // Alignment / Acceleration / Accumulation
+            // 1. Regime Detection
+            let regime: 'BULL' | 'BEAR' | 'NEUTRAL' = 'NEUTRAL';
+            if (rlsi.score >= 55 && nq > 0) regime = 'BULL';
+            else if (rlsi.score <= 35 && nq < 0) regime = 'BEAR';
+
+            // 2. Alignment (Market + Sector)
+            // Is the flows target actually aligned with the market direction?
+            // If Bull, Target Sector should be Up.
+            const targetSector = flows.find(s => s.id === targetId);
+            const isSectorAligned = regime === 'BULL' && (targetSector ? targetSector.change > 0 : false);
+
+            // 3. Acceleration (RVOL > 1.2 or Vector Strength)
+            // Use Market RVOL as proxy OR Vector Torque
+            const isAccelerating = rvolNdx.rvol >= 1.2 || (vectors && vectors.length > 0 && vectors[0].strength > 25);
+
+            // 4. Accumulation (Breadth)
+            // Check top 3 constituents of target sector
+            let isAccumulating = false;
+            if (targetSector && targetSector.topConstituents && targetSector.topConstituents.length >= 3) {
+                // If 2 out of top 3 are green
+                const top3 = targetSector.topConstituents.slice(0, 3);
+                const greenCount = top3.filter(c => c.change > 0).length;
+                if (greenCount >= 2) isAccumulating = true;
+            }
+
+            // 5. 10Y Bond Filter (Safety Check)
+            // If Yield is spiking (> +2.5%), invalidate Bull Lock
+            const yieldSpike = (macro?.factors?.us10y?.chgPct || 0) > 2.5;
+
+            // FINAL LOCK DECISION
+            const isTargetLock = regime === 'BULL' && isSectorAligned && isAccelerating && isAccumulating && !yieldSpike;
+
+            const tripleA = {
+                regime,
+                alignment: isSectorAligned,
+                acceleration: isAccelerating,
+                accumulation: isAccumulating,
+                isTargetLock
+            };
+
             const context: GuardianContext = {
                 rlsi,
                 market: macro,
@@ -203,6 +252,7 @@ export class GuardianDataHub {
                 verdictTargetId: targetId,
                 marketStatus,
                 rvol: { ndx: rvolNdx, dow: rvolDow }, // NEW RVOL DATA
+                tripleA, // [V3.0] New Logic Core
                 timestamp: new Date().toISOString()
             };
 

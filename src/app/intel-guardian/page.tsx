@@ -10,6 +10,7 @@ import { TypewriterText } from "@/components/guardian/TypewriterText";
 import { RealityCheck } from "@/components/guardian/RealityCheck";
 import { useGuardian } from "@/components/guardian/GuardianProvider";
 import { VitalsPanel } from "@/components/guardian/VitalsPanel";
+import { OracleHeader } from "@/components/guardian/OracleHeader";
 
 // === TYPES ===
 interface RLSIResult {
@@ -65,6 +66,13 @@ interface GuardianContext {
         ndx: { rvol: number };
         dow: { rvol: number };
     };
+    tripleA?: {
+        regime: 'BULL' | 'BEAR' | 'NEUTRAL';
+        alignment: boolean;
+        acceleration: boolean;
+        accumulation: boolean;
+        isTargetLock: boolean;
+    };
     verdictSourceId: string | null;
     verdictTargetId: string | null;
     marketStatus: 'GO' | 'WAIT' | 'STOP';
@@ -114,12 +122,37 @@ export default function GuardianPage() {
     // Determine Movers (Use dynamic data or empty)
     const topMovers = selectedSector?.topConstituents || [];
 
+    // [V3.0] Regime Logic
+    const isTargetLocked = data?.tripleA?.isTargetLock || false;
+    const regime = data?.tripleA?.regime || 'NEUTRAL';
+    const isBullMode = regime === 'BULL';
+
+    // Dynamic Map Border
+    const mapBorderClass = isTargetLocked
+        ? "border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.3)] animate-pulse" // Locked (Gold)
+        : isBullMode
+            ? "border-emerald-500/30"
+            : "border-slate-800";
+
+
+
     return (
         <div className="min-h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-emerald-500/30">
             <LandingHeader />
 
+            {/* ORACLE HEADER (Sticky below Nav) */}
+            <div>
+                <OracleHeader
+                    nasdaq={data?.market?.nqChangePercent || 0}
+                    rlsi={data?.rlsi.score || 0}
+                    verdictTitle={verdict.title}
+                    isDivergent={data?.divergence?.isDivergent || false}
+                    timestamp={data?.timestamp || ""}
+                />
+            </div>
+
             {/* MAIN HUD CONTAINER */}
-            <main className="pt-16 pb-4 px-4 h-screen max-w-[1920px] mx-auto flex flex-col gap-4">
+            <main className="pb-4 px-4 h-[calc(100vh-110px)] max-w-[1920px] mx-auto flex flex-col gap-4 mt-4">
 
                 {/* --- TOP ROW: GAUGE | REALITY | MAP | VERDICT (GRID) --- */}
                 {/* 
@@ -140,7 +173,7 @@ export default function GuardianPage() {
                     Bot Right: Login/Force (Control Bar)
                 */}
 
-                <div className="flex-1 grid grid-cols-12 grid-rows-[auto_1fr_60px] gap-4 min-h-0">
+                <div className="flex-1 grid grid-cols-12 grid-rows-[auto_1fr_30px] gap-4 min-h-0">
 
                     {/* BLOCK A: GAUGE (Top Left - 4 cols) */}
                     <div className="col-span-12 lg:col-span-4 bg-[#0a0e14] border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col justify-center">
@@ -175,12 +208,29 @@ export default function GuardianPage() {
                     {/* ROW 2: SPLIT (MAP vs INTELLIGENCE STACK) */}
 
                     {/* LEFT: MAP (Cols 1-8) */}
-                    <div className="col-span-12 lg:col-span-8 bg-[#0a0e14] border border-slate-800 rounded-lg relative overflow-hidden group flex flex-col">
+                    <div className={`col-span-12 lg:col-span-8 bg-[#0a0e14] border rounded-lg relative overflow-hidden group flex flex-col transition-all duration-500 ${mapBorderClass}`}>
                         <div className="absolute top-6 left-6 z-10">
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block">
-                                Flow Topography Map
+                                Flow Topography Map v3.0
                             </h3>
                         </div>
+
+                        {/* [V3.0] TARGET LOCK HOLOGRAM OVERLAY */}
+                        {isTargetLocked && (
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center select-none">
+                                {/* Crosshair */}
+                                <div className="absolute w-[300px] h-[300px] border border-amber-500/20 rounded-full animate-[spin_8s_linear_infinite]" />
+                                <div className="absolute w-[200px] h-[200px] border border-dashed border-amber-500/40 rounded-full animate-[spin_4s_linear_infinite_reverse]" />
+
+                                <div className="text-5xl font-black text-amber-400 tracking-[0.2em] animate-pulse drop-shadow-[0_0_30px_rgba(245,158,11,0.8)] whitespace-nowrap">
+                                    TARGET LOCKED
+                                </div>
+                                <div className="text-xs text-amber-200 tracking-[0.8em] mt-3 uppercase font-bold bg-black/50 px-4 py-1 rounded border border-amber-500/30">
+                                    TRIPLE-A SEQUENCE ENGAGED
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex-1 relative">
                             <SmartMoneyMap
                                 sectors={(data?.sectors || []).map(s => ({
@@ -195,6 +245,7 @@ export default function GuardianPage() {
                                 sourceId={data?.verdictSourceId}
                                 targetId={data?.verdictTargetId}
                                 onSectorSelect={setSelectedSectorId}
+                                isBullMode={isBullMode}
                             />
                         </div>
                     </div>
@@ -223,32 +274,27 @@ export default function GuardianPage() {
                             {/* COMPACT METRICS */}
                             <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-2 gap-4">
                                 <div>
-                                    <div className="text-[9px] text-slate-500 font-bold mb-0.5 tracking-wider">MOMENTUM</div>
+                                    <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">MOMENTUM</div>
                                     <div className="text-sm font-mono font-bold text-emerald-400">
                                         {((data?.rlsi.components.momentumRaw || 1) - 1) * 100 > 0 ? "+" : ""}
                                         {(((data?.rlsi.components.momentumRaw || 1) - 1) * 100).toFixed(1)}%
                                     </div>
-                                    <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">3-DAY MARKET VELOCITY</div>
-                                    <div className="text-[9px] text-slate-400 font-medium opacity-80">최근 3일 시장 가속도</div>
+                                    <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">3-DAY VELOCITY</div>
                                 </div>
                                 <div>
-                                    <div className="text-[9px] text-slate-500 font-bold mb-0.5 tracking-wider">VIX</div>
-                                    <div className="text-sm font-mono font-bold text-slate-300">
-                                        {(data?.rlsi.components.vix || 0).toFixed(2)}
+                                    <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">TARGET LOCK</div>
+                                    <div className={`text-sm font-mono font-bold ${data?.tripleA?.isTargetLock ? "text-amber-400 animate-pulse" : "text-white"}`}>
+                                        {data?.tripleA?.isTargetLock ? "LOCKED" : "SEARCHING"}
                                     </div>
-                                    <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">VOLATILITY INDEX</div>
-                                    <div className="text-[9px] text-slate-400 font-medium opacity-80">
-                                        시장 변동성 (공포지수) :: <span className={
-                                            (data?.rlsi.components.vix || 0) < 15 ? "text-emerald-400" :
-                                                (data?.rlsi.components.vix || 0) < 20 ? "text-blue-400" :
-                                                    (data?.rlsi.components.vix || 0) < 30 ? "text-amber-400" : "text-rose-500"
-                                        }>
-                                            {
-                                                (data?.rlsi.components.vix || 0) < 15 ? "LOW (안정)" :
-                                                    (data?.rlsi.components.vix || 0) < 20 ? "MODERATE (보통)" :
-                                                        (data?.rlsi.components.vix || 0) < 30 ? "HIGH (높음)" : "EXTREME (공포)"
-                                            }
-                                        </span>
+                                    <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">
+                                        {data?.tripleA?.regime || "NEUTRAL"} REGIME
+                                    </div>
+                                    <div className={`text-[8px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
+                                        data?.tripleA?.regime === 'BEAR' ? "text-rose-400" : "text-white"
+                                        }`}>
+                                        {data?.tripleA?.regime === 'BULL' ? "강세장 진입 :: 적극 매수 (Alpha Seek)" :
+                                            data?.tripleA?.regime === 'BEAR' ? "약세장 진입 :: 보수적 운용 (Defense)" :
+                                                "방향성 부재 :: 관망 권장 (Wait)"}
                                     </div>
                                 </div>
                             </div>
@@ -314,27 +360,19 @@ export default function GuardianPage() {
 
                     </div>
 
-                    {/* ROW 3: CONTROLS (Footer) */}
-                    <div className="col-span-12 bg-[#0a0e14] border border-slate-800 rounded-lg px-6 flex items-center justify-between shadow-2xl">
-                        <div className="flex gap-4 items-center">
-                            <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
-                                <Radio className="w-3 h-3 text-emerald-500 animate-pulse" />
-                                LIVE STREAM CONNECTED
+                    {/* ROW 3: HEX FOOTER (Replaces Controls) */}
+                    <div className="col-span-12 bg-[#0a0e14] border border-slate-800 rounded-lg h-[30px] flex items-center relative overflow-hidden shadow-2xl opacity-80">
+                        {/* HEX BACKGROUND AUTOMATION */}
+                        <div className="absolute inset-0 flex items-center gap-2 opacity-20 overflow-hidden">
+                            <div className="animate-slide-left whitespace-nowrap font-mono text-[9px] text-emerald-800">
+                                {Array(50).fill("0x2F 0xA4 0x1B . . . STREAMING . . . ").join("")}
                             </div>
                         </div>
-                        <div className="flex gap-2 py-2">
-                            <button className="px-6 py-2 rounded bg-slate-900 border border-slate-700 text-[10px] font-bold text-slate-400 hover:text-white hover:border-emerald-500 transition-all flex items-center gap-2">
-                                &gt;&gt; ACCESS_LOGS
-                            </button>
-                            <button
-                                onClick={() => refresh(true)}
-                                disabled={loading}
-                                className="px-6 py-2 rounded bg-emerald-950/50 border border-emerald-500/50 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-2 uppercase tracking-wider shadow-[0_0_15px_rgba(16,185,129,0.2)]"
-                            >
-                                <Zap className="w-3 h-3" />
-                                {loading ? "SCANNING..." : "FORCE INTELLIGENCE"}
-                            </button>
+                        <div className="w-full text-center relative z-10">
+                            <span className="text-[9px] font-black tracking-[0.5em] text-slate-600 animate-pulse">SYSTEM CORE PROCESSING...</span>
                         </div>
+                        {/* INVISIBLE CLICK AREA FOR DEBUG (Hidden Easter Egg?) */}
+                        <div className="absolute top-0 right-0 w-10 h-full cursor-help" onClick={() => refresh(true)} title="Force Refresh"></div>
                     </div>
 
                 </div>

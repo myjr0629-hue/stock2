@@ -40,6 +40,7 @@ const SECTOR_MAP: Record<string, { name: string; tickers: string[] }> = {
     XLP: { name: "필수소비재", tickers: ["PG", "COST", "WMT", "KO", "PEP"] },
     XLRE: { name: "부동산", tickers: ["PLD", "AMT", "EQIX", "CCI", "PSA"] },
     XLU: { name: "유틸리티", tickers: ["NEE", "SO", "DUK", "CEG", "AEP"] },
+    AI_PWR: { name: "AI 전력망", tickers: ["VST", "CEG", "VRT", "ETN", "PWR"] }, // New Synthetic Sector
 };
 
 // === ENGINE ===
