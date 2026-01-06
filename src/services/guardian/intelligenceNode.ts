@@ -48,102 +48,137 @@ interface IntelligenceContext {
     vix: number;
 }
 
-// === VERDICT CACHE (Prevents 429 Rate Limiting) ===
-let _cachedVerdict: string | null = null;
-let _cachedVerdictTime: number = 0;
-const VERDICT_CACHE_TTL_MS = 2 * 60 * 1000; // 2 minutes (strict)
+// === INTELLIGENCE CACHE SYSTEM ===
+// Rotation: Fast-moving (2 mins)
+let _cachedRotation: string | null = null;
+let _lastRotationTime = 0;
+const ROTATION_TTL = 2 * 60 * 1000;
+
+// Reality: Slow-moving Deep Insight (10 mins)
+let _cachedReality: string | null = null;
+let _lastRealityTime = 0;
+const REALITY_TTL = 10 * 60 * 1000;
 
 export class IntelligenceNode {
 
     /**
-     * Generate a ruthless, professional tactical verdict.
-     * Model Locked: gemini-2.5-flash (Supported by New SDK)
-     * NOTE: This method has a 2-minute cache to prevent API rate limiting.
+     * [PART 1] TACTICAL ROTATION (Sidebar)
+     * Focus: Sector Rotation & Money Flow.
      */
-    static async generateVerdict(ctx: IntelligenceContext): Promise<string> {
-        // === CACHE CHECK (Priority) ===
+    static async generateRotationInsight(ctx: IntelligenceContext): Promise<string> {
+        // Cache Check
         const now = Date.now();
-        if (_cachedVerdict && (now - _cachedVerdictTime < VERDICT_CACHE_TTL_MS)) {
-            console.log("[IntelligenceNode] Returning CACHED Verdict (TTL Active).");
-            return _cachedVerdict;
+        if (_cachedRotation && (now - _lastRotationTime < ROTATION_TTL)) {
+            return _cachedRotation;
         }
-        // API Key check (User provided key: AIza... starts with AIza, length check)
+
         const apiKey = getApiKey();
-        if (!apiKey) return "SYSTEM_OFFLINE: INTELLIGENCE MODULE DISCONNECTED (NO API KEY).";
+        if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
 
         const vectorDesc = ctx.vectors.length > 0
-            ? ctx.vectors.slice(0, 2).map(v => `${v.source}->${v.target}(${v.strength}%)`).join(", ")
-            : "No significant flow";
+            ? ctx.vectors.slice(0, 3).map(v => `${v.source}->${v.target}`).join(", ")
+            : "No significant rotation";
 
         const prompt = `
-        ACT AS A VETERAN MARKET STRATEGIST EXPLAINING TO A WEALTHY CLIENT.
-        BE INSIGHTFUL BUT CLEAR. AVOID CRYPTIC JARGON.
-
-        ANALYZE THIS MARKET SNAPSHOT:
-        1. Internal Health (RLSI): ${ctx.rlsiScore.toFixed(0)}/100 (0=CRASH, 100=EUPHORIA).
-        2. External Price (NASDAQ): ${ctx.nasdaqChange.toFixed(2)}%.
-        3. REALITY CHECK (RVOL): ${ctx.rvol.toFixed(2)}x.
-           - Note: If RVOL is near 0.00x, it implies 'Data Unavailable' or 'Pre-market', DO NOT over-interpret as 'apathy'.
-           - RVOL > 1.5: Strong Conviction.
-        4. SMART MONEY FLOW (VECTORS): [${vectorDesc}].
-           - Convert Sector Codes to Names (e.g., XLK -> Tech, XLF -> Financials).
-        5. FEAR (VIX): ${ctx.vix}.
-
-        INSIGHT PROTOCOL:
-        - LOOK FOR DIVERGENCES: Is the Index UP but RVOL LOW? -> "Fake Rally".
-        - IS MONEY MOVING? If Index is flat but Vectors are strong -> "Sector Rotation".
-        - IF RLSI is < 30 but RVOL > 1.2 -> "Smart money is bottom fishing".
+        ACT AS A VETERAN HEDGE FUND TRADER.
+        ANALYZE SECTOR ROTATION & MONEY FLOW ONLY.
         
-        OUTPUT FORMAT:
-        - A single, clear, high-impact sentence.
-        - **TONE**: Professional, Sharp, but Easy to Understand. (Avoid 'translated' feel).
-        - **LANGUAGE**: Natural Korean. (e.g., "표면적인 지수 상승에 속지 마십시오. 거래량이 받쳐주지 않는 상승은..." instead of "면적인...").
-        - **CONTENT**: If citing sectors, use Korean names (금융, 기술 등).
+        MARKET DATA:
+        - NASDAQ CHANGE: ${ctx.nasdaqChange.toFixed(2)}%
+        - FLOW VECTORS: [${vectorDesc}]
+        - VIX: ${ctx.vix}
+
+        TASK:
+        Describe WHERE the money is moving. Is it rotating into defensives? Is it chasing Tech?
+        
+        CRITICAL OUTPUT RULES:
+        1. **NO TICKER SYMBOLS**: DO NOT use codes like XLK, XLU, XLV, XLI.
+        2. **USE KOREAN NAMES**: Must use '기술주', '유틸리티', '헬스케어', '금융', '산업재' instead.
+        3. Lang: Korean (Professional, Traders Talk).
+        4. Detail: 2-3 sentences. Be specific about the flow direction.
+        5. Tone: Fast, Observational, Tactical.
         `;
 
-        // Retry Logic for Rate Limits (429) - 3 Attempts
+        const result = await this.callGemini(prompt, "ROTATION");
+        if (result && !result.includes("failed")) {
+            _cachedRotation = result;
+            _lastRotationTime = Date.now();
+        }
+        return result;
+    }
+
+    /**
+     * [PART 2] REALITY CHECK (Center)
+     * Focus: RLSI vs Price (Market Essence).
+     */
+    static async generateRealityInsight(ctx: IntelligenceContext): Promise<string> {
+        // Cache Check
+        const now = Date.now();
+        if (_cachedReality && (now - _lastRealityTime < REALITY_TTL)) {
+            return _cachedReality;
+        }
+
+        const apiKey = getApiKey();
+        if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
+
+        const prompt = `
+        ACT AS A MARKET PHILOSOPHER & STRATEGIST.
+        ANALYZE THE "TRUTH" OF THE CURRENT MOVE.
+
+        MARKET DATA:
+        - RLSI (Internal Strength): ${ctx.rlsiScore.toFixed(0)}/100 (0=Weak, 100=Strong).
+        - PRICE (External Move): ${ctx.nasdaqChange.toFixed(2)}%
+        - RVOL (Conviction): ${ctx.rvol.toFixed(2)}x (1.0 = Avg, >1.5 = Strong).
+        
+        TASK:
+        Compare Price vs RLSI.
+        - If Price is UP but RLSI is LOW (<45): Warn about a "Empty Rally" (Fake).
+        - If Price is DOWN but RLSI is HIGH (>55): Hint at "Hidden Strength" (Opportunity).
+        - If Both align: Confirm "Healthy Trends".
+        
+        OUTPUT RULES:
+        - Lang: Korean (Profound, Insightful).
+        - Detail: 2-3 sentences. Explain WHY this is happening.
+        - Tone: Decisive, Clear, Penetrating. (Avoid vague philosophy).
+        - Directness: Be explicit about whether the move is Real or Fake.
+        `;
+
+        const result = await this.callGemini(prompt, "REALITY");
+        if (result && !result.includes("failed")) {
+            _cachedReality = result;
+            _lastRealityTime = Date.now();
+        }
+        return result;
+    }
+
+    // Shared Helper for API Calls
+    private static async callGemini(prompt: string, cacheKeySuffix: string): Promise<string> {
+        // Simple Memory Cache (Map)
+        // Note: In serverless, static props persist per instance.
+        // We'll use a global var pattern if needed, but simple separate cache keys are fine.
+
+        // Retry Logic
         let attempts = 0;
         const maxAttempts = 3;
 
         while (attempts < maxAttempts) {
             try {
                 attempts++;
-                // STRICT: gemini-2.5-flash using New SDK
                 const result = await genAI.models.generateContent({
                     model: "gemini-2.5-flash",
                     contents: prompt,
                 });
-
-                // New SDK response structure
-                console.log("[DEBUG] GenAI Result Keys:", Object.keys(result));
-                const generatedText = result.text || "";
-
-                // === CACHE UPDATE (Only cache valid responses) ===
-                if (generatedText && generatedText.length > 20 && !generatedText.includes("System Busy")) {
-                    _cachedVerdict = generatedText;
-                    _cachedVerdictTime = Date.now();
-                    console.log("[IntelligenceNode] Verdict CACHED for 2 minutes.");
+                const text = result.text || "";
+                if (text.length > 10 && !text.includes("System Busy")) {
+                    return text.trim();
                 }
-
-                return generatedText || "Market Data processed.";
             } catch (e: any) {
-                console.error(`[IntelligenceNode] Attempt ${attempts} Failed (Model: 2.5-flash):`, e.message);
-
-                // If 429 or 503, wait and retry
                 if ((e.status === 429 || e.status === 503) && attempts < maxAttempts) {
-                    const delay = Math.pow(2, attempts) * 1000; // 2s, 4s, 8s...
-                    console.warn(`[IntelligenceNode] Rate Limited. Retrying in ${delay}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
+                    await new Promise(r => setTimeout(r, 2000 * attempts));
                     continue;
-                }
-
-                // If not retryable or max attempts reached, check if we should fallback?
-                // For now, return friendly error.
-                if (attempts === maxAttempts) {
-                    return `System Busy: High Intelligence Traffic. (Code: ${e.status || 'ERR'})`;
                 }
             }
         }
-        return "Market Data processed. Maintain discipline.";
+        return "Insight generation failed. Market unstable.";
     }
 }

@@ -3,7 +3,7 @@
 
 import React, { useMemo, useState, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Html, QuadraticBezierLine, Edges } from "@react-three/drei";
+import { OrbitControls, Html, QuadraticBezierLine, Edges, Text } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { FlowParticle } from "./FlowParticle";
@@ -62,10 +62,10 @@ function SectorBlock({ data, position, onClick, isSource, isTarget }: {
     const meshRef = useRef<THREE.Mesh>(null);
     const [hovered, setHovered] = useState(false);
 
-    // Dynamic Height scaling
+    // Height scaling - Reduced for 'Platform' look
     const targetScaleY = hovered
-        ? Math.max(0.4, data.height * 4.0)
-        : Math.max(0.3, data.height * 3.0);
+        ? Math.max(0.4, data.height * 2.5)
+        : Math.max(0.3, data.height * 2.0);
 
     const baseColor = useMemo(() => new THREE.Color(data.color), [data.color]);
 
@@ -77,6 +77,18 @@ function SectorBlock({ data, position, onClick, isSource, isTarget }: {
 
     return (
         <group position={position}>
+            {/* 1. LAYERED BASE PLATFORM (Simulation of steps) - DARKER, MORE INDUSTRIAL */}
+            <mesh position={[0, 0.05, 0]}>
+                <boxGeometry args={[1.8, 0.1, 1.8]} />
+                <meshStandardMaterial color="#0f172a" transparent opacity={0.8} roughness={0.5} metalness={0.8} />
+                <Edges color={data.color} threshold={15} opacity={0.2} transparent />
+            </mesh>
+            <mesh position={[0, 0.02, 0]}>
+                <boxGeometry args={[2.0, 0.05, 2.0]} />
+                <meshStandardMaterial color={data.color} transparent opacity={0.05} />
+            </mesh>
+
+            {/* 2. MAIN DATA BLOCK (Holographic Crystal) */}
             <mesh
                 ref={meshRef}
                 onClick={(e) => { e.stopPropagation(); onClick(data); }}
@@ -84,97 +96,140 @@ function SectorBlock({ data, position, onClick, isSource, isTarget }: {
                 onPointerOut={(e) => { e.stopPropagation(); setHovered(false); document.body.style.cursor = 'auto'; }}
             >
                 <boxGeometry args={[1.5, 1, 1.5]} />
-                {/* CRYSTAL MATERIAL (Institutional Glass - Low Glare) */}
                 <meshPhysicalMaterial
                     color={baseColor}
                     emissive={baseColor}
                     emissiveIntensity={hovered ? 0.4 : 0.1}
-                    transmission={0.9} // Glass
-                    opacity={1}
-                    metalness={0.2} // More metallic
-                    roughness={0.1} // Slightly less perfect for realism
-                    ior={1.5}
+                    transmission={0.4}
+                    opacity={0.9}
+                    metalness={0.8}
+                    roughness={0.2}
+                    ior={1.2}
                     thickness={2.0}
                     clearcoat={1.0}
                     attenuationColor={baseColor}
-                    attenuationDistance={2.0}
+                    attenuationDistance={1.0}
                 />
 
-                {/* INNER GLOW (Fake Volumetric) */}
+                <Edges
+                    linewidth={1}
+                    threshold={15}
+                    color={hovered ? "white" : data.color}
+                />
+
+                {/* Inner Volumetric Glow */}
                 {(isSource || isTarget) && (
-                    <mesh position={[0, 0, 0]} scale={[0.8, 0.8, 0.8]}>
+                    <mesh scale={[0.9, 0.9, 0.9]}>
                         <boxGeometry args={[1.5, 1, 1.5]} />
-                        <meshBasicMaterial
-                            color={isSource ? "#f43f5e" : "#10b981"}
-                            transparent
-                            opacity={0.5}
-                        />
+                        <meshBasicMaterial color={baseColor} transparent opacity={0.2} side={THREE.DoubleSide} />
                     </mesh>
                 )}
             </mesh>
 
-            {/* LASER ETCHED LABEL (On top) */}
-            <Html position={[0, 1.1 + (hovered ? 0.5 : 0), 0]} center pointerEvents="none">
-                <div className={`px-2 py-1 rounded border ${hovered ? 'bg-black/80 border-white' : 'bg-black/40 border-white/20'} backdrop-blur-md transition-all flex flex-col items-center min-w-[80px]`}>
-                    <div className="text-[10px] font-black tracking-widest text-slate-200 whitespace-nowrap uppercase">
+            {/* 3. VERTICAL HUD PANEL (Glass Billboard) - TALLER & CLEANER */}
+            <group position={[0, 3.5, 0]}> {/* Raised Higher */}
+                {/* Glass Pane */}
+                <mesh position={[0, 0, 0]}>
+                    <planeGeometry args={[2.2, 1.5]} />
+                    <meshPhysicalMaterial
+                        color={baseColor}
+                        transmission={0.9}
+                        opacity={0.2}
+                        roughness={0}
+                        metalness={0.2}
+                        side={THREE.DoubleSide}
+                        transparent
+                        emissive={baseColor}
+                        emissiveIntensity={0.05}
+                    />
+                    <Edges color={data.color} threshold={1} opacity={0.5} />
+                </mesh>
+
+                {/* 3D Text Labels (Front Only for clarity) */}
+                <group position={[0, 0, 0.05]}>
+                    <Text
+                        color="white"
+                        fontSize={0.25}
+                        font="https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff"
+                        anchorX="center"
+                        anchorY="middle"
+                        position={[0, 0.3, 0]}
+                    >
                         {data.name}
-                    </div>
-                </div>
-            </Html>
+                        <meshBasicMaterial toneMapped={false} />
+                    </Text>
+                    <Text
+                        color={data.density > 0 ? "#34d399" : "#f43f5e"}
+                        fontSize={0.4}
+                        anchorX="center"
+                        anchorY="middle"
+                        position={[0, -0.2, 0]}
+                        font="https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff"
+                    >
+                        {data.density > 0 ? "+" : "-"}{(Math.abs(data.density) / 10).toFixed(1)}%
+                        <meshBasicMaterial toneMapped={false} />
+                    </Text>
+                </group>
+
+                {/* Connection Line to Base (Laser Beam) */}
+                <mesh position={[0, -2.0, 0]}>
+                    <cylinderGeometry args={[0.01, 0.01, 2.5]} />
+                    <meshBasicMaterial color={data.color} opacity={0.6} transparent />
+                </mesh>
+            </group>
         </group>
     );
 }
 
-// === MAIN FLOW VECTOR (SOLID GLASS + PULSE) ===
+// === MAIN FLOW VECTOR (HD Electric Arc) ===
 function MainFlowArrow({ start, end, strength = 10 }: { start: THREE.Vector3, end: THREE.Vector3, strength?: number }) {
-    // Draw a high, distinct arc
     const mid = start.clone().lerp(end, 0.5);
-    mid.y += 5.0; // Higher arch
+    mid.y += 5.0; // Higher Arc for lower camera
+
+    // Adjust start/end to top of the glass panels (approx Y=3) or centers (Y=2.5) to mimic image connecting PANELS
+    // The image shows arcs connecting the BLOCKS, but swirling high.
+    // Let's keep block-to-block for clarity but high arc.
 
     const curve = useMemo(() => new THREE.QuadraticBezierCurve3(start, mid, end), [start, end, mid]);
-
-    // Calculate End Tangent for Arrow Head Orientation
     const endTangent = useMemo(() => curve.getTangent(1).normalize(), [curve]);
     const arrowHeadPos = end.clone();
-
-    // Target calculation: Position + Tangent is where we look at
     const lookAtTarget = arrowHeadPos.clone().add(endTangent);
 
-    // Dynamic Styles - Less Neon, More Solid
-    const thickness = Math.min(5, 2 + (strength / 20));
-    const speed = Math.min(1.0, 0.2 + (strength / 100));
+    // Thinner, sharper lines for "Electric" feel
+    const thickness = Math.min(2, 0.5 + (strength / 40));
+    const speed = Math.min(1.5, 0.4 + (strength / 80));
 
     return (
         <group>
-            {/* The Path Tube (Solid Core) */}
-            <QuadraticBezierLine
-                start={start}
-                end={end}
-                mid={mid}
-                color="#10b981"
-                lineWidth={thickness}
-                dashed={false}
-                transparent
-                opacity={0.8} // Slightly transparent glass look
-            />
-
-            {/* Subtle Reflection (replaces Glow) */}
+            {/* Core Energy Line (White Hot) */}
             <QuadraticBezierLine
                 start={start}
                 end={end}
                 mid={mid}
                 color="#ffffff"
-                lineWidth={1}
-                opacity={0.3}
+                lineWidth={thickness * 0.5}
+                dashed={false}
                 transparent
+                opacity={1}
             />
 
-            {/* Flow Particles (Dynamic Speed) */}
-            <FlowParticle curve={curve} delay={0} speed={speed} />
-            <FlowParticle curve={curve} delay={0.6 * (1 / speed)} speed={speed} />
-            <FlowParticle curve={curve} delay={1.2 * (1 / speed)} speed={speed} />
+            {/* Outer Glow Halo (Green) */}
+            <QuadraticBezierLine
+                start={start}
+                end={end}
+                mid={mid}
+                color="#10b981"
+                lineWidth={thickness * 4}
+                dashed={false}
+                transparent
+                opacity={0.2}
+            />
 
-            {/* Fixed Arrow Head at Destination with explicit orientation */}
+            {/* Fast Data Particles */}
+            <FlowParticle curve={curve} delay={0} speed={speed} size={1.2} />
+            <FlowParticle curve={curve} delay={0.4 / speed} speed={speed} size={0.8} />
+            <FlowParticle curve={curve} delay={0.8 / speed} speed={speed} size={1.0} />
+
             <ArrowHead position={arrowHeadPos} lookAtTarget={lookAtTarget} />
         </group>
     );
@@ -182,21 +237,20 @@ function MainFlowArrow({ start, end, strength = 10 }: { start: THREE.Vector3, en
 
 function ArrowHead({ position, lookAtTarget }: { position: THREE.Vector3, lookAtTarget: THREE.Vector3 }) {
     const meshRef = useRef<THREE.Mesh>(null);
-
     useFrame(() => {
         if (meshRef.current) {
             meshRef.current.lookAt(lookAtTarget);
-            // Cone Geometry points UP (Y+). 
-            // lookAt points Z+ towards target.
-            // Rotating X by 90 degrees (PI/2) maps Y+ to Z+.
             meshRef.current.rotateX(Math.PI / 2);
         }
     });
-
     return (
         <mesh ref={meshRef} position={position}>
-            <coneGeometry args={[0.5, 1.5, 16]} />
-            <meshStandardMaterial color="#00ff94" emissive="#00ff94" emissiveIntensity={2} toneMapped={false} />
+            <coneGeometry args={[0.3, 1.0, 16]} />
+            <meshBasicMaterial color="#ffffff" />
+            <mesh scale={[1.2, 1.2, 1.2]}>
+                <coneGeometry args={[0.3, 1.0, 16]} />
+                <meshBasicMaterial color="#10b981" transparent opacity={0.4} />
+            </mesh>
         </mesh>
     );
 }
@@ -213,8 +267,8 @@ function SceneContent({ sectors, onSectorClick, sourceId, targetId, vectors }: {
         return sectors.map(s => {
             const coords = SECTOR_GRID_MAP[s.id];
             if (!coords) return null;
-            const x = (coords[1] * 2.5) - 3.75;
-            const z = (coords[0] * 2.5) - 2.5;
+            const x = (coords[1] * 3.0) - 4.5; // Wider spacing
+            const z = (coords[0] * 3.0) - 3.0; // Wider spacing
             return { ...s, pos: [x, 0, z] as [number, number, number] };
         }).filter(Boolean) as SectorData[];
     }, [sectors]);
@@ -254,8 +308,10 @@ function SceneContent({ sectors, onSectorClick, sourceId, targetId, vectors }: {
 
     return (
         <>
-            <ambientLight intensity={0.2} />
-            <pointLight position={[10, 20, 10]} intensity={1.5} color="#ffffff" />
+            <ambientLight intensity={0.1} />
+            <pointLight position={[0, 20, 0]} intensity={1.0} color="#ffffff" />
+            <spotLight position={[10, 20, 10]} angle={0.3} penumbra={1} intensity={2} color="#4ade80" />
+            <spotLight position={[-10, 20, -10]} angle={0.3} penumbra={1} intensity={2} color="#60a5fa" />
 
             {/* BLOCKS */}
             {gridSectors.map((s) => (
@@ -274,11 +330,11 @@ function SceneContent({ sectors, onSectorClick, sourceId, targetId, vectors }: {
                 <MainFlowArrow key={`flow-arrow-${index}`} start={arrow.start} end={arrow.end} strength={arrow.strength} />
             ))}
 
-            {/* BASE GRID */}
-            <gridHelper args={[30, 30, 0x334155, 0x0f172a]} position={[0, -0.05, 0]} />
+            {/* BASE GRID - Darker, Technical */}
+            <gridHelper args={[60, 60, 0x1e293b, 0x020617]} position={[0, -0.05, 0]} />
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
-                <planeGeometry args={[100, 100]} />
-                <meshStandardMaterial color="#020617" roughness={0.1} metalness={0.8} />
+                <planeGeometry args={[200, 200]} />
+                <meshStandardMaterial color="#000000" roughness={0.1} metalness={0.9} />
             </mesh>
         </>
     );
@@ -298,7 +354,10 @@ export default function SmartMoneyMap({ sectors = MOCK_SECTORS, vectors, sourceI
 
     return (
         <div className="w-full h-full relative cursor-move">
-            <Canvas shadows camera={{ position: [0, 8, 12], fov: 40 }}>
+            <Canvas shadows camera={{ position: [0, 6, 16], fov: 35 }}>
+                <color attach="background" args={['#020617']} />
+                <fog attach="fog" args={['#020617', 10, 40]} />
+
                 {/* 3D SCENE CONTENT */}
                 <SceneContent
                     sectors={sectors}
@@ -311,15 +370,16 @@ export default function SmartMoneyMap({ sectors = MOCK_SECTORS, vectors, sourceI
                 <OrbitControls
                     makeDefault
                     minPolarAngle={0}
-                    maxPolarAngle={Math.PI / 2.2}
-                    maxDistance={25}
+                    maxPolarAngle={Math.PI / 2.1}
+                    maxDistance={30}
                     minDistance={5}
+                    target={[0, 0, 0]}
+                    enablePan={true}
                 />
 
                 <EffectComposer>
-                    {/* REDUCED NEON: Subtle Bloom only for high-energy elements */}
-                    <Bloom luminanceThreshold={0.8} luminanceSmoothing={0.5} height={300} intensity={0.2} />
-                    <Vignette eskil={false} offset={0.1} darkness={0.4} />
+                    <Bloom luminanceThreshold={0.5} luminanceSmoothing={0.9} height={300} intensity={0.5} />
+                    <Vignette eskil={false} offset={0.1} darkness={0.6} />
                 </EffectComposer>
             </Canvas>
         </div>

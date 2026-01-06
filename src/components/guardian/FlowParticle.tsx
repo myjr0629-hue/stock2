@@ -6,9 +6,10 @@ interface FlowParticleProps {
     curve: THREE.QuadraticBezierCurve3;
     delay: number;
     speed?: number;
+    size?: number;
 }
 
-export function FlowParticle({ curve, delay, speed = 0.3 }: FlowParticleProps) {
+export function FlowParticle({ curve, delay, speed = 0.3, size = 1.0 }: FlowParticleProps) {
     const meshRef = useRef<THREE.Mesh>(null);
     const progressRef = useRef(0);
 
@@ -24,6 +25,9 @@ export function FlowParticle({ curve, delay, speed = 0.3 }: FlowParticleProps) {
         // Get position on curve
         const position = curve.getPoint(progressRef.current);
         meshRef.current.position.copy(position);
+
+        // Scale based on size
+        meshRef.current.scale.set(size, size, size);
 
         // Fade in/out at start/end
         const material = meshRef.current.material as THREE.MeshStandardMaterial;

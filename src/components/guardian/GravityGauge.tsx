@@ -1,7 +1,5 @@
-"use client";
-
-import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import React, { useEffect, useState } from "react";
+import { Activity } from "lucide-react";
 
 interface GravityGaugeProps {
     score: number;
@@ -9,118 +7,139 @@ interface GravityGaugeProps {
 }
 
 export default function GravityGauge({ score, loading }: GravityGaugeProps) {
-    const [displayScore, setDisplayScore] = useState(0);
+    const [animatedScore, setAnimatedScore] = useState(0);
 
     useEffect(() => {
-        if (loading) return;
-        setDisplayScore(score);
-    }, [score, loading]);
+        const timer = setTimeout(() => setAnimatedScore(score), 100);
+        return () => clearTimeout(timer);
+    }, [score]);
 
-    // Calculate rotation: 0 score = -90deg, 100 score = +90deg
-    const rotation = (displayScore / 100) * 180 - 90;
+    // Calculate Gauge Parameters
+    // Scale reduced: Radius 60
+    const radius = 60;
+    const stroke = 8;
+    const normalizedScore = Math.min(Math.max(animatedScore, 0), 100);
+    const circumference = 2 * Math.PI * radius;
+    // Semi-circle (180 deg) = circumference / 2
+    const maxOffset = circumference / 2;
+    const offset = maxOffset - (normalizedScore / 100) * maxOffset;
 
-    // Status & Directive Logic
-    const getStatus = (s: number) => {
-        if (s >= 75) return {
-            text: "OPTIMAL",
-            directive: "DEPLOY CAPITAL",
-            color: "text-emerald-400",
-            border: "border-emerald-500/30",
-            bg: "bg-emerald-500/10"
-        };
-        if (s >= 50) return {
-            text: "STABLE",
-            directive: "ACCUMULATE",
-            color: "text-cyan-400",
-            border: "border-cyan-500/30",
-            bg: "bg-cyan-500/10"
-        };
-        if (s >= 25) return {
-            text: "CAUTION",
-            directive: "HEDGE POSITIONS",
-            color: "text-amber-400",
-            border: "border-amber-500/30",
-            bg: "bg-amber-500/10"
-        };
-        return {
-            text: "CRITICAL",
-            directive: "SECURE CASH",
-            color: "text-rose-500",
-            border: "border-rose-500/30",
-            bg: "bg-rose-500/10"
-        };
-    };
-
-    const status = getStatus(displayScore);
+    // Determine Status
+    let statusText = "NEUTRAL";
+    let statusColor = "#94a3b8"; // slate-400
+    if (normalizedScore >= 80) { statusText = "OVERHEATED"; statusColor = "#f43f5e"; } // rose-500
+    else if (normalizedScore >= 60) { statusText = "BULLISH"; statusColor = "#34d399"; } // emerald-400
+    else if (normalizedScore <= 20) { statusText = "OVERSOLD"; statusColor = "#f43f5e"; }
+    else if (normalizedScore <= 40) { statusText = "BEARISH"; statusColor = "#60a5fa"; } // blue-400
 
     return (
-        <div className="relative w-full aspect-[2/1] flex flex-col items-center justify-end">
+        <div className="flex flex-col items-center justify-center p-4 h-full relative">
+            {/* Header */}
+            <div className="absolute top-4 left-6 flex items-center gap-2">
+                <Activity className="w-3 h-3 text-white opacity-70" />
+                <span className="text-[10px] uppercase tracking-[0.2em] text-white font-bold opacity-70">Gravity Gauge</span>
+            </div>
 
-            {/* BACKGROUND ARC (Clean HUD) */}
-            <div className="absolute bottom-0 w-full h-[200%] overflow-hidden opacity-30">
-                <div className="w-full h-full rounded-full border-[1.5rem] border-slate-800 relative"
-                    style={{ clipPath: 'polygon(0 50%, 100% 50%, 100% 100%, 0 100%)' }}>
+            {/* Main Gauge Container */}
+            <div className="relative mt-2">
+                <svg width="200" height="120" viewBox="0 0 200 120" className="overflow-visible">
+                    {/* Defs for Gradients */}
+                    <defs>
+                        <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stopColor="#60a5fa" />   {/* Blue (Low) */}
+                            <stop offset="50%" stopColor="#34d399" />  {/* Green (Mid) */}
+                            <stop offset="100%" stopColor="#f43f5e" /> {/* Red (High) */}
+                        </linearGradient>
+                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+                            <feMerge>
+                                <feMergeNode in="coloredBlur" />
+                                <feMergeNode in="SourceGraphic" />
+                            </feMerge>
+                        </filter>
+                    </defs>
+
+                    {/* TICK MARKS (Speedometer Style) */}
+                    {Array.from({ length: 31 }).map((_, i) => {
+                        const angle = Math.PI - (i / 30) * Math.PI; // 180 to 0 degrees
+                        const cx = 100;
+                        const cy = 100;
+                        const rInner = 68; // Start of tick
+                        const rOuter = i % 5 === 0 ? 76 : 72; // Major/Minor ticks
+
+                        const x1 = cx + rInner * Math.cos(angle);
+                        const y1 = cy - rInner * Math.sin(angle); // Y grows down, so minus sin
+                        const x2 = cx + rOuter * Math.cos(angle);
+                        const y2 = cy - rOuter * Math.sin(angle);
+
+                        return (
+                            <line
+                                key={i}
+                                x1={x1.toFixed(2)} y1={y1.toFixed(2)}
+                                x2={x2.toFixed(2)} y2={y2.toFixed(2)}
+                                stroke={i % 5 === 0 ? "#475569" : "#1e293b"}
+                                strokeWidth={i % 5 === 0 ? 2 : 1}
+                            />
+                        );
+                    })}
+
+                    {/* Background Track */}
+                    <path
+                        d={`M 40 100 A ${radius} ${radius} 0 0 1 160 100`}
+                        fill="none"
+                        stroke="#1e293b"
+                        strokeWidth={stroke}
+                        strokeLinecap="round"
+                    />
+
+                    {/* Active Arc */}
+                    <path
+                        d={`M 40 100 A ${radius} ${radius} 0 0 1 160 100`}
+                        fill="none"
+                        stroke="url(#gaugeGradient)"
+                        strokeWidth={stroke}
+                        strokeLinecap="round"
+                        strokeDasharray={maxOffset}
+                        strokeDashoffset={offset}
+                        className="transition-all duration-1000 ease-out"
+                        filter="url(#glow)"
+                        opacity={loading ? 0.3 : 1}
+                    />
+                </svg>
+
+                {/* Central Score Display */}
+                <div className="absolute bottom-0 left-0 right-0 top-10 flex flex-col items-center justify-end pb-3">
+                    <span className="text-4xl font-mono font-bold tracking-tighter text-white drop-shadow-lg">
+                        {loading ? "--" : Math.round(animatedScore)}
+                    </span>
+                    <span
+                        className="text-[9px] font-black uppercase tracking-widest mt-1 px-2 py-0.5 rounded border border-white/10"
+                        style={{ color: statusColor, borderColor: `${statusColor}33`, backgroundColor: `${statusColor}11` }}
+                    >
+                        {statusText}
+                    </span>
                 </div>
             </div>
 
-            {/* TICK MARKS & LABELS (Precision & Visibility Fixed) */}
-            <div className="absolute bottom-0 left-1/2 w-full h-full -translate-x-1/2 pointer-events-none z-10">
-                {[0, 20, 40, 60, 80, 100].map((t) => {
-                    const angle = (t / 100) * 180 - 90;
-                    return (
-                        <div
-                            key={t}
-                            className="absolute bottom-0 left-1/2 w-0.5 h-[95%] origin-bottom"
-                            style={{ transform: `translateX(-50%) rotate(${angle}deg)` }}
-                        >
-                            {/* Tick Line (At the outer rim) */}
-                            <div className="absolute top-0 w-full h-3 bg-slate-500"></div>
-
-                            {/* Label (Slightly inside) */}
-                            <div
-                                className="absolute top-4 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-300"
-                                style={{ transform: `translateX(-50%) rotate(${-angle}deg)` }}
-                            >
-                                {t}
-                            </div>
-                        </div>
-                    )
-                })}
+            {/* RLSI Full Name Label */}
+            <div className="mt-[-5px] mb-3 text-center">
+                <div className="text-[9px] uppercase tracking-widest text-slate-200 font-bold opacity-80">
+                    Relative Liquid Strength Index
+                </div>
             </div>
 
-            {/* COLORED ZONES (Subtle) */}
-            <svg className="absolute top-0 left-0 w-full h-full" viewBox="0 0 200 100" preserveAspectRatio="none">
-                {/* Danger Zone */}
-                <path d="M 20 100 A 80 80 0 0 1 45 45" fill="none" stroke="#f43f5e" strokeWidth="2" strokeOpacity="0.5" strokeDasharray="2 2" />
-                {/* Optimal Zone */}
-                <path d="M 155 45 A 80 80 0 0 1 180 100" fill="none" stroke="#10b981" strokeWidth="2" strokeOpacity="0.5" strokeDasharray="2 2" />
-            </svg>
-
-            {/* NEEDLE (Tactical) */}
-            <div className="absolute bottom-0 w-full h-full flex items-end justify-center overflow-hidden pb-0">
-                <motion.div
-                    className="w-0.5 h-[85%] bg-white origin-bottom relative z-10 shadow-[0_0_10px_rgba(255,255,255,0.5)]"
-                    initial={{ rotate: -90 }}
-                    animate={{ rotate: rotation }}
-                    transition={{ type: "spring", stiffness: 50, damping: 15 }}
-                >
-                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-1.5 h-6 bg-white rounded-full"></div>
-                </motion.div>
-
-                {/* Pivot */}
-                <div className="absolute bottom-0 w-12 h-6 bg-slate-800 border-t border-slate-600 rounded-t-full z-20 shadow-xl"></div>
-            </div>
-
-            {/* READOUT (Head-Up Display) */}
-            <div className="absolute bottom-2 z-30 flex flex-col items-center">
-                <div className={`text-3xl font-mono font-black tracking-tighter ${status.color} drop-shadow-md`}>
-                    {loading ? "---" : displayScore.toFixed(0)}
-                </div>
-
-                {/* DIRECTIVE BADGE */}
-                <div className={`mt-1 px-2 py-0.5 rounded text-[9px] font-bold tracking-widest uppercase border ${status.border} ${status.bg} ${status.color} backdrop-blur-sm`}>
-                    {loading ? "OFFLINE" : status.directive}
-                </div>
+            {/* Context / Meaning Footer */}
+            <div className="text-center max-w-[200px] border-t border-slate-800/50 pt-3">
+                <p className="text-[10px] text-slate-200 leading-tight">
+                    <span className="text-emerald-500 font-bold block mb-1">AI INTERPRETATION</span>
+                    <span className="opacity-90">
+                        {statusText === "NEUTRAL" && "Market forces are balanced. No extreme positioning detected."}
+                        {statusText === "OVERHEATED" && "Extreme bullish sentiment. High risk of mean reversion pullback."}
+                        {statusText === "OVERSOLD" && "Extreme fear detected. Potential for reflexive bounce."}
+                        {statusText === "BULLISH" && "Smart money inflows supporting trend continuation."}
+                        {statusText === "BEARISH" && "Defensive rotation active. Caution advised."}
+                    </span>
+                </p>
             </div>
         </div>
     );

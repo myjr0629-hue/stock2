@@ -45,17 +45,38 @@ export class RvolEngine {
             else if (currentMinuteOfDay < marketOpen) status = "PRE_MARKET";
             else status = "AFTER_HOURS";
 
-            // If market is closed, just return 1.0 or last close data? 
-            // For now, if closed, we might still want to see data if it's shortly after close.
-            // But if it's pre-market, volume is weird. Let's return 0 or 1.
-            if (status === "PRE_MARKET") {
-                return { ticker, rvol: 0, currentVol: 0, baselineVol: 0, timestamp: Date.now(), status };
-            }
-
             // 2. Ensure Baseline Exists (Heavy Lift - done once)
             await this.ensureBaseline(ticker);
 
-            // 3. Get Today's Cumulative Volume
+            // 3. Fallback Logic for PRE_MARKET (Show Yesterday's Final RVOL)
+            if (status === "PRE_MARKET") {
+                // Fetch Previous Close Data
+                const prevRes = await fetchMassive(`/v2/aggs/ticker/${ticker}/prev`, { adjusted: "true" });
+
+                if (prevRes.results && prevRes.results.length > 0) {
+                    const prevBar = prevRes.results[0];
+                    const prevVol = prevBar.v;
+
+                    // Get Baseline Total Volume (at 16:00 / 960m)
+                    const baseline = baselineCache.get(ticker);
+                    // Find the last minute in the map (usually 960 or closest)
+                    const endOfDayMinute = 16 * 60;
+                    const baselineTotal = baseline?.get(endOfDayMinute) || baseline?.get(endOfDayMinute - 5) || 0;
+
+                    const finalRvol = baselineTotal > 0 ? (prevVol / baselineTotal) : 0;
+
+                    return {
+                        ticker,
+                        rvol: finalRvol,
+                        currentVol: prevVol,
+                        baselineVol: baselineTotal,
+                        timestamp: prevBar.t || Date.now(), // Use data timestamp if available
+                        status: "CLOSED" // Display as Closed/Final
+                    };
+                }
+            }
+
+            // 4. Standard Intraday Logic (OPEN / AFTER_HOURS)
             // Fetch today's bars
             const todayStr = nyTime.toISOString().split('T')[0];
             const result = await fetchMassive(`/v2/aggs/ticker/${ticker}/range/1/minute/${todayStr}/${todayStr}`, {
@@ -65,6 +86,9 @@ export class RvolEngine {
             });
 
             const bars: AggBar[] = result.results || [];
+
+            // If it's early "OPEN" but no bars yet (switched JUST now), might return empty. 
+            // Handle empty bars by showing 0 for now.
             if (bars.length === 0) {
                 return { ticker, rvol: 0, currentVol: 0, baselineVol: 0, timestamp: Date.now(), status };
             }
@@ -72,17 +96,18 @@ export class RvolEngine {
             // Sum volume up to now
             const currentCumVol = bars.reduce((sum, b) => sum + b.v, 0);
 
-            // 4. Get Baseline Volume for this specific time
-            // We need to map current time to the bucket used in baseline
-            // Baseline is likely minute-by-minute or 5-min buckets.
-            // To be precise, let's look up the baseline for `currentMinuteOfDay`.
-            // The baseline map keys are "minutes from midnight".
-
+            // Get Baseline Volume for this specific time
             const baseline = baselineCache.get(ticker);
-            const baselineVol = baseline?.get(currentMinuteOfDay) || baseline?.get(currentMinuteOfDay - (currentMinuteOfDay % 5)) || 0;
 
-            // 5. Calculate Ratio
-            // Avoid division by zero
+            // Clamp time for AFTER_HOURS to ensure we compare against End-of-Day Baseline
+            let lookupMinute = currentMinuteOfDay;
+            if (status === "AFTER_HOURS") {
+                lookupMinute = 955; // 15:55 (Start of last 5-min bar)
+            }
+
+            const baselineVol = baseline?.get(lookupMinute) || baseline?.get(lookupMinute - (lookupMinute % 5)) || 0;
+
+            // Calculate Ratio
             const rvol = baselineVol > 0 ? (currentCumVol / baselineVol) : 0;
 
             return {

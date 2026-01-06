@@ -31,6 +31,7 @@ interface SectorFlowRate {
     name: string;
     change: number;
     volume: number;
+    topConstituents?: { symbol: string; price: number; change: number; volume: number }[];
 }
 
 interface FlowVector {
@@ -44,6 +45,7 @@ interface GuardianVerdict {
     title: string;
     description: string;
     sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    realityInsight?: string;
 }
 
 interface GuardianContext {
@@ -68,22 +70,6 @@ interface GuardianContext {
     marketStatus: 'GO' | 'WAIT' | 'STOP';
     timestamp: string;
 }
-
-// === STATIC DATA ===
-// Expanded Ticker List for Richer Intel
-const SECTOR_TICKERS: Record<string, string[]> = {
-    "XLK": ["NVDA", "AAPL", "MSFT", "AVGO", "ORCL"],
-    "XLC": ["META", "GOOGL", "NFLX", "DIS", "CMCSA"],
-    "XLY": ["AMZN", "TSLA", "HD", "MCD", "NKE"],
-    "XLE": ["XOM", "CVX", "COP", "EOG", "SLB"],
-    "XLF": ["JPM", "V", "MA", "BAC", "WFC"],
-    "XLV": ["LLY", "UNH", "JNJ", "ABBV", "MRK"],
-    "XLI": ["GE", "CAT", "HON", "UNP", "UPS"],
-    "XLB": ["LIN", "SHW", "FCX", "APD", "ECL"],
-    "XLP": ["PG", "COST", "WMT", "KO", "PEP"],
-    "XLRE": ["PLD", "AMT", "EQIX", "CCI", "PSA"],
-    "XLU": ["NEE", "SO", "DUK", "CEG", "AEP"]
-};
 
 export default function GuardianPage() {
     const { data: globalData, loading, refresh } = useGuardian();
@@ -117,89 +103,85 @@ export default function GuardianPage() {
             title: v.title,
             desc: v.description,
             color,
-            sentiment: v.sentiment
+            sentiment: v.sentiment,
+            realityInsight: v.realityInsight
         };
     }, [data]);
 
     // Find selected sector data
     const selectedSector = data?.sectors.find(s => s.id === selectedSectorId);
-    // Determine Top Tickers
-    const topTickers = selectedSectorId ? (SECTOR_TICKERS[selectedSectorId] || []) : [];
+
+    // Determine Movers (Use dynamic data or empty)
+    const topMovers = selectedSector?.topConstituents || [];
 
     return (
-        <div className="min-h-screen bg-[#0a0e14] text-white overflow-hidden">
+        <div className="min-h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-emerald-500/30">
             <LandingHeader />
 
-            <main className="pt-14 pb-3 px-3 max-w-[2000px] mx-auto h-screen overflow-hidden">
+            {/* MAIN HUD CONTAINER */}
+            <main className="pt-16 pb-4 px-4 h-screen max-w-[1920px] mx-auto flex flex-col gap-4">
 
-                {/* === PREMIUM LAYOUT === */}
-                <div className="h-[calc(100vh-5.5rem)] overflow-hidden flex flex-col gap-3">
+                {/* --- TOP ROW: GAUGE | REALITY | MAP | VERDICT (GRID) --- */}
+                {/* 
+                    Layout Strategy based on Mockup:
+                    The Mockup shows a complex grid.
+                    Let's use a Dashboard Grid architecture.
+                    
+                    Row 1 (Top): Gravity Gauge (Left), Reality Check (Right Top)
+                    Row 2 (Mid): Flow Map (Left Big), Tactical Verdict (Right)
+                    Row 3 (Bot): Sector Intel (Left), Actions (Right)
+                    
+                    Actually, looking at the image:
+                    Top Left: Gravity Gauge
+                    Top Right: Reality Check
+                    Mid Left: Flow Map
+                    Mid Right: Tactical Verdict
+                    Bot Left: Sector Intel
+                    Bot Right: Login/Force (Control Bar)
+                */}
 
-                    {/* === TOP ROW: HUD MODULES (12 Cols) === */}
-                    <div className="shrink-0 grid grid-cols-12 gap-4 h-36">
+                <div className="flex-1 grid grid-cols-12 grid-rows-[auto_1fr_60px] gap-4 min-h-0">
 
-                        {/* 1. LIQUIDITY ENGINE (Gauge) - 4 COLS */}
-                        <div className="col-span-12 lg:col-span-4 bg-slate-950/60 backdrop-blur-md border border-emerald-500/10 rounded-2xl p-4 shadow-xl shadow-emerald-500/5 relative overflow-hidden flex items-center justify-between group hover:border-emerald-500/30 transition-all">
-                            <div className="flex flex-col h-full justify-between z-10 w-1/2">
-                                <div>
-                                    <div className="text-[10px] font-black text-emerald-400 tracking-widest mb-1 drop-shadow-[0_0_8px_rgba(52,211,153,0.5)]">RLSI (LIQUIDITY SCORE)</div>
-                                    <div className="text-[8px] font-bold uppercase tracking-[0.2em] text-slate-500">INTERNAL STRENGTH</div>
-                                </div>
-                                <div className="mt-2">
-                                    {/* DYNAMIC STATUS BADGE */}
-                                    <div className={`text-xs font-bold px-2 py-1 rounded inline-block border ${data?.marketStatus === 'GO' ? 'text-emerald-400 bg-emerald-950/30 border-emerald-500/20' :
-                                        data?.marketStatus === 'STOP' ? 'text-rose-400 bg-rose-950/30 border-rose-500/20' :
-                                            'text-amber-400 bg-amber-950/30 border-amber-500/20'
-                                        }`}>
-                                        {data?.verdict?.title || "MARKET IS STABLE"}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="w-48 h-full relative -mr-4 scale-110">
-                                <GravityGauge score={data?.rlsi.score || 0} loading={loading} />
-                            </div>
-                            {/* Decorative Glow */}
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl -z-0 pointer-events-none"></div>
-                        </div>
+                    {/* BLOCK A: GAUGE (Top Left - 4 cols) */}
+                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14] border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col justify-center">
+                        {/* Sci-Fi Corner Decors */}
+                        <div className="absolute top-2 left-2 w-2 h-2 border-t border-l border-slate-600"></div>
+                        <div className="absolute top-2 right-2 w-2 h-2 border-t border-r border-slate-600"></div>
+                        <div className="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-slate-600"></div>
+                        <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-slate-600"></div>
 
-                        {/* 2. TRUTH DETECTOR (Divergence) - 4 COLS */}
-                        <div className="col-span-12 lg:col-span-4 bg-slate-950/60 backdrop-blur-md border border-cyan-500/10 rounded-2xl p-4 shadow-xl shadow-cyan-500/5 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
-                            <RealityCheck
-                                nasdaqChange={data?.market?.nqChangePercent || 0}
-                                guardianScore={data?.rlsi.score || 0}
-                                divergenceCase={data?.divergence?.caseId as any}
-                            />
-                            {/* Decorative Glow */}
-                            <div className="absolute bottom-0 left-0 w-32 h-32 bg-cyan-500/5 rounded-full blur-3xl -z-0 pointer-events-none"></div>
-                        </div>
+                        <GravityGauge score={data?.rlsi.score || 0} loading={loading} />
 
-                        {/* 3. VITALS & FLOW (RVOL) - 4 COLS */}
-                        <div className="col-span-12 lg:col-span-4 bg-slate-950/60 backdrop-blur-md border border-indigo-500/10 rounded-2xl p-4 shadow-xl shadow-indigo-500/5 relative overflow-hidden group hover:border-indigo-500/30 transition-all">
-                            <VitalsPanel
-                                marketStatus={data?.marketStatus || 'WAIT'}
-                                mode={data?.divergence?.caseId !== 'N' ? 'HEDGE' : 'STANDARD'}
-                                rvol={data?.rvol}
-                                loading={loading}
-                            />
-                            {/* Decorative Glow */}
-                            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-32 h-32 bg-indigo-500/5 rounded-full blur-3xl -z-0 pointer-events-none"></div>
-                        </div>
-
+                        {/* Scanline Overlay */}
+                        <div className="absolute inset-0 bg-[url('/scanline.png')] opacity-5 pointer-events-none"></div>
                     </div>
-                    {/* === MAIN ROW: MAP & SIDEBAR === */}
-                    <div className="flex-1 grid grid-cols-12 gap-3 min-h-0">
-                        {/* CENTER: 3D DENSITY RIMEMAP (Expanded to col-span-9) */}
-                        <div className="col-span-12 lg:col-span-9 bg-slate-950/40 backdrop-blur-sm border border-white/5 rounded-2xl relative overflow-hidden group hover:border-white/10 transition-all">
 
-                            {/* Header Overlay */}
-                            <div className="absolute top-4 left-4 z-10 pointer-events-none">
-                                <h3 className="text-xs font-black text-white/70 uppercase tracking-widest flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                                    Flow Topography
-                                </h3>
-                                <div className="text-[10px] text-slate-500 mt-0.5">Real-time Institutional Volume Map</div>
-                            </div>
+                    {/* BLOCK B: REALITY CHECK (Top Right - 8 cols) */}
+                    <div className="col-span-12 lg:col-span-8 bg-[#0a0e14]/80 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center">
+                        <RealityCheck
+                            nasdaqChange={data?.market?.nqChangePercent || 0}
+                            guardianScore={data?.rlsi.score || 0}
+                            divergenceCase={data?.divergence?.caseId as "N" | "A" | "B" | "C" | "D" | undefined}
+                            rvolNdx={data?.rvol?.ndx?.rvol || 1.0}
+                            rvolDow={data?.rvol?.dow?.rvol || 1.0}
+                            verdict={{
+                                title: "MARKET ESSENCE",
+                                desc: verdict.realityInsight || "Gathering Pulse...",
+                                sentiment: verdict.sentiment as 'BULLISH' | 'BEARISH' | 'NEUTRAL'
+                            }}
+                        />
+                    </div>
 
+                    {/* ROW 2: SPLIT (MAP vs INTELLIGENCE STACK) */}
+
+                    {/* LEFT: MAP (Cols 1-8) */}
+                    <div className="col-span-12 lg:col-span-8 bg-[#0a0e14] border border-slate-800 rounded-lg relative overflow-hidden group flex flex-col">
+                        <div className="absolute top-6 left-6 z-10">
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block">
+                                Flow Topography Map
+                            </h3>
+                        </div>
+                        <div className="flex-1 relative">
                             <SmartMoneyMap
                                 sectors={(data?.sectors || []).map(s => ({
                                     id: s.id,
@@ -215,119 +197,146 @@ export default function GuardianPage() {
                                 onSectorSelect={setSelectedSectorId}
                             />
                         </div>
+                    </div>
 
-                        {/* RIGHT SIDEBAR (col-span-3) */}
-                        <div className="col-span-12 lg:col-span-3 flex flex-col gap-3 h-full overflow-hidden">
+                    {/* RIGHT: INTELLIGENCE STACK (Cols 9-12) */}
+                    <div className="col-span-12 lg:col-span-4 flex flex-col gap-4 min-w-0 h-full">
 
-                            {/* Verdict Panel + Stats */}
-                            <div className="bg-slate-950/60 backdrop-blur-md border border-rose-500/20 rounded-2xl p-4 shadow-2xl shadow-rose-500/10 flex-shrink-0 hover:border-rose-500/40 transition-all">
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500 mb-3 flex justify-between items-center">
-                                    <span>TACTICAL VERDICT</span>
-                                    <span className="text-[8px] font-mono text-emerald-500/80 bg-emerald-950/20 px-1.5 py-0.5 rounded border border-emerald-500/20 flex items-center gap-1">
-                                        <span className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse"></span>
-                                        Google Gemini 2.5 Flash (Stabilized)
-                                    </span>
+                        {/* 1. TACTICAL VERDICT (Compact, Top) */}
+                        <div className="bg-[#0a0e14] border border-slate-800 rounded-lg p-5 relative flex flex-col shadow-2xl flex-none">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400">
+                                    TACTICAL VERDICT
                                 </h3>
+                                <span className="text-[9px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                                    V.2.5 FLASH
+                                </span>
+                            </div>
 
-                                <div className="mb-4">
-                                    <h4 className={`text-xl font-black mb-2 leading-tight ${verdict.color}`}>
-                                        {verdict.title}
-                                    </h4>
-                                    {/* Full Text, No Scroll */}
-                                    <div className="text-xs text-slate-300 font-mono leading-relaxed whitespace-pre-wrap">
-                                        <TypewriterText text={verdict.desc} speed={10} />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/5">
-                                    <div>
-                                        <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">VIX</div>
-                                        <div className={`text-lg font-mono font-black ${(data?.rlsi.components.vix || 0) > 20 ? 'text-amber-500' : 'text-slate-400'}`}>
-                                            {loading ? "..." : data?.rlsi.components.vix.toFixed(2)}
-                                        </div>
-                                        <div className="text-[8px] text-slate-600">Fear Index</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">MOMENTUM</div>
-                                        <div className="text-lg font-mono font-black text-slate-400">
-                                            {loading ? "..." : data?.rlsi.components.momentumRaw.toFixed(2)}x
-                                        </div>
-                                        {/* Explanation for Momentum */}
-                                        <div className="text-[8px] text-slate-600">Trend Strength (vs 20d Avg)</div>
-                                    </div>
-                                    {/* RVOL Removed from here as per user request */}
+                            <div className="overflow-hidden mb-2">
+                                <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
+                                <div className="text-xs text-slate-300 font-sans leading-relaxed whitespace-pre-wrap opacity-90">
+                                    <TypewriterText text={verdict.desc} speed={10} />
                                 </div>
                             </div>
 
-                            {/* SECTOR INTEL (Replaces Radar) */}
-                            <div className="flex-1 bg-slate-950/60 backdrop-blur-md border border-purple-500/20 rounded-2xl p-4 shadow-2xl shadow-purple-500/10 flex flex-col overflow-hidden">
-                                <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-purple-400 mb-3 flex justify-between items-center">
-                                    <span>SECTOR INTEL</span>
-                                    {selectedSector && <span className="bg-purple-900/50 text-purple-200 px-1.5 py-0.5 rounded text-[9px]">{selectedSector.id}</span>}
-                                </h3>
+                            {/* COMPACT METRICS */}
+                            <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-2 gap-4">
+                                <div>
+                                    <div className="text-[9px] text-slate-500 font-bold mb-0.5 tracking-wider">MOMENTUM</div>
+                                    <div className="text-sm font-mono font-bold text-emerald-400">
+                                        {((data?.rlsi.components.momentumRaw || 1) - 1) * 100 > 0 ? "+" : ""}
+                                        {(((data?.rlsi.components.momentumRaw || 1) - 1) * 100).toFixed(1)}%
+                                    </div>
+                                    <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">3-DAY MARKET VELOCITY</div>
+                                    <div className="text-[9px] text-slate-400 font-medium opacity-80">최근 3일 시장 가속도</div>
+                                </div>
+                                <div>
+                                    <div className="text-[9px] text-slate-500 font-bold mb-0.5 tracking-wider">VIX</div>
+                                    <div className="text-sm font-mono font-bold text-slate-300">
+                                        {(data?.rlsi.components.vix || 0).toFixed(2)}
+                                    </div>
+                                    <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">VOLATILITY INDEX</div>
+                                    <div className="text-[9px] text-slate-400 font-medium opacity-80">
+                                        시장 변동성 (공포지수) :: <span className={
+                                            (data?.rlsi.components.vix || 0) < 15 ? "text-emerald-400" :
+                                                (data?.rlsi.components.vix || 0) < 20 ? "text-blue-400" :
+                                                    (data?.rlsi.components.vix || 0) < 30 ? "text-amber-400" : "text-rose-500"
+                                        }>
+                                            {
+                                                (data?.rlsi.components.vix || 0) < 15 ? "LOW (안정)" :
+                                                    (data?.rlsi.components.vix || 0) < 20 ? "MODERATE (보통)" :
+                                                        (data?.rlsi.components.vix || 0) < 30 ? "HIGH (높음)" : "EXTREME (공포)"
+                                            }
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
 
+                        {/* 2. SECTOR INTEL (Fill Rest, Bottom) */}
+                        <div className="flex-1 bg-[#0a0e14] border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col min-h-0">
+                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 border-b border-cyan-900/30 pb-2 flex-none">
+                                SECTOR INTEL {selectedSector && <span className="text-slate-500 font-mono opacity-50 ml-2">:: {selectedSector.id}</span>}
+                            </h3>
+
+                            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                                 {selectedSector ? (
-                                    <div className="flex-1 flex flex-col gap-4 animate-in fade-in slide-in-from-right-4 duration-300">
-                                        {/* Header */}
-                                        <div>
-                                            <div className="text-xl font-black text-white leading-none mb-1">{selectedSector.name}</div>
-                                            <div className="flex items-baseline gap-2">
-                                                <div className={`text-2xl font-mono font-bold ${selectedSector.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                    {selectedSector.change > 0 ? '+' : ''}{selectedSector.change.toFixed(2)}%
-                                                </div>
-                                                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">(DAILY CHANGE)</span>
-                                            </div>
-                                            <div className="text-[10px] text-slate-500 uppercase mt-1 flex flex-col">
-                                                <span className="font-bold text-slate-400">Net Flow Volume</span>
-                                                <span className="text-[9px] opacity-70">Institutional Money Movement</span>
-                                            </div>
+                                    <div className="h-full flex flex-col">
+                                        <div className="flex justify-between items-baseline mb-4 flex-none">
+                                            <span className="text-lg font-bold text-white">{selectedSector.name}</span>
+                                            <span className={`text-xl font-mono ${selectedSector.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                {selectedSector.change > 0 ? "+" : ""}{selectedSector.change.toFixed(2)}%
+                                            </span>
                                         </div>
 
-                                        {/* Top Tickers List */}
-                                        <div className="flex-1 overflow-y-auto scrollbar-hide">
-                                            <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest mb-2 border-b border-white/5 pb-1">
-                                                TOP DRIVERS
-                                            </div>
-                                            <div className="space-y-2">
-                                                {topTickers.map((ticker, i) => (
-                                                    <a key={ticker} href={`/ticker?ticker=${ticker}`} target="_self" className="flex items-center justify-between bg-white/5 p-2 rounded border border-white/5 hover:bg-white/10 hover:border-purple-500/30 transition-colors group cursor-pointer block">
+                                        {/* LIVE TICKER TABLE */}
+                                        <div className="space-y-1">
+                                            {topMovers.length > 0 ? (
+                                                topMovers.map(stock => (
+                                                    <a key={stock.symbol} href={`/ticker?ticker=${stock.symbol}`} className="flex items-center justify-between text-xs py-2 px-2 rounded hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group">
+                                                        {/* Left: Logo & Symbol */}
                                                         <div className="flex items-center gap-3">
-                                                            <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-300 group-hover:text-white">
-                                                                {i + 1}
+                                                            <div className="w-6 h-6 rounded bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
+                                                                <span className="text-[7px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
+                                                                <img
+                                                                    src={`https://financialmodelingprep.com/image-stock/${stock.symbol}.png`}
+                                                                    alt={stock.symbol}
+                                                                    className="w-full h-full object-contain relative z-10"
+                                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                />
                                                             </div>
-                                                            <span className="font-bold text-sm text-slate-200 group-hover:text-purple-300">{ticker}</span>
+                                                            <span className="font-bold text-slate-200 group-hover:text-cyan-300 w-10">{stock.symbol}</span>
                                                         </div>
-                                                        <ArrowRight className="w-3 h-3 text-slate-600 group-hover:text-purple-400" />
+
+                                                        {/* Right: Data */}
+                                                        <div className="text-right">
+                                                            <div className="text-slate-200 font-mono">${stock.price.toFixed(2)}</div>
+                                                            <div className={`text-[10px] font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
+                                                            </div>
+                                                        </div>
                                                     </a>
-                                                ))}
-                                                {topTickers.length === 0 && (
-                                                    <div className="text-xs text-slate-500 italic p-2">
-                                                        Top tickers data unavailable for {selectedSector.id}.
-                                                    </div>
-                                                )}
-                                            </div>
+                                                ))
+                                            ) : (
+                                                <div className="text-xs text-slate-500 py-2 text-center">Loading live data...</div>
+                                            )}
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className="flex-1 flex flex-col items-center justify-center text-slate-600 opacity-50">
-                                        <Layers className="w-12 h-12 mb-3" />
-                                        <div className="text-xs text-center font-bold">SELECT A SECTOR<br />ON THE MAP</div>
+                                    <div className="h-full flex flex-col items-center justify-center text-xs text-slate-600">
+                                        <Layers className="w-8 h-8 opacity-20 mb-2" />
+                                        SELECT A SECTOR ON MAP
                                     </div>
                                 )}
                             </div>
+                        </div>
 
-                            {/* Refresh Button */}
+                    </div>
+
+                    {/* ROW 3: CONTROLS (Footer) */}
+                    <div className="col-span-12 bg-[#0a0e14] border border-slate-800 rounded-lg px-6 flex items-center justify-between shadow-2xl">
+                        <div className="flex gap-4 items-center">
+                            <div className="flex items-center gap-2 text-[10px] text-slate-500 font-mono">
+                                <Radio className="w-3 h-3 text-emerald-500 animate-pulse" />
+                                LIVE STREAM CONNECTED
+                            </div>
+                        </div>
+                        <div className="flex gap-2 py-2">
+                            <button className="px-6 py-2 rounded bg-slate-900 border border-slate-700 text-[10px] font-bold text-slate-400 hover:text-white hover:border-emerald-500 transition-all flex items-center gap-2">
+                                &gt;&gt; ACCESS_LOGS
+                            </button>
                             <button
                                 onClick={() => refresh(true)}
                                 disabled={loading}
-                                className="w-full h-10 shrink-0 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-400 uppercase tracking-wider transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="px-6 py-2 rounded bg-emerald-950/50 border border-emerald-500/50 text-[10px] font-bold text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-2 uppercase tracking-wider shadow-[0_0_15px_rgba(16,185,129,0.2)]"
                             >
                                 <Zap className="w-3 h-3" />
-                                {loading ? "REFRESHING..." : "FORCE INTELLIGENCE"}
+                                {loading ? "SCANNING..." : "FORCE INTELLIGENCE"}
                             </button>
-
                         </div>
                     </div>
+
                 </div>
             </main>
         </div>

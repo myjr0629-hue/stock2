@@ -125,27 +125,26 @@ export class GuardianDataHub {
             }
 
             // === STEP 4: GENERATE VERDICT NARRATIVE (AI + Templates) ===
-            // We use static template if divergent, else ask AI for nuance
-            let finalTitle = "MARKET NEUTRAL";
-            let finalDescription = "특이 사항 없음. 시장은 평범한 흐름을 보이고 있습니다.";
-            let finalSentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+            let verdict: GuardianVerdict;
 
             if (divCase.isDivergent) {
-                finalTitle = divCase.verdictTitle;
-                finalDescription = divCase.verdictDesc;
-                finalSentiment = divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH';
+                // Priority: Divergence Overrides AI
+                verdict = {
+                    title: divCase.verdictTitle,
+                    description: divCase.verdictDesc,
+                    sentiment: divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH'
+                };
             } else {
-                // === AI GENERATED INSIGHT (STANDARD MARKET) ===
-                // User wants "Contrarian" insights even in normal looking markets.
-                const staticVerdict = {
+                // Standard Market: Use Dual Stream AI
+                const staticVerdict: GuardianVerdict = {
                     title: "MARKET STABLE",
                     description: "시장이 안정적인 흐름을 유지하고 있습니다. 섹터별 순환매를 주시하세요.",
-                    sentiment: 'NEUTRAL' as const
+                    sentiment: 'NEUTRAL',
                 };
 
                 try {
-                    // Call Gemini-2.5-Flash
-                    const aiInsight = await IntelligenceNode.generateVerdict({
+                    // [PART 1] Rotation Insight (Sidebar)
+                    const rotationText = await IntelligenceNode.generateRotationInsight({
                         rlsiScore: rlsi.score,
                         nasdaqChange: macro?.nqChangePercent || 0,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
@@ -153,28 +152,35 @@ export class GuardianDataHub {
                         vix: macro?.vix || 0
                     });
 
-                    if (aiInsight.includes("NO API KEY")) {
-                        finalTitle = "SETUP REQUIRED";
-                        finalDescription = "AI 인텔리전스를 활성화하려면 .env.local 파일에 GEMINI_API_KEY가 필요합니다.";
-                        finalSentiment = 'NEUTRAL';
+                    // [PART 2] Reality Insight (Center) - Call Sequentially
+                    const realityText = await IntelligenceNode.generateRealityInsight({
+                        rlsiScore: rlsi.score,
+                        nasdaqChange: macro?.nqChangePercent || 0,
+                        vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
+                        rvol: rvolNdx.rvol,
+                        vix: macro?.vix || 0
+                    });
+
+                    // [PART 3] Construct Verdict
+                    if (rotationText.includes("NO KEY")) {
+                        verdict = {
+                            title: "SETUP REQUIRED",
+                            description: "AI 인텔리전스를 활성화하려면 .env.local 파일에 GEMINI_API_KEY가 필요합니다.",
+                            sentiment: 'NEUTRAL'
+                        };
                     } else {
-                        finalTitle = "TACTICAL INSIGHT";
-                        finalDescription = aiInsight;
-                        finalSentiment = 'NEUTRAL';
+                        verdict = {
+                            title: "TACTICAL INSIGHT",
+                            description: rotationText, // Sidebar
+                            sentiment: 'NEUTRAL',
+                            realityInsight: realityText // Center
+                        };
                     }
                 } catch (e) {
                     console.warn("[Guardian] AI Verdict Failed, using fallback:", e);
-                    finalTitle = staticVerdict.title;
-                    finalDescription = staticVerdict.description;
-                    finalSentiment = staticVerdict.sentiment; // Ensure sentiment is also set on fallback
+                    verdict = staticVerdict;
                 }
             }
-
-            const verdict: GuardianVerdict = {
-                title: finalTitle,
-                description: finalDescription,
-                sentiment: finalSentiment
-            };
             console.log("[Guardian] Step 3 Complete. AI Verdict Generated.");
 
             // === STEP 5: FINALIZE ===

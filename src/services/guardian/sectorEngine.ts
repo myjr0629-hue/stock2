@@ -9,6 +9,7 @@ export interface SectorFlowRate {
     name: string; // Technology
     change: number; // Average % change of constituents
     volume: number; // Total volume
+    topConstituents?: { symbol: string; price: number; change: number; volume: number }[];
 }
 
 export interface FlowVector {
@@ -22,6 +23,7 @@ export interface GuardianVerdict {
     title: string;
     description: string;
     sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    realityInsight?: string; // New Dual Stream
 }
 
 // === CONSTANTS ===
@@ -75,64 +77,60 @@ export class SectorEngine {
             // 1. Check/Build Baseline (Heavy Lift)
             await this.ensureBaselines();
 
-            // 2. Fetch TODAY'S Live/Snapshot Data (High Performance)
-            // Use "Grouped Daily" endpoint.
-            const today = new Date();
-            let dateStr = today.toISOString().split('T')[0];
+            // 2. Fetch Real-time Snapshot
+            const allTickers: string[] = [];
+            // Add Sector ETFs themselves (XLK, XLE...)
+            const sectorEtfs = Object.keys(SECTOR_MAP);
+            allTickers.push(...sectorEtfs);
+            // Add Constituents
+            Object.values(SECTOR_MAP).forEach(s => allTickers.push(...s.tickers));
 
-            // Helper to get last trading day (skip weekends)
-            const getLastTradingDay = (date: Date) => {
-                const d = new Date(date);
-                const day = d.getDay(); // 0=Sun, 1=Mon... 6=Sat
-                if (day === 0) d.setDate(d.getDate() - 2); // Sun -> Fri
-                else if (day === 6) d.setDate(d.getDate() - 1); // Sat -> Fri
-                else if (day === 1) { // Mon
-                    // If Monday morning (pre-market), we might need Friday if today's data isn't ready.
-                    // But assume we try Today first, if empty, go to Friday.
-                    d.setDate(d.getDate() - 3); // Mon fallback -> Fri
-                } else {
-                    d.setDate(d.getDate() - 1); // Tue-Fri -> Prev Day
-                }
-                return d.toISOString().split('T')[0];
-            };
+            // Deduplicate just in case
+            const uniqueTickers = Array.from(new Set(allTickers));
+            const tickerString = uniqueTickers.join(',');
 
             let currentSnapshot: any[] = [];
 
-            let snapshotSuccess = false;
-
-            // Step 2a: Try Today's Data (May fail 403 if no real-time sub)
             try {
-                console.log(`[SectorEngine] Fetching snapshot for ${dateStr}...`);
-                const res = await fetchMassive(`/v2/aggs/grouped/locale/us/market/stocks/${dateStr}`, { adjusted: 'true' });
+                console.log(`[SectorEngine] Fetching Real-time Snapshot for ${uniqueTickers.length} tickers...`);
+                // Use Snapshot API for Real-Time Price
+                const res = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickerString}`, {});
 
-                if (res.results && res.results.length > 0) {
-                    currentSnapshot = res.results;
-                    snapshotSuccess = true;
-                    console.log(`[SectorEngine] Success Primary: ${currentSnapshot.length} items`);
+                if (res.tickers && res.tickers.length > 0) {
+                    // Normalize Snapshot Data to fit existing logic
+                    // INTRADAY PRIORITY: day.c (Regular Session) > lastTrade.p (Ext fallback) > prevDay.c
+                    currentSnapshot = res.tickers.map((t: any) => {
+                        // Standard Session Price: Use 'day.c' (Rolling 24h/Day Close)
+                        const currentPrice = t.day?.c || t.lastTrade?.p || t.prevDay?.c || 0;
+                        const openPrice = t.day?.o || t.prevDay?.c || 0;
+                        const prevClose = t.prevDay?.c || t.day?.o || 0;
+                        const volume = t.day?.v || 0;
+
+                        return {
+                            T: t.ticker,
+                            c: currentPrice,
+                            o: openPrice,
+                            pc: prevClose,
+                            v: volume
+                        };
+                    });
+                    console.log(`[SectorEngine] Snapshot Success: ${currentSnapshot.length} items (using day.c + prevDay.c)`);
+                } else {
+                    console.warn("[SectorEngine] Snapshot returned no tickers.");
                 }
+
             } catch (e: any) {
-                console.warn(`[SectorEngine] Primary Snapshot Failed (Likely 403 Real-time Restriction): ${e.message}`);
+                console.error(`[SectorEngine] Snapshot Failed: ${e.message}`);
             }
 
-            // Step 2b: Fallback if Primary failed or empty
-            if (!snapshotSuccess) {
-                const fallbackDate = getLastTradingDay(today);
-                console.log(`[SectorEngine] Fallback trying ${fallbackDate}...`);
-                try {
-                    const resFallback = await fetchMassive(`/v2/aggs/grouped/locale/us/market/stocks/${fallbackDate}`, { adjusted: 'true' });
-                    if (resFallback?.results) {
-                        currentSnapshot = resFallback.results;
-                        console.log(`[SectorEngine] Success Fallback: ${currentSnapshot.length} items`);
-                    }
-                } catch (e: any) {
-                    console.error(`[SectorEngine] Fallback Failed: ${e.message}`);
-                }
+            // Fallback: If map is empty (Market Closed or API Error), try yesterday's grouped
+            if (currentSnapshot.length === 0) {
+                console.error("[SectorEngine] CRITICAL: No snapshot data found via Snapshot API.");
             }
 
             console.log(`[SectorEngine] Final Snapshot Size: ${currentSnapshot.length}`);
 
             if (!currentSnapshot || currentSnapshot.length === 0) {
-                console.error("[SectorEngine] CRITICAL: No snapshot data found.");
                 return { flows: [], vectors: [], source: "N/A", target: "N/A", sourceId: null, targetId: null };
             }
 
@@ -141,74 +139,47 @@ export class SectorEngine {
             console.log("[Debug] SECTOR_MAP Keys:", Object.keys(SECTOR_MAP));
 
             for (const [sectorId, info] of Object.entries(SECTOR_MAP)) {
-                let weightedChangeSum = 0;
-                let totalRvolWeight = 0;
-                let advancers = 0;
-                let totalValid = 0;
-                let sectorTotalVol = 0;
 
-                // Track daily changes for persistence (approx from snapshot)
-                // Persistence usually needs history. 
-                // Since we optimized to NOT fetch history every time, we can simplified persistence 
-                // or store recent trend in the baseline.
-                // For this implementation, we will assume Persistence is 'Neutral' (1.0) if we only have Snapshot,
-                // OR we can make the Baseline store the "Last 3 Day Trend Score" specifically.
+                // Get Sector ETF Data Directly (e.g. XLK)
+                const sectorEtfData = currentSnapshot.find((r: any) => r.T === sectorId);
+                let sectorChange = 0;
+                let sectorVolume = 0;
 
-                // Let's use the baseline's 'avgChange' as a trend proxy for now.
-
-                // --- Ticker Loop ---
-                let debugCount = 0;
-                for (const ticker of info.tickers) {
-                    const stock = currentSnapshot.find((r: any) => r.T === ticker);
-                    const baseline = _baselineCache.get(ticker);
-
-                    if (sectorId === 'XLK' && debugCount < 2) {
-                        console.log(`[Debug XLK] Ticker: ${ticker}, Found: ${!!stock}, Baseline: ${!!baseline}`);
-                        if (stock) console.log(`[Debug XLK] O: ${stock.o}, C: ${stock.c}, V: ${stock.v}`);
-                        debugCount++;
-                    }
-
-                    if (!stock || !stock.c || !stock.o) continue;
-
-                    // A. Calculate Change
-                    const change = ((stock.c - stock.o) / stock.o) * 100;
-
-                    // B. Calculate RVOL
-                    // If no baseline (new ticker?), default to 1.0
-                    const avgVol = baseline?.avgVolume || stock.v;
-                    const rvol = avgVol > 0 ? (stock.v / avgVol) : 1.0;
-
-                    // Cap RVOL
-                    const effectiveRvol = Math.min(rvol, 3.0);
-
-                    // C. Accumulate Weighted Score
-                    weightedChangeSum += change * effectiveRvol;
-                    totalRvolWeight += effectiveRvol;
-
-                    // D. Breadth
-                    if (change > 0) advancers++;
-                    totalValid++;
-                    sectorTotalVol += stock.v;
+                if (sectorEtfData && sectorEtfData.pc > 0) {
+                    // Use actual ETF change
+                    sectorChange = ((sectorEtfData.c - sectorEtfData.pc) / sectorEtfData.pc) * 100;
+                    sectorVolume = sectorEtfData.v;
                 }
 
-                // --- Sector Score Calculation ---
-                if (totalValid > 0) {
-                    const rawWeightedAvg = totalRvolWeight > 0 ? (weightedChangeSum / totalRvolWeight) : 0;
-                    const advanceRatio = advancers / totalValid;
+                // ... Constituent Processing (Keep for topConstituents & Breadth calculation if needed) ...
+                // actually we don't need weighted average anymore for the main score if we use the ETF.
+                // But we still need top constituents.
 
-                    let breadthFactor = 1.0;
-                    if (rawWeightedAvg > 0) breadthFactor = Math.max(0.5, advanceRatio);
-                    else breadthFactor = Math.max(0.5, 1 - advanceRatio);
+                const constituents = info.tickers.map(t => {
+                    const s = currentSnapshot.find((r: any) => r.T === t);
+                    if (!s || s.pc === 0) return null;
+                    return {
+                        symbol: t,
+                        price: s.c,
+                        change: ((s.c - s.pc) / s.pc) * 100,
+                        volume: s.v
+                    };
+                }).filter((item): item is { symbol: string; price: number; change: number; volume: number } => item !== null)
+                    .sort((a, b) => b.volume - a.volume) // Sort by Volume
+                    .slice(0, 5); // Top 5
 
-                    const finalScore = rawWeightedAvg * breadthFactor;
-
-                    sectorScores.push({
-                        id: sectorId,
-                        name: info.name,
-                        change: finalScore,
-                        volume: sectorTotalVol
-                    });
+                // If ETF data missing, fallback to average of constituents (optional, but robust)
+                if (!sectorEtfData && constituents.length > 0) {
+                    sectorChange = constituents.reduce((acc, c) => acc + c.change, 0) / constituents.length;
                 }
+
+                sectorScores.push({
+                    id: sectorId,
+                    name: info.name,
+                    change: sectorChange, // Use ETF Change
+                    volume: sectorVolume, // Use ETF Volume
+                    topConstituents: constituents
+                });
             }
 
             // Sort by Change
