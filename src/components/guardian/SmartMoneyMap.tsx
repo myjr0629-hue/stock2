@@ -3,10 +3,11 @@
 
 import React, { useMemo, useState, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Html, QuadraticBezierLine, Edges, Text } from "@react-three/drei";
+import { OrbitControls, Html, QuadraticBezierLine } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
 import * as THREE from "three";
 import { FlowParticle } from "./FlowParticle";
+import { SECTOR_VISUALS, SECTOR_BG_COLORS } from "./SectorIcons";
 
 // === TYPES ===
 export interface FlowVector {
@@ -19,368 +20,323 @@ export interface FlowVector {
 export interface SectorData {
     id: string;
     name: string;
-    density: number; // 0-100
-    height: number;  // 0-1.0 (will be scaled)
+    density: number; // Used for "+2.4%" label
+    height: number;  // Used for Sizing (0.5 - 2.0)
     topTickers: string[];
-    color?: string;
-    pos?: [number, number, number];
+    color?: string; // Fallback
 }
 
 interface SmartMoneyMapProps {
     sectors?: SectorData[];
-    vectors?: FlowVector[]; // New: Top 3 Vectors
+    vectors?: FlowVector[];
     sourceId?: string | null;
     targetId?: string | null;
     onSectorSelect?: (sectorId: string) => void;
 }
 
-// === MOCK DATA FOR DEV ===
-const MOCK_SECTORS: SectorData[] = [
-    { id: "XLK", name: "Technology", density: 95, height: 1.2, topTickers: ["NVDA"], color: "#10b981" },
-    { id: "XLE", name: "Energy", density: 40, height: 0.4, topTickers: ["XOM"], color: "#f59e0b" },
-];
+// === CONSTANTS ===
+const RING_RADIUS = 10; // Tighter ring
+const CENTER_SCALE_BOOST = 2.5;
 
-/**
- * FIXED GRID LAYOUT MAP
- * Maps Sector IDs to Grid Coordinates [Row, Col]
- * 3x4 Grid (12 slots, 11 sectors)
- */
-const SECTOR_GRID_MAP: Record<string, [number, number]> = {
-    "XLK": [0, 0], "XLC": [0, 1], "XLY": [0, 2], "XLRE": [0, 3],
-    "XLF": [1, 0], "XLV": [1, 1], "XLI": [1, 2], "XLB": [1, 3],
-    "XLE": [2, 0], "XLP": [2, 1], "XLU": [2, 2]
-    // Slot [2,3] is empty
-};
+// === HELPER: HUB & SPOKE LAYOUT ===
+function calculateHubLayout(sectors: SectorData[], vectors: FlowVector[], targetId?: string | null) {
+    if (sectors.length === 0) return [];
 
-function SectorBlock({ data, position, onClick, isSource, isTarget }: {
-    data: SectorData,
-    position: [number, number, number],
+    // 1. Identify Center (Dominant) Sector
+    // Priority: Explicit Target -> Target of Top Vector -> Highest Weight
+    let centerId = targetId;
+
+    // If no target selected, try to find the "Main Flow Target"
+    if (!centerId && vectors && vectors.length > 0) {
+        centerId = vectors[0].targetId; // Top ranked vector target
+    }
+
+    // Fallback: Max Height (Market Cap/Volume weight)
+    if (!centerId) {
+        const sorted = [...sectors].sort((a, b) => b.height - a.height);
+        if (sorted.length > 0) centerId = sorted[0].id;
+    }
+
+    const centerSector = sectors.find(s => s.id === centerId);
+    const others = sectors.filter(s => s.id !== centerId);
+
+    const nodes = [];
+
+    // 2. Place Center
+    if (centerSector) {
+        nodes.push({
+            ...centerSector,
+            pos: new THREE.Vector3(0, 0, 0),
+            isCenter: true,
+            angle: 0
+        });
+    }
+
+    // 3. Place Ring (Solar System)
+    const count = others.length;
+    const angleStep = (2 * Math.PI) / count;
+    // Offset to start nicely
+    const angleOffset = -Math.PI / 2;
+
+    others.forEach((s, i) => {
+        const angle = angleOffset + (i * angleStep);
+        const x = RING_RADIUS * Math.cos(angle);
+        const z = RING_RADIUS * Math.sin(angle);
+        nodes.push({
+            ...s,
+            pos: new THREE.Vector3(x, 0, z),
+            isCenter: false,
+            angle
+        });
+    });
+
+    return nodes;
+}
+
+// === COMPONENT: HTML NODE (2D Overlay) ===
+function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter }: {
+    data: SectorData & { pos: THREE.Vector3 },
+    position: THREE.Vector3,
     onClick: (d: SectorData) => void,
     isSource: boolean,
-    isTarget: boolean
+    isTarget: boolean,
+    isCenter?: boolean
 }) {
-    const meshRef = useRef<THREE.Mesh>(null);
+    const visual = SECTOR_VISUALS[data.id];
+    const Icon = visual?.icon;
+    const color = visual?.color || data.color || "#ffffff";
+    const bgFill = SECTOR_BG_COLORS[data.id] || "rgba(255,255,255,0.1)";
+
     const [hovered, setHovered] = useState(false);
 
-    // Height scaling - Reduced for 'Platform' look
-    const targetScaleY = hovered
-        ? Math.max(0.4, data.height * 2.5)
-        : Math.max(0.3, data.height * 2.0);
+    // Dynamic Sizing based on Weight (Height)
+    // Central Hub gets massive boost
+    let baseSize = 70;
+    if (isCenter) baseSize = 140; // 2x base
 
-    const baseColor = useMemo(() => new THREE.Color(data.color), [data.color]);
+    // Weight Modifier: 0.8 ... 1.2
+    let weightMod = 0.8 + (data.height * 0.4);
+    if (isCenter) weightMod = 1.0; // Fixed large scale for center
 
-    useFrame((state, delta) => {
-        if (!meshRef.current) return;
-        meshRef.current.scale.y = THREE.MathUtils.lerp(meshRef.current.scale.y, targetScaleY, delta * 5);
-        meshRef.current.position.y = meshRef.current.scale.y / 2;
-    });
+    const sizePx = baseSize * weightMod;
+
+    // Active State Styling
+    const isActive = isSource || isTarget || hovered || isCenter;
+    const borderColor = isActive ? color : "#334155";
+    // Center gets stronger glow
+    const shadowClass = isCenter
+        ? `0 0 50px ${color}50`
+        : (isActive ? `0 0 20px ${color}40` : "none");
+
+    const changeColor = data.density >= 0 ? "#34d399" : "#f43f5e";
 
     return (
         <group position={position}>
-            {/* 1. LAYERED BASE PLATFORM (Simulation of steps) - DARKER, MORE INDUSTRIAL */}
-            <mesh position={[0, 0.05, 0]}>
-                <boxGeometry args={[1.8, 0.1, 1.8]} />
-                <meshStandardMaterial color="#0f172a" transparent opacity={0.8} roughness={0.5} metalness={0.8} />
-                <Edges color={data.color} threshold={15} opacity={0.2} transparent />
-            </mesh>
-            <mesh position={[0, 0.02, 0]}>
-                <boxGeometry args={[2.0, 0.05, 2.0]} />
-                <meshStandardMaterial color={data.color} transparent opacity={0.05} />
-            </mesh>
+            {/* 3D Anchor for HTML */}
+            <Html center zIndexRange={[100, 0]} distanceFactor={30}>
+                <div
+                    className="relative flex flex-col items-center justify-center transition-all duration-300 cursor-pointer"
+                    style={{ width: `${sizePx}px`, height: `${sizePx}px` }}
+                    onClick={(e) => { e.stopPropagation(); onClick(data); }}
+                    onMouseEnter={() => setHovered(true)}
+                    onMouseLeave={() => setHovered(false)}
+                >
+                    {/* RING ANIMATION FOR CENTER */}
+                    {isCenter && (
+                        <div className="absolute inset-[-15px] rounded-full border-2 border-dashed animate-spin-slow opacity-20" style={{ borderColor: color }} />
+                    )}
 
-            {/* 2. MAIN DATA BLOCK (Holographic Crystal) */}
-            <mesh
-                ref={meshRef}
-                onClick={(e) => { e.stopPropagation(); onClick(data); }}
-                onPointerOver={(e) => { e.stopPropagation(); setHovered(true); document.body.style.cursor = 'pointer'; }}
-                onPointerOut={(e) => { e.stopPropagation(); setHovered(false); document.body.style.cursor = 'auto'; }}
-            >
-                <boxGeometry args={[1.5, 1, 1.5]} />
-                <meshPhysicalMaterial
-                    color={baseColor}
-                    emissive={baseColor}
-                    emissiveIntensity={hovered ? 0.4 : 0.1}
-                    transmission={0.4}
-                    opacity={0.9}
-                    metalness={0.8}
-                    roughness={0.2}
-                    ior={1.2}
-                    thickness={2.0}
-                    clearcoat={1.0}
-                    attenuationColor={baseColor}
-                    attenuationDistance={1.0}
-                />
-
-                <Edges
-                    linewidth={1}
-                    threshold={15}
-                    color={hovered ? "white" : data.color}
-                />
-
-                {/* Inner Volumetric Glow */}
-                {(isSource || isTarget) && (
-                    <mesh scale={[0.9, 0.9, 0.9]}>
-                        <boxGeometry args={[1.5, 1, 1.5]} />
-                        <meshBasicMaterial color={baseColor} transparent opacity={0.2} side={THREE.DoubleSide} />
-                    </mesh>
-                )}
-            </mesh>
-
-            {/* 3. VERTICAL HUD PANEL (Glass Billboard) - TALLER & CLEANER */}
-            <group position={[0, 3.5, 0]}> {/* Raised Higher */}
-                {/* Glass Pane */}
-                <mesh position={[0, 0, 0]}>
-                    <planeGeometry args={[2.2, 1.5]} />
-                    <meshPhysicalMaterial
-                        color={baseColor}
-                        transmission={0.9}
-                        opacity={0.2}
-                        roughness={0}
-                        metalness={0.2}
-                        side={THREE.DoubleSide}
-                        transparent
-                        emissive={baseColor}
-                        emissiveIntensity={0.05}
-                    />
-                    <Edges color={data.color} threshold={1} opacity={0.5} />
-                </mesh>
-
-                {/* 3D Text Labels (Front Only for clarity) */}
-                <group position={[0, 0, 0.05]}>
-                    <Text
-                        color="white"
-                        fontSize={0.25}
-                        font="https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff"
-                        anchorX="center"
-                        anchorY="middle"
-                        position={[0, 0.3, 0]}
+                    {/* MAIN CIRCLE */}
+                    <div
+                        className="absolute inset-0 rounded-full border-2 backdrop-blur-sm flex items-center justify-center transition-all duration-500"
+                        style={{
+                            borderColor: borderColor,
+                            backgroundColor: hovered || isCenter ? `${color}15` : bgFill,
+                            boxShadow: shadowClass,
+                            transform: hovered ? "scale(1.1)" : "scale(1)"
+                        }}
                     >
-                        {data.name}
-                        <meshBasicMaterial toneMapped={false} />
-                    </Text>
-                    <Text
-                        color={data.density > 0 ? "#34d399" : "#f43f5e"}
-                        fontSize={0.4}
-                        anchorX="center"
-                        anchorY="middle"
-                        position={[0, -0.2, 0]}
-                        font="https://fonts.gstatic.com/s/roboto/v18/KFOmCnqEu92Fr1Mu4mxM.woff"
-                    >
-                        {data.density > 0 ? "+" : "-"}{(Math.abs(data.density) / 10).toFixed(1)}%
-                        <meshBasicMaterial toneMapped={false} />
-                    </Text>
-                </group>
+                        {/* ICON */}
+                        {Icon && <Icon size={sizePx * 0.4} color={isActive ? "white" : color} strokeWidth={isCenter ? 2 : 1.5} />}
+                    </div>
 
-                {/* Connection Line to Base (Laser Beam) */}
-                <mesh position={[0, -2.0, 0]}>
-                    <cylinderGeometry args={[0.01, 0.01, 2.5]} />
-                    <meshBasicMaterial color={data.color} opacity={0.6} transparent />
-                </mesh>
-            </group>
+                    {/* LABELS (Below) */}
+                    <div
+                        className="absolute top-full mt-3 flex flex-col items-center whitespace-nowrap pointer-events-none"
+                    >
+                        <span className={`text-white font-bold tracking-wider uppercase opacity-90 shadow-black drop-shadow-md ${isCenter ? 'text-[14px]' : 'text-[10px]'}`}>
+                            {visual?.label || data.name}
+                        </span>
+                        <span className={`font-mono drop-shadow-md ${isCenter ? 'text-[11px]' : 'text-[9px]'}`} style={{ color: changeColor }}>
+                            {data.density > 0 ? "+" : ""}{(data.density).toFixed(2)}%
+                        </span>
+                    </div>
+
+                    {/* ACTIVE INDICATOR DOT (If NOT Center, to avoid clutter) */}
+                    {!isCenter && isSource && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-blue-500 animate-pulse border border-black" />
+                    )}
+                    {!isCenter && isTarget && (
+                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 animate-pulse border border-black" />
+                    )}
+                </div>
+            </Html>
         </group>
     );
 }
 
-// === MAIN FLOW VECTOR (HD Electric Arc) ===
-function MainFlowArrow({ start, end, strength = 10 }: { start: THREE.Vector3, end: THREE.Vector3, strength?: number }) {
+// === COMPONENT: CURVED ARROW ===
+function CurvedFlowArrow({ start, end, strength, color = "#3b82f6" }: { start: THREE.Vector3, end: THREE.Vector3, strength: number, color?: string }) {
+    // Logic: Lift the curve in Y to jump over other nodes if needed.
     const mid = start.clone().lerp(end, 0.5);
-    mid.y += 5.0; // Higher Arc for lower camera
 
-    // Adjust start/end to top of the glass panels (approx Y=3) or centers (Y=2.5) to mimic image connecting PANELS
-    // The image shows arcs connecting the BLOCKS, but swirling high.
-    // Let's keep block-to-block for clarity but high arc.
+    // Arc Height based on distance
+    const dist = start.distanceTo(end);
+    const controlPoint = mid.clone();
+    controlPoint.y += Math.max(2.0, dist * 0.2); // Proportional arc
 
-    const curve = useMemo(() => new THREE.QuadraticBezierCurve3(start, mid, end), [start, end, mid]);
+    const curve = useMemo(() => new THREE.QuadraticBezierCurve3(start, controlPoint, end), [start, end, controlPoint]);
     const endTangent = useMemo(() => curve.getTangent(1).normalize(), [curve]);
-    const arrowHeadPos = end.clone();
-    const lookAtTarget = arrowHeadPos.clone().add(endTangent);
+    // Back off slightly from center to avoid hitting the icon
+    const arrowHeadPos = end.clone().sub(endTangent.clone().multiplyScalar(2.0));
 
-    // Thinner, sharper lines for "Electric" feel
-    const thickness = Math.min(2, 0.5 + (strength / 40));
-    const speed = Math.min(1.5, 0.4 + (strength / 80));
+    const speed = Math.min(2.0, 0.5 + (strength / 40));
 
     return (
         <group>
-            {/* Core Energy Line (White Hot) */}
+            {/* GLOW LINE */}
             <QuadraticBezierLine
                 start={start}
                 end={end}
-                mid={mid}
-                color="#ffffff"
-                lineWidth={thickness * 0.5}
-                dashed={false}
+                mid={controlPoint}
+                color={color}
+                lineWidth={2}
                 transparent
-                opacity={1}
+                opacity={0.4}
             />
-
-            {/* Outer Glow Halo (Green) */}
+            {/* WHITE CORE */}
             <QuadraticBezierLine
                 start={start}
                 end={end}
-                mid={mid}
-                color="#10b981"
-                lineWidth={thickness * 4}
-                dashed={false}
+                mid={controlPoint}
+                color="white"
+                lineWidth={0.5}
                 transparent
-                opacity={0.2}
+                opacity={0.6}
             />
+            {/* PARTICLES */}
+            <FlowParticle curve={curve} delay={0} speed={speed} size={1.0} />
+            <FlowParticle curve={curve} delay={0.5 / speed} speed={speed} size={0.8} />
 
-            {/* Fast Data Particles */}
-            <FlowParticle curve={curve} delay={0} speed={speed} size={1.2} />
-            <FlowParticle curve={curve} delay={0.4 / speed} speed={speed} size={0.8} />
-            <FlowParticle curve={curve} delay={0.8 / speed} speed={speed} size={1.0} />
-
-            <ArrowHead position={arrowHeadPos} lookAtTarget={lookAtTarget} />
+            {/* ARROW HEAD */}
+            <ArrowHead position={arrowHeadPos} lookAtTarget={end} color={color} />
         </group>
-    );
+    )
 }
 
-function ArrowHead({ position, lookAtTarget }: { position: THREE.Vector3, lookAtTarget: THREE.Vector3 }) {
+function ArrowHead({ position, lookAtTarget, color }: { position: THREE.Vector3, lookAtTarget: THREE.Vector3, color: string }) {
     const meshRef = useRef<THREE.Mesh>(null);
     useFrame(() => {
         if (meshRef.current) {
             meshRef.current.lookAt(lookAtTarget);
-            meshRef.current.rotateX(Math.PI / 2);
+            meshRef.current.rotateX(Math.PI / 2); // Cone default points up
         }
     });
     return (
         <mesh ref={meshRef} position={position}>
-            <coneGeometry args={[0.3, 1.0, 16]} />
-            <meshBasicMaterial color="#ffffff" />
-            <mesh scale={[1.2, 1.2, 1.2]}>
-                <coneGeometry args={[0.3, 1.0, 16]} />
-                <meshBasicMaterial color="#10b981" transparent opacity={0.4} />
-            </mesh>
+            <coneGeometry args={[0.3, 0.8, 12]} />
+            <meshBasicMaterial color={color} toneMapped={false} />
         </mesh>
     );
 }
 
-function SceneContent({ sectors, onSectorClick, sourceId, targetId, vectors }: {
-    sectors: SectorData[],
-    onSectorClick: (d: SectorData) => void,
-    sourceId?: string | null,
-    targetId?: string | null,
-    vectors?: FlowVector[]
-}) {
-    // 1. Calculate Grid Positions
-    const gridSectors = useMemo(() => {
-        return sectors.map(s => {
-            const coords = SECTOR_GRID_MAP[s.id];
-            if (!coords) return null;
-            const x = (coords[1] * 3.0) - 4.5; // Wider spacing
-            const z = (coords[0] * 3.0) - 3.0; // Wider spacing
-            return { ...s, pos: [x, 0, z] as [number, number, number] };
-        }).filter(Boolean) as SectorData[];
-    }, [sectors]);
 
-    // Helper to get position for a sector ID
-    const getSectorPosition = (sectorId: string, yOffset: number = 0.5) => {
-        const sector = gridSectors.find(x => x.id === sectorId);
-        if (sector?.pos) {
-            return new THREE.Vector3(sector.pos[0], yOffset, sector.pos[2]);
-        }
-        return null;
-    };
+// === MAIN SCENE ===
+export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, targetId, onSectorSelect }: SmartMoneyMapProps) {
 
-    // Prepare flow vectors for rendering
-    const flowArrows = useMemo(() => {
-        const arrows: { start: THREE.Vector3, end: THREE.Vector3, strength: number }[] = [];
+    // Layout: Hub & Spoke
+    const nodes = useMemo(() => calculateHubLayout(sectors, vectors, targetId), [sectors, vectors, targetId]);
 
-        // If specific vectors are provided, use them
+    // Helper to find position
+    const getPos = (id: string) => nodes.find(n => n.id === id)?.pos;
+
+    // Build Arrows
+    const renderArrows = useMemo(() => {
+        const els: React.ReactNode[] = [];
+
         if (vectors && vectors.length > 0) {
-            vectors.forEach(vector => {
-                const start = getSectorPosition(vector.sourceId, 0.5);
-                const end = getSectorPosition(vector.targetId, 1);
-                if (start && end) {
-                    arrows.push({ start, end, strength: vector.strength });
+            vectors.forEach((v, i) => {
+                const sPos = getPos(v.sourceId);
+                const tPos = getPos(v.targetId);
+                const color = SECTOR_VISUALS[v.sourceId]?.color || "#3b82f6";
+
+                if (sPos && tPos) {
+                    els.push(
+                        <CurvedFlowArrow
+                            key={`vec-${i}`}
+                            start={sPos}
+                            end={tPos}
+                            strength={v.strength}
+                            color={color}
+                        />
+                    );
                 }
             });
-        } else if (sourceId && targetId) {
-            // Fallback to single source/target if no vectors
-            const start = getSectorPosition(sourceId, 0.5);
-            const end = getSectorPosition(targetId, 1);
-            if (start && end) {
-                arrows.push({ start, end, strength: 10 });
+        }
+        else if (sourceId && targetId) {
+            const sPos = getPos(sourceId);
+            const tPos = getPos(targetId);
+            if (sPos && tPos) {
+                els.push(
+                    <CurvedFlowArrow
+                        key="sel-arrow"
+                        start={sPos}
+                        end={tPos}
+                        strength={20}
+                        color="#ffffff"
+                    />
+                );
             }
         }
-        return arrows;
-    }, [gridSectors, sourceId, targetId, vectors]);
+        return els;
+    }, [nodes, vectors, sourceId, targetId]);
 
     return (
-        <>
-            <ambientLight intensity={0.1} />
-            <pointLight position={[0, 20, 0]} intensity={1.0} color="#ffffff" />
-            <spotLight position={[10, 20, 10]} angle={0.3} penumbra={1} intensity={2} color="#4ade80" />
-            <spotLight position={[-10, 20, -10]} angle={0.3} penumbra={1} intensity={2} color="#60a5fa" />
+        <div className="w-full h-full relative" style={{ background: '#0a0e14' }}>
+            {/* Adjusted Camera: [0, 55, 0] to fit Ring Radius 10 + Nodes within FOV 35 */}
+            <Canvas camera={{ position: [0, 55, 0], fov: 35 }}>
+                <ambientLight intensity={0.5} />
+                <pointLight position={[0, 20, 0]} intensity={1} />
 
-            {/* BLOCKS */}
-            {gridSectors.map((s) => (
-                <SectorBlock
-                    key={s.id}
-                    data={s}
-                    position={s.pos!}
-                    onClick={onSectorClick}
-                    isSource={s.id === sourceId || vectors?.some(v => v.sourceId === s.id) || false}
-                    isTarget={s.id === targetId || vectors?.some(v => v.targetId === s.id) || false}
-                />
-            ))}
+                {/* NODES */}
+                {nodes.map((node) => (
+                    <HtmlNode
+                        key={node.id}
+                        data={node}
+                        position={node.pos}
+                        onClick={(d) => onSectorSelect && onSectorSelect(d.id)}
+                        isSource={node.id === sourceId || vectors?.some(v => v.sourceId === node.id) || false}
+                        isTarget={node.id === targetId || vectors?.some(v => v.targetId === node.id) || false}
+                        isCenter={node.isCenter}
+                    />
+                ))}
 
-            {/* MAIN FLOW ARROWS (from vectors or single source/target) */}
-            {flowArrows.map((arrow, index) => (
-                <MainFlowArrow key={`flow-arrow-${index}`} start={arrow.start} end={arrow.end} strength={arrow.strength} />
-            ))}
+                {/* ARROWS */}
+                {renderArrows}
 
-            {/* BASE GRID - Darker, Technical */}
-            <gridHelper args={[60, 60, 0x1e293b, 0x020617]} position={[0, -0.05, 0]} />
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.1, 0]}>
-                <planeGeometry args={[200, 200]} />
-                <meshStandardMaterial color="#000000" roughness={0.1} metalness={0.9} />
-            </mesh>
-        </>
-    );
-}
-
-export default function SmartMoneyMap({ sectors = MOCK_SECTORS, vectors, sourceId, targetId, onSectorSelect }: SmartMoneyMapProps) {
-    const [selected, setSelected] = useState<SectorData | null>(null);
-
-    const handleSectorClick = (d: SectorData) => {
-        setSelected(d);
-        console.log("Selected Sector:", d);
-        // Notify parent component
-        if (onSectorSelect) {
-            onSectorSelect(d.id);
-        }
-    };
-
-    return (
-        <div className="w-full h-full relative cursor-move">
-            <Canvas shadows camera={{ position: [0, 6, 16], fov: 35 }}>
-                <color attach="background" args={['#020617']} />
-                <fog attach="fog" args={['#020617', 10, 40]} />
-
-                {/* 3D SCENE CONTENT */}
-                <SceneContent
-                    sectors={sectors}
-                    vectors={vectors}
-                    sourceId={sourceId}
-                    targetId={targetId}
-                    onSectorClick={handleSectorClick}
-                />
-
+                {/* CONTROLS - Limit Max Distance to preventing zooming out too far */}
                 <OrbitControls
-                    makeDefault
-                    minPolarAngle={0}
-                    maxPolarAngle={Math.PI / 2.1}
-                    maxDistance={30}
-                    minDistance={5}
-                    target={[0, 0, 0]}
-                    enablePan={true}
+                    enableZoom={true}
+                    minDistance={10}
+                    maxDistance={80}
+                    maxPolarAngle={Math.PI / 2.2}
                 />
 
                 <EffectComposer>
-                    <Bloom luminanceThreshold={0.5} luminanceSmoothing={0.9} height={300} intensity={0.5} />
-                    <Vignette eskil={false} offset={0.1} darkness={0.6} />
+                    <Bloom luminanceThreshold={0.2} intensity={0.4} radius={0.5} />
+                    <Vignette eskil={false} offset={0.1} darkness={0.5} />
                 </EffectComposer>
+
             </Canvas>
         </div>
     );

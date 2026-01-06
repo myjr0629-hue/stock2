@@ -186,8 +186,8 @@ export default function GuardianPage() {
                                 sectors={(data?.sectors || []).map(s => ({
                                     id: s.id,
                                     name: s.name,
-                                    density: Math.abs(s.change) * 10,
-                                    height: Math.min(1, Math.abs(s.change) / 5),
+                                    density: s.change,
+                                    height: Math.min(2.5, Math.abs(s.change)), // Allow more dynamic height range
                                     topTickers: [],
                                     color: s.change >= 0 ? '#10b981' : '#f43f5e'
                                 }))}
