@@ -813,9 +813,14 @@ export function getArchivedReport(date: string, type: ReportType): PremiumReport
     }
 }
 
-export function getLatestReport(type: ReportType): PremiumReport | null {
-    const archives = listArchivedReports();
+export async function getLatestReport(type: ReportType): Promise<PremiumReport | null> {
+    // [V3.7.2 FIX] Use reportStore.loadLatest() which handles Redis on Vercel
+    const { loadLatest } = await import('@/lib/storage/reportStore');
+    const report = await loadLatest(type);
+    if (report) return report as PremiumReport;
 
+    // Fallback to local FS for development
+    const archives = listArchivedReports();
     for (const archive of archives) {
         if (archive.types.includes(type)) {
             return getArchivedReport(archive.date, type);
