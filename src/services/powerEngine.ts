@@ -12,7 +12,7 @@ import {
     Top3Stats,
     PowerMeta
 } from './engineConfig';
-import { MAGNIFICENT_7, BIO_LEADERS_TOP5, DATACENTER_TOP5 } from './universePolicy';
+import { MAGNIFICENT_7, BIO_LEADERS_TOP5, DATACENTER_TOP5, getSectorForTicker } from './universePolicy';
 
 // === GUARDIAN SIGNAL INTEGRATION (Phase 4) ===
 export interface GuardianSignal {
@@ -185,19 +185,36 @@ function calculateLayerScores(evidence: any): ScoreResult {
     // Calculate Alpha Score
     let alphaScore: number | null = null;
     if (calculatedLayers >= 1 && totalWeight > 0) {
-        alphaScore = weightedSum / totalWeight;
 
-        // [Normalization] Dynamic Scoring
-        // alphaScore is already weightedSum / totalWeight.
-        // If totalWeight is small (e.g., only Price), the score is valid for that layer.
-        // We do NOT boost artificially.
+        // [V3.7.2] Field Commander Override (Intraday Momentum)
+        // "Early session momentum trumps structural theory." (70% Priority)
+        const relVol = evidence?.flow?.relVol || 0;
+        const netFlow = evidence?.flow?.netFlow || 0;
+        const isTapeMomentum = relVol >= 3.0 || netFlow > 1000000;
 
-        // Cap logic: If very few layers, credibility is low, so we cap the max possible score.
-        // 1-2 Layers: Max 70 (Watch only)
-        // 3-4 Layers: Max 90
-        // 5 Layers: Max 100
-        const cappedMax = calculatedLayers <= 2 ? 70 : calculatedLayers <= 4 ? 90 : 100;
-        alphaScore = Math.min(alphaScore, cappedMax);
+        if (isTapeMomentum && layerScores.price !== undefined && layerScores.flow !== undefined) {
+            // Recalculate with Momentum Priority Weights
+            // Price (Action): 40%
+            // Flow (Fuel): 40%
+            // Options (Structure): 20% (Background)
+            // Macro: Ignored (Noise)
+            console.log(`[PowerEngine] Field Commander Override Active for Tape Momentum`);
+            const pScore = layerScores.price;
+            const fScore = layerScores.flow;
+            const oScore = layerScores.options || 50; // Neutral if missing
+
+            // Re-weight: (P*0.4 + F*0.4 + O*0.2)
+            alphaScore = (pScore * 0.4) + (fScore * 0.4) + (oScore * 0.2);
+
+            // Allow full score (uncapped) because Momentum is verified by Tape
+        } else {
+            // Standard Structural Logic
+            alphaScore = weightedSum / totalWeight;
+
+            // Cap logic
+            const cappedMax = calculatedLayers <= 2 ? 70 : calculatedLayers <= 4 ? 90 : 100;
+            alphaScore = Math.min(alphaScore, cappedMax);
+        }
     }
 
     return {
@@ -219,7 +236,10 @@ export function computeQualityTier(
         tMinus1?: { score: number, vol: number };
         tMinus2?: { score: number, vol: number };
     },
-    guardianSignal?: GuardianSignal // [Phase 4] Guardian Integration
+    guardianSignal?: GuardianSignal, // [Phase 4] Guardian Integration
+    targetSectorId?: string | null, // [V3.0] Sector Boost
+    sentiment?: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL', // [V3.5] Sentiment Gate
+    isSympathyTarget?: boolean // [V3.5] Sympathy Hunter
 ): QualityTierResult {
     const symbol = item.ticker || '';
     const evidence = item.evidence;
@@ -266,6 +286,15 @@ export function computeQualityTier(
     if (reportDiffReason === 'RECOVERY') alphaScore += POWER_SCORE_CONFIG.BONUS_RECOVERY;
     if (wasInPrevReport) alphaScore += POWER_SCORE_CONFIG.BONUS_STABILITY;
     if (isLeaderSymbol(symbol)) alphaScore += POWER_SCORE_CONFIG.BONUS_LEADER_TRACK;
+
+    // [V3.0] Sector Target Boost
+    if (targetSectorId) {
+        const sector = getSectorForTicker(symbol);
+        if (sector === targetSectorId) {
+            alphaScore += POWER_SCORE_CONFIG.TARGET_SECTOR_BOOST;
+            // reasonKR += ' [SECTOR_BOOST]'; // Append logic later
+        }
+    }
 
     if (reportDiffReason === 'WEAKENING') alphaScore += POWER_SCORE_CONFIG.PENALTY_WEAKENING;
     if (holdAction === 'EXIT') alphaScore += POWER_SCORE_CONFIG.PENALTY_EXIT;
@@ -409,6 +438,55 @@ export function computeQualityTier(
         reasonKR = `저강도(${alphaScore.toFixed(0)})`;
     }
 
+    // === [V3.7] OPTION-CENTRIC ABSOLUTE GATEKEEPER ===
+    // "Quantity(Vol) is Noise, Location(Option) is Sovereignty."
+    // We strictly reject "Fake Pumps" and "Resistance Grinding".
+
+    const price = evidence?.price?.last || 0;
+    const callWall = evidence?.options?.callWall || 0;
+    const rsi = evidence?.price?.rsi14 || 50;
+    const changePct = evidence?.price?.changePct || 0;
+    const relVol = evidence?.flow?.relVol || 0;
+    const netFlow = evidence?.flow?.netFlow || 0;
+    const gex = evidence?.options?.gex || 0;
+
+    // [Gate 1] Option Gravity Shield (Call Wall Resistance)
+    // If Price is within 2% of Call Wall (or above), it's a Kill Zone.
+    if (callWall > 0 && price >= callWall * 0.98) {
+        console.log(`[PowerEngine] ${symbol} Rejected by Gate 1 (Call Wall: ${callWall}, Price: ${price})`);
+        alphaScore = Math.min(alphaScore, 40); // Force Watch/Filler
+        tier = 'WATCH';
+        reasonKR = `🛡️ [Gate 1] 옵션 저항벽 도달 (${callWall} Call Wall) - 진입 금지`;
+    }
+
+    // [Gate 2] Relative Location & Divergence (Exhaustion)
+    // RSI > 80 AND High Vol/Change -> Likely Top (Exhaustion)
+    else if (rsi >= 80 && changePct >= 15.0 && relVol >= 2.0) {
+        console.log(`[PowerEngine] ${symbol} Rejected by Gate 2 (Exhaustion: RSI ${rsi.toFixed(0)})`);
+        alphaScore = 0; // Penalty -100 (Effective 0)
+        tier = 'FILLER';
+        reasonKR = `📉 [Gate 2] 설거지 패턴 감지 (RSI 과열 + 거래량 폭발) - 즉시 이탈 권고`;
+    }
+
+    // [Gate 3] Smart Money Alignment (GEX/Flow)
+    // If Price UP but Gamma is Short (Volatile) and Flow is Negative? 
+    // User Guide: "rising OI ... stable PCR". 
+    // We use GEX check or NetFlow check.
+    else if (changePct > 5.0 && netFlow < -100000 && gex < 0) {
+        // Price Up + Big Selling + Short Gamma = Trap
+        console.log(`[PowerEngine] ${symbol} Rejected by Gate 3 (Fake Pump)`);
+        alphaScore = Math.min(alphaScore, 45);
+        tier = 'WATCH';
+        reasonKR = `⛔ [Gate 3] 가짜 상승 (스마트머니 이탈 확인)`;
+    }
+
+    // [V3.7] Validated Momentum (Survivors)
+    // Only if it passes all gates, apply standard scoring.
+    // We removed v3.6 Hyper-Momentum Boost.
+    // Instead, we trust the 'Calculated Layer' score which rewards Flow & Options naturally.
+    // We assume if it survived the gates and has good score, it is valid.
+
+
     // === PHASE 4: GUARDIAN SIGNAL INJECTION ===
     let guardianPenaltyStr = "";
     if (guardianSignal && optionsComplete) {
@@ -458,6 +536,24 @@ export function computeQualityTier(
     // Append Penalty Reason
     if (guardianPenaltyStr) {
         reasonKR += guardianPenaltyStr;
+    }
+
+    // [V3.0] Check Sector Boost
+    if (targetSectorId && getSectorForTicker(symbol) === targetSectorId) {
+        reasonKR += ` [🔥 주도 섹터: +${POWER_SCORE_CONFIG.TARGET_SECTOR_BOOST}]`;
+    }
+
+    // [V3.5] Sympathy Hunter
+    if (isSympathyTarget) {
+        alphaScore += 15;
+        reasonKR += ` [🤝 공명 효과: +15]`;
+    }
+
+    // [V3.5] Sentiment Gate (Final check)
+    if (sentiment === 'NEGATIVE') {
+        alphaScore -= 30;
+        reasonKR += ` [📉 뉴스 심리 악화: -30]`;
+        if (alphaScore < 40) tier = 'FILLER'; // Force downgrade if sentiment kills the score
     }
 
     return {
@@ -620,14 +716,20 @@ export function applyQualityTiers(
     prevReportSymbols: Set<string> = new Set(),
     backfilledSymbols: Set<string> = new Set(),
     historyMap: Record<string, { tMinus1?: { score: number, vol: number }, tMinus2?: { score: number, vol: number } }> = {},
-    guardianSignal?: GuardianSignal // [Phase 4]
+    guardianSignal?: GuardianSignal, // [Phase 4]
+    targetSectorId?: string | null, // [V3.0] Sector Boost Input
+    sentimentMap?: Record<string, 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'>, // [V3.5]
+    sympathySet?: Set<string> // [V3.5]
 ): any[] {
     return items.map(item => {
         const sym = (item.symbol || item.ticker)?.toUpperCase() || '';
         const isBackfilled = backfilledSymbols.has(sym) || item.isBackfilled === true;
         const history = historyMap[sym];
 
-        const tierResult = computeQualityTier(item, prevReportSymbols, isBackfilled, history, guardianSignal);
+        const sentiment = sentimentMap ? (sentimentMap[sym] as any) : undefined;
+        const isSympathy = sympathySet ? sympathySet.has(sym) : false;
+
+        const tierResult = computeQualityTier(item, prevReportSymbols, isBackfilled, history, guardianSignal, targetSectorId, sentiment, isSympathy);
 
         return {
             ...item,
@@ -665,4 +767,67 @@ export function computePowerMeta(
         },
         top3Stats
     };
+}
+
+// === [V3.0] FINAL LIST SELECTION (10 Best + 2 Discovery) ===
+export function selectFinalList(allScoredItems: any[]): any[] {
+    // 1. Sort by Score Descending
+    const sorted = [...allScoredItems].sort((a, b) => (b.powerScore || 0) - (a.powerScore || 0));
+
+    // 2. Take Top 10 (Standard Elite)
+    const top10 = sorted.slice(0, 10);
+    const top10Ids = new Set(top10.map(i => i.ticker));
+
+    // 3. Find Discovery Candidates (Wildcards) from remaining
+    // Criteria: High RVOL (> 2.5) OR High GEX (> 3M) OR Strong Momentum (> 4%)
+    const remaining = sorted.slice(10);
+
+    const candidates = remaining.filter(item => {
+        if (top10Ids.has(item.ticker)) return false;
+
+        const rvol = item.evidence?.flow?.relVol || 0;
+        const gex = Math.abs(item.evidence?.options?.gex || 0);
+        const change = item.evidence?.price?.changePct || 0;
+
+        // Wildcard Logic
+        const isVolumeExplosion = rvol >= 2.5;
+        const isGammaNuke = gex >= 3000000; // 3M
+        const isMomentumRocket = change >= 4.0;
+
+        return isVolumeExplosion || isGammaNuke || isMomentumRocket;
+    });
+
+    // Sort candidates by RVOL (Explosiveness)
+    candidates.sort((a, b) => (b.evidence?.flow?.relVol || 0) - (a.evidence?.flow?.relVol || 0));
+
+    // 4. Fill Slots 11 & 12
+    const discoverySlots = [];
+    if (candidates.length > 0) discoverySlots.push(candidates[0]);
+    if (candidates.length > 1) discoverySlots.push(candidates[1]);
+
+    // 5. If not enough candidates, fill with next best score
+    let nextIdx = 10; // Start from 11th best by score
+    while (discoverySlots.length < 2 && nextIdx < sorted.length) {
+        const candidate = sorted[nextIdx];
+        if (!top10Ids.has(candidate.ticker) && !discoverySlots.find(d => d.ticker === candidate.ticker)) {
+            discoverySlots.push(candidate);
+        }
+        nextIdx++;
+    }
+
+    // 6. Combine & Mark Discovery
+    const final12 = [...top10, ...discoverySlots];
+
+    // Mark Discovery items for UI
+    return final12.map((item, idx) => {
+        const isDiscovery = idx >= 10; // 11th and 12th
+        if (isDiscovery) {
+            // Append Discovery Tag if not already there
+            // We modify the reasonKR slightly to indicate it's a discovery slot if it was a low score entry
+            if (item.powerScore < 50) {
+                return { ...item, qualityReasonKR: item.qualityReasonKR + ' [🧪 Discovery Slot: 변동성 베팅]' };
+            }
+        }
+        return item;
+    });
 }

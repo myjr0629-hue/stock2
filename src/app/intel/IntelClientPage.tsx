@@ -939,15 +939,15 @@ const formatDateKey = (d: Date) => {
     return d.toISOString().split('T')[0];
 };
 
-function Tier01Content() {
+function IntelContent({ initialReport }: { initialReport: any }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
 
     // State
-    const [report, setReport] = useState<any>(null);
+    const [report, setReport] = useState<any>(initialReport || null);
     const [activeTab, setActiveTab] = useState('FINAL');
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(!initialReport);
     const [error, setError] = useState<string | null>(null);
     const [selectedTicker, setSelectedTicker] = useState<TickerItem | null>(null);
 
@@ -1026,6 +1026,7 @@ function Tier01Content() {
 
     // Derived Lists
     const items: TickerItem[] = report?.items || [];
+    const hunters: TickerItem[] = report?.hunters || []; // [V3.7.2] Hunter Corps
     // Enhanced Logic: Explicitly get ranks 1-3, 4-10, 11-12
     const sortedItems = [...items].sort((a, b) => ((a as any).rank || 99) - ((b as any).rank || 99));
 
@@ -1107,24 +1108,24 @@ function Tier01Content() {
             {/* 0. TACTICAL SIDEBAR (Fixed Left) */}
             <TacticalSidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
-            {/* 1. MAIN CONTENT (Offset 320px) */}
-            <div className="flex-1 ml-80 relative min-h-screen">
+            {/* 1. MAIN CONTENT (Offset 208px) */}
+            <div className="flex-1 ml-52 relative min-h-screen">
 
                 {/* Premium Background Effects */}
-                <div className="fixed inset-0 pointer-events-none z-0 ml-80">
+                <div className="fixed inset-0 pointer-events-none z-0 ml-52">
                     <div className="absolute inset-0 bg-[#05090f]" />
                     <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-indigo-900/5 rounded-full blur-[160px] opacity-20" />
                     <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" style={{ opacity: 0.02 }} />
                 </div>
 
                 {isDebug && (
-                    <div className="fixed top-0 left-80 right-0 h-1 bg-indigo-500 z-[200]" title="Debug Mode Active" />
+                    <div className="fixed top-0 left-52 right-0 h-1 bg-indigo-500 z-[200]" title="Debug Mode Active" />
                 )}
 
                 <div className="max-w-[1920px] mx-auto px-8 py-8 space-y-8 relative z-10">
 
                     {/* Placeholder for Non-Final Tabs */}
-                    {activeTab !== 'FINAL' && (
+                    {activeTab !== 'FINAL' && activeTab !== 'DISCOVERY' && (
                         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-in fade-in zoom-in duration-300">
                             <div className="w-20 h-20 bg-slate-900/50 rounded-full flex items-center justify-center mb-6 border border-slate-800 shadow-2xl">
                                 <Shield className="w-10 h-10 text-slate-600" />
@@ -1142,6 +1143,61 @@ function Tier01Content() {
                             </button>
                         </div>
                     )}
+
+                    {/* HYPER DISCOVERY CONTENT (HUNTER CORPS) */}
+                    <div className={activeTab === 'DISCOVERY' ? "space-y-8" : "hidden"}>
+                        <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pt-4">
+                            <div>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[10px] font-bold text-amber-500 tracking-widest uppercase flex items-center gap-2">
+                                        <Zap className="w-3 h-3" />
+                                        MOMENTUM SCANNERS
+                                    </span>
+                                </div>
+                                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter flex items-center gap-4">
+                                    PROJECT: <span className="text-amber-500">HYPER DISCOVERY</span>
+                                </h1>
+                                <p className="text-slate-400 font-mono text-xs mt-2">
+                                    HUNTER CORPS • HIGH VOLATILITY • TIGHT STOPS
+                                </p>
+                            </div>
+                        </section>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                            {isLoading ? (
+                                [1, 2, 3, 4].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
+                            ) : (
+                                hunters.length > 0 ? (
+                                    hunters.map((item, idx) => (
+                                        <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
+                                            <TacticalCard
+                                                ticker={item.ticker}
+                                                rank={idx + 1}
+                                                price={item.evidence.price.last}
+                                                change={item.evidence.price.changePct}
+                                                entryBand={
+                                                    item.decisionSSOT?.entryBand
+                                                        ? { min: item.decisionSSOT.entryBand[0], max: item.decisionSSOT.entryBand[1] } // SSOT is [min, max]
+                                                        : undefined
+                                                }
+                                                cutPrice={item.decisionSSOT?.cutPrice}
+                                                isLocked={true} // Hunters are locked targets
+                                                name={item.symbol}
+                                                rsi={item.evidence.price.rsi14}
+                                                score={item.alphaScore}
+                                                isDayTradeOnly={true} // Default for Hunters
+                                                reasonKR={`[Hunter] RVol ${item.evidence.flow?.relVol?.toFixed(1)}x • Momentum Scalp`}
+                                            />
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="col-span-full py-20 text-center text-slate-500">
+                                        <p>No high-probability Hunter targets detected today.</p>
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    </div>
 
                     {/* FINAL BATTLE CONTENT */}
                     <div className={activeTab === 'FINAL' ? "space-y-8" : "hidden"}>
@@ -1201,7 +1257,11 @@ function Tier01Content() {
                                                 rank={idx + 1}
                                                 price={item.evidence.price.last}
                                                 change={item.evidence.price.changePct}
-                                                entryBand={item.decisionSSOT?.entryBand}
+                                                entryBand={
+                                                    item.entryBand
+                                                        ? { min: item.entryBand.low, max: item.entryBand.high }
+                                                        : (item.decisionSSOT?.entryBand || undefined)
+                                                }
                                                 cutPrice={item.decisionSSOT?.cutPrice}
                                                 isLocked={item.decisionSSOT?.isLocked}
                                                 name={item.symbol}
@@ -1422,17 +1482,17 @@ function Tier01Content() {
     );
 }
 
-export default function Tier01Page() {
+export default function IntelClientPage({ initialReport }: { initialReport: any }) {
     return (
         <React.Suspense fallback={
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-slate-400 text-sm">Initializing Terminal...</p>
+                    <p className="text-slate-400 text-sm">Initializing Tactical Board...</p>
                 </div>
             </div>
         }>
-            <Tier01Content />
+            <IntelContent initialReport={initialReport} />
         </React.Suspense>
     );
 }

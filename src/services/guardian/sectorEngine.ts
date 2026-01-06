@@ -27,21 +27,8 @@ export interface GuardianVerdict {
 }
 
 // === CONSTANTS ===
-// Representative "Market Core" Tickers for Flow Calculation
-const SECTOR_MAP: Record<string, { name: string; tickers: string[] }> = {
-    XLK: { name: "기술주", tickers: ["NVDA", "AAPL", "MSFT", "AVGO", "ORCL"] },
-    XLC: { name: "커뮤니케이션", tickers: ["GOOGL", "META", "NFLX", "DIS", "CMCSA"] },
-    XLY: { name: "임의소비재", tickers: ["AMZN", "TSLA", "HD", "MCD", "NKE"] },
-    XLE: { name: "에너지", tickers: ["XOM", "CVX", "COP", "EOG", "SLB"] },
-    XLF: { name: "금융", tickers: ["JPM", "V", "MA", "BAC", "WFC"] },
-    XLV: { name: "헬스케어", tickers: ["LLY", "UNH", "JNJ", "ABBV", "MRK"] },
-    XLI: { name: "산업재", tickers: ["GE", "CAT", "HON", "UNP", "UPS"] },
-    XLB: { name: "소재", tickers: ["LIN", "SHW", "FCX", "APD", "ECL"] },
-    XLP: { name: "필수소비재", tickers: ["PG", "COST", "WMT", "KO", "PEP"] },
-    XLRE: { name: "부동산", tickers: ["PLD", "AMT", "EQIX", "CCI", "PSA"] },
-    XLU: { name: "유틸리티", tickers: ["NEE", "SO", "DUK", "CEG", "AEP"] },
-    AI_PWR: { name: "AI 전력망", tickers: ["VST", "CEG", "VRT", "ETN", "PWR"] }, // New Synthetic Sector
-};
+import { SECTOR_MAP } from "@/services/universePolicy";
+
 
 // === ENGINE ===
 // === CACHE TYPES ===

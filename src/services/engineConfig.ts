@@ -40,6 +40,9 @@ export const POWER_SCORE_CONFIG = {
     // Anti-churn band
     TOP3_ANTI_CHURN_DELTA: 8.0,    // Score drop tolerance for Top3 retention
     MAX_TOP3_SWAP_PER_RUN: 1,      // Maximum forced swaps in Top3
+
+    // [V3.0] Sector Boost (Engine Integration)
+    TARGET_SECTOR_BOOST: 10,       // Bonus for tickers in Guardian's Target Sector
 };
 
 // === REGIME CONFIGURATION ===

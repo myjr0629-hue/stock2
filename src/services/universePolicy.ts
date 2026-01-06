@@ -66,6 +66,32 @@ const ETF_NAME_PATTERNS = [
     /-3x/i,
 ];
 
+// === SECTOR DEFINITIONS (SSOT) ===
+// Representative "Market Core" Tickers for Flow Calculation & Boost
+export const SECTOR_MAP: Record<string, { name: string; tickers: string[] }> = {
+    XLK: { name: "기술주", tickers: ["NVDA", "AAPL", "MSFT", "AVGO", "ORCL", "AMD", "QCOM", "INTC", "IBM", "TXN"] },
+    XLC: { name: "커뮤니케이션", tickers: ["GOOGL", "META", "NFLX", "DIS", "CMCSA", "TMUS", "VZ", "T", "CHTR"] },
+    XLY: { name: "임의소비재", tickers: ["AMZN", "TSLA", "HD", "MCD", "NKE", "SBUX", "LOW", "BKNG", "TJX"] },
+    XLE: { name: "에너지", tickers: ["XOM", "CVX", "COP", "EOG", "SLB", "MPC", "PSX", "VLO", "OXY"] },
+    XLF: { name: "금융", tickers: ["JPM", "V", "MA", "BAC", "WFC", "GS", "MS", "BLK", "C", "AXP"] },
+    XLV: { name: "헬스케어", tickers: ["LLY", "UNH", "JNJ", "ABBV", "MRK", "TMO", "PFE", "ABT", "DHR"] },
+    XLI: { name: "산업재", tickers: ["GE", "CAT", "HON", "UNP", "UPS", "DE", "RTX", "LMT", "BA"] },
+    XLB: { name: "소재", tickers: ["LIN", "SHW", "FCX", "APD", "ECL", "NEM", "DOW", "DD"] },
+    XLP: { name: "필수소비재", tickers: ["PG", "COST", "WMT", "KO", "PEP", "PM", "MO", "CL", "KMB"] },
+    XLRE: { name: "부동산", tickers: ["PLD", "AMT", "EQIX", "CCI", "PSA", "O", "VICI", "WELL"] },
+    XLU: { name: "유틸리티", tickers: ["NEE", "SO", "DUK", "CEG", "AEP", "SRE", "D", "PEG"] },
+    AI_PWR: { name: "AI 전력망", tickers: ["VST", "CEG", "VRT", "ETN", "PWR"] }, // New Synthetic Sector
+};
+
+export function getSectorForTicker(ticker: string): string | null {
+    const t = ticker.toUpperCase();
+    for (const [sectorId, info] of Object.entries(SECTOR_MAP)) {
+        if (info.tickers.includes(t)) return sectorId;
+    }
+    return null;
+}
+
+
 export interface SymbolClassification {
     isETF: boolean;
     isStock: boolean;

@@ -1,0 +1,4 @@
+{
+  "message": "Finalize Failed: No Prior Report for 2026-01-06",
+  "stack": "Error: Finalize Failed: No Prior Report for 2026-01-06\n    at generateReport (C:\\Users\\seamo\\.gemini\\antigravity\\stock2\\src\\services\\reportScheduler.ts:207:29)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async run (C:\\Users\\seamo\\.gemini\\antigravity\\stock2\\scripts\\force_generate.ts:15:24)"
+}

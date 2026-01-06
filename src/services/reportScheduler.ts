@@ -18,12 +18,12 @@ import { getEventsFromRedis, filterUpcoming } from '@/lib/storage/eventStore'; /
 import { getPoliciesFromRedis, splitPolicyWindows } from '@/lib/storage/policyStore'; // [P1] Redis policy
 import { saveReport, purgeReportCaches, getYesterdayReport, appendPerformanceRecord, PerformanceRecord } from "@/lib/storage/reportStore";
 import { getETNow, determineSessionInfo } from "@/services/marketDaySSOT";
-import { fetchMassive, RunBudget } from "@/services/massiveClient";
+import { fetchMassive, RunBudget, fetchTopGainers, fetchNewsForSentiment, fetchRelatedTickers } from "@/services/massiveClient";
 import { enrichTop3Candidates, generateTop3WHY, getVelocitySymbol, EnrichedCandidate } from './top3Enrichment';
 import { generateContinuationReport, ContinuationReport } from './continuationEngine';
 import { generateReportDiff } from './reportDiff'; // [S-56.1] Decision Continuity
 import { applyUniversePolicy, applyUniversePolicyWithBackfill, buildLeadersTrack, getMacroSSOT, validateNoETFInItems, loadStockUniversePool } from './universePolicy'; // [S-56.2] + [S-56.3]
-import { applyQualityTiers, selectTop3, determineRegime, computePowerMeta, computeQualityTier } from './powerEngine'; // [S-56.4]
+import { applyQualityTiers, selectTop3, determineRegime, computePowerMeta, computeQualityTier, selectFinalList } from './powerEngine'; // [S-56.4]
 import { BUILD_PIPELINE_VERSION, orchestrateGemsEngine } from '../engine/reportOrchestrator'; // [S-56.4.5c]
 import { GuardianDataHub } from './guardian/unifiedDataStream'; // [Phase 4]
 import { GuardianSignal } from './powerEngine'; // [Phase 4]
@@ -96,7 +96,8 @@ export interface PremiumReport {
         likes: string[];
         dislikes: string[];
     };
-    items: any[]; // [vNext] Unified Terminal items
+    items: any[]; // [vNext] Unified Terminal items (Main Corps)
+    hunters?: any[]; // [V3.7.2] Hunter Corps (Hyper Discovery)
     // TODO: Add report sections 1-10 integration
 }
 
@@ -179,6 +180,7 @@ export async function generateReport(type: ReportType, force: boolean = false): 
     const { enrichTerminalItems } = await import('./terminalEnricher');
 
     let candidateTickers: string[] = [];
+    let discoveryTickers: string[] = []; // [V3.7.2] Track source
     let enrichedItems: any[] = [];
 
     // === STAGE LOGIC ===
@@ -189,7 +191,28 @@ export async function generateReport(type: ReportType, force: boolean = false): 
 
         // Re-verify tickers
         const draftTickers = draft.items.map((i: any) => i.ticker);
-        const auditItems = await enrichTerminalItems(draftTickers, sessionParam, true); // Force fresh
+        // [V3.7.2] Recover Discovery Tickers from Draft
+        if (draft.hunters) {
+            const hunterTickers = draft.hunters.map((h: any) => h.ticker);
+            discoveryTickers = [...hunterTickers];
+            // Merge if not present (should be separate in draft, but for enrichment we need all)
+            // Actually draftTickers usually only contains 'items'. We need to fetch hunters too if we want to audit them.
+            // But for 'revised', we might just focus on Main Corps audit?
+            // User policy: "Tactical Segregation". We should valid both.
+            draftTickers.push(...hunterTickers);
+        }
+
+        const rawAuditItems = await enrichTerminalItems(draftTickers, sessionParam, true); // Force fresh
+
+        // [INTEGRITY GATE] Drop items with invalid price ($0.00)
+        const auditItems = rawAuditItems.filter(item => {
+            const price = item.evidence?.price?.last || 0;
+            if (price <= 0) {
+                console.warn(`[Integrity] Dropping ${item.ticker}: Invalid Price ($${price.toFixed(2)})`);
+                return false;
+            }
+            return true;
+        });
 
         // Filter Drops (> 5% Gap Down)
         enrichedItems = auditItems.filter(item => {
@@ -201,26 +224,112 @@ export async function generateReport(type: ReportType, force: boolean = false): 
             return true;
         });
 
-    } else if (type === 'final') { // STAGE 3: LOCK
-        console.log(`[ReportScheduler] Stage 3: Finalizing REVISED...`);
+    } else if (type === 'final') { // STAGE 3: LOCK (Zero-Defect Policy)
+        console.log(`[ReportScheduler] Stage 3: Finalizing REVISED with Strict Integrity...`);
         const revised = await getArchivedReport(marketDate, 'revised') || await getArchivedReport(marketDate, 'pre') || await getArchivedReport(marketDate, 'draft');
         if (!revised) throw new Error(`Finalize Failed: No Prior Report for ${marketDate}`);
 
         const finalTickers = revised.items.map((i: any) => i.ticker);
-        const finalItems = await enrichTerminalItems(finalTickers, sessionParam, true);
+        // [V3.7.2] Recover Hunters
+        if (revised.hunters) {
+            const hunterTickers = revised.hunters.map((h: any) => h.ticker);
+            discoveryTickers = [...hunterTickers];
+            finalTickers.push(...hunterTickers);
+        }
 
-        // Lock Logic: Entry Bands
+        // [Zero-Defect] Completion Loop (Maximum Effort)
+        let attempts = 0;
+        let finalItems: any[] = [];
+        const MAX_RETRIES = 5; // Extended to 5
+        const RETRY_DELAY_MS = 5000;
+
+        while (attempts < MAX_RETRIES) {
+            console.log(`[ReportScheduler] Zero-Defect Fetch Attempt ${attempts + 1}/${MAX_RETRIES}...`);
+            const rawFinalItems = await enrichTerminalItems(finalTickers, sessionParam, true);
+
+            // [INTEGRITY GATE] Drop items with invalid price ($0.00)
+            const validPriceItems = rawFinalItems.filter(item => {
+                const price = item.evidence?.price?.last || 0;
+                if (price <= 0) {
+                    console.warn(`[Integrity] Dropping ${item.ticker}: Invalid Price ($${price.toFixed(2)})`);
+                    return false;
+                }
+                return true;
+            });
+
+            // [COMPLETENESS GATE] Top Candidates must have Ops/Flow
+            // We check if the resulting list is "good enough" (all items complete)
+            const incompleteCount = validPriceItems.filter(i => !i.complete).length;
+
+            if (incompleteCount === 0) {
+                console.log(`[ReportScheduler] Zero-Defect Achieved. All ${validPriceItems.length} items complete.`);
+                finalItems = validPriceItems;
+                break;
+            } else {
+                console.warn(`[ReportScheduler] Attempt ${attempts + 1} Failed: ${incompleteCount} items incomplete.`);
+                if (attempts === MAX_RETRIES - 1) {
+                    console.warn(`[ReportScheduler] Maximum Effort Exhausted. Keeping ${incompleteCount} incomplete items (Natural Scoring).`);
+                    // [Policy Update] Do NOT drop. We tried our best.
+                    finalItems = validPriceItems;
+                } else {
+                    console.log(`[ReportScheduler] Waiting ${RETRY_DELAY_MS}ms for data propagation...`);
+                    await new Promise(r => setTimeout(r, RETRY_DELAY_MS));
+                }
+            }
+            attempts++;
+        }
+
+        if (finalItems.length === 0) throw new Error("[ReportScheduler] Zero-Defect Failure: No valid items remaining after retries.");
+
+        // Lock Logic: Risk-Adjusted Entry Bands (v3.7.1 Dual-Mode)
+        // [V3.7.2] Apply Role Persistence to Enriched Items (since we re-fetched)
         enrichedItems = finalItems.map(item => {
+            // Recover Role from discoveryTickers
+            if (discoveryTickers.includes(item.ticker)) item.tacticalRole = 'HUNTER';
+            else item.tacticalRole = 'MAIN';
+
             const pre = item.evidence?.price?.last || 0;
             const close = item.evidence?.price?.prevClose || pre;
-            const entryMin = Math.min(pre, close);
-            const entryMax = Math.max(pre, close) * 1.002; // Small buffer
+            const vwap = item.evidence?.price?.vwap || 0;
+            const putFloor = item.evidence?.options?.putFloor || 0;
+            const callWall = item.evidence?.options?.callWall || 0;
+
+            // [V3.7.2] Tri-Mode Entry Strategy (Field Mastery)
+            // Mode A (Defense): Default. Wait for Put Floor.
+            // Mode B (Breach): Price > Call Wall. Wall becomes Support.
+            // Mode C (Dynamic): Price > VWAP & High Vol. Ride the Tape.
+
+            let entryMin = Math.min(pre, close);
+            let entryMax = Math.max(pre, close) * 1.002;
+            let cutPrice = entryMin * 0.95; // Default 5% stop
+
+            const isBreakout = callWall > 0 && pre > (callWall * 1.01);
+            const isTapeMomentum = vwap > 0 && pre > vwap && (item.evidence?.flow?.relVol || 0) > 3.0;
+
+            if (isBreakout) {
+                // [Mode B] Breakout Surfing
+                entryMin = callWall;
+                entryMax = callWall * 1.03;
+                cutPrice = callWall * 0.98; // Tight stop below wall
+            } else if (isTapeMomentum) {
+                // [Mode C] Dynamic Strike (VWAP Support)
+                // "Don't wait for structural floor if the tape is flying."
+                entryMin = vwap;
+                entryMax = pre; // Buy pullbacks to VWAP
+                cutPrice = vwap * 0.98; // Stop if VWAP fails
+            } else if (putFloor > 0 && putFloor < pre) {
+                // [Mode A] Defense (Structural Floor)
+                entryMin = putFloor;
+                entryMax = putFloor * 1.03;
+                cutPrice = putFloor * 0.99; // Hard Stop below floor
+            }
+
             return {
                 ...item,
                 decisionSSOT: {
                     ...item.decisionSSOT,
                     entryBand: [Number(entryMin.toFixed(2)), Number(entryMax.toFixed(2))],
-                    cutPrice: Number((entryMin * 0.97).toFixed(2)),
+                    cutPrice: Number(cutPrice.toFixed(2)),
                     isLocked: true // [Phase 37] Lock Flag
                 }
             };
@@ -231,11 +340,57 @@ export async function generateReport(type: ReportType, force: boolean = false): 
         // Convert string[] pool to objects for policy function
         const universePoolStrings = await loadStockUniversePool();
         const universePoolObjects = universePoolStrings.map(s => ({ ticker: s }));
-        const universeResult = await applyUniversePolicyWithBackfill(universePoolObjects);
-        candidateTickers = universeResult.final.map(i => i.ticker);
+        // [V3.0] INTEGRATION: Use ALL ~300 tickers (filtered not ETF)
+        // Do NOT use .final (which cuts to 12). Use .filtered.
+        const universeResult = await applyUniversePolicyWithBackfill(universePoolObjects, 300); // Target 300 to get full list
+        candidateTickers = universeResult.filtered.map(i => i.ticker);
 
-        console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items`);
-        enrichedItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
+        // [V3.7.2] Infinite Horizon: High Quality Hyper-Discovery
+        // "Quality over Quantity." - User Mandate
+        if (process.env.ENABLE_HYPER_DISCOVERY !== '0') {
+            const gainers = await fetchTopGainers();
+
+            // [Policy Correction] Reverted Low Price Strategy.
+            // User Feedback: "Penny stocks have inherent defects."
+            // We strictly ignore anything below $5.0.
+            const validGainers = gainers.filter((g: any) => {
+                const price = g.day?.c || g.min?.c || g.prevDay?.c || 0;
+                // [Quality] Hard Floor $5.0. Marginable and generally safer.
+                return price >= 5.0 && !candidateTickers.includes(g.ticker);
+            }).map((g: any) => g.ticker);
+
+            if (validGainers.length > 0) {
+                // [Optimization] Take Top 20 Gainers instead of all to save budget, but ensure we get the best.
+                const topGainers = validGainers.slice(0, 20);
+                console.log(`[ReportScheduler] Infinite Horizon: Injected ${topGainers.length} Gainers (e.g. ${topGainers.slice(0, 3).join(', ')})`);
+
+                discoveryTickers = topGainers; // [V3.7.2] Mark as Discovery
+                candidateTickers = [...candidateTickers, ...topGainers];
+            }
+        }
+
+        console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items (Full Scan + Discovery)`);
+        const rawItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
+
+        // [V3.7.2] Assign Tactical Roles
+        rawItems.forEach(item => {
+            if (discoveryTickers.includes(item.ticker)) {
+                item.tacticalRole = 'HUNTER';
+            } else {
+                item.tacticalRole = 'MAIN';
+            }
+        });
+
+        // [INTEGRITY GATE] Drop items with invalid price ($0.00)
+        enrichedItems = rawItems.filter(item => {
+            const price = item.evidence?.price?.last || 0;
+            if (price <= 0) {
+                console.warn(`[Integrity] Dropping ${item.ticker}: Invalid Price ($${price.toFixed(2)})`);
+                return false;
+            }
+            return true;
+        });
+        console.log(`[Integrity] Qualified Items: ${enrichedItems.length}/${rawItems.length}`);
     }
 
     return generateReportFromItems(type, enrichedItems, force, marketDate, macro, events, policy, news, guardian);
@@ -332,22 +487,86 @@ async function generateReportFromItems(
     }
 
     // [Phase 4] Construct Guardian Signal
+    // [V3.0] Extract Target Sector
+    const targetSectorId = guardian?.verdictTargetId || null;
+
     const guardianSignal: GuardianSignal | undefined = guardian ? {
         marketStatus: guardian.marketStatus,
         divCaseId: guardian.divergence?.caseId || 'N',
         divScore: guardian.divergence?.score || 0
     } : undefined;
 
-    const scoredItems = applyQualityTiers(enrichedItems, prevSymbols, new Set(), historyMap, guardianSignal);
+    const scoredItems = applyQualityTiers(enrichedItems, prevSymbols, new Set(), historyMap, guardianSignal, targetSectorId);
 
-    // 5. Select Top 3 & Rank
+    // [V3.5] REFINEMENT LOOP (Sentiment + Sympathy)
+    // 1. Initial Scoring (Already done: scoredItems)
+    // 2. Identify provisional leaders to check cost-heavy API
+    const provisionalSorted = [...scoredItems].sort((a, b) => b.powerScore - a.powerScore);
+    const provisionalTop3 = provisionalSorted.slice(0, 3);
+    const provisionalLeader = provisionalTop3[0];
+
+    const sentimentMap: Record<string, 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL'> = {};
+    const sympathySet = new Set<string>();
+
+    if (provisionalTop3.length > 0) {
+        console.log(`[ReportScheduler] V3.5 Refinement: Check Sentiment for Top ${provisionalTop3.length}, Sympathy for ${provisionalLeader?.ticker}`);
+
+        // A. Sentiment Gate (Top 3 Candidates)
+        await Promise.all(provisionalTop3.map(async (item) => {
+            if (item.complete) {
+                const sentiment = await fetchNewsForSentiment(item.ticker);
+                if (sentiment !== 'UNKNOWN') {
+                    sentimentMap[item.ticker] = sentiment;
+                    console.log(`[V3.5] Sentiment for ${item.ticker}: ${sentiment}`);
+                }
+            }
+        }));
+
+        // B. Sympathy Hunter (Leader Only)
+        if (provisionalLeader) {
+            const related = await fetchRelatedTickers(provisionalLeader.ticker);
+            related.forEach(r => sympathySet.add(r));
+            if (related.length > 0) console.log(`[V3.5] Sympathy Targets for ${provisionalLeader.ticker}: ${related.length} found`);
+        }
+    }
+
+    // 3. Re-Score with V3.5 Context
+    // We only re-apply if we have new data, but safe to always run to be sure
+    const refinedItems = applyQualityTiers(enrichedItems, prevSymbols, new Set(), historyMap, guardianSignal, targetSectorId, sentimentMap, sympathySet);
+
+    // 4. Final Selection (Tactical Segregation)
+
+    // [V3.7.2] Split Main vs Hunter
+    const mainPool = refinedItems.filter(i => i.tacticalRole !== 'HUNTER'); // Default to Main
+    const hunterPool = refinedItems.filter(i => i.tacticalRole === 'HUNTER');
+
+    // A. Main Corps: Use SelectFinalList (but strictly for Main items)
+    // We pass mainPool to selectFinalList. 
+    // NOTE: selectFinalList expects to fill 12 slots. 
+    // Since we are segregating, we might want 'Top 10' or 'Top 12' pure main.
+    // The original logic was 10 + 2 Discovery. 
+    // Now we want purely Main in the 'FINAL' list?
+    // User Update: "Main Corps... FINAL BATTLE"
+    // Let's force selectFinalList to just act as a sorter/limiter or implement custom logic?
+    // Simplest: Use selectFinalList but with only main items. It will try to fill 12 from Main.
+    const mainSelected = selectFinalList(mainPool);
+
+    // B. Hunter Corps: Top Momentum from Hunter Pool
+    // Sort by Relative Volume (Momentum)
+    const huntersSelected = [...hunterPool].sort((a, b) => (b.evidence?.flow?.relVol || 0) - (a.evidence?.flow?.relVol || 0)).slice(0, 20);
+
+    // [V3.7.2 Diag] Log pool sizes
+    console.log(`[TacticalSeg] mainPool: ${mainPool.length}, hunterPool: ${hunterPool.length}, huntersSelected: ${huntersSelected.length}`);
+    if (huntersSelected.length > 0) {
+        console.log(`[TacticalSeg] Sample Hunter: ${huntersSelected[0].ticker} (RVol: ${huntersSelected[0].evidence?.flow?.relVol?.toFixed(2)})`);
+    }
+
+    const final12 = mainSelected; // Main Corps takes the semantic "items" slot
+
     const regimeResult = determineRegime(macro);
-    const { top3: selectedTop3, stats } = selectTop3(scoredItems, [], regimeResult.regime);
+    const { top3: selectedTop3, stats } = selectTop3(final12, [], regimeResult.regime);
 
-    // Sort by score desc for ranking
-    scoredItems.sort((a, b) => b.score - a.score);
-
-    const finalItems = scoredItems.map((item, idx) => ({
+    const finalItems = final12.map((item, idx) => ({
         ...item,
         rank: idx + 1,
         // Legacy fields for UI compatibility
@@ -358,6 +577,12 @@ async function generateReportFromItems(
             options_status: item.evidence.options.status === 'FAILED' ? 'FAILED' : 'READY',
             options_note: item.evidence.options.status === 'FAILED' ? 'Data Failed' : 'Backfilled/Live'
         }
+    }));
+
+    const finalHunters = huntersSelected.map((item, idx) => ({
+        ...item,
+        rank: idx + 1, // Hunter Rank
+        symbol: item.ticker, // Legacy
     }));
 
     // Re-map selectedTop3 to match Top3Item interface if needed, or use the one from selectTop3
@@ -448,6 +673,7 @@ async function generateReportFromItems(
             dislikes: news.marketDislikes || []
         },
         items: finalItems,
+        hunters: finalHunters, // [V3.7.2]
         alphaGrid: {
             // [P0] Use selectedTop3 not slice - ensure always 3
             top3: selectedTop3.slice(0, 3),
