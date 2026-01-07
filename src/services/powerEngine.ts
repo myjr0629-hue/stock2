@@ -81,31 +81,32 @@ function calculateLayerScores(evidence: any): ScoreResult {
     // [Phase 36] 3-Day Sniper Logic (v3.0)
     // A) Price Layer
     if (evidence?.price?.complete) {
-        let score = 0;
-        const p = evidence.price;
-        const history = evidence.price.history3d || [];
 
-        // 3-Day Slope Calculation
-        let slopeScore = 0;
-        if (history.length >= 2) {
-            const day1 = history[0]; // Newest
-            const day2 = history[1];
-            if (day1.c > day2.c) slopeScore += 20;
-            if (day1.v > day2.v) slopeScore += 10;
-        } else {
-            if (p.changePct > 0) slopeScore += 15;
+        const p = evidence.price;
+        // Slope Score (Trend) - Assume calculated elsewhere or default
+        const slopeScore = 50; // Placeholder if not calculated
+
+        // [V3.7.3 TUNING] Aggressive Momentum Scoring
+        // Old: Max 40. New: Max 100.
+        // Formula: ChangePct * 15. (+1% = 15pts, +3% = 45pts, +5% = 75pts, +7% = 100pts)
+        let momScore = 0;
+        if (p.changePct > 0) {
+            momScore = Math.min(100, p.changePct * 20); // Super Aggressive: +5% = 100pts
         }
 
-        // Base Momentum
-        const momScore = Math.max(0, Math.min(40, (p.changePct + 2) * 8));
-        score = (slopeScore * 0.6) + (momScore * 0.4);
+        // Use the BETTER of Trend or Momentum. Don't average down a breakout.
+        let score = Math.max(slopeScore, momScore);
 
         if (p.vwapDistPct > 0) score += 10;
+        // Bonuse for strong close
+        if (p.priceSource === 'POST_CLOSE' || p.priceSource === 'OFFICIAL_CLOSE') score += 5;
 
         layerScores.price = Math.max(0, Math.min(100, score));
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.PRICE;
         weightedSum += layerScores.price * POWER_SCORE_CONFIG.WEIGHTS.PRICE;
+
+
     }
 
     // [Phase 35] Smart Flow (Weight: 40%) - Maps to Flow Layer
@@ -113,14 +114,17 @@ function calculateLayerScores(evidence: any): ScoreResult {
         const f = evidence.flow;
         let score = 0;
 
-        // Manual Calc / Gamma Logic injected here
+        // [V3.7.3 TUNING] Aggressive Flow Scoring
         if (f.dataSource === 'CALCULATED') {
-            if (f.netPremium > 0) score += 60;
-            else score += 20;
+            if (f.netPremium > 0) score += 80;
+            else score += 40;
         } else {
-            const relVolClamped = Math.max(0.5, Math.min(3, f.relVol));
-            score += ((relVolClamped - 0.5) / 2.5) * 50;
-            if (f.largeTradesUsd > 1000000) score += 20;
+            // RelVol 1.0 = 50pts. RelVol 2.0 = 100pts.
+            const relVolScore = Math.min(100, f.relVol * 50);
+            score = relVolScore;
+
+            if (f.largeTradesUsd > 1000000) score += 10; // Bonus
+            if (f.gapPct > 1.0) score += 10; // Gap Bonus
         }
 
         // Gamma Exposure Bonus
@@ -134,17 +138,26 @@ function calculateLayerScores(evidence: any): ScoreResult {
 
     // [Phase 36] Gamma Regime (Weight: 20%) - Maps to Macro Layer (as proxy) or Options
     // Start with Options as base
+    // [Phase 36] Gamma Regime (Weight: 20%) - Maps to Macro Layer (as proxy) or Options
     // Start with Options as base
     if (evidence?.options?.complete) {
         const o = evidence.options;
-        let score = 0;
+        let score = 50; // [V3.7.3] Base Score 50 (Neutral)
 
-        // PCR Logic
-        if (o.pcr < 0.7) score += 30;
+        // PCR Logic (Bullish < 0.7)
+        if (o.pcr < 0.75) score += 20;
 
         // Gamma Regime
-        if (o.gammaRegime === 'Short Gamma') score += 40;
-        else if (o.gammaRegime === 'Long Gamma') score += 10;
+        // Long Gamma = Stability/Support (Good for Hold) -> +20
+        // Short Gamma = Volatility (Good for Squeeze) -> +10
+        if (o.gammaRegime === 'Long Gamma') score += 20;
+        else if (o.gammaRegime === 'Short Gamma') score += 10;
+
+        // OI Support
+        if (o.callWall > evidence.price.last) score += 10; // Room to grow
+
+        // Check for GEX Puke (Negative GEX)
+        if (o.gex < -1000000) score += 10; // Volatility Potential
 
         layerScores.options = Math.min(100, score);
         calculatedLayers++;
@@ -452,7 +465,9 @@ export function computeQualityTier(
 
     // [Gate 1] Option Gravity Shield (Call Wall Resistance)
     // If Price is within 2% of Call Wall (or above), it's a Kill Zone.
-    if (callWall > 0 && price >= callWall * 0.98) {
+    // [V3.7.2 FIX] Allow Breakouts! If price > 101% of Call Wall, it is a BREAKOUT, not a rejection.
+    // Penalty only applies if price is struggling AT the wall (98% ~ 101%).
+    if (callWall > 0 && price >= callWall * 0.98 && price < callWall * 1.01) {
         console.log(`[PowerEngine] ${symbol} Rejected by Gate 1 (Call Wall: ${callWall}, Price: ${price})`);
         alphaScore = Math.min(alphaScore, 40); // Force Watch/Filler
         tier = 'WATCH';
