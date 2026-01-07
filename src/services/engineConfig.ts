@@ -61,6 +61,7 @@ export type QualityTier = 'ACTIONABLE' | 'WATCH' | 'FILLER';
 export interface QualityTierResult {
     tier: QualityTier;
     reasonKR: string;
+    triggersKR?: string[]; // [V3.7.3] Trigger codes for UI
     powerScore: number;
     isBackfilled: boolean;
 }

@@ -339,6 +339,7 @@ export function computeQualityTier(
     // 4. Tier Determination
     let tier: QualityTier;
     let reasonKR: string;
+    let triggersKR: string[] = []; // [V3.7.3] Codes
 
     // Options incomplete = cannot be ACTIONABLE (Top3 Gate)
     const optionsComplete = evidence?.options?.complete && evidence.options.status !== 'PENDING';
@@ -350,6 +351,7 @@ export function computeQualityTier(
     // [Upgraded] Advanced Reasoning Builder with Flow/GEX Signal
     const buildAdvancedReason = (baseScore: number) => {
         const details: string[] = [];
+        const triggerCodes: string[] = []; // [V3.7.3] Codes for UI Badges
 
         // [NEW] Combined Flow + GEX Signal (Primary Interpretation)
         const netFlow = evidence?.flow?.largeTradesUsd || evidence?.flow?.netFlow || 0;
@@ -359,29 +361,46 @@ export function computeQualityTier(
 
         if (isPremiumBullish && isGexNegative) {
             details.push('🚀감마스퀴즈'); // Rocket fuel + Igniter
+            triggerCodes.push('GEX_SQZ');
         } else if (isPremiumBullish && !isGexNegative && gex > 1000000) {
             details.push('📈상방억제'); // Bullish but suppressed by +GEX
+            triggerCodes.push('SUPPRESSED');
         } else if (!isPremiumBullish && isGexNegative) {
             details.push('📉가속하락'); // Panic selling amplified
+            triggerCodes.push('ACCEL_DROP');
         } else if (!isPremiumBullish && !isGexNegative && gex > 1000000) {
             details.push('🔻조정구간'); // Slow bleed, supported drop
+            triggerCodes.push('CORRECTION');
         }
 
         // A. GEX Detail (Secondary)
-        if (gex > 2000000) details.push('GEX안전지대');
-        else if (gex < -2000000) details.push('CallWall돌파');
+        if (gex > 2000000) {
+            details.push('GEX안전지대');
+            triggerCodes.push('GEX_SAFE');
+        } else if (gex < -2000000) {
+            details.push('CallWall돌파');
+            triggerCodes.push('WALL_BREAK');
+        }
 
         // B. Flow Detail (Secondary - only if significant)
-        if (netFlow > 5000000) details.push('고래유입');
-        else if (netFlow < -5000000) details.push('매도우위');
+        if (netFlow > 5000000) {
+            details.push('고래유입');
+            triggerCodes.push('WHALE_IN');
+        } else if (netFlow < -5000000) {
+            details.push('매도우위');
+            triggerCodes.push('SELL_DOM');
+        }
 
         // C. Wall Logic
         const lastPrice = evidence?.price?.last || 0;
         const callWall = evidence?.options?.callWall || 0;
-        if (callWall > 0 && Math.abs(lastPrice - callWall) / lastPrice < 0.02) details.push('저항테스트');
+        if (callWall > 0 && Math.abs(lastPrice - callWall) / lastPrice < 0.02) {
+            details.push('저항테스트');
+            triggerCodes.push('WALL_TEST');
+        }
 
         const detailStr = details.length > 0 ? `(${details.join('/')})` : '';
-        return `${baseScore.toFixed(0)}${detailStr}`;
+        return { text: `${baseScore.toFixed(0)}${detailStr}`, codes: triggerCodes };
     };
 
     if (holdAction === 'EXIT') {
@@ -393,7 +412,9 @@ export function computeQualityTier(
     } else if (momentumBonus > 0 && optionsComplete) {
         // [13.2] Momentum Override
         tier = 'ACTIONABLE';
-        reasonKR = `💥 3일 연속 상승(${alphaScore.toFixed(0)}) + ${buildAdvancedReason(alphaScore)} = 강력 매수`;
+        const adv = buildAdvancedReason(alphaScore);
+        reasonKR = `💥 3일 연속 상승(${alphaScore.toFixed(0)}) + ${adv.text} = 강력 매수`;
+        triggersKR = adv.codes;
 
         // Event Gate: Block actionable if high impact event imminent
         if (hasHighImpactEvent && tier === 'ACTIONABLE') {
@@ -416,10 +437,11 @@ export function computeQualityTier(
 
     } else if (alphaScore >= QUALITY_TIER_CONFIG.ACTIONABLE_MIN_SCORE && optionsComplete) {
         tier = 'ACTIONABLE';
-        const detailInfo = buildAdvancedReason(alphaScore);
+        const adv = buildAdvancedReason(alphaScore);
         // Clean format: "고강도(95/GEX안전지대/고래유입) + 옵션확인 = 매수 적합"
         // actually buildAdvancedReason returns "95(GEX...)"
-        reasonKR = `고강도 ${detailInfo} + 옵션확인 = 매수 적합`;
+        reasonKR = `고강도 ${adv.text} + 옵션확인 = 매수 적합`;
+        triggersKR = adv.codes;
 
         // [Step 1] Event Gate Check inside Actionable
         if (hasHighImpactEvent) {
@@ -442,10 +464,11 @@ export function computeQualityTier(
 
     } else if (alphaScore >= QUALITY_TIER_CONFIG.WATCH_MIN_SCORE) {
         tier = 'WATCH';
-        const detailInfo = buildAdvancedReason(alphaScore);
+        const adv = buildAdvancedReason(alphaScore);
         reasonKR = optionsComplete
-            ? `관심권 ${detailInfo}`
+            ? `관심권 ${adv.text}`
             : `관심권(${alphaScore.toFixed(0)}) - 옵션 미확인`;
+        triggersKR = adv.codes;
     } else {
         tier = 'FILLER';
         reasonKR = `저강도(${alphaScore.toFixed(0)})`;
@@ -574,6 +597,7 @@ export function computeQualityTier(
     return {
         tier,
         reasonKR,
+        triggersKR, // export to result
         powerScore: alphaScore,
         isBackfilled
     };
@@ -750,6 +774,11 @@ export function applyQualityTiers(
             ...item,
             qualityTier: tierResult.tier,
             qualityReasonKR: tierResult.reasonKR,
+            // [V3.7.3] Populate SSOT decision triggers
+            decisionSSOT: {
+                ...(item.decisionSSOT || {}),
+                triggersKR: tierResult.triggersKR || []
+            },
             powerScore: tierResult.powerScore,
             alphaScore: tierResult.powerScore, // Keep in sync
             isBackfilled: tierResult.isBackfilled
