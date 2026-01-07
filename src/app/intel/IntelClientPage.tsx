@@ -116,6 +116,9 @@ export interface TickerItem {
         isLocked?: boolean;
         whaleIndex?: number; // [V3.7.3]
         whaleConfidence?: 'HIGH' | 'MED' | 'LOW' | 'NONE';
+        whaleEntryLevel?: number; // [V3.7.3]
+        whaleTargetLevel?: number; // [V3.7.3]
+        dominantContract?: string; // [V3.7.3]
     };
     entryBand?: { low: number; high: number };
     hardCut?: number;
@@ -410,11 +413,11 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
             <div className="flex items-start justify-between mb-6 relative z-10">
                 <div>
                     <div className="flex items-center gap-3 mb-1">
-                        <div className="w-8 h-8 rounded-full bg-white p-0.5 shadow-sm overflow-hidden flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-white p-0 shadow-sm overflow-hidden flex items-center justify-center flex-shrink-0">
                             <img
                                 src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
                                 alt={item.ticker}
-                                className="w-full h-full object-contain"
+                                className="w-full h-full object-cover"
                                 onError={(e) => {
                                     e.currentTarget.style.display = 'none';
                                     e.currentTarget.parentElement!.style.backgroundColor = '#1e293b'; // slate-800
@@ -633,6 +636,9 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                 whaleIndex={item.decisionSSOT?.whaleIndex || 0}
                                 whaleConfidence={item.decisionSSOT?.whaleConfidence || 'NONE'}
                                 alphaScore={item.alphaScore || 0}
+                                whaleEntryLevel={item.decisionSSOT?.whaleEntryLevel}
+                                whaleTargetLevel={item.decisionSSOT?.whaleTargetLevel}
+                                dominantContract={item.decisionSSOT?.dominantContract}
                             />
 
                             {/* Right: Gamma Void */}
@@ -648,15 +654,27 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                             {/* Score Breakdown (Legacy Support) */}
                             <ScoreBreakdown evidence={ev} item={item} />
 
-                            {/* Decision Triggers */}
-                            <ul className="space-y-2 mt-2">
-                                {(item.decisionSSOT?.triggersKR || []).map((t, i) => (
-                                    <li key={i} className="flex gap-2 text-xs text-slate-300 leading-snug">
-                                        <div className="w-1 h-1 rounded-full bg-slate-500 mt-1.5 shrink-0" />
-                                        {t}
-                                    </li>
-                                ))}
-                            </ul>
+                            {/* Decision Triggers (Professional Layout) */}
+                            <div className="space-y-3 mt-3">
+                                {(item.decisionSSOT?.triggersKR || []).map((t, i) => {
+                                    const def = TRIGGER_DEFINITIONS[t];
+                                    if (!def) return null;
+                                    return (
+                                        <div key={i} className="group flex items-start gap-3 p-2 rounded border border-transparent hover:border-slate-800 hover:bg-slate-900/50 transition-all">
+                                            {/* Badge */}
+                                            <div className={`shrink-0 px-2 py-1 rounded text-[10px] font-bold border ${def.color} shadow-sm w-20 text-center flex items-center justify-center`}>
+                                                {def.label}
+                                            </div>
+                                            {/* Description */}
+                                            <div className="flex-1">
+                                                <p className="text-[11px] text-slate-400 leading-relaxed font-medium group-hover:text-slate-300 transition-colors">
+                                                    {def.desc}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
 
                             {/* Mini Gates (Visual only) */}
                             <div className="flex gap-2 pt-2 border-t border-slate-800/50">
@@ -991,52 +1009,57 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
 const TRIGGER_DEFINITIONS: Record<string, { label: string; desc: string; color: string }> = {
     // 1. High Impact (Purple/Pink)
     'GEX_SQZ': {
-        label: 'GEX.SQZ',
-        desc: '감마 스퀴즈: 옵션 시장의 쏠림(Short Gamma)으로 인해 주가 변동성이 폭발적으로 확대되는 현상',
+        label: '감마스퀴즈',
+        desc: '옵션 시장의 쏠림(Short Gamma)으로 인해 주가 변동성이 폭발적으로 확대되는 현상',
         color: 'text-fuchsia-400 border-fuchsia-500/30 bg-fuchsia-500/10'
     },
     'WHALE_IN': {
-        label: 'WHALE.IN',
-        desc: '고래 유입: 500만 달러 이상의 대규모 매수 자금이 포착됨 (스마트머니 진입)',
+        label: '고래유입',
+        desc: '500만 달러 이상의 대규모 매수 자금이 포착됨 (스마트머니 진입)',
         color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
     },
     'WALL_BREAK': {
-        label: 'WALL.BRK',
-        desc: '저항 돌파: 콜 옵션 매도벽(Call Wall)을 강한 거래량으로 뚫어내는 강력한 상승 신호',
+        label: '저항돌파',
+        desc: '콜 옵션 매도벽(Call Wall)을 강한 거래량으로 뚫어내는 강력한 상승 신호',
         color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10'
     },
 
     // 2. Warning/Bearish (Red/Orange)
     'SELL_DOM': {
-        label: 'SELL.DOM',
-        desc: '매도 우위: 500만 달러 이상의 대규모 매도세가 우세함',
+        label: '매도우위',
+        desc: '500만 달러 이상의 대규모 매도세가 우세함',
         color: 'text-rose-400 border-rose-500/30 bg-rose-500/10'
     },
     'ACCEL_DROP': {
-        label: 'ACCEL.DROP',
-        desc: '가속 하락: 풋 옵션 매수 급증과 숏 감마가 결합되어 하락 속도가 빨라짐',
+        label: '가속하락',
+        desc: '풋 옵션 매수 급증과 숏 감마가 결합되어 하락 속도가 빨라짐',
         color: 'text-orange-400 border-orange-500/30 bg-orange-500/10'
     },
     'SUPPRESSED': {
-        label: 'SUPPRESSED',
-        desc: '상방 억제: 상승 하려는 힘은 있으나 과도한 콜 옵션 매도로 인해 상승폭이 제한됨',
+        label: '상방억제',
+        desc: '상승 하려는 힘은 있으나 과도한 콜 옵션 매도로 인해 상승폭이 제한됨',
         color: 'text-amber-400 border-amber-500/30 bg-amber-500/10'
     },
 
     // 3. Neutral/Technical (Blue/Slate)
     'GEX_SAFE': {
-        label: 'GEX.SAFE',
-        desc: '안전 지대: 롱 감마(Long Gamma) 구간으로 진입하여 주가 변동성이 줄어들고 지지력이 강해짐',
+        label: '안전지대',
+        desc: '롱 감마(Long Gamma) 구간으로 진입하여 주가 변동성이 줄어들고 지지력이 강해짐',
         color: 'text-sky-400 border-sky-500/30 bg-sky-500/10'
     },
     'CORRECTION': {
-        label: 'CORRECTION',
-        desc: '건전 조정: 상승 추세 중 일시적인 매물 소화 과정 (지지력 확인 시 재매수 기회)',
+        label: '건전조정',
+        desc: '상승 추세 중 일시적인 매물 소화 과정 (지지력 확인 시 재매수 기회)',
         color: 'text-slate-300 border-slate-500/30 bg-slate-500/10'
     },
+    'WHALE_DRIVER': {
+        label: '고래주도',
+        desc: '고래 평단가가 진입 구간을 지지하며, 목표가(손익분기)까지 상승 여력이 확보된 상태 (정밀 타격)',
+        color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+    },
     'WALL_TEST': {
-        label: 'WALL.TEST',
-        desc: '저항 테스트: 현재 주가가 주요 저항벽(Call Wall) 근처에 도달하여 돌파 시도 중',
+        label: '저항테스트',
+        desc: '현재 주가가 주요 저항벽(Call Wall) 근처에 도달하여 돌파 시도 중',
         color: 'text-violet-400 border-violet-500/30 bg-violet-500/10'
     }
 };
@@ -1322,22 +1345,27 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                     <div className={activeTab === 'FINAL' ? "space-y-8" : "hidden"}>
 
                         {/* 1. HERO HEADER (Premium Open Design) */}
-                        <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10 pt-4">
+                        <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 pt-4">
                             <div>
-                                <div className="flex items-center gap-2 mb-2">
+                                <div className="flex items-center gap-2 mb-1">
                                     <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
                                         <Activity className="w-3 h-3 text-emerald-500" />
-                                        MARKET REGIME
+                                        LIVE OPERATIONS
                                     </span>
                                 </div>
-                                <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter flex items-center gap-4">
-                                    OPERATION: <span className="text-emerald-500">ALPHA DAWN</span>
-                                    <span className={`text-sm font-bold font-mono px-3 py-1 rounded border border-opacity-20 flex items-center gap-2 ${getRegimeColor(regime)}`}>
+                                <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                                    <span className="text-emerald-500">ALPHA DAWN</span>
+                                    <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded border border-opacity-20 flex items-center gap-1.5 align-middle ${getRegimeColor(regime)}`}>
                                         {getRegimeText(regime)}
                                     </span>
                                 </h1>
-                                <p className="text-slate-400 font-mono text-xs mt-2">
-                                    REPORT ID: {report?.meta?.id?.toUpperCase() || "LOADING..."} • GENERATED: {report?.meta?.generatedAtET}
+                                <p className="text-slate-400 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
+                                    Identifying high-probability opening drive setups using <span className="text-slate-300 font-bold">Options-Flow</span> and <span className="text-slate-300 font-bold">Gamma Exposure</span>.
+                                </p>
+                            </div>
+                            <div className="text-right">
+                                <p className="text-slate-500 font-mono text-[10px] mt-2 bg-slate-800/50 px-2 py-1 rounded inline-block">
+                                    ID: {report?.meta?.id?.toUpperCase() || "SYNC"} • {report?.meta?.generatedAtET || "WAITING"}
                                 </p>
                             </div>
 
@@ -1616,12 +1644,14 @@ function IntelContent({ initialReport }: { initialReport: any }) {
 
                 {/* DRAWER PORTAL */}
                 {/* Note: In Next.js App Router we might prefer a parallel route or context, but inline conditional is fine for this scale. */}
-                {selectedTicker && (
-                    <TickerEvidenceDrawer item={selectedTicker} onClose={() => setSelectedTicker(null)} />
-                )}
+                {
+                    selectedTicker && (
+                        <TickerEvidenceDrawer item={selectedTicker} onClose={() => setSelectedTicker(null)} />
+                    )
+                }
 
-            </div>
-        </main>
+            </div >
+        </main >
     );
 }
 

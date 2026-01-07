@@ -534,6 +534,68 @@ async function generateReportFromItems(
     // We only re-apply if we have new data, but safe to always run to be sure
     const refinedItems = applyQualityTiers(enrichedItems, prevSymbols, new Set(), historyMap, guardianSignal, targetSectorId, sentimentMap, sympathySet);
 
+    // [V3.7.3] FORENSIC SNIPER PROTOCOL (God Mode: All Candidates)
+    // Identify Top Candidates and run Deep Forensic Analysis BEFORE final selection copy
+    const { ForensicService } = await import('./forensicService');
+    const pLimit = (await import('p-limit')).default;
+    const limit = pLimit(10); // Batch of 10 for speed
+
+    // God Mode: Analyze ALL refined items (to catch hidden whales in Watch list)
+    // We filter for completeness just to be safe
+    const targetCandidates = refinedItems.filter(i => i.complete);
+
+    if (targetCandidates.length > 0) {
+        console.log(`[ReportScheduler] 🔫 God Mode Activated: Analyzing ${targetCandidates.length} Targets (Full Scan)...`);
+
+        // Concurrent Analysis with Limit
+        await Promise.all(targetCandidates.map((item) => limit(async () => {
+            const forensicResult = await ForensicService.analyzeTarget(item.ticker);
+
+            // Inject into SSOT
+            if (!item.decisionSSOT) item.decisionSSOT = {};
+            item.decisionSSOT.whaleIndex = forensicResult.whaleIndex;
+            item.decisionSSOT.whaleConfidence = forensicResult.whaleConfidence;
+
+            // [V3.7.3] PRECISION PROTOCOL: Override Bands with Hard Data
+            if (forensicResult.details.whaleEntryLevel && forensicResult.details.whaleEntryLevel > 0) {
+                const wEntry = forensicResult.details.whaleEntryLevel;
+                const wTarget = forensicResult.details.whaleTargetLevel || (wEntry * 1.1); // Default 10% if calc fails
+
+                // 1. Inject Raw Data
+                item.decisionSSOT.whaleEntryLevel = wEntry;
+                item.decisionSSOT.whaleTargetLevel = wTarget;
+                item.decisionSSOT.dominantContract = forensicResult.details.dominantContract;
+
+                // 2. OVERRIDE Tactical Bands (The "Strong Message")
+                // Entry: Whale Entry ~ +2% Buffer
+                item.decisionSSOT.entryBand = [Number(wEntry.toFixed(2)), Number((wEntry * 1.02).toFixed(2))];
+
+                // Target: Whale Breakeven
+                item.decisionSSOT.targetPrice = Number(wTarget.toFixed(2));
+
+                // Stop Loss: 5% below Whale Entry (Tight stop) or Put Floor if available
+                const protectionLevel = wEntry * 0.95;
+                item.decisionSSOT.cutPrice = Number(protectionLevel.toFixed(2));
+
+                // 3. Mark as Whale Driven
+                if (!item.decisionSSOT.triggersKR) item.decisionSSOT.triggersKR = [];
+                if (!item.decisionSSOT.triggersKR.includes('WHALE_DRIVER')) {
+                    item.decisionSSOT.triggersKR.push('WHALE_DRIVER');
+                }
+            }
+
+            if (forensicResult.whaleIndex >= 85) {
+                console.log(`[ReportScheduler] 🐋 WHALE SIGHTED: ${item.ticker} (Index: ${forensicResult.whaleIndex})`);
+                if (!item.decisionSSOT.triggersKR) item.decisionSSOT.triggersKR = [];
+                if (!item.decisionSSOT.triggersKR.includes('WHALE_IN_SIGHT')) {
+                    item.decisionSSOT.triggersKR.push('WHALE_IN_SIGHT');
+                }
+            }
+        })));
+    } else {
+        // empty
+    }
+
     // 4. Final Selection (Tactical Segregation)
 
     // [V3.7.2] Split Main vs Hunter
@@ -598,30 +660,7 @@ async function generateReportFromItems(
         changePct: t.evidence.price.changePct
     }));
 
-    // [V3.7.3] FORENSIC SNIPER PROTOCOL
-    // Identify Top Candidates (Actionable) and run Deep Forensic Analysis
-    const actionableCandidates = enrichedItems.filter(i => i.qualityTier === 'ACTIONABLE' && i.complete);
 
-    if (actionableCandidates.length > 0) {
-        console.log(`[ReportScheduler] 🔫 Sniper Activated: Analyzing ${actionableCandidates.length} Actionable Candidates...`);
-        const { ForensicService } = await import('./forensicService');
-
-        // Concurrent Analysis
-        await Promise.all(actionableCandidates.map(async (item) => {
-            const forensicResult = await ForensicService.analyzeTarget(item.ticker);
-
-            // Inject into SSOT
-            if (!item.decisionSSOT) item.decisionSSOT = {};
-            item.decisionSSOT.whaleIndex = forensicResult.whaleIndex;
-            item.decisionSSOT.whaleConfidence = forensicResult.whaleConfidence;
-
-            if (forensicResult.whaleIndex >= 85) {
-                console.log(`[ReportScheduler] 🐋 WHALE SIGHTED: ${item.ticker} (Index: ${forensicResult.whaleIndex})`);
-                if (!item.decisionSSOT.triggersKR) item.decisionSSOT.triggersKR = [];
-                item.decisionSSOT.triggersKR.push('WHALE_IN_SIGHT');
-            }
-        }));
-    }
 
     // 6. Continuation Tracking (Simplified vNext)
     // We just track the diffs from yesterday

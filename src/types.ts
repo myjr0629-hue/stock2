@@ -116,8 +116,22 @@ export interface TerminalItem {
     // Legacy / Calculated
     alphaScore?: number | null;
     classification?: any;
-    decisionSSOT?: any;
+    decisionSSOT?: any; // Allow loose typing or define explicitly below
     [key: string]: any;
+}
+
+export interface DecisionSSOT {
+    action: string;
+    confidencePct: number;
+    triggersKR: string[];
+    entryBand?: { min: number; max: number };
+    cutPrice?: number;
+    isLocked?: boolean;
+    whaleIndex?: number;
+    whaleConfidence?: 'HIGH' | 'MED' | 'LOW' | 'NONE';
+    whaleEntryLevel?: number;
+    whaleTargetLevel?: number;
+    dominantContract?: string;
 }
 
 export interface TickerItem extends TerminalItem {
@@ -139,6 +153,12 @@ export interface OptionTrade {
     exchange: string;
     conditions: string[];
     timestamp: number;
+    details?: {
+        contract_type: 'call' | 'put';
+        strike_price: number;
+        expiration_date: string;
+        underlying_price?: number; // Ideal if available
+    };
 }
 
 export interface OptionQuote {

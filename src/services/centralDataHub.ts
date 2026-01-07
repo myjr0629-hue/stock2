@@ -56,13 +56,13 @@ const RETRY_DELAY = 500;
 
 export const CentralDataHub = {
     // ... getUnifiedData implementation remains same ...
-    getUnifiedData: async (ticker: string): Promise<UnifiedQuote> => {
+    getUnifiedData: async (ticker: string, forceRefresh = false): Promise<UnifiedQuote> => {
         let attempts = 0;
         let lastError = null;
 
         while (attempts <= MAX_RETRIES) {
             try {
-                return await CentralDataHub._fetchInternal(ticker);
+                return await CentralDataHub._fetchInternal(ticker, undefined, forceRefresh);
             } catch (e: any) {
                 lastError = e;
                 attempts++;
@@ -91,7 +91,7 @@ export const CentralDataHub = {
         };
     },
 
-    _fetchInternal: async (ticker: string, specificDate?: string): Promise<UnifiedQuote> => {
+    _fetchInternal: async (ticker: string, specificDate?: string, forceRefresh = false): Promise<UnifiedQuote> => {
         const marketStatus = await getMarketStatusSSOT();
         const session = marketStatus.session.toUpperCase() as "PRE" | "REG" | "POST" | "CLOSED";
         const isClosed = session === "CLOSED";
@@ -101,11 +101,18 @@ export const CentralDataHub = {
         fromDate.setDate(new Date(toDate).getDate() - 30);
         const fromDateStr = fromDate.toISOString().split('T')[0];
 
+        // [Fix] Cache Policy Propagation
+        // If forceRefresh is true, we force 'no-store'. Otherwise use default (which might be memory cache or revalidate:30)
+        // Actually, we pass 'true' for useMemoryCache in fetchMassive usually, but here we want to bypass it if forced.
+
+        const useMemoryCache = !forceRefresh;
+        const fetchOptions = forceRefresh ? { cache: 'no-store' as RequestCache } : undefined;
+
         const [snapshotRes, ocRes, historyRes, rsiRes] = await Promise.all([
-            fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`, {}, true),
-            fetchMassive(`/v1/open-close/${ticker}/${toDate}`, {}, true).catch(() => ({ data: null })),
-            fetchMassive(`/v2/aggs/ticker/${ticker}/range/1/day/${fromDateStr}/${toDate}`, { limit: '30', sort: 'asc' }, true).catch(() => ({ results: [] })),
-            fetchMassive(`/v1/indicators/rsi/${ticker}`, { timespan: 'day', adjusted: 'true', window: '14', series_type: 'close', order: 'desc', limit: '1' }, true).catch(() => ({ results: { values: [] } }))
+            fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`, {}, useMemoryCache, undefined, fetchOptions),
+            fetchMassive(`/v1/open-close/${ticker}/${toDate}`, {}, useMemoryCache, undefined, fetchOptions).catch(() => ({ data: null })),
+            fetchMassive(`/v2/aggs/ticker/${ticker}/range/1/day/${fromDateStr}/${toDate}`, { limit: '30', sort: 'asc' }, useMemoryCache, undefined, fetchOptions).catch(() => ({ results: [] })),
+            fetchMassive(`/v1/indicators/rsi/${ticker}`, { timespan: 'day', adjusted: 'true', window: '14', series_type: 'close', order: 'desc', limit: '1' }, useMemoryCache, undefined, fetchOptions).catch(() => ({ results: { values: [] } }))
         ]);
 
         const S = snapshotRes.ticker || {};
@@ -131,7 +138,14 @@ export const CentralDataHub = {
         if (isClosed && OC.close) {
             regClose = OC.close;
         } else {
-            regClose = S.day?.c || S.min?.c || liveLast || regClose;
+            // [Fix] During PRE, 'day.c' is 0. We should NOT fall back to 'min.c' (current) for the 'regClose'
+            // because regClose represents the Reference Price (Official Close).
+            // If PRE, regClose should be Yesterday's Close.
+            if (session === 'PRE') {
+                regClose = prevClose || S.prevDay?.c || regClose;
+            } else {
+                regClose = S.day?.c || S.min?.c || liveLast || regClose;
+            }
         }
 
         // [V3.7.5] Price Selection: Strictly anchor 'price' to Official Close (or Live if REG)
@@ -166,6 +180,7 @@ export const CentralDataHub = {
                 }
             }
         }
+
 
         // [Critial Fix] Weekend/Holiday Stale Data Correction
         const isNonTradingDay = marketStatus.isHoliday || session === "CLOSED";

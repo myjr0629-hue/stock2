@@ -4,13 +4,17 @@ import React, { useEffect, useState } from 'react';
 import { cn } from "@/lib/utils";
 import { Zap, Crosshair } from "lucide-react";
 
+// [V3.7.3] Surgical UI Integration
 interface ExecutionDialProps {
     whaleIndex: number; // 0-100
     whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE';
     alphaScore: number;
+    whaleEntryLevel?: number; // [NEW]
+    whaleTargetLevel?: number; // [NEW]
+    dominantContract?: string; // [NEW]
 }
 
-export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore }: ExecutionDialProps) {
+export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore, whaleEntryLevel, whaleTargetLevel, dominantContract }: ExecutionDialProps) {
     const [fill, setFill] = useState(0);
 
     // Animate fill on mount
@@ -23,7 +27,6 @@ export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore }: Execu
     const isLocked = whaleIndex >= 50;
 
     // Calculate rotation: -90deg (start) to 90deg (end) => 180deg span
-    // 0 -> -90, 50 -> 0, 100 -> 90
     const degrees = (fill / 100) * 180 - 90;
 
     return (
@@ -71,21 +74,38 @@ export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore }: Execu
                 </div>
             </div>
 
-            {/* Status Text */}
+            {/* Status Text / Whale Target Display */}
             <div className="text-center z-10">
                 <div className="flex items-center justify-center gap-2 mb-1">
-                    <span className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">CONVICTION</span>
+                    <span className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">
+                        {dominantContract || 'CONVICTION'}
+                    </span>
                     {isFireReady && <Zap className="w-3 h-3 text-fuchsia-500 animate-pulse" />}
                 </div>
-                <div className={cn("text-3xl font-black tabular-nums tracking-tighter leading-none",
-                    isFireReady ? "text-fuchsia-400 drop-shadow-[0_0_8px_rgba(232,121,249,0.5)]" : "text-white"
-                )}>
-                    {fill.toFixed(0)}
-                </div>
+
+                {whaleTargetLevel ? (
+                    <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
+                        <span className="text-[10px] text-emerald-400 font-bold tracking-wider mb-0.5">세력 목표가 (Target)</span>
+                        <span className="text-xl font-black text-white font-mono tracking-tight underline decoration-emerald-500/30 decoration-2 underline-offset-4">
+                            ${whaleTargetLevel.toFixed(2)}
+                        </span>
+                        {whaleEntryLevel && (
+                            <span className="text-[9px] text-slate-500 mt-1 font-mono">
+                                세력 매집가: <span className="text-slate-400">${whaleEntryLevel.toFixed(2)}</span>
+                            </span>
+                        )}
+                    </div>
+                ) : (
+                    <div className={cn("text-3xl font-black tabular-nums tracking-tighter leading-none",
+                        isFireReady ? "text-fuchsia-400 drop-shadow-[0_0_8px_rgba(232,121,249,0.5)]" : "text-white"
+                    )}>
+                        {fill.toFixed(0)}
+                    </div>
+                )}
             </div>
 
-            {/* Ready to Fire Overlay */}
-            {isFireReady && (
+            {/* Ready to Fire Overlay (If no target, or as backup) */}
+            {isFireReady && !whaleTargetLevel && (
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-fuchsia-500 text-slate-950 font-black text-[10px] tracking-widest animate-pulse whitespace-nowrap">
                     READY TO FIRE
                 </div>

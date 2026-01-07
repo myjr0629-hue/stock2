@@ -356,25 +356,25 @@
   {
     "date": "2026-01-06",
     "reportType": "final",
-    "sessionType": "regular",
-    "timestamp": "2026-01-07T06:43:54.291Z",
+    "sessionType": "pre",
+    "timestamp": "2026-01-07T13:21:09.410Z",
     "tickers": [
       {
-        "symbol": "VRTX",
-        "rank": 1,
-        "baselinePrice": 468.38,
-        "alphaScore": 0
-      },
-      {
         "symbol": "AAPL",
-        "rank": 2,
+        "rank": 1,
         "baselinePrice": 262.36,
         "alphaScore": 0
       },
       {
         "symbol": "NFLX",
-        "rank": 3,
+        "rank": 2,
         "baselinePrice": 90.65,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "AMD",
+        "rank": 3,
+        "baselinePrice": 214.35,
         "alphaScore": 0
       }
     ],

@@ -45,15 +45,27 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
             // Hover: Glowing Border
             "hover:ring-1 hover:ring-emerald-500/50"
         )}>
-            {/* 1. Rank & Ticker Header (Left) */}
-            <div className="absolute top-0 left-0 p-4 z-10">
-                <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-white tracking-tighter tabular-nums">{ticker}</span>
-                    <span className="text-xs font-bold text-slate-500">#{rank}</span>
+            <div className="absolute top-0 left-0 p-4 z-10 flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-white p-0 shadow-sm overflow-hidden flex-shrink-0 mt-1">
+                    <img
+                        src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                        alt={ticker}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.parentElement!.style.backgroundColor = '#1e293b'; // slate-800
+                        }}
+                    />
                 </div>
-                {/* Name/Reason Subtext */}
-                <div className="mt-1 flex flex-col gap-0.5">
-                    {name && <span className="text-[10px] text-slate-400 font-mono tracking-tight uppercase">{name}</span>}
+                <div>
+                    <div className="flex items-baseline gap-2">
+                        <span className="text-2xl font-black text-white tracking-tighter tabular-nums leading-none">{ticker}</span>
+                        <span className="text-xs font-bold text-slate-500">#{rank}</span>
+                    </div>
+                    {/* Name/Reason Subtext */}
+                    <div className="mt-1 flex flex-col gap-0.5">
+                        {name && <span className="text-[10px] text-slate-400 font-mono tracking-tight uppercase">{name}</span>}
+                    </div>
                 </div>
             </div>
 

@@ -145,7 +145,7 @@ async function enrichSingleTickerWithRetry(
 
     try {
         // [Phase 24.1] SSOT Integration: Central Data Hub
-        const hubData = await CentralDataHub.getUnifiedData(ticker);
+        const hubData = await CentralDataHub.getUnifiedData(ticker, force);
 
         // Fetch Options Analytics (Deep Structure) using SSOT Price
         const optionsData = await fetchOptionsChain(ticker, hubData.price, force);
