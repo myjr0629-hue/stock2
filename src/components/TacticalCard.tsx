@@ -41,9 +41,11 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
 
     return (
         <Card className={cn(
-            "w-full bg-[#0a0f18] border-none shadow-2xl overflow-hidden relative group transition-all duration-300",
-            // Hover: Glowing Border
-            "hover:ring-1 hover:ring-emerald-500/50"
+            "w-full bg-[#0a0f18] border-none shadow-lg shadow-black/50 overflow-hidden relative group transition-all duration-300",
+            // High Alpha Pulse
+            (score || 0) >= 80 ? "shadow-[0_0_25px_rgba(16,185,129,0.2)]" : "",
+            // Hover
+            "hover:ring-1 hover:ring-emerald-500/50 hover:bg-[#0f172a]"
         )}>
             <div className="absolute top-0 left-0 p-4 z-10 flex items-start gap-3">
                 <div className="w-8 h-8 rounded-full bg-white p-0 shadow-sm overflow-hidden flex-shrink-0 mt-1">

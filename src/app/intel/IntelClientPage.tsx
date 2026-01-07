@@ -400,9 +400,17 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
 
     return (
         <div onClick={onClick} className={cn(
-            "relative bg-slate-900 border rounded p-4 cursor-pointer transition-all",
-            isNoTrade ? "border-slate-800 opacity-70" : "border-slate-800 hover:border-slate-600",
-            isSelected && "ring-1 ring-emerald-500/50 bg-slate-800"
+            "relative rounded-xl p-6 cursor-pointer transition-all duration-300",
+            // Base: Borderless, Shadowed
+            "shadow-lg shadow-black/50",
+
+            // "Active" State (Whale Index > 80) -> Pink Neon Pulse
+            (item.decisionSSOT?.whaleIndex || 0) >= 80
+                ? "bg-slate-900/90 backdrop-blur shadow-[0_0_20px_rgba(255,0,128,0.3)] border border-pink-500/30"
+                : "bg-slate-900 hover:bg-slate-800/80 border border-transparent",
+
+            // Selection Override
+            isSelected && "ring-2 ring-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.2)] bg-slate-800"
         )}>
             {/* Rank - Subtle */}
             <div className="absolute top-4 right-4 text-[40px] font-black text-slate-800/50 leading-none pointer-events-none select-none">
@@ -587,47 +595,50 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
 
     return (
         <div className="fixed inset-0 z-[100] flex justify-end font-sans">
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
-            <div className="relative w-full max-w-lg h-full bg-slate-950 border-l border-slate-800 shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-right duration-200">
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
+            <div className="relative w-full max-w-lg h-full bg-slate-950/90 backdrop-blur-2xl border-l border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
 
-                {/* Header */}
-                <div className="shrink-0 bg-slate-950 border-b border-slate-800 p-5 flex items-start justify-between select-none">
-                    <div className="flex gap-4 items-center">
-                        <h2 className="text-3xl font-bold text-white tracking-tight">{item.ticker}</h2>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded border ${getActionStyle(action)}`}>
-                            {action}
-                        </span>
-                        <div className="h-4 w-px bg-slate-800 mx-1" />
-                        <div className="flex flex-col">
-                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Alpha</span>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs font-mono font-bold text-white">{item.alphaScore?.toFixed(1) || "-"}</span>
-                                {item.qualityReasonKR?.includes('상승') && (
-                                    <span className="px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 text-[9px] border border-indigo-500/30 font-bold flex items-center gap-1">
-                                        🚀 Momentum
+                {/* Unified HUD Header (Deep Navy Gradient) */}
+                <div className="shrink-0 bg-gradient-to-b from-[#0f172a] to-[#0f172a]/0 p-6 pb-2 select-none z-10">
+                    <div className="flex justify-between items-start mb-4">
+                        <div className="flex items-center gap-4">
+                            {/* Logo */}
+                            <div className="w-10 h-10 rounded-full bg-white p-0 overflow-hidden shadow-lg shadow-white/10">
+                                <img
+                                    src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
+                                    alt={item.ticker}
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+                            <div>
+                                <h2 className="text-4xl font-black text-white tracking-tighter leading-none flex items-center gap-2">
+                                    {item.ticker}
+                                    <span className="text-sm font-bold text-slate-500 tracking-normal self-end mb-1">#{item.rank || '-'}</span>
+                                </h2>
+                                <div className="flex items-center gap-2 mt-1">
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getActionStyle(action)} ring-1 ring-inset ring-white/10`}>
+                                        {action}
                                     </span>
-                                )}
+                                    {item.qualityReasonKR?.includes('상승') && (
+                                        <span className="text-[10px] font-bold text-indigo-400 flex items-center gap-1">
+                                            <Zap className="w-3 h-3 text-indigo-500 fill-indigo-500/20" /> MOMENTUM
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <button onClick={onClose} className="p-1 text-slate-500 hover:text-white transition-colors">
-                            <XCircle className="w-6 h-6 stroke-1" />
+                        <button onClick={onClose} className="p-2 -mr-2 text-slate-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
+                            <XCircle className="w-8 h-8 stroke-1 opacity-70" />
                         </button>
                     </div>
                 </div>
 
-                {/* Body: 5-Layer Evidence Stack */}
-                <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent space-y-8">
+                {/* Body: Seamless Flow */}
+                <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent space-y-8">
 
-                    {/* 1. SURGICAL COCKPIT (Overview) */}
+                    {/* 1. SURGICAL COCKPIT (Merged) */}
                     <section>
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                <Target className="w-3.5 h-3.5" /> Surgical Cockpit
-                            </h3>
-                            {isDebug && <span className="text-[9px] font-mono text-indigo-400">upd: {ev.price.fetchedAtET}</span>}
-                        </div>
+                        {isDebug && <div className="text-right text-[9px] font-mono text-slate-600 mb-2">UPD: {ev.price.fetchedAtET}</div>}
 
                         {/* [V3.7.3] Surgical UI Dashboard */}
                         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -1452,7 +1463,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                 <th className="p-4 text-center">Action</th>
                                             </tr>
                                         </thead>
-                                        <tbody className="divide-y divide-slate-800/50">
+                                        <tbody className="divide-y-0">
                                             {isLoading ? (
                                                 [1, 2, 3].map(i => (
                                                     <tr key={i}><td colSpan={8} className="p-4"><Skeleton className="h-12 w-full" /></td></tr>
@@ -1469,7 +1480,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                     return (
                                                         <tr key={item.ticker}
                                                             onClick={() => setSelectedTicker(item)}
-                                                            className={`cursor-pointer transition-colors group hover:bg-slate-800/50`}
+                                                            className={`cursor-pointer transition-all duration-200 hover:bg-white/5 hover:shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:backdrop-blur-sm border-b border-white/5 last:border-0`}
                                                         >
                                                             <td className="p-4 text-center font-mono text-xs text-slate-500">
                                                                 {realRank}
