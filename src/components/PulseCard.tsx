@@ -12,9 +12,10 @@ interface PulseCardProps {
     whaleIndex: number; // 0-100
     whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE';
     lastBigPrint?: string;
+    rank?: number;
 }
 
-export function PulseCard({ ticker, price, change, whaleIndex, whaleConfidence, lastBigPrint }: PulseCardProps) {
+export function PulseCard({ ticker, price, change, whaleIndex, whaleConfidence, lastBigPrint, rank }: PulseCardProps) {
     const isHighWhale = whaleIndex >= 80;
     const isPositive = change >= 0;
 
@@ -87,22 +88,51 @@ export function PulseCard({ ticker, price, change, whaleIndex, whaleConfidence, 
     return (
         <Card className={cn(
             "relative w-full h-32 overflow-hidden bg-[#0a0f18] border-none shadow-2xl group transition-all duration-500",
-            isHighWhale ? "ring-1 ring-fuchsia-500/50" : "hover:ring-1 hover:ring-slate-700"
+            isHighWhale ? "ring-1 ring-fuchsia-500/50" : "hover:ring-1 hover:ring-emerald-500/40"
         )}>
             {/* EKG Background Canvas */}
             <canvas ref={canvasRef} className="absolute inset-0 w-full h-full opacity-30 pointer-events-none" width={300} height={100} />
+
+            {/* Rank - Subtle Background */}
+            {rank && (
+                <div className="absolute top-2 right-4 text-[60px] font-black text-white/5 leading-none pointer-events-none select-none z-0">
+                    {rank}
+                </div>
+            )}
 
             {/* Content Layer */}
             <div className="absolute inset-0 p-4 flex justify-between items-start z-10">
                 {/* Left: Ticker & Whale Info */}
                 <div className="flex flex-col h-full justify-between">
                     <div>
-                        <div className="flex items-baseline gap-2">
-                            <h2 className="text-3xl font-black text-white tracking-tighter">{ticker}</h2>
-                            {isHighWhale && <Activity className="w-4 h-4 text-fuchsia-500 animate-pulse" />}
+                        <div className="flex items-center gap-3">
+                            {/* Logo Integration */}
+                            <div className="w-10 h-10 rounded-full bg-white p-0 shadow-lg shadow-white/5 overflow-hidden flex items-center justify-center flex-shrink-0 relative z-20">
+                                <img
+                                    src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                                    alt={ticker}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.parentElement!.style.backgroundColor = '#1e293b'; // slate-800
+                                        e.currentTarget.parentElement!.innerHTML = `<span class="text-xs font-bold text-slate-400">${ticker[0]}</span>`;
+                                    }}
+                                />
+                            </div>
+
+                            <div>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-3xl font-black text-white tracking-tighter leading-none">{ticker}</h2>
+                                    {isHighWhale && <Activity className="w-4 h-4 text-fuchsia-500 animate-pulse" />}
+                                </div>
+                                <div className="text-[10px] font-bold text-slate-500 tracking-wide mt-0.5">
+                                    {rank ? `RANK #${rank}` : 'UNRANKED'}
+                                </div>
+                            </div>
                         </div>
+
                         {lastBigPrint && (
-                            <div className="mt-1 text-[10px] font-mono text-fuchsia-300/80 animate-in fade-in slide-in-from-left-2 duration-700">
+                            <div className="mt-3 text-[10px] font-mono text-fuchsia-300/80 animate-in fade-in slide-in-from-left-2 duration-700 ml-1">
                                 ⚡ {lastBigPrint}
                             </div>
                         )}
@@ -110,7 +140,7 @@ export function PulseCard({ ticker, price, change, whaleIndex, whaleConfidence, 
 
                     {/* Whale Confidence Badge */}
                     <div className={cn(
-                        "px-2 py-0.5 rounded-full text-[9px] font-bold w-fit uppercase tracking-wider border",
+                        "px-2 py-0.5 rounded-full text-[9px] font-bold w-fit uppercase tracking-wider border ml-1",
                         isHighWhale
                             ? "bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/40"
                             : "bg-slate-800 text-slate-500 border-slate-700"
@@ -120,8 +150,8 @@ export function PulseCard({ ticker, price, change, whaleIndex, whaleConfidence, 
                 </div>
 
                 {/* Right: Price */}
-                <div className="text-right">
-                    <div className={cn("text-2xl font-black tabular-nums", isPositive ? "text-emerald-400" : "text-rose-500")}>
+                <div className="text-right z-20">
+                    <div className={cn("text-3xl font-black tabular-nums tracking-tighter", isPositive ? "text-emerald-400" : "text-rose-500")}>
                         ${price.toFixed(2)}
                     </div>
                     <div className={cn("text-xs font-bold", isPositive ? "text-emerald-500" : "text-rose-500")}>

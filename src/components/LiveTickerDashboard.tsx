@@ -744,6 +744,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             ) : (
                 <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
                     <FlowRadar
+                        ticker={ticker}
                         rawChain={liveQuote?.flow?.rawChain || initialStockData?.flow?.rawChain || []}
                         currentPrice={displayPrice}
                     />

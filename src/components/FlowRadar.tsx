@@ -6,13 +6,45 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "./ui/progress";
 
 interface FlowRadarProps {
+    ticker: string;
     rawChain: any[];
     currentPrice: number;
 }
 
-export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+    // State for Live Whale Trades [V3.7.3]
+    const [whaleTrades, setWhaleTrades] = useState<any[]>([]);
+    const [tradesLoading, setTradesLoading] = useState(false);
+
+    // Fetch Whale Trades
+    const fetchWhaleTrades = async () => {
+        try {
+            const res = await fetch(`/api/live/options/trades?t=${ticker}`); // Use explicit ticker
+            if (res.ok) {
+                const data = await res.json();
+                setWhaleTrades(prev => {
+                    const newTrades = data.items || [];
+                    const combined = [...newTrades, ...prev];
+                    const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
+                    return unique.slice(0, 50); // Keep last 50
+                });
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    // Poll for trades
+    useEffect(() => {
+        if (rawChain.length > 0) {
+            fetchWhaleTrades();
+            const interval = setInterval(fetchWhaleTrades, 15000); // Every 15s
+            return () => clearInterval(interval);
+        }
+    }, [rawChain]);
 
     // Process Data: Group by Strike
     const { flowMap, totalVolume } = useMemo(() => {
@@ -107,75 +139,157 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
         return { callWall: cStrike, putWall: pStrike };
     }, [flowMap, effectiveViewMode]);
 
-    // Dynamic Analysis & Probability Logic
+    // [LEVEL 3] INSTITUTIONAL ANALYSIS ENGINE (Structure + Flow)
     const analysis = useMemo(() => {
-        if (callWall === 0 || putWall === 0) return null;
+        if (!flowMap || flowMap.length === 0) return null;
 
         const distToCall = ((callWall - currentPrice) / currentPrice) * 100;
-        const distToPut = ((currentPrice - putWall) / currentPrice) * 100;
+        const distToPut = ((currentPrice - putWall) / currentPrice) * 100; // Negative value usually
 
-        // Probability Calculation (Heuristic)
-        const proximityScore = 100 - Math.min(Math.abs(distToCall), Math.abs(distToPut)) * 20;
+        // 2. Whale Sentiment Analysis (The "Flow" - Momentum)
+        let netWhalePremium = 0;
+        let whaleCallCount = 0;
+        let whalePutCount = 0;
+        let highImpactCount = 0;
 
-        const callWallData = flowMap.find(f => f.strike === callWall);
-        const putWallData = flowMap.find(f => f.strike === putWall);
+        whaleTrades.forEach(t => {
+            if (t.premium > 50000) highImpactCount++;
+            if (t.type === 'CALL') {
+                netWhalePremium += t.premium;
+                whaleCallCount++;
+            } else {
+                netWhalePremium -= t.premium;
+                whalePutCount++;
+            }
+        });
 
-        const cVol = callWallData?.callVol || 1;
-        const pVol = putWallData?.putVol || 1;
+        const whaleBias = netWhalePremium > 1000000 ? 'STRONG_BULL' // > $1M Net
+            : netWhalePremium > 200000 ? 'BULLISH'
+                : netWhalePremium < -1000000 ? 'STRONG_BEAR' // < -$1M Net
+                    : netWhalePremium < -200000 ? 'BEARISH'
+                        : 'NEUTRAL';
 
+        // 3. The "Superhuman" Synthesis (Fusion Logic)
+        let status = "판단 보류 (SCANNING)";
+        let message = "세력들의 움직임을 분석 중입니다...";
+        let color = "text-slate-400";
         let probability = 50;
         let probLabel = "중립 (Neutral)";
         let probColor = "text-slate-400";
 
-        if (distToCall < 2.0) { // Approaching Resistance
-            const pressure = (cVol / (cVol + pVol)) * 100; // % of volume that is Call
-            probability = Math.min(95, Math.max(5, (proximityScore * 0.4) + (pressure * 0.6)));
-
-            if (probability > 70) { probLabel = "돌파 유력 (High Prob)"; probColor = "text-emerald-400"; }
-            else if (probability > 40) { probLabel = "공방 치열 (Contested)"; probColor = "text-amber-400"; }
-            else { probLabel = "저항 강력 (Rejection)"; probColor = "text-rose-400"; }
-
-        } else if (distToPut < 2.0) { // Approaching Support
-            const pressure = (pVol / (cVol + pVol)) * 100;
-            probability = Math.min(95, Math.max(5, (proximityScore * 0.4) + (pressure * 0.6)));
-
-            if (probability > 70) { probLabel = "이탈 위험 (High Danger)"; probColor = "text-rose-400"; }
-            else { probLabel = "지지 유력 (Bounce Prob)"; probColor = "text-emerald-400"; }
-        } else {
-            probability = 50;
-        }
-
-        let status = "판단 보류 (NEUTRAL)";
-        let message = "";
-        let color = "text-slate-400";
-
+        // Logic Branching
         if (currentPrice > callWall) {
-            status = "🚀 상승 돌파 (BREAKOUT)";
-            message = `현재가($${currentPrice})가 저항벽($${callWall})을 뚫었습니다! 이는 강한 매수 신호이며, 추가 상승(감마 스퀴즈) 가능성이 높습니다.`;
-            color = "text-emerald-400";
-        } else if (currentPrice < putWall) {
-            status = "📉 하락 이탈 (BREAKDOWN)";
-            message = `주가($${currentPrice})가 지지벽($${putWall}) 아래로 떨어졌습니다. 하락 추세가 강하지만, 과매도 구간이므로 급반등에도 유의해야 합니다.`;
-            color = "text-rose-400";
-        } else {
-            // Inside the Range
-            if (distToCall < 1.0) {
-                status = "⚔️ 저항선 공방 (Testing Resistance)";
-                message = `주가가 거대한 저항벽($${callWall})에 도전 중입니다. 현재 돌파 확률은 ${probability.toFixed(0)}%로 분석됩니다.`;
-                color = "text-amber-400";
-            } else if (distToPut < 1.0) {
-                status = "🛡️ 지지선 방어 (Testing Support)";
-                message = `주가가 지지벽($${putWall})을 테스트 중입니다. 현재 지지 성공 확률은 ${(100 - probability).toFixed(0)}% 입니다.`;
-                color = "text-indigo-400";
+            // SCENARIO: Price is ABOVE Resistance (Breakout State)
+            if (whaleBias.includes('BULL')) {
+                status = "🚀 초강력 상승 (SUPER-CYCLE)";
+                message = `구조적 저항벽($${callWall})이 붕괴되었습니다. 여기에 고래들의 '추격 매수(Net +$${(netWhalePremium / 1000).toFixed(0)}K)'가 기름을 붓고 있습니다. 이것은 단순 돌파가 아닌 '시세 폭발'입니다.`;
+                probability = 95;
+                probLabel = "확신 (Conviction)";
+                probColor = "text-emerald-400";
+                color = "text-emerald-400";
             } else {
-                status = "⚖️ 박스권 (Range Bound)";
-                message = `현재는 '바닥($${putWall})'과 '천장($${callWall})' 사이에서 움직이는 박스권입니다. 벽에 가까워질 때 매매하는 것이 유리합니다.`;
-                color = "text-blue-400";
+                status = "⚠️ 돌파 후 숨고르기";
+                message = `저항벽($${callWall})을 뚫었으나, 고래들의 수급은 잠시 멈췄습니다(Neutral). 개미들만 흥분한 상태일 수 있으니 '되돌림(Pullback)' 지지 테스트를 확인하십시오.`;
+                probability = 60;
+                probLabel = "관망 (Wait)";
+                probColor = "text-amber-400";
+                color = "text-amber-400";
+            }
+        }
+        else if (currentPrice < putWall) {
+            // SCENARIO: Price is BELOW Support (Breakdown State)
+            if (whaleBias.includes('BEAR')) {
+                status = "📉 지지선 붕괴 (COLLAPSE)";
+                message = `최후의 지지벽($${putWall})이 무너졌습니다. 고래들은 이미 하방(Put)에 베팅 금액(Net -$${Math.abs(netWhalePremium / 1000).toFixed(0)}K)을 늘리고 있습니다. 투매가 나올 수 있습니다.`;
+                probability = 15; // Success prob for bulls is low
+                probLabel = "위험 (Danger)";
+                probColor = "text-rose-500";
+                color = "text-rose-500";
+            } else {
+                status = "🪤 과매도 함정 (BEAR TRAP?)";
+                message = `지지벽($${putWall})이 깨졌지만, 고래들은 투매에 동참하지 않고 있습니다. '패닉 셀'을 받아먹는 저점 매집일 가능성이 큽니다. 반등에 대비하십시오.`;
+                probability = 40;
+                probLabel = "주의 (Caution)";
+                probColor = "text-amber-500";
+                color = "text-amber-500";
+            }
+        }
+        else {
+            // SCENARIO: Inside the Range (Between Walls)
+            const isNearRes = distToCall < 1.0; // Within 1% of Resistance
+            const isNearSup = Math.abs(distToPut) < 1.0; // Within 1% of Support
+
+            if (isNearRes) {
+                if (whaleBias.includes('BULL')) {
+                    status = "⚡ 돌파 임박 (BREAKOUT READY)";
+                    message = `주가가 저항벽($${callWall})을 두드리고 있습니다. 더 중요한 건, 고래들이 이 타이밍에 '콜옵션'을 쓸어담고 있다는 점입니다. 벽이 곧 뚫립니다. 탑승하십시오.`;
+                    probability = 88;
+                    probLabel = "강력 매수 (Strong Buy)";
+                    probColor = "text-emerald-400";
+                    color = "text-emerald-400";
+                } else if (whaleBias.includes('BEAR')) {
+                    status = "⛔ 가짜 돌파 경고 (FAKE-OUT)";
+                    message = `주가는 오르는 척하지만, 고래들은 조용히 '풋옵션'을 매집하며 하락 통수를 준비 중입니다. 전형적인 '개미 꼬시기' 패턴입니다. 속지 마십시오.`;
+                    probability = 20;
+                    probLabel = "매도/탈출 (Sell)";
+                    probColor = "text-rose-500";
+                    color = "text-rose-500";
+                } else {
+                    status = "⚔️ 저항선 공방 (TESTING)";
+                    message = `거대한 저항벽($${callWall}) 앞에서 매수/매도 세력이 충돌하고 있습니다. 고래들도 방향을 잡지 못하고 눈치게임 중입니다. 돌파 여부를 확인하고 진입하십시오.`;
+                    probability = 50;
+                    color = "text-amber-400";
+                }
+            } else if (isNearSup) {
+                if (whaleBias.includes('BEAR')) {
+                    status = "💀 추가 하락 경고 (DANGER)";
+                    message = `지지벽($${putWall})에서 반등해야 할 자리지만, 고래들의 자금은 하방(Put)으로 쏠리고 있습니다. 지지선이 뚫릴 확률이 매우 높습니다. 절대 물타기 금지.`;
+                    probability = 10;
+                    probLabel = "매도 (Exit)";
+                    probColor = "text-rose-500";
+                    color = "text-rose-500";
+                } else if (whaleBias.includes('BULL')) {
+                    status = "💎 바닥 확인 (BOTTOM FISHING)";
+                    message = `주가는 바닥($${putWall})에 도달했고, 스마트머니(Whale)는 여기서 '반등'에 배팅하고 있습니다. 손익비가 가장 좋은 '매수 타점'입니다.`;
+                    probability = 80;
+                    probLabel = "매수 기회 (Buy Dip)";
+                    probColor = "text-emerald-400";
+                    color = "text-emerald-400";
+                } else {
+                    status = "🛡️ 지지선 테스트 (DEFENSE)";
+                    message = `주요 지지선($${putWall})을 테스트 중입니다. 기술적 반등이 나올 수 있는 자리이나, 고래들의 뚜렷한 유입은 아직 없습니다. 분할 매수로 접근하십시오.`;
+                    probability = 60;
+                    color = "text-indigo-400";
+                }
+            } else {
+                // Middle of Range
+                if (whaleBias === 'STRONG_BULL' || whaleBias === 'BULLISH') {
+                    status = "📈 상승 모멘텀 (MOMENTUM)";
+                    message = `박스권 중간이지만 고래들의 자금이 상방으로 계속 유입되고 있습니다(Net +$${(netWhalePremium / 1000).toFixed(0)}K). 저항벽($${callWall})을 향해 순항할 것입니다.`;
+                    probability = 70;
+                    probLabel = "매수 우위 (Bullish)";
+                    probColor = "text-emerald-400";
+                    color = "text-emerald-400";
+                } else if (whaleBias === 'STRONG_BEAR' || whaleBias === 'BEARISH') {
+                    status = "📉 하락 압력 (PRESSURE)";
+                    message = `상승 동력이 약합니다. 고래들은 지속적으로 물량을 정리하거나 하락에 베팅(Net -$${Math.abs(netWhalePremium / 1000).toFixed(0)}K)하고 있습니다. 지지선($${putWall})까지 밀릴 수 있습니다.`;
+                    probability = 30;
+                    probLabel = "매도 우위 (Bearish)";
+                    probColor = "text-rose-400";
+                    color = "text-rose-400";
+                } else {
+                    status = "⚖️ 박스권 횡보 (RANGE BOUND)";
+                    message = `현재 주가($${currentPrice})는 바닥($${putWall})과 천장($${callWall})의 중간 지대(No Man's Land)에 갇혀 있습니다. 고래들의 움직임도 없습니다. 뚜렷한 방향이 나올 때까지 관망하십시오.`;
+                    probability = 50;
+                    probLabel = "중립 (Neutral)";
+                    probColor = "text-slate-500";
+                    color = "text-slate-400";
+                }
             }
         }
 
-        return { status, message, color, probability, probLabel, probColor };
-    }, [currentPrice, callWall, putWall, flowMap]);
+        return { status, message, color, probability, probLabel, probColor, whaleBias };
+    }, [currentPrice, callWall, putWall, flowMap, whaleTrades]);
 
     if (!rawChain || rawChain.length === 0) {
         return (
@@ -241,26 +355,150 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
             {/* Tactical Intel Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
 
-                {/* 1. Main Radar Chart */}
+                {/* 1. Main Radar Chart & Whale Feed */}
                 <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-[780px]">
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
                     <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0">
-                        <div className="grid grid-cols-[1fr_80px_1fr] gap-4 mb-4 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 text-center shrink-0">
-                            <div className="text-rose-500/50 flex items-center justify-end gap-2">
-                                <span className="hidden md:inline">Put Flow (하락)</span> <div className="w-2 h-2 bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                        {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
+                        <div className="relative mb-4 -mx-4 -mt-3">
+                            {/* Decorative Line (The "Stream") */}
+                            <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent blur-[1px]" />
+
+                            <div className="relative pl-6 pb-2">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <h3 className="text-base font-black text-white flex items-center gap-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] tracking-widest uppercase">
+                                        <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+                                        LEVEL 3: CLASSIFIED ORDER FLOW
+                                    </h3>
+                                    <span className="text-[9px] font-black px-2 py-0.5 rounded bg-rose-950/40 border border-rose-500/40 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse tracking-widest">
+                                        TOP SECRET // EYES ONLY
+                                    </span>
+                                </div>
+
+                                {/* Horizontal Scroll Container */}
+                                <div
+                                    className="flex gap-3 overflow-x-auto pb-4 pt-1 px-1 scrollbar-hide mask-linear-gradient"
+                                    style={{ maskImage: 'linear-gradient(to right, transparent, black 2%, black 98%, transparent)' }}
+                                >
+                                    {whaleTrades.length === 0 ? (
+                                        <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-500/30 font-mono text-sm border border-cyan-500/10 rounded-xl bg-cyan-950/10 backdrop-blur-sm">
+                                            Scanning for Classified Intel...
+                                        </div>
+                                    ) : (
+                                        whaleTrades.map((t, i) => {
+                                            const isHighImpact = t.premium >= 500000;
+                                            const isMedImpact = t.premium >= 100000 && t.premium < 500000;
+                                            const isCall = t.type === 'CALL';
+
+                                            // Impact Label
+                                            const impactLabel = isHighImpact ? "HIGH" : isMedImpact ? "MED" : "LOW";
+                                            const impactTextColor = isHighImpact ? "text-amber-400" : isMedImpact ? "text-indigo-400" : "text-slate-400";
+
+                                            // Strategy Logic
+                                            const moneyness = t.strike / currentPrice;
+                                            let strategyMain = "";
+                                            let strategySub = "";
+                                            if (isCall && moneyness < 0.60) {
+                                                strategyMain = "STOCK REPL"; strategySub = "주식대체";
+                                            } else if (isCall && moneyness < 0.85) {
+                                                strategyMain = "LEVERAGE"; strategySub = "레버리지";
+                                            } else {
+                                                const isBlock = t.size >= 500;
+                                                strategyMain = isBlock ? "BLOCK" : "SWEEP";
+                                            }
+
+                                            // Node Color Theme
+                                            const nodeBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
+                                                isCall ? 'border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
+                                                    'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
+
+                                            const nodeBg = isHighImpact ? 'bg-amber-950/40' : 'bg-slate-900/60';
+
+                                            // Blinking Border Logic (Overlay)
+                                            const ShowBlink = isHighImpact || i === 0;
+                                            const BlinkColor = isHighImpact ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]' : 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]';
+
+                                            return (
+                                                <div
+                                                    key={t.id || i}
+                                                    className={`
+                                                        relative min-w-[220px] p-3.5 rounded-xl border-2 backdrop-blur-md flex flex-col justify-between gap-2
+                                                        transition-all duration-500 hover:scale-105 hover:z-10 bg-gradient-to-b from-white/10 to-transparent
+                                                        animate-in fade-in slide-in-from-right-4
+                                                        ${nodeBorder} ${nodeBg}
+                                                    `}
+                                                >
+                                                    {/* Blinking Border Overlay */}
+                                                    {ShowBlink && (
+                                                        <div className={`absolute inset-[-2px] rounded-xl border-2 ${BlinkColor} animate-pulse pointer-events-none`} />
+                                                    )}
+
+                                                    {/* Row 1: Ticker & Time */}
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5 shadow-black/50 drop-shadow-md">
+                                                                {isHighImpact && <span className="text-amber-400 animate-spin-slow">☢️</span>} {t.underlying || ticker}
+                                                            </span>
+                                                            <span className="text-[11px] text-slate-400 font-mono mt-0.5">{t.timeET}</span>
+                                                        </div>
+                                                        <div className="text-right flex flex-col items-end">
+                                                            <div className={`text-[11px] font-bold px-2 py-0.5 rounded mb-1 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
+                                                                {t.type}
+                                                            </div>
+                                                            <div className={`text-[9px] font-bold tracking-wider ${impactTextColor}`}>
+                                                                IMPACT: {impactLabel}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Row 2: Strategy & Strike */}
+                                                    <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-[11px] font-bold text-cyan-200">{strategyMain}</span>
+                                                            {strategySub && <span className="text-[10px] text-cyan-400/80 font-medium">{strategySub}</span>}
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <span className="text-sm font-bold text-white">STRIKE ${t.strike}</span>
+                                                            <div className="text-[10px] text-slate-500">EXP {t.expiry.slice(5)}</div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Row 3: Premium & Size */}
+                                                    <div className="flex justify-between items-center">
+                                                        <div className={`text-sm font-black tracking-tight ${isHighImpact ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-white'}`}>
+                                                            ${(t.premium / 1000).toFixed(0)}K
+                                                        </div>
+                                                        <div className="text-[11px] font-mono text-slate-300">
+                                                            {t.size} cts
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
                             </div>
-                            <div className="text-slate-300">Strike (행사가)</div>
-                            <div className="text-emerald-500/50 flex items-center gap-2">
-                                <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" /> <span className="hidden md:inline">Call Flow (상승)</span>
+                        </div>
+
+                        {/* THE RADAR LIST (Top 2/3) */}
+                        <div className="flex-none pb-4 mt-2">
+                            <div className="grid grid-cols-[1fr_80px_1fr] gap-4 mb-2 text-[9px] font-black uppercase tracking-[0.2em] text-slate-500 text-center shrink-0">
+                                <div className="text-rose-500/50 flex items-center justify-end gap-2">
+                                    <span className="hidden md:inline">Put Flow (하락)</span> <div className="w-2 h-2 bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
+                                </div>
+                                <div className="text-slate-300">Strike</div>
+                                <div className="text-emerald-500/50 flex items-center gap-2">
+                                    <div className="w-2 h-2 bg-emerald-500 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.5)]" /> <span className="hidden md:inline">Call Flow (상승)</span>
+                                </div>
                             </div>
                         </div>
 
                         <div
                             ref={scrollContainerRef}
-                            className="space-y-1.5 overflow-y-auto pr-2 relative flex-1 min-h-0"
+                            className="space-y-1.5 overflow-y-auto pr-2 relative flex-[2] min-h-0 border-b border-white/5 pb-6"
                             style={{
-                                scrollbarWidth: 'auto',
-                                scrollbarColor: '#64748b #1e293b'
+                                scrollbarWidth: 'thin',
+                                scrollbarColor: '#334155 #0f172a'
                             }}
                         >
                             <style jsx>{`
@@ -323,8 +561,8 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                                                     <span className={`text-xs font-mono font-bold z-10 ${isAtMoney ? "text-white scale-110 drop-shadow-[0_0_5px_rgba(99,102,241,0.8)]" : isCallWallStrike || isPutWallStrike ? "text-amber-200" : "text-slate-500 group-hover:text-slate-300"}`}>
                                                         {row.strike}
                                                     </span>
-                                                    {isCallWallStrike && <div className="absolute -right-3 top-1 text-[8px] text-emerald-500 font-black animate-bounce drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]">R</div>}
-                                                    {isPutWallStrike && <div className="absolute -left-3 top-1 text-[8px] text-rose-500 font-black animate-bounce drop-shadow-[0_0_5px_rgba(244,63,94,0.8)]">S</div>}
+                                                    {isCallWallStrike && <div className="absolute -right-3 top-1 text-[8px] text-emerald-400 font-black animate-bounce drop-shadow-[0_0_5px_rgba(16,185,129,0.8)]">R</div>}
+                                                    {isPutWallStrike && <div className="absolute -left-3 top-1 text-[8px] text-rose-400 font-black animate-bounce drop-shadow-[0_0_5px_rgba(244,63,94,0.8)]">S</div>}
                                                 </div>
 
                                                 {/* CALL Side */}
@@ -358,6 +596,8 @@ export function FlowRadar({ rawChain, currentPrice }: FlowRadarProps) {
                                 })
                             )}
                         </div>
+
+
                     </CardContent>
                 </Card>
 

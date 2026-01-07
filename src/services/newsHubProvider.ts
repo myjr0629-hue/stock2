@@ -129,6 +129,11 @@ function getGenAIClient() {
     return null;
 }
 
+// [V3.7.5] Translation Circuit Breaker & Global Throttling
+let isTranslationRateLimited = false;
+let last429Timestamp = 0;
+const COOLDOWN_MS = 60 * 1000; // 1 minute cooldown
+
 // Helper for Timeout
 async function withTimeout<T>(promise: Promise<T>, ms: number, fallbackValue: T): Promise<T> {
     let timeoutId: NodeJS.Timeout;
@@ -197,6 +202,11 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
             const jsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
             const analysis = JSON.parse(jsonStr) as AIAnalysisResult[];
 
+            // [Fix] If Gemini returns empty/matches nothing, force fallback
+            if (analysis.length === 0 && items.length > 0) {
+                throw new Error("Gemini returned empty results (Timeout or Refusal)");
+            }
+
             return analysis;
         } catch (e) {
             console.warn("[NewsHub] Gemini Analysis Failed (404/Quota/Timeout), switching to Fallback:", e);
@@ -206,11 +216,39 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
 
     // Fallback: Google Translate + Regex Rumor Detection
     try {
-        const fallbackResults = await Promise.all(items.map(async (item) => {
+        const fallbackResults: AIAnalysisResult[] = [];
+
+        // [V3.7.5] Circuit Breaker Check
+        if (isTranslationRateLimited) {
+            const timeSinceLast429 = Date.now() - last429Timestamp;
+            if (timeSinceLast429 < COOLDOWN_MS) {
+                console.warn(`[NewsHub] Translation Circuit Breaker Active (Cooldown: ${Math.ceil((COOLDOWN_MS - timeSinceLast429) / 1000)}s), skipping translation.`);
+            } else {
+                isTranslationRateLimited = false; // Reset after cooldown
+                console.log("[NewsHub] Translation Circuit Breaker Reset. Retrying...");
+            }
+        }
+
+        for (const item of items) {
             const textToTranslate = item.description || item.title || "";
             let translated = textToTranslate;
 
+            // Skip if rate limited
+            if (isTranslationRateLimited) {
+                fallbackResults.push({
+                    id: item.id || `news-${Math.random().toString(36).substr(2, 9)}`,
+                    summaryKR: translated,
+                    isRumor: false
+                });
+                continue;
+            }
+
             try {
+                // [V3.7.5] Conservative 1s delay between fallback requests
+                if (fallbackResults.length > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+
                 // Wrap Translate with 5s Timeout
                 const res = await withTimeout(
                     translate(textToTranslate, { to: 'ko' }),
@@ -218,8 +256,20 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
                     { text: textToTranslate } as any
                 );
                 translated = (res as any).text;
-            } catch (err) {
-                console.error("Translation fail:", err);
+            } catch (err: any) {
+                // If we get a 429, we trigger the circuit breaker
+                const is429 = err.status === 429 ||
+                    err.name === 'TooManyRequestsError' ||
+                    err.message?.includes('429') ||
+                    err.message?.includes('Too Many Requests'); // [V3.7.6] Explicit string check
+
+                if (is429) {
+                    console.warn("[NewsHub] Translation Rate Limited (429)! Activating Circuit Breaker.");
+                    isTranslationRateLimited = true;
+                    last429Timestamp = Date.now();
+                } else {
+                    console.error("[NewsHub] Translation fail:", err);
+                }
             }
 
             // Simple Regex for Rumors (English Source)
@@ -227,12 +277,13 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
             const rumorKeywords = [/sources say/i, /reportedly/i, /rumor/i, /unconfirmed/i, /speculation/i, /considering a bid/i, /people familiar with/i];
             const isRumor = rumorKeywords.some(rx => rx.test(fullText));
 
-            return {
+            fallbackResults.push({
                 id: item.id || `news-${Math.random().toString(36).substr(2, 9)}`,
                 summaryKR: translated,
                 isRumor
-            };
-        }));
+            });
+        }
+
         return fallbackResults;
     } catch (e) {
         console.error("[NewsHub] Fallback Failed:", e);

@@ -63,7 +63,8 @@ export class SectorEngine {
             console.log(`[SectorEngine] Starting Institutional Flow Analysis...`);
 
             // 1. Check/Build Baseline (Heavy Lift)
-            await this.ensureBaselines();
+            // [Emergency Patch] Skipping Heavy Fetch to unblock report generation
+            // await this.ensureBaselines();
 
             // 2. Fetch Real-time Snapshot
             const allTickers: string[] = [];

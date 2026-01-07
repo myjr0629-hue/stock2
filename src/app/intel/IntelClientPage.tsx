@@ -376,6 +376,7 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
                     whaleIndex={whaleIndex}
                     whaleConfidence={whaleConfidence}
                     lastBigPrint={whaleIndex > 80 ? "INSTITUTIONAL SWEEP DETECTED" : undefined}
+                    rank={rank}
                 />
             </div>
         );
@@ -400,17 +401,17 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
 
     return (
         <div onClick={onClick} className={cn(
-            "relative rounded-xl p-6 cursor-pointer transition-all duration-300",
-            // Base: Borderless, Shadowed
-            "shadow-lg shadow-black/50",
+            "relative rounded-xl p-6 cursor-pointer transition-all duration-300 overflow-hidden",
+            // Glassmorphism Base
+            "bg-slate-900/60 backdrop-blur-md border border-white/5 shadow-2xl shadow-black/50",
 
             // "Active" State (Whale Index > 80) -> Pink Neon Pulse
             (item.decisionSSOT?.whaleIndex || 0) >= 80
-                ? "bg-slate-900/90 backdrop-blur shadow-[0_0_20px_rgba(255,0,128,0.3)] border border-pink-500/30"
-                : "bg-slate-900 hover:bg-slate-800/80 border border-transparent",
+                ? "shadow-[0_0_30px_rgba(255,0,128,0.2)] border-pink-500/30"
+                : "hover:ring-1 hover:ring-emerald-500/40 hover:bg-slate-800/60",
 
             // Selection Override
-            isSelected && "ring-2 ring-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.2)] bg-slate-800"
+            isSelected && "ring-2 ring-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.2)] bg-slate-800/80"
         )}>
             {/* Rank - Subtle */}
             <div className="absolute top-4 right-4 text-[40px] font-black text-slate-800/50 leading-none pointer-events-none select-none">
@@ -463,7 +464,7 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
             {/* Execution Levels - Clean Grid */}
             {!isNoTrade ? (
                 <div className="space-y-2 relative z-10">
-                    <div className="flex items-center justify-between py-1 border-b border-slate-800/50">
+                    <div className="flex items-center justify-between py-1 border-b border-white/5">
                         <span className="text-[11px] text-slate-500 font-medium">Entry</span>
                         <div className="text-right">
                             <span className="block text-[13px] font-mono font-medium text-white tabular-nums">
@@ -471,7 +472,7 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between py-1 border-b border-slate-800/50">
+                    <div className="flex items-center justify-between py-1 border-b border-white/5">
                         <span className="text-[11px] text-rose-400/80 font-medium">Cut</span>
                         <div className="text-right">
                             <span className="block text-[13px] font-mono font-medium text-rose-300 tabular-nums">
@@ -489,7 +490,7 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
                     </div>
                 </div>
             ) : (
-                <div className="h-[92px] flex flex-col items-center justify-center bg-slate-950/50 rounded border border-slate-800/50 border-dashed">
+                <div className="h-[92px] flex flex-col items-center justify-center bg-slate-950/30 rounded border border-white/5">
                     <Lock className="w-4 h-4 text-slate-600 mb-2" />
                     <p className="text-xs text-slate-500 font-medium">Trading restricted</p>
                 </div>
@@ -613,7 +614,6 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                             <div>
                                 <h2 className="text-4xl font-black text-white tracking-tighter leading-none flex items-center gap-2">
                                     {item.ticker}
-                                    <span className="text-sm font-bold text-slate-500 tracking-normal self-end mb-1">#{item.rank || '-'}</span>
                                 </h2>
                                 <div className="flex items-center gap-2 mt-1">
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getActionStyle(action)} ring-1 ring-inset ring-white/10`}>
@@ -1448,11 +1448,11 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                 </h2>
                             </div>
 
-                            <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-sm">
+                            <div className="bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-lg overflow-hidden shadow-2xl">
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left border-collapse">
                                         <thead>
-                                            <tr className="bg-slate-950 border-b border-slate-800 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                            <tr className="bg-slate-900/60 border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                                                 <th className="p-4 w-[60px] text-center">Rank</th>
                                                 <th className="p-4 w-[120px]">Ticker</th>
                                                 <th className="p-4 text-right">Score</th>
@@ -1578,7 +1578,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                     {moonshot.map((item, idx) => (
                                         <div key={item.ticker}
                                             onClick={() => setSelectedTicker(item)}
-                                            className="cursor-pointer bg-slate-900/50 border border-rose-900/40 rounded-xl p-6 relative overflow-hidden group hover:border-rose-500/50 transition-colors">
+                                            className="cursor-pointer bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-xl p-6 relative overflow-hidden group hover:border-rose-500/50 transition-colors">
 
                                             <div className="absolute top-0 right-0 p-2 opacity-50">
                                                 <Activity className="w-12 h-12 text-rose-900/20" />
@@ -1644,8 +1644,8 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                         )}
 
                         <footer className="text-center pb-8 pt-4">
-                            <p className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">
-                                GEMS v8.1 Unified Engine • Tier 0.1
+                            <p suppressHydrationWarning className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">
+                                GEMS v8.1 Unified Engine • Iron Man HUD Active ({new Date().toLocaleTimeString()})
                             </p>
                         </footer>
 

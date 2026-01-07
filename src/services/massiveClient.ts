@@ -380,6 +380,21 @@ export async function fetchRelatedTickers(ticker: string, budget?: RunBudget): P
         return [];
     }
 }
+// [V3.7.7] Option Snapshot Support
+export async function getOptionSnapshot(ticker: string, budget?: RunBudget): Promise<any[]> {
+    // /v3/snapshot/options/{ticker}
+    // Returns full chain state including latest trade for every active contract
+    // Uses fetchMassiveAll to handle pagination (max 250 per page, up to 20 pages cap in logic)
+    const endpoint = `/v3/snapshot/options/${ticker}`;
+    try {
+        const data = await fetchMassiveAll(endpoint, { limit: '250' }, false, budget);
+        return data.results || [];
+    } catch (e) {
+        console.warn(`[Massive] Option Snapshot failed for ${ticker}`, e);
+        return [];
+    }
+}
+
 
 // [V3.7.3] Option Tick Data Support
 export async function getOptionTrades(ticker: string, params: Record<string, string> = {}): Promise<any[]> {

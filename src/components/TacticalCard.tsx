@@ -39,37 +39,57 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
     const maxEntry = (entryBand && typeof entryBand.max === 'number') ? entryBand.max : safePrice * 1.01;
     const isBuyZone = safePrice >= minEntry && safePrice <= maxEntry;
 
+    // Determine score color
+    const scoreColor = (score || 0) >= 80 ? "border-emerald-500 bg-emerald-950/30 text-emerald-400" :
+        (score || 0) >= 50 ? "border-amber-500 bg-amber-950/30 text-amber-400" :
+            "border-slate-600 bg-slate-800 text-slate-400";
+
     return (
         <Card className={cn(
-            "w-full bg-[#0a0f18] border-none shadow-lg shadow-black/50 overflow-hidden relative group transition-all duration-300",
+            "w-full bg-slate-900/60 backdrop-blur-md border border-white/5 shadow-2xl shadow-black/50 overflow-hidden relative group transition-all duration-300",
             // High Alpha Pulse
-            (score || 0) >= 80 ? "shadow-[0_0_25px_rgba(16,185,129,0.2)]" : "",
+            (score || 0) >= 80 ? "shadow-[0_0_30px_rgba(16,185,129,0.2)] border-emerald-500/20" : "",
             // Hover
-            "hover:ring-1 hover:ring-emerald-500/50 hover:bg-[#0f172a]"
+            "hover:ring-1 hover:ring-emerald-500/40 hover:bg-slate-800/60"
         )}>
             <div className="absolute top-0 left-0 p-4 z-10 flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-white p-0 shadow-sm overflow-hidden flex-shrink-0 mt-1">
+                <div className="w-10 h-10 rounded-full bg-white p-0 shadow-[0_0_15px_rgba(255,255,255,0.1)] overflow-hidden flex-shrink-0 mt-1 relative z-20">
+                    {/* [V3.5] LOGO INTEGRATION - Optimized scaling */}
                     <img
                         src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
                         alt={ticker}
                         className="w-full h-full object-cover"
                         onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            e.currentTarget.parentElement!.style.backgroundColor = '#1e293b'; // slate-800
+                            (e.target as HTMLImageElement).style.display = 'none';
+                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
                         }}
                     />
+                    <div className="hidden w-full h-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
+                        {ticker.substring(0, 1)}
+                    </div>
                 </div>
-                <div>
+                <div className="z-20">
                     <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-black text-white tracking-tighter tabular-nums leading-none">{ticker}</span>
-                        <span className="text-xs font-bold text-slate-500">#{rank}</span>
+                        <h3 className="text-3xl font-black text-white tracking-tighter drop-shadow-md">{ticker}</h3>
+                        {/* Removed small rank, moved to background */}
                     </div>
                     {/* Name/Reason Subtext */}
-                    <div className="mt-1 flex flex-col gap-0.5">
-                        {name && <span className="text-[10px] text-slate-400 font-mono tracking-tight uppercase">{name}</span>}
+                    <div className="mt-0.5 flex flex-col gap-0.5">
+                        {name && <span className="text-[10px] text-slate-400 font-mono tracking-tight uppercase font-bold">{name}</span>}
                     </div>
                 </div>
             </div>
+
+            {/* BIG RANK BACKGROUND (Iron Man Style) */}
+            <div className="absolute top-2 right-1/2 translate-x-1/2 text-[120px] font-black text-white/[0.03] leading-none pointer-events-none select-none z-0 tracking-tighter">
+                {rank}
+            </div>
+
+            {/* TECH CORNERS (HUD Accents) */}
+            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-white/10 rounded-tl-lg pointer-events-none" />
+            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-white/10 rounded-tr-lg pointer-events-none" />
+            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-white/10 rounded-bl-lg pointer-events-none" />
+            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-white/10 rounded-br-lg pointer-events-none" />
 
             {/* 2. PRICE & CHANGE (Right - HUGE) */}
             <div className="absolute top-0 right-0 p-4 text-right z-10">
@@ -111,9 +131,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                     <div className="flex items-center gap-3">
                         <div className={cn(
                             "relative w-12 h-12 rounded-full flex items-center justify-center border-2",
-                            (score || 0) >= 80 ? "border-emerald-500 bg-emerald-950/30 text-emerald-400" :
-                                (score || 0) >= 50 ? "border-amber-500 bg-amber-950/30 text-amber-400" :
-                                    "border-slate-600 bg-slate-800 text-slate-400"
+                            scoreColor
                         )}>
                             <span className="text-lg font-black">{score?.toFixed(0) || '-'}</span>
                             {/* Glow Effect for Leaders */}
@@ -165,6 +183,6 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                 </div>
 
             </CardContent>
-        </Card>
+        </Card >
     );
 }
