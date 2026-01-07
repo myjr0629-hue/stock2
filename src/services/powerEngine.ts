@@ -192,7 +192,7 @@ function calculateLayerScores(evidence: any): ScoreResult {
         const netFlow = evidence?.flow?.netFlow || 0;
         const isTapeMomentum = relVol >= 3.0 || netFlow > 1000000;
 
-        if (isTapeMomentum && layerScores.price !== undefined && layerScores.flow !== undefined) {
+        if (isTapeMomentum && layerScores.price != null && layerScores.flow != null) {
             // Recalculate with Momentum Priority Weights
             // Price (Action): 40%
             // Flow (Fuel): 40%
