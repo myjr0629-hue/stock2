@@ -43,6 +43,9 @@ export interface UnifiedFlow {
 export interface UnifiedPrice {
     last: number;
     priceSource?: "OFFICIAL_CLOSE" | "LIVE_SNAPSHOT" | "POST_CLOSE" | "PRE_OPEN"; // [Phase 25.1] Precise Session Tagging
+    extendedPrice?: number; // [V3.7.5] Pre/Post Market Price
+    extendedChangePct?: number; // [V3.7.5] Pre/Post Market Change %
+    extendedLabel?: "PRE" | "POST" | "CLOSED"; // [V3.7.5] Label for Extended Data
     error?: string; // [Phase 24.2] Expose Error
     prevClose: number;
     changePct: number;

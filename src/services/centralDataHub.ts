@@ -5,62 +5,57 @@ import { getMarketStatusSSOT } from './marketStatusProvider';
 // [Phase 24.1] Central Data Hub Structure
 export interface UnifiedQuote {
     ticker: string;
-    price: number;       // Main Display Price (Session Aware)
-    changePct: number;   // Main Display Change (Session Aware)
-    finalChangePercent: number; // [Phase 24.3] SSOT for Report Change %
+    price: number;       // Main Display Price (ALWAYS OFFICIAL CLOSE unless LIVE REG)
+    changePct: number;   // Main Display Change (From Prev Close to Price)
+    finalChangePercent: number; // SSOT
     prevClose: number;   // Baseline Price
     volume: number;
+
+    // [V3.7.5] Extended Session Data
+    extendedPrice?: number;
+    extendedChangePct?: number;
+    extendedLabel?: "PRE" | "POST" | "CLOSED";
 
     // Components
     snapshot: any;
     openClose: any;
-    history3d?: any[]; // [Phase 36] 3-Day OHLCV
-    history15d?: any[]; // [Fix] For RSI Calculation
+    history3d?: any[];
+    history15d?: any[];
 
     // Flow Data (Calculated)
     flow: {
-        netPremium: number; // Calculated Net Flow (Call - Put)
+        netPremium: number;
         callPremium: number;
         putPremium: number;
         totalPremium: number;
-        optionsCount: number; // Number of contracts processed
-        gamma?: number; // [Phase 35] Total Gamma Exposure
-        rawChain?: any[]; // [Phase 42] Raw Options Chain
-        dataSource?: string; // [Phase 42] Data Source
-        // [Phase 42.1] Structure Data (Walls)
+        optionsCount: number;
+        gamma?: number;
+        rawChain?: any[];
+        dataSource?: string;
         callWall?: number;
         putFloor?: number;
         pinZone?: number;
-        maxPain?: number; // [Phase 42.1] Real Max Pain
+        maxPain?: number;
     };
 
     // Status
     session: "PRE" | "REG" | "POST" | "CLOSED";
-    isRollover: boolean; // True if Rollover Logic Applied (0% -> PrevChange)
-
-    // Display Hints
-    // Display Hints
+    isRollover: boolean;
     priceSource: "OFFICIAL_CLOSE" | "LIVE_SNAPSHOT" | "POST_CLOSE" | "PRE_OPEN";
-    error?: string; // [Phase 24.2] Expose Error
+    error?: string;
 
-    // [Phase 41.2] Real Indicators
     rsi?: number;
     relVol?: number;
     gapPct?: number;
 
-    // [Phase 42] Raw Options Chain (Filtered)
     rawChain?: any[];
 }
 
-const MAX_RETRIES = 2; // User Requirement: Max 2 Retries
-const RETRY_DELAY = 500; // 0.5s
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 500;
 
 export const CentralDataHub = {
-
-    /**
-     * [Phase 24.1] Get Unified Data (SSOT)
-     * Orchestrates gathering of Price and Flow data with strict error handling.
-     */
+    // ... getUnifiedData implementation remains same ...
     getUnifiedData: async (ticker: string): Promise<UnifiedQuote> => {
         let attempts = 0;
         let lastError = null;
@@ -78,7 +73,6 @@ export const CentralDataHub = {
             }
         }
 
-        // [Phase 24.2] Disable Error Swallowing: Expose actual error
         console.error(`[CentralDataHub] Failed for ${ticker} after retries:`, lastError);
         return {
             ticker,
@@ -97,25 +91,11 @@ export const CentralDataHub = {
         };
     },
 
-    /**
-     * Internal Fetch Logic (Non-Retrying)
-     */
     _fetchInternal: async (ticker: string, specificDate?: string): Promise<UnifiedQuote> => {
-        // 1. Get Market Status (SSOT)
         const marketStatus = await getMarketStatusSSOT();
         const session = marketStatus.session.toUpperCase() as "PRE" | "REG" | "POST" | "CLOSED";
         const isClosed = session === "CLOSED";
 
-        // 2. Fetch Data Parallel
-        // - Snapshot (Realtime Price)
-        // - OpenClose (Official Close - Essential for CLOSED)
-        // - Options Chain (Flow Calc)
-
-        // 2. Fetch Price Logic (Sequential due to Smart Option Filter dependency)
-        // [Phase 27] We need price first to filter options
-        // [Phase 27] We need price first to filter options
-        // [Fix] 3-Day History -> 15-Day History (for RSI)
-        // Calculate date range: today to 30 days ago
         const toDate = specificDate || new Date().toISOString().split('T')[0];
         const fromDate = new Date();
         fromDate.setDate(new Date(toDate).getDate() - 30);
@@ -125,152 +105,131 @@ export const CentralDataHub = {
             fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`, {}, true),
             fetchMassive(`/v1/open-close/${ticker}/${toDate}`, {}, true).catch(() => ({ data: null })),
             fetchMassive(`/v2/aggs/ticker/${ticker}/range/1/day/${fromDateStr}/${toDate}`, { limit: '30', sort: 'asc' }, true).catch(() => ({ results: [] })),
-            // [Phase 41.2] Real RSI Fetch
             fetchMassive(`/v1/indicators/rsi/${ticker}`, { timespan: 'day', adjusted: 'true', window: '14', series_type: 'close', order: 'desc', limit: '1' }, true).catch(() => ({ results: { values: [] } }))
         ]);
 
         const S = snapshotRes.ticker || {};
         const OC = ocRes || {};
-
-        // [Fix] Handle History (ASC: Oldest -> Newest)
         const fullHistory = historyRes?.results || [];
-        // history3d needs Newest 3 (Last 3 in ASC)
-        // Reverse if needed for 'history3d' consumer which expected desc? 
-        // No, usually consumer handles it, but let's provide [Today/Yesterday/...] descending, 
-        // OR [T-2, T-1, T0] ascending.
-        // powerEngine expects [day1, day2] where day1 > day2? 
-        // powerEngine line 85: day1 = history[0] (Newest).
-        // So history3d should be DESCENDING (Newest First).
         const history3d = [...fullHistory].reverse().slice(0, 3);
 
-        // 3. Determine Prices (Session Aware Logic)
         const liveLast = S.lastTrade?.p || null;
         let regClose = S.day?.c || S.prevDay?.c || OC.close || 0;
-
         const prevDay = S.prevDay || {};
         let prevClose = prevDay.c || 0;
 
-        // [Fix] Robust Fallback if Snapshot is empty
+        // Robust Fallback
         if (regClose === 0 && prevClose === 0) {
-            // Try fallback from history or OC
             if (OC.close) regClose = OC.close;
             else if (fullHistory.length > 0) {
-                // Use last available history close
                 regClose = fullHistory[fullHistory.length - 1].c;
                 prevClose = fullHistory.length > 1 ? fullHistory[fullHistory.length - 2].c : regClose;
             }
         }
-        if (prevClose === 0 && OC.from) {
-            // If we have OC from specific date but no prevClose from Snapshot
-            // We can't do much without history, but logic above handles history.
+
+        // Reg Close Logic (Official)
+        if (isClosed && OC.close) {
+            regClose = OC.close;
+        } else {
+            regClose = S.day?.c || S.min?.c || liveLast || regClose;
         }
 
-        let price = liveLast || regClose; // Estimated price for options filter
+        // [V3.7.5] Price Selection: Strictly anchor 'price' to Official Close (or Live if REG)
+        // 'extendedPrice' holds Pre/Post data.
+        let price = 0;
+        let priceSource: UnifiedQuote['priceSource'] = "OFFICIAL_CLOSE";
 
-        // [Phase 27] Fetch Smart Options (Dark Pool) using estimated price
-        const optionsRes = await CentralDataHub._fetchOptionsChain(ticker, price).catch(err => ({
+        // Extended Data Containers
+        let extendedPrice = 0;
+        let extendedLabel: "PRE" | "POST" | "CLOSED" | undefined = undefined;
+
+        if (session === 'REG') {
+            price = liveLast || regClose;
+            priceSource = "LIVE_SNAPSHOT";
+        } else {
+            // CLOSED, PRE, POST -> Base is Close
+            price = regClose;
+            priceSource = "OFFICIAL_CLOSE";
+
+            // Determine Extended Price
+            if (session === 'PRE') {
+                extendedPrice = S.min?.c || liveLast || 0;
+                extendedLabel = 'PRE';
+            } else if (session === 'POST') {
+                extendedPrice = S.min?.c || liveLast || 0;
+                extendedLabel = 'POST';
+            } else if (session === 'CLOSED') {
+                // Check for After Hours
+                if (S.afterHours?.p && S.afterHours.p > 0) {
+                    extendedPrice = S.afterHours.p;
+                    extendedLabel = 'POST'; // Display as Post Market
+                }
+            }
+        }
+
+        // [Critial Fix] Weekend/Holiday Stale Data Correction
+        const isNonTradingDay = marketStatus.isHoliday || session === "CLOSED";
+        if (isNonTradingDay && fullHistory.length >= 2) {
+            if (Math.abs(price - prevClose) < 0.001) {
+                const lastClose = fullHistory[fullHistory.length - 1].c;
+                if (Math.abs(price - lastClose) < 0.001) {
+                    prevClose = fullHistory[fullHistory.length - 2].c;
+                }
+            }
+        }
+
+        // Final Safety
+        if (!price || price === 0) {
+            if (prevClose > 0) {
+                price = prevClose;
+                priceSource = "OFFICIAL_CLOSE";
+            }
+        }
+
+        let changePct = 0;
+        if (price && prevClose) {
+            changePct = ((price - prevClose) / prevClose) * 100; // [Fix] Convert to Percentage
+        }
+
+        let extendedChangePct = 0;
+        if (extendedPrice > 0 && price > 0) {
+            extendedChangePct = ((extendedPrice - price) / price) * 100; // [Fix] Convert to Percentage vs Reg Close
+        }
+
+        const isRollover = (session === "PRE" && changePct === 0);
+
+        // Smart Options Fetch using Price (Anchor to Close for consistent Walls)
+        const fetchPrice = price || prevClose;
+        const optionsRes = await CentralDataHub._fetchOptionsChain(ticker, fetchPrice).catch(err => ({
             netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0, optionsCount: 0, error: err.message || "Safe Fallback"
         }));
 
         const flowData = optionsRes as any;
 
-        // ... existing options fetch ... 
-
-        // ... flow calc ...
-
-        // Reg Close Logic: Explicit OC > Snapshot Day Close > Last Trade (if Closed)
-        if (isClosed && OC.close) {
-            regClose = OC.close;
-        } else {
-            regClose = S.day?.c || S.min?.c || liveLast || regClose; // Use enhanced regClose
-        }
-
-        // Price Selection
-        let changePct = S.todaysChangePerc || 0;
-        let priceSource: UnifiedQuote['priceSource'] = "LIVE_SNAPSHOT";
-
-        // [Fix] Session logic overhaul for Weekend/Holidays
-        // If market is CLOSED, we still want to show Post-Market badge if data exists.
-
-        if (session === "PRE") {
-            price = S.min?.c || liveLast || regClose;
-            priceSource = "PRE_OPEN";
-        } else if (session === "POST") {
-            price = S.min?.c || liveLast || regClose;
-            priceSource = "POST_CLOSE";
-        } else if (session === "CLOSED") {
-            // Even if CLOSED, if we have afterHours data (e.g. weekend), treat as POST for display
-            // This solves "Problem 2: Missing Post Market Data"
-            if (S.afterHours?.p && S.afterHours.p > 0) {
-                // But wait, user wants "Post Market" badge specifically?
-                // Let's keep session as CLOSED but allow UI to see extended prices.
-                price = regClose; // Main price is ALWAYS Official Close when closed
-                priceSource = "OFFICIAL_CLOSE";
-            } else {
-                price = regClose;
-                priceSource = "OFFICIAL_CLOSE";
-            }
-        } else {
-            price = liveLast || regClose;
-            priceSource = "LIVE_SNAPSHOT";
-        }
-
-        // [Critial Fix] Weekend/Holiday Stale Data Correction (Friday vs Friday)
-        // Solves "Problem 1: 0.00% Change"
-        const isNonTradingDay = marketStatus.isHoliday || session === "CLOSED";
-        if (isNonTradingDay && fullHistory.length >= 2) {
-            // If Price is roughly equal to PrevClose (indicating API gave same T-1 for both)
-            if (Math.abs(price - prevClose) < 0.001) {
-                // Check if 'price' matches T-1 (Last History Close)
-                const lastClose = fullHistory[fullHistory.length - 1].c;
-                if (Math.abs(price - lastClose) < 0.001) {
-                    // Shift PrevClose to T-2 (Thursday Close)
-                    prevClose = fullHistory[fullHistory.length - 2].c;
-                    // console.log(`[CentralDataHub] Weekend Fix: Shifted PrevClose to ${prevClose}`);
-                }
-            }
-        }
-
-        // [Final Safety Net]
-        if (!price || price === 0) {
-            if (prevClose > 0) {
-                price = prevClose;
-                priceSource = "OFFICIAL_CLOSE"; // Fallback to prev close
-            }
-        }
-
-        if (price && prevClose) {
-            // Re-calc change if we fixed prevClose or if API was 0 (and not 0% real change)
-            if (changePct === 0 || isNonTradingDay) {
-                changePct = (price - prevClose) / prevClose;
-            }
-        }
-
-        // [Phase 25.1] Rollover Detection
-        // If date in snapshot (e.g. prevDay.d) is NOT yesterday, or if change is 0 despite price diff
-        // For now, simpler check: if session is PRE and change is 0, it might be rollover.
-        // Let's rely on changePct being 0 as a hint for now to indicate "Fresh Session".
-        const isRollover = (session === "PRE" && changePct === 0);
-
         return {
             ticker,
             price: price || 0,
             changePct: changePct || 0,
-            finalChangePercent: changePct || 0, // [Phase 24.3] SSOT
+            finalChangePercent: changePct || 0,
             prevClose: prevClose || 0,
             volume: S.day?.v || 0,
+
+            // New Extended Data
+            extendedPrice,
+            extendedChangePct,
+            extendedLabel,
+
             snapshot: S,
             openClose: OC,
             flow: flowData,
             session,
             isRollover: isRollover,
             priceSource,
-            history3d, // Newest 3 days (for Momentum)
-            history15d: fullHistory, // [Fix] Expose full history for RSI
+            history3d,
+            history15d: fullHistory,
 
-            // [Phase 41.2] Real Data Mapping
-            rsi: rsiRes?.results?.values?.[0]?.value || null, // Real RSI or null
-            relVol: (fullHistory.length > 0 && S.day?.v) ? (S.day.v / (fullHistory.reduce((a: number, b: any) => a + (b.v || 0), 0) / fullHistory.length)) : 1, // Snapshot Vol / Avg Vol
+            rsi: rsiRes?.results?.values?.[0]?.value || null,
+            relVol: (fullHistory.length > 0 && S.day?.v) ? (S.day.v / (fullHistory.reduce((a: number, b: any) => a + (b.v || 0), 0) / fullHistory.length)) : 1,
             gapPct: (S.day?.o && S.prevDay?.c) ? ((S.day.o - S.prevDay.c) / S.prevDay.c * 100) : 0
         };
     },

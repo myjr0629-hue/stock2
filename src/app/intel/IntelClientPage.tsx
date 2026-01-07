@@ -56,6 +56,9 @@ export interface UnifiedFlow {
 export interface UnifiedPrice {
     last: number;
     priceSource?: "OFFICIAL_CLOSE" | "LIVE_SNAPSHOT" | "POST_CLOSE" | "PRE_OPEN"; // [Phase 25.1] Precise Session Tagging
+    extendedPrice?: number; // [V3.7.5] Pre/Post Market Price
+    extendedChangePct?: number; // [V3.7.5] Pre/Post Market Change %
+    extendedLabel?: "PRE" | "POST" | "CLOSED"; // [V3.7.5] Label for Extended Data
     error?: string; // [Phase 24.2] Expose Error
     prevClose: number;
     changePct: number;
@@ -1400,6 +1403,15 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                                     <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                                         {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
                                                                     </span>
+                                                                    {/* [V3.7.5] Extended Session Badge */}
+                                                                    {(ev.price.extendedPrice && ev.price.extendedPrice > 0) && (
+                                                                        <div className="flex items-center gap-1 mt-0.5 opacity-80 border-t border-slate-800 pt-0.5">
+                                                                            <span className="text-[9px] text-slate-500 uppercase font-bold">{ev.price.extendedLabel || 'EXT'}:</span>
+                                                                            <span className={`text-[9px] font-mono ${(ev.price.extendedChangePct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                                                                {ev.price.extendedPrice?.toFixed(2)} ({(ev.price.extendedChangePct || 0) > 0 ? "+" : ""}{((ev.price.extendedChangePct || 0)).toFixed(2)}%)
+                                                                            </span>
+                                                                        </div>
+                                                                    )}
                                                                 </div>
                                                             </td>
                                                             <td className="p-4 text-right">

@@ -213,6 +213,10 @@ function buildPriceEvidence(data: any): UnifiedPrice {
     return {
         last,
         priceSource: data.priceSource, // [Phase 24.3] Session Tagging
+        // [V3.7.5] Extended Session Data
+        extendedPrice: data.extendedPrice,
+        extendedChangePct: data.extendedChangePct,
+        extendedLabel: data.extendedLabel,
         error: data.error,
         prevClose: data.prevClose || 0,
         changePct: data.finalChangePercent || data.changePct || 0, // [Phase 24.3] SSOT
