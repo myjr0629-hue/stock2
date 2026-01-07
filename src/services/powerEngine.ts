@@ -292,8 +292,13 @@ export function computeQualityTier(
 
     // 3. Apply Bonuses/Penalties (only for complete items)
     const holdAction = item.decisionSSOT?.action || 'NONE';
-    const reportDiffReason = item.classification?.reportDiffReason || item.reportDiffReason || 'NONE';
+    let reportDiffReason = item.classification?.reportDiffReason || item.reportDiffReason || 'NONE';
     const wasInPrevReport = prevReportSymbols.has(symbol);
+
+    // [V3.7.4] Stability Patch: Auto-detect Continuation from History
+    if (reportDiffReason === 'NONE' && wasInPrevReport && history?.tMinus1?.score && history.tMinus1.score >= QUALITY_TIER_CONFIG.ACTIONABLE_MIN_SCORE) {
+        reportDiffReason = 'CONTINUATION';
+    }
 
     if (reportDiffReason === 'CONTINUATION') alphaScore += POWER_SCORE_CONFIG.BONUS_CONTINUATION;
     if (reportDiffReason === 'RECOVERY') alphaScore += POWER_SCORE_CONFIG.BONUS_RECOVERY;
