@@ -958,19 +958,24 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     useEffect(() => {
         let isMounted = true;
 
-        async function loadData() {
-            setIsLoading(true);
+        async function loadData(isAutoRefresh = false) {
+            // [Fix] If we have initial data and this is the first load (not auto-refresh), skip fetch
+            // This prevents overwriting SSR 'final' data with client-side 'morning' default
+            if (!isAutoRefresh && report && formatDateKey(currentDate) === formatDateKey(new Date())) {
+                setIsLoading(false);
+                return;
+            }
+
+            if (!isAutoRefresh) setIsLoading(true);
+
             try {
                 const targetDate = formatDateKey(currentDate);
                 const todayStr = formatDateKey(new Date());
                 const isToday = targetDate === todayStr;
 
-                let url = '';
+                let url = `/api/reports/archive?date=${targetDate}`;
 
-                // If Today, prefer Archive if available (for uniformity) or Latest
-                // Start with Archive logic for all.
-                url = `/api/reports/archive?date=${targetDate}`;
-
+                // Try Archive First
                 const res = await fetch(url, { cache: 'no-store' });
                 if (res.ok) {
                     const data = await res.json();
@@ -979,9 +984,10 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                         setError(null);
                     }
                 } else {
-                    // Fallback logic if needed, e.g. if today and not archived yet, try latest
+                    // Fallback to Latest if Today (Auto-detect type via API or default)
+                    // [Fix] Removed hardcoded 'type=morning' to allow server to decide or use 'final'
                     if (isToday) {
-                        const resLatest = await fetch('/api/reports/latest?type=morning');
+                        const resLatest = await fetch('/api/reports/latest?type=final');
                         if (resLatest.ok) {
                             const data = await resLatest.json();
                             if (isMounted) {
@@ -990,8 +996,11 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                             }
                         } else {
                             if (isMounted) {
-                                setReport(null);
-                                setError("No report available for this date.");
+                                // Don't clear report if auto-refresh fails
+                                if (!isAutoRefresh) {
+                                    setReport(null);
+                                    setError("No report available for this date.");
+                                }
                             }
                         }
                     } else {
@@ -1004,17 +1013,18 @@ function IntelContent({ initialReport }: { initialReport: any }) {
 
             } catch (e) {
                 console.error("Failed to load report", e);
-                if (isMounted) setError("Connection failed.");
+                if (isMounted && !isAutoRefresh) setError("Connection failed.");
             } finally {
                 if (isMounted) setIsLoading(false);
             }
         }
 
+        // Initial Load
         loadData();
 
         // Auto-refresh only if viewing today
         if (formatDateKey(currentDate) === formatDateKey(new Date())) {
-            const interval = setInterval(loadData, 60 * 1000);
+            const interval = setInterval(() => loadData(true), 60 * 1000);
             return () => {
                 isMounted = false;
                 clearInterval(interval);
