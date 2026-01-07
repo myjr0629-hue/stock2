@@ -380,3 +380,39 @@ export async function fetchRelatedTickers(ticker: string, budget?: RunBudget): P
         return [];
     }
 }
+
+// [V3.7.3] Option Tick Data Support
+export async function getOptionTrades(ticker: string, params: Record<string, string> = {}): Promise<any[]> {
+    // /v3/trades/{ticker}
+    const endpoint = `/v3/trades/${ticker}`;
+    try {
+        const data = await fetchMassive(endpoint, params, false); // Real-time, no cache usually
+        return data.results || [];
+    } catch (e) {
+        console.warn(`[Massive] Option Trades failed for ${ticker}`, e);
+        return [];
+    }
+}
+
+export async function getOptionQuotes(ticker: string, params: Record<string, string> = {}): Promise<any[]> {
+    // /v3/quotes/{ticker}
+    const endpoint = `/v3/quotes/${ticker}`;
+    try {
+        const data = await fetchMassive(endpoint, params, false);
+        return data.results || [];
+    } catch (e) {
+        console.warn(`[Massive] Option Quotes failed for ${ticker}`, e);
+        return [];
+    }
+}
+
+export async function getLastOptionTrade(ticker: string): Promise<any | null> {
+    // /v2/last/trade/{ticker}
+    const endpoint = `/v2/last/trade/${ticker}`;
+    try {
+        const data = await fetchMassive(endpoint, {}, false);
+        return data.results || null;
+    } catch (e) {
+        return null;
+    }
+}

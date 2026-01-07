@@ -598,6 +598,31 @@ async function generateReportFromItems(
         changePct: t.evidence.price.changePct
     }));
 
+    // [V3.7.3] FORENSIC SNIPER PROTOCOL
+    // Identify Top Candidates (Actionable) and run Deep Forensic Analysis
+    const actionableCandidates = enrichedItems.filter(i => i.qualityTier === 'ACTIONABLE' && i.complete);
+
+    if (actionableCandidates.length > 0) {
+        console.log(`[ReportScheduler] 🔫 Sniper Activated: Analyzing ${actionableCandidates.length} Actionable Candidates...`);
+        const { ForensicService } = await import('./forensicService');
+
+        // Concurrent Analysis
+        await Promise.all(actionableCandidates.map(async (item) => {
+            const forensicResult = await ForensicService.analyzeTarget(item.ticker);
+
+            // Inject into SSOT
+            if (!item.decisionSSOT) item.decisionSSOT = {};
+            item.decisionSSOT.whaleIndex = forensicResult.whaleIndex;
+            item.decisionSSOT.whaleConfidence = forensicResult.whaleConfidence;
+
+            if (forensicResult.whaleIndex >= 85) {
+                console.log(`[ReportScheduler] 🐋 WHALE SIGHTED: ${item.ticker} (Index: ${forensicResult.whaleIndex})`);
+                if (!item.decisionSSOT.triggersKR) item.decisionSSOT.triggersKR = [];
+                item.decisionSSOT.triggersKR.push('WHALE_IN_SIGHT');
+            }
+        }));
+    }
+
     // 6. Continuation Tracking (Simplified vNext)
     // We just track the diffs from yesterday
     const diffs = yesterdayReport ? generateReportDiff({ items: yesterdayReport.items } as any, { items: finalItems } as any, []) : [];

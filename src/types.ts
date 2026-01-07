@@ -23,6 +23,10 @@ export interface UnifiedOptions {
     backfilled?: boolean;
     fetchedAtET?: string;
     complete?: boolean;
+    triggersKR?: string[]; // Added from snippet
+    // [V3.7.3] Deep Forensic
+    whaleIndex?: number; // 0-100
+    whaleConfidence?: 'HIGH' | 'MED' | 'LOW' | 'NONE';
     [key: string]: any;
 }
 
@@ -126,4 +130,28 @@ export interface TickerItem extends TerminalItem {
     tp2?: number;
     isLoading?: boolean;
     [key: string]: any;
+}
+
+// [V3.7.3] Option Tick Data Support (Massive API)
+export interface OptionTrade {
+    price: number;
+    size: number;
+    exchange: string;
+    conditions: string[];
+    timestamp: number;
+}
+
+export interface OptionQuote {
+    bid_price: number;
+    bid_size: number;
+    ask_price: number;
+    ask_size: number;
+    timestamp: number;
+}
+
+export interface LastOptionTrade {
+    price: number;
+    size: number;
+    exchange: string;
+    timestamp: number;
 }

@@ -114,6 +114,8 @@ export interface TickerItem {
         entryBand?: { min: number; max: number };
         cutPrice?: number;
         isLocked?: boolean;
+        whaleIndex?: number; // [V3.7.3]
+        whaleConfidence?: 'HIGH' | 'MED' | 'LOW' | 'NONE';
     };
     entryBand?: { low: number; high: number };
     hardCut?: number;
@@ -343,8 +345,40 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
     );
 }
 
-// Top3 Execution Card: Simplified, cleaner typography
-function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
+import { PulseCard } from "@/components/PulseCard";
+import { ExecutionDial } from "@/components/ExecutionDial";
+import { GammaVoid } from "@/components/GammaVoid";
+import { cn } from "@/lib/utils";
+
+// ... existing imports ...
+
+// [V3.7.3] Surgical UI Integration
+function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank: number; onClick?: () => void; isSelected?: boolean }) {
+    // If Actionable and Complete, use PulseCard (The Surgical UI)
+    const isActionable = item.qualityTier === 'ACTIONABLE';
+
+    // Extract Forensic Data
+    const whaleIndex = item.decisionSSOT?.whaleIndex || 0;
+    const whaleConfidence = item.decisionSSOT?.whaleConfidence || 'NONE';
+    // const lastBigPrint = item.decisionSSOT?.triggersKR?.includes('WHALE_IN_SIGHT') ? 'Whale Alert' : undefined; 
+    // Actually detailed log is better if passed, but for now we inferred it.
+
+    if (isActionable) {
+        return (
+            <div onClick={onClick} className={cn("cursor-pointer transition-all duration-300 transform", isSelected ? "scale-[1.02] ring-2 ring-fuchsia-500/50" : "hover:scale-[1.01]")}>
+                <PulseCard
+                    ticker={item.ticker}
+                    price={item.evidence.price.last}
+                    change={item.evidence.price.changePct}
+                    whaleIndex={whaleIndex}
+                    whaleConfidence={whaleConfidence}
+                    lastBigPrint={whaleIndex > 80 ? "INSTITUTIONAL SWEEP DETECTED" : undefined}
+                />
+            </div>
+        );
+    }
+
+    // Fallback to Standard Card for others
     const action = item.decisionSSOT?.action || "CAUTION";
     const isNoTrade = action === "NO_TRADE" || action === "EXIT";
     const ev = item.evidence; // SSOT shortcut
@@ -362,7 +396,11 @@ function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
     else if (source === "LIVE_SNAPSHOT") { tag = "LIVE"; tagStyle = "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"; }
 
     return (
-        <div className={`relative bg-slate-900 border rounded p-4 ${isNoTrade ? "border-slate-800 opacity-70" : "border-slate-800 hover:border-slate-600 transition-colors"}`}>
+        <div onClick={onClick} className={cn(
+            "relative bg-slate-900 border rounded p-4 cursor-pointer transition-all",
+            isNoTrade ? "border-slate-800 opacity-70" : "border-slate-800 hover:border-slate-600",
+            isSelected && "ring-1 ring-emerald-500/50 bg-slate-800"
+        )}>
             {/* Rank - Subtle */}
             <div className="absolute top-4 right-4 text-[40px] font-black text-slate-800/50 leading-none pointer-events-none select-none">
                 {rank}
@@ -579,17 +617,35 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                 {/* Body: 5-Layer Evidence Stack */}
                 <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent space-y-8">
 
-                    {/* 1. OVERVIEW & SCORE */}
+                    {/* 1. SURGICAL COCKPIT (Overview) */}
                     <section>
                         <div className="flex justify-between items-center mb-3">
                             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                                <Target className="w-3.5 h-3.5" /> Overview
+                                <Target className="w-3.5 h-3.5" /> Surgical Cockpit
                             </h3>
                             {isDebug && <span className="text-[9px] font-mono text-indigo-400">upd: {ev.price.fetchedAtET}</span>}
                         </div>
 
+                        {/* [V3.7.3] Surgical UI Dashboard */}
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                            {/* Left: Execution Dial */}
+                            <ExecutionDial
+                                whaleIndex={item.decisionSSOT?.whaleIndex || 0}
+                                whaleConfidence={item.decisionSSOT?.whaleConfidence || 'NONE'}
+                                alphaScore={item.alphaScore || 0}
+                            />
+
+                            {/* Right: Gamma Void */}
+                            <GammaVoid
+                                price={ev.price.last}
+                                callWall={ev.options.callWall}
+                                putFloor={ev.options.putFloor}
+                                gex={ev.options.gex}
+                            />
+                        </div>
+
                         <div className="bg-slate-900 border border-slate-800 rounded p-4 space-y-4">
-                            {/* Score Breakdown */}
+                            {/* Score Breakdown (Legacy Support) */}
                             <ScoreBreakdown evidence={ev} item={item} />
 
                             {/* Decision Triggers */}
