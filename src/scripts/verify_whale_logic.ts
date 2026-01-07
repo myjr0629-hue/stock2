@@ -2,7 +2,17 @@
 // src/scripts/verify_whale_logic.ts
 
 // Mocking the logic found in route.ts to verify correctness
-function processTrades(mockSnapshot: any[]) {
+// Define Interface for safety
+interface WhaleTrade {
+    ticker: string;
+    price: number;
+    size: number;
+    premium: number;
+    isWhale: boolean;
+}
+
+// Mocking the logic found in route.ts to verify correctness
+function processTrades(mockSnapshot: any[]): WhaleTrade[] {
     return mockSnapshot
         .map((item: any) => {
             const lastTrade = item.last_trade;
@@ -21,7 +31,7 @@ function processTrades(mockSnapshot: any[]) {
                 isWhale: premium >= 50000
             };
         })
-        .filter((t: any) => t && t.isWhale);
+        .filter((t): t is WhaleTrade => t !== null && t.isWhale);
 }
 
 // Test Cases
