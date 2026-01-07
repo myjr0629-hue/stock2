@@ -280,12 +280,27 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [User Requirement] Main Price = Official Intraday Close ONLY.
     // Pre/Post prices must ONLY be shown in the badge.
 
-    // [Fix] Trust API's calculated display values (SSOT)
-    // The API now handles T-2 corrections and proper session logic.
+    // [Fix] Trust API's display values normally, BUT enforce Regular Price for POST/CLOSED per user request.
     let displayPrice = liveQuote?.display?.price || liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose || 0;
 
     // [Fix] Use API's pre-calculated percentage (pct) directly
     let displayChangePct = liveQuote?.display?.changePctPct; // e.g. -2.59
+
+    // [User Override] If POST/CLOSED, Main Display MUST be Regular Close (Intraday Final)
+    if (effectiveSession === 'POST' || effectiveSession === 'CLOSED') {
+        const regularClose = liveQuote?.prices?.regularCloseToday;
+        // Only override if we have a valid regular close
+        if (regularClose && regularClose > 0) {
+            displayPrice = regularClose;
+
+            // Also force change percent to be based on Regular Close vs Prev Close
+            const prevClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose;
+            if (prevClose > 0) {
+                displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
+            }
+        }
+    }
+
     if (displayChangePct === undefined || displayChangePct === null) {
         // Fallback for initial load
         displayChangePct = initialStockData.changePercent || 0;
@@ -305,15 +320,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     }
 
     // A. Main Display Price (White Big Number) - Fallback Logic
-    if (!liveQuote?.display?.price) {
-        // Legacy local calc just in case
+    if (!displayPrice || displayPrice === 0) {
+        // ... existing fallbacks if needed ...
         if (effectiveSession === 'REG' || effectiveSession === 'RTH' || effectiveSession === 'MARKET') {
             displayPrice = liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice;
-        } else if (effectiveSession === 'POST') {
-            displayPrice = liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice;
-        } else if (effectiveSession === 'CLOSED') {
-            // For CLOSED, API display.price is usually Regular Close or Post Price
-            displayPrice = liveQuote?.prices?.regularCloseToday || liveQuote?.prices?.lastTrade || displayPrice;
         }
     }
 
