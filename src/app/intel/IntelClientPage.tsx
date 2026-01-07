@@ -1332,6 +1332,10 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                 score={item.alphaScore}
                                                 isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
                                                 reasonKR={item.qualityReasonKR} // [V4] Reasoning Pass-through
+                                                // [V3.7.5] Extended Session Data
+                                                extendedPrice={item.evidence.price.extendedPrice}
+                                                extendedChange={item.evidence.price.extendedChangePct} // Pass Pct as Change
+                                                extendedLabel={item.evidence.price.extendedLabel}
                                             />
                                         </div>
                                     ))

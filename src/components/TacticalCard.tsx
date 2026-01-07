@@ -19,9 +19,13 @@ interface TacticalCardProps {
     score?: number; // [Phase 40] Alpha Score
     isDayTradeOnly?: boolean; // [Phase 40] Risk Badge
     reasonKR?: string; // [V3.6] Reasoning
+    // [V3.7.5] Extended Data Support
+    extendedPrice?: number;
+    extendedChange?: number;
+    extendedLabel?: string;
 }
 
-export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice, isLocked, name, rsi, score, isDayTradeOnly, reasonKR }: TacticalCardProps) {
+export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice, isLocked, name, rsi, score, isDayTradeOnly, reasonKR, extendedPrice, extendedChange, extendedLabel }: TacticalCardProps) {
 
     // Safety Fallbacks
     const safePrice = price || 0;
@@ -68,6 +72,19 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                     {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                     {isPositive ? '+' : ''}{safeChange.toFixed(2)}%
                 </div>
+
+                {/* [V3.7.5] Extended Session Badge */}
+                {(extendedPrice && extendedPrice > 0) && (
+                    <div className="flex items-center justify-end gap-1.5 mt-1 pt-1 border-t border-slate-800/50 opacity-80">
+                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{extendedLabel || 'EXT'}</span>
+                        <span className={cn(
+                            "text-xs font-mono font-bold",
+                            (extendedChange || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
+                        )}>
+                            ${extendedPrice.toFixed(2)}
+                        </span>
+                    </div>
+                )}
             </div>
 
             {/* SPACER FOR TOP SECTION */}
