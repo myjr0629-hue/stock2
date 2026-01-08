@@ -507,9 +507,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </button>
                 <button
                     onClick={() => setActiveTab('FLOW')}
-                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] flex items-center gap-2 ${activeTab === 'FLOW' ? 'bg-emerald-600/90 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] ring-1 ring-white/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] flex items-center gap-2 ${activeTab === 'FLOW' ? 'bg-emerald-600/90 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] ring-1 ring-white/20' : 'bg-slate-800/40 border border-white/5 text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/20 hover:shadow-lg'}`}
                 >
-                    <Target size={12} />
+                    <Target size={12} className={activeTab === 'FLOW' ? "" : "text-sky-500/70"} />
                     Flow Radar
                 </button>
             </div>
