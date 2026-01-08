@@ -166,12 +166,20 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         const distToCall = ((callWall - currentPrice) / currentPrice) * 100;
         const distToPut = ((currentPrice - putWall) / currentPrice) * 100; // Negative value usually
 
+        // [Fix] Filter for Today's Session only if Market is Active
+        let activeTrades = whaleTrades;
+        if (!isMarketClosed) {
+            // Market is open. Filter for trades from active session (Last 16h to cover pre-market)
+            const cutoff = Date.now() - (16 * 60 * 60 * 1000);
+            activeTrades = whaleTrades.filter(t => new Date(t.tradeDate).getTime() > cutoff);
+        }
+
         // 1. Whale Flow Decomposition
         let netWhalePremium = 0;
         let maxPremium = 0;
         let alphaTrade: any = null; // The "Lead Steer" trade
 
-        whaleTrades.forEach(t => {
+        activeTrades.forEach(t => {
             if (t.type === 'CALL') netWhalePremium += t.premium;
             else netWhalePremium -= t.premium;
 
@@ -193,12 +201,20 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         if (alphaTrade) {
             const unitCost = alphaTrade.premium / (alphaTrade.size * 100);
             alphaBEP = alphaTrade.type === 'CALL' ? alphaTrade.strike + unitCost : alphaTrade.strike - unitCost;
-            const bepDiff = ((alphaBEP - currentPrice) / currentPrice) * 100;
 
+            // [Fix] Narrative Logic: Distinguish Targeting vs Protecting
             if (alphaTrade.type === 'CALL') {
-                alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K를 베팅해 목표가 $${alphaBEP.toFixed(2)}를 조준하고 있습니다.`;
+                if (alphaBEP < currentPrice) {
+                    alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K (Deep ITM)를 매수하여 상승 추세를 굳히고 있습니다.`;
+                } else {
+                    alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K를 베팅해 목표가 $${alphaBEP.toFixed(2)}를 조준하고 있습니다.`;
+                }
             } else {
-                alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K 규모의 풋옵션으로 $${alphaBEP.toFixed(2)} 깨짐을 대비하고 있습니다.`;
+                if (alphaBEP > currentPrice) {
+                    alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K 규모의 풋옵션(ITM)으로 하락 헷징을 강화했습니다.`;
+                } else {
+                    alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K 규모의 풋옵션으로 $${alphaBEP.toFixed(2)} 깨짐을 대비하고 있습니다.`;
+                }
             }
         }
 
@@ -288,7 +304,12 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                 // Mid-Range
                 if (whaleBias.includes('BULL')) {
                     status = "📈 상승 모멘텀 (MOMENTUM)";
-                    message = `박스권($${putWall} ~ $${callWall}) 흐름이지만, ${alphaIntel} 고래 자금은 상방을 가리키고 있습니다. 눌림목 매수가 유효합니다.`;
+                    // Conflict Logic: Alpha Trade vs Aggregated Bias
+                    if (alphaTrade && alphaTrade.type === 'PUT') {
+                        message = `전반적인 고래 자금은 상방(Net +$${(netWhalePremium / 1000).toFixed(0)}K)이지만, 최대 큰손은 ${alphaIntel} 신중한 접근이 필요합니다.`;
+                    } else {
+                        message = `박스권($${putWall} ~ $${callWall}) 흐름이지만, ${alphaIntel} 고래 자금은 상방을 가리키고 있습니다. 눌림목 매수가 유효합니다.`;
+                    }
                     probability = 65;
                     probLabel = "매수 우위";
                     probColor = "text-emerald-400";
@@ -312,7 +333,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         }
 
         return { status, message, color, probability, probLabel, probColor, whaleBias };
-    }, [currentPrice, callWall, putWall, flowMap, whaleTrades]);
+    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed]);
 
     if (!rawChain || rawChain.length === 0) {
         return (

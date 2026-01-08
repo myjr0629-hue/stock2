@@ -8,8 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function IntelPage() {
     // 1. Fetch Latest Report (Server Side for Speed/SEO/Reliability)
-    // We try 'final' first, then 'pre' or 'eod' if looking back.
-    const report = await getLatestReport('final') || await getLatestReport('pre') || await getLatestReport('eod');
+    // We try 'morning' (latest) -> 'final' (yesterday) -> others
+    const report = await getLatestReport('morning') || await getLatestReport('final') || await getLatestReport('pre') || await getLatestReport('eod');
 
     return (
         <div className="flex flex-col min-h-screen bg-[#05090f]">

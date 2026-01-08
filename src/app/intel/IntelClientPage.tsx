@@ -59,7 +59,7 @@ export interface UnifiedPrice {
     priceSource?: "OFFICIAL_CLOSE" | "LIVE_SNAPSHOT" | "POST_CLOSE" | "PRE_OPEN"; // [Phase 25.1] Precise Session Tagging
     extendedPrice?: number; // [V3.7.5] Pre/Post Market Price
     extendedChangePct?: number; // [V3.7.5] Pre/Post Market Change %
-    extendedLabel?: "PRE" | "POST" | "CLOSED"; // [V3.7.5] Label for Extended Data
+    extendedLabel?: "PRE" | "POST" | "CLOSED" | "LIVE"; // [V3.7.5] Label for Extended Data
     error?: string; // [Phase 24.2] Expose Error
     prevClose: number;
     changePct: number;
@@ -504,17 +504,24 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
 // ============================================================================
 // DRAWER COMPONENT - Unified Evidence 5-Layers
 // ============================================================================
-function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: () => void }) {
+function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; onClose: () => void; liveQuote?: any }) {
     const ev = item?.evidence; // Defensive access
     const router = useRouter();
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
 
+    // Live Overrides
+    const currentPrice = liveQuote?.price || ev.price.last;
+    const currentChangePct = liveQuote?.changePercent ?? ev?.price?.changePct;
+    const isLive = !!liveQuote;
+
     // [9.4] Interactive Heatmap State
     const [showHeatmap, setShowHeatmap] = useState(false);
     const [selectedExpiry, setSelectedExpiry] = useState<string | null>(null);
 
-    // [Phase 50] Options Chain Processing
+    // ... (Memoized Chain Logic Skipped for brevity, assume unchanged locally) ...
+
+
     const chainData = useMemo(() => {
         if (!item || !ev) return null;
         const raw = ev.options.rawChain || [];
@@ -664,8 +671,12 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                         </div>
 
                         <div className="bg-slate-900 border border-slate-800 rounded p-4 space-y-4">
-                            {/* Score Breakdown (Legacy Support) */}
-                            <ScoreBreakdown evidence={ev} item={item} />
+                            {/* [V4.2] Live Alpha Real-Time Overlay */}
+                            <LiveAlphaAssessment
+                                reportPrice={ev.price.last}
+                                liveQuote={liveQuote}
+                                cutPrice={item.decisionSSOT?.cutPrice}
+                            />
 
                             {/* Decision Triggers (Professional Layout) */}
                             <div className="space-y-3 mt-3">
@@ -710,9 +721,11 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                 <div className="flex gap-2 items-baseline">
                                     {ev.price.last > 0 ? (
                                         <>
-                                            <span className="text-sm font-mono font-bold text-white">${ev.price.last.toFixed(2)}</span>
-                                            <span className={`text-xs font-bold ${ev.price.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                {ev.price.changePct > 0 ? '+' : ''}{ev.price.changePct.toFixed(2)}%
+                                            <span className={`text-sm font-mono font-bold ${isLive ? "text-emerald-400 animate-pulse" : "text-white"}`}>
+                                                ${currentPrice.toFixed(2)}
+                                            </span>
+                                            <span className={`text-xs font-bold ${currentChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {currentChangePct > 0 ? '+' : ''}{currentChangePct.toFixed(2)}%
                                             </span>
                                         </>
                                     ) : (
@@ -768,21 +781,26 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                 <div>
                                     <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Dark Pool (Off-Ex)</span>
                                     <div className="flex items-end gap-2">
-                                        {ev.flow.offExPct > 0 ? (
+                                        {(ev.flow.offExPct > 0 || liveQuote?.volume) ? (
                                             <>
-                                                <span className="text-sm font-mono font-bold text-white">{ev.flow.offExPct.toFixed(1)}%</span>
-                                                <span className={`text-[10px] font-bold ${ev.flow.offExDeltaPct > 0 ? 'text-emerald-400' : 'text-slate-500'}`}>
-                                                    ({ev.flow.offExDeltaPct > 0 ? '+' : ''}{ev.flow.offExDeltaPct.toFixed(1)}%)
-                                                </span>
+                                                {/* Show Live Vol if waiting for Dark Pool */}
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-mono font-bold text-white">
+                                                        {ev.flow.offExPct > 0 ? `${ev.flow.offExPct.toFixed(1)}%` : `VOL: ${(liveQuote.volume / 1000).toFixed(0)}K`}
+                                                    </span>
+                                                    {isLive && <span className="text-[9px] text-emerald-500 font-bold animate-pulse">● LIVE FLOW</span>}
+                                                </div>
                                             </>
                                         ) : (
-                                            <span className="text-[10px] font-mono text-slate-500">Waiting for Whales</span>
+                                            <span className="text-[10px] font-mono text-slate-500">
+                                                Scanning...
+                                            </span>
                                         )}
                                     </div>
                                     <div className="w-full bg-slate-800 h-1 mt-2 rounded-full overflow-hidden">
                                         <div
                                             className={`h-full ${ev.flow.offExPct > 40 ? 'bg-amber-400' : 'bg-slate-600'}`}
-                                            style={{ width: `${Math.min(100, ev.flow.offExPct)}%` }}
+                                            style={{ width: `${Math.min(100, ev.flow.offExPct || 0)}%` }}
                                         />
                                     </div>
                                 </div>
@@ -792,8 +810,8 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                                         <span className="text-[8px] bg-slate-800 text-slate-400 px-1 rounded">COND: I, T</span>
                                     </div>
                                     {/* [Phase 40] Use netPremium if available, else largeTradesUsd */}
-                                    <span className={`text-sm font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1_000_000).toFixed(1)}M
+                                    <span className={`text-sm font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || liveQuote?.flowApprox) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {((ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? liveQuote?.flowApprox) / 1_000_000).toFixed(1)}M
                                     </span>
                                 </div>
                             </div>
@@ -1092,6 +1110,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     const [activeTab, setActiveTab] = useState('FINAL');
     const [isLoading, setIsLoading] = useState(!initialReport);
     const [error, setError] = useState<string | null>(null);
+    const [liveQuotes, setLiveQuotes] = useState<Record<string, any>>({}); // [Live Overlay]
     const [selectedTicker, setSelectedTicker] = useState<TickerItem | null>(null);
 
     // [13.1] Timeline State (Time Machine)
@@ -1104,10 +1123,12 @@ function IntelContent({ initialReport }: { initialReport: any }) {
         async function loadData(isAutoRefresh = false) {
             // [Fix] If we have initial data and this is the first load (not auto-refresh), skip fetch
             // This prevents overwriting SSR 'final' data with client-side 'morning' default
+            /* [FORCE REFRESH] Disable optimization to ensure we get the absolute latest if SSR is stale
             if (!isAutoRefresh && report && formatDateKey(currentDate) === formatDateKey(new Date())) {
                 setIsLoading(false);
                 return;
             }
+            */
 
             if (!isAutoRefresh) setIsLoading(true);
 
@@ -1132,9 +1153,8 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                 } else {
                 */
 
-                // Fallback to Latest if Today (Auto-detect type via API or default)
                 if (isToday || true) { // Force attempt
-                    const resLatest = await fetch('/api/reports/latest?type=morning');
+                    const resLatest = await fetch('/api/reports/latest?type=morning', { cache: 'no-store' });
                     if (resLatest.ok) {
                         const data = await resLatest.json();
                         if (isMounted) {
@@ -1181,8 +1201,65 @@ function IntelContent({ initialReport }: { initialReport: any }) {
         return () => { isMounted = false; };
     }, [currentDate]);
 
-    // Derived Lists
-    const items: TickerItem[] = report?.items || [];
+    // [Live Overlay] Poll for real-time prices every 15s
+    useEffect(() => {
+        if (!report?.items) return;
+
+        const fetchQuotes = async () => {
+            try {
+                const symbols = report.items.map((i: any) => i.ticker).join(',');
+                if (!symbols) return;
+
+                const res = await fetch(`/api/live/quotes?symbols=${symbols}`, { cache: 'no-store' });
+                if (res.ok) {
+                    const json = await res.json();
+                    if (json.data) {
+                        setLiveQuotes(prev => ({ ...prev, ...json.data }));
+                    }
+                }
+            } catch (e) { console.error("Live quote poll failed", e); }
+        };
+
+        fetchQuotes(); // Initial
+        const interval = setInterval(fetchQuotes, 15000);
+        return () => clearInterval(interval);
+    }, [report]);
+
+    // Derived Lists with Live Overlay
+    const rawItems: TickerItem[] = report?.items || [];
+
+    // Merge Static Report + Live Quotes
+    const items: TickerItem[] = useMemo(() => {
+        return rawItems.map(item => {
+            const live = liveQuotes[item.ticker];
+            if (!live) return item;
+
+            // Override price/change evidence
+            return {
+                ...item,
+                evidence: {
+                    ...item.evidence,
+                    price: {
+                        ...item.evidence?.price,
+                        last: live.price || item.evidence?.price?.last,
+                        changePct: live.changePercent || item.evidence?.price?.changePct,
+                        // Mark as live updated
+                        extendedPrice: live.price,
+                        extendedChangePct: live.changePercent,
+                        extendedLabel: 'LIVE'
+                    },
+                    flow: {
+                        ...item.evidence?.flow,
+                        // Update volume if available
+                        vol: live.volume || item.evidence?.flow?.vol,
+                        // Rough approximation of updated "Net Flow" visual if needed
+                        // For now we keep the sophisticated "Net Flow" static as it requires deep analysis
+                        // but we rely on the Price/Vol update to show liveliness.
+                    }
+                }
+            };
+        });
+    }, [rawItems, liveQuotes]);
     const hunters: TickerItem[] = report?.hunters || []; // [V3.7.2] Hunter Corps
     // Enhanced Logic: Explicitly get ranks 1-3, 4-10, 11-12
     const sortedItems = [...items].sort((a, b) => ((a as any).rank || 99) - ((b as any).rank || 99));
@@ -1653,7 +1730,11 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                 {/* Note: In Next.js App Router we might prefer a parallel route or context, but inline conditional is fine for this scale. */}
                 {
                     selectedTicker && (
-                        <TickerEvidenceDrawer item={selectedTicker} onClose={() => setSelectedTicker(null)} />
+                        <TickerEvidenceDrawer
+                            item={selectedTicker}
+                            onClose={() => setSelectedTicker(null)}
+                            liveQuote={liveQuotes[selectedTicker.ticker]}
+                        />
                     )
                 }
 
@@ -1676,3 +1757,85 @@ export default function IntelClientPage({ initialReport }: { initialReport: any 
         </React.Suspense>
     );
 }
+
+// [V4.2] Live Alpha Assessment (Real-Time vs Report)
+function LiveAlphaAssessment({ reportPrice, liveQuote, cutPrice }: { reportPrice: number, liveQuote?: any, cutPrice?: number }) {
+    if (!liveQuote || !liveQuote.price) return null;
+
+    const currentPrice = liveQuote.price;
+    const diffPct = reportPrice > 0 ? ((currentPrice - reportPrice) / reportPrice) * 100 : 0;
+    const isStopBreached = cutPrice && currentPrice < cutPrice;
+
+    // Logic: Verdict
+    let verdict = "NEUTRAL";
+    let verdictColor = "text-slate-400";
+    let verdictDesc = "Price is tracking near report levels.";
+
+    if (isStopBreached) {
+        verdict = "STOP BREACHED";
+        verdictColor = "text-rose-500 animate-pulse";
+        verdictDesc = "Current price has violated the risk limit. Invalidated.";
+    } else if (diffPct < -1.5) {
+        verdict = "DEEPENING PULLBACK";
+        verdictColor = "text-amber-400";
+        verdictDesc = "Price dropped significantly below report level. Watch for support or stop.";
+    } else if (diffPct > 1.5) {
+        verdict = "MOMENTUM BUILDING";
+        verdictColor = "text-emerald-400";
+        verdictDesc = "Price pushing higher than report entry. Strength confirmed.";
+    } else if (diffPct > 0.5) {
+        verdict = "MODERATE STRENGTH";
+        verdictColor = "text-emerald-300";
+        verdictDesc = "Slightly above report price. Holding trend.";
+    } else if (diffPct < -0.5) {
+        verdict = "WEAKNESS";
+        verdictColor = "text-rose-300";
+        verdictDesc = "Slightly below report level. struggling.";
+    }
+
+    return (
+        <div className="bg-slate-900 border border-slate-800 rounded p-4 mb-4 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-2 opacity-10">
+                <Activity className="w-16 h-16 text-slate-500" />
+            </div>
+            <div className="flex justify-between items-start mb-2 relative z-10">
+                <div>
+                    <h4 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                        <Zap className="w-3 h-3 text-cyan-400" />
+                        LIVE EVALUATION (Alpha Check)
+                    </h4>
+                    <div className={`text-sm font-black mt-1 ${verdictColor}`}>
+                        {verdict}
+                    </div>
+                </div>
+                <div className="text-right">
+                    <div className="text-[10px] text-slate-500 uppercase font-bold">Live Variance</div>
+                    <div className={`text-xs font-mono font-bold ${diffPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {diffPct > 0 ? "+" : ""}{diffPct.toFixed(2)}%
+                    </div>
+                </div>
+            </div>
+
+            <p className="text-xs text-slate-400 font-medium relative z-10 leading-relaxed max-w-[90%]">
+                {verdictDesc}
+            </p>
+
+            {liveQuote.volume && (
+                <div className="mt-3 pt-3 border-t border-slate-800 flex items-center gap-4 relative z-10">
+                    <div>
+                        <span className="text-[9px] text-slate-500 uppercase block">Live Vol</span>
+                        <span className="text-xs font-mono text-slate-300">{(liveQuote.volume / 1000).toFixed(0)}K</span>
+                    </div>
+                    <div>
+                        <span className="text-[9px] text-slate-500 uppercase block">Net Whale Flow</span>
+                        <span className={`text-xs font-mono font-bold ${liveQuote.flowApprox > 0 ? "text-emerald-400" : liveQuote.flowApprox < 0 ? "text-rose-400" : "text-slate-400"}`}>
+                            {liveQuote.flowApprox ? `$${(liveQuote.flowApprox / 1000000).toFixed(1)}M` : "Scanning..."}
+                        </span>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// END OF FILE

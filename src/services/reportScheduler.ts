@@ -637,23 +637,40 @@ async function generateReportFromItems(
                 Number((wEntry * 1.005).toFixed(2))
             ];
 
-            // 3. Generate Whale Narrative (whaleReasonKR)
-            // Format: "1150C 5건($500k) 80% 매수공세" OR "순매수 5M+ 대규모 유입"
+            // 3. Generate Whale Narrative (whaleReasonKR) with High-Fidelity Observation
             const details = forensicResult.details;
             let narrative = "";
 
+            // Priority 1: Whale Block Action (Snippet)
             if (details.dominantContract && details.blockCount > 0) {
                 const k = (details.maxBlockSize / 1000).toFixed(0) + 'k';
                 const ratio = Math.round(details.aggressorRatio * 100);
-                narrative = `${details.dominantContract} ${details.blockCount}건($${k}) ${ratio}% 집중매집`;
-            } else if (item.evidence?.flow?.netFlow > 1000000) {
-                const flowM = (item.evidence.flow.netFlow / 1000000).toFixed(1) + 'M';
-                narrative = `순매수 $${flowM} 대규모 유입`;
-            } else if (item.evidence?.options?.gammaRegime === 'Short Gamma') {
-                narrative = `옵션 변동성 확대 (Short Gamma) 공격적 베팅`;
-            } else {
-                narrative = `스마트머니 추적 가동 중`; // Default
+                narrative = `${details.dominantContract} ${details.blockCount}건($${k}) ${ratio}% 집중매집 관측.`;
             }
+            // Priority 2: Gamma Squeeze Flag (Engine)
+            else if (item.decisionSSOT?.triggersKR?.includes('GAMMA_SQUEEZE')) {
+                narrative = `콜 옵션 쏠림(Gamma Squeeze) 감지. 급등 주의.`;
+            }
+            // Priority 3: Large Net Flow
+            else if (item.evidence?.flow?.netFlow && Math.abs(item.evidence.flow.netFlow) > 2000000) {
+                const flowM = (item.evidence.flow.netFlow / 1000000).toFixed(1) + 'M';
+                const dir = item.evidence.flow.netFlow > 0 ? "순매수" : "순매도";
+                narrative = `기관 ${dir} $${flowM} 대규모 유입 포착.`;
+            }
+            // Priority 4: Relative Volume Spike
+            else if ((item.evidence?.flow?.relVol || 0) > 1.5) {
+                narrative = `평소 대비 거래량 ${(item.evidence?.flow?.relVol || 0).toFixed(1)}배 폭증. 변동성 확대 국면.`;
+            }
+            // Priority 5: Structural Observation (Wall Proximity)
+            else if (callWall > 0 && currentPrice >= callWall * 0.98) {
+                narrative = `주요 저항벽($${callWall}) 돌파 시도 중. 구조적 분기점.`;
+            }
+            // Priority 6: Trend Observation
+            else {
+                const trend = (item.evidence?.price?.changePct || 0) > 0 ? "상승" : "조정";
+                narrative = `기술적 ${trend} 흐름 지속. 특이 거래량 부재, 관망 필요.`;
+            }
+
             item.decisionSSOT.whaleReasonKR = narrative;
 
 

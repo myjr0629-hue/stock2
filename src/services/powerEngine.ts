@@ -156,6 +156,17 @@ function calculateLayerScores(evidence: any): ScoreResult {
         // OI Support
         if (o.callWall > evidence.price.last) score += 10; // Room to grow
 
+        // [S-FOCUSED] Gamma Squeeze Detection (14-Day Window)
+        // Criteria: High Positive GEX (Call Heavy) + Price attacking Call Wall + Low PCR
+        const isGammaSqueeze = (o.gex > 50000000) && (evidence.price.last >= o.callWall * 0.98) && (o.pcr < 0.6);
+
+        if (isGammaSqueeze) {
+            score += 30; // Massive Boost
+            // Note: We can't inject string here easily without changing return type, 
+            // but high score will push it to Top 3.
+            console.log(`[PowerEngine] GAMMA SQUEEZE DETECTED for this ticker!`);
+        }
+
         // Check for GEX Puke (Negative GEX)
         if (o.gex < -1000000) score += 10; // Volatility Potential
 

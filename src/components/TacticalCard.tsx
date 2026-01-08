@@ -3,7 +3,7 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Lock, AlertOctagon, TrendingUp, TrendingDown, Target, Zap, Shield } from "lucide-react";
+import { Lock, AlertOctagon, TrendingUp, TrendingDown, Target, Zap, Shield, Crosshair } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TacticalCardProps {
@@ -32,15 +32,37 @@ interface TacticalCardProps {
 
 export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice, isLocked, name, rsi, score, isDayTradeOnly, reasonKR, extendedPrice, extendedChange, extendedLabel, whaleTargetLevel, whaleConfidence, dominantContract, triggers }: TacticalCardProps) {
 
-    // Safety Fallbacks
+    // Safety Fallbacks & Live Price Logic
+    const isLive = extendedLabel === 'LIVE';
+    const currentPrice = isLive && extendedPrice ? extendedPrice : (price || 0);
     const safePrice = price || 0;
-    const safeChange = change || 0;
-    const isPositive = safeChange >= 0;
+
+    // Gain Calculation (Live vs Static)
+    // If Live, we need to recalc gain based on Prev Close derived from change
+    // PrevClose = Price - Change. 
+    // If static, simple.
+
+    let gain = isLive && extendedChange !== undefined ? extendedChange : (change || 0);
+    let gainPct = 0;
+
+    // Calculate Percent if missing
+    if (safePrice !== 0 && currentPrice !== 0) {
+        // Infer prevClose from static data if needed
+        const impliedPrevClose = safePrice - (change || 0);
+        if (impliedPrevClose > 0) {
+            gainPct = (gain / impliedPrevClose) * 100;
+        }
+    }
+
+    const isPositive = gain >= 0;
 
     // [V4.5] Glass Design System - "Crystal Intel"
     const minEntry = (entryBand && typeof entryBand.min === 'number') ? entryBand.min : safePrice * 0.99;
     const maxEntry = (entryBand && typeof entryBand.max === 'number') ? entryBand.max : safePrice * 1.01;
-    const isBuyZone = safePrice >= minEntry && safePrice <= maxEntry;
+    const isBuyZone = currentPrice >= minEntry && currentPrice <= maxEntry;
+
+    // Whale Entry Support (Midpoint)
+    const whaleEntryLevel = (minEntry + maxEntry) / 2;
 
     // Determine score color text
     const scoreColorText = (score || 0) >= 80 ? "text-emerald-400" : (score || 0) >= 50 ? "text-amber-400" : "text-slate-400";
@@ -84,6 +106,46 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                                 {ticker.substring(0, 1)}
                             </div>
                         </div>
+                        {/* 2. Main Price (Live Pulse) */}
+                        <div className="text-center relative">
+                            <div className="absolute top-[-10px] left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-500 whitespace-nowrap tracking-wider">
+                                {isLive ? <span className="text-emerald-400 animate-pulse">● LIVE SNAPSHOT</span> : "OFFICIAL CLOSE"}
+                            </div>
+                            <div className={`text-6xl font-black tabular-nums tracking-tighter drop-shadow-2xl ${gain >= 0
+                                ? isLive ? "text-emerald-400" : "text-emerald-400"
+                                : isLive ? "text-rose-400" : "text-rose-400"
+                                }`}>
+                                {extendedPrice?.toFixed(2) || currentPrice.toFixed(2)}
+                            </div>
+
+                            {/* SNIPER ACTION ZONE */}
+                            {cutPrice && currentPrice < cutPrice ? (
+                                <div className="mt-2 inline-flex items-center gap-2 px-4 py-1 rounded-full bg-rose-500/20 border border-rose-500/50 animate-pulse">
+                                    <AlertOctagon className="w-4 h-4 text-rose-400" />
+                                    <span className="text-sm font-black text-rose-300 uppercase tracking-widest">STOP BREACHED</span>
+                                </div>
+                            ) : isBuyZone ? (
+                                <div className="mt-2 inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/50 animate-pulse">
+                                    <Crosshair className="w-4 h-4 text-emerald-400" />
+                                    <span className="text-sm font-black text-emerald-300 uppercase tracking-widest">Sniper Entry Zone</span>
+                                </div>
+                            ) : whaleTargetLevel && currentPrice >= whaleTargetLevel * 0.99 ? (
+                                <div className="mt-2 inline-flex items-center gap-2 px-4 py-1 rounded-full bg-cyan-500/20 border border-cyan-500/50">
+                                    <Target className="w-4 h-4 text-cyan-400" />
+                                    <span className="text-sm font-black text-cyan-300 uppercase tracking-widest">Target Approach</span>
+                                </div>
+                            ) : (
+                                <div className="mt-2 text-xs font-mono text-slate-500 uppercase tracking-widest">
+                                    {(whaleEntryLevel && currentPrice > whaleEntryLevel)
+                                        ? `WAIT FOR PULLBACK ($${whaleEntryLevel.toFixed(2)})`
+                                        : "MONITORING STRUCTURE"}
+                                </div>
+                            )}
+
+                            <div className={`text-xl font-bold mt-1 ${gain >= 0 ? "text-emerald-500/80" : "text-rose-500/80"}`}>
+                                {gain >= 0 ? "+" : ""}{gain.toFixed(2)} ({gainPct.toFixed(2)}%)
+                            </div>
+                        </div>
                         <div>
                             <h3 className="text-3xl font-black text-white tracking-tighter leading-none drop-shadow-sm flex items-center gap-2">
                                 {ticker}
@@ -107,22 +169,32 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                     </div>
                 </div>
 
-                {/* PRICE ROW (Moved below header for better hierarchy) */}
-                <div className="flex justify-between items-baseline mb-4 border-b border-white/5 pb-3">
-                    <div className="flex items-center gap-2">
-                        <span className={cn(
-                            "text-3xl font-bold font-mono tracking-tighter tabular-nums",
-                            isPositive ? "text-white" : "text-white"
-                        )}>
+
+
+
+                {/* 3. REPORT BASELINE (Variance Check) */}
+                <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
+                    <div className="flex flex-col">
+                        <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Report Price (Basis)</span>
+                        <span className="text-xl font-mono font-bold text-slate-400">
                             ${safePrice.toFixed(2)}
                         </span>
                     </div>
-                    <div className={cn(
-                        "text-sm font-bold flex items-center gap-1 px-2 py-1 rounded",
-                        isPositive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
-                    )}>
-                        {isPositive ? '+' : ''}{safeChange.toFixed(2)}%
-                    </div>
+
+                    {isLive && (
+                        <div className="text-right">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Alpha Return</span>
+                            <div className={cn(
+                                "text-sm font-bold flex items-center justify-end gap-1",
+                                (currentPrice - safePrice) >= 0 ? "text-emerald-400" : "text-rose-400"
+                            )}>
+                                {safePrice > 0
+                                    ? <>{(currentPrice - safePrice) > 0 ? "+" : ""}{((currentPrice - safePrice) / safePrice * 100).toFixed(2)}%</>
+                                    : "N/A"
+                                }
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* MIDDLE: THE REASONING (Explicit Thesis) */}
