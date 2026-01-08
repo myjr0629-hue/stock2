@@ -491,17 +491,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
             </div>
 
-            {/* [Phase 50] Tab Navigation */}
-            <div className="flex items-center gap-1 bg-slate-900/50 w-fit p-1 rounded-md border border-white/5 mb-6">
+            {/* [Phase 50] Tab Navigation (Holographic) */}
+            <div className="flex items-center gap-1 bg-slate-900/40 w-fit p-1 rounded-lg border border-white/5 mb-6 backdrop-blur-sm shadow-lg">
                 <button
                     onClick={() => setActiveTab('COMMAND')}
-                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] ${activeTab === 'COMMAND' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] flex items-center gap-2 ${activeTab === 'COMMAND' ? 'bg-indigo-600/90 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)] ring-1 ring-white/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                 >
+                    <Layers size={12} />
                     Command
                 </button>
                 <button
                     onClick={() => setActiveTab('FLOW')}
-                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] flex items-center gap-2 ${activeTab === 'FLOW' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] flex items-center gap-2 ${activeTab === 'FLOW' ? 'bg-emerald-600/90 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] ring-1 ring-white/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
                 >
                     <Target size={12} />
                     Flow Radar
@@ -511,148 +512,263 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             {/* 2. COMMAND GRID (12 Cols) */}
             {/* 2. COMMAND GRID (2 Columns: Main vs Sidebar) */}
             {activeTab === 'COMMAND' ? (
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[800px]">
 
-                    {/* MAIN COLUMN (8 Cols) - Breathing Room */}
-                    <div className="lg:col-span-8 space-y-8">
+                    {/* MAIN COLUMN (8 Cols) - Flex Structure */}
+                    <div className="lg:col-span-8 flex flex-col items-stretch gap-4 h-full">
                         {/* A. Main Chart Section */}
-                        <section className="space-y-2">
-                            <div className="flex items-center gap-2 mb-2">
-                                <div className="w-1 h-4 bg-indigo-500 rounded-full" />
-                                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Price History</h3>
-                            </div>
-                            <div className="h-[500px] rounded-md border border-white/10 bg-slate-900/40 overflow-hidden shadow-sm relative backdrop-blur-sm">
-                                <StockChart
-                                    key={`${ticker}:${range}:${initialStockData.history.length}`}
-                                    data={initialStockData.history} // [Restore] Data prop required
-                                    color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
-                                    ticker={ticker}
-                                    initialRange={range}
-                                    // [S-65] Pass LIVE price to chart (lastTrade during REG, prePrice during PRE, postPrice during POST)
-                                    currentPrice={liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice}
-                                    prevClose={liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose}
-                                    rsi={initialStockData.rsi}
-                                    return3d={initialStockData.return3d}
-                                />
-                            </div>
-                        </section>
-
-                        {/* B. Advanced Options Analysis */}
-                        <section className="space-y-4">
-                            <div className="flex items-center gap-2 pt-4 border-t border-white/5">
-                                <div className="w-1 h-4 bg-purple-500 rounded-full" />
-                                <h3 className="text-sm font-bold text-slate-300 uppercase tracking-widest">Advanced Options Analysis</h3>
+                        {/* A. Main Chart Section (Height: 520px) */}
+                        <div className="h-[520px] min-h-0 relative flex flex-col group shrink-0">
+                            {/* Decorative Label (Absolute) */}
+                            <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[9px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Price History
                             </div>
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {/* Gamma Structure */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center justify-between px-1">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                            <div className="w-1 h-3 bg-slate-500 rounded-full" /> Key Market Levels
-                                        </h4>
-                                        {(structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone) && (
-                                            <span className="text-[10px] text-amber-500 font-black">
-                                                Max Pain (최대고통): ${structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <Card className="border-white/10 bg-slate-900/40 shadow-sm p-0 overflow-hidden">
-                                        <CardContent className="p-0 h-[300px]">
-                                            <GammaLevelsViz
-                                                currentPrice={displayPrice}
-                                                callWall={structure?.levels?.callWall || initialStockData.flow?.callWall}
-                                                putFloor={structure?.levels?.putFloor || initialStockData.flow?.putFloor}
-                                                pinZone={structure?.levels?.pinZone || initialStockData.flow?.pinZone}
-                                            />
-                                        </CardContent>
-                                    </Card>
-                                </div>
+                            {/* Glass Card */}
+                            <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 overflow-hidden shadow-2xl relative backdrop-blur-md flex flex-col">
+                                {/* Texture Overlay */}
+                                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-20" />
+                                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-indigo-900/10 pointer-events-none" />
 
-                                {/* Net GEX & Strikes */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center px-1">
-                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                            <div className="w-1 h-3 bg-slate-500 rounded-full" /> Net Gamma Exposure
-                                        </h4>
-                                    </div>
-                                    <Card className="border-white/10 bg-slate-900/40 shadow-sm p-0 overflow-hidden">
-                                        <CardContent className="pt-6 px-4 space-y-6">
-                                            <div className="text-center">
-                                                <div className={`text-4xl font-black ${structure?.netGex > 0 ? "text-emerald-400" : structure?.netGex < 0 ? "text-rose-400" : "text-white"}`}>
-                                                    {structure?.netGex ? (structure.netGex > 0 ? "+" : "") + (structure.netGex / 1000000).toFixed(2) + "M" : "—"}
-                                                </div>
-                                                <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1 flex items-center justify-center gap-1">
-                                                    순 감마 에너지 (Net GEX)
-                                                    <span title={`시장 조성자(MM)들의 포지션에 따른 변동성 성향입니다.\n(+) 양수: 주가 변동 억제 (안정/지루함)\n(-) 음수: 주가 변동 증폭 (급등락/스퀴즈 위험)`}>
-                                                        <Info size={10} className="text-slate-600 hover:text-slate-400 cursor-help" />
-                                                    </span>
-                                                </div>
-
-                                                {/* 0DTE Pulse Indicator (New) */}
-                                                {structure?.gexZeroDteRatio !== undefined && (
-                                                    <div className="mt-3 px-4">
-                                                        <div className="flex items-center justify-between text-[9px] font-bold text-slate-500 mb-1 tracking-wider uppercase">
-                                                            <span className="flex items-center gap-1"><Zap size={10} className="text-amber-400" /> 0DTE Velocity</span>
-                                                            <span className={structure.gexZeroDteRatio > 0.3 ? "text-amber-400" : "text-slate-600"}>{(structure.gexZeroDteRatio * 100).toFixed(0)}% Impact</span>
-                                                        </div>
-                                                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
-                                                            <div
-                                                                className={`h-full ${structure.gexZeroDteRatio > 0.3 ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" : "bg-slate-600"} transition-all duration-1000`}
-                                                                style={{ width: `${Math.min(100, Math.max(5, (structure.gexZeroDteRatio || 0) * 100))}%` }}
-                                                            />
-                                                        </div>
-                                                    </div>
-                                                )}
-
-                                                {/* Expert Interpretation */}
-                                                <div className={`mt-4 text-[10px] font-bold px-2 py-1 rounded inline-block ${structure?.netGex > 0 ? "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" : structure?.netGex < 0 ? "bg-rose-950/30 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400"}`}>
-                                                    {structure?.netGex > 0 ? "지지력 강화 (변동성 축소)" : structure?.netGex < 0 ? "변동성 확대 (가속 구간)" : "중립 (방향성 부재)"}
-                                                </div>
-                                                <div className="mt-4 flex justify-center gap-4 text-[9px] font-medium text-slate-500 border-t border-white/5 pt-2">
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                                        <span>(+) 안전지대</span>
-                                                    </div>
-                                                    <div className="flex items-center gap-1">
-                                                        <span className="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
-                                                        <span>(-) 가속구간</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="h-auto min-h-[250px]">
-                                                {showStructure && (
-                                                    <OIChart
-                                                        strikes={structure.structure.strikes}
-                                                        callsOI={structure.structure.callsOI}
-                                                        putsOI={structure.structure.putsOI}
-                                                        currentPrice={displayPrice}
-                                                        maxPain={structure.maxPain}
-                                                        callWall={structure.levels?.callWall}
-                                                        putFloor={structure.levels?.putFloor}
-                                                    />
-                                                )}
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                <div className="flex-1 min-h-0 relative z-10 p-1 pb-12">
+                                    <StockChart
+                                        key={`${ticker}:${range}:${initialStockData.history.length}`}
+                                        data={initialStockData.history}
+                                        color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
+                                        ticker={ticker}
+                                        initialRange={range}
+                                        currentPrice={liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice}
+                                        prevClose={liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose}
+                                        rsi={initialStockData.rsi}
+                                        return3d={initialStockData.return3d}
+                                    />
                                 </div>
                             </div>
-                        </section>
+                        </div>
+
+                        {/* B. Advanced Options Analysis (Fixed Height: 250px) */}
+                        <div className="h-[250px] min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+
+                            {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
+                            <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                                {/* Header */}
+                                <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
+                                    <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm animate-pulse" />
+                                        Tactical Range
+                                    </h4>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-black text-amber-500 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/30 flex items-center gap-2 shadow-lg">
+                                            <span className="text-xs font-black tracking-tighter">MAX PAIN</span>
+                                            <span className="text-[10px] text-amber-300/60 font-medium uppercase tracking-tighter">(최대고통)</span>
+                                            <span className="text-sm font-black pl-1 border-l border-amber-500/20">${structure?.maxPain || initialStockData.flow?.maxPain || "---"}</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Visual Body */}
+                                <div className="flex-1 relative flex items-center justify-center p-4">
+                                    {/* Range Bar Background */}
+                                    <div className="w-2 h-full bg-slate-800 rounded-full relative overflow-hidden">
+                                        <div className="absolute top-0 inset-x-0 h-1/3 bg-gradient-to-b from-rose-500/20 to-transparent" />
+                                        <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-emerald-500/20 to-transparent" />
+
+                                        {/* Max Pain "Gravity" Center Line */}
+                                        <div className="absolute top-1/2 -translate-y-1/2 inset-x-0 h-1 bg-amber-500/50 blur-[2px]" />
+                                    </div>
+
+                                    {/* Markers */}
+                                    <div className="absolute inset-y-4 left-0 right-0 flex flex-col justify-between px-8">
+                                        {/* Resistance (Call Wall) */}
+                                        <div className="flex items-center gap-2 border-b border-rose-500/30 pb-1">
+                                            <span className="text-[10px] font-bold text-rose-400 w-12 text-right">RESIST</span>
+                                            <span className="text-sm font-black text-rose-200 tracking-wider">${structure?.levels?.callWall || "---"}</span>
+                                        </div>
+
+                                        {/* Max Pain Marker (Center Concept) */}
+                                        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex items-center justify-end pr-8 gap-2 opacity-90">
+                                            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Max Pain</span>
+                                            <div className="w-12 h-[1px] bg-amber-500/50" />
+                                        </div>
+
+
+                                        {/* Current Price Indicator (Floating) */}
+                                        <div className="w-full flex items-center gap-2 my-auto z-10 relative">
+                                            <div className="h-[1px] flex-1 bg-indigo-500/50" />
+                                            <div className="flex flex-col items-center">
+                                                <div className="px-3 py-1 bg-indigo-600 rounded shadow-[0_0_15px_rgba(79,70,229,0.5)] border border-white/20 text-white font-black text-lg tracking-tight z-10 min-w-[100px] text-center">
+                                                    ${displayPrice}
+                                                </div>
+                                            </div>
+                                            <div className="h-[1px] flex-1 bg-indigo-500/50" />
+                                        </div>
+
+                                        {/* Support (Put Floor) */}
+                                        <div className="flex items-center gap-2 border-t border-emerald-500/30 pt-1">
+                                            <span className="text-[10px] font-bold text-emerald-400 w-12 text-right">SUPPORT</span>
+                                            <span className="text-sm font-black text-emerald-200 tracking-wider">${structure?.levels?.putFloor || "---"}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 2. NET GAMMA ENGINE (Reactor) */}
+                            <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                                {/* Header */}
+                                <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
+                                    <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                        <Activity size={10} className={structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"} />
+                                        NET GAMMA ENGINE
+                                    </h4>
+                                </div>
+
+                                <div className="flex-1 flex items-center justify-between p-4 px-6 relative">
+                                    {/* Background Glow */}
+                                    <div className={`absolute inset-0 bg-radial-gradient from-${structure?.netGex > 0 ? "emerald" : "rose"}-500/05 to-transparent opacity-30`} />
+
+                                    {/* Left: Reactor Core */}
+                                    <div className="relative">
+                                        {/* Outer Ring */}
+                                        <div className={`w-24 h-24 rounded-full border-4 ${structure?.netGex > 0 ? "border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.6)] brightness-125" : "border-rose-500/30 shadow-[0_0_20px_rgba(244,63,94,0.6)] brightness-125"} flex items-center justify-center animate-[spin_10s_linear_infinite] border-dashed`} />
+
+                                        {/* Inner Core */}
+                                        <div className={`absolute inset-2 rounded-full bg-slate-900/80 flex flex-col items-center justify-center border ${structure?.netGex > 0 ? "border-emerald-500/50" : "border-rose-500/50"}`}>
+                                            <div className="text-[8px] text-slate-500 uppercase font-bold mb-0.5">NET GEX</div>
+                                            <div className={`text-lg font-black tracking-tighter ${structure?.netGex > 0 ? "text-emerald-100" : "text-rose-100"}`}>
+                                                {structure?.netGex ? (structure.netGex / 1000000).toFixed(1) + "M" : "0.0M"}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Right: Info & Logic */}
+                                    <div className="flex-1 text-right pl-4 z-10">
+                                        <div className={`text-sm font-black mb-2 tracking-tight ${structure?.netGex > 0 ? "text-emerald-400 drop-shadow-sm" : "text-rose-400 drop-shadow-sm"}`}>
+                                            {structure?.netGex > 0 ? "STABLE (변동성 억제)" : "VOLATILE (변동성 확대)"}
+                                        </div>
+
+                                        <div className="space-y-3">
+                                            <p className="text-xs text-slate-200 font-medium leading-normal break-keep bg-slate-950/30 p-2 rounded border border-white/5">
+                                                {structure?.netGex > 0
+                                                    ? "Positive Gamma: 주가 변동을 줄이는 방향으로 헷징 (Range Bound)."
+                                                    : "Negative Gamma: 주가 변동을 키우는 방향으로 가속 (Acceleration)."}
+                                            </p>
+                                            <div className="inline-block px-2 py-1 rounded bg-slate-800 border border-white/10 text-[10px] text-slate-400 font-mono tracking-wide">
+                                                Logic: Dealer Hedging Impact
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <div className="hidden">
+                            {/* Gamma Structure */}
+                            <div className="space-y-2">
+                                <div className="flex items-center justify-between px-1">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                        <div className="w-1 h-3 bg-slate-500 rounded-full" /> Key Market Levels
+                                    </h4>
+                                    {(structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone) && (
+                                        <span className="text-[10px] text-amber-500 font-black">
+                                            Max Pain (최대고통): ${structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone}
+                                        </span>
+                                    )}
+                                </div>
+                                <Card className="border-white/10 bg-slate-900/40 shadow-sm p-0 overflow-hidden">
+                                    <CardContent className="p-0 h-[300px]">
+                                        <GammaLevelsViz
+                                            currentPrice={displayPrice}
+                                            callWall={structure?.levels?.callWall || initialStockData.flow?.callWall}
+                                            putFloor={structure?.levels?.putFloor || initialStockData.flow?.putFloor}
+                                            pinZone={structure?.levels?.pinZone || initialStockData.flow?.pinZone}
+                                        />
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            {/* Net GEX & Strikes */}
+                            <div className="space-y-2">
+                                <div className="flex items-center px-1">
+                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                                        <div className="w-1 h-3 bg-slate-500 rounded-full" /> Net Gamma Exposure
+                                    </h4>
+                                </div>
+                                <Card className="border-white/10 bg-slate-900/40 shadow-sm p-0 overflow-hidden">
+                                    <CardContent className="pt-6 px-4 space-y-6">
+                                        <div className="text-center">
+                                            <div className={`text-4xl font-black ${structure?.netGex > 0 ? "text-emerald-400" : structure?.netGex < 0 ? "text-rose-400" : "text-white"}`}>
+                                                {structure?.netGex ? (structure.netGex > 0 ? "+" : "") + (structure.netGex / 1000000).toFixed(2) + "M" : "—"}
+                                            </div>
+                                            <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1 flex items-center justify-center gap-1">
+                                                순 감마 에너지 (Net GEX)
+                                                <span title={`시장 조성자(MM)들의 포지션에 따른 변동성 성향입니다.\n(+) 양수: 주가 변동 억제 (안정/지루함)\n(-) 음수: 주가 변동 증폭 (급등락/스퀴즈 위험)`}>
+                                                    <Info size={10} className="text-slate-600 hover:text-slate-400 cursor-help" />
+                                                </span>
+                                            </div>
+
+                                            {/* 0DTE Pulse Indicator (New) */}
+                                            {structure?.gexZeroDteRatio !== undefined && (
+                                                <div className="mt-3 px-4">
+                                                    <div className="flex items-center justify-between text-[9px] font-bold text-slate-500 mb-1 tracking-wider uppercase">
+                                                        <span className="flex items-center gap-1"><Zap size={10} className="text-amber-400" /> 0DTE Velocity</span>
+                                                        <span className={structure.gexZeroDteRatio > 0.3 ? "text-amber-400" : "text-slate-600"}>{(structure.gexZeroDteRatio * 100).toFixed(0)}% Impact</span>
+                                                    </div>
+                                                    <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                                                        <div
+                                                            className={`h-full ${structure.gexZeroDteRatio > 0.3 ? "bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.6)]" : "bg-slate-600"} transition-all duration-1000`}
+                                                            style={{ width: `${Math.min(100, Math.max(5, (structure.gexZeroDteRatio || 0) * 100))}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {/* Expert Interpretation */}
+                                            <div className={`mt-4 text-[10px] font-bold px-2 py-1 rounded inline-block ${structure?.netGex > 0 ? "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" : structure?.netGex < 0 ? "bg-rose-950/30 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400"}`}>
+                                                {structure?.netGex > 0 ? "지지력 강화 (변동성 축소)" : structure?.netGex < 0 ? "변동성 확대 (가속 구간)" : "중립 (방향성 부재)"}
+                                            </div>
+                                            <div className="mt-4 flex justify-center gap-4 text-[9px] font-medium text-slate-500 border-t border-white/5 pt-2">
+                                                <div className="flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                                                    <span>(+) 안전지대</span>
+                                                </div>
+                                                <div className="flex items-center gap-1">
+                                                    <span className="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
+                                                    <span>(-) 가속구간</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="h-auto min-h-[250px]">
+                                            {showStructure && (
+                                                <OIChart
+                                                    strikes={structure.structure.strikes}
+                                                    callsOI={structure.structure.callsOI}
+                                                    putsOI={structure.structure.putsOI}
+                                                    currentPrice={displayPrice}
+                                                    maxPain={structure.maxPain}
+                                                    callWall={structure.levels?.callWall}
+                                                    putFloor={structure.levels?.putFloor}
+                                                />
+                                            )}
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </div>
+
 
                         {/* C. ATM Chain (Raw) - REMOVED per user request (redundant with Flow Radar) */}
                         <section className="hidden">
                         </section>
                     </div>
 
-                    {/* SIDEBAR (4 Cols) - Strategy & Intel */}
-                    <div className="lg:col-span-4 space-y-6 flex flex-col h-full">
+                    {/* SIDEBAR (4 Cols) - Glass Stack */}
+                    <div className="lg:col-span-4 flex flex-col gap-4 h-full">
 
-                        {/* 1. Decision Gate (Sticky Removed per user feedback) */}
-                        <div>
-                            <div className="mb-2 flex items-center gap-2">
-                                <ShieldAlert size={14} className="text-slate-500" />
-                                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Decision Gate</span>
-                            </div>
+                        {/* 1. Decision Gate - Fixed Height */}
+                        <div className="shrink-0 relative">
+                            {/* Decorative Outline */}
+                            <div className="absolute -left-1 -top-1 w-3 h-3 border-l sm:border-t-2 border-slate-600/50 rounded-tl pointer-events-none" />
                             <DecisionGate
                                 ticker={ticker}
                                 displayPrice={displayPrice}
@@ -662,80 +778,69 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             />
                         </div>
 
-                        {/* 2. Flow Dynamics */}
-                        <div className="space-y-2">
-                            <div className="flex justify-between items-center px-1">
+                        {/* 2. Flow Unit - Glass Card */}
+                        <div className="shrink-0 rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors">
+                            <div className="p-2 border-b border-white/5 flex items-center justify-between bg-white/5">
                                 <div className="flex items-center gap-2">
-                                    <Activity size={12} className="text-sky-400" />
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Flow Unit</span>
+                                    <Activity size={10} className="text-sky-400" />
+                                    <span className="text-[10px] font-black text-sky-200 uppercase tracking-widest">Flow Unit</span>
                                 </div>
-                                <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded-sm">INTRADAY(당일)</span>
+                                <span className="text-[8px] bg-slate-800/80 text-slate-500 px-1.5 py-0.5 rounded border border-white/5">INTRADAY</span>
                             </div>
-                            <Card className="border-white/10 bg-slate-900/40 p-0 overflow-hidden">
-                                <CardContent className="p-1">
-                                    <FlowSniper
-                                        netPremium={liveQuote?.flow?.netPremium || 0}
-                                        callPremium={liveQuote?.flow?.callPremium || 0}
-                                        putPremium={liveQuote?.flow?.putPremium || 0}
-                                        optionsCount={liveQuote?.flow?.optionsCount || 0}
-                                        onClickFlowRadar={() => setActiveTab('FLOW')}
-                                    />
-                                </CardContent>
-                            </Card>
+                            <div className="p-1">
+                                <FlowSniper
+                                    netPremium={liveQuote?.flow?.netPremium || 0}
+                                    callPremium={liveQuote?.flow?.callPremium || 0}
+                                    putPremium={liveQuote?.flow?.putPremium || 0}
+                                    optionsCount={liveQuote?.flow?.optionsCount || 0}
+                                    onClickFlowRadar={() => setActiveTab('FLOW')}
+                                />
+                            </div>
                         </div>
 
-                        {/* 4. Intel Feed (Native KR) */}
-                        <div className="space-y-2 flex-1 flex flex-col min-h-0">
-                            <div className="flex items-center gap-2 pt-2">
-                                <Newspaper size={14} className="text-slate-500" />
-                                <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest">Intel Feed (Global AI)</h3>
+                        {/* 3. Intel Feed Needs to fill remaining height */}
+                        <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-lg relative group">
+                            {/* Background Pattern */}
+                            <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%)] bg-[size:10px_10px] pointer-events-none" />
+
+                            <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 relative z-10 shrink-0">
+                                <div className="flex items-center gap-2">
+                                    <Newspaper size={12} className="text-slate-400" />
+                                    <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Intel Feed (AI)</h3>
+                                </div>
+                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                             </div>
 
-                            {/* Consolidated Card for Height Alignment (Natural Height) */}
-                            <Card className="border-white/5 bg-slate-900/30 overflow-hidden flex flex-col h-full flex-1">
-                                <CardContent className="p-0 flex flex-col h-full">
-                                    {krNews.slice(0, 4).map((n: any, i) => (
-                                        <a key={i} href={n.url || n.link || "#"} target="_blank" rel="noreferrer" className="block group border-b border-white/5 last:border-0 hover:bg-slate-800/50 transition-colors relative min-h-[85px]">
-                                            {/* Hover Accent */}
-                                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500/0 group-hover:bg-indigo-500 transition-all duration-300" />
+                            <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+                                {krNews.slice(0, 5).map((n: any, i) => (
+                                    <a key={i} href={n.url || n.link || "#"} target="_blank" rel="noreferrer" className="block group/item border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors relative min-h-[80px]">
+                                        {/* Hover Indicator */}
+                                        <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500/0 group-hover/item:bg-indigo-500 transition-all duration-300" />
 
-                                            <div className="p-3 flex flex-col justify-center h-full">
-                                                <div className="text-[9px] text-indigo-400 font-bold mb-1 flex justify-between items-center">
-                                                    <span className="flex items-center gap-2">
-                                                        {n.source || n.publisher || "Unknown"}
-                                                        {/* [S-53.9] Official Badge */}
-                                                        {n.isOfficial && (
-                                                            <span className="text-[8px] px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-extrabold tracking-wider">
-                                                                OFFICIAL
-                                                            </span>
-                                                        )}
-                                                        {n.isRumor && (
-                                                            <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">
-                                                                RUMOR
-                                                            </span>
-                                                        )}
-                                                    </span>
-                                                    <span className={n.sentiment === 'positive' ? 'text-emerald-500' : 'text-slate-600'}>
-                                                        {n.sentiment === 'positive' ? 'BULLISH' : ''}
-                                                    </span>
-                                                </div>
-                                                <div className="text-xs text-slate-300 font-medium leading-snug group-hover:text-white transition-colors line-clamp-2">
-                                                    {n.summaryKR || n.title}
-                                                </div>
-                                                <div className="text-[9px] text-slate-600 mt-1.5 flex justify-between">
-                                                    <span>{(n.publishedAt || n.time || "").split('T')[0]}</span>
-                                                </div>
+                                        <div className="p-3 flex flex-col justify-center h-full">
+                                            <div className="text-[9px] text-indigo-300/80 font-bold mb-1 flex justify-between items-center">
+                                                <span className="flex items-center gap-2">
+                                                    {n.source || n.publisher || "Unknown"}
+                                                    {n.isRumor && (
+                                                        <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">RUMOR</span>
+                                                    )}
+                                                </span>
+                                                <span className={n.sentiment === 'positive' ? 'text-emerald-500' : 'text-slate-600'}>
+                                                    {n.sentiment === 'positive' ? 'BULLISH' : ''}
+                                                </span>
                                             </div>
-                                        </a>
-                                    ))}
-                                    <div className="flex-1 bg-transparent min-h-0" />
-                                    {krNews.length === 0 && (
-                                        <div className="flex-1 flex items-center justify-center text-slate-600 text-xs">
-                                            No recent intel
+                                            <div className="text-xs text-slate-300 font-medium leading-snug group-hover/item:text-white transition-colors line-clamp-2">
+                                                {n.summaryKR || n.title}
+                                            </div>
                                         </div>
-                                    )}
-                                </CardContent>
-                            </Card>
+                                    </a>
+                                ))}
+                                {krNews.length === 0 && (
+                                    <div className="h-full flex items-center justify-center text-slate-600 text-xs text-center p-4">
+                                        No recent intel detected<br />Scanning global channels...
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                     </div>
@@ -749,7 +854,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         currentPrice={displayPrice}
                     />
                 </div>
-            )}
-        </div>
+            )
+            }
+        </div >
     );
 }
