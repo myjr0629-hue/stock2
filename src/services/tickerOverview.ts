@@ -218,7 +218,7 @@ export async function getTickerOverview(
         diagnostics
     };
 
-    // Session diagnostic
+    // Session diagnostic (Synchronous)
     diagnostics.session = {
         ok: true,
         badge: sessionInfo.badge,
@@ -226,157 +226,161 @@ export async function getTickerOverview(
         updatedAtISO: sessionInfo.asOfET
     };
 
-    // --- 1. Fetch Price Snapshot ---
-    // --- 1. Fetch Central Data (SSOT) ---
-    // [Phase 25.1] Use CentralDataHub to prevent Split Brain
-    try {
-        const unified = await CentralDataHub.getUnifiedData(tickerUpper);
-        const S = unified.snapshot || {};
-        const day = S.day || {};
-        const prevDay = S.prevDay || {};
+    // --- Parallel Execution Blocks ---
 
-        // Price Mapping
-        result.price.last = unified.price;
-        result.price.changePct = unified.changePct;
-        result.price.changeAbs = (unified.price && unified.prevClose) ? unified.price - unified.prevClose : null;
-        result.price.prevClose = unified.prevClose;
-        result.price.open = day.o || prevDay.o || null; // Fallback to prev
-        result.price.high = day.h || prevDay.h || null;
-        result.price.low = day.l || prevDay.l || null;
-        result.price.volume = unified.volume;
-        result.price.priceSource = unified.priceSource; // [New]
+    // 1. Price Data Task
+    const priceTask = async () => {
+        try {
+            const unified = await CentralDataHub.getUnifiedData(tickerUpper);
+            const S = unified.snapshot || {};
+            const day = S.day || {};
+            const prevDay = S.prevDay || {};
 
-        // Session Source Mapping
-        // Map CentralDataHub "pre_open" | "post_close" | "official_close" | "live_snapshot"
-        // to TickerPriceData "session" badge: REG | PRE | POST | CLOSED
-        if (unified.priceSource === "OFFICIAL_CLOSE") {
-            result.price.session = "CLOSED";
-            result.price.sessionReasonKR = "정규장 마감 (공식 종가)";
-        } else if (unified.priceSource === "POST_CLOSE") {
-            result.price.session = "POST";
-            result.price.sessionReasonKR = "시간외 거래 (Post-Market)";
-        } else if (unified.priceSource === "PRE_OPEN") {
-            result.price.session = "PRE";
-            result.price.sessionReasonKR = "장전 거래 (Pre-Market)";
-        } else {
-            result.price.session = "REG";
-            result.price.sessionReasonKR = "정규장 진행 중";
-        }
+            // Price Mapping
+            result.price.last = unified.price;
+            result.price.changePct = unified.changePct;
+            result.price.changeAbs = (unified.price && unified.prevClose) ? unified.price - unified.prevClose : null;
+            result.price.prevClose = unified.prevClose;
+            result.price.open = day.o || prevDay.o || null; // Fallback to prev
+            result.price.high = day.h || prevDay.h || null;
+            result.price.low = day.l || prevDay.l || null;
+            result.price.volume = unified.volume;
+            result.price.priceSource = unified.priceSource;
 
-        // VWAP
-        if (day.vw && day.vw > 0) {
-            result.price.vwap = day.vw;
-            diagnostics.vwap = { ok: true, value: day.vw, updatedAtISO: fetchedAt };
-        } else {
-            result.price.vwap = null; // Basic fallback
-            diagnostics.vwap = { ok: false, code: "NO_VWAP_YET", reasonKR: "당일 거래량 부족" };
-        }
-
-        // Extended Hours (Pass through if available in snapshot)
-        // Extended Hours (Pass through if available in snapshot, OR usage unified price if session matches)
-        if (S.preMarket?.p) result.price.preMarketLast = S.preMarket.p;
-        else if (unified.session === "PRE") result.price.preMarketLast = unified.price;
-
-        if (S.afterHours?.p) result.price.afterHoursLast = S.afterHours.p;
-        else if (unified.session === "POST") result.price.afterHoursLast = unified.price;
-
-        diagnostics.price = {
-            ok: unified.price > 0,
-            updatedAtISO: fetchedAt,
-            dataSource: "CentralDataHub"
-        };
-
-        if (!diagnostics.price.ok) {
-            diagnostics.price.code = "PRICE_ZERO";
-            diagnostics.price.reasonKR = unified.error || "가격 데이터 응답 0 (Hub)";
-        }
-
-        // Options from CentralDataHub (Basic Flow)
-        if (unified.flow) {
-            // [Phase 42] Inject rawChain from SSOT
-            if (unified.flow.rawChain && unified.flow.rawChain.length > 0) {
-                result.options.rawChain = unified.flow.rawChain;
-                result.options.netPremium = unified.flow.netPremium;
-                result.options.callPremium = unified.flow.callPremium;
-                result.options.putPremium = unified.flow.putPremium;
-                result.options.optionsCount = unified.flow.optionsCount;
-
-                // [Phase 42.1] Inject Structure from SSOT
-                result.options.callWall = unified.flow.callWall || null;
-                result.options.putFloor = unified.flow.putFloor || null;
-                result.options.pinZone = unified.flow.pinZone || null;
-                result.options.maxPain = unified.flow.maxPain || null;
-
-                // Pre-fill status if we have chain
-                result.options.status = "OK";
-                result.options.coveragePct = 100; // Assumed if we have flow
+            // Session Source Mapping
+            if (unified.priceSource === "OFFICIAL_CLOSE") {
+                result.price.session = "CLOSED";
+                result.price.sessionReasonKR = "정규장 마감 (공식 종가)";
+            } else if (unified.priceSource === "POST_CLOSE") {
+                result.price.session = "POST";
+                result.price.sessionReasonKR = "시간외 거래 (Post-Market)";
+            } else if (unified.priceSource === "PRE_OPEN") {
+                result.price.session = "PRE";
+                result.price.sessionReasonKR = "장전 거래 (Pre-Market)";
+            } else {
+                result.price.session = "REG";
+                result.price.sessionReasonKR = "정규장 진행 중";
             }
-        }
 
-    } catch (e: any) {
-        console.error(`[tickerOverview] CentralDataHub Error for ${tickerUpper}:`, e);
-        diagnostics.price = { ok: false, code: "HUB_ERROR", reasonKR: "데이터 허브 연동 실패" };
-    }
+            // VWAP
+            if (day.vw && day.vw > 0) {
+                result.price.vwap = day.vw;
+                diagnostics.vwap = { ok: true, value: day.vw, updatedAtISO: fetchedAt };
+            } else {
+                result.price.vwap = null; // Basic fallback
+                diagnostics.vwap = { ok: false, code: "NO_VWAP_YET", reasonKR: "당일 거래량 부족" };
+            }
 
-    // --- 2. Fetch Company Info ---
-    try {
-        const info = await fetchMassive(
-            `/v3/reference/tickers/${tickerUpper}`,
-            {},
-            true,
-            undefined,
-            { next: { revalidate: 86400 } }
-        );
-        result.name = info?.results?.name || null;
-    } catch (e) {
-        // Non-blocking
-    }
+            // Extended Hours
+            if (S.preMarket?.p) result.price.preMarketLast = S.preMarket.p;
+            else if (unified.session === "PRE") result.price.preMarketLast = unified.price;
 
-    // --- 3. Fetch Options ---
-    try {
-        const optionsUrl = `/v3/snapshot/options/${tickerUpper}`;
-        const optData = await fetchMassive(optionsUrl, { limit: "100" }, false, undefined, CACHE_POLICY.LIVE);
+            if (S.afterHours?.p) result.price.afterHoursLast = S.afterHours.p;
+            else if (unified.session === "POST") result.price.afterHoursLast = unified.price;
 
-        if (optData?.results?.length > 0) {
-            const contracts = optData.results;
-            let totalCallOI = 0;
-            let totalPutOI = 0;
-            let hasOI = false;
-
-            contracts.forEach((c: any) => {
-                const oi = c.open_interest || 0;
-                if (oi > 0) hasOI = true;
-                if (c.details?.contract_type === "call") totalCallOI += oi;
-                else if (c.details?.contract_type === "put") totalPutOI += oi;
-            });
-
-            result.options.pcr = totalCallOI > 0 ? totalPutOI / totalCallOI : null;
-            result.options.coveragePct = hasOI ? 100 : 50;
-            result.options.status = hasOI ? "OK" : "PARTIAL";
-            result.options.updatedAtISO = new Date().toISOString();
-            if (!hasOI) result.options.reasonKR = "OI 데이터 미수신 - PCR/Gamma 불확실";
-
-            diagnostics.options = {
-                ok: true,
-                state: result.options.status,
-                coveragePct: result.options.coveragePct,
-                updatedAtISO: result.options.updatedAtISO,
-                reasonKR: result.options.reasonKR
+            diagnostics.price = {
+                ok: unified.price > 0,
+                updatedAtISO: fetchedAt,
+                dataSource: "CentralDataHub"
             };
-        } else {
-            result.options.status = "NO_OPTIONS" as any;
-            result.options.reasonKR = "옵션 스냅샷 응답이 비어있음 (NO_OPTIONS)";
-            diagnostics.options = { ok: true, code: "NO_OPTIONS", reasonKR: result.options.reasonKR, state: "NO_OPTIONS" };
-        }
-    } catch (e: any) {
-        const errInfo = extractErrorInfo(e);
-        result.options.status = "ERROR";
-        result.options.reasonKR = `옵션 조회 오류: ${errInfo.reasonKR}`;
-        diagnostics.options = { ok: false, code: errInfo.code, reasonKR: result.options.reasonKR, state: "ERROR" };
-    }
 
-    // --- 4. Fetch History + Indicators (with fallback) ---
-    if (includeHistory) {
+            if (!diagnostics.price.ok) {
+                diagnostics.price.code = "PRICE_ZERO";
+                diagnostics.price.reasonKR = unified.error || "가격 데이터 응답 0 (Hub)";
+            }
+
+            // Options from CentralDataHub (Basic Flow)
+            if (unified.flow) {
+                if (unified.flow.rawChain && unified.flow.rawChain.length > 0) {
+                    result.options.rawChain = unified.flow.rawChain;
+                    result.options.netPremium = unified.flow.netPremium;
+                    result.options.callPremium = unified.flow.callPremium;
+                    result.options.putPremium = unified.flow.putPremium;
+                    result.options.optionsCount = unified.flow.optionsCount;
+
+                    // Structure from SSOT
+                    result.options.callWall = unified.flow.callWall || null;
+                    result.options.putFloor = unified.flow.putFloor || null;
+                    result.options.pinZone = unified.flow.pinZone || null;
+                    result.options.maxPain = unified.flow.maxPain || null;
+
+                    // Pre-fill status if we have chain
+                    result.options.status = "OK";
+                    result.options.coveragePct = 100;
+                }
+            }
+
+        } catch (e: any) {
+            console.error(`[tickerOverview] CentralDataHub Error for ${tickerUpper}:`, e);
+            diagnostics.price = { ok: false, code: "HUB_ERROR", reasonKR: "데이터 허브 연동 실패" };
+        }
+    };
+
+    // 2. Company Info Task
+    const infoTask = async () => {
+        try {
+            const info = await fetchMassive(
+                `/v3/reference/tickers/${tickerUpper}`,
+                {},
+                true,
+                undefined,
+                { next: { revalidate: 86400 } }
+            );
+            result.name = info?.results?.name || null;
+        } catch (e) {
+            // Non-blocking
+        }
+    };
+
+    // 3. Options Snapshot Task
+    const optionsTask = async () => {
+        try {
+            const optionsUrl = `/v3/snapshot/options/${tickerUpper}`;
+            const optData = await fetchMassive(optionsUrl, { limit: "100" }, false, undefined, CACHE_POLICY.LIVE);
+
+            if (optData?.results?.length > 0) {
+                const contracts = optData.results;
+                let totalCallOI = 0;
+                let totalPutOI = 0;
+                let hasOI = false;
+
+                contracts.forEach((c: any) => {
+                    const oi = c.open_interest || 0;
+                    if (oi > 0) hasOI = true;
+                    if (c.details?.contract_type === "call") totalCallOI += oi;
+                    else if (c.details?.contract_type === "put") totalPutOI += oi;
+                });
+
+                result.options.pcr = totalCallOI > 0 ? totalPutOI / totalCallOI : null;
+                result.options.coveragePct = hasOI ? 100 : 50;
+                result.options.status = hasOI ? "OK" : "PARTIAL";
+                result.options.updatedAtISO = new Date().toISOString();
+                if (!hasOI) result.options.reasonKR = "OI 데이터 미수신 - PCR/Gamma 불확실";
+
+                diagnostics.options = {
+                    ok: true,
+                    state: result.options.status,
+                    coveragePct: result.options.coveragePct,
+                    updatedAtISO: result.options.updatedAtISO,
+                    reasonKR: result.options.reasonKR
+                };
+            } else {
+                result.options.status = "NO_OPTIONS" as any;
+                result.options.reasonKR = "옵션 스냅샷 응답이 비어있음 (NO_OPTIONS)";
+                diagnostics.options = { ok: true, code: "NO_OPTIONS", reasonKR: result.options.reasonKR, state: "NO_OPTIONS" };
+            }
+        } catch (e: any) {
+            const errInfo = extractErrorInfo(e);
+            result.options.status = "ERROR";
+            result.options.reasonKR = `옵션 조회 오류: ${errInfo.reasonKR}`;
+            diagnostics.options = { ok: false, code: errInfo.code, reasonKR: result.options.reasonKR, state: "ERROR" };
+        }
+    };
+
+    // 4. History + Indicators Task
+    const historyTask = async () => {
+        if (!includeHistory) return;
+
         let intradayCloses: number[] = [];
         let dailyCloses: number[] = [];
         let chartSource: "INTRADAY" | "DAILY" | "NONE" = "NONE";
@@ -385,8 +389,6 @@ export async function getTickerOverview(
         try {
             const multiplier = range === "1d" ? 5 : range === "5d" ? 30 : 1;
             const timespan = range === "1d" || range === "5d" ? "minute" : "day";
-
-            // Use anchorDate for trading day accuracy
             const fromDate = anchorDate;
             const toDate = anchorDate;
 
@@ -439,10 +441,8 @@ export async function getTickerOverview(
             };
         }
 
-        // 4b. Always fetch daily history for valid RSI(14) / 3D Return
-        // [S-56.4.8] Integrity Fix: Indicators must be based on DAILY closes, not intraday.
+        // 4b. Daily History (for Indicators + Fallback)
         try {
-            // Fetch last 35 days (enough for RSI 14 + smoothing)
             const thirtyDaysAgo = new Date();
             thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 35);
             const from = toYYYYMMDD_ET(thirtyDaysAgo);
@@ -460,7 +460,7 @@ export async function getTickerOverview(
                 dailyCloses = dailyAggs.results.map((r: any) => r.c);
                 chartSource = chartSource === "NONE" ? "DAILY" : chartSource;
 
-                // If no intraday chart, use daily as fallback
+                // Fallback for chart if intraday failed
                 if (!result.history || result.history.length === 0) {
                     result.history = dailyAggs.results.map((r: any) => ({
                         date: new Date(r.t).toISOString(),
@@ -479,12 +479,10 @@ export async function getTickerOverview(
                 }
             }
         } catch (e) {
-            // Non-critical, indicators will just be N/A
+            // Non-critical
         }
 
-
-        // 4c. Calculate indicators (Use DAILY closes only)
-        // [S-56.4.8] Enforce Daily Data for Indicators
+        // 4c. Calculate Indicators
         const closesForIndicators = dailyCloses;
         result.indicators.dataSource = "DAILY";
 
@@ -518,15 +516,13 @@ export async function getTickerOverview(
                 dataSource: chartSource
             };
         }
-    }
+    };
 
-    // --- 5. Fetch News ---
-    // --- 5. Fetch News (Enriched via NewsHubProvider) ---
-    if (includeNews) {
+    // 5. News Task
+    const newsTask = async () => {
+        if (!includeNews) return;
         try {
-            // [Fix] Use NewsHubProvider to get AI Rumor Filtering + Korean Summaries
             const enrichedNews = await fetchStockNews([tickerUpper], 10);
-
             if (enrichedNews.length > 0) {
                 result.news.items = enrichedNews.map(n => ({
                     title: n.headline,
@@ -534,9 +530,8 @@ export async function getTickerOverview(
                     source: n.source,
                     publishedAt: n.publishedAt,
                     sentiment: n.sentiment,
-                    // Map Enriched Fields
                     summaryKR: n.summaryKR,
-                    isRumor: (n.summaryKR || "").includes("[루머") // Simple check based on NewsHub logic
+                    isRumor: (n.summaryKR || "").includes("[루머")
                 }));
                 result.news.updatedAtISO = new Date().toISOString();
                 diagnostics.news = { ok: true, items: result.news.items.length, updatedAtISO: result.news.updatedAtISO };
@@ -547,7 +542,16 @@ export async function getTickerOverview(
             console.error("News Fetch Error:", e);
             diagnostics.news = { ok: false, code: "FETCH_ERROR", reasonKR: "뉴스 조회 실패 (NewsHub)", items: 0 };
         }
-    }
+    };
+
+    // --- Execute All Tasks concurrently ---
+    await Promise.all([
+        priceTask(),
+        infoTask(),
+        optionsTask(),
+        historyTask(),
+        newsTask()
+    ]);
 
     return result;
 }

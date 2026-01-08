@@ -1,3 +1,4 @@
+// [S-56.4.5] FlowRadar with optimized date display
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
@@ -493,11 +494,16 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                             <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5 shadow-black/50 drop-shadow-md">
                                                                 {isHighImpact && <span className="text-amber-400 animate-spin-slow">☢️</span>} {t.underlying || ticker}
                                                             </span>
-                                                            <span className="text-[11px] text-slate-400 font-mono mt-0.5">{t.timeET}</span>
+                                                            <span className="text-[11px] text-slate-400 font-mono mt-0.5 opacity-0 h-0 overflow-hidden">
+                                                                {/* Hidden for layout balance, moved to Row 2 */}
+                                                            </span>
                                                         </div>
                                                         <div className="text-right flex flex-col items-end">
-                                                            <div className={`text-[11px] font-bold px-2 py-0.5 rounded mb-1 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
-                                                                {t.type}
+                                                            <div className={`text-[11px] font-bold px-2 py-0.5 rounded mb-1 flex items-center gap-1.5 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
+                                                                <span>{t.type}</span>
+                                                                <span className="opacity-50">|</span>
+                                                                {/* [Fix] Direct string parsing to avoid UTC->EST shift (e.g. 2025-01-16 -> Jan 15) */}
+                                                                <span>{t.expiry.substring(5).replace('-', '/')}</span>
                                                             </div>
                                                             <div className={`text-[9px] font-bold tracking-wider ${impactTextColor}`}>
                                                                 IMPACT: {impactLabel}
@@ -509,8 +515,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                     <div className="flex justify-between items-end border-b border-white/10 pb-2">
                                                         <div className="flex flex-col">
                                                             <span className="text-[11px] font-bold text-cyan-200">{strategyMain}</span>
-                                                            <span className="text-xs font-bold text-cyan-300 mt-0.5">
-                                                                {unitCost > 0 ? `Cost $${unitCost.toFixed(2)}` : strategySub}
+                                                            <span className="text-xs font-bold text-cyan-300 mt-0.5 font-mono">
+                                                                {new Date(t.tradeDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })} {t.timeET}
                                                             </span>
                                                         </div>
                                                         <div className="text-right">
