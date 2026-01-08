@@ -574,7 +574,11 @@ async function generateReportFromItems(
                 item.decisionSSOT.targetPrice = Number(wTarget.toFixed(2));
 
                 // Stop Loss: 5% below Whale Entry (Tight stop) or Put Floor if available
-                const protectionLevel = wEntry * 0.95;
+                // [V3.7.3] Precision: Use Delta-based Stop from Snapshot if available
+                const protectionLevel = (forensicResult.details.whaleStopLevel && forensicResult.details.whaleStopLevel > 0)
+                    ? forensicResult.details.whaleStopLevel
+                    : (wEntry * 0.95);
+
                 item.decisionSSOT.cutPrice = Number(protectionLevel.toFixed(2));
 
                 // 3. Mark as Whale Driven

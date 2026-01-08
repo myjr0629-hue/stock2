@@ -1,4 +1,4 @@
-import { getOptionTrades, getOptionQuotes } from './massiveClient';
+import { getOptionTrades, getOptionQuotes, fetchOptionSnapshot } from './massiveClient';
 import { OptionTrade } from '@/types';
 
 // [V3.7.3] Forensic Analysis Result
@@ -12,8 +12,9 @@ export interface ForensicResult {
         maxBlockSize: number;
         sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
         lastBigPrint?: string;
-        whaleEntryLevel?: number; // VWAP of Block Trades (Contract Price)
-        whaleTargetLevel?: number; // Strike + Premium (Call) or Strike - Premium (Put)
+        whaleEntryLevel?: number; // Underlying Stock Price (Precise)
+        whaleTargetLevel?: number; // Break-even or Strike Target
+        whaleStopLevel?: number; // [V3.7.3] Dynamic Stop
         dominantContract?: string; // e.g. "230C"
     };
     analyzedAt: number;
@@ -34,6 +35,41 @@ export class ForensicService {
 
             // 2. Analyze Today's Data
             let result = this.analyzeData(ticker, trades || [], quotes || []);
+
+            // [V3.7.3] SNIPER LOGIC: Precision Injection
+            if (result.details.dominantContract && result.whaleIndex >= 50) {
+                // Fetch LIVE Greeks & Break-even for the Whale's Contract
+                const snapshot = await fetchOptionSnapshot(ticker, result.details.dominantContract);
+                if (snapshot) {
+                    // 1. Precise Target: Break-even Price (Whale MUST cross this to profit)
+                    if (snapshot.break_even_price > 0) {
+                        result.details.whaleTargetLevel = snapshot.break_even_price;
+                    }
+
+                    // 2. Precise Entry: Underlying Price
+                    // If snapshot.underlying_asset.price is valid, use it as Current Whale Entry
+                    if (snapshot.underlying_asset.price > 0) {
+                        result.details.whaleEntryLevel = snapshot.underlying_asset.price;
+
+                        // 3. Precise Stop: Dynamic Delta-based Risk
+                        // Logic: High Delta (Deep ITM) = Tight Stop (Stock Replacement). Low Delta (Lotto) = Wide Stop.
+                        // Base Stop: 5%
+                        // Adjustment: (0.5 - Delta) * 0.1
+                        // If Delta 0.9 (Safe) -> Stop 1%
+                        // If Delta 0.2 (Risky) -> Stop 8%
+                        const delta = Math.abs(snapshot.greeks.delta || 0.5);
+                        const riskFactor = 0.5 - delta;
+                        let stopPct = 0.05 + (riskFactor * 0.1);
+                        // Clamp: Min 2%, Max 10%
+                        stopPct = Math.max(0.02, Math.min(0.10, stopPct));
+
+                        const entry = result.details.whaleEntryLevel;
+                        result.details.whaleStopLevel = entry * (1 - stopPct);
+
+                        console.log(`[Forensic] 🎯 SNIPER PRECISION for ${ticker} (${result.details.dominantContract}): Entry=$${entry.toFixed(2)}, Target=$${snapshot.break_even_price}, Stop=$${result.details.whaleStopLevel.toFixed(2)} (Delta=${delta}, StopPct=${(stopPct * 100).toFixed(1)}%)`);
+                    }
+                }
+            }
 
             // [V3.7.3] Historical Context Injection
             // If today shows NO WHALE ACTION (Index < 50 or No Blocks), look back at yesterday.
@@ -151,7 +187,7 @@ export class ForensicService {
 
         // [Strategy] Identify Dominant Whale Contract
         let domContract = '';
-        let whaleEntryLevel = 0;
+        let avgPremium = 0;
         let whaleTargetLevel = 0;
 
         if (contractMap.size > 0) {
@@ -167,14 +203,14 @@ export class ForensicService {
             });
 
             if (bestContract) {
-                const bc = bestContract as { vol: number, val: number, strike: number, type: 'call' | 'put' }; // Type assertion help
-                whaleEntryLevel = bc.val / bc.vol; // VWAP of Premium
+                const bc = bestContract as { vol: number, val: number, strike: number, type: 'call' | 'put' };
+                avgPremium = bc.val / bc.vol; // VWAP of Premium
 
                 // Target: Strike + Premium (Call) or Strike - Premium (Put) - Breakeven
                 if (bc.type === 'call') {
-                    whaleTargetLevel = bc.strike + whaleEntryLevel;
+                    whaleTargetLevel = bc.strike + avgPremium;
                 } else {
-                    whaleTargetLevel = bc.strike - whaleEntryLevel;
+                    whaleTargetLevel = bc.strike - avgPremium;
                 }
             }
         }
@@ -195,7 +231,7 @@ export class ForensicService {
                 maxBlockSize,
                 sentiment,
                 lastBigPrint,
-                whaleEntryLevel: whaleEntryLevel > 0 ? whaleEntryLevel : undefined,
+                whaleEntryLevel: undefined, // [Fix] Don't return Premium as Stock Price
                 whaleTargetLevel: whaleTargetLevel > 0 ? whaleTargetLevel : undefined,
                 dominantContract: domContract || undefined
             },

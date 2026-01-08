@@ -159,39 +159,52 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         return { callWall: cStrike, putWall: pStrike };
     }, [flowMap, effectiveViewMode]);
 
-    // [LEVEL 3] INSTITUTIONAL ANALYSIS ENGINE (Structure + Flow)
+    // [LEVEL 3] INSTITUTIONAL ANALYSIS ENGINE (Narrative Generation)
     const analysis = useMemo(() => {
         if (!flowMap || flowMap.length === 0) return null;
 
         const distToCall = ((callWall - currentPrice) / currentPrice) * 100;
         const distToPut = ((currentPrice - putWall) / currentPrice) * 100; // Negative value usually
 
-        // 2. Whale Sentiment Analysis (The "Flow" - Momentum)
+        // 1. Whale Flow Decomposition
         let netWhalePremium = 0;
-        let whaleCallCount = 0;
-        let whalePutCount = 0;
-        let highImpactCount = 0;
+        let maxPremium = 0;
+        let alphaTrade: any = null; // The "Lead Steer" trade
 
         whaleTrades.forEach(t => {
-            if (t.premium > 50000) highImpactCount++;
-            if (t.type === 'CALL') {
-                netWhalePremium += t.premium;
-                whaleCallCount++;
-            } else {
-                netWhalePremium -= t.premium;
-                whalePutCount++;
+            if (t.type === 'CALL') netWhalePremium += t.premium;
+            else netWhalePremium -= t.premium;
+
+            if (t.premium > maxPremium) {
+                maxPremium = t.premium;
+                alphaTrade = t;
             }
         });
 
-        const whaleBias = netWhalePremium > 1000000 ? 'STRONG_BULL' // > $1M Net
-            : netWhalePremium > 200000 ? 'BULLISH'
-                : netWhalePremium < -1000000 ? 'STRONG_BEAR' // < -$1M Net
-                    : netWhalePremium < -200000 ? 'BEARISH'
+        const whaleBias = netWhalePremium > 500000 ? 'STRONG_BULL'
+            : netWhalePremium > 100000 ? 'BULLISH'
+                : netWhalePremium < -500000 ? 'STRONG_BEAR'
+                    : netWhalePremium < -100000 ? 'BEARISH'
                         : 'NEUTRAL';
 
-        // 3. The "Superhuman" Synthesis (Fusion Logic)
+        // 2. Alpha Trade Forensics (The Storyteller)
+        let alphaIntel = "";
+        let alphaBEP = 0;
+        if (alphaTrade) {
+            const unitCost = alphaTrade.premium / (alphaTrade.size * 100);
+            alphaBEP = alphaTrade.type === 'CALL' ? alphaTrade.strike + unitCost : alphaTrade.strike - unitCost;
+            const bepDiff = ((alphaBEP - currentPrice) / currentPrice) * 100;
+
+            if (alphaTrade.type === 'CALL') {
+                alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K를 베팅해 목표가 $${alphaBEP.toFixed(2)}를 조준하고 있습니다.`;
+            } else {
+                alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K 규모의 풋옵션으로 $${alphaBEP.toFixed(2)} 깨짐을 대비하고 있습니다.`;
+            }
+        }
+
+        // 3. Situational Synthesis (Context + Flow)
         let status = "판단 보류 (SCANNING)";
-        let message = "세력들의 움직임을 분석 중입니다...";
+        let message = "세력들의 움직임을 정밀 분석 중입니다...";
         let color = "text-slate-400";
         let probability = 50;
         let probLabel = "중립 (Neutral)";
@@ -199,17 +212,17 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
         // Logic Branching
         if (currentPrice > callWall) {
-            // SCENARIO: Price is ABOVE Resistance (Breakout State)
+            // SCENARIO: Breakout (Above Resistance)
             if (whaleBias.includes('BULL')) {
                 status = "🚀 초강력 상승 (SUPER-CYCLE)";
-                message = `구조적 저항벽($${callWall})이 붕괴되었습니다. 여기에 고래들의 '추격 매수(Net +$${(netWhalePremium / 1000).toFixed(0)}K)'가 기름을 붓고 있습니다. 이것은 단순 돌파가 아닌 '시세 폭발'입니다.`;
+                message = `저항벽($${callWall})이 돌파되었습니다. ${alphaIntel} 고래들이 추격 매수에 나섰으므로(Net +$${(netWhalePremium / 1000).toFixed(0)}K), 단순 오버슈팅이 아닌 '시세 분출' 단계입니다.`;
                 probability = 95;
                 probLabel = "확신 (Conviction)";
                 probColor = "text-emerald-400";
                 color = "text-emerald-400";
             } else {
                 status = "⚠️ 돌파 후 숨고르기";
-                message = `저항벽($${callWall})을 뚫었으나, 고래들의 수급은 잠시 멈췄습니다(Neutral). 개미들만 흥분한 상태일 수 있으니 '되돌림(Pullback)' 지지 테스트를 확인하십시오.`;
+                message = `저항($${callWall})을 뚫었으나 추가 수급이 부족합니다. ${alphaIntel} 고래들은 차익실현 중일 수 있습니다. $${callWall} 지지 여부를 확인하십시오.`;
                 probability = 60;
                 probLabel = "관망 (Wait)";
                 probColor = "text-amber-400";
@@ -217,17 +230,17 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             }
         }
         else if (currentPrice < putWall) {
-            // SCENARIO: Price is BELOW Support (Breakdown State)
+            // SCENARIO: Breakdown (Below Support)
             if (whaleBias.includes('BEAR')) {
                 status = "📉 지지선 붕괴 (COLLAPSE)";
-                message = `최후의 지지벽($${putWall})이 무너졌습니다. 고래들은 이미 하방(Put)에 베팅 금액(Net -$${Math.abs(netWhalePremium / 1000).toFixed(0)}K)을 늘리고 있습니다. 투매가 나올 수 있습니다.`;
-                probability = 15; // Success prob for bulls is low
+                message = `최후 방어선($${putWall})이 뚫렸습니다. ${alphaIntel} 하방 베팅이 가속화되고 있어(Net -$${Math.abs(netWhalePremium / 1000).toFixed(0)}K), 투매가 이어질 수 있습니다.`;
+                probability = 15;
                 probLabel = "위험 (Danger)";
                 probColor = "text-rose-500";
                 color = "text-rose-500";
             } else {
-                status = "🪤 과매도 함정 (BEAR TRAP?)";
-                message = `지지벽($${putWall})이 깨졌지만, 고래들은 투매에 동참하지 않고 있습니다. '패닉 셀'을 받아먹는 저점 매집일 가능성이 큽니다. 반등에 대비하십시오.`;
+                status = "🪤 베어 트랩 (BEAR TRAP)";
+                message = `지지선($${putWall}) 이탈은 페이크일 가능성이 있습니다. ${alphaIntel} 고래들이 저점에서 물량을 받아먹고 있습니다. 반등 시 강한 숏커버링이 예상됩니다.`;
                 probability = 40;
                 probLabel = "주의 (Caution)";
                 probColor = "text-amber-500";
@@ -235,75 +248,65 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             }
         }
         else {
-            // SCENARIO: Inside the Range (Between Walls)
-            const isNearRes = distToCall < 1.0; // Within 1% of Resistance
-            const isNearSup = Math.abs(distToPut) < 1.0; // Within 1% of Support
+            // SCENARIO: Inside Range
+            const isNearRes = distToCall < 1.0;
+            const isNearSup = Math.abs(distToPut) < 1.0;
 
             if (isNearRes) {
                 if (whaleBias.includes('BULL')) {
                     status = "⚡ 돌파 임박 (BREAKOUT READY)";
-                    message = `주가가 저항벽($${callWall})을 두드리고 있습니다. 더 중요한 건, 고래들이 이 타이밍에 '콜옵션'을 쓸어담고 있다는 점입니다. 벽이 곧 뚫립니다. 탑승하십시오.`;
+                    message = `주가가 저항($${callWall})을 두드리고 있습니다. 단순 터치가 아닙니다. ${alphaIntel} 벽을 뚫기 위한 에너지가 충전되었습니다. 탑승하십시오.`;
                     probability = 88;
                     probLabel = "강력 매수 (Strong Buy)";
                     probColor = "text-emerald-400";
                     color = "text-emerald-400";
-                } else if (whaleBias.includes('BEAR')) {
-                    status = "⛔ 가짜 돌파 경고 (FAKE-OUT)";
-                    message = `주가는 오르는 척하지만, 고래들은 조용히 '풋옵션'을 매집하며 하락 통수를 준비 중입니다. 전형적인 '개미 꼬시기' 패턴입니다. 속지 마십시오.`;
-                    probability = 20;
-                    probLabel = "매도/탈출 (Sell)";
-                    probColor = "text-rose-500";
-                    color = "text-rose-500";
                 } else {
-                    status = "⚔️ 저항선 공방 (TESTING)";
-                    message = `거대한 저항벽($${callWall}) 앞에서 매수/매도 세력이 충돌하고 있습니다. 고래들도 방향을 잡지 못하고 눈치게임 중입니다. 돌파 여부를 확인하고 진입하십시오.`;
-                    probability = 50;
-                    color = "text-amber-400";
+                    status = "⛔ 저항 확인 (RESISTANCE)";
+                    message = `저항벽($${callWall}) 도달 후 매수세가 약해졌습니다. ${alphaTrade && alphaTrade.type === 'PUT' ? `오히려 스마트머니는 풋옵션($${alphaTrade.strike})으로 하락 헷징 중입니다.` : "고래들은 관망하며 방향을 탐색 중입니다."} 돌파 실패 시 조정이 올 수 있습니다.`;
+                    probability = 40;
+                    probLabel = "매도 (Sell)";
+                    probColor = "text-rose-400";
+                    color = "text-rose-400";
                 }
             } else if (isNearSup) {
-                if (whaleBias.includes('BEAR')) {
-                    status = "💀 추가 하락 경고 (DANGER)";
-                    message = `지지벽($${putWall})에서 반등해야 할 자리지만, 고래들의 자금은 하방(Put)으로 쏠리고 있습니다. 지지선이 뚫릴 확률이 매우 높습니다. 절대 물타기 금지.`;
-                    probability = 10;
-                    probLabel = "매도 (Exit)";
-                    probColor = "text-rose-500";
-                    color = "text-rose-500";
-                } else if (whaleBias.includes('BULL')) {
-                    status = "💎 바닥 확인 (BOTTOM FISHING)";
-                    message = `주가는 바닥($${putWall})에 도달했고, 스마트머니(Whale)는 여기서 '반등'에 배팅하고 있습니다. 손익비가 가장 좋은 '매수 타점'입니다.`;
+                if (whaleBias.includes('BULL')) {
+                    status = "💎 바닥 매수 기회 (BUY THE DIP)";
+                    message = `지지선($${putWall})에서 완벽한 저점 매수 기회입니다. ${alphaIntel} 스마트머니는 이곳을 '절대 바닥'으로 인식하고 쓸어담고 있습니다. 손익비 최상 구간.`;
                     probability = 80;
-                    probLabel = "매수 기회 (Buy Dip)";
+                    probLabel = "매수 (Buy)";
                     probColor = "text-emerald-400";
                     color = "text-emerald-400";
                 } else {
-                    status = "🛡️ 지지선 테스트 (DEFENSE)";
-                    message = `주요 지지선($${putWall})을 테스트 중입니다. 기술적 반등이 나올 수 있는 자리이나, 고래들의 뚜렷한 유입은 아직 없습니다. 분할 매수로 접근하십시오.`;
-                    probability = 60;
-                    color = "text-indigo-400";
+                    status = "💀 추가 하락 주의 (WEAK)";
+                    message = `지지선($${putWall})이 위태롭습니다. ${alphaIntel ? alphaIntel : "고래들의 저점 매수세가 전혀 없습니다."} 지지가 깨질 확률이 높으니 칼날을 잡지 마십시오.`;
+                    probability = 20;
+                    probLabel = "관망/매도";
+                    probColor = "text-rose-500";
+                    color = "text-rose-500";
                 }
             } else {
-                // Middle of Range
-                if (whaleBias === 'STRONG_BULL' || whaleBias === 'BULLISH') {
+                // Mid-Range
+                if (whaleBias.includes('BULL')) {
                     status = "📈 상승 모멘텀 (MOMENTUM)";
-                    message = `박스권 중간이지만 고래들의 자금이 상방으로 계속 유입되고 있습니다(Net +$${(netWhalePremium / 1000).toFixed(0)}K). 저항벽($${callWall})을 향해 순항할 것입니다.`;
-                    probability = 70;
-                    probLabel = "매수 우위 (Bullish)";
+                    message = `박스권($${putWall} ~ $${callWall}) 흐름이지만, ${alphaIntel} 고래 자금은 상방을 가리키고 있습니다. 눌림목 매수가 유효합니다.`;
+                    probability = 65;
+                    probLabel = "매수 우위";
                     probColor = "text-emerald-400";
                     color = "text-emerald-400";
-                } else if (whaleBias === 'STRONG_BEAR' || whaleBias === 'BEARISH') {
+                } else if (whaleBias.includes('BEAR')) {
                     status = "📉 하락 압력 (PRESSURE)";
-                    message = `상승 동력이 약합니다. 고래들은 지속적으로 물량을 정리하거나 하락에 베팅(Net -$${Math.abs(netWhalePremium / 1000).toFixed(0)}K)하고 있습니다. 지지선($${putWall})까지 밀릴 수 있습니다.`;
-                    probability = 30;
-                    probLabel = "매도 우위 (Bearish)";
+                    message = `상승 탄력이 둔화되었습니다. ${alphaIntel} 고래들은 차트가 무너지기 전에 물량을 정리하거나 하방에 베팅 중입니다. 보수적으로 접근하십시오.`;
+                    probability = 35;
+                    probLabel = "매도 우위";
                     probColor = "text-rose-400";
                     color = "text-rose-400";
                 } else {
-                    status = "⚖️ 박스권 횡보 (RANGE BOUND)";
-                    message = `현재 주가($${currentPrice})는 바닥($${putWall})과 천장($${callWall})의 중간 지대(No Man's Land)에 갇혀 있습니다. 고래들의 움직임도 없습니다. 뚜렷한 방향이 나올 때까지 관망하십시오.`;
+                    status = "⚖️ 방향성 탐색 (NEUTRAL)";
+                    message = `현재 주가($${currentPrice})는 고래들의 '전장' 한복판입니다. ${alphaTrade ? `${alphaTrade.type}옵션에 일부 자금이 들어왔으나` : "뚜렷한 주도 세력이 없습니다."} 확실한 방향 결정 전까지는 휴식도 투자입니다.`;
                     probability = 50;
-                    probLabel = "중립 (Neutral)";
+                    probLabel = "중립";
                     probColor = "text-slate-500";
-                    color = "text-slate-400";
+                    color = "text-slate-500";
                 }
             }
         }
@@ -393,6 +396,9 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     <span className="text-[9px] font-black px-2 py-0.5 rounded bg-rose-950/40 border border-rose-500/40 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse tracking-widest">
                                         TOP SECRET // EYES ONLY
                                     </span>
+                                    <span className="text-[10px] text-slate-500 font-bold ml-2 tracking-wide hidden sm:inline-block">
+                                        ℹ️ Cost (평단가) • BEP (손익분기점)
+                                    </span>
                                 </div>
 
                                 {/* Horizontal Scroll Container */}
@@ -426,6 +432,13 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                 const isBlock = t.size >= 500;
                                                 strategyMain = isBlock ? "BLOCK" : "SWEEP";
                                             }
+
+                                            // [V3.7.3] Sniper Logic: Local BEP Calculation
+                                            // Unit Cost = Premium / (Size * 100)
+                                            const unitCost = t.premium / (t.size * 100);
+                                            const bep = isCall ? t.strike + unitCost : t.strike - unitCost;
+                                            const bepDist = ((bep - currentPrice) / currentPrice) * 100;
+                                            const isInMoney = (isCall && currentPrice > t.strike) || (!isCall && currentPrice < t.strike);
 
                                             // Node Color Theme
                                             const nodeBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
@@ -471,15 +484,21 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                         </div>
                                                     </div>
 
-                                                    {/* Row 2: Strategy & Strike */}
+                                                    {/* Row 2: Strategy & Strike (Expanded) */}
                                                     <div className="flex justify-between items-end border-b border-white/10 pb-2">
                                                         <div className="flex flex-col">
                                                             <span className="text-[11px] font-bold text-cyan-200">{strategyMain}</span>
-                                                            {strategySub && <span className="text-[10px] text-cyan-400/80 font-medium">{strategySub}</span>}
+                                                            <span className="text-xs font-bold text-cyan-300 mt-0.5">
+                                                                {unitCost > 0 ? `Cost $${unitCost.toFixed(2)}` : strategySub}
+                                                            </span>
                                                         </div>
                                                         <div className="text-right">
-                                                            <span className="text-sm font-bold text-white">STRIKE ${t.strike}</span>
-                                                            <div className="text-[10px] text-slate-500">EXP {t.expiry.slice(5)}</div>
+                                                            <span className="text-sm font-bold text-white">Strike ${t.strike}</span>
+                                                            <div className="text-xs font-bold text-slate-300 font-mono flex items-center justify-end gap-1 mt-0.5">
+                                                                <span className={bepDist > 0 ? "text-emerald-400 drop-shadow-sm" : "text-rose-400 drop-shadow-sm"}>
+                                                                    BEP ${bep.toFixed(2)}
+                                                                </span>
+                                                            </div>
                                                         </div>
                                                     </div>
 

@@ -431,3 +431,78 @@ export async function getLastOptionTrade(ticker: string): Promise<any | null> {
         return null;
     }
 }
+// [S-56.4.6] Option Contract Snapshot (Precision Logic)
+export interface OptionSnapshot {
+    details: {
+        contract_type: 'call' | 'put';
+        exercise_style: 'american' | 'european';
+        expiration_date: string;
+        shares_per_contract: number;
+        strike_price: number;
+        ticker: string;
+    };
+    greeks: {
+        delta: number;
+        gamma: number;
+        theta: number;
+        vega: number;
+    };
+    underlying_asset: {
+        change_to_breakeven: number;
+        last_updated: number;
+        price: number;
+        ticker: string;
+        timeframe: 'REALTIME' | 'DELAYED';
+    };
+    break_even_price: number;
+    implied_volatility: number;
+    open_interest: number;
+    day: {
+        change: number;
+        change_percent: number;
+        close: number;
+        high: number;
+        last: number;
+        low: number;
+        open: number;
+        previous_close: number;
+        volume: number;
+        vwap: number;
+    };
+}
+
+export async function fetchOptionSnapshot(underlyingTicker: string, contractTicker: string): Promise<OptionSnapshot | null> {
+    assertLiveApiEnabled(`fetchOptionSnapshot:${contractTicker}`);
+    const url = `${MASSIVE_BASE_URL}/v3/snapshot/options/${underlyingTicker}/${contractTicker}?apiKey=${MASSIVE_API_KEY}`;
+
+    try {
+        const start = Date.now();
+        const res = await fetch(url, CACHE_POLICY.REPORT_GEN);
+
+        if (!res.ok) {
+            const err = normalizeError(await res.text(), res.status);
+            console.warn(`[Massive] Snapshot Failed for ${contractTicker}: ${err.reasonKR}`);
+            notifyStatus({ step: 'SNAPSHOT_FAIL', lastError: err.reasonKR, lastHttpStatus: res.status });
+            return null;
+        }
+
+        const data = await res.json();
+        // Massive returns { results: { ...snapshot... }, status: "OK" }
+        // OR sometimes directly the object depending on endpoint version, but usually wrapped in results for v3/snapshot wrapper?
+        // Actually /v3/snapshot/options/{x}/{y} returns:
+        // { results: { ... }, status: "OK", request_id: ... }
+
+        if (!data.results) {
+            console.warn(`[Massive] Snapshot Empty for ${contractTicker}`);
+            return null;
+        }
+
+        notifyStatus({ step: 'SNAPSHOT_OK', summary: { elapsedMs: Date.now() - start } });
+        return data.results as OptionSnapshot;
+
+    } catch (e) {
+        const err = normalizeError(e);
+        console.error(`[Massive] Snapshot Error: ${err.details}`);
+        return null;
+    }
+}
