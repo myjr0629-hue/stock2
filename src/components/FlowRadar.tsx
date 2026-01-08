@@ -667,23 +667,26 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             {/* Chart Interpretation Tips */}
                             <div className="space-y-1.5 shrink-0">
                                 <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">차트 해석 비법</div>
-                                <div className="space-y-1 text-[10px]">
+                                <div className="space-y-2 text-[10px]">
                                     <div className="flex items-start gap-2">
                                         <Zap size={10} className="text-amber-400 mt-0.5 shrink-0" />
                                         <div>
-                                            <span className="text-amber-400 font-bold">깜빡이는 바 (Pulse)</span>
+                                            <span className="text-amber-400 font-bold block leading-none mb-0.5">깜빡이는 바 (Pulse)</span>
+                                            <p className="text-[9px] text-slate-400 leading-tight">지금 세력 자금이 몰리는 <span className="text-amber-300">핫스팟</span>입니다.</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2">
                                         <TrendingUp size={10} className="text-emerald-400 mt-0.5 shrink-0" />
                                         <div>
-                                            <span className="text-emerald-400 font-bold">전술 활용 (매수)</span>
+                                            <span className="text-emerald-400 font-bold block leading-none mb-0.5">전술 활용 (매수)</span>
+                                            <p className="text-[9px] text-slate-400 leading-tight">주가가 <span className="text-emerald-300">녹색 벽(저항)</span>을 강하게 뚫으면 추격 매수 기회입니다.</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2">
                                         <TrendingDown size={10} className="text-rose-400 mt-0.5 shrink-0" />
                                         <div>
-                                            <span className="text-rose-400 font-bold">전술 활용 (매도/방어)</span>
+                                            <span className="text-rose-400 font-bold block leading-none mb-0.5">전술 활용 (매도/방어)</span>
+                                            <p className="text-[9px] text-slate-400 leading-tight">주가가 <span className="text-rose-300">붉은 벽(지지)</span> 아래로 깨지면 손절 혹은 하락 베팅 타이밍입니다.</p>
                                         </div>
                                     </div>
                                 </div>
