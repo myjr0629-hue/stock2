@@ -694,28 +694,52 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
                             </div>
 
-                            {/* 5. Key Levels (Dynamic Ladder) - Redesigned */}
-                            <div className="mt-auto pt-2 grid grid-cols-1 gap-2">
+                            {/* 5. Key Levels (Dynamic Ladder) - Restored & Refined */}
+                            <div className="mt-auto pt-2 grid grid-cols-1 gap-1">
                                 {/* Top: Call Wall */}
-                                <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-4 rounded-sm flex items-center justify-between group relative overflow-hidden">
+                                <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-5 min-h-[80px] rounded-[4px] flex items-center justify-between group relative overflow-hidden">
                                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-2">
                                             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-sm shadow-[0_0_5px_rgba(16,185,129,0.8)] animate-pulse" /> CALL WALL (저항)
                                         </div>
                                     </div>
-                                    <div className="text-lg font-black text-emerald-400 font-mono tracking-tight">${callWall}</div>
+                                    <div className="text-xl font-black text-emerald-400 font-mono tracking-tight">${callWall}</div>
+                                </div>
+
+                                {/* Middle: Ladder Visual (Restored) */}
+                                <div className="relative h-14 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
+                                    <div className="absolute top-0 bottom-0 w-[1px] bg-slate-800" />
+                                    {(() => {
+                                        const totalRange = callWall - putWall;
+                                        const currentPos = currentPrice - putWall;
+                                        let pct = (currentPos / totalRange) * 100;
+                                        pct = Math.max(15, Math.min(85, pct)); // Clamp to keep inside
+                                        const topPct = 100 - pct;
+
+                                        return (
+                                            <div
+                                                className="absolute w-full flex items-center justify-center transition-all duration-1000 ease-out"
+                                                style={{ top: `${topPct}%`, transform: 'translateY(-50%)' }}
+                                            >
+                                                <div className="bg-slate-900 border border-indigo-500 text-[10px] font-bold text-indigo-300 px-3 py-1 rounded-[4px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
+                                                </div>
+                                                <div className="absolute w-[calc(100%+8px)] h-[1px] bg-indigo-500/30 border-t border-dotted border-indigo-500/50" />
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
 
                                 {/* Bottom: Put Floor */}
-                                <div className="bg-gradient-to-t from-rose-950/40 to-[#0f172a] border border-rose-900/40 p-4 rounded-sm flex items-center justify-between group relative overflow-hidden">
+                                <div className="bg-gradient-to-t from-rose-950/40 to-[#0f172a] border border-rose-900/40 p-5 min-h-[80px] rounded-[4px] flex items-center justify-between group relative overflow-hidden">
                                     <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-500/50 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-2">
                                             <div className="w-1.5 h-1.5 bg-rose-500 rounded-sm shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse" /> PUT FLOOR (지지)
                                         </div>
                                     </div>
-                                    <div className="text-lg font-black text-rose-400 font-mono tracking-tight">${putWall}</div>
+                                    <div className="text-xl font-black text-rose-400 font-mono tracking-tight">${putWall}</div>
                                 </div>
                             </div>
                         </CardContent>
