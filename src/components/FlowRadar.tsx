@@ -373,10 +373,10 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             </div>
 
             {/* Tactical Intel Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 h-[780px]">
 
                 {/* 1. Main Radar Chart & Whale Feed */}
-                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-[780px]">
+                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-full">
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
                     <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden">
                         {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
@@ -675,16 +675,16 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
                             )}
 
-                            {/* 3. Analysis Message Box - Glass */}
-                            <div className="bg-slate-950/30 rounded-lg border border-white/5 p-3 relative shrink-0 mt-1 backdrop-blur-sm">
-                                <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-indigo-500/50 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                            {/* 3. Analysis Message Box - High Visibility Glass */}
+                            <div className="bg-indigo-950/40 rounded-lg border border-indigo-500/30 p-3.5 relative shrink-0 mt-1 backdrop-blur-md shadow-lg shadow-indigo-500/10 group hover:bg-indigo-900/40 transition-colors">
+                                <div className="absolute left-0 top-3 bottom-3 w-1 bg-indigo-400 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.6)] group-hover:bg-indigo-300 transition-colors" />
                                 <div className="flex gap-3 pl-3">
-                                    <div className="mt-0.5 opacity-80">
-                                        {analysis?.status === 'BULLISH' ? <TrendingUp size={14} className="text-emerald-400" /> :
-                                            analysis?.status === 'BEARISH' ? <TrendingDown size={14} className="text-rose-400" /> :
-                                                <Activity size={14} className="text-indigo-400" />}
+                                    <div className="mt-0.5 shrink-0">
+                                        {analysis?.status === 'BULLISH' ? <TrendingUp size={16} className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> :
+                                            analysis?.status === 'BEARISH' ? <TrendingDown size={16} className="text-rose-400 drop-shadow-[0_0_5px_rgba(251,113,133,0.5)]" /> :
+                                                <Activity size={16} className="text-indigo-400 drop-shadow-[0_0_5px_rgba(129,140,248,0.5)]" />}
                                     </div>
-                                    <p className="text-[11px] leading-relaxed text-slate-300 font-mono whitespace-pre-line opacity-90">
+                                    <p className="text-xs leading-relaxed text-indigo-50 font-medium font-sans whitespace-pre-line shadow-black/50 drop-shadow-sm">
                                         {analysis?.message}
                                     </p>
                                 </div>
