@@ -771,7 +771,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     <div className="lg:col-span-4 flex flex-col gap-4 h-full">
 
                         {/* 1. Decision Gate - Fixed Height */}
-                        <div className="shrink-0 relative rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors">
+                        <div className="shrink-0 relative rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-2xl">
                             {/* Decorative Outline - Moved Inside/Adjusted */}
                             <div className="absolute left-0 top-0 w-3 h-3 border-l-2 border-t-2 border-slate-500/50 rounded-tl z-20 pointer-events-none" />
                             <div className="p-2">
@@ -786,7 +786,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* 2. Flow Unit - Glass Card */}
-                        <div className="shrink-0 rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors">
+                        <div className="shrink-0 rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors shadow-2xl">
                             <div className="p-2 border-b border-white/5 flex items-center justify-between bg-white/5">
                                 <div className="flex items-center gap-2">
                                     <Activity size={10} className="text-sky-400" />
@@ -806,7 +806,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* 3. Intel Feed Needs to fill remaining height */}
-                        <div className="flex-1 min-h-0 flex flex-col rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-lg relative group">
+                        <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-2xl relative group">
                             {/* Background Pattern */}
                             <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%)] bg-[size:10px_10px] pointer-events-none" />
 
