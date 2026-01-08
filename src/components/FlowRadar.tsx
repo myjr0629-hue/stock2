@@ -567,11 +567,11 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                         {putVal > 0 ? putVal.toLocaleString() : ""}
                                                     </span>
                                                     <div
-                                                        className={`h-4 rounded-l-sm transition-all duration-700 relative overflow-hidden ${isPutWallStrike ? "shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse" : ""}`}
+                                                        className={`h-4 rounded-l-sm transition-all duration-700 relative overflow-hidden flex items-center justify-end ${isPutWallStrike ? "shadow-[0_0_15px_rgba(244,63,94,0.6)] animate-pulse" : "shadow-[0_0_10px_rgba(244,63,94,0.1)]"}`}
                                                         style={{ width: `${putPct}%` }}
                                                     >
-                                                        <div className={`absolute inset-0 ${isPutWallStrike ? "bg-gradient-to-l from-rose-500 to-rose-700" : "bg-gradient-to-l from-rose-500/80 to-rose-900/50"}`} />
-                                                        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                                                        <div className={`absolute inset-0 ${isPutWallStrike ? "bg-gradient-to-l from-rose-500 to-rose-700" : "bg-gradient-to-l from-rose-500/10 via-rose-500/40 to-rose-500 border-l border-rose-500/50"}`} />
+                                                        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.05)_50%,transparent_75%)] bg-[size:10px_10px]" />
                                                     </div>
                                                 </div>
 
@@ -588,11 +588,11 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                 {/* CALL Side */}
                                                 <div className="flex justify-start items-center h-6 relative">
                                                     <div
-                                                        className={`h-4 rounded-r-sm transition-all duration-700 relative overflow-hidden ${isCallWallStrike ? "shadow-[0_0_15px_rgba(16,185,129,0.6)] animate-pulse" : ""}`}
+                                                        className={`h-4 rounded-r-sm transition-all duration-700 relative overflow-hidden flex items-center justify-start ${isCallWallStrike ? "shadow-[0_0_15px_rgba(16,185,129,0.6)] animate-pulse" : "shadow-[0_0_10px_rgba(16,185,129,0.1)]"}`}
                                                         style={{ width: `${callPct}%` }}
                                                     >
-                                                        <div className={`absolute inset-0 ${isCallWallStrike ? "bg-gradient-to-r from-emerald-500 to-emerald-700" : "bg-gradient-to-r from-emerald-500/80 to-emerald-900/50"}`} />
-                                                        <div className="absolute inset-0 bg-gradient-to-b from-white/10 to-transparent pointer-events-none" />
+                                                        <div className={`absolute inset-0 ${isCallWallStrike ? "bg-gradient-to-r from-emerald-500 to-emerald-700" : "bg-gradient-to-r from-emerald-500/10 via-emerald-500/40 to-emerald-500 border-r border-emerald-500/50"}`} />
+                                                        <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.05)_50%,transparent_75%)] bg-[size:10px_10px]" />
                                                     </div>
                                                     <span className={`text-[9px] font-mono ml-2 ${callVal > 0 ? "text-emerald-400" : "text-slate-700"}`}>
                                                         {callVal > 0 ? callVal.toLocaleString() : ""}
@@ -623,111 +623,127 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
                 <div className="order-1 lg:order-2 h-full">
-                    <Card className="bg-slate-900/60 border-white/10 flex flex-col rounded-lg h-full min-h-0">
-                        <CardContent className="p-4 space-y-2 flex flex-col h-full">
-                            <div className="flex items-center gap-2 mb-1 select-none shrink-0">
+                    {/* Consistent Glass Panel for Right Side */}
+                    <Card className="bg-slate-900/30 backdrop-blur-md border-white/10 flex flex-col rounded-xl h-full min-h-0 shadow-2xl relative overflow-hidden">
+                        {/* Subtle Grid Background */}
+                        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
+
+                        <CardContent className="p-5 space-y-3 flex flex-col h-full relative z-10">
+                            <div className="flex items-center gap-2 mb-1 select-none shrink-0 border-b border-white/5 pb-3">
                                 <Lock size={12} className="text-amber-500" />
-                                <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">
+                                <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] flex-1">
                                     LEVEL 3 INSTITUTIONAL DATA
                                 </span>
+                                <div className="flex gap-1">
+                                    <div className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                                    <div className="w-1 h-1 rounded-full bg-amber-500/50" />
+                                    <div className="w-1 h-1 rounded-full bg-amber-500/30" />
+                                </div>
                             </div>
 
                             {/* Institutional Data Description */}
-                            <p className="text-[10px] text-slate-400 leading-relaxed mb-2 shrink-0">
-                                이 차트는 일반 투자자들은 볼 수 없는 <span className="text-emerald-400 font-bold">"고래(Whale)와 마켓메이커(MM)"</span>의 숨겨진 포지션과 헷징 구조를 실시간 분석합니다. 단순 차트가 아닌 세력의 설계도입니다.
+                            <p className="text-[10px] text-slate-400 leading-relaxed mb-1 shrink-0 px-1">
+                                이 차트는 일반 투자자들은 볼 수 없는 <span className="text-emerald-400 font-bold">"고래(Whale)와 마켓메이커(MM)"</span>의 숨겨진 포지션과 헷징 구조를 실시간 분석합니다.
                             </p>
 
-                            {/* 1. Current Position Status (Hero Block) - Compact */}
-                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-2 text-center shadow-inner relative overflow-hidden group shrink-0">
-                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/5 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                <span className="text-[10px] text-white font-bold uppercase tracking-wider block mb-1">현재 포지션 제안</span>
-                                <div className={`text-sm font-black tracking-tight flex items-center justify-center gap-1.5 ${analysis?.color || "text-slate-300"}`}>
-                                    {analysis?.status === 'RANGE BOUND' && <Activity size={14} />}
-                                    {analysis?.status === 'BULLISH' && <TrendingUp size={14} />}
-                                    {analysis?.status === 'BEARISH' && <TrendingDown size={14} />}
-                                    {analysis?.status}
+                            {/* 1. Current Position Status (Hero Block) - Glass */}
+                            <div className="bg-gradient-to-b from-white/5 to-transparent rounded-lg border border-white/10 p-3 text-center relative overflow-hidden group shrink-0 transition-all hover:bg-white/10">
+                                <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">현재 포지션 제안</span>
+                                <div className={`text-sm font-black tracking-tight flex items-center justify-center gap-2 ${analysis?.color || "text-slate-300"}`}>
+                                    {analysis?.status === 'RANGE BOUND' && <Activity size={16} />}
+                                    {analysis?.status === 'BULLISH' && <TrendingUp size={16} />}
+                                    {analysis?.status === 'BEARISH' && <TrendingDown size={16} />}
+                                    <span className="drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{analysis?.status}</span>
                                 </div>
                             </div>
 
                             {/* 2. Probability Meter */}
                             {analysis?.probability && analysis.probability !== 50 && (
-                                <div className="space-y-1.5 shrink-0 mt-2">
+                                <div className="space-y-1.5 shrink-0 mt-1 px-1">
                                     <div className="flex justify-between items-end px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">% 확률 분석 (Beta)</span>
                                         <span className={`text-[10px] font-bold ${analysis.probColor}`}>{analysis.probLabel}</span>
                                     </div>
-                                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden relative shadow-inner">
+                                    <div className="h-1.5 bg-slate-800/50 rounded-full overflow-hidden relative border border-white/5">
                                         <div
                                             className={`h-full rounded-full shadow-[0_0_10px_currentColor] transition-all duration-1000 ${analysis.probColor.replace('text', 'bg')}`}
                                             style={{ width: `${analysis.probability}%` }}
                                         />
-                                        <div className="absolute inset-0 bg-gradient-to-b from-white/20 to-transparent pointer-events-none" />
                                     </div>
-                                    <div className="text-[9px] text-right text-slate-500">{analysis.probability.toFixed(0)}%</div>
+                                    <div className="text-[9px] text-right text-slate-500 font-mono opacity-70">{analysis.probability.toFixed(0)}%</div>
                                 </div>
                             )}
 
-                            {/* 3. Analysis Message Box */}
-                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-3 relative shrink-0 mt-2">
-                                <div className="absolute left-0 top-3 bottom-3 w-1 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-                                <div className="flex gap-3 pl-2">
-                                    <div className="mt-0.5">
+                            {/* 3. Analysis Message Box - Glass */}
+                            <div className="bg-slate-950/30 rounded-lg border border-white/5 p-3 relative shrink-0 mt-1 backdrop-blur-sm">
+                                <div className="absolute left-0 top-3 bottom-3 w-0.5 bg-indigo-500/50 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                                <div className="flex gap-3 pl-3">
+                                    <div className="mt-0.5 opacity-80">
                                         {analysis?.status === 'BULLISH' ? <TrendingUp size={14} className="text-emerald-400" /> :
                                             analysis?.status === 'BEARISH' ? <TrendingDown size={14} className="text-rose-400" /> :
                                                 <Activity size={14} className="text-indigo-400" />}
                                     </div>
-                                    <p className="text-[11px] leading-relaxed text-slate-300 font-mono whitespace-pre-line">
+                                    <p className="text-[11px] leading-relaxed text-slate-300 font-mono whitespace-pre-line opacity-90">
                                         {analysis?.message}
                                     </p>
                                 </div>
                             </div>
 
-                            <hr className="border-slate-800/50 my-2" />
+                            <hr className="border-white/5 my-2" />
 
                             {/* Chart Interpretation Tips */}
-                            <div className="space-y-2 shrink-0">
-                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">차트 해석 비법</div>
-                                <div className="space-y-2.5 text-[11px]">
-                                    <div className="flex items-start gap-2">
-                                        <Zap size={12} className="text-amber-400 mt-0.5 shrink-0" />
+                            <div className="space-y-2 shrink-0 px-1">
+                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                                    <Lightbulb size={10} /> 차트 해석 비법
+                                </div>
+                                <div className="space-y-3 text-[11px]">
+                                    <div className="flex items-start gap-3 group">
+                                        <div className="mt-0.5 p-1 rounded bg-amber-500/10 border border-amber-500/20 group-hover:border-amber-500/40 transition-colors">
+                                            <Zap size={10} className="text-amber-400 shrink-0" />
+                                        </div>
                                         <div>
-                                            <span className="text-amber-400 font-bold block leading-none mb-0.5">깜빡이는 바 (Pulse)</span>
-                                            <p className="text-[11px] text-slate-400 leading-snug">지금 세력 자금이 몰리는 <span className="text-amber-300">핫스팟</span>입니다.</p>
+                                            <span className="text-amber-100/90 font-bold block leading-none mb-1 text-[10px] tracking-wide">깜빡이는 바 (Pulse)</span>
+                                            <p className="text-[11px] text-slate-400 leading-snug">지금 세력 자금이 몰리는 <span className="text-amber-300 font-bold">핫스팟</span>입니다.</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-start gap-2">
-                                        <TrendingUp size={12} className="text-emerald-400 mt-0.5 shrink-0" />
+                                    <div className="flex items-start gap-3 group">
+                                        <div className="mt-0.5 p-1 rounded bg-emerald-500/10 border border-emerald-500/20 group-hover:border-emerald-500/40 transition-colors">
+                                            <TrendingUp size={10} className="text-emerald-400 shrink-0" />
+                                        </div>
                                         <div>
-                                            <span className="text-emerald-400 font-bold block leading-none mb-0.5">전술 활용 (매수)</span>
-                                            <p className="text-[11px] text-slate-400 leading-snug">주가가 <span className="text-emerald-300">녹색 벽(저항)</span>을 강하게 뚫으면 추격 매수 기회입니다.</p>
+                                            <span className="text-emerald-100/90 font-bold block leading-none mb-1 text-[10px] tracking-wide">전술 활용 (매수)</span>
+                                            <p className="text-[11px] text-slate-400 leading-snug">주가가 <span className="text-emerald-400 font-bold">녹색 벽(저항)</span>을 강하게 뚫으면 매수 기회입니다.</p>
                                         </div>
                                     </div>
-                                    <div className="flex items-start gap-2">
-                                        <TrendingDown size={12} className="text-rose-400 mt-0.5 shrink-0" />
+                                    <div className="flex items-start gap-3 group">
+                                        <div className="mt-0.5 p-1 rounded bg-rose-500/10 border border-rose-500/20 group-hover:border-rose-500/40 transition-colors">
+                                            <TrendingDown size={10} className="text-rose-400 shrink-0" />
+                                        </div>
                                         <div>
-                                            <span className="text-rose-400 font-bold block leading-none mb-0.5">전술 활용 (매도/방어)</span>
-                                            <p className="text-[11px] text-slate-400 leading-snug">주가가 <span className="text-rose-300">붉은 벽(지지)</span> 아래로 깨지면 손절 혹은 하락 베팅 타이밍입니다.</p>
+                                            <span className="text-rose-100/90 font-bold block leading-none mb-1 text-[10px] tracking-wide">전술 활용 (매도/방어)</span>
+                                            <p className="text-[11px] text-slate-400 leading-snug">주가가 <span className="text-rose-400 font-bold">붉은 벽(지지)</span> 아래로 깨지면 손절/매도 타이밍입니다.</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* 5. Key Levels (Final Optimized Fit) */}
+                            {/* 5. Key Levels (Final Optimized Fit - Glass Style) */}
                             <div className="mt-2 grid grid-cols-1 gap-1">
                                 {/* Top: Call Wall */}
-                                <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-3 h-[64px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
-                                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-50" />
+                                <div className="bg-gradient-to-r from-emerald-950/20 to-emerald-900/10 border border-emerald-500/20 p-3 h-[64px] rounded-sm flex items-center justify-between group relative overflow-hidden backdrop-blur-sm hover:border-emerald-500/40 transition-all">
+                                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-2">
                                             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-sm shadow-[0_0_5px_rgba(16,185,129,0.8)] animate-pulse" /> CALL WALL (저항)
                                         </div>
                                     </div>
-                                    <div className="text-xl font-black text-emerald-400 font-mono tracking-tight">${callWall}</div>
+                                    <div className="text-xl font-black text-emerald-400 font-mono tracking-tight shadow-emerald-500/20 drop-shadow-lg">${callWall}</div>
                                 </div>
 
-                                {/* Middle: Ladder Visual (Readable) */}
-                                <div className="relative h-6 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
-                                    <div className="absolute top-0 bottom-0 w-[1px] bg-slate-800" />
+                                {/* Middle: Ladder Visual (Clean Tech) */}
+                                <div className="relative h-6 flex flex-col justify-center items-center">
+                                    <div className="absolute top-0 bottom-0 w-[1px] bg-slate-700/50" />
                                     {(() => {
                                         const totalRange = callWall - putWall;
                                         const currentPos = currentPrice - putWall;
@@ -740,7 +756,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                 className="absolute w-full flex items-center justify-center transition-all duration-1000 ease-out"
                                                 style={{ top: `${topPct}%`, transform: 'translateY(-50%)' }}
                                             >
-                                                <div className="bg-slate-900 border border-indigo-500 text-[11px] font-bold text-indigo-300 px-3 py-0.5 rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
+                                                <div className="bg-slate-900/90 border border-indigo-400/50 text-[11px] font-bold text-indigo-300 px-3 py-0.5 rounded-sm shadow-[0_0_15px_rgba(99,102,241,0.3)] z-10 flex items-center gap-1.5 backdrop-blur-md">
                                                     <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
                                                 </div>
                                             </div>
@@ -749,14 +765,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
 
                                 {/* Bottom: Put Floor */}
-                                <div className="bg-gradient-to-t from-rose-950/40 to-[#0f172a] border border-rose-900/40 p-3 h-[64px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
-                                    <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-500/50 to-transparent opacity-50" />
+                                <div className="bg-gradient-to-r from-rose-950/20 to-rose-900/10 border border-rose-500/20 p-3 h-[64px] rounded-sm flex items-center justify-between group relative overflow-hidden backdrop-blur-sm hover:border-rose-500/40 transition-all">
+                                    <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-500/30 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-2">
                                             <div className="w-1.5 h-1.5 bg-rose-500 rounded-sm shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse" /> PUT FLOOR (지지)
                                         </div>
                                     </div>
-                                    <div className="text-xl font-black text-rose-400 font-mono tracking-tight">${putWall}</div>
+                                    <div className="text-xl font-black text-rose-400 font-mono tracking-tight shadow-rose-500/20 drop-shadow-lg">${putWall}</div>
                                 </div>
                             </div>
                         </CardContent>
