@@ -603,8 +603,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
                 <div className="order-1 lg:order-2">
-                    <Card className="bg-slate-900/60 border-white/10 flex flex-col rounded-lg h-[810px]">
-                        <CardContent className="p-5 space-y-4 flex-1 flex flex-col">
+                    <Card className="bg-slate-900/60 border-white/10 flex flex-col rounded-lg h-full min-h-[780px]">
+                        <CardContent className="p-5 flex flex-col h-full">
                             <div className="flex items-center gap-2 mb-2 select-none shrink-0">
                                 <Lock size={12} className="text-amber-500" />
                                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">
@@ -631,7 +631,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                             {/* 2. Probability Meter */}
                             {analysis?.probability && analysis.probability !== 50 && (
-                                <div className="space-y-2 shrink-0">
+                                <div className="space-y-2 shrink-0 mt-3">
                                     <div className="flex justify-between items-end px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">% 확률 분석 (Beta)</span>
                                         <span className={`text-[10px] font-bold ${analysis.probColor}`}>{analysis.probLabel}</span>
@@ -648,7 +648,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             )}
 
                             {/* 3. Analysis Message Box */}
-                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-4 relative shrink-0">
+                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-4 relative shrink-0 mt-3">
                                 <div className="absolute left-0 top-4 bottom-4 w-1 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
                                 <div className="flex gap-3 pl-2">
                                     <div className="mt-0.5">
@@ -662,9 +662,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
                             </div>
 
-                            <div className="flex-1 min-h-[10px]" /> {/* Reduced Spacer */}
-
-                            <hr className="border-slate-800/50 my-2" />
+                            <hr className="border-slate-800/50 my-4" />
 
                             {/* Chart Interpretation Tips */}
                             <div className="space-y-2 shrink-0">
@@ -694,10 +692,10 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
                             </div>
 
-                            {/* 5. Key Levels (Dynamic Ladder) - Compact Middle & Equal Cards */}
-                            <div className="mt-auto pt-2 grid grid-cols-1 gap-1">
+                            {/* 5. Key Levels (Fixed & Compact) */}
+                            <div className="mt-4 grid grid-cols-1 gap-1">
                                 {/* Top: Call Wall */}
-                                <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-5 min-h-[90px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
+                                <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-4 h-[90px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
                                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-2">
@@ -707,8 +705,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     <div className="text-xl font-black text-emerald-400 font-mono tracking-tight">${callWall}</div>
                                 </div>
 
-                                {/* Middle: Ladder Visual (Compact) */}
-                                <div className="relative h-8 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
+                                {/* Middle: Ladder Visual (Ultra Compact) */}
+                                <div className="relative h-6 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
                                     <div className="absolute top-0 bottom-0 w-[1px] bg-slate-800" />
                                     {(() => {
                                         const totalRange = callWall - putWall;
@@ -722,8 +720,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                 className="absolute w-full flex items-center justify-center transition-all duration-1000 ease-out"
                                                 style={{ top: `${topPct}%`, transform: 'translateY(-50%)' }}
                                             >
-                                                <div className="bg-slate-900 border border-indigo-500 text-[10px] font-bold text-indigo-300 px-3 py-0.5 rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
-                                                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
+                                                <div className="bg-slate-900 border border-indigo-500 text-[9px] font-bold text-indigo-300 px-3 py-0 scale-90 rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
+                                                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
                                                 </div>
                                             </div>
                                         );
@@ -731,7 +729,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
 
                                 {/* Bottom: Put Floor */}
-                                <div className="bg-gradient-to-t from-rose-950/40 to-[#0f172a] border border-rose-900/40 p-5 min-h-[90px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
+                                <div className="bg-gradient-to-t from-rose-950/40 to-[#0f172a] border border-rose-900/40 p-4 h-[90px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
                                     <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-500/50 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-2">
