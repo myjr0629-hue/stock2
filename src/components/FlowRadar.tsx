@@ -694,7 +694,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
                             </div>
 
-                            {/* 5. Key Levels (Dynamic Ladder) - Restored & Refined */}
+                            {/* 5. Key Levels (Dynamic Ladder) - Compact Middle & Equal Cards */}
                             <div className="mt-auto pt-2 grid grid-cols-1 gap-1">
                                 {/* Top: Call Wall */}
                                 <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-5 min-h-[90px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
@@ -707,14 +707,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     <div className="text-xl font-black text-emerald-400 font-mono tracking-tight">${callWall}</div>
                                 </div>
 
-                                {/* Middle: Ladder Visual (Restored) */}
-                                <div className="relative h-14 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
+                                {/* Middle: Ladder Visual (Compact) */}
+                                <div className="relative h-8 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
                                     <div className="absolute top-0 bottom-0 w-[1px] bg-slate-800" />
                                     {(() => {
                                         const totalRange = callWall - putWall;
                                         const currentPos = currentPrice - putWall;
                                         let pct = (currentPos / totalRange) * 100;
-                                        pct = Math.max(15, Math.min(85, pct)); // Clamp to keep inside
+                                        pct = Math.max(15, Math.min(85, pct)); // Clamp
                                         const topPct = 100 - pct;
 
                                         return (
@@ -722,10 +722,9 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                 className="absolute w-full flex items-center justify-center transition-all duration-1000 ease-out"
                                                 style={{ top: `${topPct}%`, transform: 'translateY(-50%)' }}
                                             >
-                                                <div className="bg-slate-900 border border-indigo-500 text-[10px] font-bold text-indigo-300 px-3 py-1 rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
+                                                <div className="bg-slate-900 border border-indigo-500 text-[10px] font-bold text-indigo-300 px-3 py-0.5 rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
                                                     <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
                                                 </div>
-                                                <div className="absolute w-[calc(100%+8px)] h-[1px] bg-indigo-500/30 border-t border-dotted border-indigo-500/50" />
                                             </div>
                                         );
                                     })()}
