@@ -665,28 +665,28 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             <hr className="border-slate-800/50 my-2" />
 
                             {/* Chart Interpretation Tips */}
-                            <div className="space-y-1.5 shrink-0">
-                                <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">차트 해석 비법</div>
-                                <div className="space-y-2 text-[10px]">
+                            <div className="space-y-2 shrink-0">
+                                <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">차트 해석 비법</div>
+                                <div className="space-y-2.5 text-[11px]">
                                     <div className="flex items-start gap-2">
-                                        <Zap size={10} className="text-amber-400 mt-0.5 shrink-0" />
+                                        <Zap size={12} className="text-amber-400 mt-0.5 shrink-0" />
                                         <div>
                                             <span className="text-amber-400 font-bold block leading-none mb-0.5">깜빡이는 바 (Pulse)</span>
-                                            <p className="text-[9px] text-slate-400 leading-tight">지금 세력 자금이 몰리는 <span className="text-amber-300">핫스팟</span>입니다.</p>
+                                            <p className="text-[11px] text-slate-400 leading-snug">지금 세력 자금이 몰리는 <span className="text-amber-300">핫스팟</span>입니다.</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2">
-                                        <TrendingUp size={10} className="text-emerald-400 mt-0.5 shrink-0" />
+                                        <TrendingUp size={12} className="text-emerald-400 mt-0.5 shrink-0" />
                                         <div>
                                             <span className="text-emerald-400 font-bold block leading-none mb-0.5">전술 활용 (매수)</span>
-                                            <p className="text-[9px] text-slate-400 leading-tight">주가가 <span className="text-emerald-300">녹색 벽(저항)</span>을 강하게 뚫으면 추격 매수 기회입니다.</p>
+                                            <p className="text-[11px] text-slate-400 leading-snug">주가가 <span className="text-emerald-300">녹색 벽(저항)</span>을 강하게 뚫으면 추격 매수 기회입니다.</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2">
-                                        <TrendingDown size={10} className="text-rose-400 mt-0.5 shrink-0" />
+                                        <TrendingDown size={12} className="text-rose-400 mt-0.5 shrink-0" />
                                         <div>
                                             <span className="text-rose-400 font-bold block leading-none mb-0.5">전술 활용 (매도/방어)</span>
-                                            <p className="text-[9px] text-slate-400 leading-tight">주가가 <span className="text-rose-300">붉은 벽(지지)</span> 아래로 깨지면 손절 혹은 하락 베팅 타이밍입니다.</p>
+                                            <p className="text-[11px] text-slate-400 leading-snug">주가가 <span className="text-rose-300">붉은 벽(지지)</span> 아래로 깨지면 손절 혹은 하락 베팅 타이밍입니다.</p>
                                         </div>
                                     </div>
                                 </div>
@@ -705,8 +705,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     <div className="text-xl font-black text-emerald-400 font-mono tracking-tight">${callWall}</div>
                                 </div>
 
-                                {/* Middle: Ladder Visual (Micro) */}
-                                <div className="relative h-4 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
+                                {/* Middle: Ladder Visual (Readable) */}
+                                <div className="relative h-6 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
                                     <div className="absolute top-0 bottom-0 w-[1px] bg-slate-800" />
                                     {(() => {
                                         const totalRange = callWall - putWall;
@@ -720,8 +720,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                 className="absolute w-full flex items-center justify-center transition-all duration-1000 ease-out"
                                                 style={{ top: `${topPct}%`, transform: 'translateY(-50%)' }}
                                             >
-                                                <div className="bg-slate-900 border border-indigo-500 text-[9px] font-bold text-indigo-300 px-3 py-0 scale-[0.85] rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
-                                                    <span className="w-1 h-1 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
+                                                <div className="bg-slate-900 border border-indigo-500 text-[11px] font-bold text-indigo-300 px-3 py-0.5 rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
+                                                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
                                                 </div>
                                             </div>
                                         );
