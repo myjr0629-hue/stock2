@@ -15,10 +15,11 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const currentPriceLineRef = useRef<HTMLDivElement>(null);
+    const hasCenteredRef = useRef(false);
 
-    // Auto-Scroll to Current Price
+    // Auto-Scroll to Current Price (ONCE on Load)
     useEffect(() => {
-        if (scrollContainerRef.current && currentPriceLineRef.current) {
+        if (!hasCenteredRef.current && scrollContainerRef.current && currentPriceLineRef.current && rawChain.length > 0) {
             const container = scrollContainerRef.current;
             const target = currentPriceLineRef.current;
 
@@ -29,8 +30,10 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                 top: topPos,
                 behavior: 'smooth'
             });
+
+            hasCenteredRef.current = true;
         }
-    }, [currentPrice, rawChain]); // Trigger on price or data update
+    }, [currentPrice, rawChain]);
 
     // State for Live Whale Trades [V3.7.3]
     const [whaleTrades, setWhaleTrades] = useState<any[]>([]);
@@ -512,7 +515,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                         <div
                             ref={scrollContainerRef}
-                            className={`flex flex-col gap-1 overflow-y-auto overflow-x-hidden p-2 bg-[#0f172a]/30 rounded-lg border border-slate-800/50 shadow-inner ${effectiveViewMode === 'VOLUME' ? "min-h-[500px]" : "h-full min-h-0"
+                            className={`relative flex flex-col gap-1 overflow-y-auto overflow-x-hidden p-2 bg-[#0f172a]/30 rounded-lg border border-slate-800/50 shadow-inner ${effectiveViewMode === 'VOLUME' ? "min-h-[500px]" : "h-full min-h-0"
                                 }`}
                             style={{
                                 scrollbarWidth: 'thin',
