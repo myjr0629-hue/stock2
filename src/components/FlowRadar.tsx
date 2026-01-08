@@ -602,10 +602,10 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                 </Card>
 
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
-                <div className="order-1 lg:order-2">
-                    <Card className="bg-slate-900/60 border-white/10 flex flex-col rounded-lg h-full min-h-[780px]">
-                        <CardContent className="p-5 flex flex-col h-full">
-                            <div className="flex items-center gap-2 mb-2 select-none shrink-0">
+                <div className="order-1 lg:order-2 h-full">
+                    <Card className="bg-slate-900/60 border-white/10 flex flex-col rounded-lg h-full min-h-0">
+                        <CardContent className="p-4 space-y-2 flex flex-col h-full">
+                            <div className="flex items-center gap-2 mb-1 select-none shrink-0">
                                 <Lock size={12} className="text-amber-500" />
                                 <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em]">
                                     LEVEL 3 INSTITUTIONAL DATA
@@ -613,7 +613,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             </div>
 
                             {/* Institutional Data Description */}
-                            <p className="text-[10px] text-slate-400 leading-relaxed mb-3 shrink-0">
+                            <p className="text-[10px] text-slate-400 leading-relaxed mb-2 shrink-0">
                                 이 차트는 일반 투자자들은 볼 수 없는 <span className="text-emerald-400 font-bold">"고래(Whale)와 마켓메이커(MM)"</span>의 숨겨진 포지션과 헷징 구조를 실시간 분석합니다. 단순 차트가 아닌 세력의 설계도입니다.
                             </p>
 
@@ -631,12 +631,12 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                             {/* 2. Probability Meter */}
                             {analysis?.probability && analysis.probability !== 50 && (
-                                <div className="space-y-2 shrink-0 mt-3">
+                                <div className="space-y-1.5 shrink-0 mt-2">
                                     <div className="flex justify-between items-end px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">% 확률 분석 (Beta)</span>
                                         <span className={`text-[10px] font-bold ${analysis.probColor}`}>{analysis.probLabel}</span>
                                     </div>
-                                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden relative shadow-inner">
+                                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden relative shadow-inner">
                                         <div
                                             className={`h-full rounded-full shadow-[0_0_10px_currentColor] transition-all duration-1000 ${analysis.probColor.replace('text', 'bg')}`}
                                             style={{ width: `${analysis.probability}%` }}
@@ -648,8 +648,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             )}
 
                             {/* 3. Analysis Message Box */}
-                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-4 relative shrink-0 mt-3">
-                                <div className="absolute left-0 top-4 bottom-4 w-1 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
+                            <div className="bg-[#0f172a] rounded-lg border border-slate-800 p-3 relative shrink-0 mt-2">
+                                <div className="absolute left-0 top-3 bottom-3 w-1 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
                                 <div className="flex gap-3 pl-2">
                                     <div className="mt-0.5">
                                         {analysis?.status === 'BULLISH' ? <TrendingUp size={14} className="text-emerald-400" /> :
@@ -662,40 +662,37 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
                             </div>
 
-                            <hr className="border-slate-800/50 my-4" />
+                            <hr className="border-slate-800/50 my-2" />
 
                             {/* Chart Interpretation Tips */}
-                            <div className="space-y-2 shrink-0">
+                            <div className="space-y-1.5 shrink-0">
                                 <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">차트 해석 비법</div>
-                                <div className="space-y-1.5 text-[10px]">
+                                <div className="space-y-1 text-[10px]">
                                     <div className="flex items-start gap-2">
                                         <Zap size={10} className="text-amber-400 mt-0.5 shrink-0" />
                                         <div>
                                             <span className="text-amber-400 font-bold">깜빡이는 바 (Pulse)</span>
-                                            <p className="text-slate-400">지금 세력 자금이 몰리는 <span className="text-amber-300">핫스팟</span>입니다.</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2">
                                         <TrendingUp size={10} className="text-emerald-400 mt-0.5 shrink-0" />
                                         <div>
                                             <span className="text-emerald-400 font-bold">전술 활용 (매수)</span>
-                                            <p className="text-slate-400">주가가 <span className="text-emerald-300">녹색 벽(저항)</span>을 강하게 뚫으면 추격 매수 기회입니다.</p>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2">
                                         <TrendingDown size={10} className="text-rose-400 mt-0.5 shrink-0" />
                                         <div>
                                             <span className="text-rose-400 font-bold">전술 활용 (매도/방어)</span>
-                                            <p className="text-slate-400">주가가 <span className="text-rose-300">붉은 벽(지지)</span> 아래로 깨지면 손절 혹은 하락 베팅 타이밍입니다.</p>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* 5. Key Levels (Fixed & Compact) */}
-                            <div className="mt-4 grid grid-cols-1 gap-1">
+                            {/* 5. Key Levels (Final Optimized Fit) */}
+                            <div className="mt-2 grid grid-cols-1 gap-1">
                                 {/* Top: Call Wall */}
-                                <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-4 h-[90px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
+                                <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-3 h-[64px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
                                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-2">
@@ -705,14 +702,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     <div className="text-xl font-black text-emerald-400 font-mono tracking-tight">${callWall}</div>
                                 </div>
 
-                                {/* Middle: Ladder Visual (Ultra Compact) */}
-                                <div className="relative h-6 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
+                                {/* Middle: Ladder Visual (Micro) */}
+                                <div className="relative h-4 bg-[#0f172a]/50 border-x border-slate-800/30 mx-3 flex flex-col justify-center items-center backdrop-blur-sm">
                                     <div className="absolute top-0 bottom-0 w-[1px] bg-slate-800" />
                                     {(() => {
                                         const totalRange = callWall - putWall;
                                         const currentPos = currentPrice - putWall;
                                         let pct = (currentPos / totalRange) * 100;
-                                        pct = Math.max(15, Math.min(85, pct)); // Clamp
+                                        pct = Math.max(15, Math.min(85, pct));
                                         const topPct = 100 - pct;
 
                                         return (
@@ -720,7 +717,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                 className="absolute w-full flex items-center justify-center transition-all duration-1000 ease-out"
                                                 style={{ top: `${topPct}%`, transform: 'translateY(-50%)' }}
                                             >
-                                                <div className="bg-slate-900 border border-indigo-500 text-[9px] font-bold text-indigo-300 px-3 py-0 scale-90 rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
+                                                <div className="bg-slate-900 border border-indigo-500 text-[9px] font-bold text-indigo-300 px-3 py-0 scale-[0.85] rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
                                                     <span className="w-1 h-1 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
                                                 </div>
                                             </div>
@@ -729,7 +726,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
 
                                 {/* Bottom: Put Floor */}
-                                <div className="bg-gradient-to-t from-rose-950/40 to-[#0f172a] border border-rose-900/40 p-4 h-[90px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
+                                <div className="bg-gradient-to-t from-rose-950/40 to-[#0f172a] border border-rose-900/40 p-3 h-[64px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
                                     <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-500/50 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-2">
