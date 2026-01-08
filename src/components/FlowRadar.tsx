@@ -603,7 +603,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
                 <div className="order-1 lg:order-2">
-                    <Card className="bg-slate-900/60 border-white/10 flex flex-col rounded-lg h-[780px]">
+                    <Card className="bg-slate-900/60 border-white/10 flex flex-col rounded-lg h-[810px]">
                         <CardContent className="p-5 space-y-4 flex-1 flex flex-col">
                             <div className="flex items-center gap-2 mb-2 select-none shrink-0">
                                 <Lock size={12} className="text-amber-500" />
@@ -662,7 +662,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
                             </div>
 
-                            <div className="flex-1 min-h-[20px]" /> {/* Spacer */}
+                            <div className="flex-1 min-h-[10px]" /> {/* Reduced Spacer */}
 
                             <hr className="border-slate-800/50 my-2" />
 
@@ -697,7 +697,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             {/* 5. Key Levels (Dynamic Ladder) - Restored & Refined */}
                             <div className="mt-auto pt-2 grid grid-cols-1 gap-1">
                                 {/* Top: Call Wall */}
-                                <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-5 min-h-[80px] rounded-[4px] flex items-center justify-between group relative overflow-hidden">
+                                <div className="bg-gradient-to-b from-emerald-950/40 to-[#0f172a] border border-emerald-900/40 p-5 min-h-[90px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
                                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/50 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-2">
@@ -722,7 +722,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                                 className="absolute w-full flex items-center justify-center transition-all duration-1000 ease-out"
                                                 style={{ top: `${topPct}%`, transform: 'translateY(-50%)' }}
                                             >
-                                                <div className="bg-slate-900 border border-indigo-500 text-[10px] font-bold text-indigo-300 px-3 py-1 rounded-[4px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
+                                                <div className="bg-slate-900 border border-indigo-500 text-[10px] font-bold text-indigo-300 px-3 py-1 rounded-[2px] shadow-[0_0_10px_rgba(99,102,241,0.4)] z-10 flex items-center gap-1.5">
                                                     <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
                                                 </div>
                                                 <div className="absolute w-[calc(100%+8px)] h-[1px] bg-indigo-500/30 border-t border-dotted border-indigo-500/50" />
@@ -732,7 +732,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
 
                                 {/* Bottom: Put Floor */}
-                                <div className="bg-gradient-to-t from-rose-950/40 to-[#0f172a] border border-rose-900/40 p-5 min-h-[80px] rounded-[4px] flex items-center justify-between group relative overflow-hidden">
+                                <div className="bg-gradient-to-t from-rose-950/40 to-[#0f172a] border border-rose-900/40 p-5 min-h-[90px] rounded-[2px] flex items-center justify-between group relative overflow-hidden">
                                     <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-500/50 to-transparent opacity-50" />
                                     <div>
                                         <div className="text-[10px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-2">
