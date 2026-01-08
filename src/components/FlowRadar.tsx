@@ -14,6 +14,23 @@ interface FlowRadarProps {
 export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const currentPriceLineRef = useRef<HTMLDivElement>(null);
+
+    // Auto-Scroll to Current Price
+    useEffect(() => {
+        if (scrollContainerRef.current && currentPriceLineRef.current) {
+            const container = scrollContainerRef.current;
+            const target = currentPriceLineRef.current;
+
+            // Calculate center position
+            const topPos = target.offsetTop - (container.clientHeight / 2) + (target.clientHeight / 2);
+
+            container.scrollTo({
+                top: topPos,
+                behavior: 'smooth'
+            });
+        }
+    }, [currentPrice, rawChain]); // Trigger on price or data update
 
     // State for Live Whale Trades [V3.7.3]
     const [whaleTrades, setWhaleTrades] = useState<any[]>([]);
@@ -495,7 +512,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                         <div
                             ref={scrollContainerRef}
-                            className="space-y-1.5 overflow-y-auto pr-2 relative flex-[2] min-h-0 border-b border-white/5 pb-6"
+                            className={`flex flex-col gap-1 overflow-y-auto overflow-x-hidden p-2 bg-[#0f172a]/30 rounded-lg border border-slate-800/50 shadow-inner ${effectiveViewMode === 'VOLUME' ? "min-h-[500px]" : "h-full min-h-0"
+                                }`}
                             style={{
                                 scrollbarWidth: 'thin',
                                 scrollbarColor: '#334155 #0f172a'
@@ -581,7 +599,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                             </div>
 
                                             {showCurrentLineHere && (
-                                                <div className="col-span-3 py-1 relative">
+                                                <div className="col-span-3 py-1 relative" ref={currentPriceLineRef}>
                                                     <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-[1px] bg-sky-500/30 border-t border-dashed border-sky-400/50 shadow-[0_0_5px_rgba(14,165,233,0.3)]" />
                                                     <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 bg-slate-900 border border-sky-500/50 px-3 py-0.5 rounded-full z-20 shadow-[0_0_15px_rgba(14,165,233,0.4)] flex items-center gap-2 animate-pulse backdrop-blur-sm">
                                                         <div className="w-1.5 h-1.5 bg-sky-400 rounded-full animate-ping" />
