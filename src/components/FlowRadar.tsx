@@ -378,7 +378,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                 {/* 1. Main Radar Chart & Whale Feed */}
                 <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-[780px]">
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
-                    <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0">
+                    <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden">
                         {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
                         <div className="relative mb-4 -mx-4 -mt-3">
                             {/* Decorative Line (The "Stream") */}
@@ -515,8 +515,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                         <div
                             ref={scrollContainerRef}
-                            className={`relative flex flex-col gap-1 overflow-y-auto overflow-x-hidden p-2 bg-[#0f172a]/30 rounded-lg border border-slate-800/50 shadow-inner ${effectiveViewMode === 'VOLUME' ? "min-h-[500px]" : "h-full min-h-0"
-                                }`}
+                            className="relative flex-1 min-h-0 flex flex-col gap-1 overflow-y-auto overflow-x-hidden p-2 bg-[#0f172a]/30 rounded-lg border border-slate-800/50 shadow-inner"
                             style={{
                                 scrollbarWidth: 'thin',
                                 scrollbarColor: '#334155 #0f172a'
