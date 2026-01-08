@@ -1,6 +1,6 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 import { Target, TrendingUp, TrendingDown, Info } from "lucide-react";
 
 interface FlowSniperProps {
@@ -26,13 +26,13 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
     const isPanicSelling = putPct > 80 && !isBullish;
 
     return (
-        <Card className={`overflow-hidden transition-all duration-500 ${isGammaSqueeze ? "bg-indigo-950/40 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]" :
+        <div className={`overflow-hidden transition-all duration-500 rounded-lg flex flex-col h-full text-slate-200 ${isGammaSqueeze ? "bg-indigo-950/40 border border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]" :
             isPanicSelling ? "bg-rose-950/40 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]" :
-                "!bg-transparent border-0 shadow-none"
+                "bg-transparent border-0 shadow-none"
             }`}>
             {/* Header */}
-            <CardHeader className="py-2 border-b border-white/5 flex flex-row items-center justify-between">
-                <CardTitle className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+            <div className="py-2 border-b border-white/5 flex flex-row items-center justify-between px-3 shrink-0">
+                <div className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <Target className={`w-3 h-3 ${isGammaSqueeze ? "text-indigo-400 animate-pulse" : isPanicSelling ? "text-rose-400 animate-pulse" : "text-rose-400"}`} />
                     <div>
                         Flow Sniper
@@ -52,18 +52,18 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                             <span className="text-[9px] text-sky-400 font-bold">Flow Radar 기관지표 확인</span>
                         </div>
                     </div>
-                </CardTitle>
+                </div>
                 <div className="flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${isGammaSqueeze ? 'bg-indigo-400 shadow-[0_0_10px_#818cf8]' : isPanicSelling ? 'bg-rose-500 shadow-[0_0_10px_#f43f5e]' : isBullish ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
                     <span className={`text-[9px] font-black ${isGammaSqueeze ? 'text-indigo-300' : isPanicSelling ? 'text-rose-300' : isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {isGammaSqueeze ? "감마 스퀴즈 발동 (매수 광풍)" :
-                            isPanicSelling ? "패닉 셀링 (투매 속출)" :
-                                isBullish ? "BULLISH (공격수 기세 우위)" : "BEARISH (공격수 기세 약화)"}
+                        {isGammaSqueeze ? "감마 스퀴즈 발동" :
+                            isPanicSelling ? "패닉 셀링" :
+                                isBullish ? "BULLISH" : "BEARISH"}
                     </span>
                 </div>
-            </CardHeader>
+            </div>
 
-            <CardContent className="space-y-1.5 pt-1.5 pb-2 px-3">
+            <div className="space-y-1.5 pt-1.5 pb-2 px-3 flex-1">
                 {/* 1. NET PREMIUM BIG DISPLAY */}
                 <div className="text-center">
                     <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
@@ -113,7 +113,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                     </div>
                 </div>
 
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 }

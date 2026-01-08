@@ -129,22 +129,27 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
     }
 
     return (
-        <Card className={`shadow-none border-l-4 ${status === 'PASS' ? 'border-l-emerald-500' :
-            status === 'WATCH' ? 'border-l-amber-500' :
-                'border-l-rose-500'
-            } !bg-transparent overflow-hidden border-t-0 border-r-0 border-b-0`}>
-            <CardContent className="py-3 px-3">
-                {/* Status Badge (Compact) */}
-                <div className="flex justify-between items-center mb-2">
-                    <span className="text-[9px] text-amber-500 font-bold">종합 리스크 통제실</span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-black ${status === 'PASS' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                        status === 'WATCH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                            'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                        }`}>
-                        {status}
-                    </span>
-                </div>
-                <div className="space-y-1.5 mb-2">
+        <div className="flex flex-col h-full bg-transparent">
+            {/* Standard Header Strip */}
+            <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 shrink-0">
+                <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
+                    <ShieldAlert size={10} />
+                    Risk Control
+                </span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider ${status === 'PASS' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                    status === 'WATCH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                        'bg-rose-500/20 text-rose-400 border border-rose-500/30'
+                    }`}>
+                    {status}
+                </span>
+            </div>
+
+            {/* Content Area */}
+            <div className={`p-3 space-y-3 relative ${status === 'PASS' ? 'bg-emerald-950/5' : status === 'WATCH' ? 'bg-amber-950/5' : 'bg-rose-950/5'}`}>
+                {/* Side Border Indicator Replaced by Inner Tint or just clean */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1 ${status === 'PASS' ? 'bg-emerald-500' : status === 'WATCH' ? 'bg-amber-500' : 'bg-rose-500'}`} />
+
+                <div className="space-y-1.5 pl-2">
                     {reasons.slice(0, 4).map((r, i) => (
                         <div key={i} className="text-[11px] font-bold text-slate-400 flex items-start gap-2">
                             <span className="mt-1 w-1 h-1 rounded-full bg-slate-600 shrink-0" />
@@ -153,23 +158,23 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
                     ))}
                     {reasons.length === 0 && <div className="text-[11px] text-slate-500 italic">특이 사항 없음 (안전)</div>}
                 </div>
-                {/* Rumor Detection Status (Always Shown) */}
-                <div className="flex items-center justify-between text-[10px] mb-2 py-1.5 px-2 rounded bg-slate-800/50 border border-white/5">
-                    <span className="text-slate-500 font-bold uppercase tracking-wider">AI 루머 감지</span>
+                {/* Rumor Detection Status (Compact) */}
+                <div className="flex items-center justify-between text-[10px] py-1.5 px-2 rounded bg-slate-800/50 border border-white/5 ml-2">
+                    <span className="text-slate-500 font-bold uppercase tracking-wider">AI Rumor</span>
                     {hasRumor ? (
                         <span className="text-rose-400 font-black flex items-center gap-1">
                             <AlertCircle size={10} /> 감지됨
                         </span>
                     ) : (
-                        <span className="text-emerald-400 font-black">✓ 미감지</span>
+                        <span className="text-emerald-400 font-black">✓ Clean</span>
                     )}
                 </div>
-                <div className="text-[11px] font-black text-slate-400 border-t border-white/5 pt-2 flex items-center gap-2">
+                <div className="text-[10px] font-medium text-slate-400 border-t border-white/5 pt-2 flex items-center gap-2 pl-2">
                     <Zap size={10} className="text-amber-400 shrink-0" />
-                    <span className="truncate text-slate-300">{actionHint}</span>
+                    <span className="truncate">{actionHint}</span>
                 </div>
-            </CardContent>
-        </Card>
+            </div>
+        </div>
     );
 };
 
@@ -772,17 +777,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                         {/* 1. Decision Gate - Fixed Height */}
                         <div className="shrink-0 relative rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-2xl">
-                            {/* Decorative Outline - Moved Inside/Adjusted */}
-                            <div className="absolute left-0 top-0 w-3 h-3 border-l-2 border-t-2 border-slate-500/50 rounded-tl z-20 pointer-events-none" />
-                            <div className="p-2">
-                                <DecisionGate
-                                    ticker={ticker}
-                                    displayPrice={displayPrice}
-                                    session={effectiveSession}
-                                    structure={structure}
-                                    krNews={krNews}
-                                />
-                            </div>
+                            {/* Decorative Outline REMOVED because it conflicts with standard glass look */}
+                            <DecisionGate
+                                ticker={ticker}
+                                displayPrice={displayPrice}
+                                session={effectiveSession}
+                                structure={structure}
+                                krNews={krNews}
+                            />
                         </div>
 
                         {/* 2. Flow Unit - Glass Card */}
@@ -808,7 +810,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         {/* 3. Intel Feed Needs to fill remaining height */}
                         <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-2xl relative group">
                             {/* Background Pattern */}
-                            <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.02)_50%,transparent_75%)] bg-[size:10px_10px] pointer-events-none" />
+                            {/* Background Pattern REMOVED for consistency */}
 
                             <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 relative z-10 shrink-0">
                                 <div className="flex items-center gap-2">
