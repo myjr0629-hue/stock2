@@ -28,7 +28,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
     return (
         <Card className={`border-slate-800 backdrop-blur-md overflow-hidden transition-all duration-500 ${isGammaSqueeze ? "bg-indigo-950/40 border-indigo-500/30 shadow-[0_0_15px_rgba(99,102,241,0.15)]" :
             isPanicSelling ? "bg-rose-950/40 border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]" :
-                "bg-slate-900/50"
+                "bg-transparent"
             }`}>
             {/* Header */}
             <CardHeader className="py-2 border-b border-white/5 flex flex-row items-center justify-between">
