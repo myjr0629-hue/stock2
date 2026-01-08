@@ -411,24 +411,51 @@
     "date": "2026-01-07",
     "reportType": "final",
     "sessionType": "regular",
-    "timestamp": "2026-01-07T14:30:56.866Z",
+    "timestamp": "2026-01-08T07:57:40.886Z",
     "tickers": [
       {
-        "symbol": "NVDA",
+        "symbol": "QCOM",
         "rank": 1,
-        "baselinePrice": 187.8716,
+        "baselinePrice": 180.19,
         "alphaScore": 0
       },
       {
-        "symbol": "META",
+        "symbol": "AAPL",
         "rank": 2,
-        "baselinePrice": 657.95,
+        "baselinePrice": 260.33,
         "alphaScore": 0
       },
       {
-        "symbol": "NFLX",
+        "symbol": "NVDA",
         "rank": 3,
-        "baselinePrice": 91.13,
+        "baselinePrice": 189.11,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
+  },
+  {
+    "date": "2026-01-07",
+    "reportType": "morning",
+    "sessionType": "pre",
+    "timestamp": "2026-01-08T13:26:56.338Z",
+    "tickers": [
+      {
+        "symbol": "MSFT",
+        "rank": 1,
+        "baselinePrice": 483.47,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "INTC",
+        "rank": 2,
+        "baselinePrice": 42.63,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "AMD",
+        "rank": 3,
+        "baselinePrice": 210.02,
         "alphaScore": 0
       }
     ],

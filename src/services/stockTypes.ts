@@ -49,6 +49,16 @@ export interface DecisionSSOT {
     action: DecisionAction;
     confidence: number;
     triggersKR: string[];
+    // [V3.7.3] Whale Extension
+    whaleReasonKR?: string;
+    whaleEntryLevel?: number;
+    whaleTargetLevel?: number;
+    entryBand?: { min: number; max: number };
+    cutPrice?: number;
+    isLocked?: boolean;
+    whaleIndex?: number;
+    whaleConfidence?: 'HIGH' | 'MED' | 'LOW' | 'NONE';
+    dominantContract?: string;
 }
 
 // [S-56.4.2] Unified Options Status (Non-Blocking)

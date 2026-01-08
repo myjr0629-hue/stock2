@@ -11,8 +11,9 @@ import {
 } from "lucide-react";
 import { ReportArchive } from "@/components/ReportArchive";
 import { TacticalCard } from "@/components/TacticalCard";
-import { TacticalSidebar } from "@/components/TacticalSidebar"; // [NEW]
 import { PremiumBlur } from "@/components/PremiumBlur";
+import { TacticalSidebar } from "@/components/TacticalSidebar";
+import { TacticalBoard } from "@/components/intel/TacticalBoard"; // [NEW]
 
 
 // ============================================================================
@@ -111,6 +112,11 @@ export interface TickerItem {
         entryBand?: { min: number; max: number };
         cutPrice?: number;
         isLocked?: boolean;
+        whaleIndex?: number;
+        whaleConfidence?: 'HIGH' | 'MED' | 'LOW' | 'NONE'; // [V3.7.3]
+        whaleEntryLevel?: number; // [V3.7.3]
+        whaleTargetLevel?: number; // [V3.7.3]
+        dominantContract?: string; // [V3.7.3]
     };
     entryBand?: { low: number; high: number };
     hardCut?: number;
@@ -340,111 +346,7 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
     );
 }
 
-// Top3 Execution Card: Simplified, cleaner typography
-function Top3Card({ item, rank }: { item: TickerItem; rank: number }) {
-    const action = item.decisionSSOT?.action || "CAUTION";
-    const isNoTrade = action === "NO_TRADE" || action === "EXIT";
-    const ev = item.evidence; // SSOT shortcut
 
-    // vNext Price Logic
-    const price = ev?.price?.last || 0;
-    const changePct = ev?.price?.changePct || 0;
-    const source = ev?.price?.priceSource;
-
-    let tag = "";
-    let tagStyle = "text-slate-500";
-    if (source === "OFFICIAL_CLOSE") { tag = "CLOSE"; tagStyle = "text-slate-500 bg-slate-800/50 border-slate-700"; }
-    else if (source === "POST_CLOSE") { tag = "POST"; tagStyle = "text-indigo-300 bg-indigo-500/10 border-indigo-500/30"; }
-    else if (source === "PRE_OPEN") { tag = "PRE"; tagStyle = "text-amber-300 bg-amber-500/10 border-amber-500/30"; }
-    else if (source === "LIVE_SNAPSHOT") { tag = "LIVE"; tagStyle = "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"; }
-
-    return (
-        <div className={`relative bg-slate-900 border rounded p-4 ${isNoTrade ? "border-slate-800 opacity-70" : "border-slate-800 hover:border-slate-600 transition-colors"}`}>
-            {/* Rank - Subtle */}
-            <div className="absolute top-4 right-4 text-[40px] font-black text-slate-800/50 leading-none pointer-events-none select-none">
-                {rank}
-            </div>
-
-            {/* Header */}
-            <div className="flex items-start justify-between mb-6 relative z-10">
-                <div>
-                    <div className="flex items-center gap-3 mb-1">
-                        <div className="w-8 h-8 rounded-full bg-white p-0.5 shadow-sm overflow-hidden flex items-center justify-center">
-                            <img
-                                src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
-                                alt={item.ticker}
-                                className="w-full h-full object-contain"
-                                onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    e.currentTarget.parentElement!.style.backgroundColor = '#1e293b'; // slate-800
-                                    e.currentTarget.parentElement!.innerHTML = `<span class="text-[10px] font-bold text-slate-400">${item.ticker[0]}</span>`;
-                                }}
-                            />
-                        </div>
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-2">
-                                <span className="text-xl font-bold text-white tracking-tight leading-none">{item.ticker}</span>
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getActionStyle(action)}`}>
-                                    {action}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div className="text-right">
-                    <div className="flex items-center justify-end gap-2 mb-0.5">
-                        {tag && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${tagStyle}`}>{tag}</span>}
-                        <p className="text-base font-semibold font-mono text-white tabular-nums tracking-tight">
-                            {price > 0 ? price.toFixed(2) : (
-                                (item.evidence.price as any).error ?
-                                    <span className="text-xs text-rose-500 font-bold">{(item.evidence.price as any).error}</span> :
-                                    <Skeleton className="w-12 h-4 inline-block" />
-                            )}
-                        </p>
-                    </div>
-                    <p className={`text-[11px] font-medium tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
-                    </p>
-                </div>
-            </div>
-
-            {/* Execution Levels - Clean Grid */}
-            {!isNoTrade ? (
-                <div className="space-y-2 relative z-10">
-                    <div className="flex items-center justify-between py-1 border-b border-slate-800/50">
-                        <span className="text-[11px] text-slate-500 font-medium">Entry</span>
-                        <div className="text-right">
-                            <span className="block text-[13px] font-mono font-medium text-white tabular-nums">
-                                ${item.entryBand?.low?.toFixed(2)} - {item.entryBand?.high?.toFixed(2)}
-                            </span>
-                        </div>
-                    </div>
-                    <div className="flex items-center justify-between py-1 border-b border-slate-800/50">
-                        <span className="text-[11px] text-rose-400/80 font-medium">Cut</span>
-                        <div className="text-right">
-                            <span className="block text-[13px] font-mono font-medium text-rose-300 tabular-nums">
-                                ${item.hardCut?.toFixed(2)}
-                            </span>
-                        </div>
-                    </div>
-                    <div className="flex items-center justify-between py-1">
-                        <span className="text-[11px] text-emerald-400/80 font-medium">Target</span>
-                        <div className="text-right flex items-center gap-3">
-                            <span className="text-[13px] font-mono font-medium text-emerald-300 tabular-nums">${item.tp1?.toFixed(2)}</span>
-                            <span className="text-[11px] text-slate-600">/</span>
-                            <span className="text-[13px] font-mono font-medium text-emerald-300 tabular-nums">${item.tp2?.toFixed(2)}</span>
-                        </div>
-                    </div>
-                </div>
-            ) : (
-                <div className="h-[92px] flex flex-col items-center justify-center bg-slate-950/50 rounded border border-slate-800/50 border-dashed">
-                    <Lock className="w-4 h-4 text-slate-600 mb-2" />
-                    <p className="text-xs text-slate-500 font-medium">Trading restricted</p>
-                </div>
-            )}
-        </div>
-    );
-}
 
 // ============================================================================
 // DRAWER COMPONENT - Unified Evidence 5-Layers
@@ -1182,205 +1084,31 @@ function Tier01Content() {
                             </div>
                         </section>
 
-                        {/* 2. TOP 3 ALPHA (TACTICAL HERO SECTION) */}
+                        {/* 2. TACTICAL BOARD (Unified Sniper Interface) */}
                         <section>
-                            <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-                                <Zap className="w-5 h-5 text-emerald-500" />
-                                MAIN CORPS (주력군)
-                                <span className="text-[10px] text-slate-500 font-normal uppercase tracking-widest ml-2">Data Verified • High Probability</span>
-                            </h2>
-                            {/* Enlarged Grid for V4 Cards */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {isLoading ? (
-                                    [1, 2, 3].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
-                                ) : (
-                                    top3.map((item, idx) => (
-                                        <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
-                                            <TacticalCard
-                                                ticker={item.ticker}
-                                                rank={idx + 1}
-                                                price={item.evidence.price.last}
-                                                change={item.evidence.price.changePct}
-                                                entryBand={item.decisionSSOT?.entryBand}
-                                                cutPrice={item.decisionSSOT?.cutPrice}
-                                                isLocked={item.decisionSSOT?.isLocked}
-                                                name={item.symbol}
-                                                rsi={item.evidence.price.rsi14}
-                                                score={item.alphaScore}
-                                                isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
-                                                reasonKR={item.qualityReasonKR} // [V4] Reasoning Pass-through
-                                            />
-                                        </div>
-                                    ))
-                                )}
-                            </div>
+                            <TacticalBoard items={sortedItems.map((item, idx) => ({
+                                ticker: item.ticker,
+                                powerScore: item.alphaScore || 0,
+                                price: item.evidence.price.last,
+                                changePct: item.evidence.price.changePct,
+                                rank: (item as any).rank || (idx + 1),
+                                qualityReasonKR: item.qualityReasonKR || "",
+                                decisionSSOT: {
+                                    action: item.decisionSSOT?.action || "WATCH",
+                                    entryBand: item.decisionSSOT?.entryBand ? [item.decisionSSOT.entryBand.min, item.decisionSSOT.entryBand.max] : undefined,
+                                    cutPrice: item.decisionSSOT?.cutPrice,
+                                    whaleEntryLevel: item.decisionSSOT?.whaleEntryLevel,
+                                    whaleTargetLevel: item.decisionSSOT?.whaleTargetLevel,
+                                    dominantContract: item.decisionSSOT?.dominantContract,
+                                    triggersKR: item.decisionSSOT?.triggersKR,
+                                    whaleConfidence: item.decisionSSOT?.whaleConfidence === 'HIGH' ? 95 : item.decisionSSOT?.whaleConfidence === 'MED' ? 80 : 50,
+                                    targetPrice: item.tp1
+                                },
+                                isDiscovery: idx >= 10
+                            }))} />
                         </section>
 
-                        {/* 3. ALPHA 12 SCAN TABLE (Places 4-10 + Generic fallback for top 3 if tactical fails) */}
-                        {/* Visual Logic: We display Middle 7 here. */}
-                        <section>
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-                                    <Search className="w-5 h-5 text-slate-400" />
-                                    Live Scan (Core)
-                                </h2>
-                            </div>
 
-                            <div className="bg-slate-900 border border-slate-800 rounded-lg overflow-hidden shadow-sm">
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-slate-950 border-b border-slate-800 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                                                <th className="p-4 w-[60px] text-center">Rank</th>
-                                                <th className="p-4 w-[120px]">Ticker</th>
-                                                <th className="p-4 text-right">Score</th>
-                                                <th className="p-4 text-right">Price</th>
-                                                <th className="p-4 text-right">Flow</th>
-                                                <th className="p-4 text-center">Options</th>
-                                                <th className="p-4 hidden md:table-cell">Triggers</th>
-                                                <th className="p-4 text-center">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y divide-slate-800/50">
-                                            {isLoading ? (
-                                                [1, 2, 3].map(i => (
-                                                    <tr key={i}><td colSpan={8} className="p-4"><Skeleton className="h-12 w-full" /></td></tr>
-                                                ))
-                                            ) : (
-                                                middle7.map((item, idx) => {
-                                                    const ev = item.evidence;
-                                                    if (!ev) return null;
-                                                    const optStatus = getOptionsStatus(ev.options?.status);
-                                                    const actStyle = getActionStyle(item.decisionSSOT?.action);
-                                                    // Real rank is offset by 3 since we sliced from 3
-                                                    const realRank = (item as any).rank || (idx + 4);
-
-                                                    return (
-                                                        <tr key={item.ticker}
-                                                            onClick={() => setSelectedTicker(item)}
-                                                            className={`cursor-pointer transition-colors group hover:bg-slate-800/50`}
-                                                        >
-                                                            <td className="p-4 text-center font-mono text-xs text-slate-500">
-                                                                {realRank}
-                                                            </td>
-                                                            <td className="p-4">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div>
-                                                                        <span className="block text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{item.ticker}</span>
-                                                                        <span className="block text-[10px] text-slate-500">{item.symbol || item.ticker}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 text-right">
-                                                                <span className="font-mono font-bold text-sm text-slate-300">{item.alphaScore?.toFixed(0) || "-"}</span>
-                                                            </td>
-                                                            <td className="p-4 text-right">
-                                                                <div className="flex flex-col items-end">
-                                                                    <span className="text-sm font-mono text-slate-200">${ev.price.last.toFixed(2)}</span>
-                                                                    <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                                        {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
-                                                                    </span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 text-right">
-                                                                <div className="flex flex-col items-end">
-                                                                    {/* Snippet Logic: XAI Snippet or Flow */}
-                                                                    {ev.flow.complete ? (
-                                                                        <>
-                                                                            <span className={`text-xs font-mono ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-500"}`}>
-                                                                                {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1000000).toFixed(1)}M` : "-"}
-                                                                            </span>
-                                                                        </>
-                                                                    ) : (
-                                                                        <span className="text-[10px] font-mono text-slate-500">
-                                                                            {ev.options?.pcr > 0 ? `PCR ${ev.options.pcr.toFixed(2)}` : "Waiting for Whales"}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 text-center">
-                                                                <span className={`inline-flex w-2.5 h-2.5 rounded-full ${optStatus.color}`} title={optStatus.label} />
-                                                            </td>
-                                                            <td className="p-4 hidden md:table-cell">
-                                                                <div className="flex flex-wrap gap-1 justify-end md:justify-start">
-                                                                    {(item.decisionSSOT?.triggersKR || []).slice(0, 1).map((t, i) => (
-                                                                        <span key={i} className="px-1.5 py-0.5 rounded bg-slate-800 text-[9px] text-slate-400 border border-slate-700 whitespace-nowrap">
-                                                                            {t}
-                                                                        </span>
-                                                                    ))}
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 text-center">
-                                                                <span className={`px-2 py-1 rounded text-[10px] font-bold border ${actStyle}`}>
-                                                                    {item.decisionSSOT?.action || "WATCH"}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* 4. MOONSHOT SECTION (10+2) */}
-                        {moonshot.length > 0 && (
-                            <section>
-                                <h2 className="text-lg font-bold text-rose-200 mb-4 flex items-center gap-2">
-                                    <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
-                                    Moonshot Zone (High Risk)
-                                </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {moonshot.map((item, idx) => (
-                                        <div key={item.ticker}
-                                            onClick={() => setSelectedTicker(item)}
-                                            className="cursor-pointer bg-slate-900/50 border border-rose-900/40 rounded-xl p-6 relative overflow-hidden group hover:border-rose-500/50 transition-colors">
-
-                                            <div className="absolute top-0 right-0 p-2 opacity-50">
-                                                <Activity className="w-12 h-12 text-rose-900/20" />
-                                            </div>
-
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-rose-950 flex items-center justify-center border border-rose-900 text-rose-500 font-bold font-mono">
-                                                        {(item as any).rank || (idx + 11)}
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xl font-black text-white">{item.ticker}</div>
-                                                        <div className="text-[10px] text-rose-400/80 font-bold uppercase tracking-wider">Gamma Play</div>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-lg font-mono text-rose-200">${item.evidence.price.last.toFixed(2)}</div>
-                                                    <div className={`text-xs font-bold ${item.evidence.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                        {item.evidence.price.changePct > 0 ? "+" : ""}{item.evidence.price.changePct.toFixed(2)}%
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-xs border-t border-rose-900/30 pt-2">
-                                                    <span className="text-slate-500">RSI (14)</span>
-                                                    <span className="text-slate-300 font-mono">
-                                                        {item.evidence.price.rsi14 && item.evidence.price.rsi14 !== 50
-                                                            ? item.evidence.price.rsi14.toFixed(0)
-                                                            : "--"}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="text-slate-500">Target</span>
-                                                    <span className="text-rose-300 font-mono">${(item.evidence.price.last * 1.15).toFixed(2)}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        {/* 5. FOOTER / DEBUG INFO */}
                         {isDebug && report && (
                             <section className="bg-slate-900 p-4 rounded border border-indigo-500/30 overflow-x-auto">
                                 <h3 className="text-xs font-bold text-indigo-400 mb-2 font-mono">DEBUG INSPECTOR (?debug=1)</h3>

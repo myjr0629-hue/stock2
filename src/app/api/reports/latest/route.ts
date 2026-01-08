@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     const type = searchParams.get('type') as ReportType | 'gems' | null;
 
     try {
-        // Default to 'eod' if no type specified
+        // Default to 'eod' if no type specified, but respect explicit override
         const reportType = type || 'eod';
 
         // Special case: 'gems' returns latest.json (engine report)

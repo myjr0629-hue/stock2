@@ -13,6 +13,7 @@ import { ReportArchive } from "@/components/ReportArchive";
 import { TacticalCard } from "@/components/TacticalCard";
 import { TacticalSidebar } from "@/components/TacticalSidebar"; // [NEW]
 import { PremiumBlur } from "@/components/PremiumBlur";
+import { TacticalBoard } from "@/components/intel/TacticalBoard"; // [NEW]
 
 
 // ============================================================================
@@ -119,6 +120,7 @@ export interface TickerItem {
         whaleEntryLevel?: number; // [V3.7.3]
         whaleTargetLevel?: number; // [V3.7.3]
         dominantContract?: string; // [V3.7.3]
+        whaleReasonKR?: string; // [V3.7.4] Narrative Engine
     };
     entryBand?: { low: number; high: number };
     hardCut?: number;
@@ -977,12 +979,6 @@ function TickerEvidenceDrawer({ item, onClose }: { item: TickerItem; onClose: ()
                             </h3>
                             <div className="bg-slate-900 border border-slate-800 rounded p-3 h-full">
                                 <div className="flex items-center gap-2 mb-2">
-                                    <span className={`text-base font-black ${ev.stealth.label === 'A' ? 'text-emerald-400' : ev.stealth.label === 'B' ? 'text-amber-400' : 'text-slate-500'}`}>
-                                        GR.{ev.stealth.label}
-                                    </span>
-                                    <span className="text-[10px] text-slate-500 font-bold">{ev.stealth.impact}</span>
-                                </div>
-                                <div className="flex flex-wrap gap-1">
                                     {ev.stealth.tags.map((tag, i) => (
                                         <span key={i} className="text-[9px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded">
                                             #{tag}
@@ -1122,6 +1118,9 @@ function IntelContent({ initialReport }: { initialReport: any }) {
 
                 let url = `/api/reports/archive?date=${targetDate}`;
 
+                // [Freshness Fix] Always prioritize LATEST API for Morning Briefs to ensure fresh generation
+                // The Archive endpoint might return stale FS data if the cron just ran.
+                /*
                 // Try Archive First
                 const res = await fetch(url, { cache: 'no-store' });
                 if (res.ok) {
@@ -1131,33 +1130,34 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                         setError(null);
                     }
                 } else {
-                    // Fallback to Latest if Today (Auto-detect type via API or default)
-                    // [Fix] Removed hardcoded 'type=morning' to allow server to decide or use 'final'
-                    if (isToday) {
-                        const resLatest = await fetch('/api/reports/latest?type=final');
-                        if (resLatest.ok) {
-                            const data = await resLatest.json();
+                */
+
+                // Fallback to Latest if Today (Auto-detect type via API or default)
+                if (isToday || true) { // Force attempt
+                    const resLatest = await fetch('/api/reports/latest?type=morning');
+                    if (resLatest.ok) {
+                        const data = await resLatest.json();
+                        if (isMounted) {
+                            setReport(data);
+                            setError(null);
+                        }
+                    } else {
+                        // If latest fails, try archive as fallback
+                        const res = await fetch(url, { cache: 'no-store' });
+                        if (res.ok) {
+                            const data = await res.json();
                             if (isMounted) {
                                 setReport(data);
                                 setError(null);
                             }
                         } else {
-                            if (isMounted) {
-                                // Don't clear report if auto-refresh fails
-                                if (!isAutoRefresh) {
-                                    setReport(null);
-                                    setError("No report available for this date.");
-                                }
+                            if (isMounted && !isAutoRefresh) {
+                                setReport(null);
+                                setError("No report available.");
                             }
-                        }
-                    } else {
-                        if (isMounted) {
-                            setReport(null);
-                            setError("No archive found for this date.");
                         }
                     }
                 }
-
             } catch (e) {
                 console.error("Failed to load report", e);
                 if (isMounted && !isAutoRefresh) setError("Connection failed.");
@@ -1260,19 +1260,21 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     const regime = report?.engine?.regime || "NEUTRAL";
 
     return (
-        <main className="min-h-screen bg-[#05090f] font-sans selection:bg-emerald-500/30 selection:text-emerald-200 flex">
+        <main className="min-h-screen bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-slate-950 via-[#0f172a] to-[#1e1b4b] font-sans selection:bg-cyan-500/30 selection:text-cyan-200 flex overflow-hidden">
+
+            {/* Ambient Glow Effects (Global) */}
+            <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[150px] rounded-full pointer-events-none mix-blend-screen z-0" />
+            <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/5 blur-[150px] rounded-full pointer-events-none mix-blend-screen z-0" />
 
             {/* 0. TACTICAL SIDEBAR (Fixed Left) */}
             <TacticalSidebar activeTab={activeTab} onTabChange={setActiveTab} />
 
             {/* 1. MAIN CONTENT (Offset 208px) */}
-            <div className="flex-1 ml-52 relative min-h-screen">
+            <div className="flex-1 ml-52 relative min-h-screen backdrop-blur-[0px]"> {/* ml-52 matches sidebar width */}
 
-                {/* Premium Background Effects */}
+                {/* Glass Grid Overlay */}
                 <div className="fixed inset-0 pointer-events-none z-0 ml-52">
-                    <div className="absolute inset-0 bg-[#05090f]" />
-                    <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-indigo-900/5 rounded-full blur-[160px] opacity-20" />
-                    <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:linear-gradient(180deg,white,rgba(255,255,255,0))]" style={{ opacity: 0.02 }} />
+                    <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)] opacity-10" />
                 </div>
 
                 {isDebug && (
@@ -1396,14 +1398,13 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                             </div>
                         </section>
 
-                        {/* 2. TOP 3 ALPHA (TACTICAL HERO SECTION) */}
+                        {/* 2. MAIN CORPS (Top 3) */}
                         <section>
                             <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
                                 <Zap className="w-5 h-5 text-emerald-500" />
                                 MAIN CORPS (주력군)
                                 <span className="text-[10px] text-slate-500 font-normal uppercase tracking-widest ml-2">Data Verified • High Probability</span>
                             </h2>
-                            {/* Enlarged Grid for V4 Cards */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {isLoading ? (
                                     [1, 2, 3].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
@@ -1426,11 +1427,15 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                 rsi={item.evidence.price.rsi14}
                                                 score={item.alphaScore}
                                                 isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
-                                                reasonKR={item.qualityReasonKR} // [V4] Reasoning Pass-through
-                                                // [V3.7.5] Extended Session Data
+                                                reasonKR={item.decisionSSOT?.whaleReasonKR || item.qualityReasonKR}
                                                 extendedPrice={item.evidence.price.extendedPrice}
-                                                extendedChange={item.evidence.price.extendedChangePct} // Pass Pct as Change
+                                                extendedChange={item.evidence.price.extendedChangePct}
                                                 extendedLabel={item.evidence.price.extendedLabel}
+                                                // [V4.1] Sniper Data Injection
+                                                whaleTargetLevel={item.decisionSSOT?.whaleTargetLevel}
+                                                whaleConfidence={item.decisionSSOT?.whaleConfidence}
+                                                dominantContract={item.decisionSSOT?.dominantContract}
+                                                triggers={item.decisionSSOT?.triggersKR}
                                             />
                                         </div>
                                     ))
@@ -1438,8 +1443,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                             </div>
                         </section>
 
-                        {/* 3. ALPHA 12 SCAN TABLE (Places 4-10 + Generic fallback for top 3 if tactical fails) */}
-                        {/* Visual Logic: We display Middle 7 here. */}
+                        {/* 3. ALPHA 12 SCAN TABLE (Places 4-10) */}
                         <section>
                             <div className="flex justify-between items-center mb-4">
                                 <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
@@ -1448,11 +1452,16 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                 </h2>
                             </div>
 
-                            <div className="bg-slate-950/40 backdrop-blur-md border border-white/5 rounded-lg overflow-hidden shadow-2xl">
-                                <div className="overflow-x-auto">
+                            <div className="bg-white/5 backdrop-blur-[12px] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                                <div className="overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                                    <style jsx>{`
+                                        div::-webkit-scrollbar {
+                                            display: none;
+                                        }
+                                    `}</style>
                                     <table className="w-full text-left border-collapse">
                                         <thead>
-                                            <tr className="bg-slate-900/60 border-b border-white/5 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                                            <tr className="bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                                 <th className="p-4 w-[60px] text-center">Rank</th>
                                                 <th className="p-4 w-[120px]">Ticker</th>
                                                 <th className="p-4 text-right">Score</th>
@@ -1466,7 +1475,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                         <tbody className="divide-y-0">
                                             {isLoading ? (
                                                 [1, 2, 3].map(i => (
-                                                    <tr key={i}><td colSpan={8} className="p-4"><Skeleton className="h-12 w-full" /></td></tr>
+                                                    <tr key={i}><td colSpan={8} className="p-4"><Skeleton className="h-12 w-full bg-white/5" /></td></tr>
                                                 ))
                                             ) : (
                                                 middle7.map((item, idx) => {
@@ -1474,86 +1483,72 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                     if (!ev) return null;
                                                     const optStatus = getOptionsStatus(ev.options?.status);
                                                     const actStyle = getActionStyle(item.decisionSSOT?.action);
-                                                    // Real rank is offset by 3 since we sliced from 3
                                                     const realRank = (item as any).rank || (idx + 4);
 
                                                     return (
                                                         <tr key={item.ticker}
                                                             onClick={() => setSelectedTicker(item)}
-                                                            className={`cursor-pointer transition-all duration-200 hover:bg-white/5 hover:shadow-[0_0_15px_rgba(0,0,0,0.5)] hover:backdrop-blur-sm border-b border-white/5 last:border-0`}
+                                                            className={`cursor-pointer transition-all duration-200 hover:bg-white/10 hover:backdrop-blur-md border-b border-white/5 last:border-0 group`}
                                                         >
-                                                            <td className="p-4 text-center font-mono text-xs text-slate-500">
+                                                            <td className="p-4 text-center font-mono text-xs text-slate-400 font-bold group-hover:text-white transition-colors">
                                                                 {realRank}
                                                             </td>
                                                             <td className="p-4">
                                                                 <div className="flex items-center gap-3">
                                                                     <div>
-                                                                        <span className="block text-sm font-bold text-white group-hover:text-emerald-400 transition-colors">{item.ticker}</span>
-                                                                        <span className="block text-[10px] text-slate-500">{item.symbol || item.ticker}</span>
+                                                                        <span className="block text-sm font-black text-slate-100 group-hover:text-cyan-300 transition-colors tracking-tight">{item.ticker}</span>
+                                                                        <span className="block text-[10px] text-slate-400 group-hover:text-slate-300">{item.symbol || item.ticker}</span>
                                                                     </div>
                                                                 </div>
                                                             </td>
                                                             <td className="p-4 text-right">
-                                                                <span className="font-mono font-bold text-sm text-slate-300">{item.alphaScore?.toFixed(0) || "-"}</span>
-                                                            </td>
-                                                            <td className="p-4 text-right">
-                                                                <div className="flex flex-col items-end">
-                                                                    <span className="text-sm font-mono text-slate-200">${ev.price.last.toFixed(2)}</span>
-                                                                    <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                                        {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
-                                                                    </span>
-                                                                    {/* [V3.7.5] Extended Session Badge */}
-                                                                    {(ev.price.extendedPrice && ev.price.extendedPrice > 0) && (
-                                                                        <div className="flex items-center gap-1 mt-0.5 opacity-80 border-t border-slate-800 pt-0.5">
-                                                                            <span className="text-[9px] text-slate-500 uppercase font-bold">{ev.price.extendedLabel || 'EXT'}:</span>
-                                                                            <span className={`text-[9px] font-mono ${(ev.price.extendedChangePct || 0) >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
-                                                                                {ev.price.extendedPrice?.toFixed(2)} ({(ev.price.extendedChangePct || 0) > 0 ? "+" : ""}{((ev.price.extendedChangePct || 0)).toFixed(2)}%)
-                                                                            </span>
-                                                                        </div>
-                                                                    )}
+                                                                <div className="flex items-center justify-end gap-2">
+                                                                    <div className="w-16 bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
+                                                                        <div className="h-full bg-indigo-500" style={{ width: `${item.alphaScore || 0}%` }} />
+                                                                    </div>
+                                                                    <span className="font-mono font-bold text-sm text-white">{item.alphaScore?.toFixed(0) || "-"}</span>
                                                                 </div>
                                                             </td>
                                                             <td className="p-4 text-right">
                                                                 <div className="flex flex-col items-end">
-                                                                    {/* Snippet Logic: XAI Snippet or Flow */}
+                                                                    <span className="text-sm font-mono font-bold text-slate-200">${ev.price.last.toFixed(2)}</span>
+                                                                    <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                        {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
+                                                                    </span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="p-4 text-right">
+                                                                <div className="flex flex-col items-end">
                                                                     {ev.flow.complete ? (
                                                                         <>
-                                                                            <span className={`text-xs font-mono ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-500"}`}>
+                                                                            <span className={`text-xs font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-400"}`}>
                                                                                 {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1000000).toFixed(1)}M` : "-"}
                                                                             </span>
                                                                         </>
                                                                     ) : (
                                                                         <span className="text-[10px] font-mono text-slate-500">
-                                                                            {ev.options?.pcr > 0 ? `PCR ${ev.options.pcr.toFixed(2)}` : "Waiting for Whales"}
+                                                                            Waiting...
                                                                         </span>
                                                                     )}
                                                                 </div>
                                                             </td>
                                                             <td className="p-4 text-center">
-                                                                <span className={`inline-flex w-2.5 h-2.5 rounded-full ${optStatus.color}`} title={optStatus.label} />
+                                                                <span className={`inline-flex w-2.5 h-2.5 rounded-full ring-2 ring-white/10 ${optStatus.color}`} title={optStatus.label} />
                                                             </td>
                                                             <td className="p-4 hidden md:table-cell">
                                                                 <div className="flex flex-wrap gap-1 justify-end md:justify-start">
-                                                                    {(item.decisionSSOT?.triggersKR || []).map((code, i) => {
-                                                                        const def = TRIGGER_DEFINITIONS[code] || { label: code, desc: code, color: 'text-slate-400 border-slate-700 bg-slate-800' };
+                                                                    {(item.decisionSSOT?.triggersKR || []).slice(0, 2).map((code, i) => {
+                                                                        // Simplified tag rendering for table
                                                                         return (
-                                                                            <div key={i} className="group/tooltip relative inline-block">
-                                                                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold border whitespace-nowrap cursor-help ${def.color}`}>
-                                                                                    {def.label}
-                                                                                </span>
-                                                                                {/* Tooltip */}
-                                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 bg-slate-900 border border-slate-700 rounded shadow-xl text-[10px] text-slate-300 z-50 opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-opacity">
-                                                                                    <div className="font-bold text-white mb-1">{def.label}</div>
-                                                                                    {def.desc}
-                                                                                    <div className="absolute top-100 left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-900" />
-                                                                                </div>
-                                                                            </div>
+                                                                            <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/5 border border-white/10 text-slate-300">
+                                                                                {code}
+                                                                            </span>
                                                                         );
                                                                     })}
                                                                 </div>
                                                             </td>
                                                             <td className="p-4 text-center">
-                                                                <span className={`px-2 py-1 rounded text-[10px] font-bold border ${actStyle}`}>
+                                                                <span className={`px-2 py-1 rounded text-[10px] font-bold border border-opacity-30 backdrop-blur-sm ${actStyle}`}>
                                                                     {item.decisionSSOT?.action || "WATCH"}
                                                                 </span>
                                                             </td>
@@ -1622,7 +1617,8 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                             </section>
                         )}
 
-                        {/* 5. FOOTER / DEBUG INFO */}
+
+
                         {isDebug && report && (
                             <section className="bg-slate-900 p-4 rounded border border-indigo-500/30 overflow-x-auto">
                                 <h3 className="text-xs font-bold text-indigo-400 mb-2 font-mono">DEBUG INSPECTOR (?debug=1)</h3>
@@ -1661,8 +1657,8 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                     )
                 }
 
-            </div >
-        </main >
+            </div>
+        </main>
     );
 }
 

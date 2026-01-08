@@ -339,7 +339,47 @@ export async function generateReport(type: ReportType, force: boolean = false): 
         // STAGE 1: DRAFT (Standard Universe Selection)
         // Convert string[] pool to objects for policy function
         const universePoolStrings = await loadStockUniversePool();
-        const universePoolObjects = universePoolStrings.map(s => ({ ticker: s }));
+        candidateTickers = universePoolStrings;
+
+        // [Continuity Protocol] Inject Previous Leaders
+        // Ensure "King of the Hill" persistence
+        try {
+            // Calculate previous date manually since getMarketDate doesn't accept args
+            const yesterday = new Date(Date.now() - 86400000);
+            const yyyy = yesterday.getFullYear();
+            const mm = String(yesterday.getMonth() + 1).padStart(2, '0');
+            const dd = String(yesterday.getDate()).padStart(2, '0');
+            const yesterdayStr = `${yyyy}-${mm}-${dd}`;
+
+            const prevFinal = await getArchivedReport(getMarketDate(), 'final') || await getArchivedReport(yesterdayStr, 'final');
+            const prevMorning = await getArchivedReport(getMarketDate(), 'morning');
+
+            // Prioritize most recent valid report
+            // Use safe access and provide default empty string for comparison
+            const pmTime = prevMorning?.meta?.generatedAt || '';
+            const pfTime = prevFinal?.meta?.generatedAt || '';
+
+            const continuitySource = (pmTime > pfTime) ? prevMorning : prevFinal;
+
+            if (continuitySource?.items) {
+                // Get Top 3 from previous run
+                const leaders = continuitySource.items
+                    .sort((a: any, b: any) => (a.rank || 99) - (b.rank || 99))
+                    .slice(0, 3)
+                    .map((i: any) => i.ticker);
+
+                if (leaders.length > 0) {
+                    console.log(`[Continuity] Injecting previous leaders: ${leaders.join(', ')}`);
+                    // Merge unique
+                    candidateTickers = Array.from(new Set([...candidateTickers, ...leaders]));
+                }
+            }
+        } catch (e) {
+            console.warn('[Continuity] Failed to load previous context:', e);
+        }
+
+        const universePoolObjects = candidateTickers.map(s => ({ ticker: s }));
+
         // [V3.0] INTEGRATION: Use ALL ~300 tickers (filtered not ETF)
         // Do NOT use .final (which cuts to 12). Use .filtered.
         const universeResult = await applyUniversePolicyWithBackfill(universePoolObjects, 300); // Target 300 to get full list
@@ -556,38 +596,68 @@ async function generateReportFromItems(
             item.decisionSSOT.whaleIndex = forensicResult.whaleIndex;
             item.decisionSSOT.whaleConfidence = forensicResult.whaleConfidence;
 
-            // [V3.7.3] PRECISION PROTOCOL: Override Bands with Hard Data
-            if (forensicResult.details.whaleEntryLevel && forensicResult.details.whaleEntryLevel > 0) {
-                const wEntry = forensicResult.details.whaleEntryLevel;
-                const wTarget = forensicResult.details.whaleTargetLevel || (wEntry * 1.1); // Default 10% if calc fails
+            // [V3.7.3] PRECISION PROTOCOL: Guaranteed Data (No more $-)
+            const currentPrice = item.evidence?.price?.last || item.price || 0;
+            const callWall = item.evidence?.options?.callWall || 0;
+            const putFloor = item.evidence?.options?.putFloor || 0;
 
-                // 1. Inject Raw Data
-                item.decisionSSOT.whaleEntryLevel = wEntry;
-                item.decisionSSOT.whaleTargetLevel = wTarget;
-                item.decisionSSOT.dominantContract = forensicResult.details.dominantContract;
+            let wEntry = forensicResult.details.whaleEntryLevel || currentPrice;
+            // Fallback: If 0, use current price
+            if (wEntry === 0) wEntry = currentPrice;
 
-                // 2. OVERRIDE Tactical Bands (The "Strong Message")
-                // Entry: Whale Entry ~ +2% Buffer
-                item.decisionSSOT.entryBand = [Number(wEntry.toFixed(2)), Number((wEntry * 1.02).toFixed(2))];
-
-                // Target: Whale Breakeven
-                item.decisionSSOT.targetPrice = Number(wTarget.toFixed(2));
-
-                // Stop Loss: 5% below Whale Entry (Tight stop) or Put Floor if available
-                // [V3.7.3] Precision: Use Delta-based Stop from Snapshot if available
-                const protectionLevel = (forensicResult.details.whaleStopLevel && forensicResult.details.whaleStopLevel > 0)
-                    ? forensicResult.details.whaleStopLevel
-                    : (wEntry * 0.95);
-
-                item.decisionSSOT.cutPrice = Number(protectionLevel.toFixed(2));
-
-                // 3. Mark as Whale Driven
-                if (!item.decisionSSOT.triggersKR) item.decisionSSOT.triggersKR = [];
-                if (!item.decisionSSOT.triggersKR.includes('WHALE_DRIVER')) {
-                    item.decisionSSOT.triggersKR.push('WHALE_DRIVER');
-                }
+            // 1. Calculate Levels (Whale Priority -> Technical Fallback)
+            let wTarget = forensicResult.details.whaleTargetLevel;
+            if (!wTarget || wTarget === 0) {
+                // Fallback Target: Call Wall or +3% (Day Trade)
+                wTarget = (callWall > wEntry) ? callWall : (wEntry * 1.03);
             }
 
+            let wStop = forensicResult.details.whaleStopLevel;
+            if (!wStop || wStop === 0) {
+                // Fallback Stop: Put Floor or -2% (Tight Stop)
+                // If PutFloor is too far away (>5%), use -2%
+                const floorDist = (wEntry - putFloor) / wEntry;
+                if (putFloor > 0 && floorDist < 0.05) wStop = putFloor;
+                else wStop = wEntry * 0.98;
+            }
+
+            // 2. Inject Prices
+            const finalWTarget = wTarget || (wEntry * 1.03);
+            const finalWStop = wStop || (wEntry * 0.98);
+
+            item.decisionSSOT.whaleEntryLevel = wEntry;
+            item.decisionSSOT.whaleTargetLevel = finalWTarget;
+            item.decisionSSOT.targetPrice = Number(finalWTarget.toFixed(2));
+            item.decisionSSOT.cutPrice = Number(finalWStop.toFixed(2));
+            item.decisionSSOT.dominantContract = forensicResult.details.dominantContract;
+
+            // Entry Band: +/- 0.5% of Entry
+            item.decisionSSOT.entryBand = [
+                Number((wEntry * 0.995).toFixed(2)),
+                Number((wEntry * 1.005).toFixed(2))
+            ];
+
+            // 3. Generate Whale Narrative (whaleReasonKR)
+            // Format: "1150C 5건($500k) 80% 매수공세" OR "순매수 5M+ 대규모 유입"
+            const details = forensicResult.details;
+            let narrative = "";
+
+            if (details.dominantContract && details.blockCount > 0) {
+                const k = (details.maxBlockSize / 1000).toFixed(0) + 'k';
+                const ratio = Math.round(details.aggressorRatio * 100);
+                narrative = `${details.dominantContract} ${details.blockCount}건($${k}) ${ratio}% 집중매집`;
+            } else if (item.evidence?.flow?.netFlow > 1000000) {
+                const flowM = (item.evidence.flow.netFlow / 1000000).toFixed(1) + 'M';
+                narrative = `순매수 $${flowM} 대규모 유입`;
+            } else if (item.evidence?.options?.gammaRegime === 'Short Gamma') {
+                narrative = `옵션 변동성 확대 (Short Gamma) 공격적 베팅`;
+            } else {
+                narrative = `스마트머니 추적 가동 중`; // Default
+            }
+            item.decisionSSOT.whaleReasonKR = narrative;
+
+
+            // 4. Mark as Whale Driven if Index High
             if (forensicResult.whaleIndex >= 85) {
                 console.log(`[ReportScheduler] 🐋 WHALE SIGHTED: ${item.ticker} (Index: ${forensicResult.whaleIndex})`);
                 if (!item.decisionSSOT.triggersKR) item.decisionSSOT.triggersKR = [];

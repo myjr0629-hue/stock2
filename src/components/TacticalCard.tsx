@@ -23,166 +23,160 @@ interface TacticalCardProps {
     extendedPrice?: number;
     extendedChange?: number;
     extendedLabel?: string;
+    // [V4.1] Sniper Data
+    whaleTargetLevel?: number;
+    whaleConfidence?: string;
+    dominantContract?: string;
+    triggers?: string[];
 }
 
-export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice, isLocked, name, rsi, score, isDayTradeOnly, reasonKR, extendedPrice, extendedChange, extendedLabel }: TacticalCardProps) {
+export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice, isLocked, name, rsi, score, isDayTradeOnly, reasonKR, extendedPrice, extendedChange, extendedLabel, whaleTargetLevel, whaleConfidence, dominantContract, triggers }: TacticalCardProps) {
 
     // Safety Fallbacks
     const safePrice = price || 0;
     const safeChange = change || 0;
     const isPositive = safeChange >= 0;
 
-    // [V4 Design System] - Neon Tactical
-    // Colors: Emerald-400 (Profit), Rose-500 (Loss), Amber-400 (Entry)
-
+    // [V4.5] Glass Design System - "Crystal Intel"
     const minEntry = (entryBand && typeof entryBand.min === 'number') ? entryBand.min : safePrice * 0.99;
     const maxEntry = (entryBand && typeof entryBand.max === 'number') ? entryBand.max : safePrice * 1.01;
     const isBuyZone = safePrice >= minEntry && safePrice <= maxEntry;
 
-    // Determine score color
-    const scoreColor = (score || 0) >= 80 ? "border-emerald-500 bg-emerald-950/30 text-emerald-400" :
-        (score || 0) >= 50 ? "border-amber-500 bg-amber-950/30 text-amber-400" :
-            "border-slate-600 bg-slate-800 text-slate-400";
+    // Determine score color text
+    const scoreColorText = (score || 0) >= 80 ? "text-emerald-400" : (score || 0) >= 50 ? "text-amber-400" : "text-slate-400";
+
+    // Sniper/Whale Active Logic
+    const hasWhale = !!whaleTargetLevel && whaleTargetLevel > 0;
 
     return (
         <Card className={cn(
-            "w-full bg-slate-900/60 backdrop-blur-md border border-white/5 shadow-2xl shadow-black/50 overflow-hidden relative group transition-all duration-300",
-            // High Alpha Pulse
-            (score || 0) >= 80 ? "shadow-[0_0_30px_rgba(16,185,129,0.2)] border-emerald-500/20" : "",
-            // Hover
-            "hover:ring-1 hover:ring-emerald-500/40 hover:bg-slate-800/60"
+            "w-full h-full min-h-[340px] relative overflow-hidden transition-all duration-300 group cursor-pointer",
+            "bg-white/5 backdrop-blur-[12px] border border-white/10 shadow-2xl",
+            "hover:bg-white/10 hover:border-white/20 hover:shadow-[0_0_40px_rgba(56,189,248,0.15)] hover:scale-[1.01]"
         )}>
-            <div className="absolute top-0 left-0 p-4 z-10 flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-white p-0 shadow-[0_0_15px_rgba(255,255,255,0.1)] overflow-hidden flex-shrink-0 mt-1 relative z-20">
-                    {/* [V3.5] LOGO INTEGRATION - Optimized scaling */}
-                    <img
-                        src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
-                        alt={ticker}
-                        className="w-full h-full object-cover"
-                        onError={(e) => {
-                            (e.target as HTMLImageElement).style.display = 'none';
-                            (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
-                        }}
-                    />
-                    <div className="hidden w-full h-full bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-600">
-                        {ticker.substring(0, 1)}
-                    </div>
-                </div>
-                <div className="z-20">
-                    <div className="flex items-baseline gap-2">
-                        <h3 className="text-3xl font-black text-white tracking-tighter drop-shadow-md">{ticker}</h3>
-                        {/* Removed small rank, moved to background */}
-                    </div>
-                    {/* Name/Reason Subtext */}
-                    <div className="mt-0.5 flex flex-col gap-0.5">
-                        {name && <span className="text-[10px] text-slate-400 font-mono tracking-tight uppercase font-bold">{name}</span>}
-                    </div>
-                </div>
-            </div>
+            {/* 1. GLASS HIGHLIGHTS & EFFECTS */}
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent opacity-50" />
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/20 blur-[80px] rounded-full pointer-events-none group-hover:bg-cyan-400/30 transition-colors" />
+            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-indigo-500/20 blur-[80px] rounded-full pointer-events-none" />
 
-            {/* BIG RANK BACKGROUND (Iron Man Style) */}
-            <div className="absolute top-2 right-1/2 translate-x-1/2 text-[120px] font-black text-white/[0.03] leading-none pointer-events-none select-none z-0 tracking-tighter">
+            {/* [NEW] INFOGRAPHIC RANK BACKGROUND */}
+            <div className="absolute top-[-20px] right-[-10px] text-[140px] font-black text-white/5 leading-none pointer-events-none select-none z-0 tracking-tighter" style={{ fontFamily: 'var(--font-geist-mono)' }}>
                 {rank}
             </div>
 
-            {/* TECH CORNERS (HUD Accents) */}
-            <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-white/10 rounded-tl-lg pointer-events-none" />
-            <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-white/10 rounded-tr-lg pointer-events-none" />
-            <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-white/10 rounded-bl-lg pointer-events-none" />
-            <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-white/10 rounded-br-lg pointer-events-none" />
+            {/* 2. CARD CONTENT LAYER */}
+            <div className="relative z-10 p-5 flex flex-col h-full justify-between">
 
-            {/* 2. PRICE & CHANGE (Right - HUGE) */}
-            <div className="absolute top-0 right-0 p-4 text-right z-10">
-                <div className={cn(
-                    "text-3xl font-black tracking-tight tabular-nums drop-shadow-lg",
-                    isPositive ? "text-emerald-400" : "text-rose-500"
-                )}>
-                    ${safePrice.toFixed(2)}
-                </div>
-                <div className={cn(
-                    "text-sm font-bold flex items-center justify-end gap-1 mt-0.5",
-                    isPositive ? "text-emerald-500" : "text-rose-500"
-                )}>
-                    {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                    {isPositive ? '+' : ''}{safeChange.toFixed(2)}%
-                </div>
-
-                {/* [V3.7.5] Extended Session Badge */}
-                {(extendedPrice && extendedPrice > 0) && (
-                    <div className="flex items-center justify-end gap-1.5 mt-1 pt-1 border-t border-slate-800/50 opacity-80">
-                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{extendedLabel || 'EXT'}</span>
-                        <span className={cn(
-                            "text-xs font-mono font-bold",
-                            (extendedChange || 0) >= 0 ? "text-emerald-400" : "text-rose-400"
-                        )}>
-                            ${extendedPrice.toFixed(2)}
-                        </span>
-                    </div>
-                )}
-            </div>
-
-            {/* SPACER FOR TOP SECTION */}
-            <div className="h-24"></div>
-
-            {/* 3. ALPHA SCORE & SIGNAL (Middle) */}
-            <CardContent className="px-4 pb-4 pt-0">
-                <div className="flex items-center justify-between mb-4">
-                    {/* Circle Score */}
+                {/* HEADLINE: Ticker & Score */}
+                <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
-                        <div className={cn(
-                            "relative w-12 h-12 rounded-full flex items-center justify-center border-2",
-                            scoreColor
-                        )}>
-                            <span className="text-lg font-black">{score?.toFixed(0) || '-'}</span>
-                            {/* Glow Effect for Leaders */}
-                            {(score || 0) >= 80 && <div className="absolute inset-0 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)] animate-pulse" />}
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-white/10 to-white/5 border border-white/10 flex items-center justify-center shadow-inner overflow-hidden relative group-hover:border-white/20 transition-colors">
+                            <img
+                                src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                                alt={ticker}
+                                className="w-full h-full object-cover scale-110"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                    (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                                }}
+                            />
+                            <div className="hidden w-full h-full bg-slate-800 flex items-center justify-center text-xs font-bold text-slate-500">
+                                {ticker.substring(0, 1)}
+                            </div>
                         </div>
+                        <div>
+                            <h3 className="text-3xl font-black text-white tracking-tighter leading-none drop-shadow-sm flex items-center gap-2">
+                                {ticker}
+                            </h3>
+                            <div className="flex items-center gap-2 mt-1.5">
+                                {/* [NEW] HIGH VISIBILITY SCORE */}
+                                <div className={cn("flex items-center gap-1.5 pl-1.5 pr-2 py-0.5 rounded-md border backdrop-blur-md", scoreColorText.replace('text-', 'border-').replace('400', '500/30 bg-').replace('text-', 'bg-').replace('bg-', '') + '900/20')}>
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">SCORE</span>
+                                    <span className={cn("text-base font-black tracking-tight", scoreColorText)}>
+                                        {score?.toFixed(0)}
+                                    </span>
+                                </div>
 
-                        {/* Reason Text */}
-                        <div className="flex flex-col">
-                            <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">ALPHA SIGNAL</span>
-                            {/* Truncate long reasons gracefully */}
-                            <span className={cn(
-                                "text-xs font-bold line-clamp-2 leading-tight max-w-[140px]",
-                                (score || 0) >= 80 ? "text-emerald-300" : "text-slate-300"
-                            )}>
-                                {reasonKR || "분석 대기중..."}
-                            </span>
+                                {hasWhale && (
+                                    <span className="text-[10px] bg-indigo-500/20 px-1.5 py-1 rounded border border-indigo-500/30 text-indigo-300 font-bold flex items-center gap-1 uppercase tracking-wider animate-pulse">
+                                        <Zap className="w-3 h-3 text-indigo-400" /> Sniper
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* 4. TACTICAL TRIGGER BOX (Bottom) */}
-                <div className={cn(
-                    "rounded-lg border border-dashed p-2.5 flex justify-between items-center relative overflow-hidden",
-                    // Dynamic Border Color
-                    isBuyZone ? "border-amber-400/50 bg-amber-900/10" : "border-slate-700 bg-slate-900/50"
-                )}>
-                    {/* Buy Zone Label */}
-                    <div className="flex flex-col z-10">
-                        <span className="text-[9px] font-bold text-amber-500/80 uppercase tracking-widest mb-0.5 flex items-center gap-1">
-                            <Target className="w-3 h-3" /> ENTRY BAND
+                {/* PRICE ROW (Moved below header for better hierarchy) */}
+                <div className="flex justify-between items-baseline mb-4 border-b border-white/5 pb-3">
+                    <div className="flex items-center gap-2">
+                        <span className={cn(
+                            "text-3xl font-bold font-mono tracking-tighter tabular-nums",
+                            isPositive ? "text-white" : "text-white"
+                        )}>
+                            ${safePrice.toFixed(2)}
                         </span>
-                        <div className="text-sm font-mono font-bold text-amber-400 flex items-center gap-1.5">
-                            ${minEntry.toFixed(2)} <span className="text-slate-600">-</span> ${maxEntry.toFixed(2)}
+                    </div>
+                    <div className={cn(
+                        "text-sm font-bold flex items-center gap-1 px-2 py-1 rounded",
+                        isPositive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                    )}>
+                        {isPositive ? '+' : ''}{safeChange.toFixed(2)}%
+                    </div>
+                </div>
+
+                {/* MIDDLE: THE REASONING (Explicit Thesis) */}
+                <div className="mb-4 flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                        <div className={cn("w-1.5 h-1.5 rounded-full animate-pulse", scoreColorText.replace('text-', 'bg-'))} />
+                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Investment Thesis</span>
+                    </div>
+
+                    <div className="p-3.5 rounded-lg bg-black/20 border border-white/5 backdrop-blur-sm group-hover:bg-black/30 transition-colors shadow-inner">
+                        <p className="text-sm font-medium text-slate-100 leading-relaxed text-pretty">
+                            {reasonKR || "분석 완료. 매수 시그널 대기 중."}
+                        </p>
+                    </div>
+
+                    {/* Tags / Triggers */}
+                    {triggers && triggers.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                            {triggers.slice(0, 3).map((t, i) => (
+                                <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400 font-medium">
+                                    {t}
+                                </span>
+                            ))}
                         </div>
-                    </div>
-
-                    {/* Stop Loss (Right) */}
-                    <div className="flex flex-col items-end z-10">
-                        <span className="text-[9px] font-bold text-rose-500/80 uppercase tracking-widest mb-0.5">STOP LOSS</span>
-                        <span className="text-sm font-mono font-bold text-rose-500">
-                            ${cutPrice ? cutPrice.toFixed(2) : '-'}
-                        </span>
-                    </div>
-
-                    {/* Active Buy Indicator (Background Pulse) */}
-                    {isBuyZone && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-amber-500/5 to-transparent pointer-events-none" />
                     )}
                 </div>
 
-            </CardContent>
+                {/* BOTTOM: ACTION DATA GRID */}
+                <div className="grid grid-cols-2 gap-2 mt-auto">
+                    {/* Entry Zone */}
+                    <div className="relative p-2.5 rounded bg-amber-500/5 border border-amber-500/10 overflow-hidden group/zone">
+                        <span className="block text-[9px] text-amber-500/60 font-bold uppercase tracking-wider mb-0.5">Entry Zone</span>
+                        <div className="text-sm font-mono font-bold text-amber-500">
+                            ${minEntry.toFixed(2)}<span className="text-amber-500/30 mx-0.5">~</span>${maxEntry.toFixed(2)}
+                        </div>
+                        {isBuyZone && <div className="absolute inset-0 border border-amber-500/40 rounded animate-pulse" />}
+                    </div>
+
+                    {/* Target/Stop */}
+                    <div className="p-2.5 rounded bg-white/5 border border-white/5">
+                        <div className="flex justify-between items-center mb-1">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Target</span>
+                            <span className="text-[11px] font-mono font-bold text-cyan-400">${whaleTargetLevel ? whaleTargetLevel.toFixed(2) : '-'}</span>
+                        </div>
+                        <div className="flex justify-between items-center border-t border-white/5 pt-1">
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Stop</span>
+                            <span className="text-[11px] font-mono font-bold text-rose-400">${cutPrice ? cutPrice.toFixed(2) : '-'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Hover Glow Accent */}
+                <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+            </div>
         </Card >
     );
 }

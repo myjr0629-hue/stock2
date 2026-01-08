@@ -218,7 +218,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 const data = await res.json();
                 setKrNews(data.items || []);
             }
-        } catch (e) { console.error(e); } finally { setNewsLoading(false); }
+        } catch (e: any) {
+            if (e?.message?.includes("Failed to fetch")) console.warn("[News] Network retry...");
+            else console.error(e);
+        } finally { setNewsLoading(false); }
     };
     const fetchQuote = async () => {
         setQuoteLoading(true);
@@ -228,7 +231,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 const data = await res.json();
                 setLiveQuote(data);
             }
-        } catch (e) { console.error(e); } finally { setQuoteLoading(false); }
+        } catch (e: any) {
+            if (e?.message?.includes("Failed to fetch")) console.warn("[Quote] Network retry...");
+            else console.error(e);
+        } finally { setQuoteLoading(false); }
     };
 
     const fetchStructure = async (exp?: string) => {
@@ -241,8 +247,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 setStructure(data);
                 if (!exp && data.expiration) setSelectedExp(data.expiration);
             }
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            if (e?.message?.includes("Failed to fetch")) console.warn("[Structure] Network retry...");
+            else console.error(e);
         } finally { setStructLoading(false); }
     };
 
@@ -255,8 +262,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 setOptions(data);
             }
             await fetchStructure();
-        } catch (e) {
-            console.error(e);
+        } catch (e: any) {
+            if (e?.message?.includes("Failed to fetch")) console.warn("[Options] Network retry...");
+            else console.error(e);
             setOptions({ options_status: "PENDING" });
         } finally { setOptionsLoading(false); }
     };

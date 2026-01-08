@@ -132,6 +132,7 @@ export interface DecisionSSOT {
     whaleEntryLevel?: number;
     whaleTargetLevel?: number;
     dominantContract?: string;
+    whaleReasonKR?: string;
 }
 
 export interface TickerItem extends TerminalItem {
