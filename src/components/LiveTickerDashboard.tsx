@@ -559,9 +559,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </h4>
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-black text-amber-500 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/30 flex items-center gap-2 shadow-lg">
-                                            <span className="text-xs font-black tracking-tighter">MAX PAIN</span>
-                                            <span className="text-[10px] text-amber-300/60 font-medium uppercase tracking-tighter">(최대고통)</span>
+                                            <span className="text-[10px] font-black tracking-tighter">MAX PAIN</span>
+                                            <span className="text-[9px] text-amber-300/60 font-medium uppercase tracking-tighter">(최대고통)</span>
                                             <span className="text-sm font-black pl-1 border-l border-amber-500/20">${structure?.maxPain || initialStockData.flow?.maxPain || "---"}</span>
+                                            {(structure?.maxPain || initialStockData.flow?.maxPain) && (
+                                                <span className={`text-[9px] font-bold ml-1 ${((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain)) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                    ({((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain) * 100).toFixed(1)}%)
+                                                </span>
+                                            )}
                                         </span>
                                     </div>
                                 </div>
@@ -766,16 +771,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     <div className="lg:col-span-4 flex flex-col gap-4 h-full">
 
                         {/* 1. Decision Gate - Fixed Height */}
-                        <div className="shrink-0 relative">
-                            {/* Decorative Outline */}
-                            <div className="absolute -left-1 -top-1 w-3 h-3 border-l sm:border-t-2 border-slate-600/50 rounded-tl pointer-events-none" />
-                            <DecisionGate
-                                ticker={ticker}
-                                displayPrice={displayPrice}
-                                session={effectiveSession}
-                                structure={structure}
-                                krNews={krNews}
-                            />
+                        <div className="shrink-0 relative rounded-xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors">
+                            {/* Decorative Outline - Moved Inside/Adjusted */}
+                            <div className="absolute left-0 top-0 w-3 h-3 border-l-2 border-t-2 border-slate-500/50 rounded-tl z-20 pointer-events-none" />
+                            <div className="p-2">
+                                <DecisionGate
+                                    ticker={ticker}
+                                    displayPrice={displayPrice}
+                                    session={effectiveSession}
+                                    structure={structure}
+                                    krNews={krNews}
+                                />
+                            </div>
                         </div>
 
                         {/* 2. Flow Unit - Glass Card */}
