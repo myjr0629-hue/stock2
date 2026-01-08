@@ -132,7 +132,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
         <Card className={`shadow-none border-l-4 ${status === 'PASS' ? 'border-l-emerald-500' :
             status === 'WATCH' ? 'border-l-amber-500' :
                 'border-l-rose-500'
-            } bg-transparent overflow-hidden border-t-0 border-r-0 border-b-0`}>
+            } !bg-transparent overflow-hidden border-t-0 border-r-0 border-b-0`}>
             <CardContent className="py-3 px-3">
                 {/* Status Badge (Compact) */}
                 <div className="flex justify-between items-center mb-2">
