@@ -198,7 +198,8 @@ export default async function TickerPage({ searchParams }: Props) {
             range,
             extended,
             includeHistory: true,
-            includeNews: true
+            includeNews: false,    // [S-56.4.5b] Defer to Client (Fast FCP)
+            includeOptions: false  // [S-56.4.5b] Defer to Client (Fast FCP)
         });
 
         // Convert to formats expected by LiveTickerDashboard
@@ -227,8 +228,8 @@ export default async function TickerPage({ searchParams }: Props) {
             {overview && <ParityDiagnostics overview={overview} />}
 
             <main className="mx-auto max-w-7xl px-6 lg:px-8 pt-8 pb-12 space-y-4">
-                {/* [S-56.4.5b] Diagnostics Panel for failures */}
-                {overview && <DiagnosticsPanel diagnostics={overview.diagnostics} />}
+                {/* [S-56.4.5b] Diagnostics Panel for failures (Only in Extended Mode) */}
+                {extended && overview && <DiagnosticsPanel diagnostics={overview.diagnostics} />}
 
                 {error && (
                     <Card className="border-rose-900/50 bg-rose-950/30 backdrop-blur-sm">

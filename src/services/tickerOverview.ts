@@ -135,6 +135,7 @@ export interface TickerOverviewOptions {
     extended?: boolean;
     includeHistory?: boolean;
     includeNews?: boolean;
+    includeOptions?: boolean;
 }
 
 // --- Helper Functions ---
@@ -151,7 +152,7 @@ export async function getTickerOverview(
     ticker: string,
     opts: TickerOverviewOptions = {}
 ): Promise<TickerOverview> {
-    const { range = "1d", extended = false, includeHistory = true, includeNews = true } = opts;
+    const { range = "1d", extended = false, includeHistory = true, includeNews = true, includeOptions = true } = opts;
     const tickerUpper = ticker.toUpperCase();
     const fetchedAt = new Date().toISOString();
     const buildId = getBuildId();
@@ -334,6 +335,7 @@ export async function getTickerOverview(
 
     // 3. Options Snapshot Task
     const optionsTask = async () => {
+        if (!includeOptions) return;
         try {
             const optionsUrl = `/v3/snapshot/options/${tickerUpper}`;
             const optData = await fetchMassive(optionsUrl, { limit: "100" }, false, undefined, CACHE_POLICY.LIVE);
