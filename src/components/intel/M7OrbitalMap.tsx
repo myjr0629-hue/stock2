@@ -40,6 +40,22 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
         return "bg-slate-500/20";
     };
 
+    // Domain Mapping for Clearbit Logos
+    const TICKER_DOMAINS: Record<string, string> = {
+        'AAPL': 'apple.com',
+        'MSFT': 'microsoft.com',
+        'GOOGL': 'google.com',
+        'AMZN': 'amazon.com',
+        'NVDA': 'nvidia.com',
+        'META': 'meta.com',
+        'TSLA': 'tesla.com'
+    };
+
+    const getLogoUrl = (ticker: string) => {
+        const domain = TICKER_DOMAINS[ticker] || `${ticker.toLowerCase()}.com`;
+        return `https://logo.clearbit.com/${domain}`;
+    };
+
     const sunChange = sun.evidence?.price?.changePct || 0;
     const sunHalo = getHaloColor(sunChange);
 
@@ -85,7 +101,7 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
                         {/* Sun Icon */}
                         <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white/5">
                             <Image
-                                src={`https://logo.clearbit.com/${sun.ticker}.com`}
+                                src={getLogoUrl(sun.ticker)}
                                 alt={sun.ticker}
                                 fill
                                 className="object-cover"
@@ -134,7 +150,7 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
                             {/* Planet Icon */}
                             <div className="relative w-9 h-9 rounded-full overflow-hidden bg-white/5">
                                 <Image
-                                    src={`https://logo.clearbit.com/${item.ticker}.com`}
+                                    src={getLogoUrl(item.ticker)}
                                     alt={item.ticker}
                                     fill
                                     className="object-cover opacity-90"
