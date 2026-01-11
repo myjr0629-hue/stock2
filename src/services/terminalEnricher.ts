@@ -181,7 +181,7 @@ async function enrichSingleTickerWithRetry(
         // ... continue ...
         // Build Evidence Layers
         const price = buildPriceEvidence(hubData);
-        const flow = buildFlowEvidence(hubData);
+        const flow = buildFlowEvidence(hubData, forensicData); // [V4.0] Pass forensic data for offExPct
         const options = buildOptionsEvidence(optionsData);
         const stealth = calculateStealthLabel(price, flow, options);
         const policy = calculatePolicyEvidence(ticker, events, policies);
@@ -243,17 +243,24 @@ function buildPriceEvidence(data: any): UnifiedPrice {
     };
 }
 
-function buildFlowEvidence(data: any): UnifiedFlow {
+function buildFlowEvidence(data: any, forensicData?: any): UnifiedFlow {
     // data is UnifiedQuote from Hub
     // Map netPremium to largeTradesUsd and netFlow
     const netPrem = data.flow?.netPremium || 0;
+
+    // [V4.0] Extract offExPct from ForensicService analysis
+    // ForensicService now calculates dark pool percentage using Condition Codes
+    // We use aggressorRatio as a proxy (dark pool ratio from cluster analysis)
+    const offExPct = forensicData?.details?.aggressorRatio
+        ? Math.round(forensicData.details.aggressorRatio * 100)
+        : 0;
 
     return {
         vol: data.volume || 0,
         relVol: data.relVol || 1, // [Phase 41.2] Real RelVol (Snap/Avg)
         gapPct: data.gapPct || 0, // [Phase 41.2] Real Gap %
         largeTradesUsd: netPrem, // Mapped for UI
-        offExPct: 0,
+        offExPct: offExPct, // [V4.0] From ForensicService dark pool analysis
         offExDeltaPct: 0,
         netFlow: netPrem,
         complete: (data.flow?.optionsCount || 0) > 0
@@ -274,44 +281,71 @@ async function fetchOptionsChain(ticker: string, currentPrice?: number, force: b
         const cached = await getOptionsFromCache(ticker);
         if (cached && cached.status !== 'PENDING' && cached.status !== 'FAILED') return cached;
     }
-    try {
-        // Pass targetDate to getOptionsData
-        const analytics = await getOptionsData(ticker, currentPrice, undefined, !force, targetDate);
 
-        const optionsResult: CachedOptionsChain = {
-            // ...
-            ticker,
-            status: analytics.options_status as any,
-            callWall: 0,
-            putFloor: 0,
-            maxPain: analytics.maxPain || 0,
-            pinZone: 0,
-            pcr: analytics.putCallRatio || 0,
-            gex: analytics.gems?.gex || 0,
-            gexZeroDte: analytics.gems?.gexZeroDte || 0,
-            gexZeroDteRatio: analytics.gems?.gexZeroDteRatio || 0,
-            gammaRegime: (analytics.gems?.gex || 0) > 0 ? 'Long Gamma' : 'Short Gamma',
-            coveragePct: analytics.options_status === 'OK' ? 100 : 0,
-            oiClusters: { callsTop: [], putsTop: [] },
-            fetchedAtET: new Date().toISOString()
-        };
-        // ... matches existing logic
-        if (analytics.options_status === 'OK' && analytics.strikes) {
-            const calls = analytics.strikes.map((s: number, i: number) => ({ strike: s, oi: analytics.callsOI[i] }));
-            const puts = analytics.strikes.map((s: number, i: number) => ({ strike: s, oi: analytics.putsOI[i] }));
-            calls.sort((a: any, b: any) => b.oi - a.oi);
-            puts.sort((a: any, b: any) => b.oi - a.oi);
-            optionsResult.callWall = calls.length > 0 ? calls[0].strike : 0;
-            optionsResult.putFloor = puts.length > 0 ? puts[0].strike : 0;
-            optionsResult.pinZone = (optionsResult.callWall + optionsResult.putFloor) / 2;
-            optionsResult.oiClusters = { callsTop: calls.slice(0, 5), putsTop: puts.slice(0, 5) };
+    // [V4.0] MANDATORY RETRY PROTOCOL
+    // Never drop a stock due to options fetch failure
+    // Retry with exponential backoff until success or max attempts
+    const MAX_RETRIES = 3;
+    const BASE_DELAY_MS = 1000;
+
+    let lastError: any = null;
+
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            // Pass targetDate to getOptionsData
+            const analytics = await getOptionsData(ticker, currentPrice, undefined, !force, targetDate);
+
+            const optionsResult: CachedOptionsChain = {
+                // ...
+                ticker,
+                status: analytics.options_status as any,
+                callWall: 0,
+                putFloor: 0,
+                maxPain: analytics.maxPain || 0,
+                pinZone: 0,
+                pcr: analytics.putCallRatio || 0,
+                gex: analytics.gems?.gex || 0,
+                gexZeroDte: analytics.gems?.gexZeroDte || 0,
+                gexZeroDteRatio: analytics.gems?.gexZeroDteRatio || 0,
+                gammaRegime: (analytics.gems?.gex || 0) > 0 ? 'Long Gamma' : 'Short Gamma',
+                coveragePct: analytics.options_status === 'OK' ? 100 : 0,
+                oiClusters: { callsTop: [], putsTop: [] },
+                fetchedAtET: new Date().toISOString()
+            };
+            // ... matches existing logic
+            if (analytics.options_status === 'OK' && analytics.strikes) {
+                const calls = analytics.strikes.map((s: number, i: number) => ({ strike: s, oi: analytics.callsOI[i] }));
+                const puts = analytics.strikes.map((s: number, i: number) => ({ strike: s, oi: analytics.putsOI[i] }));
+                calls.sort((a: any, b: any) => b.oi - a.oi);
+                puts.sort((a: any, b: any) => b.oi - a.oi);
+                optionsResult.callWall = calls.length > 0 ? calls[0].strike : 0;
+                optionsResult.putFloor = puts.length > 0 ? puts[0].strike : 0;
+                optionsResult.pinZone = (optionsResult.callWall + optionsResult.putFloor) / 2;
+                optionsResult.oiClusters = { callsTop: calls.slice(0, 5), putsTop: puts.slice(0, 5) };
+            }
+            await setOptionsToCache(ticker, optionsResult);
+
+            if (attempt > 1) {
+                console.log(`[V4.0] ${ticker}: Options fetch succeeded on attempt ${attempt}`);
+            }
+            return optionsResult;
+
+        } catch (e: any) {
+            lastError = e;
+            console.warn(`[V4.0] ${ticker}: Options fetch attempt ${attempt}/${MAX_RETRIES} failed:`, e.message || e);
+
+            if (attempt < MAX_RETRIES) {
+                // Exponential backoff: 1s, 2s, 4s
+                const delay = BASE_DELAY_MS * Math.pow(2, attempt - 1);
+                console.log(`[V4.0] ${ticker}: Retrying in ${delay}ms...`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+            }
         }
-        await setOptionsToCache(ticker, optionsResult);
-        return optionsResult;
-    } catch (e) {
-        console.warn(`[TerminalEnricher] Options fetch failed:`, e);
-        return null;
     }
+
+    // All retries exhausted - log but still return null to allow fallback handling
+    console.error(`[V4.0] ${ticker}: Options fetch FAILED after ${MAX_RETRIES} attempts. Last error:`, lastError);
+    return null;
 }
 
 // === MACRO & HELPERS ===

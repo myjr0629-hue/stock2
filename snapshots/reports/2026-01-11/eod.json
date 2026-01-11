@@ -2,8 +2,8 @@
   "meta": {
     "id": "2026-01-11-eod",
     "type": "eod",
-    "generatedAt": "2026-01-11T17:42:02.664Z",
-    "generatedAtET": "01/11/2026, 12:42:02 PM",
+    "generatedAt": "2026-01-11T18:25:17.715Z",
+    "generatedAtET": "01/11/2026, 01:25:17 PM",
     "marketDate": "2026-01-11",
     "version": "S-56.4.6e",
     "pipelineVersion": "56.4.1",
@@ -36,8 +36,8 @@
     "baseline": {
       "source": "MASSIVE",
       "session": "regular",
-      "tsISO": "2026-01-11T17:42:02.664Z",
-      "tsET": "01/11/2026, 12:42:02 PM",
+      "tsISO": "2026-01-11T18:25:17.715Z",
+      "tsET": "01/11/2026, 01:25:17 PM",
       "items": [
         {
           "ticker": "INTC",
@@ -63,7 +63,7 @@
       ]
     },
     "freshness": {
-      "generatedAtISO": "2026-01-11T17:42:02.664Z",
+      "generatedAtISO": "2026-01-11T18:25:17.715Z",
       "ageMin": 0,
       "isStale": false
     },
@@ -71,7 +71,7 @@
       "state": "READY",
       "pendingTickers": [],
       "coveragePct": 8,
-      "lastUpdatedAtISO": "2026-01-11T17:42:08.203Z"
+      "lastUpdatedAtISO": "2026-01-11T18:25:23.500Z"
     },
     "integrity": {
       "status": "OK",
@@ -96,15 +96,15 @@
     "softFails": []
   },
   "macro": {
-    "asOfET": "1/11/2026, 12:39:27 PM",
-    "fetchedAtET": "2026-01-11T17:39:27.031Z",
-    "ageSeconds": 0,
+    "asOfET": "1/11/2026, 1:22:36 PM",
+    "fetchedAtET": "2026-01-11T18:22:36.980Z",
+    "ageSeconds": 84,
     "marketStatus": {
       "market": "closed",
       "session": "closed",
       "isHoliday": false,
-      "serverTime": "2026-01-11T17:39:27.031Z",
-      "asOfET": "1/11/2026, 12:39:27 PM",
+      "serverTime": "2026-01-11T18:22:36.980Z",
+      "asOfET": "1/11/2026, 1:22:36 PM",
       "source": "MASSIVE",
       "cacheAgeSec": 0
     },
@@ -160,7 +160,7 @@
         "us30y": 4.85,
         "spread2s10s": 0.7000000000000002,
         "source": "MASSIVE",
-        "updatedAt": "2026-01-11T17:39:59.765Z"
+        "updatedAt": "2026-01-11T18:23:00.143Z"
       },
       "inflation": {
         "date": "2026-01-11",
@@ -170,13 +170,13 @@
         "pceYoY": null,
         "expectations": null,
         "source": "FAIL",
-        "updatedAt": "2026-01-11T17:39:59.766Z"
+        "updatedAt": "2026-01-11T18:23:00.144Z"
       },
-      "asOfET": "1/11/26, 12:39 PM"
+      "asOfET": "1/11/26, 1:23 PM"
     }
   },
   "events": {
-    "asOfET": "1/11/26, 12:39 PM",
+    "asOfET": "1/11/26, 1:22 PM",
     "events": [
       {
         "date": "2026-01-19",
@@ -202,7 +202,7 @@
     "shakeReasons": []
   },
   "policy": {
-    "asOfET": "1/11/26, 12:39 PM",
+    "asOfET": "1/11/26, 1:22 PM",
     "policies72h": [],
     "policies7d": [
       {
@@ -230,7 +230,7 @@
     ]
   },
   "news": {
-    "asOfET": "1/11/26, 12:39 PM",
+    "asOfET": "1/11/26, 1:22 PM",
     "marketHeadlines": [
       {
         "id": "mkt-001",
@@ -253,7 +253,7 @@
         "sentiment": "positive",
         "catalystType": "market",
         "publishedAtET": "Dec 25, 01:00 PM",
-        "catalystAge": 407,
+        "catalystAge": 408,
         "isStale": true
       },
       {
@@ -265,7 +265,7 @@
         "sentiment": "positive",
         "catalystType": "global",
         "publishedAtET": "Dec 26, 03:00 AM",
-        "catalystAge": 393,
+        "catalystAge": 394,
         "isStale": true
       },
       {
@@ -277,7 +277,7 @@
         "sentiment": "neutral",
         "catalystType": "commodities",
         "publishedAtET": "Dec 26, 05:00 AM",
-        "catalystAge": 391,
+        "catalystAge": 392,
         "isStale": true
       },
       {
@@ -289,7 +289,7 @@
         "sentiment": "neutral",
         "catalystType": "technical",
         "publishedAtET": "Dec 26, 01:00 AM",
-        "catalystAge": 395,
+        "catalystAge": 396,
         "isStale": true
       }
     ],
@@ -300,14 +300,14 @@
         "source": "CNBC",
         "publishedAtET": "Dec 25, 01:00 PM",
         "isStale": true,
-        "catalystAgeHours": 407
+        "catalystAgeHours": 408
       },
       {
         "text": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
         "source": "Bloomberg",
         "publishedAtET": "Dec 26, 03:00 AM",
         "isStale": true,
-        "catalystAgeHours": 393
+        "catalystAgeHours": 394
       }
     ],
     "marketDislikes": [
@@ -328,14 +328,14 @@
         "source": "CNBC",
         "publishedAtET": "Dec 25, 01:00 PM",
         "isStale": true,
-        "catalystAgeHours": 407
+        "catalystAgeHours": 408
       },
       {
         "text": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
         "source": "Bloomberg",
         "publishedAtET": "Dec 26, 03:00 AM",
         "isStale": true,
-        "catalystAgeHours": 393
+        "catalystAgeHours": 394
       }
     ],
     "dislikes": [
@@ -408,7 +408,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -428,13 +428,14 @@
         "stealth": {
           "label": "A",
           "tags": [
-            "blockPrint"
+            "MassiveBlockPrint",
+            "highMomentum"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:04.613Z"
+        "fetchedAtET": "2026-01-11T18:23:04.018Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -514,7 +515,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -532,15 +533,15 @@
           }
         },
         "stealth": {
-          "label": "C",
+          "label": "B",
           "tags": [
-            "noSignal"
+            "highMomentum"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:20.891Z"
+        "fetchedAtET": "2026-01-11T18:23:20.395Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -620,7 +621,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -638,15 +639,15 @@
           }
         },
         "stealth": {
-          "label": "C",
+          "label": "B",
           "tags": [
-            "noSignal"
+            "highMomentum"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:21.392Z"
+        "fetchedAtET": "2026-01-11T18:23:22.207Z"
       },
       "alphaScore": 89.2,
       "qualityTier": "WATCH",
@@ -726,7 +727,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -752,7 +753,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:22.727Z"
+        "fetchedAtET": "2026-01-11T18:23:22.143Z"
       },
       "alphaScore": 85.7,
       "qualityTier": "WATCH",
@@ -832,7 +833,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -852,13 +853,13 @@
         "stealth": {
           "label": "A",
           "tags": [
-            "blockPrint"
+            "MassiveBlockPrint"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:07.494Z"
+        "fetchedAtET": "2026-01-11T18:23:07.602Z"
       },
       "alphaScore": 78.4,
       "qualityTier": "WATCH",
@@ -938,7 +939,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -958,13 +959,13 @@
         "stealth": {
           "label": "A",
           "tags": [
-            "blockPrint"
+            "MassiveBlockPrint"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:05.795Z"
+        "fetchedAtET": "2026-01-11T18:23:05.284Z"
       },
       "alphaScore": 74.9,
       "qualityTier": "WATCH",
@@ -1044,7 +1045,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1070,7 +1071,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:20.227Z"
+        "fetchedAtET": "2026-01-11T18:23:20.194Z"
       },
       "alphaScore": 71.3,
       "qualityTier": "WATCH",
@@ -1150,7 +1151,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1176,7 +1177,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:12.499Z"
+        "fetchedAtET": "2026-01-11T18:23:12.883Z"
       },
       "alphaScore": 69.7,
       "qualityTier": "WATCH",
@@ -1256,7 +1257,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1276,13 +1277,13 @@
         "stealth": {
           "label": "A",
           "tags": [
-            "blockPrint"
+            "MassiveBlockPrint"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:21.364Z"
+        "fetchedAtET": "2026-01-11T18:23:21.424Z"
       },
       "alphaScore": 69.4,
       "qualityTier": "WATCH",
@@ -1362,7 +1363,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1382,13 +1383,13 @@
         "stealth": {
           "label": "A",
           "tags": [
-            "blockPrint"
+            "MassiveBlockPrint"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:06.576Z"
+        "fetchedAtET": "2026-01-11T18:23:06.535Z"
       },
       "alphaScore": 64.6,
       "qualityTier": "WATCH",
@@ -1468,7 +1469,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1488,13 +1489,13 @@
         "stealth": {
           "label": "A",
           "tags": [
-            "blockPrint"
+            "MassiveBlockPrint"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:20.910Z"
+        "fetchedAtET": "2026-01-11T18:23:21.416Z"
       },
       "alphaScore": 64,
       "qualityTier": "WATCH",
@@ -1574,7 +1575,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1594,13 +1595,13 @@
         "stealth": {
           "label": "A",
           "tags": [
-            "blockPrint"
+            "MassiveBlockPrint"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:20.994Z"
+        "fetchedAtET": "2026-01-11T18:23:21.001Z"
       },
       "alphaScore": 62.4,
       "qualityTier": "WATCH",
@@ -1682,7 +1683,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1700,15 +1701,15 @@
           }
         },
         "stealth": {
-          "label": "C",
+          "label": "B",
           "tags": [
-            "noSignal"
+            "highMomentum"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:26.637Z"
+        "fetchedAtET": "2026-01-11T18:23:25.501Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1782,7 +1783,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1808,7 +1809,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:26.672Z"
+        "fetchedAtET": "2026-01-11T18:23:25.901Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1882,7 +1883,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1900,15 +1901,15 @@
           }
         },
         "stealth": {
-          "label": "C",
+          "label": "B",
           "tags": [
-            "noSignal"
+            "highMomentum"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:26.613Z"
+        "fetchedAtET": "2026-01-11T18:23:26.012Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -1982,7 +1983,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2000,15 +2001,15 @@
           }
         },
         "stealth": {
-          "label": "C",
+          "label": "B",
           "tags": [
-            "noSignal"
+            "highMomentum"
           ],
           "impact": "NEUTRAL",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:26.196Z"
+        "fetchedAtET": "2026-01-11T18:23:25.638Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2082,7 +2083,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2108,7 +2109,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:26.874Z"
+        "fetchedAtET": "2026-01-11T18:23:26.611Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -2182,7 +2183,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2208,7 +2209,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:26.025Z"
+        "fetchedAtET": "2026-01-11T18:23:25.564Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2282,7 +2283,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:39:59.806Z",
+          "fetchedAtET": "2026-01-11T18:23:00.162Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2308,7 +2309,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:40:26.671Z"
+        "fetchedAtET": "2026-01-11T18:23:25.573Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2385,7 +2386,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:40:45.347Z",
+            "fetchedAtET": "2026-01-11T18:24:00.636Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2411,7 +2412,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:49.026Z"
+          "fetchedAtET": "2026-01-11T18:24:04.221Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2490,7 +2491,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:40:45.347Z",
+            "fetchedAtET": "2026-01-11T18:24:00.636Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2516,7 +2517,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:49.553Z"
+          "fetchedAtET": "2026-01-11T18:24:04.969Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2595,7 +2596,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:40:45.347Z",
+            "fetchedAtET": "2026-01-11T18:24:00.636Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2615,13 +2616,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:50.111Z"
+          "fetchedAtET": "2026-01-11T18:24:05.497Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2700,7 +2701,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:40:45.347Z",
+            "fetchedAtET": "2026-01-11T18:24:00.636Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2720,13 +2721,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:48.489Z"
+          "fetchedAtET": "2026-01-11T18:24:03.698Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2805,7 +2806,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:40:45.347Z",
+            "fetchedAtET": "2026-01-11T18:24:00.636Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2825,13 +2826,14 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint",
+              "bullishDivergence"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:50.468Z"
+          "fetchedAtET": "2026-01-11T18:24:05.759Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2910,7 +2912,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:40:45.347Z",
+            "fetchedAtET": "2026-01-11T18:24:00.636Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2936,7 +2938,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:52.085Z"
+          "fetchedAtET": "2026-01-11T18:24:07.380Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3015,7 +3017,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:40:45.347Z",
+            "fetchedAtET": "2026-01-11T18:24:00.636Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3035,13 +3037,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:52.076Z"
+          "fetchedAtET": "2026-01-11T18:24:07.114Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3122,7 +3124,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:41:34.888Z",
+            "fetchedAtET": "2026-01-11T18:24:49.975Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3142,13 +3144,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:41:38.399Z"
+          "fetchedAtET": "2026-01-11T18:24:53.362Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3227,7 +3229,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:41:34.888Z",
+            "fetchedAtET": "2026-01-11T18:24:49.975Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3253,7 +3255,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:41:38.667Z"
+          "fetchedAtET": "2026-01-11T18:24:53.305Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3332,7 +3334,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:41:34.888Z",
+            "fetchedAtET": "2026-01-11T18:24:49.975Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3358,7 +3360,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:41:36.652Z"
+          "fetchedAtET": "2026-01-11T18:24:51.546Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3437,7 +3439,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:41:34.888Z",
+            "fetchedAtET": "2026-01-11T18:24:49.975Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3463,7 +3465,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:41:37.337Z"
+          "fetchedAtET": "2026-01-11T18:24:52.119Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3542,7 +3544,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:41:34.888Z",
+            "fetchedAtET": "2026-01-11T18:24:49.975Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3562,13 +3564,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:41:37.629Z"
+          "fetchedAtET": "2026-01-11T18:24:52.455Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3647,7 +3649,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:41:34.888Z",
+            "fetchedAtET": "2026-01-11T18:24:49.975Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3673,7 +3675,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:41:36.548Z"
+          "fetchedAtET": "2026-01-11T18:24:51.340Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3756,7 +3758,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3776,13 +3778,14 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint",
+              "highMomentum"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:04.613Z"
+          "fetchedAtET": "2026-01-11T18:23:04.018Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3855,7 +3858,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3873,15 +3876,15 @@
             }
           },
           "stealth": {
-            "label": "C",
+            "label": "B",
             "tags": [
-              "noSignal"
+              "highMomentum"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:20.891Z"
+          "fetchedAtET": "2026-01-11T18:23:20.395Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3954,7 +3957,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3972,15 +3975,15 @@
             }
           },
           "stealth": {
-            "label": "C",
+            "label": "B",
             "tags": [
-              "noSignal"
+              "highMomentum"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:21.392Z"
+          "fetchedAtET": "2026-01-11T18:23:22.207Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -4055,7 +4058,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4075,13 +4078,14 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint",
+              "highMomentum"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:04.613Z"
+          "fetchedAtET": "2026-01-11T18:23:04.018Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -4161,7 +4165,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4179,15 +4183,15 @@
             }
           },
           "stealth": {
-            "label": "C",
+            "label": "B",
             "tags": [
-              "noSignal"
+              "highMomentum"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:20.891Z"
+          "fetchedAtET": "2026-01-11T18:23:20.395Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -4267,7 +4271,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4285,15 +4289,15 @@
             }
           },
           "stealth": {
-            "label": "C",
+            "label": "B",
             "tags": [
-              "noSignal"
+              "highMomentum"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:21.392Z"
+          "fetchedAtET": "2026-01-11T18:23:22.207Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -4373,7 +4377,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4399,7 +4403,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:22.727Z"
+          "fetchedAtET": "2026-01-11T18:23:22.143Z"
         },
         "alphaScore": 85.7,
         "qualityTier": "WATCH",
@@ -4479,7 +4483,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4499,13 +4503,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:07.494Z"
+          "fetchedAtET": "2026-01-11T18:23:07.602Z"
         },
         "alphaScore": 78.4,
         "qualityTier": "WATCH",
@@ -4585,7 +4589,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4605,13 +4609,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:05.795Z"
+          "fetchedAtET": "2026-01-11T18:23:05.284Z"
         },
         "alphaScore": 74.9,
         "qualityTier": "WATCH",
@@ -4691,7 +4695,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4717,7 +4721,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:20.227Z"
+          "fetchedAtET": "2026-01-11T18:23:20.194Z"
         },
         "alphaScore": 71.3,
         "qualityTier": "WATCH",
@@ -4797,7 +4801,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4823,7 +4827,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:12.499Z"
+          "fetchedAtET": "2026-01-11T18:23:12.883Z"
         },
         "alphaScore": 69.7,
         "qualityTier": "WATCH",
@@ -4903,7 +4907,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4923,13 +4927,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:21.364Z"
+          "fetchedAtET": "2026-01-11T18:23:21.424Z"
         },
         "alphaScore": 69.4,
         "qualityTier": "WATCH",
@@ -5009,7 +5013,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5029,13 +5033,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:06.576Z"
+          "fetchedAtET": "2026-01-11T18:23:06.535Z"
         },
         "alphaScore": 64.6,
         "qualityTier": "WATCH",
@@ -5115,7 +5119,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5135,13 +5139,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:20.910Z"
+          "fetchedAtET": "2026-01-11T18:23:21.416Z"
         },
         "alphaScore": 64,
         "qualityTier": "WATCH",
@@ -5221,7 +5225,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:39:59.806Z",
+            "fetchedAtET": "2026-01-11T18:23:00.162Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5241,13 +5245,13 @@
           "stealth": {
             "label": "A",
             "tags": [
-              "blockPrint"
+              "MassiveBlockPrint"
             ],
             "impact": "NEUTRAL",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:40:20.994Z"
+          "fetchedAtET": "2026-01-11T18:23:21.001Z"
         },
         "alphaScore": 62.4,
         "qualityTier": "WATCH",
@@ -5308,8 +5312,8 @@
         "label": "DXY"
       },
       "regime": "NEUTRAL",
-      "fetchedAtET": "2026-01-11T17:39:59.806Z",
-      "ageSeconds": 0
+      "fetchedAtET": "2026-01-11T18:23:00.162Z",
+      "ageSeconds": 84
     }
   },
   "diffs": []
