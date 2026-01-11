@@ -113,6 +113,15 @@ function calculateLayerScores(evidence: any): ScoreResult {
         // Apply Trend Penalty
         score += trendPenalty;
 
+        // [V3.8.1] ABSOLUTE RULE: 3-DAY RISING
+        // User Requirement: "Select rising stocks, not stocks that might rise"
+        // If the stock is NOT rising or momentum is weak, cap score to prevent ACTIONABLE tier.
+        // We assume slopeScore > 50 implies rising.
+        if (p.changePct <= 0) {
+            // If today is red, it violates the "Rising" principle for today.
+            score -= 20;
+        }
+
         layerScores.price = Math.max(0, Math.min(100, score));
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.PRICE;

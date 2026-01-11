@@ -2,8 +2,8 @@
   "meta": {
     "id": "2026-01-11-eod",
     "type": "eod",
-    "generatedAt": "2026-01-11T17:04:36.550Z",
-    "generatedAtET": "01/11/2026, 12:04:36 PM",
+    "generatedAt": "2026-01-11T17:14:50.578Z",
+    "generatedAtET": "01/11/2026, 12:14:50 PM",
     "marketDate": "2026-01-11",
     "version": "S-56.4.6e",
     "pipelineVersion": "56.4.1",
@@ -36,8 +36,8 @@
     "baseline": {
       "source": "MASSIVE",
       "session": "regular",
-      "tsISO": "2026-01-11T17:04:36.550Z",
-      "tsET": "01/11/2026, 12:04:36 PM",
+      "tsISO": "2026-01-11T17:14:50.578Z",
+      "tsET": "01/11/2026, 12:14:50 PM",
       "items": [
         {
           "ticker": "INTC",
@@ -63,7 +63,7 @@
       ]
     },
     "freshness": {
-      "generatedAtISO": "2026-01-11T17:04:36.550Z",
+      "generatedAtISO": "2026-01-11T17:14:50.578Z",
       "ageMin": 0,
       "isStale": false
     },
@@ -71,7 +71,7 @@
       "state": "READY",
       "pendingTickers": [],
       "coveragePct": 8,
-      "lastUpdatedAtISO": "2026-01-11T17:04:37.781Z"
+      "lastUpdatedAtISO": "2026-01-11T17:14:56.269Z"
     },
     "integrity": {
       "status": "OK",
@@ -96,15 +96,15 @@
     "softFails": []
   },
   "macro": {
-    "asOfET": "1/11/2026, 12:02:59 PM",
-    "fetchedAtET": "2026-01-11T17:02:59.243Z",
-    "ageSeconds": 82,
+    "asOfET": "1/11/2026, 12:12:14 PM",
+    "fetchedAtET": "2026-01-11T17:12:14.500Z",
+    "ageSeconds": 0,
     "marketStatus": {
       "market": "closed",
       "session": "closed",
       "isHoliday": false,
-      "serverTime": "2026-01-11T17:02:59.243Z",
-      "asOfET": "1/11/2026, 12:02:59 PM",
+      "serverTime": "2026-01-11T17:12:14.500Z",
+      "asOfET": "1/11/2026, 12:12:14 PM",
       "source": "MASSIVE",
       "cacheAgeSec": 0
     },
@@ -160,7 +160,7 @@
         "us30y": 4.85,
         "spread2s10s": 0.7000000000000002,
         "source": "MASSIVE",
-        "updatedAt": "2026-01-11T17:03:13.600Z"
+        "updatedAt": "2026-01-11T17:12:50.041Z"
       },
       "inflation": {
         "date": "2026-01-11",
@@ -170,13 +170,13 @@
         "pceYoY": null,
         "expectations": null,
         "source": "FAIL",
-        "updatedAt": "2026-01-11T17:03:13.600Z"
+        "updatedAt": "2026-01-11T17:12:50.042Z"
       },
-      "asOfET": "1/11/26, 12:03 PM"
+      "asOfET": "1/11/26, 12:12 PM"
     }
   },
   "events": {
-    "asOfET": "1/11/26, 12:02 PM",
+    "asOfET": "1/11/26, 12:12 PM",
     "events": [
       {
         "date": "2026-01-19",
@@ -202,7 +202,7 @@
     "shakeReasons": []
   },
   "policy": {
-    "asOfET": "1/11/26, 12:02 PM",
+    "asOfET": "1/11/26, 12:12 PM",
     "policies72h": [],
     "policies7d": [
       {
@@ -230,7 +230,7 @@
     ]
   },
   "news": {
-    "asOfET": "1/11/26, 12:02 PM",
+    "asOfET": "1/11/26, 12:12 PM",
     "marketHeadlines": [
       {
         "id": "mkt-001",
@@ -408,7 +408,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -434,7 +434,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:15.964Z"
+        "fetchedAtET": "2026-01-11T17:12:55.434Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -514,7 +514,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -540,7 +540,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:21.600Z"
+        "fetchedAtET": "2026-01-11T17:13:23.285Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -620,7 +620,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -646,7 +646,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:20.741Z"
+        "fetchedAtET": "2026-01-11T17:13:24.950Z"
       },
       "alphaScore": 89.2,
       "qualityTier": "WATCH",
@@ -726,7 +726,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -752,7 +752,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:21.393Z"
+        "fetchedAtET": "2026-01-11T17:13:25.229Z"
       },
       "alphaScore": 85.7,
       "qualityTier": "WATCH",
@@ -832,7 +832,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -858,7 +858,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:16.734Z"
+        "fetchedAtET": "2026-01-11T17:13:01.471Z"
       },
       "alphaScore": 78.4,
       "qualityTier": "WATCH",
@@ -938,7 +938,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -964,7 +964,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:16.352Z"
+        "fetchedAtET": "2026-01-11T17:12:57.826Z"
       },
       "alphaScore": 74.9,
       "qualityTier": "WATCH",
@@ -1044,7 +1044,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1070,7 +1070,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:20.555Z"
+        "fetchedAtET": "2026-01-11T17:13:22.871Z"
       },
       "alphaScore": 71.3,
       "qualityTier": "WATCH",
@@ -1150,7 +1150,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1176,7 +1176,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:18.594Z"
+        "fetchedAtET": "2026-01-11T17:13:09.047Z"
       },
       "alphaScore": 69.7,
       "qualityTier": "WATCH",
@@ -1256,7 +1256,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1282,7 +1282,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:20.195Z"
+        "fetchedAtET": "2026-01-11T17:13:24.648Z"
       },
       "alphaScore": 69.4,
       "qualityTier": "WATCH",
@@ -1362,7 +1362,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1388,7 +1388,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:16.537Z"
+        "fetchedAtET": "2026-01-11T17:12:59.365Z"
       },
       "alphaScore": 64.6,
       "qualityTier": "WATCH",
@@ -1468,7 +1468,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1494,7 +1494,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:21.178Z"
+        "fetchedAtET": "2026-01-11T17:13:24.298Z"
       },
       "alphaScore": 64,
       "qualityTier": "WATCH",
@@ -1574,7 +1574,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1600,7 +1600,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:21.158Z"
+        "fetchedAtET": "2026-01-11T17:13:23.213Z"
       },
       "alphaScore": 62.4,
       "qualityTier": "WATCH",
@@ -1682,7 +1682,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1708,7 +1708,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:22.917Z"
+        "fetchedAtET": "2026-01-11T17:13:31.260Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1782,7 +1782,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1808,7 +1808,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:23.104Z"
+        "fetchedAtET": "2026-01-11T17:13:30.794Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1882,7 +1882,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1908,7 +1908,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:23.448Z"
+        "fetchedAtET": "2026-01-11T17:13:31.893Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -1982,7 +1982,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2008,7 +2008,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:23.108Z"
+        "fetchedAtET": "2026-01-11T17:13:30.772Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2082,7 +2082,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2108,7 +2108,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:23.455Z"
+        "fetchedAtET": "2026-01-11T17:13:32.399Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -2182,7 +2182,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2208,7 +2208,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:22.914Z"
+        "fetchedAtET": "2026-01-11T17:13:30.906Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2282,7 +2282,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:03:13.611Z",
+          "fetchedAtET": "2026-01-11T17:12:50.054Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2308,7 +2308,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:03:23.220Z"
+        "fetchedAtET": "2026-01-11T17:13:30.944Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2385,7 +2385,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:02.596Z",
+            "fetchedAtET": "2026-01-11T17:13:36.889Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2411,18 +2411,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:03.604Z"
+          "fetchedAtET": "2026-01-11T17:13:40.653Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 259.37,
-          "whaleTargetLevel": 267.1511,
-          "targetPrice": 267.15,
-          "cutPrice": 254.18,
+          "whaleTargetLevel": 262.87,
+          "targetPrice": 262.87,
+          "cutPrice": 246.4,
+          "dominantContract": "O:AAPL260116C00260000",
           "entryBand": [
             258.07,
             260.67
@@ -2489,7 +2490,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:02.596Z",
+            "fetchedAtET": "2026-01-11T17:13:36.889Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2515,18 +2516,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:03.606Z"
+          "fetchedAtET": "2026-01-11T17:13:41.339Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 479.28,
-          "whaleTargetLevel": 493.6584,
-          "targetPrice": 493.66,
-          "cutPrice": 469.69,
+          "whaleTargetLevel": 478.95,
+          "targetPrice": 478.95,
+          "cutPrice": 455.32,
+          "dominantContract": "O:MSFT260116P00515000",
           "entryBand": [
             476.88,
             481.68
@@ -2593,7 +2595,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:02.596Z",
+            "fetchedAtET": "2026-01-11T17:13:36.889Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2619,18 +2621,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:03.600Z"
+          "fetchedAtET": "2026-01-11T17:13:45.348Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 328.57,
-          "whaleTargetLevel": 338.4271,
-          "targetPrice": 338.43,
-          "cutPrice": 322,
+          "whaleTargetLevel": 337.14,
+          "targetPrice": 337.14,
+          "cutPrice": 312.14,
+          "dominantContract": "O:GOOGL260116C00335000",
           "entryBand": [
             326.93,
             330.21
@@ -2697,7 +2700,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:02.596Z",
+            "fetchedAtET": "2026-01-11T17:13:36.889Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2723,18 +2726,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:03.612Z"
+          "fetchedAtET": "2026-01-11T17:13:39.912Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 247.38,
-          "whaleTargetLevel": 254.8014,
-          "targetPrice": 254.8,
-          "cutPrice": 242.43,
+          "whaleTargetLevel": 249.7,
+          "targetPrice": 249.7,
+          "cutPrice": 235.01,
+          "dominantContract": "O:AMZN260116C00245000",
           "entryBand": [
             246.14,
             248.62
@@ -2801,7 +2805,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:02.596Z",
+            "fetchedAtET": "2026-01-11T17:13:36.889Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2827,18 +2831,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:03.861Z"
+          "fetchedAtET": "2026-01-11T17:13:41.859Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 184.86,
-          "whaleTargetLevel": 190.40580000000003,
-          "targetPrice": 190.41,
-          "cutPrice": 181.16,
+          "whaleTargetLevel": 191.32,
+          "targetPrice": 191.32,
+          "cutPrice": 175.62,
+          "dominantContract": "O:NVDA260116C00190000",
           "entryBand": [
             183.94,
             185.78
@@ -2905,7 +2910,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:02.596Z",
+            "fetchedAtET": "2026-01-11T17:13:36.889Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2931,18 +2936,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:04.173Z"
+          "fetchedAtET": "2026-01-11T17:13:43.442Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 653.06,
-          "whaleTargetLevel": 672.6518,
-          "targetPrice": 672.65,
-          "cutPrice": 640,
+          "whaleTargetLevel": 650.05,
+          "targetPrice": 650.05,
+          "cutPrice": 620.41,
+          "dominantContract": "O:META260116P00730000",
           "entryBand": [
             649.79,
             656.33
@@ -3009,7 +3015,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:02.596Z",
+            "fetchedAtET": "2026-01-11T17:13:36.889Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3035,18 +3041,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:04.194Z"
+          "fetchedAtET": "2026-01-11T17:13:50.009Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 445.01,
-          "whaleTargetLevel": 458.3603,
-          "targetPrice": 458.36,
-          "cutPrice": 436.11,
+          "whaleTargetLevel": 453.9,
+          "targetPrice": 453.9,
+          "cutPrice": 422.76,
+          "dominantContract": "O:TSLA260116C00445000",
           "entryBand": [
             442.78,
             447.24
@@ -3115,7 +3122,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:21.090Z",
+            "fetchedAtET": "2026-01-11T17:14:23.154Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3141,18 +3148,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:22.462Z"
+          "fetchedAtET": "2026-01-11T17:14:26.511Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 177.49,
-          "whaleTargetLevel": 182.81470000000002,
-          "targetPrice": 182.81,
-          "cutPrice": 173.94,
+          "whaleTargetLevel": 190.64,
+          "targetPrice": 190.64,
+          "cutPrice": 168.62,
+          "dominantContract": "O:PLTR260116C00190000",
           "entryBand": [
             176.6,
             178.38
@@ -3219,7 +3227,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:21.090Z",
+            "fetchedAtET": "2026-01-11T17:14:23.154Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3245,18 +3253,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:22.723Z"
+          "fetchedAtET": "2026-01-11T17:14:26.896Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 50,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 586.24,
-          "whaleTargetLevel": 603.8272000000001,
-          "targetPrice": 603.83,
-          "cutPrice": 574.52,
+          "whaleTargetLevel": 628,
+          "targetPrice": 628,
+          "cutPrice": 556.93,
+          "dominantContract": "O:ISRG260116C00625000",
           "entryBand": [
             583.31,
             589.17
@@ -3323,7 +3332,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:21.090Z",
+            "fetchedAtET": "2026-01-11T17:14:23.154Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3349,18 +3358,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:22.398Z"
+          "fetchedAtET": "2026-01-11T17:14:25.783Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 50,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 70.82,
-          "whaleTargetLevel": 72.9446,
-          "targetPrice": 72.94,
-          "cutPrice": 69.4,
+          "whaleTargetLevel": 79,
+          "targetPrice": 79,
+          "cutPrice": 67.28,
+          "dominantContract": "O:SYM260220C00070000",
           "entryBand": [
             70.47,
             71.17
@@ -3427,7 +3437,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:21.090Z",
+            "fetchedAtET": "2026-01-11T17:14:23.154Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3453,18 +3463,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:22.078Z"
+          "fetchedAtET": "2026-01-11T17:14:26.814Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 50,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 217.26,
-          "whaleTargetLevel": 223.77779999999998,
-          "targetPrice": 223.78,
-          "cutPrice": 212.91,
+          "whaleTargetLevel": 163.3,
+          "targetPrice": 163.3,
+          "cutPrice": 206.4,
+          "dominantContract": "O:TER260717P00180000",
           "entryBand": [
             216.17,
             218.35
@@ -3531,7 +3542,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:21.090Z",
+            "fetchedAtET": "2026-01-11T17:14:23.154Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3557,18 +3568,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:22.611Z"
+          "fetchedAtET": "2026-01-11T17:14:27.056Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 84.85,
-          "whaleTargetLevel": 87.3955,
-          "targetPrice": 87.4,
-          "cutPrice": 83.15,
+          "whaleTargetLevel": 92.3,
+          "targetPrice": 92.3,
+          "cutPrice": 80.61,
+          "dominantContract": "O:RKLB260116C00090000",
           "entryBand": [
             84.43,
             85.27
@@ -3635,7 +3647,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:04:21.090Z",
+            "fetchedAtET": "2026-01-11T17:14:23.154Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3661,18 +3673,19 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:04:22.422Z"
+          "fetchedAtET": "2026-01-11T17:14:26.058Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
         "complete": false,
         "decisionSSOT": {
-          "whaleIndex": 0,
-          "whaleConfidence": "NONE",
+          "whaleIndex": 70,
+          "whaleConfidence": "MED",
           "whaleEntryLevel": 14.71,
-          "whaleTargetLevel": 15.1513,
-          "targetPrice": 15.15,
-          "cutPrice": 14.42,
+          "whaleTargetLevel": 15.69,
+          "targetPrice": 15.69,
+          "cutPrice": 13.97,
+          "dominantContract": "O:SERV260116C00015000",
           "entryBand": [
             14.64,
             14.78
@@ -3743,7 +3756,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3769,7 +3782,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:15.964Z"
+          "fetchedAtET": "2026-01-11T17:12:55.434Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3842,7 +3855,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3868,7 +3881,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:21.600Z"
+          "fetchedAtET": "2026-01-11T17:13:23.285Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3941,7 +3954,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3967,7 +3980,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:20.741Z"
+          "fetchedAtET": "2026-01-11T17:13:24.950Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -4042,7 +4055,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4068,7 +4081,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:15.964Z"
+          "fetchedAtET": "2026-01-11T17:12:55.434Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -4148,7 +4161,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4174,7 +4187,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:21.600Z"
+          "fetchedAtET": "2026-01-11T17:13:23.285Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -4254,7 +4267,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4280,7 +4293,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:20.741Z"
+          "fetchedAtET": "2026-01-11T17:13:24.950Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -4360,7 +4373,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4386,7 +4399,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:21.393Z"
+          "fetchedAtET": "2026-01-11T17:13:25.229Z"
         },
         "alphaScore": 85.7,
         "qualityTier": "WATCH",
@@ -4466,7 +4479,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4492,7 +4505,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:16.734Z"
+          "fetchedAtET": "2026-01-11T17:13:01.471Z"
         },
         "alphaScore": 78.4,
         "qualityTier": "WATCH",
@@ -4572,7 +4585,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4598,7 +4611,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:16.352Z"
+          "fetchedAtET": "2026-01-11T17:12:57.826Z"
         },
         "alphaScore": 74.9,
         "qualityTier": "WATCH",
@@ -4678,7 +4691,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4704,7 +4717,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:20.555Z"
+          "fetchedAtET": "2026-01-11T17:13:22.871Z"
         },
         "alphaScore": 71.3,
         "qualityTier": "WATCH",
@@ -4784,7 +4797,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4810,7 +4823,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:18.594Z"
+          "fetchedAtET": "2026-01-11T17:13:09.047Z"
         },
         "alphaScore": 69.7,
         "qualityTier": "WATCH",
@@ -4890,7 +4903,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4916,7 +4929,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:20.195Z"
+          "fetchedAtET": "2026-01-11T17:13:24.648Z"
         },
         "alphaScore": 69.4,
         "qualityTier": "WATCH",
@@ -4996,7 +5009,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5022,7 +5035,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:16.537Z"
+          "fetchedAtET": "2026-01-11T17:12:59.365Z"
         },
         "alphaScore": 64.6,
         "qualityTier": "WATCH",
@@ -5102,7 +5115,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5128,7 +5141,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:21.178Z"
+          "fetchedAtET": "2026-01-11T17:13:24.298Z"
         },
         "alphaScore": 64,
         "qualityTier": "WATCH",
@@ -5208,7 +5221,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:03:13.611Z",
+            "fetchedAtET": "2026-01-11T17:12:50.054Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5234,7 +5247,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:03:21.158Z"
+          "fetchedAtET": "2026-01-11T17:13:23.213Z"
         },
         "alphaScore": 62.4,
         "qualityTier": "WATCH",
@@ -5295,8 +5308,8 @@
         "label": "DXY"
       },
       "regime": "NEUTRAL",
-      "fetchedAtET": "2026-01-11T17:03:13.611Z",
-      "ageSeconds": 82
+      "fetchedAtET": "2026-01-11T17:12:50.054Z",
+      "ageSeconds": 0
     }
   },
   "diffs": []

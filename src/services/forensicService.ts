@@ -70,8 +70,25 @@ export class ForensicService {
             let marketMakerCallWall = 0; // Call Wall candidate
 
             if (chainSnapshot.length > 0) {
-                // Find most active contract
-                for (const c of chainSnapshot) {
+                // [V3.8.1] 14-DAY DTE RULE (Engine Purity)
+                // User Requirement: "set to inquire for a 14-day period"
+                // Only analyze contracts expiring within 14 days for Gamma/Wall logic.
+                // This ensures we are measuring NEAR-TERM Market Maker exposure, not LEAPS.
+                const today = new Date();
+                const fourteenDaysLater = new Date();
+                fourteenDaysLater.setDate(today.getDate() + 14);
+
+                // Filter: Expiration Date check (assuming snapshot has 'expiration' or 'details.expiration_date')
+                // If data format varies, we check safe access.
+                const relevantContracts = chainSnapshot.filter(c => {
+                    const expStr = c.details?.expiration_date; // YYYY-MM-DD
+                    if (!expStr) return false;
+                    const expDate = new Date(expStr);
+                    return expDate >= today && expDate <= fourteenDaysLater;
+                });
+
+                // Find most active contract IN THIS 14-DAY WINDOW
+                for (const c of relevantContracts) {
                     const vol = c.day?.volume || 0;
                     if (vol > maxVol) {
                         maxVol = vol;
