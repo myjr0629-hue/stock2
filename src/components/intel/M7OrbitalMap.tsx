@@ -44,7 +44,15 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
     const sunHalo = getHaloColor(sunChange);
 
     return (
-        <div className="relative w-full h-[500px] bg-[#050914] rounded-2xl overflow-hidden border border-slate-800/50 shadow-2xl flex items-center justify-center">
+        <div className="relative w-full h-[500px] bg-[#050914] rounded-2xl overflow-hidden border border-slate-800/50 shadow-2xl flex flex-col items-center justify-center">
+            {/* HUD Frame */}
+            <div className="absolute inset-0 pointer-events-none border-[0.5px] border-slate-800/30 rounded-2xl">
+                <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-500/30 rounded-tl-xl" />
+                <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-500/30 rounded-tr-xl" />
+                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-500/30 rounded-bl-xl" />
+                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-500/30 rounded-br-xl" />
+            </div>
+
             {/* Background Cosmos */}
             <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20 pointer-events-none" />
             <div className={`absolute w-[400px] h-[400px] blur-[120px] rounded-full opacity-20 pointer-events-none ${sunChange >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
