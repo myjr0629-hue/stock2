@@ -113,13 +113,28 @@ function calculateLayerScores(evidence: any): ScoreResult {
         // Apply Trend Penalty
         score += trendPenalty;
 
-        // [V3.8.1] ABSOLUTE RULE: 3-DAY RISING
-        // User Requirement: "Select rising stocks, not stocks that might rise"
-        // If the stock is NOT rising or momentum is weak, cap score to prevent ACTIONABLE tier.
-        // We assume slopeScore > 50 implies rising.
+        // [V3.8.2] SMART DIVERGENCE PROTOCOL
+        // User Logic: "Don't just reject falling stocks. If Whales are buying the dip, it's a hidden gem."
+        // We replace the blind "Zero Tolerance" with "Divergence Checks".
+
+        const netFlow = evidence?.flow?.netFlow || 0;
+        const gex = evidence?.options?.gex || 0;
+
         if (p.changePct <= 0) {
-            // If today is red, it violates the "Rising" principle for today.
-            score -= 20;
+            // Divergence Case 1: Price Down, Whale Flow Up (Accumulation)
+            if (netFlow > 5000000) { // > $5M buying
+                console.log(`[PowerEngine] ${evidence.symbol} BULLISH DIVERGENCE (Price Down, Whales Buying)`);
+                score += 15; // Reward the divergence
+            }
+            // Divergence Case 2: Price Down, GEX Positive (Supportive Dealer Positioning)
+            else if (gex > 2000000) {
+                console.log(`[PowerEngine] ${evidence.symbol} SUPPORT CHECK (Price Down, Dealer Support)`);
+                // No penalty, neutral
+            }
+            // Standard Case: Price Down, No Whale Support -> Falling Knife
+            else {
+                score -= 20; // Original Penalty applies only to unsupported drops
+            }
         }
 
         layerScores.price = Math.max(0, Math.min(100, score));

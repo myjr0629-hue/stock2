@@ -2,8 +2,8 @@
   "meta": {
     "id": "2026-01-11-eod",
     "type": "eod",
-    "generatedAt": "2026-01-11T17:14:50.578Z",
-    "generatedAtET": "01/11/2026, 12:14:50 PM",
+    "generatedAt": "2026-01-11T17:24:48.616Z",
+    "generatedAtET": "01/11/2026, 12:24:48 PM",
     "marketDate": "2026-01-11",
     "version": "S-56.4.6e",
     "pipelineVersion": "56.4.1",
@@ -36,8 +36,8 @@
     "baseline": {
       "source": "MASSIVE",
       "session": "regular",
-      "tsISO": "2026-01-11T17:14:50.578Z",
-      "tsET": "01/11/2026, 12:14:50 PM",
+      "tsISO": "2026-01-11T17:24:48.616Z",
+      "tsET": "01/11/2026, 12:24:48 PM",
       "items": [
         {
           "ticker": "INTC",
@@ -63,7 +63,7 @@
       ]
     },
     "freshness": {
-      "generatedAtISO": "2026-01-11T17:14:50.578Z",
+      "generatedAtISO": "2026-01-11T17:24:48.616Z",
       "ageMin": 0,
       "isStale": false
     },
@@ -71,7 +71,7 @@
       "state": "READY",
       "pendingTickers": [],
       "coveragePct": 8,
-      "lastUpdatedAtISO": "2026-01-11T17:14:56.269Z"
+      "lastUpdatedAtISO": "2026-01-11T17:24:54.303Z"
     },
     "integrity": {
       "status": "OK",
@@ -96,15 +96,15 @@
     "softFails": []
   },
   "macro": {
-    "asOfET": "1/11/2026, 12:12:14 PM",
-    "fetchedAtET": "2026-01-11T17:12:14.500Z",
+    "asOfET": "1/11/2026, 12:22:13 PM",
+    "fetchedAtET": "2026-01-11T17:22:14.180Z",
     "ageSeconds": 0,
     "marketStatus": {
       "market": "closed",
       "session": "closed",
       "isHoliday": false,
-      "serverTime": "2026-01-11T17:12:14.500Z",
-      "asOfET": "1/11/2026, 12:12:14 PM",
+      "serverTime": "2026-01-11T17:22:14.180Z",
+      "asOfET": "1/11/2026, 12:22:13 PM",
       "source": "MASSIVE",
       "cacheAgeSec": 0
     },
@@ -160,7 +160,7 @@
         "us30y": 4.85,
         "spread2s10s": 0.7000000000000002,
         "source": "MASSIVE",
-        "updatedAt": "2026-01-11T17:12:50.041Z"
+        "updatedAt": "2026-01-11T17:22:36.963Z"
       },
       "inflation": {
         "date": "2026-01-11",
@@ -170,13 +170,13 @@
         "pceYoY": null,
         "expectations": null,
         "source": "FAIL",
-        "updatedAt": "2026-01-11T17:12:50.042Z"
+        "updatedAt": "2026-01-11T17:22:36.963Z"
       },
-      "asOfET": "1/11/26, 12:12 PM"
+      "asOfET": "1/11/26, 12:22 PM"
     }
   },
   "events": {
-    "asOfET": "1/11/26, 12:12 PM",
+    "asOfET": "1/11/26, 12:22 PM",
     "events": [
       {
         "date": "2026-01-19",
@@ -202,7 +202,7 @@
     "shakeReasons": []
   },
   "policy": {
-    "asOfET": "1/11/26, 12:12 PM",
+    "asOfET": "1/11/26, 12:22 PM",
     "policies72h": [],
     "policies7d": [
       {
@@ -230,7 +230,7 @@
     ]
   },
   "news": {
-    "asOfET": "1/11/26, 12:12 PM",
+    "asOfET": "1/11/26, 12:22 PM",
     "marketHeadlines": [
       {
         "id": "mkt-001",
@@ -408,7 +408,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -434,7 +434,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:12:55.434Z"
+        "fetchedAtET": "2026-01-11T17:22:40.471Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -514,7 +514,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -540,7 +540,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:23.285Z"
+        "fetchedAtET": "2026-01-11T17:22:55.840Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -620,7 +620,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -646,7 +646,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:24.950Z"
+        "fetchedAtET": "2026-01-11T17:22:56.258Z"
       },
       "alphaScore": 89.2,
       "qualityTier": "WATCH",
@@ -726,7 +726,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -752,7 +752,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:25.229Z"
+        "fetchedAtET": "2026-01-11T17:22:56.689Z"
       },
       "alphaScore": 85.7,
       "qualityTier": "WATCH",
@@ -832,7 +832,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -858,7 +858,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:01.471Z"
+        "fetchedAtET": "2026-01-11T17:22:44.034Z"
       },
       "alphaScore": 78.4,
       "qualityTier": "WATCH",
@@ -938,7 +938,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -964,7 +964,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:12:57.826Z"
+        "fetchedAtET": "2026-01-11T17:22:41.869Z"
       },
       "alphaScore": 74.9,
       "qualityTier": "WATCH",
@@ -1044,7 +1044,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1070,7 +1070,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:22.871Z"
+        "fetchedAtET": "2026-01-11T17:22:55.133Z"
       },
       "alphaScore": 71.3,
       "qualityTier": "WATCH",
@@ -1150,7 +1150,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1176,7 +1176,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:09.047Z"
+        "fetchedAtET": "2026-01-11T17:22:48.386Z"
       },
       "alphaScore": 69.7,
       "qualityTier": "WATCH",
@@ -1256,7 +1256,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1282,7 +1282,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:24.648Z"
+        "fetchedAtET": "2026-01-11T17:22:56.121Z"
       },
       "alphaScore": 69.4,
       "qualityTier": "WATCH",
@@ -1362,7 +1362,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1388,7 +1388,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:12:59.365Z"
+        "fetchedAtET": "2026-01-11T17:22:43.286Z"
       },
       "alphaScore": 64.6,
       "qualityTier": "WATCH",
@@ -1468,7 +1468,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1494,7 +1494,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:24.298Z"
+        "fetchedAtET": "2026-01-11T17:22:56.302Z"
       },
       "alphaScore": 64,
       "qualityTier": "WATCH",
@@ -1574,7 +1574,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1600,7 +1600,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:23.213Z"
+        "fetchedAtET": "2026-01-11T17:22:55.863Z"
       },
       "alphaScore": 62.4,
       "qualityTier": "WATCH",
@@ -1682,7 +1682,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1708,7 +1708,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:31.260Z"
+        "fetchedAtET": "2026-01-11T17:23:00.235Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1782,7 +1782,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1808,7 +1808,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:30.794Z"
+        "fetchedAtET": "2026-01-11T17:23:00.263Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1882,7 +1882,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1908,7 +1908,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:31.893Z"
+        "fetchedAtET": "2026-01-11T17:23:01.753Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -1982,7 +1982,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2008,7 +2008,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:30.772Z"
+        "fetchedAtET": "2026-01-11T17:23:00.260Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2082,7 +2082,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2108,7 +2108,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:32.399Z"
+        "fetchedAtET": "2026-01-11T17:23:00.841Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -2182,7 +2182,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2208,7 +2208,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:30.906Z"
+        "fetchedAtET": "2026-01-11T17:23:00.064Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2282,7 +2282,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T17:12:50.054Z",
+          "fetchedAtET": "2026-01-11T17:22:36.981Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2308,7 +2308,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T17:13:30.944Z"
+        "fetchedAtET": "2026-01-11T17:23:00.279Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2385,7 +2385,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:13:36.889Z",
+            "fetchedAtET": "2026-01-11T17:23:32.941Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2411,7 +2411,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:40.653Z"
+          "fetchedAtET": "2026-01-11T17:23:36.682Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2490,7 +2490,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:13:36.889Z",
+            "fetchedAtET": "2026-01-11T17:23:32.941Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2516,7 +2516,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:41.339Z"
+          "fetchedAtET": "2026-01-11T17:23:37.213Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2595,7 +2595,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:13:36.889Z",
+            "fetchedAtET": "2026-01-11T17:23:32.941Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2621,7 +2621,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:45.348Z"
+          "fetchedAtET": "2026-01-11T17:23:37.743Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2700,7 +2700,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:13:36.889Z",
+            "fetchedAtET": "2026-01-11T17:23:32.941Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2726,7 +2726,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:39.912Z"
+          "fetchedAtET": "2026-01-11T17:23:35.713Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2805,7 +2805,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:13:36.889Z",
+            "fetchedAtET": "2026-01-11T17:23:32.941Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2831,7 +2831,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:41.859Z"
+          "fetchedAtET": "2026-01-11T17:23:37.526Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2910,7 +2910,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:13:36.889Z",
+            "fetchedAtET": "2026-01-11T17:23:32.941Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2936,7 +2936,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:43.442Z"
+          "fetchedAtET": "2026-01-11T17:23:39.103Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3015,7 +3015,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:13:36.889Z",
+            "fetchedAtET": "2026-01-11T17:23:32.941Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3041,7 +3041,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:50.009Z"
+          "fetchedAtET": "2026-01-11T17:23:39.023Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3122,7 +3122,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:14:23.154Z",
+            "fetchedAtET": "2026-01-11T17:24:21.786Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3148,7 +3148,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:14:26.511Z"
+          "fetchedAtET": "2026-01-11T17:24:25.168Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3227,7 +3227,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:14:23.154Z",
+            "fetchedAtET": "2026-01-11T17:24:21.786Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3253,7 +3253,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:14:26.896Z"
+          "fetchedAtET": "2026-01-11T17:24:25.164Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3332,7 +3332,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:14:23.154Z",
+            "fetchedAtET": "2026-01-11T17:24:21.786Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3358,7 +3358,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:14:25.783Z"
+          "fetchedAtET": "2026-01-11T17:24:23.540Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3367,10 +3367,10 @@
           "whaleIndex": 50,
           "whaleConfidence": "MED",
           "whaleEntryLevel": 70.82,
-          "whaleTargetLevel": 79,
-          "targetPrice": 79,
+          "whaleTargetLevel": 64.3,
+          "targetPrice": 64.3,
           "cutPrice": 67.28,
-          "dominantContract": "O:SYM260220C00070000",
+          "dominantContract": "O:SYM260116P00065000",
           "entryBand": [
             70.47,
             71.17
@@ -3437,7 +3437,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:14:23.154Z",
+            "fetchedAtET": "2026-01-11T17:24:21.786Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3463,7 +3463,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:14:26.814Z"
+          "fetchedAtET": "2026-01-11T17:24:23.952Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3472,10 +3472,10 @@
           "whaleIndex": 50,
           "whaleConfidence": "MED",
           "whaleEntryLevel": 217.26,
-          "whaleTargetLevel": 163.3,
-          "targetPrice": 163.3,
+          "whaleTargetLevel": 229.8,
+          "targetPrice": 229.8,
           "cutPrice": 206.4,
-          "dominantContract": "O:TER260717P00180000",
+          "dominantContract": "O:TER260116C00227500",
           "entryBand": [
             216.17,
             218.35
@@ -3542,7 +3542,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:14:23.154Z",
+            "fetchedAtET": "2026-01-11T17:24:21.786Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3568,7 +3568,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:14:27.056Z"
+          "fetchedAtET": "2026-01-11T17:24:24.557Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3647,7 +3647,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:14:23.154Z",
+            "fetchedAtET": "2026-01-11T17:24:21.786Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3673,7 +3673,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:14:26.058Z"
+          "fetchedAtET": "2026-01-11T17:24:23.691Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3756,7 +3756,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3782,7 +3782,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:12:55.434Z"
+          "fetchedAtET": "2026-01-11T17:22:40.471Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3855,7 +3855,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3881,7 +3881,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:23.285Z"
+          "fetchedAtET": "2026-01-11T17:22:55.840Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3954,7 +3954,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3980,7 +3980,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:24.950Z"
+          "fetchedAtET": "2026-01-11T17:22:56.258Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -4055,7 +4055,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4081,7 +4081,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:12:55.434Z"
+          "fetchedAtET": "2026-01-11T17:22:40.471Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -4161,7 +4161,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4187,7 +4187,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:23.285Z"
+          "fetchedAtET": "2026-01-11T17:22:55.840Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -4267,7 +4267,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4293,7 +4293,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:24.950Z"
+          "fetchedAtET": "2026-01-11T17:22:56.258Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -4373,7 +4373,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4399,7 +4399,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:25.229Z"
+          "fetchedAtET": "2026-01-11T17:22:56.689Z"
         },
         "alphaScore": 85.7,
         "qualityTier": "WATCH",
@@ -4479,7 +4479,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4505,7 +4505,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:01.471Z"
+          "fetchedAtET": "2026-01-11T17:22:44.034Z"
         },
         "alphaScore": 78.4,
         "qualityTier": "WATCH",
@@ -4585,7 +4585,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4611,7 +4611,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:12:57.826Z"
+          "fetchedAtET": "2026-01-11T17:22:41.869Z"
         },
         "alphaScore": 74.9,
         "qualityTier": "WATCH",
@@ -4691,7 +4691,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4717,7 +4717,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:22.871Z"
+          "fetchedAtET": "2026-01-11T17:22:55.133Z"
         },
         "alphaScore": 71.3,
         "qualityTier": "WATCH",
@@ -4797,7 +4797,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4823,7 +4823,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:09.047Z"
+          "fetchedAtET": "2026-01-11T17:22:48.386Z"
         },
         "alphaScore": 69.7,
         "qualityTier": "WATCH",
@@ -4903,7 +4903,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4929,7 +4929,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:24.648Z"
+          "fetchedAtET": "2026-01-11T17:22:56.121Z"
         },
         "alphaScore": 69.4,
         "qualityTier": "WATCH",
@@ -5009,7 +5009,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5035,7 +5035,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:12:59.365Z"
+          "fetchedAtET": "2026-01-11T17:22:43.286Z"
         },
         "alphaScore": 64.6,
         "qualityTier": "WATCH",
@@ -5115,7 +5115,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5141,7 +5141,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:24.298Z"
+          "fetchedAtET": "2026-01-11T17:22:56.302Z"
         },
         "alphaScore": 64,
         "qualityTier": "WATCH",
@@ -5221,7 +5221,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T17:12:50.054Z",
+            "fetchedAtET": "2026-01-11T17:22:36.981Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5247,7 +5247,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T17:13:23.213Z"
+          "fetchedAtET": "2026-01-11T17:22:55.863Z"
         },
         "alphaScore": 62.4,
         "qualityTier": "WATCH",
@@ -5308,7 +5308,7 @@
         "label": "DXY"
       },
       "regime": "NEUTRAL",
-      "fetchedAtET": "2026-01-11T17:12:50.054Z",
+      "fetchedAtET": "2026-01-11T17:22:36.981Z",
       "ageSeconds": 0
     }
   },
