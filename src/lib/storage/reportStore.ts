@@ -87,7 +87,7 @@ const PERF_TRACKER_PATH = path.join(process.cwd(), 'snapshots', 'performance_tra
 // [S-52.6] Environment check - USE_REDIS_SSOT allows local to use Redis
 const isVercel = () => process.env.VERCEL === '1' || !!process.env.VERCEL_ENV;
 // [P0] HARDCODED: Always use Redis SSOT regardless of environment
-export const useRedis = () => isVercel();
+export const useRedis = () => isVercel() || !!process.env.KV_REST_API_URL;
 
 // Get Redis client (lazy initialization)
 let redisClient: Redis | null = null;
@@ -238,6 +238,21 @@ export async function saveReport(date: string, type: string, reportJson: any, fo
         console.warn('[ReportStore] Force override: optionsStatus set to READY.');
     }
 
+    // [Protection] Prevent overwriting Master/Manual reports with Auto reports
+    if (!force) {
+        try {
+            const existing = await loadReport(date, type);
+            // If existing is MASTER/FULL and new is not, ABORT (unless new is also master)
+            if (existing?.meta?.id?.includes('master') && !reportJson.meta?.id?.includes('master')) {
+                console.warn(`[ReportStore] 🛡️ PROTECTED: Skipping overwrite of Master Report (${existing.meta.id}) by inferior report (${reportJson.meta?.id})`);
+                // Act as if we saved it (idempotent success)
+                return { stored: useRedis() ? 'redis' : 'fs', integrity: existing.meta.integrity, rolledBack: true };
+            }
+        } catch (e) {
+            console.warn('[ReportStore] Failed to check existing report for protection:', e);
+        }
+    }
+
     // [S-52.7] Calculate validation score (0-100)
     const hardFails = validation.integrity.reasons.filter(r => ['ITEMS_LT_12', 'MACRO_MISSING', 'TOP3_LT_3'].includes(r));
     const softFails = validation.integrity.reasons.filter(r => !['ITEMS_LT_12', 'MACRO_MISSING', 'TOP3_LT_3'].includes(r));
@@ -356,23 +371,8 @@ export async function loadLatest(type: string): Promise<any | null> {
     } else {
         // Find most recent date with this type
         // Check both legacy path (snapshots/{date}) and new path (snapshots/reports/{date})
+        // [Fix] Check NEW path first as it contains recent data
         const LEGACY_DIR = path.join(process.cwd(), 'snapshots');
-
-        // Try legacy path first (snapshots/{date}/{type}.json)
-        if (fs.existsSync(LEGACY_DIR)) {
-            const dates = fs.readdirSync(LEGACY_DIR)
-                .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
-                .sort()
-                .reverse();
-
-            for (const date of dates) {
-                const filePath = path.join(LEGACY_DIR, date, `${type}.json`);
-                if (fs.existsSync(filePath)) {
-                    console.log(`[ReportStore] loadLatest found: ${filePath}`);
-                    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-                }
-            }
-        }
 
         // Try new path (snapshots/reports/{date}/{type}.json)
         if (fs.existsSync(REPORTS_DIR)) {
@@ -384,7 +384,23 @@ export async function loadLatest(type: string): Promise<any | null> {
             for (const date of dates) {
                 const filePath = path.join(REPORTS_DIR, date, `${type}.json`);
                 if (fs.existsSync(filePath)) {
-                    console.log(`[ReportStore] loadLatest found: ${filePath}`);
+                    console.log(`[ReportStore] loadLatest found (NEW): ${filePath}`);
+                    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+                }
+            }
+        }
+
+        // Try legacy path second (snapshots/{date}/{type}.json)
+        if (fs.existsSync(LEGACY_DIR)) {
+            const dates = fs.readdirSync(LEGACY_DIR)
+                .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+                .sort()
+                .reverse();
+
+            for (const date of dates) {
+                const filePath = path.join(LEGACY_DIR, date, `${type}.json`);
+                if (fs.existsSync(filePath)) {
+                    console.log(`[ReportStore] loadLatest found (LEGACY): ${filePath}`);
                     return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
                 }
             }

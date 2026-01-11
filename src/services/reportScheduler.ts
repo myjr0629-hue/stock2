@@ -149,10 +149,10 @@ function ensureReportDir(date: string): string {
 // GENERATE REPORT (vNext Attributes)
 // ============================================================================
 
-export async function generateReport(type: ReportType, force: boolean = false): Promise<PremiumReport> {
+export async function generateReport(type: ReportType, force: boolean = false, targetDateOverride?: string): Promise<PremiumReport> {
     console.log(`[ReportScheduler] Generating ${type} report (Phase 37 3-Stage Protocol)...`);
     const startTime = Date.now();
-    const marketDate = getMarketDate();
+    const marketDate = targetDateOverride || getMarketDate();
 
     // 1. Fetch Global Context
     const [macro, events, policy, news, guardian] = await Promise.all([
@@ -202,7 +202,7 @@ export async function generateReport(type: ReportType, force: boolean = false): 
             draftTickers.push(...hunterTickers);
         }
 
-        const rawAuditItems = await enrichTerminalItems(draftTickers, sessionParam, true); // Force fresh
+        const rawAuditItems = await enrichTerminalItems(draftTickers, sessionParam, true, targetDateOverride); // Force fresh
 
         // [INTEGRITY GATE] Drop items with invalid price ($0.00)
         const auditItems = rawAuditItems.filter(item => {
@@ -245,7 +245,7 @@ export async function generateReport(type: ReportType, force: boolean = false): 
 
         while (attempts < MAX_RETRIES) {
             console.log(`[ReportScheduler] Zero-Defect Fetch Attempt ${attempts + 1}/${MAX_RETRIES}...`);
-            const rawFinalItems = await enrichTerminalItems(finalTickers, sessionParam, true);
+            const rawFinalItems = await enrichTerminalItems(finalTickers, sessionParam, true, targetDateOverride);
 
             // [INTEGRITY GATE] Drop items with invalid price ($0.00)
             const validPriceItems = rawFinalItems.filter(item => {
@@ -991,6 +991,32 @@ export async function getLatestReport(type: ReportType): Promise<PremiumReport |
     }
 
     return null;
+}
+
+// [S-56.5.1] Global Latest Report Resolver
+// Solves priority issue where an old "Morning" report shadows a new "EOD" report.
+export async function getGlobalLatestReport(): Promise<PremiumReport | null> {
+    const TYPES: ReportType[] = ['morning', 'pre', 'open', 'draft', 'final', 'eod', 'revised'];
+    let candidates: PremiumReport[] = [];
+
+    // Parallel fetch for speed
+    await Promise.all(TYPES.map(async (t) => {
+        try {
+            const r = await getLatestReport(t);
+            if (r) candidates.push(r);
+        } catch (e) { }
+    }));
+
+    if (candidates.length === 0) return null;
+
+    // Sort by generatedAtET (descending)
+    candidates.sort((a, b) => {
+        const timeA = new Date(a.meta?.generatedAtET || 0).getTime();
+        const timeB = new Date(b.meta?.generatedAtET || 0).getTime();
+        return timeB - timeA;
+    });
+
+    return candidates[0];
 }
 
 // Check if a report should be generated based on current time (for cron)

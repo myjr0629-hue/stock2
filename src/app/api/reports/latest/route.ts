@@ -18,7 +18,7 @@ const NO_CACHE_HEADERS = {
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') as ReportType | 'gems' | null;
+    const type = searchParams.get('type');
 
     try {
         // Default to 'eod' if no type specified, but respect explicit override
@@ -44,8 +44,13 @@ export async function GET(request: Request) {
             }
         }
 
-        // Regular report types (eod, pre2h, open30m)
-        const report = await loadLatest(reportType);
+        let report;
+        if (reportType === 'global') {
+            const { getGlobalLatestReport } = await import('@/services/reportScheduler');
+            report = await getGlobalLatestReport();
+        } else {
+            report = await loadLatest(reportType);
+        }
 
         if (!report) {
             return new Response(JSON.stringify({

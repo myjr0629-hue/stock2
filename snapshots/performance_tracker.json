@@ -460,5 +460,86 @@
       }
     ],
     "calculated": false
+  },
+  {
+    "date": "2026-01-08",
+    "reportType": "morning",
+    "sessionType": "regular",
+    "timestamp": "2026-01-09T04:31:10.605Z",
+    "tickers": [
+      {
+        "symbol": "XOM",
+        "rank": 1,
+        "baselinePrice": 122.91,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "COST",
+        "rank": 2,
+        "baselinePrice": 915.31,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "SLB",
+        "rank": 3,
+        "baselinePrice": 44.43,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
+  },
+  {
+    "date": "2026-01-08",
+    "reportType": "eod",
+    "sessionType": "regular",
+    "timestamp": "2026-01-09T08:37:05.959Z",
+    "tickers": [
+      {
+        "symbol": "DE",
+        "rank": 1,
+        "baselinePrice": 500.8,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "SLB",
+        "rank": 2,
+        "baselinePrice": 44.43,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "LMT",
+        "rank": 3,
+        "baselinePrice": 518.44,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
+  },
+  {
+    "date": "2026-01-09",
+    "reportType": "eod",
+    "sessionType": "regular",
+    "timestamp": "2026-01-10T10:14:16.821Z",
+    "tickers": [
+      {
+        "symbol": "INTC",
+        "rank": 1,
+        "baselinePrice": 45.55,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "LOW",
+        "rank": 2,
+        "baselinePrice": 267.21,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "LMT",
+        "rank": 3,
+        "baselinePrice": 542.92,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
   }
 ]

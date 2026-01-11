@@ -55,14 +55,13 @@ const MAX_RETRIES = 2;
 const RETRY_DELAY = 500;
 
 export const CentralDataHub = {
-    // ... getUnifiedData implementation remains same ...
-    getUnifiedData: async (ticker: string, forceRefresh = false): Promise<UnifiedQuote> => {
+    getUnifiedData: async (ticker: string, forceRefresh = false, targetDate?: string): Promise<UnifiedQuote> => {
         let attempts = 0;
         let lastError = null;
 
         while (attempts <= MAX_RETRIES) {
             try {
-                return await CentralDataHub._fetchInternal(ticker, undefined, forceRefresh);
+                return await CentralDataHub._fetchInternal(ticker, targetDate, forceRefresh);
             } catch (e: any) {
                 lastError = e;
                 attempts++;
@@ -101,10 +100,6 @@ export const CentralDataHub = {
         fromDate.setDate(new Date(toDate).getDate() - 30);
         const fromDateStr = fromDate.toISOString().split('T')[0];
 
-        // [Fix] Cache Policy Propagation
-        // If forceRefresh is true, we force 'no-store'. Otherwise use default (which might be memory cache or revalidate:30)
-        // Actually, we pass 'true' for useMemoryCache in fetchMassive usually, but here we want to bypass it if forced.
-
         const useMemoryCache = !forceRefresh;
         const fetchOptions = forceRefresh ? { cache: 'no-store' as RequestCache } : undefined;
 
@@ -138,9 +133,6 @@ export const CentralDataHub = {
         if (isClosed && OC.close) {
             regClose = OC.close;
         } else {
-            // [Fix] During PRE, 'day.c' is 0. We should NOT fall back to 'min.c' (current) for the 'regClose'
-            // because regClose represents the Reference Price (Official Close).
-            // If PRE, regClose should be Yesterday's Close.
             if (session === 'PRE') {
                 regClose = prevClose || S.prevDay?.c || regClose;
             } else {
@@ -148,12 +140,9 @@ export const CentralDataHub = {
             }
         }
 
-        // [V3.7.5] Price Selection: Strictly anchor 'price' to Official Close (or Live if REG)
-        // 'extendedPrice' holds Pre/Post data.
+        // Price Selection
         let price = 0;
         let priceSource: UnifiedQuote['priceSource'] = "OFFICIAL_CLOSE";
-
-        // Extended Data Containers
         let extendedPrice = 0;
         let extendedLabel: "PRE" | "POST" | "CLOSED" | undefined = undefined;
 
@@ -161,11 +150,8 @@ export const CentralDataHub = {
             price = liveLast || regClose;
             priceSource = "LIVE_SNAPSHOT";
         } else {
-            // CLOSED, PRE, POST -> Base is Close
             price = regClose;
             priceSource = "OFFICIAL_CLOSE";
-
-            // Determine Extended Price
             if (session === 'PRE') {
                 extendedPrice = S.min?.c || liveLast || 0;
                 extendedLabel = 'PRE';
@@ -173,16 +159,14 @@ export const CentralDataHub = {
                 extendedPrice = S.min?.c || liveLast || 0;
                 extendedLabel = 'POST';
             } else if (session === 'CLOSED') {
-                // Check for After Hours
                 if (S.afterHours?.p && S.afterHours.p > 0) {
                     extendedPrice = S.afterHours.p;
-                    extendedLabel = 'POST'; // Display as Post Market
+                    extendedLabel = 'POST';
                 }
             }
         }
 
-
-        // [Critial Fix] Weekend/Holiday Stale Data Correction
+        // Weekend/Holiday Stale Data Correction
         const isNonTradingDay = marketStatus.isHoliday || session === "CLOSED";
         if (isNonTradingDay && fullHistory.length >= 2) {
             if (Math.abs(price - prevClose) < 0.001) {
@@ -193,7 +177,6 @@ export const CentralDataHub = {
             }
         }
 
-        // Final Safety
         if (!price || price === 0) {
             if (prevClose > 0) {
                 price = prevClose;
@@ -203,19 +186,19 @@ export const CentralDataHub = {
 
         let changePct = 0;
         if (price && prevClose) {
-            changePct = ((price - prevClose) / prevClose) * 100; // [Fix] Convert to Percentage
+            changePct = ((price - prevClose) / prevClose) * 100;
         }
 
         let extendedChangePct = 0;
         if (extendedPrice > 0 && price > 0) {
-            extendedChangePct = ((extendedPrice - price) / price) * 100; // [Fix] Convert to Percentage vs Reg Close
+            extendedChangePct = ((extendedPrice - price) / price) * 100;
         }
 
         const isRollover = (session === "PRE" && changePct === 0);
 
-        // Smart Options Fetch using Price (Anchor to Close for consistent Walls)
+        // Smart Options Fetch
         const fetchPrice = price || prevClose;
-        const optionsRes = await CentralDataHub._fetchOptionsChain(ticker, fetchPrice).catch(err => ({
+        const optionsRes = await CentralDataHub._fetchOptionsChain(ticker, fetchPrice, specificDate).catch(err => ({
             netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0, optionsCount: 0, error: err.message || "Safe Fallback"
         }));
 
@@ -228,12 +211,9 @@ export const CentralDataHub = {
             finalChangePercent: changePct || 0,
             prevClose: prevClose || 0,
             volume: S.day?.v || 0,
-
-            // New Extended Data
             extendedPrice,
             extendedChangePct,
             extendedLabel,
-
             snapshot: S,
             openClose: OC,
             flow: flowData,
@@ -242,7 +222,6 @@ export const CentralDataHub = {
             priceSource,
             history3d,
             history15d: fullHistory,
-
             rsi: rsiRes?.results?.values?.[0]?.value || null,
             relVol: (fullHistory.length > 0 && S.day?.v) ? (S.day.v / (fullHistory.reduce((a: number, b: any) => a + (b.v || 0), 0) / fullHistory.length)) : 1,
             gapPct: (S.day?.o && S.prevDay?.c) ? ((S.day.o - S.prevDay.c) / S.prevDay.c * 100) : 0
@@ -253,49 +232,31 @@ export const CentralDataHub = {
      * [Phase 27] Smart Option Pipeline (Dark Pool Revival)
      * Filters: Strike ±5%, Expiration < 30d
      */
-    _fetchOptionsChain: async (ticker: string, currentPrice: number) => {
-        // [S-17] Safe Unblock: Check Dev Flag
-        // FORCE ENABLE FOR DEMO: Checks bypassed
-        /*
-        const DISABLE_OPTIONS_IN_DEV = process.env.NODE_ENV !== "production";
-        if (DISABLE_OPTIONS_IN_DEV && process.env.ALLOW_MASSIVE_FOR_SNAPSHOT !== "1") {
-            return {
-                netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0,
-                optionsCount: 0, dataSource: 'NONE', isAfterHours: false
-            };
-        }
-        */
-
+    _fetchOptionsChain: async (ticker: string, currentPrice: number, targetDate?: string) => {
         try {
             if (!currentPrice || currentPrice <= 0) return {
                 netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0,
                 optionsCount: 0, dataSource: 'NONE', isAfterHours: false
             };
 
-            // [Fix] Massive API Options Overhaul
-            // Fetch everything, filter in memory.
-            const today = new Date();
-            const future = new Date();
-            future.setDate(today.getDate() + 14); // [Tuning] 35 -> 14 Days (Increase Sensitivity)
+            const today = targetDate ? new Date(targetDate) : new Date();
+            const future = new Date(today);
+            future.setDate(today.getDate() + 14);
             const dateStr = future.toISOString().split('T')[0];
 
             console.log(`[CentralDataHub] Fetching ALL options for ${ticker} -> In-Memory Filter < ${dateStr}`);
 
-            // [Fix] Enforce Date Range at API Level to ensure 250 limit contains RELEVANT options
-            // Otherwise we get LEAPS (2026+) and filter them all out locally.
-            const todayStr = new Date().toISOString().split('T')[0];
-            const maxExpiryDate = new Date();
-            // [User Request] Tighten window to 14 days (Weeklies + Next Week)
+            const todayStr = targetDate || new Date().toISOString().split('T')[0];
+            const maxExpiryDate = new Date(today);
             maxExpiryDate.setDate(maxExpiryDate.getDate() + 14);
             const maxExpiryStr = maxExpiryDate.toISOString().split('T')[0];
 
             const params: any = {
-                limit: '250', // [User Rule] Strict 250 limit. Pagination MUST handle the rest.
+                limit: '250',
                 'expiration_date.gte': todayStr,
                 'expiration_date.lte': maxExpiryStr
             };
 
-            // [Fix] Use fetchMassiveAll but with higher limit
             const res = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, params, true);
             const results = res.results || [];
 
@@ -304,26 +265,14 @@ export const CentralDataHub = {
             let totalGamma = 0;
             let contractsProcessed = 0;
             let usedFallback = false;
-
-            // [Phase 32/35] First pass: Try using day.volume (live data)
-            // If we have some volume, we rely on it. But we also aggregate Gamma regardless.
             let hasLiveVolume = false;
 
             for (const c of results) {
-                // [Phase 35] In-Memory Expiration Filter (Redundant with API params, and was incorrect > dateStr)
-                // if (c.details?.expiration_date > dateStr) continue;
-
-                // Common Greek Extraction
                 const gamma = c.greeks?.gamma || 0;
                 const oi = c.open_interest || 0;
                 const cType = c.details?.contract_type;
                 const priceUsed = c.day?.close || c.details?.close_price || 0;
 
-                // [Phase 35] Always calculate Total Gamma (GEX proxy)
-                // GEX = Gamma * OI * 100 * Spot (Approx)
-                // Here we just sum Raw Gamma * OI * 100 for "Gamma Exposure" direction
-                // Call Gamma is positive, Put Gamma is negative? 
-                // Usually GEX maps: Call (+), Put (-).
                 if (cType === 'call') totalGamma += (gamma * oi * 100);
                 else if (cType === 'put') totalGamma -= (gamma * oi * 100);
 
@@ -337,11 +286,10 @@ export const CentralDataHub = {
                 }
             }
 
-            // [Phase 32/35] Fallback: If NO live volume found, run Manual Aggregation on OI
             if (!hasLiveVolume && results.length > 0) {
                 console.log(`[CentralDataHub] Day volume is 0, activating Manual Aggregation (Sniper Mode)...`);
                 usedFallback = true;
-                contractsProcessed = 0; // Reset for fallback count
+                contractsProcessed = 0;
                 callPremium = 0;
                 putPremium = 0;
 
@@ -351,31 +299,17 @@ export const CentralDataHub = {
                     const cType = c.details?.contract_type;
 
                     if (!oi || !priceUsed) continue;
-
-                    // [Phase 35] Notional Value: OI * Price * 100 (Proxy for "Potential Flow")
-                    // This prevents $0.0M display.
-                    const notional = oi * priceUsed * 100 * 0.05; // [Tuning] 5% of OI turnover assumption? 
-                    // User said: "manually aggregate... using OI * Price". 
-                    // Just OI * Price * 100 is "Open Interest Notional Value". 
-                    // Flow is usually volume. Using 100% of OI as Flow is huge. 
-                    // I'll stick to the Phase 32 logic: OI * PreviousClose * 100.
-                    // But explicitly label it 'CALCULATED'.
-
                     const val = oi * priceUsed * 100;
-
                     if (cType === 'call') callPremium += val;
                     else if (cType === 'put') putPremium += val;
-
                     contractsProcessed++;
                 }
-                console.log(`[CentralDataHub] Manual Flow: $${((callPremium - putPremium) / 1e6).toFixed(1)}M (Gamma: ${totalGamma.toFixed(0)})`);
+                console.log(`[CentralDataHub] Manual Flow: $${((callPremium - putPremium) / 1e6).toFixed(1)}M`);
             }
 
-            // Determine data source for UI display
             const isAfterHours = contractsProcessed === 0 && results.length > 0;
             let dataSource: 'LIVE' | 'PREVIOUS_CLOSE' | 'CALCULATED' | 'NONE' = 'LIVE';
             if (usedFallback && contractsProcessed > 0) dataSource = 'CALCULATED';
-            // [Fix] Even if isAfterHours (no volume processed), if we have results, we show CALCULATED (OI-based) for Radar
             if (isAfterHours && results.length > 0) dataSource = 'CALCULATED';
 
             return {
@@ -385,14 +319,10 @@ export const CentralDataHub = {
                 totalPremium: callPremium + putPremium,
                 optionsCount: results.length,
                 contractsProcessed,
-                dataSource, // 'LIVE', 'CALCULATED', or 'NONE'
+                dataSource,
                 isAfterHours,
-                gamma: totalGamma, // [Phase 35] Expose Gamma
-                // [Phase 42] Expose Raw Chain for UI
+                gamma: totalGamma,
                 rawChain: results,
-
-                // [Phase 42.1] Wall Calculation (Nearest Expiry Only)
-                // Filter chain to only include the nearest expiration date for more accurate pinning levels
                 callWall: calcMaxOI(filterNearestExpiry(results), 'call'),
                 putFloor: calcMaxOI(filterNearestExpiry(results), 'put'),
                 pinZone: calcMaxTotalOI(filterNearestExpiry(results)),
@@ -401,11 +331,8 @@ export const CentralDataHub = {
             };
 
         } catch (e: any) {
-            // [Fix] Graceful degradation for Access/Auth errors
             const isAuthError = e.code === 'AUTH_ERROR' || e.httpStatus === 403 || e.httpStatus === 401;
             const isMissing = e.httpStatus === 404;
-
-            // [Fix] Handle MassiveError object structure (e.message might be undefined)
             const errorMessage = e.message || e.reasonKR || JSON.stringify(e);
 
             if (isAuthError || isMissing) {

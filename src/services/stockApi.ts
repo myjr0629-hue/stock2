@@ -203,7 +203,7 @@ async function getTechnicalRSI(symbol: string, budget?: RunBudget): Promise<numb
 }
 
 // --- ENGINE 3: OPTIONS, MAX PAIN & GEX (OI Integrity + Retry) ---
-async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budget?: RunBudget, useCache: boolean = true) {
+async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budget?: RunBudget, useCache: boolean = true, targetDate?: string) {
 
   let allResults: any[] = [];
   let targetExpiry: string = "-";
@@ -218,8 +218,8 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
     }
 
     // 2) Initial Fetch: Get ALL contracts within 14 days (Near-Term Focus)
-    const todayStr = new Date().toISOString().split('T')[0];
-    const d = new Date();
+    const todayStr = targetDate || new Date().toISOString().split('T')[0];
+    const d = targetDate ? new Date(targetDate) : new Date();
     d.setDate(d.getDate() + 14);
     const limitStr = d.toISOString().split('T')[0];
 
@@ -297,7 +297,11 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
   }
 }
 
-function calculateGemsGreeks(contracts: any[], spot: number) {
+function calculateGemsGreeks(contracts: any[], spot: number, targetDate?: string) {
+  // [S-45] 0DTE Logic: "Today" in NY Time
+  // Use targetDate if provided, otherwise derived 'today'
+  const todayDate = targetDate || new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" })).toISOString().split('T')[0];
+
   // No contracts
   if (!contracts || contracts.length === 0) {
     return {
@@ -361,10 +365,6 @@ function calculateGemsGreeks(contracts: any[], spot: number) {
   let totalGex = 0;
   let gexZeroDte = 0;
 
-  // [S-45] 0DTE Logic: "Today" in NY Time
-  const todayNY = new Date().toLocaleString("en-US", { timeZone: "America/New_York" });
-  const todayDate = new Date(todayNY).toISOString().split('T')[0];
-
   contracts.forEach((c: any) => {
     const gamma = c.greeks?.gamma || 0;
     const OI = Number(c.open_interest) || 0;
@@ -411,32 +411,7 @@ function calculateGemsGreeks(contracts: any[], spot: number) {
   };
 }
 
-export async function getOptionsData(symbol: string, presetSpot?: number, budget?: RunBudget, useCache: boolean = true): Promise<OptionData> {
-
-
-  // [S-17] Options Block REMOVED by User Request (Unlimited API)
-  /*
-  if (DISABLE_OPTIONS_IN_DEV && process.env.ALLOW_MASSIVE_FOR_SNAPSHOT !== "1") {
-    return {
-      expirationDate: "-",
-      currentPrice: presetSpot || 0,
-      maxPain: 0,
-      strikes: [],
-      callsOI: [],
-      putsOI: [],
-      putCallRatio: undefined,
-      gems: {
-        mmPos: "PENDING",
-        edge: "DEV: Options disabled",
-        gex: 0,
-        comment: "개발 서버 안정화: 옵션 API 호출 비활성화"
-      },
-      options_status: "PENDING",
-      options_grade: "C",
-      options_reason: "DEV server: options calls disabled"
-    } as any;
-  }
-  */
+export async function getOptionsData(symbol: string, presetSpot?: number, budget?: RunBudget, useCache: boolean = true, targetDate?: string): Promise<OptionData> {
 
   // [S-38D] Options-Eligibility Gate (Just-In-Time)
   // Step 1: Probe presence of ANY contracts for this ticker
@@ -467,9 +442,9 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
   let chainData: any = null;
 
   while (attempt < MAX_OI_RETRIES) {
-    chainData = await getPolygonOptionsChain(symbol, presetSpot, budget, useCache);
+    chainData = await getPolygonOptionsChain(symbol, presetSpot, budget, useCache, targetDate);
     const spotNum = chainData.spot || 0;
-    analytics = calculateGemsGreeks(chainData.contracts, spotNum);
+    analytics = calculateGemsGreeks(chainData.contracts, spotNum, targetDate);
 
     if (analytics.options_status === "OK" || analytics.options_status === "NO_OPTIONS") break;
 

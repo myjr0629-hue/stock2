@@ -86,6 +86,15 @@ function calculateLayerScores(evidence: any): ScoreResult {
         // Slope Score (Trend) - Assume calculated elsewhere or default
         const slopeScore = 50; // Placeholder if not calculated
 
+        // [V3.7.3] STRICT TREND GATE (User Request: "Rising Stocks", not "Risen Stocks")
+        // Penalty for falling stocks in EOD report
+        let trendPenalty = 0;
+        if (p.changePct < 0) {
+            // Massive penalty for red days implies "Falling Knife" risk
+            trendPenalty = -50;
+            console.log(`[PowerEngine] ${evidence.symbol} Penalized for Negative Trend (${p.changePct}%)`);
+        }
+
         // [V3.7.3 TUNING] Aggressive Momentum Scoring
         // Old: Max 40. New: Max 100.
         // Formula: ChangePct * 15. (+1% = 15pts, +3% = 45pts, +5% = 75pts, +7% = 100pts)
@@ -101,12 +110,13 @@ function calculateLayerScores(evidence: any): ScoreResult {
         // Bonuse for strong close
         if (p.priceSource === 'POST_CLOSE' || p.priceSource === 'OFFICIAL_CLOSE') score += 5;
 
+        // Apply Trend Penalty
+        score += trendPenalty;
+
         layerScores.price = Math.max(0, Math.min(100, score));
         calculatedLayers++;
         totalWeight += POWER_SCORE_CONFIG.WEIGHTS.PRICE;
         weightedSum += layerScores.price * POWER_SCORE_CONFIG.WEIGHTS.PRICE;
-
-
     }
 
     // [Phase 35] Smart Flow (Weight: 40%) - Maps to Flow Layer

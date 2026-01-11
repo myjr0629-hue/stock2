@@ -1,0 +1,20 @@
+{
+    "compilerOptions": {
+        "target": "ES2019",
+        "module": "commonjs",
+        "baseUrl": ".",
+        "paths": {
+            "@/*": [
+                "src/*"
+            ]
+        },
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "strict": false,
+        "allowJs": true
+    },
+    "include": [
+        "scripts/**/*.ts",
+        "src/**/*.ts"
+    ]
+}

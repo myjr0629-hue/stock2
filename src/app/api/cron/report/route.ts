@@ -31,11 +31,14 @@ export async function GET(request: Request) {
     // Get today's date in ET
     const todayET = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
     const todayDate = new Date(todayET);
-    const marketDate = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
+    const defaultMarketDate = `${todayDate.getFullYear()}-${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`;
 
     // Check for duplicate (avoid regenerating same report)
     const force = searchParams.get('force') === 'true';
-    const existing = !force ? getArchivedReport(marketDate, type) : null;
+    const targetDateParam = searchParams.get('date'); // [S-56.5] Support manual date override
+    const marketDate = targetDateParam || defaultMarketDate;
+
+    const existing = (!force && !targetDateParam) ? getArchivedReport(marketDate, type) : null;
 
     if (existing) {
         console.log(`[Cron] Report ${marketDate}-${type} already exists, skipping`);
@@ -49,7 +52,7 @@ export async function GET(request: Request) {
     // Generate report
     try {
         console.log(`[Cron] Generating ${type} report for ${marketDate}... (force=${force})`);
-        const report = await generateReport(type, force);
+        const report = await generateReport(type, force, targetDateParam || undefined);
 
         const metaAny = report.meta as any;
         return NextResponse.json({

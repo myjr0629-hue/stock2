@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { getLatestReport } from '@/services/reportScheduler';
+import { getLatestReport, getGlobalLatestReport } from '@/services/reportScheduler';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import IntelClientPage from './IntelClientPage';
 
@@ -8,8 +8,8 @@ export const dynamic = 'force-dynamic';
 
 export default async function IntelPage() {
     // 1. Fetch Latest Report (Server Side for Speed/SEO/Reliability)
-    // We try 'morning' (latest) -> 'final' (yesterday) -> others
-    const report = await getLatestReport('morning') || await getLatestReport('final') || await getLatestReport('pre') || await getLatestReport('eod');
+    // [VNext] Use global resolver to find the strictly latest report by timestamp
+    const report = await getGlobalLatestReport();
 
     return (
         <div className="flex flex-col min-h-screen bg-[#05090f]">

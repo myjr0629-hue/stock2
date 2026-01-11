@@ -76,11 +76,15 @@ export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore, whaleEn
 
             {/* Status Text / Whale Target Display */}
             <div className="text-center z-10">
-                <div className="flex items-center justify-center gap-2 mb-1">
-                    <span className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">
-                        {dominantContract || 'CONVICTION'}
-                    </span>
-                    {isFireReady && <Zap className="w-3 h-3 text-fuchsia-500 animate-pulse" />}
+                <div className="flex flex-col items-center justify-center mb-1">
+                    <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-slate-500 font-bold tracking-widest uppercase">
+                            {dominantContract || 'CONVICTION'}
+                        </span>
+                        {isFireReady && <Zap className="w-3 h-3 text-fuchsia-500 animate-pulse" />}
+                    </div>
+                    {/* [V4.7] Korean Context Label */}
+                    {!dominantContract && <span className="text-[9px] text-slate-600 font-medium -mt-0.5">AI 확신도 (승률 예상)</span>}
                 </div>
 
                 {whaleTargetLevel ? (
@@ -96,7 +100,7 @@ export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore, whaleEn
                         )}
                     </div>
                 ) : (
-                    <div className={cn("text-3xl font-black tabular-nums tracking-tighter leading-none",
+                    <div className={cn("text-3xl font-black tabular-nums tracking-tighter leading-none mt-1",
                         isFireReady ? "text-fuchsia-400 drop-shadow-[0_0_8px_rgba(232,121,249,0.5)]" : "text-white"
                     )}>
                         {fill.toFixed(0)}

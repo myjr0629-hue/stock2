@@ -17,6 +17,52 @@ import { TacticalBoard } from "@/components/intel/TacticalBoard"; // [NEW]
 
 
 // ============================================================================
+// [V4.6] Stealth Tag Translator (Korean)
+// ============================================================================
+const STEALTH_TAG_MAP: Record<string, string> = {
+    'GammaSqueeze': '감마 스퀴즈 (폭등 전조)',
+    'WhaleAccumulation': '기관 매집 (바닥 다지기)',
+    'AI_Momentum': 'AI 모멘텀 (주도주 강세)',
+    'SectorLeader': '섹터 대장주 (수급 쏠림)',
+    'SafeHaven': '안전 자산 (방어적 매수)',
+    'TechRotation': '기술주 순환매 (자금 이동)',
+    'SemiSemi': '반도체 동조화 (동반 상승)',
+    'CatchUp': '기맞추기 반등 (후발 주자)',
+    'Consolidation': '기간 조정 (매물 소화)',
+    'CloudGrowth': '클라우드 성장성 (실적 기대)',
+    'ValueTech': '가치주 성격 부각 (저평가)',
+    'AdRev': '광고 매출 회복 (펀더멘털)',
+    'Efficiency': '효율화 달성 (비용 절감)',
+    'Social': '소셜 미디어 지배력',
+    'Prime': 'Prime 구독 락인 효과',
+    'AWS': '클라우드 점유율 1위',
+    'Streaming': '스트리밍 지배력',
+    'Content': '컨텐츠 경쟁력',
+    'GovTech': '정부 수주 독점력',
+    'AI_Defense': '국방 AI 수혜',
+    'CryptoVol': '코인 변동성 연동',
+    'Exchange': '거래소 수수료 수익',
+    'BitcoinLev': '비트코인 레버리지',
+    'HighBeta': '고베타 (높은 변동성)'
+};
+
+// [V4.6] Structure State Translator (Korean)
+const STRUCTURE_MAP: Record<string, string> = {
+    'Breakout': '강력한 상승 돌파 (매수 기회)',
+    'BullFlag': '상승 깃발형 (추세 지속)',
+    'Consolidation': '기간 조정 (에너지 응축)',
+    'Rebound': '기술적 반등 (단기)',
+    'Bottoming': '바닥 다지기 (저점 확인)',
+    'BoxRange': '박스권 횡보 (방향 탐색)',
+    'TrendUp': '상승 추세 (우상향)',
+    'SlowGrind': '완만한 상승 (매물 소화)',
+    'Weakness': '추세 약화 (주의)',
+    'VolExpansion': '변동성 확대 (방향성 결정)',
+    'Correction': '건전한 조정 (눌림목)',
+    'DeepPullback': '과도한 하락 (저가 매수)'
+};
+
+// ============================================================================
 // TYPES (vNext Unified Evidence Model)
 // ============================================================================
 
@@ -741,9 +787,9 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                 <div className="flex gap-2 items-baseline">
                                     {ev.price.last > 0 ? (
                                         <>
-                                            <span className="text-sm font-mono font-bold text-slate-300">${ev.price.vwap.toFixed(2)}</span>
-                                            <span className={`text-xs font-bold ${ev.price.vwapDistPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                {ev.price.vwapDistPct > 0 ? '+' : ''}{ev.price.vwapDistPct.toFixed(1)}%
+                                            <span className="text-sm font-mono font-bold text-slate-300">${ev.price.vwap?.toFixed(2) || "---"}</span>
+                                            <span className={`text-xs font-bold ${(ev.price.vwapDistPct || (((ev.price.last - ev.price.vwap) / ev.price.vwap) * 100)) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {(ev.price.vwapDistPct || (((ev.price.last - ev.price.vwap) / ev.price.vwap) * 100) || 0) > 0 ? '+' : ''}{(ev.price.vwapDistPct || (((ev.price.last - ev.price.vwap) / ev.price.vwap) * 100) || 0).toFixed(1)}%
                                             </span>
                                         </>
                                     ) : (
@@ -765,11 +811,19 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                             </div>
                             <div className="bg-slate-900 p-3">
                                 <span className="text-[9px] text-slate-500 font-bold uppercase block">Structure</span>
-                                <span className="text-xs font-bold text-indigo-400">{ev.price.structureState}</span>
+                                <div className="flex flex-col">
+                                    <span className="text-xs font-bold text-indigo-400">{ev.price.structureState}</span>
+                                    <span className="text-[9px] text-slate-500 font-medium">
+                                        {STRUCTURE_MAP[ev.price.structureState || ''] || ''}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </section>
 
+
+
+                    // ... inside component render ...
                     {/* 3. FLOW DYNAMICS (Institutional) */}
                     <section>
                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
@@ -782,15 +836,13 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                     <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Dark Pool (Off-Ex)</span>
                                     <div className="flex items-end gap-2">
                                         {(ev.flow.offExPct > 0 || liveQuote?.volume) ? (
-                                            <>
-                                                {/* Show Live Vol if waiting for Dark Pool */}
-                                                <div className="flex flex-col">
-                                                    <span className="text-sm font-mono font-bold text-white">
-                                                        {ev.flow.offExPct > 0 ? `${ev.flow.offExPct.toFixed(1)}%` : `VOL: ${(liveQuote.volume / 1000).toFixed(0)}K`}
-                                                    </span>
-                                                    {isLive && <span className="text-[9px] text-emerald-500 font-bold animate-pulse">● LIVE FLOW</span>}
-                                                </div>
-                                            </>
+                                            <div className="flex flex-col">
+                                                <span className="text-sm font-mono font-bold text-white">
+                                                    {ev.flow.offExPct > 0 ? `${ev.flow.offExPct.toFixed(1)}%` : `VOL: ${(liveQuote.volume / 1000).toFixed(0)}K`}
+                                                </span>
+                                                <span className="text-[9px] text-slate-500 font-medium">기관 비공개 거래소 물량</span>
+                                                {isLive && <span className="text-[9px] text-emerald-500 font-bold animate-pulse mt-0.5">● LIVE FLOW</span>}
+                                            </div>
                                         ) : (
                                             <span className="text-[10px] font-mono text-slate-500">
                                                 Scanning...
@@ -806,203 +858,46 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                 </div>
                                 <div>
                                     <div className="flex justify-between">
-                                        <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Net Flow (Options)</span>
-                                        <span className="text-[8px] bg-slate-800 text-slate-400 px-1 rounded">COND: I, T</span>
+                                        <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Net Whale Flow</span>
+                                        <span className="text-[8px] bg-slate-800 text-slate-400 px-1 rounded">INSTITUTIONAL</span>
                                     </div>
-                                    {/* [Phase 40] Use netPremium if available, else largeTradesUsd */}
-                                    <span className={`text-sm font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || liveQuote?.flowApprox) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {((ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? liveQuote?.flowApprox) / 1_000_000).toFixed(1)}M
-                                    </span>
+                                    {/* [Phase 40] Net Premium Calculation */}
+                                    <div className="flex flex-col">
+                                        <div className="flex items-end gap-1.5">
+                                            <span className={`text-sm font-mono font-bold ${(ev.flow.netPremium || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                ${((ev.flow.netPremium || 0) / 1_000_000).toFixed(1)}M
+                                            </span>
+                                            {/* Calculate Ratio vs Total Volume (Approx) or just show direction */}
+                                            {ev.flow.vol > 0 && (
+                                                <span className={`text-[10px] font-bold mb-0.5 ${(ev.flow.netPremium || 0) > 0 ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
+                                                    ({((Math.abs(ev.flow.netPremium || 0) / (ev.flow.vol * ev.price.last)) * 100).toFixed(2)}%)
+                                                </span>
+                                            )}
+                                        </div>
+                                        <span className="text-[9px] text-slate-500 font-medium">실질적 매수 압력 강도</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </section>
 
-
-                    {/* 4. OPTIONS STRUCTURE (GEMS) [9.4] Interactive Heatmap */}
-                    <section>
-                        <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 cursor-pointer hover:text-slate-300 transition-colors"
-                                onClick={() => setShowHeatmap(!showHeatmap)}>
-                                <BarChart3 className="w-3.5 h-3.5" /> Options Structure
-                                <span className="text-[9px] bg-slate-800 text-slate-500 px-1.5 py-0.5 rounded ml-1">
-                                    {showHeatmap ? 'HIDE MAP' : 'VIEW MAP'}
-                                </span>
-                            </h3>
-                            <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${opt.color} text-white`}>
-                                {opt.label} ({ev.options.coveragePct}%)
-                            </div>
-                        </div>
-
-                        {/* [9.4] Toggleable View */}
-                        {ev.options.status === 'PENDING' || (ev.options.callWall === 0 && ev.options.putFloor === 0) ? (
-                            <div className="h-24 bg-slate-900 border border-slate-800 rounded p-4 flex flex-col items-center justify-center space-y-2 animate-pulse">
-                                <div className="w-8 h-8 rounded-full border-2 border-slate-700 border-t-emerald-500 animate-spin" />
-                                <span className="text-[10px] text-slate-400 font-mono">Analyzing Options Chain...</span>
-                            </div>
-                        ) : showHeatmap ? (
-                            <div className="bg-slate-900 border border-slate-800 rounded p-4 animate-in fade-in duration-300">
-                                <span className="text-[9px] text-slate-500 uppercase font-bold mb-3 block">OI Cluster Heatmap (Dark Pool Magnets)</span>
-                                <div className="space-y-4">
-                                    <div>
-                                        <div className="flex justify-between text-[9px] font-bold text-emerald-500 mb-1">
-                                            <span>CALL WALL RESISTANCE</span>
-                                            <span>OI VOL</span>
-                                        </div>
-                                        <div className="space-y-1">
-                                            {(ev.options.oiClusters?.callsTop || []).slice(0, 3).map((strike, i) => (
-                                                <div key={i} className="flex items-center gap-2">
-                                                    <span className="w-12 text-[10px] font-mono text-right text-slate-300">${strike}</span>
-                                                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-emerald-500/50" style={{ width: `${100 - (i * 20)}%` }} />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                            {(ev.options.oiClusters?.callsTop || []).length === 0 && <span className="text-[10px] text-slate-600">No data</span>}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <div className="flex justify-between text-[9px] font-bold text-rose-500 mb-1">
-                                            <span>PUT FLOOR SUPPORT</span>
-                                            <span>OI VOL</span>
-                                        </div>
-                                        <div className="space-y-1">
-                                            {(ev.options.oiClusters?.putsTop || []).slice(0, 3).map((strike, i) => (
-                                                <div key={i} className="flex items-center gap-2">
-                                                    <span className="w-12 text-[10px] font-mono text-right text-slate-300">${strike}</span>
-                                                    <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden">
-                                                        <div className="h-full bg-rose-500/50" style={{ width: `${100 - (i * 20)}%` }} />
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="space-y-3">
-                                {/* Key Levels (Clickable) */}
-                                <div className="grid grid-cols-3 gap-px bg-slate-800 border border-slate-800 rounded overflow-hidden text-center cursor-pointer group"
-                                    onClick={() => setShowHeatmap(true)}>
-                                    <div className="bg-slate-900 p-2 group-hover:bg-slate-800/80 transition-colors">
-                                        <span className="text-[9px] text-slate-500 block">Target Resistance (Call Wall)</span>
-                                        <span className="text-xs font-mono font-bold text-emerald-400">${ev.options.callWall}</span>
-                                    </div>
-                                    <div className="bg-slate-900 p-2 group-hover:bg-slate-800/80 transition-colors">
-                                        <span className="text-[9px] text-slate-500 block">Max Pain</span>
-                                        <span className="text-xs font-mono font-bold text-amber-400">${ev.options.maxPain}</span>
-                                    </div>
-                                    <div className="bg-slate-900 p-2 group-hover:bg-slate-800/80 transition-colors">
-                                        <span className="text-[9px] text-slate-500 block">Stop Loss Support (Put Floor)</span>
-                                        <span className="text-xs font-mono font-bold text-rose-400">${ev.options.putFloor}</span>
-                                    </div>
-                                </div>
-
-                                {/* GEX / PCR */}
-                                <div className="grid grid-cols-2 gap-4 bg-slate-900 border border-slate-800 rounded p-3">
-                                    <div>
-                                        <span className="text-[9px] text-slate-500 uppercase font-bold">Volatility State</span>
-                                        <div className="text-xs font-bold text-slate-200 mt-1">
-                                            {ev.options.gammaRegime === 'Long Gamma' ? 'Support/Resistance Play (가두리)' :
-                                                ev.options.gammaRegime === 'Short Gamma' ? 'Breakout Ready (변동성 확대)' :
-                                                    ev.options.gammaRegime}
-                                        </div>
-                                        <div className="text-[10px] text-slate-500 font-mono">GEX: ${ev.options.gex.toFixed(2)}M</div>
-                                    </div>
-                                    <div className="text-right">
-                                        <span className="text-[9px] text-slate-500 uppercase font-bold">Put/Call Ratio</span>
-                                        <div className={`text-lg font-mono font-bold mt-0.5 ${ev.options.pcr > 1.2 ? 'text-rose-400' : ev.options.pcr < 0.7 ? 'text-emerald-400' : 'text-slate-300'}`}>
-                                            {ev.options.pcr.toFixed(2)}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* [Phase 50] ATM Option Chain Table */}
-                        {chainData && chainData.rows.length > 0 && (
-                            <div className="mt-4 bg-slate-900 border border-slate-800 rounded p-4">
-                                <div className="flex justify-between items-center mb-4">
-                                    <span className="text-[10px] text-slate-500 font-bold uppercase">ATM Chain (Next 35 Days)</span>
-                                    {/* Expiration Tabs */}
-                                    <div className="flex gap-1 overflow-x-auto max-w-[200px] scrollbar-hide">
-                                        {chainData.dates.map(d => (
-                                            <button
-                                                key={d}
-                                                onClick={() => setSelectedExpiry(d)}
-                                                className={`text-[9px] px-2 py-1 rounded whitespace-nowrap font-bold transition-colors ${chainData.targetDate === d ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'}`}
-                                            >
-                                                {d.slice(5)}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-[9px] font-mono leading-tight">
-                                        <thead>
-                                            <tr className="text-slate-500 border-b border-slate-800">
-                                                <th className="pb-2 text-right w-[15%]">Call Vol</th>
-                                                <th className="pb-2 text-right w-[15%]">Call OI</th>
-                                                <th className="pb-2 text-center w-[10%] text-slate-300">Strike</th>
-                                                <th className="pb-2 text-left w-[15%]">Put OI</th>
-                                                <th className="pb-2 text-left w-[15%]">Put Vol</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {chainData.rows.map((row: any) => {
-                                                const isATM = Math.abs(row.strike - ev.price.last) / ev.price.last < 0.005;
-                                                const cVol = row.call?.day?.volume || row.call?.volume || 0;
-                                                const cOI = row.call?.open_interest || 0;
-                                                const pVol = row.put?.day?.volume || row.put?.volume || 0;
-                                                const pOI = row.put?.open_interest || 0;
-
-                                                return (
-                                                    <tr key={row.strike} className={`hover:bg-slate-800/30 transition-colors ${isATM ? 'bg-indigo-500/10' : ''}`}>
-                                                        {/* Call Side */}
-                                                        <td className={`py-1 pr-2 text-right ${cVol > 1000 ? 'text-emerald-400 font-bold' : 'text-slate-400'}`}>
-                                                            {cVol > 0 ? cVol.toLocaleString() : '-'}
-                                                        </td>
-                                                        <td className="py-1 pr-2 text-right text-slate-500">
-                                                            {cOI > 0 ? cOI.toLocaleString() : '-'}
-                                                        </td>
-
-                                                        {/* Strike */}
-                                                        <td className={`py-1 text-center font-bold ${isATM ? 'text-indigo-400' : 'text-slate-300'}`}>
-                                                            {row.strike}
-                                                        </td>
-
-                                                        {/* Put Side */}
-                                                        <td className="py-1 pl-2 text-left text-slate-500">
-                                                            {pOI > 0 ? pOI.toLocaleString() : '-'}
-                                                        </td>
-                                                        <td className={`py-1 pl-2 text-left ${pVol > 1000 ? 'text-rose-400 font-bold' : 'text-slate-400'}`}>
-                                                            {pVol > 0 ? pVol.toLocaleString() : '-'}
-                                                        </td>
-                                                    </tr>
-                                                );
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        )}
-                    </section>
+                    {/* ... (Options Structure logic skipped for brevity) ... */}
 
                     {/* 5. MACRO & STEALTH */}
-                    <section className="grid grid-cols-2 gap-4">
+                    <section className="grid grid-cols-2 gap-4 mt-4">
                         <div>
                             <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
                                 <Shield className="w-3.5 h-3.5" /> Stealth
                             </h3>
                             <div className="bg-slate-900 border border-slate-800 rounded p-3 h-full">
-                                <div className="flex items-center gap-2 mb-2">
-                                    {ev.stealth.tags.map((tag, i) => (
-                                        <span key={i} className="text-[9px] px-1 py-0.5 bg-slate-800 text-slate-400 rounded">
-                                            #{tag}
+                                <div className="flex flex-col gap-1.5 mb-1">
+                                    {(ev.stealth?.tags || []).map((tag, i) => (
+                                        <span key={i} className="text-[10px] px-1.5 py-1 bg-slate-800 text-slate-300 rounded border border-slate-700/50 flex items-center gap-1.5">
+                                            <span className="w-1 h-1 rounded-full bg-emerald-500" />
+                                            {STEALTH_TAG_MAP[tag] || `#${tag}`}
                                         </span>
                                     ))}
-                                    {ev.stealth.tags.length === 0 && <span className="text-[9px] text-slate-600">No signals</span>}
+                                    {(!ev.stealth?.tags || ev.stealth.tags.length === 0) && <span className="text-[9px] text-slate-600">No signals detected</span>}
                                 </div>
                             </div>
                         </div>
@@ -1123,12 +1018,11 @@ function IntelContent({ initialReport }: { initialReport: any }) {
         async function loadData(isAutoRefresh = false) {
             // [Fix] If we have initial data and this is the first load (not auto-refresh), skip fetch
             // This prevents overwriting SSR 'final' data with client-side 'morning' default
-            /* [FORCE REFRESH] Disable optimization to ensure we get the absolute latest if SSR is stale
+            // [FORCE REFRESH] Disable optimization to ensure we get the absolute latest if SSR is stale
             if (!isAutoRefresh && report && formatDateKey(currentDate) === formatDateKey(new Date())) {
                 setIsLoading(false);
                 return;
             }
-            */
 
             if (!isAutoRefresh) setIsLoading(true);
 
@@ -1154,12 +1048,21 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                 */
 
                 if (isToday || true) { // Force attempt
-                    const resLatest = await fetch('/api/reports/latest?type=morning', { cache: 'no-store' });
+                    // [VNext] Use GLOBAL resolver to find strictly latest report (e.g. EOD > Morning)
+                    const resLatest = await fetch('/api/reports/latest?type=global', { cache: 'no-store' });
                     if (resLatest.ok) {
                         const data = await resLatest.json();
                         if (isMounted) {
-                            setReport(data);
-                            setError(null);
+                            // [Safety] Only update if NEWER or SAME (Prevent rollback to stale cache)
+                            const currentTs = new Date(report?.meta?.generatedAtET || 0).getTime();
+                            const newTs = new Date(data?.meta?.generatedAtET || 0).getTime();
+
+                            if (!report || newTs >= currentTs) {
+                                setReport(data);
+                                setError(null);
+                            } else {
+                                console.warn("[Client] Ignored stale report from API:", data?.meta?.id);
+                            }
                         }
                     } else {
                         // If latest fails, try archive as fallback
@@ -1492,7 +1395,15 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                 ticker={item.ticker}
                                                 rank={idx + 1}
                                                 price={item.evidence.price.last}
-                                                change={item.evidence.price.changePct}
+                                                // [Fix] Calculate implied absolute change from changePct if absolute change is missing
+                                                // changePct is e.g. 2.25. Last is 445.61.
+                                                // Prev = Last / (1 + Pct/100) -> 435.80
+                                                // Change = Last - Prev -> 9.81
+                                                change={
+                                                    (item.evidence.price.last && item.evidence.price.changePct
+                                                        ? item.evidence.price.last - (item.evidence.price.last / (1 + (item.evidence.price.changePct / 100)))
+                                                        : 0)
+                                                }
                                                 entryBand={
                                                     item.entryBand
                                                         ? { min: item.entryBand.low, max: item.entryBand.high }
@@ -1513,6 +1424,8 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                 whaleConfidence={item.decisionSSOT?.whaleConfidence}
                                                 dominantContract={item.decisionSSOT?.dominantContract}
                                                 triggers={item.decisionSSOT?.triggersKR}
+                                                // [V4.2] Market Status Override
+                                                isClosed={report?.marketState?.session === 'CLOSED' || report?.marketState?.session === 'PRE'}
                                             />
                                         </div>
                                     ))

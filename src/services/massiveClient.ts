@@ -3,7 +3,7 @@ import { StockData } from "./stockTypes";
 
 // --- CONFIGURATION ---
 // [S-56.4.5b] Use environment variable with fallback to hardcoded key for backwards compatibility
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
 const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.massive.com";
 
 export const CACHE_POLICY = {
@@ -161,6 +161,11 @@ export async function fetchMassive(
             reasonKR: "MASSIVE_API_KEY가 설정되지 않았습니다 (.env.local에 추가 필요)"
         };
         throw error;
+    } else {
+        // [Debug] Verify which key is active
+        if (Math.random() < 0.05) { // Log occasionally to avoid spam
+            console.log(`[MassiveClient] Using Key: ${MASSIVE_API_KEY.substring(0, 5)}... (Base: ${MASSIVE_BASE_URL})`);
+        }
     }
 
     // Support both relative endpoints and full next_url strings

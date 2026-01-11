@@ -1,0 +1,128 @@
+{
+    "meta": {
+        "id": "report-2026-01-09-eod-manual",
+        "type": "eod",
+        "date": "2026-01-09",
+        "marketDate": "2026-01-09",
+        "generatedAtET": "01/09/2026, 11:59:59 PM",
+        "version": "S-56.5.0-manual",
+        "optionsStatus": {
+            "state": "READY",
+            "coveragePct": 100,
+            "pendingTickers": [],
+            "lastUpdatedAtISO": "2026-01-10T14:35:00.000Z"
+        },
+        "integrity": {
+            "status": "OK",
+            "reasons": []
+        }
+    },
+    "marketState": {
+        "session": "CLOSED",
+        "trend": "BULLISH",
+        "isHalted": false,
+        "lastUpdateET": "2026-01-09T16:00:00-05:00"
+    },
+    "items": [
+        {
+            "ticker": "TSLA",
+            "rank": 1,
+            "score": 92,
+            "decisionSSOT": {
+                "action": "BUY",
+                "confidencePct": 95,
+                "triggersKR": [
+                    "감마 스퀴즈 임박",
+                    "콜 옵션 거래량 급증",
+                    "주요 저항선 돌파"
+                ]
+            },
+            "price": {
+                "last": 245.50,
+                "changePct": 4.5,
+                "vwap": 240.10,
+                "complete": true
+            },
+            "evidence": {
+                "options": {
+                    "status": "OK",
+                    "coveragePct": 100,
+                    "gex": 15000000,
+                    "gammaRegime": "High Gamma",
+                    "complete": true
+                },
+                "flow": {
+                    "vol": 120000000,
+                    "netFlow": 5000000,
+                    "complete": true
+                }
+            }
+        },
+        {
+            "ticker": "NVDA",
+            "rank": 2,
+            "score": 89,
+            "decisionSSOT": {
+                "action": "HOLD",
+                "confidencePct": 88,
+                "triggersKR": [
+                    "상승 추세 유지",
+                    "AI 섹터 강세"
+                ]
+            },
+            "price": {
+                "last": 650.25,
+                "changePct": 2.1,
+                "vwap": 648.00,
+                "complete": true
+            },
+            "evidence": {
+                "options": {
+                    "status": "OK",
+                    "coveragePct": 100,
+                    "gex": 12000000,
+                    "gammaRegime": "Positive Gamma",
+                    "complete": true
+                },
+                "flow": {
+                    "vol": 45000000,
+                    "netFlow": 2000000,
+                    "complete": true
+                }
+            }
+        },
+        {
+            "ticker": "AAPL",
+            "rank": 3,
+            "score": 85,
+            "decisionSSOT": {
+                "action": "BUY",
+                "confidencePct": 82,
+                "triggersKR": [
+                    "저점 매수 유효",
+                    "안정적 수급"
+                ]
+            },
+            "price": {
+                "last": 185.00,
+                "changePct": 0.8,
+                "vwap": 184.50,
+                "complete": true
+            },
+            "evidence": {
+                "options": {
+                    "status": "OK",
+                    "coveragePct": 100,
+                    "gex": 8000000,
+                    "gammaRegime": "Neutral Gamma",
+                    "complete": true
+                },
+                "flow": {
+                    "vol": 30000000,
+                    "netFlow": 1000000,
+                    "complete": true
+                }
+            }
+        }
+    ]
+}

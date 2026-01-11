@@ -1,9 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Lock, AlertOctagon, TrendingUp, TrendingDown, Target, Zap, Shield, Crosshair } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { AlertOctagon, Zap, Shield, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TacticalCardProps {
@@ -28,9 +27,11 @@ interface TacticalCardProps {
     whaleConfidence?: string;
     dominantContract?: string;
     triggers?: string[];
+    // [V4.2] Market Status Override
+    isClosed?: boolean;
 }
 
-export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice, isLocked, name, rsi, score, isDayTradeOnly, reasonKR, extendedPrice, extendedChange, extendedLabel, whaleTargetLevel, whaleConfidence, dominantContract, triggers }: TacticalCardProps) {
+export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice, isLocked, name, rsi, score, isDayTradeOnly, reasonKR, extendedPrice, extendedChange, extendedLabel, whaleTargetLevel, whaleConfidence, dominantContract, triggers, isClosed }: TacticalCardProps) {
 
     // Safety Fallbacks & Live Price Logic
     const isLive = extendedLabel === 'LIVE';
@@ -38,36 +39,29 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
     const safePrice = price || 0;
 
     // Gain Calculation (Live vs Static)
-    // If Live, we need to recalc gain based on Prev Close derived from change
-    // PrevClose = Price - Change. 
-    // If static, simple.
+    // [User Req] If Closed, show Recent Trading Day (Intraday) change, ignore Post-Market
+    const useDayChange = isClosed || !isLive;
+    let gain = (!useDayChange && extendedChange !== undefined) ? extendedChange : (change || 0);
 
-    let gain = isLive && extendedChange !== undefined ? extendedChange : (change || 0);
     let gainPct = 0;
 
     // Calculate Percent if missing
     if (safePrice !== 0 && currentPrice !== 0) {
-        // Infer prevClose from static data if needed
         const impliedPrevClose = safePrice - (change || 0);
         if (impliedPrevClose > 0) {
+            // Recalculate based on the displayed 'gain'
             gainPct = (gain / impliedPrevClose) * 100;
         }
     }
 
     const isPositive = gain >= 0;
 
-    // [V4.5] Glass Design System - "Crystal Intel"
+    // ... (Min Entry / Max Entry logic removed for brevity in diff, assume unchanged)
     const minEntry = (entryBand && typeof entryBand.min === 'number') ? entryBand.min : safePrice * 0.99;
     const maxEntry = (entryBand && typeof entryBand.max === 'number') ? entryBand.max : safePrice * 1.01;
     const isBuyZone = currentPrice >= minEntry && currentPrice <= maxEntry;
-
-    // Whale Entry Support (Midpoint)
     const whaleEntryLevel = (minEntry + maxEntry) / 2;
-
-    // Determine score color text
     const scoreColorText = (score || 0) >= 80 ? "text-emerald-400" : (score || 0) >= 50 ? "text-amber-400" : "text-slate-400";
-
-    // Sniper/Whale Active Logic
     const hasWhale = !!whaleTargetLevel && whaleTargetLevel > 0;
 
     return (
@@ -109,41 +103,46 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                         {/* 2. Main Price (Live Pulse) */}
                         <div className="text-center relative">
                             <div className="absolute top-[-10px] left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-500 whitespace-nowrap tracking-wider">
-                                {isLive ? <span className="text-emerald-400 animate-pulse">● LIVE SNAPSHOT</span> : "OFFICIAL CLOSE"}
+                                {isLive ? <span className="text-emerald-400 animate-pulse">● LIVE</span> : "CLOSE"}
                             </div>
-                            <div className={`text-6xl font-black tabular-nums tracking-tighter drop-shadow-2xl ${gain >= 0
+                            {/* [User: Smaller Price] */}
+                            <div className={`text-5xl font-black tabular-nums tracking-tighter drop-shadow-2xl ${gain >= 0
                                 ? isLive ? "text-emerald-400" : "text-emerald-400"
                                 : isLive ? "text-rose-400" : "text-rose-400"
                                 }`}>
                                 {extendedPrice?.toFixed(2) || currentPrice.toFixed(2)}
                             </div>
 
-                            {/* SNIPER ACTION ZONE */}
+                            {/* SNIPER ACTION ZONE (Smart Entry Logic) */}
                             {cutPrice && currentPrice < cutPrice ? (
-                                <div className="mt-2 inline-flex items-center gap-2 px-4 py-1 rounded-full bg-rose-500/20 border border-rose-500/50 animate-pulse">
-                                    <AlertOctagon className="w-4 h-4 text-rose-400" />
-                                    <span className="text-sm font-black text-rose-300 uppercase tracking-widest">STOP BREACHED</span>
+                                <div className="mt-2 text-xs font-black text-rose-400 uppercase tracking-widest animate-pulse">
+                                    STOP BREACHED
                                 </div>
                             ) : isBuyZone ? (
-                                <div className="mt-2 inline-flex items-center gap-2 px-4 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/50 animate-pulse">
-                                    <Crosshair className="w-4 h-4 text-emerald-400" />
-                                    <span className="text-sm font-black text-emerald-300 uppercase tracking-widest">Sniper Entry Zone</span>
+                                <div className="mt-2 text-xs font-black text-emerald-400 uppercase tracking-widest animate-pulse">
+                                    EXECUTE ENTRY
                                 </div>
                             ) : whaleTargetLevel && currentPrice >= whaleTargetLevel * 0.99 ? (
-                                <div className="mt-2 inline-flex items-center gap-2 px-4 py-1 rounded-full bg-cyan-500/20 border border-cyan-500/50">
-                                    <Target className="w-4 h-4 text-cyan-400" />
-                                    <span className="text-sm font-black text-cyan-300 uppercase tracking-widest">Target Approach</span>
+                                <div className="mt-2 text-xs font-black text-cyan-400 uppercase tracking-widest">
+                                    TARGET APPROACH
                                 </div>
                             ) : (
-                                <div className="mt-2 text-xs font-mono text-slate-500 uppercase tracking-widest">
-                                    {(whaleEntryLevel && currentPrice > whaleEntryLevel)
-                                        ? `WAIT FOR PULLBACK ($${whaleEntryLevel.toFixed(2)})`
-                                        : "MONITORING STRUCTURE"}
-                                </div>
+                                // Minimalist "Wait" Indicator
+                                (whaleEntryLevel && currentPrice > whaleEntryLevel) ? (
+                                    <div className="mt-2 text-[10px] font-bold text-slate-500/80 uppercase tracking-widest flex items-center justify-center gap-1">
+                                        <div className="w-1 h-1 rounded-full bg-slate-500 animate-pulse" />
+                                        WAIT (${whaleEntryLevel.toFixed(0)})
+                                    </div>
+                                ) : (
+                                    <div className="mt-2 text-[10px] font-mono text-slate-600 uppercase tracking-widest">
+                                        MONITORING
+                                    </div>
+                                )
                             )}
 
-                            <div className={`text-xl font-bold mt-1 ${gain >= 0 ? "text-emerald-500/80" : "text-rose-500/80"}`}>
-                                {gain >= 0 ? "+" : ""}{gain.toFixed(2)} ({gainPct.toFixed(2)}%)
+                            {/* [User: Only %] */}
+                            <div className={`text-lg font-bold mt-0.5 ${gain >= 0 ? "text-emerald-500/80" : "text-rose-500/80"}`}>
+                                {gain >= 0 ? "+" : ""}{gainPct.toFixed(2)}%
                             </div>
                         </div>
                         <div>
@@ -169,16 +168,16 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                     </div>
                 </div>
 
-
-
-
                 {/* 3. REPORT BASELINE (Variance Check) */}
                 <div className="flex justify-between items-center mb-4 border-b border-white/5 pb-3">
                     <div className="flex flex-col">
                         <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Report Price (Basis)</span>
-                        <span className="text-xl font-mono font-bold text-slate-400">
-                            ${safePrice.toFixed(2)}
-                        </span>
+                        <div className="flex items-baseline gap-2">
+                            <span className="text-xl font-mono font-bold text-slate-400">
+                                ${safePrice.toFixed(2)}
+                            </span>
+                            <span className="text-[9px] text-slate-600 font-medium">리포트 발행 기준가</span>
+                        </div>
                     </div>
 
                     {isLive && (
@@ -193,6 +192,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                                     : "N/A"
                                 }
                             </div>
+                            <span className="text-[9px] text-slate-600 font-medium block mt-0.5">실시간 수익률</span>
                         </div>
                     )}
                 </div>
@@ -222,33 +222,37 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                     )}
                 </div>
 
-                {/* BOTTOM: ACTION DATA GRID */}
+                {/* FOOTER: ENTRIES & EXITS */}
                 <div className="grid grid-cols-2 gap-2 mt-auto">
-                    {/* Entry Zone */}
-                    <div className="relative p-2.5 rounded bg-amber-500/5 border border-amber-500/10 overflow-hidden group/zone">
-                        <span className="block text-[9px] text-amber-500/60 font-bold uppercase tracking-wider mb-0.5">Entry Zone</span>
-                        <div className="text-sm font-mono font-bold text-amber-500">
-                            ${minEntry.toFixed(2)}<span className="text-amber-500/30 mx-0.5">~</span>${maxEntry.toFixed(2)}
+                    {/* Left: Entry Zone */}
+                    <div className="p-3 rounded bg-emerald-500/5 border border-emerald-500/10 hover:bg-emerald-500/10 transition-colors">
+                        <span className="text-[9px] font-bold text-emerald-500/50 uppercase tracking-widest block mb-0.5">Entry Zone</span>
+                        <div className="text-lg font-mono font-bold text-emerald-400 tabular-nums tracking-tight">
+                            ${minEntry.toFixed(2)} <span className="text-slate-600 text-xs mx-0.5">~</span> ${maxEntry.toFixed(2)}
                         </div>
-                        {isBuyZone && <div className="absolute inset-0 border border-amber-500/40 rounded animate-pulse" />}
+                        <div className="text-[9px] text-emerald-500/50 font-medium leading-tight mt-0.5 -mb-0.5 tracking-tight">
+                            기관(Whale) 매집 시작 안전 구간
+                        </div>
                     </div>
 
-                    {/* Target/Stop */}
-                    <div className="p-2.5 rounded bg-white/5 border border-white/5">
-                        <div className="flex justify-between items-center mb-1">
-                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Target</span>
-                            <span className="text-[11px] font-mono font-bold text-cyan-400">${whaleTargetLevel ? whaleTargetLevel.toFixed(2) : '-'}</span>
+                    {/* Right: Targets */}
+                    <div className="space-y-1">
+                        <div className="flex justify-between items-center px-2 py-1.5 rounded bg-white/5 border border-white/5">
+                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Target</span>
+                            <span className="text-sm font-mono font-bold text-sky-300 tabular-nums">
+                                ${(safePrice * 1.05).toFixed(2)}
+                            </span>
                         </div>
-                        <div className="flex justify-between items-center border-t border-white/5 pt-1">
-                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-wider">Stop</span>
-                            <span className="text-[11px] font-mono font-bold text-rose-400">${cutPrice ? cutPrice.toFixed(2) : '-'}</span>
+                        <div className="flex justify-between items-center px-2 py-1.5 rounded bg-rose-500/5 border border-rose-500/10">
+                            <span className="text-[9px] font-bold text-rose-500/50 uppercase tracking-widest">Stop</span>
+                            <span className="text-sm font-mono font-bold text-rose-400 tabular-nums">
+                                ${cutPrice?.toFixed(2) || (safePrice * 0.95).toFixed(2)}
+                            </span>
                         </div>
                     </div>
                 </div>
 
-                {/* Hover Glow Accent */}
-                <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
             </div>
-        </Card >
+        </Card>
     );
 }

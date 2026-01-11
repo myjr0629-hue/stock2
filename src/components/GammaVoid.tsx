@@ -95,8 +95,8 @@ export function GammaVoid({ price, callWall, putFloor, gex }: GammaVoidProps) {
                 ctx.stroke();
 
                 ctx.fillStyle = '#10b981';
-                ctx.font = '10px monospace';
-                ctx.fillText(`CW $${callWall}`, 5, yCall - 5);
+                ctx.font = 'bold 12px monospace'; // [V4.7] Increased Readability
+                ctx.fillText(`CW $${callWall} (저항/천장)`, 5, yCall - 5);
             }
 
             if (putFloor > 0) {
@@ -109,7 +109,8 @@ export function GammaVoid({ price, callWall, putFloor, gex }: GammaVoidProps) {
                 ctx.stroke();
 
                 ctx.fillStyle = '#f43f5e';
-                ctx.fillText(`PF $${putFloor}`, 5, yPut + 12);
+                ctx.font = 'bold 12px monospace'; // [V4.7] Increased Readability
+                ctx.fillText(`PF $${putFloor} (지지/바닥)`, 5, yPut + 15); // Adjusted Y for larger font
             }
 
             // Draw Price Line (Laser)
@@ -151,7 +152,7 @@ export function GammaVoid({ price, callWall, putFloor, gex }: GammaVoidProps) {
                 <span className={cn("text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border backdrop-blur-sm",
                     isZeroG ? "text-fuchsia-400 border-fuchsia-500/50 bg-fuchsia-500/10" : "text-slate-500 border-slate-700 bg-slate-900/50"
                 )}>
-                    {isZeroG ? "ZERO-G DETECTED" : "GRAVITY WELL"}
+                    {isZeroG ? "ZERO-G (무중력)" : "GRAVITY WELL (중력장)"}
                 </span>
                 <span className="text-[9px] text-slate-500 font-mono mt-1">GEX: {(gex / 1000000).toFixed(1)}M</span>
             </div>

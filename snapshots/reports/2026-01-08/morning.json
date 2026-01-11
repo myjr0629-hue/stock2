@@ -1,0 +1,3914 @@
+{
+  "meta": {
+    "id": "2026-01-08-morning",
+    "type": "morning",
+    "generatedAt": "2026-01-09T04:31:10.605Z",
+    "generatedAtET": "01/08/2026, 11:31:10 PM",
+    "marketDate": "2026-01-08",
+    "version": "S-56.4.6e",
+    "pipelineVersion": "56.4.1",
+    "top3": [
+      {
+        "ticker": "XOM",
+        "velocity": "▲▲",
+        "role": "ALPHA",
+        "whySummaryKR": "종합 분석 완료",
+        "rank": 1,
+        "changePct": 3.7302725968436174
+      },
+      {
+        "ticker": "COST",
+        "velocity": "▲▲",
+        "role": "ALPHA",
+        "whySummaryKR": "종합 분석 완료",
+        "rank": 2,
+        "changePct": 3.708445693308245
+      },
+      {
+        "ticker": "SLB",
+        "velocity": "▲▲",
+        "role": "ALPHA",
+        "whySummaryKR": "종합 분석 완료",
+        "rank": 3,
+        "changePct": 4.861930611281573
+      }
+    ],
+    "baseline": {
+      "source": "MASSIVE",
+      "session": "regular",
+      "tsISO": "2026-01-09T04:31:10.605Z",
+      "tsET": "01/08/2026, 11:31:10 PM",
+      "items": [
+        {
+          "ticker": "XOM",
+          "price": 122.91,
+          "priceField": "lastTrade",
+          "prevClose": 118.49,
+          "refPriceForChange": 118.49
+        },
+        {
+          "ticker": "COST",
+          "price": 915.31,
+          "priceField": "lastTrade",
+          "prevClose": 882.58,
+          "refPriceForChange": 882.58
+        },
+        {
+          "ticker": "SLB",
+          "price": 44.43,
+          "priceField": "lastTrade",
+          "prevClose": 42.37,
+          "refPriceForChange": 42.37
+        }
+      ]
+    },
+    "freshness": {
+      "generatedAtISO": "2026-01-09T04:31:10.605Z",
+      "ageMin": 0,
+      "isStale": false
+    },
+    "optionsStatus": {
+      "state": "READY",
+      "pendingTickers": [],
+      "coveragePct": 8,
+      "lastUpdatedAtISO": "2026-01-09T04:31:16.456Z",
+      "note": " [FORCE FINALIZED]"
+    },
+    "integrity": {
+      "status": "OK",
+      "reasons": [],
+      "expected": {
+        "items": 12,
+        "top3": 3,
+        "fullUniverse": 12
+      },
+      "actual": {
+        "items": 12,
+        "top3": 3,
+        "fullUniverse": 12
+      },
+      "gates": {
+        "options": "READY",
+        "macro": "OK"
+      }
+    },
+    "validationScore": 100,
+    "hardFails": [],
+    "softFails": []
+  },
+  "macro": {
+    "asOfET": "1/8/2026, 11:30:05 PM",
+    "fetchedAtET": "2026-01-09T04:30:05.618Z",
+    "ageSeconds": 51,
+    "marketStatus": {
+      "market": "closed",
+      "session": "closed",
+      "isHoliday": false,
+      "serverTime": "2026-01-09T04:30:05.618Z",
+      "asOfET": "1/8/2026, 11:30:05 PM",
+      "source": "MASSIVE",
+      "cacheAgeSec": 0
+    },
+    "factors": {
+      "nasdaq100": {
+        "level": 25703.145000000004,
+        "chgPct": -0.6281849940706963,
+        "chgAbs": -162.4839999999983,
+        "label": "NASDAQ 100 (Syn)",
+        "source": "MASSIVE",
+        "status": "OK",
+        "symbolUsed": "QQQ"
+      },
+      "vix": {
+        "level": 14.14,
+        "chgPct": -1.3239875389408093,
+        "chgAbs": -0.19039999999999993,
+        "label": "VIX",
+        "source": "MASSIVE",
+        "status": "OK",
+        "symbolUsed": "VIXY"
+      },
+      "us10y": {
+        "level": 4.06,
+        "chgPct": 0,
+        "chgAbs": 0,
+        "label": "US 10Y (Fed)",
+        "source": "MASSIVE",
+        "status": "OK",
+        "symbolUsed": "FED:10Y"
+      },
+      "dxy": {
+        "level": 99.0128475,
+        "chgPct": 0.2573529411764716,
+        "chgAbs": 0.254205000000001,
+        "label": "DOLLAR (DXY)",
+        "source": "MASSIVE",
+        "status": "OK",
+        "symbolUsed": "UUP"
+      }
+    },
+    "nq": 25703.145000000004,
+    "nqChangePercent": -0.6281849940706963,
+    "vix": 14.14,
+    "us10y": 4.06,
+    "dxy": 99.0128475,
+    "fed": {
+      "treasury": {
+        "date": "2026-01-07",
+        "us2y": 3.47,
+        "us5y": 3.7,
+        "us10y": 4.15,
+        "us30y": 4.82,
+        "spread2s10s": 0.6800000000000002,
+        "source": "MASSIVE",
+        "updatedAt": "2026-01-09T04:30:56.700Z"
+      },
+      "inflation": {
+        "date": "2026-01-09",
+        "cpi": null,
+        "cpiYoY": null,
+        "pce": null,
+        "pceYoY": null,
+        "expectations": null,
+        "source": "FAIL",
+        "updatedAt": "2026-01-09T04:30:56.700Z"
+      },
+      "asOfET": "1/8/26, 11:30 PM"
+    }
+  },
+  "events": {
+    "asOfET": "1/8/26, 11:30 PM",
+    "events": [
+      {
+        "date": "2026-01-19",
+        "time": "00:00",
+        "name": "Martin Luther King, Jr. Day",
+        "nameKR": "휴장: Martin Luther King, Jr. Day",
+        "importance": "HIGH",
+        "expectedImpact": "시장 휴장 (Market Closed)",
+        "sourceGrade": "A",
+        "category": "HOLIDAY"
+      },
+      {
+        "date": "2026-01-19",
+        "time": "00:00",
+        "name": "Martin Luther King, Jr. Day",
+        "nameKR": "휴장: Martin Luther King, Jr. Day",
+        "importance": "HIGH",
+        "expectedImpact": "시장 휴장 (Market Closed)",
+        "sourceGrade": "A",
+        "category": "HOLIDAY"
+      }
+    ],
+    "shakeReasons": []
+  },
+  "policy": {
+    "asOfET": "1/8/26, 11:30 PM",
+    "policies72h": [
+      {
+        "id": "P1-2025-001",
+        "category": "P1",
+        "title": "EV Tax Credit Phase-out Review",
+        "titleKR": "전기차 세액공제 단계적 폐지 검토",
+        "description": "2025년 일부 EV 모델 세액공제 자격 재검토. TSLA/RIVN 영향 가능.",
+        "effectiveDate": "2026-01-10",
+        "sourceGrade": "B",
+        "affectedSectors": [
+          "EV",
+          "Automotive"
+        ],
+        "affectedTickers": [
+          "TSLA",
+          "RIVN",
+          "LCID"
+        ],
+        "impact": "NEGATIVE"
+      }
+    ],
+    "policies7d": [
+      {
+        "id": "P0-2025-001",
+        "category": "P0",
+        "title": "China AI Chip Export Controls Extension",
+        "titleKR": "중국 AI 칩 수출통제 연장",
+        "description": "미 상무부, AI 관련 반도체 수출통제 품목 확대 검토 중. NVDA/AMD 직접 영향.",
+        "effectiveDate": "2026-01-15",
+        "sourceGrade": "B",
+        "affectedSectors": [
+          "Semiconductors",
+          "AI"
+        ],
+        "affectedTickers": [
+          "NVDA",
+          "AMD",
+          "AVGO"
+        ],
+        "impact": "NEGATIVE"
+      }
+    ],
+    "policyGateSummary": [
+      "[P0] 중국 AI 칩 수출통제 연장 (2026-01-15) - 미 상무부, AI 관련 반도체 수출통제 품목 확대 검토 중. NVDA/AMD 직접 영향...."
+    ]
+  },
+  "news": {
+    "asOfET": "1/8/26, 11:30 PM",
+    "marketHeadlines": [
+      {
+        "id": "mkt-001",
+        "headline": "Fed Officials Signal Patience on Rate Cuts in 2025",
+        "summaryKR": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAt": "2025-12-26T14:30:00Z",
+        "sentiment": "negative",
+        "catalystType": "fed",
+        "publishedAtET": "Dec 26, 09:30 AM",
+        "catalystAge": 326,
+        "isStale": true
+      },
+      {
+        "id": "mkt-002",
+        "headline": "Tech Stocks Lead Holiday Rally as Santa Claus Effect Takes Hold",
+        "summaryKR": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAt": "2025-12-25T18:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "market",
+        "publishedAtET": "Dec 25, 01:00 PM",
+        "catalystAge": 346,
+        "isStale": true
+      },
+      {
+        "id": "mkt-003",
+        "headline": "China Stimulus Hopes Boost Asian Markets Overnight",
+        "summaryKR": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAt": "2025-12-26T08:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "global",
+        "publishedAtET": "Dec 26, 03:00 AM",
+        "catalystAge": 332,
+        "isStale": true
+      },
+      {
+        "id": "mkt-004",
+        "headline": "Oil Prices Rise on Middle East Tensions",
+        "summaryKR": "중동 긴장 고조로 유가 상승. 에너지 섹터 강세 예상.",
+        "source": "WSJ",
+        "publishedAt": "2025-12-26T10:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "commodities",
+        "publishedAtET": "Dec 26, 05:00 AM",
+        "catalystAge": 330,
+        "isStale": true
+      },
+      {
+        "id": "mkt-005",
+        "headline": "Year-End Rebalancing Could Drive Volatility This Week",
+        "summaryKR": "연말 리밸런싱으로 이번 주 변동성 확대 가능. 대형 펀드 매도세 주의.",
+        "source": "MarketWatch",
+        "publishedAt": "2025-12-26T06:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "technical",
+        "publishedAtET": "Dec 26, 01:00 AM",
+        "catalystAge": 334,
+        "isStale": true
+      }
+    ],
+    "stockNews": [],
+    "marketLikes": [
+      {
+        "text": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAtET": "Dec 25, 01:00 PM",
+        "isStale": true,
+        "catalystAgeHours": 346
+      },
+      {
+        "text": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAtET": "Dec 26, 03:00 AM",
+        "isStale": true,
+        "catalystAgeHours": 332
+      }
+    ],
+    "marketDislikes": [
+      {
+        "text": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAtET": "Dec 26, 09:30 AM",
+        "isStale": true,
+        "catalystAgeHours": 326
+      }
+    ]
+  },
+  "shakeReasons": [],
+  "marketSentiment": {
+    "likes": [
+      {
+        "text": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAtET": "Dec 25, 01:00 PM",
+        "isStale": true,
+        "catalystAgeHours": 346
+      },
+      {
+        "text": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAtET": "Dec 26, 03:00 AM",
+        "isStale": true,
+        "catalystAgeHours": 332
+      }
+    ],
+    "dislikes": [
+      {
+        "text": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAtET": "Dec 26, 09:30 AM",
+        "isStale": true,
+        "catalystAgeHours": 326
+      }
+    ]
+  },
+  "items": [
+    {
+      "ticker": "XOM",
+      "evidence": {
+        "price": {
+          "last": 122.91,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 118.49,
+          "changePct": 3.7302725968436174,
+          "vwap": 122.1065,
+          "vwapDistPct": 0.6580321276918097,
+          "rsi14": 58.22166433140009,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 20201000,
+          "relVol": 1.175332287007743,
+          "gapPct": 0.41353700734239945,
+          "largeTradesUsd": 10300793,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 10300793,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "blockPrint"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:07.398Z"
+      },
+      "alphaScore": 78.3488265149038,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(78) - 옵션 미확인 [🔥 주도 섹터: +10]",
+      "decisionSSOT": {
+        "triggersKR": [
+          "WHALE_IN"
+        ],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 122.91,
+        "whaleTargetLevel": 126.5973,
+        "targetPrice": 126.6,
+        "cutPrice": 120.45,
+        "entryBand": [
+          122.3,
+          123.52
+        ],
+        "whaleReasonKR": "기관 순매수 $10.3M 대규모 유입 포착."
+      },
+      "powerScore": 78.3488265149038,
+      "isBackfilled": false,
+      "rank": 1,
+      "symbol": "XOM",
+      "changePct": 3.7302725968436174,
+      "price": 122.91,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "COST",
+      "evidence": {
+        "price": {
+          "last": 915.31,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 882.58,
+          "changePct": 3.708445693308245,
+          "vwap": 919.5889,
+          "vwapDistPct": -0.46530574694844856,
+          "rsi14": 63.72245928250666,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 5207087,
+          "relVol": 1.655502228206136,
+          "gapPct": 2.1017924720705152,
+          "largeTradesUsd": 2620739,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 2620739,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:07.806Z"
+      },
+      "alphaScore": 76.66756554646597,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(77) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 915.31,
+        "whaleTargetLevel": 942.7692999999999,
+        "targetPrice": 942.77,
+        "cutPrice": 897,
+        "entryBand": [
+          910.73,
+          919.89
+        ],
+        "whaleReasonKR": "기관 순매수 $2.6M 대규모 유입 포착."
+      },
+      "powerScore": 76.66756554646597,
+      "isBackfilled": false,
+      "rank": 2,
+      "symbol": "COST",
+      "changePct": 3.708445693308245,
+      "price": 915.31,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "SLB",
+      "evidence": {
+        "price": {
+          "last": 44.43,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 42.37,
+          "changePct": 4.861930611281573,
+          "vwap": 44.0533,
+          "vwapDistPct": 0.8551005259537869,
+          "rsi14": 72.53451985199206,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 20116171,
+          "relVol": 1.2721363261707048,
+          "gapPct": 1.156478640547562,
+          "largeTradesUsd": -207901,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": -207901,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:07.194Z"
+      },
+      "alphaScore": 76.20227210284507,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(76) - 옵션 미확인 [🔥 주도 섹터: +10]",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 44.43,
+        "whaleTargetLevel": 45.7629,
+        "targetPrice": 45.76,
+        "cutPrice": 43.54,
+        "entryBand": [
+          44.21,
+          44.65
+        ],
+        "whaleReasonKR": "기술적 상승 흐름 지속. 특이 거래량 부재, 관망 필요."
+      },
+      "powerScore": 76.20227210284507,
+      "isBackfilled": false,
+      "rank": 3,
+      "symbol": "SLB",
+      "changePct": 4.861930611281573,
+      "price": 44.43,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "DE",
+      "evidence": {
+        "price": {
+          "last": 500.8,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 475.2,
+          "changePct": 5.387205387205392,
+          "vwap": 498.4944,
+          "vwapDistPct": 0.46251271829734236,
+          "rsi14": 64.84236921815324,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 1797306,
+          "relVol": 1.3163733431223001,
+          "gapPct": -0.2693602693602636,
+          "largeTradesUsd": 131953212,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 131953212,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "blockPrint"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:04.485Z"
+      },
+      "alphaScore": 75.327466862446,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(75) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [
+          "WHALE_IN"
+        ],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 500.8,
+        "whaleTargetLevel": 515.8240000000001,
+        "targetPrice": 515.82,
+        "cutPrice": 490.78,
+        "entryBand": [
+          498.3,
+          503.3
+        ],
+        "whaleReasonKR": "기관 순매수 $132.0M 대규모 유입 포착."
+      },
+      "powerScore": 75.327466862446,
+      "isBackfilled": false,
+      "rank": 4,
+      "symbol": "DE",
+      "changePct": 5.387205387205392,
+      "price": 500.8,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "DKNG",
+      "evidence": {
+        "price": {
+          "last": 35.98,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 34.66,
+          "changePct": 3.808424697057128,
+          "vwap": 35.8955,
+          "vwapDistPct": 0.2354055522279909,
+          "rsi14": 59.38815180113961,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 12384212,
+          "relVol": 1.4251170813641503,
+          "gapPct": -0.2885170225043114,
+          "largeTradesUsd": 1673371,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 1673371,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:09.609Z"
+      },
+      "alphaScore": 73.96973920374003,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(74) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 35.98,
+        "whaleTargetLevel": 37.0594,
+        "targetPrice": 37.06,
+        "cutPrice": 35.26,
+        "entryBand": [
+          35.8,
+          36.16
+        ],
+        "whaleReasonKR": "기술적 상승 흐름 지속. 특이 거래량 부재, 관망 필요."
+      },
+      "powerScore": 73.96973920374003,
+      "isBackfilled": false,
+      "rank": 5,
+      "symbol": "DKNG",
+      "changePct": 3.808424697057128,
+      "price": 35.98,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "LMT",
+      "evidence": {
+        "price": {
+          "last": 518.44,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 496.87,
+          "changePct": 4.341175760259232,
+          "vwap": 527.73,
+          "vwapDistPct": -1.7603698861159995,
+          "rsi14": 64.77503975555368,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 4108700,
+          "relVol": 2.4657879202737973,
+          "gapPct": 7.04812123895586,
+          "largeTradesUsd": -1247596,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": -1247596,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:07.410Z"
+      },
+      "alphaScore": 71.59313133549361,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(72) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 518.44,
+        "whaleTargetLevel": 533.9932000000001,
+        "targetPrice": 533.99,
+        "cutPrice": 508.07,
+        "entryBand": [
+          515.85,
+          521.03
+        ],
+        "whaleReasonKR": "평소 대비 거래량 2.5배 폭증. 변동성 확대 국면."
+      },
+      "powerScore": 71.59313133549361,
+      "isBackfilled": false,
+      "rank": 6,
+      "symbol": "LMT",
+      "changePct": 4.341175760259232,
+      "price": 518.44,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "CVX",
+      "evidence": {
+        "price": {
+          "last": 159.25,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 155.2,
+          "changePct": 2.609536082474234,
+          "vwap": 158.2968,
+          "vwapDistPct": 0.6021599931268413,
+          "rsi14": 60.56578442045798,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 12936679,
+          "relVol": 1.2623884022962513,
+          "gapPct": 0.19329896907217228,
+          "largeTradesUsd": 22719434,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 22719434,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "blockPrint"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:07.204Z"
+      },
+      "alphaScore": 71.1240567057189,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(71) - 옵션 미확인 [🔥 주도 섹터: +10]",
+      "decisionSSOT": {
+        "triggersKR": [
+          "WHALE_IN"
+        ],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 159.25,
+        "whaleTargetLevel": 164.0275,
+        "targetPrice": 164.03,
+        "cutPrice": 156.06,
+        "entryBand": [
+          158.45,
+          160.05
+        ],
+        "whaleReasonKR": "기관 순매수 $22.7M 대규모 유입 포착."
+      },
+      "powerScore": 71.1240567057189,
+      "isBackfilled": false,
+      "rank": 7,
+      "symbol": "CVX",
+      "changePct": 2.609536082474234,
+      "price": 159.25,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "LOW",
+      "evidence": {
+        "price": {
+          "last": 256.21,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 247.12,
+          "changePct": 3.6783748786014794,
+          "vwap": 254.9838,
+          "vwapDistPct": 0.4808932959662446,
+          "rsi14": 66.59462208981398,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 3290329,
+          "relVol": 1.3318619012690323,
+          "gapPct": -0.8073000971188105,
+          "largeTradesUsd": 2183529,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 2183529,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:07.473Z"
+      },
+      "alphaScore": 71.06423705419249,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(71) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 256.21,
+        "whaleTargetLevel": 263.8963,
+        "targetPrice": 263.9,
+        "cutPrice": 251.09,
+        "entryBand": [
+          254.93,
+          257.49
+        ],
+        "whaleReasonKR": "기관 순매수 $2.2M 대규모 유입 포착."
+      },
+      "powerScore": 71.06423705419249,
+      "isBackfilled": false,
+      "rank": 8,
+      "symbol": "LOW",
+      "changePct": 3.6783748786014794,
+      "price": 256.21,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "RTX",
+      "evidence": {
+        "price": {
+          "last": 187.17,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 185.73,
+          "changePct": 0.7753190114682592,
+          "vwap": 189.2207,
+          "vwapDistPct": -1.0837609204489818,
+          "rsi14": 60.75838577886336,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 9773443,
+          "relVol": 2.0861536424885134,
+          "gapPct": 2.8536046949873537,
+          "largeTradesUsd": 3751024,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 3751024,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:07.391Z"
+      },
+      "alphaScore": 67,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(67) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 187.17,
+        "whaleTargetLevel": 192.7851,
+        "targetPrice": 192.79,
+        "cutPrice": 183.43,
+        "entryBand": [
+          186.23,
+          188.11
+        ],
+        "whaleReasonKR": "기관 순매수 $3.8M 대규모 유입 포착."
+      },
+      "powerScore": 67,
+      "isBackfilled": false,
+      "rank": 9,
+      "symbol": "RTX",
+      "changePct": 0.7753190114682592,
+      "price": 187.17,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "HON",
+      "evidence": {
+        "price": {
+          "last": 205.24,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 199.51,
+          "changePct": 2.872036489399037,
+          "vwap": 204.0102,
+          "vwapDistPct": 0.6028129966050774,
+          "rsi14": 62.03254812870739,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 5256259,
+          "relVol": 1.378806469914173,
+          "gapPct": -0.285699964914036,
+          "largeTradesUsd": 1087161,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 1087161,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:04.449Z"
+      },
+      "alphaScore": 65.55242131347575,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(66) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 205.24,
+        "whaleTargetLevel": 211.39720000000003,
+        "targetPrice": 211.4,
+        "cutPrice": 201.14,
+        "entryBand": [
+          204.21,
+          206.27
+        ],
+        "whaleReasonKR": "기술적 상승 흐름 지속. 특이 거래량 부재, 관망 필요."
+      },
+      "powerScore": 65.55242131347575,
+      "isBackfilled": false,
+      "rank": 10,
+      "symbol": "HON",
+      "changePct": 2.872036489399037,
+      "price": 205.24,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "MRK",
+      "evidence": {
+        "price": {
+          "last": 110.99,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 108.6,
+          "changePct": 2.200736648250461,
+          "vwap": 111.0387,
+          "vwapDistPct": -0.04385858263831515,
+          "rsi14": 74.66233370152125,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 20278832,
+          "relVol": 1.4039636592291447,
+          "gapPct": 1.8508287292817727,
+          "largeTradesUsd": 3536186,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 3536186,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:04.113Z"
+      },
+      "alphaScore": 63.07927318458289,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(63) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 110.99,
+        "whaleTargetLevel": 114.3197,
+        "targetPrice": 114.32,
+        "cutPrice": 108.77,
+        "entryBand": [
+          110.44,
+          111.54
+        ],
+        "whaleReasonKR": "기관 순매수 $3.5M 대규모 유입 포착."
+      },
+      "powerScore": 63.07927318458289,
+      "isBackfilled": false,
+      "rank": 11,
+      "symbol": "MRK",
+      "changePct": 2.200736648250461,
+      "price": 110.99,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    },
+    {
+      "ticker": "GOOGL",
+      "evidence": {
+        "price": {
+          "last": 325.44,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 321.98,
+          "changePct": 1.0746009068886202,
+          "vwap": 325.7166,
+          "vwapDistPct": -0.08492044924944886,
+          "rsi14": 66.68564038784734,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 31827288,
+          "relVol": 1.0670587447637436,
+          "gapPct": 2.1693894030685,
+          "largeTradesUsd": 75713980,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 75713980,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "blockPrint"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:00.300Z"
+      },
+      "alphaScore": 61.341174895274875,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "관심권(61) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [
+          "WHALE_IN"
+        ],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 325.44,
+        "whaleTargetLevel": 335.2032,
+        "targetPrice": 335.2,
+        "cutPrice": 318.93,
+        "entryBand": [
+          323.81,
+          327.07
+        ],
+        "whaleReasonKR": "기관 순매수 $75.7M 대규모 유입 포착."
+      },
+      "powerScore": 61.341174895274875,
+      "isBackfilled": false,
+      "rank": 12,
+      "symbol": "GOOGL",
+      "changePct": 1.0746009068886202,
+      "price": 325.44,
+      "v71": {
+        "options_status": "FAILED",
+        "options_note": "Data Failed"
+      }
+    }
+  ],
+  "hunters": [
+    {
+      "ticker": "FLYX",
+      "evidence": {
+        "price": {
+          "last": 7.23,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 3.14,
+          "changePct": 130.25477707006368,
+          "vwap": 6.6727,
+          "vwapDistPct": 8.35194149294889,
+          "rsi14": 77.66396687586955,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 115439416,
+          "relVol": 19.933976140546847,
+          "gapPct": 93.63057324840763,
+          "largeTradesUsd": 0,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 0,
+          "complete": true
+        },
+        "options": {
+          "status": "NO_OPTIONS",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:09.408Z"
+      },
+      "alphaScore": 96,
+      "qualityTier": "ACTIONABLE",
+      "complete": true,
+      "tacticalRole": "HUNTER",
+      "qualityReasonKR": "고강도 91 + 옵션확인 = 매수 적합",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 7.23,
+        "whaleTargetLevel": 7.4469,
+        "targetPrice": 7.45,
+        "cutPrice": 7.09,
+        "entryBand": [
+          7.19,
+          7.27
+        ],
+        "whaleReasonKR": "평소 대비 거래량 19.9배 폭증. 변동성 확대 국면."
+      },
+      "powerScore": 96,
+      "isBackfilled": false,
+      "rank": 1,
+      "symbol": "FLYX"
+    },
+    {
+      "ticker": "ELVN",
+      "evidence": {
+        "price": {
+          "last": 23.25,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 15.47,
+          "changePct": 50.29088558500323,
+          "vwap": 23.2422,
+          "vwapDistPct": 0.03355964581665929,
+          "rsi14": 70.24083193843042,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 9486857,
+          "relVol": 7.742847878209786,
+          "gapPct": 8.209437621202314,
+          "largeTradesUsd": 94828,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 94828,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:09.596Z"
+      },
+      "alphaScore": 85,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "HUNTER",
+      "qualityReasonKR": "관심권(85) - 옵션 미확인",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 23.25,
+        "whaleTargetLevel": 23.9475,
+        "targetPrice": 23.95,
+        "cutPrice": 22.79,
+        "entryBand": [
+          23.13,
+          23.37
+        ],
+        "whaleReasonKR": "평소 대비 거래량 7.7배 폭증. 변동성 확대 국면."
+      },
+      "powerScore": 85,
+      "isBackfilled": false,
+      "rank": 2,
+      "symbol": "ELVN"
+    },
+    {
+      "ticker": "NGEN",
+      "evidence": {
+        "price": {
+          "last": 5.97,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 0,
+          "extendedChangePct": 0,
+          "prevClose": 0.05,
+          "changePct": 11840,
+          "vwap": 6.9937,
+          "vwapDistPct": -14.637459427770708,
+          "rsi14": 50,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 776287,
+          "relVol": 1,
+          "gapPct": 12500,
+          "largeTradesUsd": 0,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 0,
+          "complete": true
+        },
+        "options": {
+          "status": "NO_OPTIONS",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25703.145000000004,
+            "changePct": -0.6281849940706963
+          },
+          "vix": {
+            "value": 14.14
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0128475
+          },
+          "fetchedAtET": "2026-01-09T04:30:56.725Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": true,
+        "fetchedAtET": "2026-01-09T04:31:09.420Z"
+      },
+      "alphaScore": 70.58823529411765,
+      "qualityTier": "WATCH",
+      "complete": true,
+      "tacticalRole": "HUNTER",
+      "qualityReasonKR": "관심권 66",
+      "decisionSSOT": {
+        "triggersKR": [],
+        "whaleIndex": 0,
+        "whaleConfidence": "NONE",
+        "whaleEntryLevel": 5.97,
+        "whaleTargetLevel": 6.1491,
+        "targetPrice": 6.15,
+        "cutPrice": 5.85,
+        "entryBand": [
+          5.94,
+          6
+        ],
+        "whaleReasonKR": "기술적 상승 흐름 지속. 특이 거래량 부재, 관망 필요."
+      },
+      "powerScore": 70.58823529411765,
+      "isBackfilled": false,
+      "rank": 3,
+      "symbol": "NGEN"
+    }
+  ],
+  "alphaGrid": {
+    "top3": [
+      {
+        "ticker": "XOM",
+        "evidence": {
+          "price": {
+            "last": 122.91,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 118.49,
+            "changePct": 3.7302725968436174,
+            "vwap": 122.1065,
+            "vwapDistPct": 0.6580321276918097,
+            "rsi14": 58.22166433140009,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 20201000,
+            "relVol": 1.175332287007743,
+            "gapPct": 0.41353700734239945,
+            "largeTradesUsd": 10300793,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 10300793,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.398Z"
+        },
+        "alphaScore": 78.3488265149038,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(78) - 옵션 미확인 [🔥 주도 섹터: +10]",
+        "decisionSSOT": {
+          "triggersKR": [
+            "WHALE_IN"
+          ],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 122.91,
+          "whaleTargetLevel": 126.5973,
+          "targetPrice": 126.6,
+          "cutPrice": 120.45,
+          "entryBand": [
+            122.3,
+            123.52
+          ],
+          "whaleReasonKR": "기관 순매수 $10.3M 대규모 유입 포착."
+        },
+        "powerScore": 78.3488265149038,
+        "isBackfilled": false,
+        "top3Action": "HOLD_ONLY"
+      },
+      {
+        "ticker": "COST",
+        "evidence": {
+          "price": {
+            "last": 915.31,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 882.58,
+            "changePct": 3.708445693308245,
+            "vwap": 919.5889,
+            "vwapDistPct": -0.46530574694844856,
+            "rsi14": 63.72245928250666,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 5207087,
+            "relVol": 1.655502228206136,
+            "gapPct": 2.1017924720705152,
+            "largeTradesUsd": 2620739,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 2620739,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.806Z"
+        },
+        "alphaScore": 76.66756554646597,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(77) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 915.31,
+          "whaleTargetLevel": 942.7692999999999,
+          "targetPrice": 942.77,
+          "cutPrice": 897,
+          "entryBand": [
+            910.73,
+            919.89
+          ],
+          "whaleReasonKR": "기관 순매수 $2.6M 대규모 유입 포착."
+        },
+        "powerScore": 76.66756554646597,
+        "isBackfilled": false,
+        "top3Action": "HOLD_ONLY"
+      },
+      {
+        "ticker": "SLB",
+        "evidence": {
+          "price": {
+            "last": 44.43,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 42.37,
+            "changePct": 4.861930611281573,
+            "vwap": 44.0533,
+            "vwapDistPct": 0.8551005259537869,
+            "rsi14": 72.53451985199206,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 20116171,
+            "relVol": 1.2721363261707048,
+            "gapPct": 1.156478640547562,
+            "largeTradesUsd": -207901,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": -207901,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.194Z"
+        },
+        "alphaScore": 76.20227210284507,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(76) - 옵션 미확인 [🔥 주도 섹터: +10]",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 44.43,
+          "whaleTargetLevel": 45.7629,
+          "targetPrice": 45.76,
+          "cutPrice": 43.54,
+          "entryBand": [
+            44.21,
+            44.65
+          ],
+          "whaleReasonKR": "기술적 상승 흐름 지속. 특이 거래량 부재, 관망 필요."
+        },
+        "powerScore": 76.20227210284507,
+        "isBackfilled": false,
+        "top3Action": "HOLD_ONLY"
+      }
+    ],
+    "fullUniverse": [
+      {
+        "ticker": "XOM",
+        "evidence": {
+          "price": {
+            "last": 122.91,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 118.49,
+            "changePct": 3.7302725968436174,
+            "vwap": 122.1065,
+            "vwapDistPct": 0.6580321276918097,
+            "rsi14": 58.22166433140009,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 20201000,
+            "relVol": 1.175332287007743,
+            "gapPct": 0.41353700734239945,
+            "largeTradesUsd": 10300793,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 10300793,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.398Z"
+        },
+        "alphaScore": 78.3488265149038,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(78) - 옵션 미확인 [🔥 주도 섹터: +10]",
+        "decisionSSOT": {
+          "triggersKR": [
+            "WHALE_IN"
+          ],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 122.91,
+          "whaleTargetLevel": 126.5973,
+          "targetPrice": 126.6,
+          "cutPrice": 120.45,
+          "entryBand": [
+            122.3,
+            123.52
+          ],
+          "whaleReasonKR": "기관 순매수 $10.3M 대규모 유입 포착."
+        },
+        "powerScore": 78.3488265149038,
+        "isBackfilled": false,
+        "rank": 1,
+        "symbol": "XOM",
+        "changePct": 3.7302725968436174,
+        "price": 122.91,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "COST",
+        "evidence": {
+          "price": {
+            "last": 915.31,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 882.58,
+            "changePct": 3.708445693308245,
+            "vwap": 919.5889,
+            "vwapDistPct": -0.46530574694844856,
+            "rsi14": 63.72245928250666,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 5207087,
+            "relVol": 1.655502228206136,
+            "gapPct": 2.1017924720705152,
+            "largeTradesUsd": 2620739,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 2620739,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.806Z"
+        },
+        "alphaScore": 76.66756554646597,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(77) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 915.31,
+          "whaleTargetLevel": 942.7692999999999,
+          "targetPrice": 942.77,
+          "cutPrice": 897,
+          "entryBand": [
+            910.73,
+            919.89
+          ],
+          "whaleReasonKR": "기관 순매수 $2.6M 대규모 유입 포착."
+        },
+        "powerScore": 76.66756554646597,
+        "isBackfilled": false,
+        "rank": 2,
+        "symbol": "COST",
+        "changePct": 3.708445693308245,
+        "price": 915.31,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "SLB",
+        "evidence": {
+          "price": {
+            "last": 44.43,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 42.37,
+            "changePct": 4.861930611281573,
+            "vwap": 44.0533,
+            "vwapDistPct": 0.8551005259537869,
+            "rsi14": 72.53451985199206,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 20116171,
+            "relVol": 1.2721363261707048,
+            "gapPct": 1.156478640547562,
+            "largeTradesUsd": -207901,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": -207901,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.194Z"
+        },
+        "alphaScore": 76.20227210284507,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(76) - 옵션 미확인 [🔥 주도 섹터: +10]",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 44.43,
+          "whaleTargetLevel": 45.7629,
+          "targetPrice": 45.76,
+          "cutPrice": 43.54,
+          "entryBand": [
+            44.21,
+            44.65
+          ],
+          "whaleReasonKR": "기술적 상승 흐름 지속. 특이 거래량 부재, 관망 필요."
+        },
+        "powerScore": 76.20227210284507,
+        "isBackfilled": false,
+        "rank": 3,
+        "symbol": "SLB",
+        "changePct": 4.861930611281573,
+        "price": 44.43,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "DE",
+        "evidence": {
+          "price": {
+            "last": 500.8,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 475.2,
+            "changePct": 5.387205387205392,
+            "vwap": 498.4944,
+            "vwapDistPct": 0.46251271829734236,
+            "rsi14": 64.84236921815324,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 1797306,
+            "relVol": 1.3163733431223001,
+            "gapPct": -0.2693602693602636,
+            "largeTradesUsd": 131953212,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 131953212,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:04.485Z"
+        },
+        "alphaScore": 75.327466862446,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(75) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [
+            "WHALE_IN"
+          ],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 500.8,
+          "whaleTargetLevel": 515.8240000000001,
+          "targetPrice": 515.82,
+          "cutPrice": 490.78,
+          "entryBand": [
+            498.3,
+            503.3
+          ],
+          "whaleReasonKR": "기관 순매수 $132.0M 대규모 유입 포착."
+        },
+        "powerScore": 75.327466862446,
+        "isBackfilled": false,
+        "rank": 4,
+        "symbol": "DE",
+        "changePct": 5.387205387205392,
+        "price": 500.8,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "DKNG",
+        "evidence": {
+          "price": {
+            "last": 35.98,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 34.66,
+            "changePct": 3.808424697057128,
+            "vwap": 35.8955,
+            "vwapDistPct": 0.2354055522279909,
+            "rsi14": 59.38815180113961,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 12384212,
+            "relVol": 1.4251170813641503,
+            "gapPct": -0.2885170225043114,
+            "largeTradesUsd": 1673371,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 1673371,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:09.609Z"
+        },
+        "alphaScore": 73.96973920374003,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(74) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 35.98,
+          "whaleTargetLevel": 37.0594,
+          "targetPrice": 37.06,
+          "cutPrice": 35.26,
+          "entryBand": [
+            35.8,
+            36.16
+          ],
+          "whaleReasonKR": "기술적 상승 흐름 지속. 특이 거래량 부재, 관망 필요."
+        },
+        "powerScore": 73.96973920374003,
+        "isBackfilled": false,
+        "rank": 5,
+        "symbol": "DKNG",
+        "changePct": 3.808424697057128,
+        "price": 35.98,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "LMT",
+        "evidence": {
+          "price": {
+            "last": 518.44,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 496.87,
+            "changePct": 4.341175760259232,
+            "vwap": 527.73,
+            "vwapDistPct": -1.7603698861159995,
+            "rsi14": 64.77503975555368,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 4108700,
+            "relVol": 2.4657879202737973,
+            "gapPct": 7.04812123895586,
+            "largeTradesUsd": -1247596,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": -1247596,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.410Z"
+        },
+        "alphaScore": 71.59313133549361,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(72) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 518.44,
+          "whaleTargetLevel": 533.9932000000001,
+          "targetPrice": 533.99,
+          "cutPrice": 508.07,
+          "entryBand": [
+            515.85,
+            521.03
+          ],
+          "whaleReasonKR": "평소 대비 거래량 2.5배 폭증. 변동성 확대 국면."
+        },
+        "powerScore": 71.59313133549361,
+        "isBackfilled": false,
+        "rank": 6,
+        "symbol": "LMT",
+        "changePct": 4.341175760259232,
+        "price": 518.44,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "CVX",
+        "evidence": {
+          "price": {
+            "last": 159.25,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 155.2,
+            "changePct": 2.609536082474234,
+            "vwap": 158.2968,
+            "vwapDistPct": 0.6021599931268413,
+            "rsi14": 60.56578442045798,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 12936679,
+            "relVol": 1.2623884022962513,
+            "gapPct": 0.19329896907217228,
+            "largeTradesUsd": 22719434,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 22719434,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.204Z"
+        },
+        "alphaScore": 71.1240567057189,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(71) - 옵션 미확인 [🔥 주도 섹터: +10]",
+        "decisionSSOT": {
+          "triggersKR": [
+            "WHALE_IN"
+          ],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 159.25,
+          "whaleTargetLevel": 164.0275,
+          "targetPrice": 164.03,
+          "cutPrice": 156.06,
+          "entryBand": [
+            158.45,
+            160.05
+          ],
+          "whaleReasonKR": "기관 순매수 $22.7M 대규모 유입 포착."
+        },
+        "powerScore": 71.1240567057189,
+        "isBackfilled": false,
+        "rank": 7,
+        "symbol": "CVX",
+        "changePct": 2.609536082474234,
+        "price": 159.25,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "LOW",
+        "evidence": {
+          "price": {
+            "last": 256.21,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 247.12,
+            "changePct": 3.6783748786014794,
+            "vwap": 254.9838,
+            "vwapDistPct": 0.4808932959662446,
+            "rsi14": 66.59462208981398,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 3290329,
+            "relVol": 1.3318619012690323,
+            "gapPct": -0.8073000971188105,
+            "largeTradesUsd": 2183529,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 2183529,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.473Z"
+        },
+        "alphaScore": 71.06423705419249,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(71) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 256.21,
+          "whaleTargetLevel": 263.8963,
+          "targetPrice": 263.9,
+          "cutPrice": 251.09,
+          "entryBand": [
+            254.93,
+            257.49
+          ],
+          "whaleReasonKR": "기관 순매수 $2.2M 대규모 유입 포착."
+        },
+        "powerScore": 71.06423705419249,
+        "isBackfilled": false,
+        "rank": 8,
+        "symbol": "LOW",
+        "changePct": 3.6783748786014794,
+        "price": 256.21,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "RTX",
+        "evidence": {
+          "price": {
+            "last": 187.17,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 185.73,
+            "changePct": 0.7753190114682592,
+            "vwap": 189.2207,
+            "vwapDistPct": -1.0837609204489818,
+            "rsi14": 60.75838577886336,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 9773443,
+            "relVol": 2.0861536424885134,
+            "gapPct": 2.8536046949873537,
+            "largeTradesUsd": 3751024,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 3751024,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:07.391Z"
+        },
+        "alphaScore": 67,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(67) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 187.17,
+          "whaleTargetLevel": 192.7851,
+          "targetPrice": 192.79,
+          "cutPrice": 183.43,
+          "entryBand": [
+            186.23,
+            188.11
+          ],
+          "whaleReasonKR": "기관 순매수 $3.8M 대규모 유입 포착."
+        },
+        "powerScore": 67,
+        "isBackfilled": false,
+        "rank": 9,
+        "symbol": "RTX",
+        "changePct": 0.7753190114682592,
+        "price": 187.17,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "HON",
+        "evidence": {
+          "price": {
+            "last": 205.24,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 199.51,
+            "changePct": 2.872036489399037,
+            "vwap": 204.0102,
+            "vwapDistPct": 0.6028129966050774,
+            "rsi14": 62.03254812870739,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 5256259,
+            "relVol": 1.378806469914173,
+            "gapPct": -0.285699964914036,
+            "largeTradesUsd": 1087161,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 1087161,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:04.449Z"
+        },
+        "alphaScore": 65.55242131347575,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(66) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 205.24,
+          "whaleTargetLevel": 211.39720000000003,
+          "targetPrice": 211.4,
+          "cutPrice": 201.14,
+          "entryBand": [
+            204.21,
+            206.27
+          ],
+          "whaleReasonKR": "기술적 상승 흐름 지속. 특이 거래량 부재, 관망 필요."
+        },
+        "powerScore": 65.55242131347575,
+        "isBackfilled": false,
+        "rank": 10,
+        "symbol": "HON",
+        "changePct": 2.872036489399037,
+        "price": 205.24,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "MRK",
+        "evidence": {
+          "price": {
+            "last": 110.99,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 108.6,
+            "changePct": 2.200736648250461,
+            "vwap": 111.0387,
+            "vwapDistPct": -0.04385858263831515,
+            "rsi14": 74.66233370152125,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 20278832,
+            "relVol": 1.4039636592291447,
+            "gapPct": 1.8508287292817727,
+            "largeTradesUsd": 3536186,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 3536186,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:04.113Z"
+        },
+        "alphaScore": 63.07927318458289,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(63) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 110.99,
+          "whaleTargetLevel": 114.3197,
+          "targetPrice": 114.32,
+          "cutPrice": 108.77,
+          "entryBand": [
+            110.44,
+            111.54
+          ],
+          "whaleReasonKR": "기관 순매수 $3.5M 대규모 유입 포착."
+        },
+        "powerScore": 63.07927318458289,
+        "isBackfilled": false,
+        "rank": 11,
+        "symbol": "MRK",
+        "changePct": 2.200736648250461,
+        "price": 110.99,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      },
+      {
+        "ticker": "GOOGL",
+        "evidence": {
+          "price": {
+            "last": 325.44,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 321.98,
+            "changePct": 1.0746009068886202,
+            "vwap": 325.7166,
+            "vwapDistPct": -0.08492044924944886,
+            "rsi14": 66.68564038784734,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 31827288,
+            "relVol": 1.0670587447637436,
+            "gapPct": 2.1693894030685,
+            "largeTradesUsd": 75713980,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 75713980,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25703.145000000004,
+              "changePct": -0.6281849940706963
+            },
+            "vix": {
+              "value": 14.14
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0128475
+            },
+            "fetchedAtET": "2026-01-09T04:30:56.725Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": true,
+          "fetchedAtET": "2026-01-09T04:31:00.300Z"
+        },
+        "alphaScore": 61.341174895274875,
+        "qualityTier": "WATCH",
+        "complete": true,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "관심권(61) - 옵션 미확인",
+        "decisionSSOT": {
+          "triggersKR": [
+            "WHALE_IN"
+          ],
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 325.44,
+          "whaleTargetLevel": 335.2032,
+          "targetPrice": 335.2,
+          "cutPrice": 318.93,
+          "entryBand": [
+            323.81,
+            327.07
+          ],
+          "whaleReasonKR": "기관 순매수 $75.7M 대규모 유입 포착."
+        },
+        "powerScore": 61.341174895274875,
+        "isBackfilled": false,
+        "rank": 12,
+        "symbol": "GOOGL",
+        "changePct": 1.0746009068886202,
+        "price": 325.44,
+        "v71": {
+          "options_status": "FAILED",
+          "options_note": "Data Failed"
+        }
+      }
+    ]
+  },
+  "engine": {
+    "regime": "NEUTRAL",
+    "regimeReasonKR": "Macro 데이터 미완성 (기본 NEUTRAL)",
+    "counts": {
+      "actionableCount": 0,
+      "watchCount": 0,
+      "fillerCount": 0,
+      "backfillCount": 0
+    },
+    "top3Stats": {
+      "actionableUsed": 0,
+      "watchUsed": 0,
+      "noTradeSlots": 0,
+      "changelogKR": [
+        "[HOLD_ONLY] XOM - 점수 78.3 (데이터 부분)",
+        "[HOLD_ONLY] COST - 점수 76.7 (데이터 부분)",
+        "[HOLD_ONLY] SLB - 점수 76.2 (데이터 부분)"
+      ]
+    },
+    "macroSSOT": {
+      "ndx": {
+        "value": 25703.145000000004,
+        "changePct": -0.6281849940706963,
+        "label": "NDX"
+      },
+      "vix": {
+        "value": 14.14,
+        "label": "VIX"
+      },
+      "us10y": {
+        "value": 4.06,
+        "label": "US10Y"
+      },
+      "dxy": {
+        "value": 99.0128475,
+        "label": "DXY"
+      },
+      "regime": "NEUTRAL",
+      "fetchedAtET": "2026-01-09T04:30:56.725Z",
+      "ageSeconds": 51
+    }
+  },
+  "diffs": []
+}
