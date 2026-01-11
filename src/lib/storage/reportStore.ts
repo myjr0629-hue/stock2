@@ -356,58 +356,53 @@ export async function loadReport(date: string, type: string): Promise<any | null
 }
 
 export async function loadLatest(type: string): Promise<any | null> {
+    let report: any = null;
+
+    // 1. Try Redis first (if enabled)
     if (useRedis()) {
         try {
             const redis = getRedis();
             const latestKey = `${REPORTS_LATEST_PREFIX}${type}`;
             const data = await redis.get(latestKey);
 
-            if (!data) return null;
-            return typeof data === 'string' ? JSON.parse(data) : data;
+            if (data) {
+                report = typeof data === 'string' ? JSON.parse(data) : data;
+                // [S-53.1] Robustness: If Redis report is stale (e.g. from 2025), try FS for a newer one
+                // This handles the "Fresh Deploy / Stale Cache" scenario
+                if (report && report.meta && report.meta.marketDate && report.meta.marketDate.startsWith('2025')) {
+                    console.warn(`[ReportStore] Stale 2025 report found in Redis. Attempting FS fallback...`);
+                    report = null; // Force FS check
+                }
+            }
         } catch (e) {
             console.error('[ReportStore] Redis loadLatest failed:', e);
-            return null;
+            // Fallthrough to FS
         }
-    } else {
-        // Find most recent date with this type
-        // Check both legacy path (snapshots/{date}) and new path (snapshots/reports/{date})
-        // [Fix] Check NEW path first as it contains recent data
-        const LEGACY_DIR = path.join(process.cwd(), 'snapshots');
-
-        // Try new path (snapshots/reports/{date}/{type}.json)
-        if (fs.existsSync(REPORTS_DIR)) {
-            const dates = fs.readdirSync(REPORTS_DIR)
-                .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
-                .sort()
-                .reverse();
-
-            for (const date of dates) {
-                const filePath = path.join(REPORTS_DIR, date, `${type}.json`);
-                if (fs.existsSync(filePath)) {
-                    console.log(`[ReportStore] loadLatest found (NEW): ${filePath}`);
-                    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-                }
-            }
-        }
-
-        // Try legacy path second (snapshots/{date}/{type}.json)
-        if (fs.existsSync(LEGACY_DIR)) {
-            const dates = fs.readdirSync(LEGACY_DIR)
-                .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
-                .sort()
-                .reverse();
-
-            for (const date of dates) {
-                const filePath = path.join(LEGACY_DIR, date, `${type}.json`);
-                if (fs.existsSync(filePath)) {
-                    console.log(`[ReportStore] loadLatest found (LEGACY): ${filePath}`);
-                    return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-                }
-            }
-        }
-
-        return null;
     }
+
+    // 2. Return if Valid Redis Report found
+    if (report) return report;
+
+    // 3. Fallback to Local FS (The "Engine Integrity" Safety Net)
+    console.log('[ReportStore] Redis miss/stale. Falling back to Local FS...');
+
+    // Check NEW path (snapshots/reports/{date}/{type}.json)
+    if (fs.existsSync(REPORTS_DIR)) {
+        const dates = fs.readdirSync(REPORTS_DIR)
+            .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d))
+            .sort()
+            .reverse();
+
+        for (const date of dates) {
+            const filePath = path.join(REPORTS_DIR, date, `${type}.json`);
+            if (fs.existsSync(filePath)) {
+                console.log(`[ReportStore] loadLatest found (NEW FS): ${filePath}`);
+                return JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+            }
+        }
+    }
+
+    return null;
 }
 
 // ============ S-53.0 YESTERDAY REPORT ============
