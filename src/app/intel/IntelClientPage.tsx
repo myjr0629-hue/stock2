@@ -7,7 +7,9 @@ import {
     ChevronRight, Shield, Clock, Zap, DollarSign,
     BarChart3, Target, XCircle, CheckCircle, AlertTriangle,
     Lock, Unlock, Eye, ArrowUpRight, ArrowDownRight,
-    Search, Layers
+    Search, Layers, CheckCircle2,
+    Orbit,
+    Bot
 } from "lucide-react";
 import { ReportArchive } from "@/components/ReportArchive";
 import { TacticalCard } from "@/components/TacticalCard";
@@ -17,6 +19,8 @@ import { TacticalBoard } from "@/components/intel/TacticalBoard"; // [NEW]
 import { M7OrbitalMap } from "@/components/intel/M7OrbitalMap";
 import { M7BriefingBar } from "@/components/intel/M7BriefingBar";
 import { M7TacticalDeck } from "@/components/intel/M7TacticalDeck";
+import { PhysicalAIOrbitalMap } from "@/components/intel/PhysicalAIOrbitalMap";
+import { PhysicalAIBriefingBar, PhysicalAITacticalDeck } from "@/components/intel/PhysicalAIComponents";
 
 
 // ============================================================================
@@ -67,6 +71,7 @@ const STRUCTURE_MAP: Record<string, string> = {
 
 // [V4.7] M7 Watchlist
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
+const PHYSICAL_AI_TICKERS = ['PLTR', 'ISRG', 'SYM', 'TER', 'RKLB', 'SERV'];
 
 // ============================================================================
 // TYPES (vNext Unified Evidence Model)
@@ -1178,8 +1183,15 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     const moonshot = sortedItems.slice(10, 12); // Ranks 11, 12
 
     // [V4.7] M7 Filter (Extract M7 from available report items)
-    const m7Items = sortedItems.filter(i => M7_TICKERS.includes(i.ticker));
+    const m7Items = useMemo(() =>
+        sortedItems.filter(item => M7_TICKERS.includes(item.ticker)),
+        [sortedItems]
+    );
 
+    const physicalAiItems = useMemo(() =>
+        sortedItems.filter(item => PHYSICAL_AI_TICKERS.includes(item.ticker)),
+        [sortedItems]
+    );
     // Check if we are in a "Locked/Final" state to show the Tactical UI fully
     // We treat Final or Revised as tactical-ready.
     const isTacticalView = report?.type === 'final' || report?.type === 'revised' || sortedItems.length > 0;
@@ -1341,6 +1353,48 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                 )
                             )}
                         </div>
+                    </div>
+
+                    {/* PHYSICAL AI CONTENT (The Iron Legion) */}
+                    <div className={activeTab === 'PHYSICAL_AI' ? "space-y-6" : "hidden"}>
+
+                        {/* Zone A: Orbital Map */}
+                        <section>
+                            <PhysicalAIOrbitalMap items={physicalAiItems} />
+                        </section>
+
+                        {/* Zone B: Briefing Bar */}
+                        <section>
+                            <div className="mb-2 px-2 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-amber-600/70 tracking-widest uppercase">
+                                    PHYSICAL AI SECTOR ANALYSIS (물리적 AI / 로보틱스)
+                                </span>
+                                <span className="text-[10px] font-bold text-amber-600/70 tracking-widest uppercase">
+                                    COMPLETED AT 21:00 EST
+                                </span>
+                            </div>
+                            <PhysicalAIBriefingBar
+                                message={
+                                    physicalAiItems.length > 0
+                                        ? `DETECTING HEAVY CAPITAL DEPLOYMENT IN ${physicalAiItems[0].ticker}. SECTOR MOMENTUM: ${physicalAiItems[0].evidence?.price?.changePct && physicalAiItems[0].evidence.price.changePct > 0 ? "ACCELERATING" : "STABILIZING"}.`
+                                        : "ESTABLISHING UPLINK TO INDUSTRIAL GRID..."
+                                }
+                            />
+                        </section>
+
+                        {/* Zone C: Tactical Deck */}
+                        <section>
+                            <h2 className="text-sm font-bold text-amber-700/50 mb-4 px-2 flex items-center gap-2">
+                                <Bot className="w-4 h-4 text-amber-500" />
+                                TACTICAL DECK <span className="text-[10px] text-amber-800 uppercase tracking-wider">Sorted by Alpha Priority</span>
+                            </h2>
+                            <PhysicalAITacticalDeck
+                                items={physicalAiItems}
+                                selectedTicker={selectedTicker}
+                                onSelect={setSelectedTicker}
+                            />
+                        </section>
+
                     </div>
 
 

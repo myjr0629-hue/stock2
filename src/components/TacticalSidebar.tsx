@@ -9,7 +9,8 @@ import {
     ShieldAlert,
     Activity,
     ChevronRight,
-    Orbit
+    Orbit,
+    Bot
 } from "lucide-react";
 
 interface SidebarItemProps {
@@ -111,12 +112,12 @@ export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps
                 />
 
                 <SidebarItem
-                    icon={<Zap />}
-                    label="HYPER-DISCOVERY"
-                    subLabel="MARKET-WIDE SCAN"
-                    isActive={activeTab === 'DISCOVERY'}
-                    onClick={() => onTabChange('DISCOVERY')}
-                    accentColor="text-amber-400"
+                    icon={<Bot />}
+                    label="PHYSICAL AI"
+                    subLabel="ROBOTICS & EMBODIED"
+                    isActive={activeTab === 'PHYSICAL_AI'}
+                    onClick={() => onTabChange('PHYSICAL_AI')}
+                    accentColor="text-amber-500"
                 />
 
                 <div className="my-2 px-4"><div className="h-px bg-slate-800/50" /></div>
