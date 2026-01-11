@@ -511,3 +511,38 @@ export async function fetchOptionSnapshot(underlyingTicker: string, contractTick
         return null;
     }
 }
+
+// [S-56.4.7] Market Status API
+export interface MarketStatus {
+    market: 'open' | 'closed' | 'extended';
+    earlyAdjournment: boolean;
+    nextOpen: string;
+    serverTime: string; // ISO
+    exchanges: Record<string, string>;
+}
+
+export async function fetchMarketStatus(): Promise<MarketStatus | null> {
+    const endpoint = `/v1/marketstatus/now`;
+    try {
+        const data = await fetchMassive(endpoint, {}, false); // No cache, need real status
+        return data as MarketStatus;
+    } catch (e) {
+        console.warn(`[Massive] Market Status Check Failed`, e);
+        return null;
+    }
+}
+
+// [S-56.4.8] Option Chain Snapshot (The "Unified" Source)
+export async function getOptionChainSnapshot(ticker: string, budget?: RunBudget): Promise<any[]> {
+    // /v3/snapshot/options/{ticker}
+    // This provides Greeks, OI, Volume, Last Trade for ALL contracts
+    const endpoint = `/v3/snapshot/options/${ticker}`;
+    try {
+        // This is a heavy payload, uses pagination logic wrapper
+        const data = await fetchMassiveAll(endpoint, { limit: '250' }, false, budget);
+        return data.results || [];
+    } catch (e) {
+        console.warn(`[Massive] Option Chain Snapshot failed for ${ticker}`, e);
+        return [];
+    }
+}

@@ -1,4 +1,4 @@
-import { getOptionTrades, fetchOptionSnapshot } from './massiveClient';
+import { getOptionTrades, fetchOptionSnapshot, getOptionChainSnapshot } from './massiveClient';
 import { OptionTrade } from '@/types';
 
 // [V3.7.3] Forensic Analysis Result
@@ -27,82 +27,93 @@ export class ForensicService {
     // Core Sniper Method
     static async analyzeTarget(ticker: string, targetDate?: string, fallbackPrice: number = 0): Promise<ForensicResult> {
         try {
-            // 1. Fetch Tick Data (Today/Target)
+            // [V3.8] PRE-EMPTIVE SNAPSHOT PROTOCOL (The "Unified" Source)
+            // Fetch Snapshot first. It contains Volume/OI/Greeks for ALL contracts. 
+            // This guarantees data even if trade history is empty (weekend/holiday).
+            const snapshotPromise = getOptionChainSnapshot(ticker);
+
+            // 1. Fetch Tick Data (Today/Target) - for "Aggressor" Flow Analysis
             const params: any = { limit: '1000', sort: 'desc' };
-
             // [V3.7.3] Smart Date Resolution: rely on passed targetDate (SSOT)
-            // If targetDate is provided by Scheduler (which knows holidays), use it.
-            // If not, API defaults to today (which is fine for live checks).
-
             if (targetDate) params.date = targetDate;
 
             let trades: any[] = [];
-            let attempts = 0;
-            const maxAttempts = 3;
-
-            while (attempts < maxAttempts) {
-                try {
-                    attempts++;
-                    trades = await getOptionTrades(ticker, params);
-                    break; // Success
-                } catch (e: any) {
-                    if (e.httpStatus === 403 || e.code === 'AUTH_ERROR') {
-                        console.warn(`[Forensic] Level 3 restricted for ${ticker}. Skipping deep analysis.`);
-                        break; // No point retrying auth error
+            let tradesPromise = (async () => {
+                let attempts = 0;
+                const maxAttempts = 3;
+                while (attempts < maxAttempts) {
+                    try {
+                        attempts++;
+                        const res = await getOptionTrades(ticker, params);
+                        return res;
+                    } catch (e: any) {
+                        if (e.httpStatus === 403 || e.code === 'AUTH_ERROR') return [];
+                        if (attempts < maxAttempts) {
+                            const wait = 500 * Math.pow(2, attempts - 1);
+                            await new Promise(res => setTimeout(res, wait));
+                        }
                     }
-                    if (attempts === maxAttempts) {
-                        console.warn(`[Forensic] Trades fetch failed for ${ticker} after ${maxAttempts} attempts:`, e.message);
-                    } else {
-                        // Exponential backoff: 500ms, 1000ms, 2000ms
-                        const wait = 500 * Math.pow(2, attempts - 1);
-                        await new Promise(res => setTimeout(res, wait));
+                }
+                return [];
+            })();
+
+            // Run in parallel
+            const [chainSnapshot, tradeData] = await Promise.all([snapshotPromise, tradesPromise]);
+
+            // 2. Base Analysis from Snapshot (Guaranteed Data)
+            // Find Dominant Contract by Volume (Activity) or Open Interest (Positioning)
+            let domContract = '';
+            let whaleTargetLevel = 0;
+            let maxVol = 0;
+            let snapshotSentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
+            let marketMakerPutWall = 0; // Put Floor candidate
+            let marketMakerCallWall = 0; // Call Wall candidate
+
+            if (chainSnapshot.length > 0) {
+                // Find most active contract
+                for (const c of chainSnapshot) {
+                    const vol = c.day?.volume || 0;
+                    if (vol > maxVol) {
+                        maxVol = vol;
+                        domContract = c.details.ticker;
+
+                        // Calculate Target
+                        const premium = c.day?.close || c.day?.last || 0;
+                        if (c.details.contract_type === 'call') {
+                            whaleTargetLevel = c.details.strike_price + premium;
+                            snapshotSentiment = 'BULLISH';
+                        } else {
+                            whaleTargetLevel = c.details.strike_price - premium;
+                            snapshotSentiment = 'BEARISH';
+                        }
                     }
                 }
             }
 
-            // 2. Analyze Today's Data (Quotes removed as per user request)
-            let result = this.analyzeData(ticker, trades || []);
+            // 3. Analyze Trades (Flow Context) - Enhances the Snapshot
+            let result = this.analyzeData(ticker, tradeData || []);
 
-            // [V3.7.3] SNIPER LOGIC: Precision Injection
-            if (result.details.dominantContract && result.whaleIndex >= 50) {
-                // ... logic remains ...
-            }
-
-            // [V3.7.3] Historical Context Injection
-            if (result.whaleIndex < 50 || result.details.blockCount === 0) {
-                const today = targetDate ? new Date(targetDate) : new Date();
-                const prevDate = new Date(today);
-
-                // Rollback logic (skip weekends)
-                const day = today.getDay();
-                if (day === 1) prevDate.setDate(today.getDate() - 3); // Mon -> Fri
-                else if (day === 0) prevDate.setDate(today.getDate() - 2); // Sun -> Fri
-                else if (day === 6) prevDate.setDate(today.getDate() - 1); // Sat -> Fri
-                else prevDate.setDate(today.getDate() - 1);
-
-                const dateStr = prevDate.toISOString().split('T')[0];
-
-                const histTrades = await getOptionTrades(ticker, { limit: '1000', sort: 'desc', date: dateStr }).catch(() => []);
-
-                if (histTrades && histTrades.length > 0) {
-                    const histResult = this.analyzeData(ticker, histTrades);
-
-                    if (histResult.whaleIndex >= 50 && histResult.details.whaleEntryLevel) {
-                        // ... logic remains ...
-                        return {
-                            ...histResult,
-                            whaleConfidence: 'MED',
-                            analyzedAt: Date.now()
-                        };
-                    }
-                }
+            // [V3.8] MERGE PROTOCOL: Result + Snapshot
+            // If Trade analysis yielded no data (e.g. weekend), overwrite with Snapshot findings
+            if (result.details.maxBlockSize === 0 && maxVol > 0) {
+                result.whaleIndex = Math.min(50 + (maxVol > 1000 ? 20 : 0), 80); // Heuristic based on Vol
+                result.whaleConfidence = 'MED'; // Snapshot is reliable but lacks flow direction
+                result.details.sentiment = snapshotSentiment;
+                result.details.dominantContract = domContract;
+                result.details.whaleTargetLevel = whaleTargetLevel;
+                // Use fallback price for entry if unknown
+                result.details.whaleEntryLevel = fallbackPrice > 0 ? fallbackPrice : undefined;
+                result.details.whaleStopLevel = fallbackPrice > 0 ? fallbackPrice * 0.95 : undefined;
+            } else {
+                // If Trade analysis worked, just fill in gaps
+                if (!result.details.dominantContract && domContract) result.details.dominantContract = domContract;
+                if (!result.details.whaleTargetLevel && whaleTargetLevel) result.details.whaleTargetLevel = whaleTargetLevel;
             }
 
             return result;
+
         } catch (e) {
             console.error(`[Forensic] Analysis failed for ${ticker}`, e);
-            // Fallback: If we have currentPrice passed in options (future refactor), allow it.
-            // For now, return empty.
             return this.createEmptyResult(ticker, fallbackPrice);
         }
     }
