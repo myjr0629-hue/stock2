@@ -28,9 +28,26 @@ export class ForensicService {
     static async analyzeTarget(ticker: string, targetDate?: string, fallbackPrice: number = 0): Promise<ForensicResult> {
         try {
             // 1. Fetch Tick Data (Today/Target)
-            // [Fix] Graceful degradation with Retry Logic (3 Attempts)
             const params: any = { limit: '1000', sort: 'desc' };
-            if (targetDate) params.date = targetDate;
+
+            // [V3.7.3] Smart Date Resolution: Handle Weekends/Holidays
+            let effectiveDate = targetDate;
+            if (!effectiveDate) {
+                const now = new Date();
+                const day = now.getDay(); // 0=Sun, 6=Sat
+
+                // If Weekend, rollback to Friday
+                if (day === 0) { // Sunday -> Friday
+                    now.setDate(now.getDate() - 2);
+                    effectiveDate = now.toISOString().split('T')[0];
+                } else if (day === 6) { // Saturday -> Friday
+                    now.setDate(now.getDate() - 1);
+                    effectiveDate = now.toISOString().split('T')[0];
+                }
+                // Note: Standard 'today' is fine for Mon-Fri, API handles holidays usually or returns empty (which we catch now)
+            }
+
+            if (effectiveDate) params.date = effectiveDate;
 
             let trades: any[] = [];
             let attempts = 0;
@@ -233,9 +250,11 @@ export class ForensicService {
                 blockCount: 0,
                 maxBlockSize: 0,
                 sentiment: 'NEUTRAL',
-                whaleEntryLevel: fallbackLevel || undefined,
-                whaleTargetLevel: fallbackLevel ? fallbackLevel * 1.05 : undefined,
-                whaleStopLevel: fallbackLevel ? fallbackLevel * 0.95 : undefined
+                // [Revert] User explicitly rejected fallback estimation.
+                // We return undefined so UI knows data is genuinely missing if fetch fails.
+                whaleEntryLevel: undefined,
+                whaleTargetLevel: undefined,
+                whaleStopLevel: undefined
             },
             analyzedAt: Date.now()
         };
