@@ -2,8 +2,8 @@
   "meta": {
     "id": "2026-01-11-eod",
     "type": "eod",
-    "generatedAt": "2026-01-11T18:25:17.715Z",
-    "generatedAtET": "01/11/2026, 01:25:17 PM",
+    "generatedAt": "2026-01-11T18:34:30.164Z",
+    "generatedAtET": "01/11/2026, 01:34:30 PM",
     "marketDate": "2026-01-11",
     "version": "S-56.4.6e",
     "pipelineVersion": "56.4.1",
@@ -36,8 +36,8 @@
     "baseline": {
       "source": "MASSIVE",
       "session": "regular",
-      "tsISO": "2026-01-11T18:25:17.715Z",
-      "tsET": "01/11/2026, 01:25:17 PM",
+      "tsISO": "2026-01-11T18:34:30.164Z",
+      "tsET": "01/11/2026, 01:34:30 PM",
       "items": [
         {
           "ticker": "INTC",
@@ -63,7 +63,7 @@
       ]
     },
     "freshness": {
-      "generatedAtISO": "2026-01-11T18:25:17.715Z",
+      "generatedAtISO": "2026-01-11T18:34:30.164Z",
       "ageMin": 0,
       "isStale": false
     },
@@ -71,7 +71,7 @@
       "state": "READY",
       "pendingTickers": [],
       "coveragePct": 8,
-      "lastUpdatedAtISO": "2026-01-11T18:25:23.500Z"
+      "lastUpdatedAtISO": "2026-01-11T18:34:35.876Z"
     },
     "integrity": {
       "status": "OK",
@@ -96,15 +96,15 @@
     "softFails": []
   },
   "macro": {
-    "asOfET": "1/11/2026, 1:22:36 PM",
-    "fetchedAtET": "2026-01-11T18:22:36.980Z",
-    "ageSeconds": 84,
+    "asOfET": "1/11/2026, 1:31:49 PM",
+    "fetchedAtET": "2026-01-11T18:31:49.478Z",
+    "ageSeconds": 86,
     "marketStatus": {
       "market": "closed",
       "session": "closed",
       "isHoliday": false,
-      "serverTime": "2026-01-11T18:22:36.980Z",
-      "asOfET": "1/11/2026, 1:22:36 PM",
+      "serverTime": "2026-01-11T18:31:49.478Z",
+      "asOfET": "1/11/2026, 1:31:49 PM",
       "source": "MASSIVE",
       "cacheAgeSec": 0
     },
@@ -160,7 +160,7 @@
         "us30y": 4.85,
         "spread2s10s": 0.7000000000000002,
         "source": "MASSIVE",
-        "updatedAt": "2026-01-11T18:23:00.143Z"
+        "updatedAt": "2026-01-11T18:32:14.865Z"
       },
       "inflation": {
         "date": "2026-01-11",
@@ -170,13 +170,13 @@
         "pceYoY": null,
         "expectations": null,
         "source": "FAIL",
-        "updatedAt": "2026-01-11T18:23:00.144Z"
+        "updatedAt": "2026-01-11T18:32:14.865Z"
       },
-      "asOfET": "1/11/26, 1:23 PM"
+      "asOfET": "1/11/26, 1:32 PM"
     }
   },
   "events": {
-    "asOfET": "1/11/26, 1:22 PM",
+    "asOfET": "1/11/26, 1:31 PM",
     "events": [
       {
         "date": "2026-01-19",
@@ -202,7 +202,7 @@
     "shakeReasons": []
   },
   "policy": {
-    "asOfET": "1/11/26, 1:22 PM",
+    "asOfET": "1/11/26, 1:31 PM",
     "policies72h": [],
     "policies7d": [
       {
@@ -230,7 +230,7 @@
     ]
   },
   "news": {
-    "asOfET": "1/11/26, 1:22 PM",
+    "asOfET": "1/11/26, 1:31 PM",
     "marketHeadlines": [
       {
         "id": "mkt-001",
@@ -241,7 +241,7 @@
         "sentiment": "negative",
         "catalystType": "fed",
         "publishedAtET": "Dec 26, 09:30 AM",
-        "catalystAge": 387,
+        "catalystAge": 388,
         "isStale": true
       },
       {
@@ -316,7 +316,7 @@
         "source": "Reuters",
         "publishedAtET": "Dec 26, 09:30 AM",
         "isStale": true,
-        "catalystAgeHours": 387
+        "catalystAgeHours": 388
       }
     ]
   },
@@ -344,7 +344,7 @@
         "source": "Reuters",
         "publishedAtET": "Dec 26, 09:30 AM",
         "isStale": true,
-        "catalystAgeHours": 387
+        "catalystAgeHours": 388
       }
     ]
   },
@@ -371,7 +371,7 @@
           "relVol": 2.273347176113163,
           "gapPct": 1.7392361955728617,
           "largeTradesUsd": 59974451,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 59974451,
           "complete": true
@@ -408,7 +408,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -428,14 +428,15 @@
         "stealth": {
           "label": "A",
           "tags": [
+            "WhaleAccumulation",
             "MassiveBlockPrint",
             "highMomentum"
           ],
-          "impact": "NEUTRAL",
+          "impact": "BOOST",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:04.018Z"
+        "fetchedAtET": "2026-01-11T18:32:18.946Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -478,7 +479,7 @@
           "relVol": 1.6502080893810227,
           "gapPct": 1.4597400569845087,
           "largeTradesUsd": 2794876,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 2794876,
           "complete": true
@@ -515,7 +516,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -541,7 +542,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:20.395Z"
+        "fetchedAtET": "2026-01-11T18:32:35.091Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -584,7 +585,7 @@
           "relVol": 1.5607814734756178,
           "gapPct": 1.435074454131614,
           "largeTradesUsd": 4192605,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 4192605,
           "complete": true
@@ -621,7 +622,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -647,7 +648,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:22.207Z"
+        "fetchedAtET": "2026-01-11T18:32:35.966Z"
       },
       "alphaScore": 89.2,
       "qualityTier": "WATCH",
@@ -690,7 +691,7 @@
           "relVol": 1.570651915435683,
           "gapPct": 1.0957837356769378,
           "largeTradesUsd": -79589998,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": -79589998,
           "complete": true
@@ -727,7 +728,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -753,7 +754,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:22.143Z"
+        "fetchedAtET": "2026-01-11T18:32:36.175Z"
       },
       "alphaScore": 85.7,
       "qualityTier": "WATCH",
@@ -796,7 +797,7 @@
           "relVol": 1.0218957505480477,
           "gapPct": 1.750657452143607,
           "largeTradesUsd": 104698007,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 104698007,
           "complete": true
@@ -833,7 +834,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -853,13 +854,14 @@
         "stealth": {
           "label": "A",
           "tags": [
+            "WhaleAccumulation",
             "MassiveBlockPrint"
           ],
-          "impact": "NEUTRAL",
+          "impact": "BOOST",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:07.602Z"
+        "fetchedAtET": "2026-01-11T18:32:22.873Z"
       },
       "alphaScore": 78.4,
       "qualityTier": "WATCH",
@@ -902,7 +904,7 @@
           "relVol": 0.8447391691927737,
           "gapPct": 1.0572106511995758,
           "largeTradesUsd": 59786346,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 59786346,
           "complete": true
@@ -939,7 +941,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -959,13 +961,14 @@
         "stealth": {
           "label": "A",
           "tags": [
+            "WhaleAccumulation",
             "MassiveBlockPrint"
           ],
-          "impact": "NEUTRAL",
+          "impact": "BOOST",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:05.284Z"
+        "fetchedAtET": "2026-01-11T18:32:20.229Z"
       },
       "alphaScore": 74.9,
       "qualityTier": "WATCH",
@@ -1008,7 +1011,7 @@
           "relVol": 1.5666580498854918,
           "gapPct": -0.6090719666613167,
           "largeTradesUsd": 3646829,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 3646829,
           "complete": true
@@ -1045,7 +1048,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1071,7 +1074,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:20.194Z"
+        "fetchedAtET": "2026-01-11T18:32:34.138Z"
       },
       "alphaScore": 71.3,
       "qualityTier": "WATCH",
@@ -1114,7 +1117,7 @@
           "relVol": 1.484850586596337,
           "gapPct": -0.2874683297602823,
           "largeTradesUsd": 1481563,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 1481563,
           "complete": true
@@ -1151,7 +1154,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1177,7 +1180,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:12.883Z"
+        "fetchedAtET": "2026-01-11T18:32:28.006Z"
       },
       "alphaScore": 69.7,
       "qualityTier": "WATCH",
@@ -1220,7 +1223,7 @@
           "relVol": 1.21255168407643,
           "gapPct": 0.422200721259569,
           "largeTradesUsd": 21769700,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 21769700,
           "complete": true
@@ -1257,7 +1260,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1277,13 +1280,14 @@
         "stealth": {
           "label": "A",
           "tags": [
+            "WhaleAccumulation",
             "MassiveBlockPrint"
           ],
-          "impact": "NEUTRAL",
+          "impact": "BOOST",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:21.424Z"
+        "fetchedAtET": "2026-01-11T18:32:35.176Z"
       },
       "alphaScore": 69.4,
       "qualityTier": "WATCH",
@@ -1326,7 +1330,7 @@
           "relVol": 0.5297549394445281,
           "gapPct": 1.6361886429258894,
           "largeTradesUsd": 1431283224,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 1431283224,
           "complete": true
@@ -1363,7 +1367,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1383,13 +1387,14 @@
         "stealth": {
           "label": "A",
           "tags": [
+            "WhaleAccumulation",
             "MassiveBlockPrint"
           ],
-          "impact": "NEUTRAL",
+          "impact": "BOOST",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:06.535Z"
+        "fetchedAtET": "2026-01-11T18:32:21.701Z"
       },
       "alphaScore": 64.6,
       "qualityTier": "WATCH",
@@ -1432,7 +1437,7 @@
           "relVol": 1.202124803149387,
           "gapPct": 0.8226059654631097,
           "largeTradesUsd": 19883166,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 19883166,
           "complete": true
@@ -1469,7 +1474,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1489,13 +1494,14 @@
         "stealth": {
           "label": "A",
           "tags": [
+            "WhaleAccumulation",
             "MassiveBlockPrint"
           ],
-          "impact": "NEUTRAL",
+          "impact": "BOOST",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:21.416Z"
+        "fetchedAtET": "2026-01-11T18:32:35.629Z"
       },
       "alphaScore": 64,
       "qualityTier": "WATCH",
@@ -1538,7 +1544,7 @@
           "relVol": 1.121384707975299,
           "gapPct": -0.7207924294684689,
           "largeTradesUsd": 39299327,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 39299327,
           "complete": true
@@ -1575,7 +1581,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1595,13 +1601,14 @@
         "stealth": {
           "label": "A",
           "tags": [
+            "WhaleAccumulation",
             "MassiveBlockPrint"
           ],
-          "impact": "NEUTRAL",
+          "impact": "BOOST",
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:21.001Z"
+        "fetchedAtET": "2026-01-11T18:32:35.170Z"
       },
       "alphaScore": 62.4,
       "qualityTier": "WATCH",
@@ -1646,7 +1653,7 @@
           "relVol": 17.824450292337517,
           "gapPct": 105.49586776859503,
           "largeTradesUsd": 0,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 0,
           "complete": false
@@ -1683,7 +1690,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1709,7 +1716,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:25.501Z"
+        "fetchedAtET": "2026-01-11T18:32:39.302Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1746,7 +1753,7 @@
           "relVol": 14.428289211585877,
           "gapPct": 0.004800998607699214,
           "largeTradesUsd": 0,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 0,
           "complete": false
@@ -1783,7 +1790,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1809,7 +1816,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:25.901Z"
+        "fetchedAtET": "2026-01-11T18:32:39.340Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1846,7 +1853,7 @@
           "relVol": 4.3199152982654665,
           "gapPct": 5.788005578800559,
           "largeTradesUsd": 1515498,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 1515498,
           "complete": true
@@ -1883,7 +1890,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1909,7 +1916,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:26.012Z"
+        "fetchedAtET": "2026-01-11T18:32:39.745Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -1946,7 +1953,7 @@
           "relVol": 3.338075103070437,
           "gapPct": 4.3340380549682695,
           "largeTradesUsd": 0,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 0,
           "complete": false
@@ -1983,7 +1990,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2009,7 +2016,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:25.638Z"
+        "fetchedAtET": "2026-01-11T18:32:39.435Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2046,7 +2053,7 @@
           "relVol": 1.850373616128752,
           "gapPct": 6.090584028605481,
           "largeTradesUsd": 195598,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 195598,
           "complete": true
@@ -2083,7 +2090,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2109,7 +2116,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:26.611Z"
+        "fetchedAtET": "2026-01-11T18:32:40.263Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -2146,7 +2153,7 @@
           "relVol": 1,
           "gapPct": 72480.64516129033,
           "largeTradesUsd": 0,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 0,
           "complete": false
@@ -2183,7 +2190,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2209,7 +2216,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:25.564Z"
+        "fetchedAtET": "2026-01-11T18:32:39.337Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2246,7 +2253,7 @@
           "relVol": 0.24372760681176744,
           "gapPct": 8.315863032844161,
           "largeTradesUsd": 0,
-          "offExPct": 0,
+          "offExPct": 50,
           "offExDeltaPct": 0,
           "netFlow": 0,
           "complete": false
@@ -2283,7 +2290,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T18:23:00.162Z",
+          "fetchedAtET": "2026-01-11T18:32:14.882Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2309,7 +2316,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T18:23:25.573Z"
+        "fetchedAtET": "2026-01-11T18:32:39.432Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2349,7 +2356,7 @@
             "relVol": 0.9226398217736286,
             "gapPct": 0.013511426806658493,
             "largeTradesUsd": -39377044,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": -39377044,
             "complete": true
@@ -2386,7 +2393,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:00.636Z",
+            "fetchedAtET": "2026-01-11T18:33:14.486Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2412,7 +2419,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:04.221Z"
+          "fetchedAtET": "2026-01-11T18:33:18.039Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2454,7 +2461,7 @@
             "relVol": 0.8368333057205068,
             "gapPct": -0.8470853987576105,
             "largeTradesUsd": -212270909,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": -212270909,
             "complete": true
@@ -2491,7 +2498,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:00.636Z",
+            "fetchedAtET": "2026-01-11T18:33:14.486Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2517,7 +2524,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:04.969Z"
+          "fetchedAtET": "2026-01-11T18:33:18.571Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2559,7 +2566,7 @@
             "relVol": 0.879289953590789,
             "gapPct": 0.5070058997050078,
             "largeTradesUsd": 57896600,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 57896600,
             "complete": true
@@ -2596,7 +2603,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:00.636Z",
+            "fetchedAtET": "2026-01-11T18:33:14.486Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2616,13 +2623,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:05.497Z"
+          "fetchedAtET": "2026-01-11T18:33:19.102Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2664,7 +2672,7 @@
             "relVol": 0.9011086617624712,
             "gapPct": -0.6991757684030939,
             "largeTradesUsd": 76820389,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 76820389,
             "complete": true
@@ -2701,7 +2709,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:00.636Z",
+            "fetchedAtET": "2026-01-11T18:33:14.486Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2721,13 +2729,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:03.698Z"
+          "fetchedAtET": "2026-01-11T18:33:17.247Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2769,7 +2778,7 @@
             "relVol": 0.7965907207302974,
             "gapPct": 0.021616947686997658,
             "largeTradesUsd": 215777054,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 215777054,
             "complete": true
@@ -2806,7 +2815,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:00.636Z",
+            "fetchedAtET": "2026-01-11T18:33:14.486Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2826,6 +2835,7 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint",
               "bullishDivergence"
             ],
@@ -2833,7 +2843,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:05.759Z"
+          "fetchedAtET": "2026-01-11T18:33:19.107Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2875,7 +2885,7 @@
             "relVol": 0.8221510342687203,
             "gapPct": -0.09674024084450361,
             "largeTradesUsd": -507449390,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": -507449390,
             "complete": true
@@ -2912,7 +2922,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:00.636Z",
+            "fetchedAtET": "2026-01-11T18:33:14.486Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2938,7 +2948,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:07.380Z"
+          "fetchedAtET": "2026-01-11T18:33:20.754Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -2980,7 +2990,7 @@
             "relVol": 0.8635155499790735,
             "gapPct": 0.033272143184943044,
             "largeTradesUsd": 281682164,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 281682164,
             "complete": true
@@ -3017,7 +3027,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:00.636Z",
+            "fetchedAtET": "2026-01-11T18:33:14.486Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3037,13 +3047,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:07.114Z"
+          "fetchedAtET": "2026-01-11T18:33:20.706Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3087,7 +3098,7 @@
             "relVol": 0.8109578061643261,
             "gapPct": 0.0904670360737287,
             "largeTradesUsd": 22368511,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 22368511,
             "complete": true
@@ -3124,7 +3135,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:49.975Z",
+            "fetchedAtET": "2026-01-11T18:34:03.081Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3144,13 +3155,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:53.362Z"
+          "fetchedAtET": "2026-01-11T18:34:06.505Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3192,7 +3204,7 @@
             "relVol": 0.9155858348412984,
             "gapPct": 0.3828536268544488,
             "largeTradesUsd": 4099689,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 4099689,
             "complete": true
@@ -3229,7 +3241,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:49.975Z",
+            "fetchedAtET": "2026-01-11T18:34:03.081Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3255,7 +3267,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:53.305Z"
+          "fetchedAtET": "2026-01-11T18:34:06.660Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3297,7 +3309,7 @@
             "relVol": 0.7504210704004627,
             "gapPct": 1.8977481943067604,
             "largeTradesUsd": 833739,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 833739,
             "complete": true
@@ -3334,7 +3346,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:49.975Z",
+            "fetchedAtET": "2026-01-11T18:34:03.081Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3360,7 +3372,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:51.546Z"
+          "fetchedAtET": "2026-01-11T18:34:04.832Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3402,7 +3414,7 @@
             "relVol": 0.8795977215921311,
             "gapPct": -0.26351070223290335,
             "largeTradesUsd": 2429896,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 2429896,
             "complete": true
@@ -3439,7 +3451,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:49.975Z",
+            "fetchedAtET": "2026-01-11T18:34:03.081Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3465,7 +3477,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:52.119Z"
+          "fetchedAtET": "2026-01-11T18:34:05.389Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3507,7 +3519,7 @@
             "relVol": 0.7728903854116003,
             "gapPct": 1.7392874337987572,
             "largeTradesUsd": 15415881,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 15415881,
             "complete": true
@@ -3544,7 +3556,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:49.975Z",
+            "fetchedAtET": "2026-01-11T18:34:03.081Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3564,13 +3576,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:52.455Z"
+          "fetchedAtET": "2026-01-11T18:34:05.867Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3612,7 +3625,7 @@
             "relVol": 1.5942722638579343,
             "gapPct": -1.817001946787796,
             "largeTradesUsd": 493230,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 493230,
             "complete": true
@@ -3649,7 +3662,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:24:49.975Z",
+            "fetchedAtET": "2026-01-11T18:34:03.081Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3675,7 +3688,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:24:51.340Z"
+          "fetchedAtET": "2026-01-11T18:34:04.403Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
@@ -3721,7 +3734,7 @@
             "relVol": 2.273347176113163,
             "gapPct": 1.7392361955728617,
             "largeTradesUsd": 59974451,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 59974451,
             "complete": true
@@ -3758,7 +3771,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3778,14 +3791,15 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint",
               "highMomentum"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:04.018Z"
+          "fetchedAtET": "2026-01-11T18:32:18.946Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3821,7 +3835,7 @@
             "relVol": 1.6502080893810227,
             "gapPct": 1.4597400569845087,
             "largeTradesUsd": 2794876,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 2794876,
             "complete": true
@@ -3858,7 +3872,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3884,7 +3898,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:20.395Z"
+          "fetchedAtET": "2026-01-11T18:32:35.091Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3920,7 +3934,7 @@
             "relVol": 1.5607814734756178,
             "gapPct": 1.435074454131614,
             "largeTradesUsd": 4192605,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 4192605,
             "complete": true
@@ -3957,7 +3971,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3983,7 +3997,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:22.207Z"
+          "fetchedAtET": "2026-01-11T18:32:35.966Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -4021,7 +4035,7 @@
             "relVol": 2.273347176113163,
             "gapPct": 1.7392361955728617,
             "largeTradesUsd": 59974451,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 59974451,
             "complete": true
@@ -4058,7 +4072,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4078,14 +4092,15 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint",
               "highMomentum"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:04.018Z"
+          "fetchedAtET": "2026-01-11T18:32:18.946Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -4128,7 +4143,7 @@
             "relVol": 1.6502080893810227,
             "gapPct": 1.4597400569845087,
             "largeTradesUsd": 2794876,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 2794876,
             "complete": true
@@ -4165,7 +4180,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4191,7 +4206,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:20.395Z"
+          "fetchedAtET": "2026-01-11T18:32:35.091Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -4234,7 +4249,7 @@
             "relVol": 1.5607814734756178,
             "gapPct": 1.435074454131614,
             "largeTradesUsd": 4192605,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 4192605,
             "complete": true
@@ -4271,7 +4286,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4297,7 +4312,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:22.207Z"
+          "fetchedAtET": "2026-01-11T18:32:35.966Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -4340,7 +4355,7 @@
             "relVol": 1.570651915435683,
             "gapPct": 1.0957837356769378,
             "largeTradesUsd": -79589998,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": -79589998,
             "complete": true
@@ -4377,7 +4392,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4403,7 +4418,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:22.143Z"
+          "fetchedAtET": "2026-01-11T18:32:36.175Z"
         },
         "alphaScore": 85.7,
         "qualityTier": "WATCH",
@@ -4446,7 +4461,7 @@
             "relVol": 1.0218957505480477,
             "gapPct": 1.750657452143607,
             "largeTradesUsd": 104698007,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 104698007,
             "complete": true
@@ -4483,7 +4498,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4503,13 +4518,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:07.602Z"
+          "fetchedAtET": "2026-01-11T18:32:22.873Z"
         },
         "alphaScore": 78.4,
         "qualityTier": "WATCH",
@@ -4552,7 +4568,7 @@
             "relVol": 0.8447391691927737,
             "gapPct": 1.0572106511995758,
             "largeTradesUsd": 59786346,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 59786346,
             "complete": true
@@ -4589,7 +4605,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4609,13 +4625,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:05.284Z"
+          "fetchedAtET": "2026-01-11T18:32:20.229Z"
         },
         "alphaScore": 74.9,
         "qualityTier": "WATCH",
@@ -4658,7 +4675,7 @@
             "relVol": 1.5666580498854918,
             "gapPct": -0.6090719666613167,
             "largeTradesUsd": 3646829,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 3646829,
             "complete": true
@@ -4695,7 +4712,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4721,7 +4738,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:20.194Z"
+          "fetchedAtET": "2026-01-11T18:32:34.138Z"
         },
         "alphaScore": 71.3,
         "qualityTier": "WATCH",
@@ -4764,7 +4781,7 @@
             "relVol": 1.484850586596337,
             "gapPct": -0.2874683297602823,
             "largeTradesUsd": 1481563,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 1481563,
             "complete": true
@@ -4801,7 +4818,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4827,7 +4844,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:12.883Z"
+          "fetchedAtET": "2026-01-11T18:32:28.006Z"
         },
         "alphaScore": 69.7,
         "qualityTier": "WATCH",
@@ -4870,7 +4887,7 @@
             "relVol": 1.21255168407643,
             "gapPct": 0.422200721259569,
             "largeTradesUsd": 21769700,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 21769700,
             "complete": true
@@ -4907,7 +4924,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4927,13 +4944,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:21.424Z"
+          "fetchedAtET": "2026-01-11T18:32:35.176Z"
         },
         "alphaScore": 69.4,
         "qualityTier": "WATCH",
@@ -4976,7 +4994,7 @@
             "relVol": 0.5297549394445281,
             "gapPct": 1.6361886429258894,
             "largeTradesUsd": 1431283224,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 1431283224,
             "complete": true
@@ -5013,7 +5031,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5033,13 +5051,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:06.535Z"
+          "fetchedAtET": "2026-01-11T18:32:21.701Z"
         },
         "alphaScore": 64.6,
         "qualityTier": "WATCH",
@@ -5082,7 +5101,7 @@
             "relVol": 1.202124803149387,
             "gapPct": 0.8226059654631097,
             "largeTradesUsd": 19883166,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 19883166,
             "complete": true
@@ -5119,7 +5138,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5139,13 +5158,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:21.416Z"
+          "fetchedAtET": "2026-01-11T18:32:35.629Z"
         },
         "alphaScore": 64,
         "qualityTier": "WATCH",
@@ -5188,7 +5208,7 @@
             "relVol": 1.121384707975299,
             "gapPct": -0.7207924294684689,
             "largeTradesUsd": 39299327,
-            "offExPct": 0,
+            "offExPct": 50,
             "offExDeltaPct": 0,
             "netFlow": 39299327,
             "complete": true
@@ -5225,7 +5245,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T18:23:00.162Z",
+            "fetchedAtET": "2026-01-11T18:32:14.882Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5245,13 +5265,14 @@
           "stealth": {
             "label": "A",
             "tags": [
+              "WhaleAccumulation",
               "MassiveBlockPrint"
             ],
-            "impact": "NEUTRAL",
+            "impact": "BOOST",
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T18:23:21.001Z"
+          "fetchedAtET": "2026-01-11T18:32:35.170Z"
         },
         "alphaScore": 62.4,
         "qualityTier": "WATCH",
@@ -5312,8 +5333,8 @@
         "label": "DXY"
       },
       "regime": "NEUTRAL",
-      "fetchedAtET": "2026-01-11T18:23:00.162Z",
-      "ageSeconds": 84
+      "fetchedAtET": "2026-01-11T18:32:14.882Z",
+      "ageSeconds": 86
     }
   },
   "diffs": []

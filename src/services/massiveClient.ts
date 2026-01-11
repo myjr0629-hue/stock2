@@ -546,3 +546,138 @@ export async function getOptionChainSnapshot(ticker: string, budget?: RunBudget)
         return [];
     }
 }
+
+// [V4.0] TOP MARKET MOVERS (Universe Expansion)
+// Fetches top 20 gainers or losers
+export interface MarketMover {
+    ticker: string;
+    todaysChangePerc: number;
+    todaysChange: number;
+    updated: number;
+    day: {
+        o: number;
+        h: number;
+        l: number;
+        c: number;
+        v: number;
+        vw: number;
+    };
+    lastTrade?: {
+        p: number;
+        s: number;
+        t: number;
+    };
+    prevDay?: {
+        o: number;
+        h: number;
+        l: number;
+        c: number;
+        v: number;
+        vw: number;
+    };
+}
+
+export async function getTopMarketMovers(direction: 'gainers' | 'losers' = 'gainers', budget?: RunBudget): Promise<MarketMover[]> {
+    // /v2/snapshot/locale/us/markets/stocks/{direction}
+    const endpoint = `/v2/snapshot/locale/us/markets/stocks/${direction}`;
+    try {
+        const data = await fetchMassive(endpoint, {}, false, budget);
+        const tickers = data?.tickers || [];
+
+        console.log(`[V4.0] Market Movers (${direction}): Found ${tickers.length} stocks`);
+
+        return tickers.map((t: any) => ({
+            ticker: t.ticker,
+            todaysChangePerc: t.todaysChangePerc,
+            todaysChange: t.todaysChange,
+            updated: t.updated,
+            day: t.day,
+            lastTrade: t.lastTrade,
+            prevDay: t.prevDay
+        }));
+    } catch (e) {
+        console.warn(`[V4.0] Top Market Movers (${direction}) failed:`, e);
+        return [];
+    }
+}
+
+// [V4.0] FULL MARKET SNAPSHOT (Universe Expansion)
+// Fetches all US stocks for volume-based filtering
+export interface MarketSnapshotTicker {
+    ticker: string;
+    day?: {
+        o: number;
+        h: number;
+        l: number;
+        c: number;
+        v: number;
+        vw: number;
+    };
+    prevDay?: {
+        o: number;
+        h: number;
+        l: number;
+        c: number;
+        v: number;
+        vw: number;
+    };
+    lastTrade?: {
+        p: number;
+        s: number;
+        t: number;
+    };
+    todaysChangePerc?: number;
+}
+
+export async function getFullMarketSnapshot(budget?: RunBudget): Promise<MarketSnapshotTicker[]> {
+    // /v2/snapshot/locale/us/markets/stocks/tickers
+    // This returns ALL US stocks (10,000+)
+    const endpoint = `/v2/snapshot/locale/us/markets/stocks/tickers`;
+    try {
+        const data = await fetchMassiveAll(endpoint, { limit: '500' }, true, budget);
+        const tickers = data.results || [];
+
+        console.log(`[V4.0] Full Market Snapshot: Loaded ${tickers.length} stocks`);
+
+        return tickers.map((t: any) => ({
+            ticker: t.ticker,
+            day: t.day,
+            prevDay: t.prevDay,
+            lastTrade: t.lastTrade,
+            todaysChangePerc: t.todaysChangePerc
+        }));
+    } catch (e) {
+        console.warn(`[V4.0] Full Market Snapshot failed:`, e);
+        return [];
+    }
+}
+
+// [V4.0] GET TOP VOLUME STOCKS (Universe Expansion Helper)
+// Filters full market snapshot to get top N stocks by volume
+export async function getTopVolumeStocks(topN: number = 200, budget?: RunBudget): Promise<string[]> {
+    try {
+        const fullSnapshot = await getFullMarketSnapshot(budget);
+
+        // Filter for valid stocks with volume data
+        const validStocks = fullSnapshot.filter(s =>
+            s.ticker &&
+            s.day?.v &&
+            s.day.v > 100000 && // Minimum volume threshold
+            !s.ticker.includes('.') && // Exclude special tickers
+            s.ticker.length <= 5 // Exclude complex symbols
+        );
+
+        // Sort by volume descending
+        validStocks.sort((a, b) => (b.day?.v || 0) - (a.day?.v || 0));
+
+        // Return top N tickers
+        const result = validStocks.slice(0, topN).map(s => s.ticker);
+        console.log(`[V4.0] Top ${topN} Volume Stocks: ${result.slice(0, 10).join(', ')}...`);
+
+        return result;
+    } catch (e) {
+        console.warn(`[V4.0] getTopVolumeStocks failed:`, e);
+        return [];
+    }
+}
+

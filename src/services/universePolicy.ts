@@ -465,3 +465,79 @@ export function applyUniversePolicyWithBackfill(
 
     return { filtered, final, policy, stats };
 }
+
+// [V4.0] EXPANDED UNIVERSE POOL (Dynamic Stock Discovery)
+import { getTopMarketMovers, getTopVolumeStocks } from './massiveClient';
+
+export interface ExpandedUniverseResult {
+    symbols: string[];
+    sources: {
+        fixedLeaders: number;
+        topGainers: number;
+        topVolume: number;
+        total: number;
+        deduplicated: number;
+    };
+    noteKR: string;
+}
+
+/**
+ * [V4.0] Get Expanded Universe Pool
+ * Combines: Fixed Leaders (17) + Top Gainers (20) + Top Volume (200)
+ * Returns deduplicated, ETF-filtered stock symbols
+ */
+export async function getExpandedUniversePool(): Promise<ExpandedUniverseResult> {
+    console.log('[V4.0] Building Expanded Universe Pool...');
+
+    // 1. Fixed Leaders (always included)
+    const fixedLeaders = [
+        ...MAGNIFICENT_7,
+        ...BIO_LEADERS_TOP5,
+        ...DATACENTER_TOP5
+    ];
+
+    // 2. Top Gainers (momentum stocks)
+    let topGainers: string[] = [];
+    try {
+        const gainers = await getTopMarketMovers('gainers');
+        topGainers = gainers.map(g => g.ticker);
+    } catch (e) {
+        console.warn('[V4.0] Failed to fetch top gainers:', e);
+    }
+
+    // 3. Top Volume Stocks (whale activity candidates)
+    let topVolume: string[] = [];
+    try {
+        topVolume = await getTopVolumeStocks(200);
+    } catch (e) {
+        console.warn('[V4.0] Failed to fetch top volume stocks:', e);
+    }
+
+    // 4. Combine and deduplicate
+    const combinedRaw = [...fixedLeaders, ...topGainers, ...topVolume];
+    const totalRaw = combinedRaw.length;
+
+    // 5. Deduplicate
+    const uniqueSymbols = [...new Set(combinedRaw.map(s => s.toUpperCase()))];
+
+    // 6. Filter out ETFs
+    const filteredSymbols = uniqueSymbols.filter(symbol => {
+        const classification = classifySymbol(symbol);
+        return !classification.isETF;
+    });
+
+    console.log(`[V4.0] Universe Expansion Complete: ${fixedLeaders.length} fixed + ${topGainers.length} gainers + ${topVolume.length} volume = ${filteredSymbols.length} unique stocks`);
+
+    return {
+        symbols: filteredSymbols,
+        sources: {
+            fixedLeaders: fixedLeaders.length,
+            topGainers: topGainers.length,
+            topVolume: topVolume.length,
+            total: totalRaw,
+            deduplicated: filteredSymbols.length
+        },
+        noteKR: `V4.0 확장 유니버스: 고정 ${fixedLeaders.length}개 + 상승률 ${topGainers.length}개 + 거래량 ${topVolume.length}개 → 중복제거 후 ${filteredSymbols.length}개`
+    };
+}
+
