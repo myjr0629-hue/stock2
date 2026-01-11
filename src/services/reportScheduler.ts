@@ -602,8 +602,18 @@ async function generateReportFromItems(
     const limit = pLimit(10); // Batch of 10 for speed
 
     // God Mode: Analyze ALL refined items (to catch hidden whales in Watch list)
-    // We filter for completeness just to be safe
-    const targetCandidates = refinedItems.filter(i => i.complete);
+    // [Universal Analysis] ALSO Include Segregated Sectors (M7, Physical AI) for Deep Analysis
+    // We process them TOGETHER for efficiency, but will SEGREGATE them in the final report.
+    const uniqueTargets = new Map<string, any>();
+
+    // 1. Add Main Candidates
+    refinedItems.forEach(i => { if (i.complete) uniqueTargets.set(i.ticker, i); });
+
+    // 2. Add Segregated Sectors (Ensure they get analyzed)
+    m7Raw?.forEach(i => uniqueTargets.set(i.ticker, i));
+    physicalAiRaw?.forEach(i => uniqueTargets.set(i.ticker, i));
+
+    const targetCandidates = Array.from(uniqueTargets.values());
 
     if (targetCandidates.length > 0) {
         console.log(`[ReportScheduler] 🔫 God Mode Activated: Analyzing ${targetCandidates.length} Targets (Full Scan)...`);
@@ -799,6 +809,11 @@ async function generateReportFromItems(
     };
 
     // 8. Construct Final Report
+    // [Universal Analysis] Re-Split Segregated Data after Forensic Analysis
+    // We map back from uniqueTargets to get the ENRICHED (Forensic-analyzed) versions
+    const finalM7 = m7Raw?.map(raw => uniqueTargets.get(raw.ticker) || raw) || [];
+    const finalPhysicalAi = physicalAiRaw?.map(raw => uniqueTargets.get(raw.ticker) || raw) || [];
+
     const report: PremiumReport = {
         meta: {
             id: `${marketDate}-${type}`,
@@ -851,8 +866,8 @@ async function generateReportFromItems(
         items: finalItems,
         hunters: finalHunters, // [V3.7.2]
         sectors: {
-            m7: m7Raw,
-            physicalAi: physicalAiRaw
+            m7: finalM7,
+            physicalAi: finalPhysicalAi
         },
         alphaGrid: {
             // [P0] Use selectedTop3 not slice - ensure always 3
