@@ -1396,7 +1396,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                         <section>
                             <div className="mb-2 px-2 flex items-center justify-between">
                                 <span className="text-[10px] font-bold text-amber-600/70 tracking-widest uppercase">
-                                    PHYSICAL AI SECTOR ANALYSIS (물리적 AI / 로보틱스)
+                                    POST-MARKET FINAL ANALYSIS (장마감 정밀보고)
                                 </span>
                                 <span className="text-[10px] font-bold text-amber-600/70 tracking-widest uppercase">
                                     COMPLETED AT 21:00 EST

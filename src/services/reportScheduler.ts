@@ -104,6 +104,10 @@ export interface PremiumReport {
 const REPORTS_DIR = path.join(process.cwd(), 'snapshots', 'reports');
 const REPORT_VERSION = "S-56.4.6e";
 
+// [Universal Analysis] Mandatory Tickers (Always Analyzed)
+const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
+const PHYSICAL_AI_TICKERS = ['PLTR', 'ISRG', 'SYM', 'TER', 'RKLB', 'SERV'];
+
 // [P0] Schedule definitions (ET time) - 3 fixed reports
 export const REPORT_SCHEDULES: Record<ReportType, { hour: number; minute: number; description: string; labelKR: string }> = {
     'eod': { hour: 16, minute: 30, description: 'EOD Final Report', labelKR: '장마감 후 확정' },
@@ -409,7 +413,13 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             }
         }
 
-        console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items (Full Scan + Discovery)`);
+        // [Universal Analysis] Inject Mandatory Tickers (M7 + Physical AI)
+        // Ensure they are always part of the analysis universe
+        const mandatoryTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS];
+        console.log(`[ReportScheduler] Injecting ${mandatoryTickers.length} Mandatory Tickers for Universal Analysis.`);
+        candidateTickers = Array.from(new Set([...candidateTickers, ...mandatoryTickers]));
+
+        console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items (Full Scan + Discovery + Mandatory)`);
         const rawItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
 
         // [V3.7.2] Assign Tactical Roles
