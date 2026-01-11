@@ -8,7 +8,8 @@ import {
     Zap,
     ShieldAlert,
     Activity,
-    ChevronRight
+    ChevronRight,
+    Orbit
 } from "lucide-react";
 
 interface SidebarItemProps {
@@ -101,21 +102,21 @@ export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps
                 />
 
                 <SidebarItem
+                    icon={<Orbit />}
+                    label="M7 REPORT"
+                    subLabel="DAILY ANALYSIS"
+                    isActive={activeTab === 'M7'}
+                    onClick={() => onTabChange('M7')}
+                    accentColor="text-indigo-400"
+                />
+
+                <SidebarItem
                     icon={<Zap />}
                     label="HYPER-DISCOVERY"
                     subLabel="MARKET-WIDE SCAN"
                     isActive={activeTab === 'DISCOVERY'}
                     onClick={() => onTabChange('DISCOVERY')}
                     accentColor="text-amber-400"
-                />
-
-                <SidebarItem
-                    icon={<Activity />}
-                    label="M7 REPORT"
-                    subLabel="DAILY ANALYSIS"
-                    isActive={activeTab === 'M7'}
-                    onClick={() => onTabChange('M7')}
-                    accentColor="text-indigo-400"
                 />
 
                 <div className="my-2 px-4"><div className="h-px bg-slate-800/50" /></div>
