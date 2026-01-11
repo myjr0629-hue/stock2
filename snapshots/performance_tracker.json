@@ -541,5 +541,32 @@
       }
     ],
     "calculated": false
+  },
+  {
+    "date": "2026-01-11",
+    "reportType": "eod",
+    "sessionType": "regular",
+    "timestamp": "2026-01-11T16:08:53.888Z",
+    "tickers": [
+      {
+        "symbol": "INTC",
+        "rank": 1,
+        "baselinePrice": 45.55,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "LOW",
+        "rank": 2,
+        "baselinePrice": 267.21,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "LMT",
+        "rank": 3,
+        "baselinePrice": 542.92,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
   }
 ]

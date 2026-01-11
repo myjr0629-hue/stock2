@@ -98,6 +98,11 @@ export interface PremiumReport {
     };
     items: any[]; // [vNext] Unified Terminal items (Main Corps)
     hunters?: any[]; // [V3.7.2] Hunter Corps (Hyper Discovery)
+    // [Universal Analysis] Segregated Sector Data (Does not affect Final Battle)
+    sectors?: {
+        m7?: any[];
+        physicalAi?: any[];
+    };
     // TODO: Add report sections 1-10 integration
 }
 
@@ -399,7 +404,6 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             // We strictly ignore anything below $5.0.
             const validGainers = gainers.filter((g: any) => {
                 const price = g.day?.c || g.min?.c || g.prevDay?.c || 0;
-                // [Quality] Hard Floor $5.0. Marginable and generally safer.
                 return price >= 5.0 && !candidateTickers.includes(g.ticker);
             }).map((g: any) => g.ticker);
 
@@ -413,13 +417,11 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             }
         }
 
-        // [Universal Analysis] Inject Mandatory Tickers (M7 + Physical AI)
-        // Ensure they are always part of the analysis universe
-        const mandatoryTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS];
-        console.log(`[ReportScheduler] Injecting ${mandatoryTickers.length} Mandatory Tickers for Universal Analysis.`);
-        candidateTickers = Array.from(new Set([...candidateTickers, ...mandatoryTickers]));
+        // [Universal Analysis] Reverted Injection.
+        // We do NOT inject into candidateTickers to preserve "Final Battle" organic selection.
+        console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items (Full Scan + Discovery)`);
 
-        console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items (Full Scan + Discovery + Mandatory)`);
+        // 1. Main Universe Enrichment
         const rawItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
 
         // [V3.7.2] Assign Tactical Roles
@@ -443,7 +445,14 @@ export async function generateReport(type: ReportType, force: boolean = false, t
         console.log(`[Integrity] Qualified Items: ${enrichedItems.length}/${rawItems.length}`);
     }
 
-    return generateReportFromItems(type, enrichedItems, force, marketDate, macro, events, policy, news, guardian);
+    // [Universal Analysis] Sector-Specific Enrichment (Parallel Processing)
+    // This runs for ALL stages to ensure M7/PhysicalAI data is always fresh and available
+    // without polluting the Ranking Algorithm of the main list.
+    console.log(`[ReportScheduler] Analyzing Segregated Sectors (M7 & Physical AI)...`);
+    const m7Items = await enrichTerminalItems(M7_TICKERS, sessionParam, force);
+    const physicalAiItems = await enrichTerminalItems(PHYSICAL_AI_TICKERS, sessionParam, force);
+
+    return generateReportFromItems(type, enrichedItems, force, marketDate, macro, events, policy, news, guardian, m7Items, physicalAiItems);
 }
 
 // [Phase 37] Shared Logic for Report Assembly (from enriched items)
@@ -453,7 +462,9 @@ async function generateReportFromItems(
     force: boolean,
     marketDate: string,
     macro?: any, events?: any, policy?: any, news?: any,
-    guardian?: any // [Phase 4]
+    guardian?: any, // [Phase 4]
+    m7Raw?: any[],
+    physicalAiRaw?: any[]
 ): Promise<PremiumReport> {
 
     const startTime = Date.now();
@@ -839,6 +850,10 @@ async function generateReportFromItems(
         },
         items: finalItems,
         hunters: finalHunters, // [V3.7.2]
+        sectors: {
+            m7: m7Raw,
+            physicalAi: physicalAiRaw
+        },
         alphaGrid: {
             // [P0] Use selectedTop3 not slice - ensure always 3
             top3: selectedTop3.slice(0, 3),

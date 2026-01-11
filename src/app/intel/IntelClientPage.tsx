@@ -1193,17 +1193,23 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     );
 
     const physicalAiItems = useMemo(() => {
+        // [Segregation] Use dedicated sector data if available (Priority 1)
+        if (report?.sectors?.physicalAi && report.sectors.physicalAi.length > 0) {
+            return report.sectors.physicalAi;
+        }
+
+        // Priority 2: Fallback to construction (legacy/resilience)
         return PHYSICAL_AI_TICKERS.map(ticker => {
-            // Priority 1: Use analyzed item from report
+            // Check formatted list first
             const analyzed = sortedItems.find(item => item.ticker === ticker);
             if (analyzed) return analyzed;
 
-            // Priority 2: Construct partial item from Live Quote
+            // Live fallback
             const live = liveQuotes[ticker];
             return {
                 ticker,
-                rank: 99, // Unranked
-                alphaScore: 0, // No score available
+                rank: 99,
+                alphaScore: 0,
                 evidence: {
                     price: {
                         last: live?.price || 0,
@@ -1220,7 +1226,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                 decisionSSOT: { action: 'MONITOR', confidencePct: 0, triggersKR: [] }
             } as any as TickerItem;
         });
-    }, [sortedItems, liveQuotes]);
+    }, [sortedItems, liveQuotes, report]);
     // Check if we are in a "Locked/Final" state to show the Tactical UI fully
     // We treat Final or Revised as tactical-ready.
     const isTacticalView = report?.type === 'final' || report?.type === 'revised' || sortedItems.length > 0;
