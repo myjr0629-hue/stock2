@@ -1354,6 +1354,14 @@ function IntelContent({ initialReport }: { initialReport: any }) {
 
                         {/* Zone B: Briefing Bar */}
                         <section>
+                            <div className="mb-2 px-2 flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">
+                                    POST-MARKET FINAL ANALYSIS (장마감 정밀보고)
+                                </span>
+                                <span className="text-[10px] font-bold text-slate-600 tracking-widest uppercase">
+                                    COMPLETED AT 21:00 EST
+                                </span>
+                            </div>
                             <M7BriefingBar
                                 message={
                                     // Simple logic for briefing: Top 1 vs Top 2 comparison

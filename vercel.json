@@ -6,7 +6,7 @@
         },
         {
             "path": "/api/cron/report?type=eod",
-            "schedule": "30 21 * * 1-5"
+            "schedule": "0 2 * * 2-6"
         }
     ]
 }
