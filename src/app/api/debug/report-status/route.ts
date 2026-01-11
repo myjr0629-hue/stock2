@@ -19,7 +19,7 @@ export async function GET() {
                 type,
                 found: !!report,
                 id: report?.meta?.id,
-                date: report?.meta?.date,
+                date: report?.meta?.marketDate,
                 generatedAt: report?.meta?.generatedAtET,
                 timestamp: report?.meta?.generatedAtET ? new Date(report.meta.generatedAtET).getTime() : 0,
                 rawMeta: report?.meta // Add raw meta to response
@@ -36,7 +36,7 @@ export async function GET() {
         candidates,
         winner: {
             id: resolved?.meta?.id,
-            date: resolved?.meta?.date,
+            date: resolved?.meta?.marketDate,
             generatedAt: resolved?.meta?.generatedAtET,
             type: resolved?.meta?.type
         },
