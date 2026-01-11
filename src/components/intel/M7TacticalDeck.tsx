@@ -11,21 +11,8 @@ export function M7TacticalDeck({ items, selectedTicker, onSelect }: { items: Tic
     // Sort by Alpha Score
     const sorted = useMemo(() => [...items].sort((a, b) => (b.alphaScore || 0) - (a.alphaScore || 0)), [items]);
 
-    // Domain Mapping for Clearbit Logos
-    const TICKER_DOMAINS: Record<string, string> = {
-        'AAPL': 'apple.com',
-        'MSFT': 'microsoft.com',
-        'GOOGL': 'google.com',
-        'AMZN': 'amazon.com',
-        'NVDA': 'nvidia.com',
-        'META': 'meta.com',
-        'TSLA': 'tesla.com'
-    };
-
-    const getLogoUrl = (ticker: string) => {
-        const domain = TICKER_DOMAINS[ticker] || `${ticker.toLowerCase()}.com`;
-        return `https://logo.clearbit.com/${domain}`;
-    };
+    // [Fix] Replaced Clearbit with Parqet for better reliability (same as TacticalCard)
+    const getLogoUrl = (ticker: string) => `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;
 
     if (sorted.length === 0) return null;
 
@@ -58,11 +45,13 @@ export function M7TacticalDeck({ items, selectedTicker, onSelect }: { items: Tic
                                 {/* Logo & Halo */}
                                 <div className={`relative w-14 h-14 rounded-full border-2 p-0.5 ${isUp ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.2)]'}`}>
                                     <div className="relative w-full h-full rounded-full overflow-hidden bg-white/5">
-                                        <Image
+                                        <img
                                             src={getLogoUrl(item.ticker)}
                                             alt={item.ticker}
-                                            fill
-                                            className="object-cover"
+                                            className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                (e.target as HTMLImageElement).style.opacity = '0.5';
+                                            }}
                                         />
                                     </div>
                                     {/* Alpha Score Badge */}

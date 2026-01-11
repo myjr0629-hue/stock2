@@ -40,21 +40,8 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
         return "bg-slate-500/20";
     };
 
-    // Domain Mapping for Clearbit Logos
-    const TICKER_DOMAINS: Record<string, string> = {
-        'AAPL': 'apple.com',
-        'MSFT': 'microsoft.com',
-        'GOOGL': 'google.com',
-        'AMZN': 'amazon.com',
-        'NVDA': 'nvidia.com',
-        'META': 'meta.com',
-        'TSLA': 'tesla.com'
-    };
-
-    const getLogoUrl = (ticker: string) => {
-        const domain = TICKER_DOMAINS[ticker] || `${ticker.toLowerCase()}.com`;
-        return `https://logo.clearbit.com/${domain}`;
-    };
+    // [Fix] Replaced Clearbit with Parqet for better reliability (same as TacticalCard)
+    const getLogoUrl = (ticker: string) => `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;
 
     const sunChange = sun.evidence?.price?.changePct || 0;
     const sunHalo = getHaloColor(sunChange);
@@ -100,16 +87,10 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
                     >
                         {/* Sun Icon */}
                         <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white/5">
-                            <Image
+                            <img
                                 src={getLogoUrl(sun.ticker)}
                                 alt={sun.ticker}
-                                fill
-                                className="object-cover"
-                                onError={(e) => {
-                                    // Fallback handled by parent visual if image fails visually, 
-                                    // but next/image doesn't support direct fallback src easily without state.
-                                    // For now relying on clearbit reliability or blank.
-                                }}
+                                className="w-full h-full object-cover"
                             />
                         </div>
                         {/* Sun Ticker */}
@@ -149,11 +130,10 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
                         >
                             {/* Planet Icon */}
                             <div className="relative w-9 h-9 rounded-full overflow-hidden bg-white/5">
-                                <Image
+                                <img
                                     src={getLogoUrl(item.ticker)}
                                     alt={item.ticker}
-                                    fill
-                                    className="object-cover opacity-90"
+                                    className="w-full h-full object-cover opacity-90"
                                 />
                             </div>
 
