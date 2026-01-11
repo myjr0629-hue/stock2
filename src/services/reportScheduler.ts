@@ -620,7 +620,9 @@ async function generateReportFromItems(
 
         // Concurrent Analysis with Limit
         await Promise.all(targetCandidates.map((item) => limit(async () => {
-            const forensicResult = await ForensicService.analyzeTarget(item.ticker);
+            // [V3.7.3] PRECISION PROTOCOL: Guaranteed Data (No more $-)
+            const currentPrice = item.evidence?.price?.last || item.price || 0;
+            const forensicResult = await ForensicService.analyzeTarget(item.ticker, undefined, currentPrice);
 
             // Inject into SSOT
             if (!item.decisionSSOT) item.decisionSSOT = {};
@@ -628,7 +630,6 @@ async function generateReportFromItems(
             item.decisionSSOT.whaleConfidence = forensicResult.whaleConfidence;
 
             // [V3.7.3] PRECISION PROTOCOL: Guaranteed Data (No more $-)
-            const currentPrice = item.evidence?.price?.last || item.price || 0;
             const callWall = item.evidence?.options?.callWall || 0;
             const putFloor = item.evidence?.options?.putFloor || 0;
 

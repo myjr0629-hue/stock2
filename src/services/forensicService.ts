@@ -25,21 +25,36 @@ const BLOCK_THRESHOLD = 50000; // $50k min for block detection
 export class ForensicService {
 
     // Core Sniper Method
-    static async analyzeTarget(ticker: string, targetDate?: string): Promise<ForensicResult> {
+    static async analyzeTarget(ticker: string, targetDate?: string, fallbackPrice: number = 0): Promise<ForensicResult> {
         try {
             // 1. Fetch Tick Data (Today/Target)
-            // [Fix] Graceful degradation for L2 Plans (No L3 Access)
+            // [Fix] Graceful degradation with Retry Logic (3 Attempts)
             const params: any = { limit: '1000', sort: 'desc' };
             if (targetDate) params.date = targetDate;
 
-            const trades = await getOptionTrades(ticker, params).catch(e => {
-                if (e.httpStatus === 403 || e.code === 'AUTH_ERROR') {
-                    console.warn(`[Forensic] Level 3 restricted for ${ticker} (Trades). Skipping deep analysis.`);
-                    return [];
+            let trades: any[] = [];
+            let attempts = 0;
+            const maxAttempts = 3;
+
+            while (attempts < maxAttempts) {
+                try {
+                    attempts++;
+                    trades = await getOptionTrades(ticker, params);
+                    break; // Success
+                } catch (e: any) {
+                    if (e.httpStatus === 403 || e.code === 'AUTH_ERROR') {
+                        console.warn(`[Forensic] Level 3 restricted for ${ticker}. Skipping deep analysis.`);
+                        break; // No point retrying auth error
+                    }
+                    if (attempts === maxAttempts) {
+                        console.warn(`[Forensic] Trades fetch failed for ${ticker} after ${maxAttempts} attempts:`, e.message);
+                    } else {
+                        // Exponential backoff: 500ms, 1000ms, 2000ms
+                        const wait = 500 * Math.pow(2, attempts - 1);
+                        await new Promise(res => setTimeout(res, wait));
+                    }
                 }
-                console.warn(`[Forensic] Trades fetch failed for ${ticker}:`, e.message);
-                return [];
-            });
+            }
 
             // 2. Analyze Today's Data (Quotes removed as per user request)
             let result = this.analyzeData(ticker, trades || []);
@@ -82,7 +97,9 @@ export class ForensicService {
             return result;
         } catch (e) {
             console.error(`[Forensic] Analysis failed for ${ticker}`, e);
-            return this.createEmptyResult(ticker);
+            // Fallback: If we have currentPrice passed in options (future refactor), allow it.
+            // For now, return empty.
+            return this.createEmptyResult(ticker, fallbackPrice);
         }
     }
 
@@ -206,12 +223,20 @@ export class ForensicService {
         };
     }
 
-    private static createEmptyResult(ticker: string): ForensicResult {
+    private static createEmptyResult(ticker: string, fallbackLevel: number = 0): ForensicResult {
         return {
             ticker,
             whaleIndex: 0,
             whaleConfidence: 'NONE',
-            details: { aggressorRatio: 0, blockCount: 0, maxBlockSize: 0, sentiment: 'NEUTRAL' },
+            details: {
+                aggressorRatio: 0,
+                blockCount: 0,
+                maxBlockSize: 0,
+                sentiment: 'NEUTRAL',
+                whaleEntryLevel: fallbackLevel || undefined,
+                whaleTargetLevel: fallbackLevel ? fallbackLevel * 1.05 : undefined,
+                whaleStopLevel: fallbackLevel ? fallbackLevel * 0.95 : undefined
+            },
             analyzedAt: Date.now()
         };
     }

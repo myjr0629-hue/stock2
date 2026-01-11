@@ -2,8 +2,8 @@
   "meta": {
     "id": "2026-01-11-eod",
     "type": "eod",
-    "generatedAt": "2026-01-11T16:24:44.534Z",
-    "generatedAtET": "01/11/2026, 11:24:44 AM",
+    "generatedAt": "2026-01-11T16:42:44.051Z",
+    "generatedAtET": "01/11/2026, 11:42:44 AM",
     "marketDate": "2026-01-11",
     "version": "S-56.4.6e",
     "pipelineVersion": "56.4.1",
@@ -36,8 +36,8 @@
     "baseline": {
       "source": "MASSIVE",
       "session": "regular",
-      "tsISO": "2026-01-11T16:24:44.534Z",
-      "tsET": "01/11/2026, 11:24:44 AM",
+      "tsISO": "2026-01-11T16:42:44.051Z",
+      "tsET": "01/11/2026, 11:42:44 AM",
       "items": [
         {
           "ticker": "INTC",
@@ -63,7 +63,7 @@
       ]
     },
     "freshness": {
-      "generatedAtISO": "2026-01-11T16:24:44.534Z",
+      "generatedAtISO": "2026-01-11T16:42:44.051Z",
       "ageMin": 0,
       "isStale": false
     },
@@ -71,7 +71,7 @@
       "state": "READY",
       "pendingTickers": [],
       "coveragePct": 8,
-      "lastUpdatedAtISO": "2026-01-11T16:24:44.595Z"
+      "lastUpdatedAtISO": "2026-01-11T16:42:45.272Z"
     },
     "integrity": {
       "status": "OK",
@@ -96,15 +96,15 @@
     "softFails": []
   },
   "macro": {
-    "asOfET": "1/11/2026, 11:22:43 AM",
-    "fetchedAtET": "2026-01-11T16:22:43.706Z",
+    "asOfET": "1/11/2026, 11:41:00 AM",
+    "fetchedAtET": "2026-01-11T16:41:01.376Z",
     "ageSeconds": 0,
     "marketStatus": {
       "market": "closed",
       "session": "closed",
       "isHoliday": false,
-      "serverTime": "2026-01-11T16:22:43.706Z",
-      "asOfET": "1/11/2026, 11:22:43 AM",
+      "serverTime": "2026-01-11T16:41:01.376Z",
+      "asOfET": "1/11/2026, 11:41:00 AM",
       "source": "MASSIVE",
       "cacheAgeSec": 0
     },
@@ -160,7 +160,7 @@
         "us30y": 4.85,
         "spread2s10s": 0.7000000000000002,
         "source": "MASSIVE",
-        "updatedAt": "2026-01-11T16:23:22.124Z"
+        "updatedAt": "2026-01-11T16:41:18.796Z"
       },
       "inflation": {
         "date": "2026-01-11",
@@ -170,13 +170,13 @@
         "pceYoY": null,
         "expectations": null,
         "source": "FAIL",
-        "updatedAt": "2026-01-11T16:23:22.125Z"
+        "updatedAt": "2026-01-11T16:41:18.796Z"
       },
-      "asOfET": "1/11/26, 11:23 AM"
+      "asOfET": "1/11/26, 11:41 AM"
     }
   },
   "events": {
-    "asOfET": "1/11/26, 11:22 AM",
+    "asOfET": "1/11/26, 11:41 AM",
     "events": [
       {
         "date": "2026-01-19",
@@ -202,7 +202,7 @@
     "shakeReasons": []
   },
   "policy": {
-    "asOfET": "1/11/26, 11:22 AM",
+    "asOfET": "1/11/26, 11:41 AM",
     "policies72h": [],
     "policies7d": [
       {
@@ -230,7 +230,7 @@
     ]
   },
   "news": {
-    "asOfET": "1/11/26, 11:22 AM",
+    "asOfET": "1/11/26, 11:41 AM",
     "marketHeadlines": [
       {
         "id": "mkt-001",
@@ -241,7 +241,7 @@
         "sentiment": "negative",
         "catalystType": "fed",
         "publishedAtET": "Dec 26, 09:30 AM",
-        "catalystAge": 385,
+        "catalystAge": 386,
         "isStale": true
       },
       {
@@ -316,7 +316,7 @@
         "source": "Reuters",
         "publishedAtET": "Dec 26, 09:30 AM",
         "isStale": true,
-        "catalystAgeHours": 385
+        "catalystAgeHours": 386
       }
     ]
   },
@@ -344,7 +344,7 @@
         "source": "Reuters",
         "publishedAtET": "Dec 26, 09:30 AM",
         "isStale": true,
-        "catalystAgeHours": 385
+        "catalystAgeHours": 386
       }
     ]
   },
@@ -408,7 +408,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -434,7 +434,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:24.570Z"
+        "fetchedAtET": "2026-01-11T16:41:21.178Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -514,7 +514,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -540,7 +540,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:29.799Z"
+        "fetchedAtET": "2026-01-11T16:41:26.318Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -620,7 +620,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -646,7 +646,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:29.000Z"
+        "fetchedAtET": "2026-01-11T16:41:26.095Z"
       },
       "alphaScore": 89.2,
       "qualityTier": "WATCH",
@@ -726,7 +726,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -752,7 +752,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:29.848Z"
+        "fetchedAtET": "2026-01-11T16:41:27.071Z"
       },
       "alphaScore": 85.7,
       "qualityTier": "WATCH",
@@ -832,7 +832,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -858,7 +858,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:25.094Z"
+        "fetchedAtET": "2026-01-11T16:41:21.959Z"
       },
       "alphaScore": 78.4,
       "qualityTier": "WATCH",
@@ -938,7 +938,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -964,7 +964,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:24.974Z"
+        "fetchedAtET": "2026-01-11T16:41:21.408Z"
       },
       "alphaScore": 74.9,
       "qualityTier": "WATCH",
@@ -1044,7 +1044,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1070,7 +1070,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:28.906Z"
+        "fetchedAtET": "2026-01-11T16:41:25.663Z"
       },
       "alphaScore": 71.3,
       "qualityTier": "WATCH",
@@ -1150,7 +1150,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1176,7 +1176,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:27.039Z"
+        "fetchedAtET": "2026-01-11T16:41:23.750Z"
       },
       "alphaScore": 69.7,
       "qualityTier": "WATCH",
@@ -1256,7 +1256,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1282,7 +1282,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:29.619Z"
+        "fetchedAtET": "2026-01-11T16:41:26.579Z"
       },
       "alphaScore": 69.4,
       "qualityTier": "WATCH",
@@ -1362,7 +1362,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1388,7 +1388,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:25.246Z"
+        "fetchedAtET": "2026-01-11T16:41:21.936Z"
       },
       "alphaScore": 64.6,
       "qualityTier": "WATCH",
@@ -1468,7 +1468,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1494,7 +1494,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:29.719Z"
+        "fetchedAtET": "2026-01-11T16:41:26.689Z"
       },
       "alphaScore": 64,
       "qualityTier": "WATCH",
@@ -1574,7 +1574,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1600,7 +1600,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:29.702Z"
+        "fetchedAtET": "2026-01-11T16:41:26.663Z"
       },
       "alphaScore": 62.4,
       "qualityTier": "WATCH",
@@ -1682,7 +1682,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1708,7 +1708,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:32.015Z"
+        "fetchedAtET": "2026-01-11T16:41:28.682Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1782,7 +1782,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1808,7 +1808,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:31.841Z"
+        "fetchedAtET": "2026-01-11T16:41:28.697Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1882,7 +1882,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1908,7 +1908,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:32.039Z"
+        "fetchedAtET": "2026-01-11T16:41:28.977Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -1982,7 +1982,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2008,7 +2008,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:31.624Z"
+        "fetchedAtET": "2026-01-11T16:41:28.482Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2082,7 +2082,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2108,7 +2108,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:32.225Z"
+        "fetchedAtET": "2026-01-11T16:41:28.916Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -2182,7 +2182,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2208,7 +2208,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:32.009Z"
+        "fetchedAtET": "2026-01-11T16:41:28.645Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2282,7 +2282,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:23:22.137Z",
+          "fetchedAtET": "2026-01-11T16:41:18.809Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2308,7 +2308,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:23:31.847Z"
+        "fetchedAtET": "2026-01-11T16:41:28.708Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2385,7 +2385,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "fetchedAtET": "2026-01-11T16:42:09.442Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2411,11 +2411,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:10.827Z"
+          "fetchedAtET": "2026-01-11T16:42:10.801Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 259.37,
+          "whaleTargetLevel": 267.1511,
+          "targetPrice": 267.15,
+          "cutPrice": 254.18,
+          "entryBand": [
+            258.07,
+            260.67
+          ],
+          "whaleReasonKR": "기관 순매도 $-39.4M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "MSFT",
@@ -2476,7 +2489,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "fetchedAtET": "2026-01-11T16:42:09.442Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2502,11 +2515,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:10.806Z"
+          "fetchedAtET": "2026-01-11T16:42:10.464Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 479.28,
+          "whaleTargetLevel": 493.6584,
+          "targetPrice": 493.66,
+          "cutPrice": 469.69,
+          "entryBand": [
+            476.88,
+            481.68
+          ],
+          "whaleReasonKR": "기관 순매도 $-212.3M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "GOOGL",
@@ -2567,7 +2593,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "fetchedAtET": "2026-01-11T16:42:09.442Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2593,11 +2619,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:10.813Z"
+          "fetchedAtET": "2026-01-11T16:42:10.466Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 328.57,
+          "whaleTargetLevel": 338.4271,
+          "targetPrice": 338.43,
+          "cutPrice": 322,
+          "entryBand": [
+            326.93,
+            330.21
+          ],
+          "whaleReasonKR": "기관 순매수 $57.9M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "AMZN",
@@ -2658,7 +2697,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "fetchedAtET": "2026-01-11T16:42:09.442Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2684,11 +2723,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:10.842Z"
+          "fetchedAtET": "2026-01-11T16:42:10.444Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 247.38,
+          "whaleTargetLevel": 254.8014,
+          "targetPrice": 254.8,
+          "cutPrice": 242.43,
+          "entryBand": [
+            246.14,
+            248.62
+          ],
+          "whaleReasonKR": "기관 순매수 $76.8M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "NVDA",
@@ -2749,7 +2801,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "fetchedAtET": "2026-01-11T16:42:09.442Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2775,11 +2827,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:11.067Z"
+          "fetchedAtET": "2026-01-11T16:42:10.713Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 184.86,
+          "whaleTargetLevel": 190.40580000000003,
+          "targetPrice": 190.41,
+          "cutPrice": 181.16,
+          "entryBand": [
+            183.94,
+            185.78
+          ],
+          "whaleReasonKR": "기관 순매수 $215.8M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "META",
@@ -2840,7 +2905,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "fetchedAtET": "2026-01-11T16:42:09.442Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2866,11 +2931,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:11.357Z"
+          "fetchedAtET": "2026-01-11T16:42:11.038Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 653.06,
+          "whaleTargetLevel": 672.6518,
+          "targetPrice": 672.65,
+          "cutPrice": 640,
+          "entryBand": [
+            649.79,
+            656.33
+          ],
+          "whaleReasonKR": "기관 순매도 $-507.4M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "TSLA",
@@ -2931,7 +3009,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "fetchedAtET": "2026-01-11T16:42:09.442Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2957,11 +3035,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:11.785Z"
+          "fetchedAtET": "2026-01-11T16:42:11.024Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 445.01,
+          "whaleTargetLevel": 458.3603,
+          "targetPrice": 458.36,
+          "cutPrice": 436.11,
+          "entryBand": [
+            442.78,
+            447.24
+          ],
+          "whaleReasonKR": "기관 순매수 $281.7M 대규모 유입 포착."
+        }
       }
     ],
     "physicalAi": [
@@ -3024,7 +3115,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "fetchedAtET": "2026-01-11T16:42:28.612Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3050,11 +3141,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:30.382Z"
+          "fetchedAtET": "2026-01-11T16:42:30.004Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 177.49,
+          "whaleTargetLevel": 182.81470000000002,
+          "targetPrice": 182.81,
+          "cutPrice": 173.94,
+          "entryBand": [
+            176.6,
+            178.38
+          ],
+          "whaleReasonKR": "기관 순매수 $22.4M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "ISRG",
@@ -3115,7 +3219,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "fetchedAtET": "2026-01-11T16:42:28.612Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3141,11 +3245,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:30.416Z"
+          "fetchedAtET": "2026-01-11T16:42:30.775Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 586.24,
+          "whaleTargetLevel": 603.8272000000001,
+          "targetPrice": 603.83,
+          "cutPrice": 574.52,
+          "entryBand": [
+            583.31,
+            589.17
+          ],
+          "whaleReasonKR": "기관 순매수 $4.1M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "SYM",
@@ -3206,7 +3323,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "fetchedAtET": "2026-01-11T16:42:28.612Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3232,11 +3349,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:29.900Z"
+          "fetchedAtET": "2026-01-11T16:42:29.958Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 70.82,
+          "whaleTargetLevel": 72.9446,
+          "targetPrice": 72.94,
+          "cutPrice": 69.4,
+          "entryBand": [
+            70.47,
+            71.17
+          ],
+          "whaleReasonKR": "기술적 상승 흐름 지속. 특이 거래량 부재, 관망 필요."
+        }
       },
       {
         "ticker": "TER",
@@ -3297,7 +3427,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "fetchedAtET": "2026-01-11T16:42:28.612Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3323,11 +3453,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:29.945Z"
+          "fetchedAtET": "2026-01-11T16:42:30.146Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 217.26,
+          "whaleTargetLevel": 223.77779999999998,
+          "targetPrice": 223.78,
+          "cutPrice": 212.91,
+          "entryBand": [
+            216.17,
+            218.35
+          ],
+          "whaleReasonKR": "기관 순매수 $2.4M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "RKLB",
@@ -3388,7 +3531,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "fetchedAtET": "2026-01-11T16:42:28.612Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3414,11 +3557,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:30.771Z"
+          "fetchedAtET": "2026-01-11T16:42:30.213Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 84.85,
+          "whaleTargetLevel": 87.3955,
+          "targetPrice": 87.4,
+          "cutPrice": 83.15,
+          "entryBand": [
+            84.43,
+            85.27
+          ],
+          "whaleReasonKR": "기관 순매수 $15.4M 대규모 유입 포착."
+        }
       },
       {
         "ticker": "SERV",
@@ -3479,7 +3635,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "fetchedAtET": "2026-01-11T16:42:28.612Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3505,11 +3661,24 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:24:30.201Z"
+          "fetchedAtET": "2026-01-11T16:42:30.344Z"
         },
         "alphaScore": null,
         "qualityTier": "INCOMPLETE",
-        "complete": false
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 14.71,
+          "whaleTargetLevel": 15.1513,
+          "targetPrice": 15.15,
+          "cutPrice": 14.42,
+          "entryBand": [
+            14.64,
+            14.78
+          ],
+          "whaleReasonKR": "평소 대비 거래량 1.6배 폭증. 변동성 확대 국면."
+        }
       }
     ]
   },
@@ -3574,7 +3743,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3600,7 +3769,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:24.570Z"
+          "fetchedAtET": "2026-01-11T16:41:21.178Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3673,7 +3842,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3699,7 +3868,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:29.799Z"
+          "fetchedAtET": "2026-01-11T16:41:26.318Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3772,7 +3941,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3798,7 +3967,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:29.000Z"
+          "fetchedAtET": "2026-01-11T16:41:26.095Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -3873,7 +4042,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3899,7 +4068,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:24.570Z"
+          "fetchedAtET": "2026-01-11T16:41:21.178Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -3979,7 +4148,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4005,7 +4174,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:29.799Z"
+          "fetchedAtET": "2026-01-11T16:41:26.318Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -4085,7 +4254,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4111,7 +4280,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:29.000Z"
+          "fetchedAtET": "2026-01-11T16:41:26.095Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -4191,7 +4360,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4217,7 +4386,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:29.848Z"
+          "fetchedAtET": "2026-01-11T16:41:27.071Z"
         },
         "alphaScore": 85.7,
         "qualityTier": "WATCH",
@@ -4297,7 +4466,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4323,7 +4492,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:25.094Z"
+          "fetchedAtET": "2026-01-11T16:41:21.959Z"
         },
         "alphaScore": 78.4,
         "qualityTier": "WATCH",
@@ -4403,7 +4572,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4429,7 +4598,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:24.974Z"
+          "fetchedAtET": "2026-01-11T16:41:21.408Z"
         },
         "alphaScore": 74.9,
         "qualityTier": "WATCH",
@@ -4509,7 +4678,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4535,7 +4704,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:28.906Z"
+          "fetchedAtET": "2026-01-11T16:41:25.663Z"
         },
         "alphaScore": 71.3,
         "qualityTier": "WATCH",
@@ -4615,7 +4784,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4641,7 +4810,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:27.039Z"
+          "fetchedAtET": "2026-01-11T16:41:23.750Z"
         },
         "alphaScore": 69.7,
         "qualityTier": "WATCH",
@@ -4721,7 +4890,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4747,7 +4916,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:29.619Z"
+          "fetchedAtET": "2026-01-11T16:41:26.579Z"
         },
         "alphaScore": 69.4,
         "qualityTier": "WATCH",
@@ -4827,7 +4996,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4853,7 +5022,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:25.246Z"
+          "fetchedAtET": "2026-01-11T16:41:21.936Z"
         },
         "alphaScore": 64.6,
         "qualityTier": "WATCH",
@@ -4933,7 +5102,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -4959,7 +5128,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:29.719Z"
+          "fetchedAtET": "2026-01-11T16:41:26.689Z"
         },
         "alphaScore": 64,
         "qualityTier": "WATCH",
@@ -5039,7 +5208,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:23:22.137Z",
+            "fetchedAtET": "2026-01-11T16:41:18.809Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -5065,7 +5234,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:23:29.702Z"
+          "fetchedAtET": "2026-01-11T16:41:26.663Z"
         },
         "alphaScore": 62.4,
         "qualityTier": "WATCH",
@@ -5126,7 +5295,7 @@
         "label": "DXY"
       },
       "regime": "NEUTRAL",
-      "fetchedAtET": "2026-01-11T16:23:22.137Z",
+      "fetchedAtET": "2026-01-11T16:41:18.809Z",
       "ageSeconds": 0
     }
   },
