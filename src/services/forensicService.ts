@@ -7,6 +7,7 @@ import {
     calculateOffExchangePercent,
     TradeChannel
 } from './conditionCodes';
+import { getOptionsWithWeekendFallback, isMarketClosed } from './weekendOptionsCache';
 
 // [V3.7.3] Forensic Analysis Result
 export interface ForensicResult {
@@ -34,10 +35,10 @@ export class ForensicService {
     // Core Sniper Method
     static async analyzeTarget(ticker: string, targetDate: string, fallbackPrice: number = 0): Promise<ForensicResult> {
         try {
-            // [V3.8] PRE-EMPTIVE SNAPSHOT PROTOCOL (The "Unified" Source)
-            // Fetch Snapshot first. It contains Volume/OI/Greeks for ALL contracts. 
-            // This guarantees data even if trade history is empty (weekend/holiday).
-            const snapshotPromise = getOptionChainSnapshot(ticker);
+            // [V4.0] WEEKEND-AWARE SNAPSHOT PROTOCOL
+            // Uses cached Friday data on weekends for 100% coverage
+            const { data: chainSnapshot, source: dataSource, marketDate } = await getOptionsWithWeekendFallback(ticker);
+            console.log(`[Forensic] ${ticker}: Data source = ${dataSource}, Date = ${marketDate}, Contracts = ${chainSnapshot.length}`);
 
             // 1. Fetch Tick Data (Today/Target) - for "Aggressor" Flow Analysis
             const params: any = { limit: '1000', sort: 'desc' };
@@ -64,8 +65,8 @@ export class ForensicService {
                 return [];
             })();
 
-            // Run in parallel
-            const [chainSnapshot, tradeData] = await Promise.all([snapshotPromise, tradesPromise]);
+            // [V4.0] Run trades fetch (snapshot already fetched above with weekend fallback)
+            const tradeData = await tradesPromise;
 
             // 2. Base Analysis from Snapshot (Guaranteed Data)
             // Find Dominant Contract by Volume (Activity) or Open Interest (Positioning)
