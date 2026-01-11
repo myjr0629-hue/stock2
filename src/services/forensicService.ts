@@ -25,7 +25,7 @@ const BLOCK_THRESHOLD = 50000; // $50k min for block detection
 export class ForensicService {
 
     // Core Sniper Method
-    static async analyzeTarget(ticker: string, targetDate?: string, fallbackPrice: number = 0): Promise<ForensicResult> {
+    static async analyzeTarget(ticker: string, targetDate: string, fallbackPrice: number = 0): Promise<ForensicResult> {
         try {
             // [V3.8] PRE-EMPTIVE SNAPSHOT PROTOCOL (The "Unified" Source)
             // Fetch Snapshot first. It contains Volume/OI/Greeks for ALL contracts. 
@@ -74,16 +74,24 @@ export class ForensicService {
                 // User Requirement: "set to inquire for a 14-day period"
                 // Only analyze contracts expiring within 14 days for Gamma/Wall logic.
                 // This ensures we are measuring NEAR-TERM Market Maker exposure, not LEAPS.
-                const today = new Date();
-                const fourteenDaysLater = new Date();
+                const today = new Date(targetDate);
+                today.setHours(0, 0, 0, 0); // Start of today
+
+                const fourteenDaysLater = new Date(today);
                 fourteenDaysLater.setDate(today.getDate() + 14);
+                fourteenDaysLater.setHours(23, 59, 59, 999); // End of the 14th day
 
                 // Filter: Expiration Date check (assuming snapshot has 'expiration' or 'details.expiration_date')
                 // If data format varies, we check safe access.
                 const relevantContracts = chainSnapshot.filter(c => {
                     const expStr = c.details?.expiration_date; // YYYY-MM-DD
                     if (!expStr) return false;
-                    const expDate = new Date(expStr);
+
+                    // Parse expiration date and set to noon to avoid timezone shift dropping it to previous day
+                    const parts = expStr.split('-');
+                    if (parts.length !== 3) return false;
+                    const expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+
                     return expDate >= today && expDate <= fourteenDaysLater;
                 });
 

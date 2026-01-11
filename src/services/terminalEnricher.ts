@@ -171,7 +171,10 @@ async function enrichSingleTickerWithRetry(
         const optionsData = await fetchOptionsChain(ticker, hubData.price, force, targetDate);
 
         // [V3.7.8] Automated Forensic Analysis (Whale Index)
-        const forensicData = await ForensicService.analyzeTarget(ticker, targetDate); // AUTOMATION
+        // [V3.7.8] Automated Forensic Analysis (Whale Index)
+        // Ensure strictly defined date string is passed to ForensicService
+        const effectiveDate = targetDate || new Date().toISOString().split('T')[0];
+        const forensicData = await ForensicService.analyzeTarget(ticker, effectiveDate); // AUTOMATION
         const whaleIndex = forensicData.whaleIndex || 0;
         const whaleConfidence = forensicData.whaleConfidence || 'NONE';
 
