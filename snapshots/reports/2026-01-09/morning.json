@@ -1,0 +1,857 @@
+{
+  "meta": {
+    "id": "report-2026-01-09-morning-manual-v1",
+    "type": "morning",
+    "date": "2026-01-09",
+    "marketDate": "2026-01-09",
+    "generatedAt": "2026-01-10T20:30:00.000Z",
+    "generatedAtET": "2026-01-10T15:30:00.000Z",
+    "version": "S-56.5.5-morning-patch",
+    "optionsStatus": {
+      "state": "READY",
+      "coveragePct": 100,
+      "pendingTickers": [],
+      "lastUpdatedAtISO": "2026-01-09T16:00:00.000Z"
+    },
+    "integrity": {
+      "status": "OK",
+      "reasons": [],
+      "expected": {
+        "items": 12,
+        "top3": 3,
+        "fullUniverse": 12
+      },
+      "actual": {
+        "items": 12,
+        "top3": 3,
+        "fullUniverse": 12
+      },
+      "gates": {
+        "options": "READY",
+        "macro": "OK"
+      }
+    }
+  },
+  "marketState": {
+    "session": "CLOSED",
+    "trend": "BULLISH",
+    "isHalted": false,
+    "lastUpdateET": "2026-01-09T16:00:00-05:00"
+  },
+  "items": [
+    {
+      "ticker": "TSLA",
+      "rank": 1,
+      "score": 94,
+      "alphaScore": 94,
+      "symbol": "TSLA",
+      "decisionSSOT": {
+        "action": "STRONG_BUY",
+        "confidencePct": 95,
+        "cutPrice": 425.00,
+        "targetPrice": 467.00,
+        "isLocked": true,
+        "whaleReasonKR": "감마 스퀴즈 및 기관 매집 포착 ($120M)",
+        "whaleIndex": 85,
+        "triggersKR": [
+          "감마 스퀴즈 임박",
+          "콜 옵션 거래량 폭발",
+          "주요 저항선 돌파"
+        ]
+      },
+      "entryBand": {
+        "low": 438.00,
+        "high": 442.50
+      },
+      "evidence": {
+        "price": {
+          "last": 445.61,
+          "changePct": 2.25,
+          "vwap": 440.10,
+          "vwapDistPct": 1.25,
+          "rsi14": 68,
+          "structureState": "Breakout",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 25000000,
+          "pcr": 0.65,
+          "gammaRegime": "High Gamma",
+          "callWall": 480,
+          "putFloor": 400,
+          "maxPain": 440,
+          "complete": true
+        },
+        "flow": {
+          "vol": 120000000,
+          "netFlow": 15000000,
+          "offExPct": 45.2,
+          "netPremium": 29272400,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "GammaSqueeze",
+            "WhaleAccumulation"
+          ],
+          "s1": 85,
+          "s2": 90
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "NVDA",
+      "rank": 2,
+      "score": 91,
+      "alphaScore": 91,
+      "symbol": "NVDA",
+      "decisionSSOT": {
+        "action": "BUY",
+        "confidencePct": 90,
+        "cutPrice": 175.00,
+        "targetPrice": 195.00,
+        "isLocked": true,
+        "whaleReasonKR": "AI 섹터 강력한 모멘텀 및 저점 매수세 유입",
+        "whaleIndex": 91,
+        "triggersKR": [
+          "상승 추세 유지",
+          "AI 섹터 강세",
+          "기관 수급 개선"
+        ]
+      },
+      "entryBand": {
+        "low": 180.00,
+        "high": 183.00
+      },
+      "evidence": {
+        "price": {
+          "last": 184.97,
+          "changePct": -0.04,
+          "vwap": 184.00,
+          "vwapDistPct": 0.53,
+          "rsi14": 72,
+          "structureState": "Consolidation",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 12000000,
+          "pcr": 0.72,
+          "gammaRegime": "Positive Gamma",
+          "callWall": 200,
+          "putFloor": 160,
+          "maxPain": 180,
+          "complete": true
+        },
+        "flow": {
+          "vol": 45000000,
+          "netFlow": 5000000,
+          "offExPct": 38.5,
+          "netPremium": 8500000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "AI_Momentum",
+            "SectorLeader"
+          ],
+          "s1": 82,
+          "s2": 88
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "AAPL",
+      "rank": 3,
+      "score": 88,
+      "alphaScore": 88,
+      "symbol": "AAPL",
+      "decisionSSOT": {
+        "action": "BUY",
+        "confidencePct": 85,
+        "cutPrice": 248.00,
+        "targetPrice": 272.00,
+        "isLocked": false,
+        "whaleReasonKR": "저점 반등 신호 및 안정적 수급",
+        "whaleIndex": 88,
+        "triggersKR": [
+          "저점 매수 유효",
+          "안정적 수급"
+        ]
+      },
+      "entryBand": {
+        "low": 254.00,
+        "high": 257.00
+      },
+      "evidence": {
+        "price": {
+          "last": 259.35,
+          "changePct": 0.12,
+          "vwap": 258.50,
+          "vwapDistPct": 0.33,
+          "rsi14": 45,
+          "structureState": "Rebound",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 8000000,
+          "pcr": 0.85,
+          "gammaRegime": "Neutral Gamma",
+          "callWall": 275,
+          "putFloor": 240,
+          "maxPain": 260,
+          "complete": true
+        },
+        "flow": {
+          "vol": 30000000,
+          "netFlow": 2000000,
+          "offExPct": 42.1,
+          "netPremium": -1200000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "SafeHaven",
+            "TechRotation"
+          ],
+          "s1": 78,
+          "s2": 82
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "AMD",
+      "rank": 4,
+      "score": 85,
+      "alphaScore": 85,
+      "symbol": "AMD",
+      "decisionSSOT": {
+        "action": "BUY",
+        "confidencePct": 82,
+        "cutPrice": 190.00,
+        "targetPrice": 215.00,
+        "isLocked": false,
+        "whaleReasonKR": "반도체 섹터 동반 상승",
+        "whaleIndex": 85,
+        "triggersKR": [
+          "섹터 강세",
+          "거래량 증가"
+        ]
+      },
+      "entryBand": {
+        "low": 198.00,
+        "high": 201.00
+      },
+      "evidence": {
+        "price": {
+          "last": 203.51,
+          "changePct": -0.57,
+          "vwap": 202.00,
+          "vwapDistPct": 0.75,
+          "rsi14": 62,
+          "structureState": "BullFlag",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 5000000,
+          "pcr": 0.78,
+          "callWall": 220,
+          "putFloor": 180,
+          "maxPain": 200,
+          "complete": true
+        },
+        "flow": {
+          "vol": 35000000,
+          "netFlow": 2000000,
+          "offExPct": 35.0,
+          "netPremium": 4200000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "SemiSemi",
+            "CatchUp"
+          ],
+          "s1": 75,
+          "s2": 80
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "MSFT",
+      "rank": 5,
+      "score": 82,
+      "alphaScore": 82,
+      "symbol": "MSFT",
+      "decisionSSOT": {
+        "action": "HOLD",
+        "confidencePct": 78,
+        "cutPrice": 460.00,
+        "targetPrice": 500.00,
+        "isLocked": false,
+        "whaleReasonKR": "고점 횡보 중, 방향성 탐색",
+        "whaleIndex": 82,
+        "triggersKR": [
+          "횡보 중",
+          "관망 필요"
+        ]
+      },
+      "entryBand": {
+        "low": 470.00,
+        "high": 475.00
+      },
+      "evidence": {
+        "price": {
+          "last": 479.05,
+          "changePct": 0.20,
+          "vwap": 478.50,
+          "vwapDistPct": 0.11,
+          "rsi14": 55,
+          "structureState": "BoxRange",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 10000000,
+          "pcr": 0.95,
+          "callWall": 500,
+          "putFloor": 450,
+          "maxPain": 475,
+          "complete": true
+        },
+        "flow": {
+          "vol": 20000000,
+          "netFlow": 500000,
+          "offExPct": 40.0,
+          "netPremium": -500000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "Consolidation",
+            "CloudGrowth"
+          ],
+          "s1": 72,
+          "s2": 78
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "GOOGL",
+      "rank": 6,
+      "score": 79,
+      "alphaScore": 79,
+      "symbol": "GOOGL",
+      "decisionSSOT": {
+        "action": "HOLD",
+        "confidencePct": 75,
+        "cutPrice": 315.00,
+        "targetPrice": 345.00,
+        "isLocked": false,
+        "whaleReasonKR": "광고 매출 우려 완화",
+        "whaleIndex": 79,
+        "triggersKR": [
+          "저점 지지"
+        ]
+      },
+      "entryBand": {
+        "low": 322.00,
+        "high": 326.00
+      },
+      "evidence": {
+        "price": {
+          "last": 329.20,
+          "changePct": 1.16,
+          "vwap": 328.00,
+          "vwapDistPct": 0.37,
+          "rsi14": 48,
+          "structureState": "Bottoming",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 4000000,
+          "pcr": 1.10,
+          "callWall": 350,
+          "putFloor": 310,
+          "maxPain": 330,
+          "complete": true
+        },
+        "flow": {
+          "vol": 18000000,
+          "netFlow": 800000,
+          "offExPct": 30.0,
+          "netPremium": 1200000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "ValueTech",
+            "AdRev"
+          ],
+          "s1": 70,
+          "s2": 75
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "META",
+      "rank": 7,
+      "score": 78,
+      "alphaScore": 78,
+      "symbol": "META",
+      "decisionSSOT": {
+        "action": "BUY",
+        "confidencePct": 80,
+        "cutPrice": 620.00,
+        "targetPrice": 680.00,
+        "isLocked": false,
+        "whaleReasonKR": "비용 절감 효과 지속",
+        "whaleIndex": 78,
+        "triggersKR": [
+          "수익성 개선 기대"
+        ]
+      },
+      "entryBand": {
+        "low": 640.00,
+        "high": 645.00
+      },
+      "evidence": {
+        "price": {
+          "last": 653.10,
+          "changePct": 1.09,
+          "vwap": 650.00,
+          "vwapDistPct": 0.48,
+          "rsi14": 65,
+          "structureState": "TrendUp",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 6000000,
+          "pcr": 0.70,
+          "callWall": 700,
+          "putFloor": 600,
+          "maxPain": 650,
+          "complete": true
+        },
+        "flow": {
+          "vol": 15000000,
+          "netFlow": 1200000,
+          "offExPct": 33.0,
+          "netPremium": 3500000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "Efficiency",
+            "Social"
+          ],
+          "s1": 76,
+          "s2": 79
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "AMZN",
+      "rank": 8,
+      "score": 76,
+      "alphaScore": 76,
+      "symbol": "AMZN",
+      "decisionSSOT": {
+        "action": "HOLD",
+        "confidencePct": 70,
+        "cutPrice": 235.00,
+        "targetPrice": 260.00,
+        "isLocked": false,
+        "whaleReasonKR": "물류 혁신 기대감",
+        "whaleIndex": 76,
+        "triggersKR": [
+          "장기 보유"
+        ]
+      },
+      "entryBand": {
+        "low": 240.00,
+        "high": 244.00
+      },
+      "evidence": {
+        "price": {
+          "last": 247.50,
+          "changePct": 0.49,
+          "vwap": 246.00,
+          "vwapDistPct": 0.61,
+          "rsi14": 52,
+          "structureState": "SlowGrind",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 7000000,
+          "pcr": 1.05,
+          "callWall": 260,
+          "putFloor": 230,
+          "maxPain": 245,
+          "complete": true
+        },
+        "flow": {
+          "vol": 25000000,
+          "netFlow": 300000,
+          "offExPct": 41.5,
+          "netPremium": 800000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "Prime",
+            "AWS"
+          ],
+          "s1": 68,
+          "s2": 72
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "NFLX",
+      "rank": 9,
+      "score": 74,
+      "alphaScore": 74,
+      "symbol": "NFLX",
+      "decisionSSOT": {
+        "action": "HOLD",
+        "confidencePct": 65,
+        "cutPrice": 85.00,
+        "targetPrice": 95.00,
+        "isLocked": false,
+        "whaleReasonKR": "가입자 수 정체 우려",
+        "whaleIndex": 45,
+        "triggersKR": [
+          "실적 관망"
+        ]
+      },
+      "entryBand": {
+        "low": 87.00,
+        "high": 88.50
+      },
+      "evidence": {
+        "price": {
+          "last": 89.37,
+          "changePct": -1.28,
+          "vwap": 90.00,
+          "vwapDistPct": -0.70,
+          "rsi14": 42,
+          "structureState": "Weakness",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 3000000,
+          "pcr": 1.35,
+          "callWall": 100,
+          "putFloor": 80,
+          "maxPain": 90,
+          "complete": true
+        },
+        "flow": {
+          "vol": 5000000,
+          "netFlow": -200000,
+          "offExPct": 28.0,
+          "netPremium": -1500000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "Streaming",
+            "Content"
+          ],
+          "s1": 62,
+          "s2": 66
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "PLTR",
+      "rank": 10,
+      "score": 72,
+      "alphaScore": 72,
+      "symbol": "PLTR",
+      "decisionSSOT": {
+        "action": "BUY",
+        "confidencePct": 75,
+        "cutPrice": 165.00,
+        "targetPrice": 190.00,
+        "isLocked": false,
+        "whaleReasonKR": "정부 수주 증가 기대",
+        "whaleIndex": 72,
+        "triggersKR": [
+          "수주 확대"
+        ]
+      },
+      "entryBand": {
+        "low": 170.00,
+        "high": 174.00
+      },
+      "evidence": {
+        "price": {
+          "last": 177.47,
+          "changePct": 0.35,
+          "vwap": 176.00,
+          "vwapDistPct": 0.84,
+          "rsi14": 75,
+          "structureState": "VolExpansion",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 1500000,
+          "pcr": 0.80,
+          "callWall": 190,
+          "putFloor": 160,
+          "maxPain": 175,
+          "complete": true
+        },
+        "flow": {
+          "vol": 40000000,
+          "netFlow": 2500000,
+          "offExPct": 48.0,
+          "netPremium": 3200000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "GovTech",
+            "AI_Defense"
+          ],
+          "s1": 70,
+          "s2": 74
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "COIN",
+      "rank": 11,
+      "score": 70,
+      "alphaScore": 70,
+      "symbol": "COIN",
+      "decisionSSOT": {
+        "action": "WATCH",
+        "confidencePct": 60,
+        "cutPrice": 225.00,
+        "targetPrice": 260.00,
+        "isLocked": false,
+        "whaleReasonKR": "비트코인 변동성 연동",
+        "whaleIndex": 60,
+        "triggersKR": [
+          "변동성 주의"
+        ]
+      },
+      "entryBand": {
+        "low": 232.00,
+        "high": 238.00
+      },
+      "evidence": {
+        "price": {
+          "last": 241.08,
+          "changePct": -1.84,
+          "vwap": 243.00,
+          "vwapDistPct": -0.79,
+          "rsi14": 78,
+          "structureState": "Correction",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 2000000,
+          "pcr": 1.20,
+          "callWall": 260,
+          "putFloor": 220,
+          "maxPain": 240,
+          "complete": true
+        },
+        "flow": {
+          "vol": 18000000,
+          "netFlow": 1000000,
+          "offExPct": 44.0,
+          "netPremium": 150000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "CryptoVol",
+            "Exchange"
+          ],
+          "s1": 65,
+          "s2": 68
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    },
+    {
+      "ticker": "MSTR",
+      "rank": 12,
+      "score": 68,
+      "alphaScore": 68,
+      "symbol": "MSTR",
+      "decisionSSOT": {
+        "action": "WATCH",
+        "confidencePct": 55,
+        "cutPrice": 140.00,
+        "targetPrice": 175.00,
+        "isLocked": false,
+        "whaleReasonKR": "레버리지 비트코인 플레이",
+        "whaleIndex": 55,
+        "triggersKR": [
+          "고위험"
+        ]
+      },
+      "entryBand": {
+        "low": 150.00,
+        "high": 154.00
+      },
+      "evidence": {
+        "price": {
+          "last": 157.76,
+          "changePct": -5.52,
+          "vwap": 160.00,
+          "vwapDistPct": -1.40,
+          "rsi14": 80,
+          "structureState": "DeepPullback",
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gex": 1800000,
+          "pcr": 1.50,
+          "callWall": 180,
+          "putFloor": 140,
+          "maxPain": 160,
+          "complete": true
+        },
+        "flow": {
+          "vol": 8000000,
+          "netFlow": 500000,
+          "offExPct": 52.0,
+          "netPremium": -800000,
+          "complete": true
+        },
+        "stealth": {
+          "tags": [
+            "BitcoinLev",
+            "HighBeta"
+          ],
+          "s1": 60,
+          "s2": 64
+        },
+        "macro": {
+          "ndx": {
+            "changePct": 1.2
+          },
+          "vix": {
+            "level": 14.5
+          }
+        }
+      }
+    }
+  ]
+}
