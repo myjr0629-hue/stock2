@@ -2,8 +2,8 @@
   "meta": {
     "id": "2026-01-11-eod",
     "type": "eod",
-    "generatedAt": "2026-01-11T16:08:53.888Z",
-    "generatedAtET": "01/11/2026, 11:08:53 AM",
+    "generatedAt": "2026-01-11T16:24:44.534Z",
+    "generatedAtET": "01/11/2026, 11:24:44 AM",
     "marketDate": "2026-01-11",
     "version": "S-56.4.6e",
     "pipelineVersion": "56.4.1",
@@ -36,8 +36,8 @@
     "baseline": {
       "source": "MASSIVE",
       "session": "regular",
-      "tsISO": "2026-01-11T16:08:53.888Z",
-      "tsET": "01/11/2026, 11:08:53 AM",
+      "tsISO": "2026-01-11T16:24:44.534Z",
+      "tsET": "01/11/2026, 11:24:44 AM",
       "items": [
         {
           "ticker": "INTC",
@@ -63,7 +63,7 @@
       ]
     },
     "freshness": {
-      "generatedAtISO": "2026-01-11T16:08:53.888Z",
+      "generatedAtISO": "2026-01-11T16:24:44.534Z",
       "ageMin": 0,
       "isStale": false
     },
@@ -71,7 +71,7 @@
       "state": "READY",
       "pendingTickers": [],
       "coveragePct": 8,
-      "lastUpdatedAtISO": "2026-01-11T16:08:53.966Z"
+      "lastUpdatedAtISO": "2026-01-11T16:24:44.595Z"
     },
     "integrity": {
       "status": "OK",
@@ -96,15 +96,15 @@
     "softFails": []
   },
   "macro": {
-    "asOfET": "1/11/2026, 11:07:33 AM",
-    "fetchedAtET": "2026-01-11T16:07:33.424Z",
+    "asOfET": "1/11/2026, 11:22:43 AM",
+    "fetchedAtET": "2026-01-11T16:22:43.706Z",
     "ageSeconds": 0,
     "marketStatus": {
       "market": "closed",
       "session": "closed",
       "isHoliday": false,
-      "serverTime": "2026-01-11T16:07:33.424Z",
-      "asOfET": "1/11/2026, 11:07:33 AM",
+      "serverTime": "2026-01-11T16:22:43.706Z",
+      "asOfET": "1/11/2026, 11:22:43 AM",
       "source": "MASSIVE",
       "cacheAgeSec": 0
     },
@@ -160,7 +160,7 @@
         "us30y": 4.85,
         "spread2s10s": 0.7000000000000002,
         "source": "MASSIVE",
-        "updatedAt": "2026-01-11T16:08:03.125Z"
+        "updatedAt": "2026-01-11T16:23:22.124Z"
       },
       "inflation": {
         "date": "2026-01-11",
@@ -170,13 +170,13 @@
         "pceYoY": null,
         "expectations": null,
         "source": "FAIL",
-        "updatedAt": "2026-01-11T16:08:03.125Z"
+        "updatedAt": "2026-01-11T16:23:22.125Z"
       },
-      "asOfET": "1/11/26, 11:08 AM"
+      "asOfET": "1/11/26, 11:23 AM"
     }
   },
   "events": {
-    "asOfET": "1/11/26, 11:07 AM",
+    "asOfET": "1/11/26, 11:22 AM",
     "events": [
       {
         "date": "2026-01-19",
@@ -202,7 +202,7 @@
     "shakeReasons": []
   },
   "policy": {
-    "asOfET": "1/11/26, 11:07 AM",
+    "asOfET": "1/11/26, 11:22 AM",
     "policies72h": [],
     "policies7d": [
       {
@@ -230,7 +230,7 @@
     ]
   },
   "news": {
-    "asOfET": "1/11/26, 11:07 AM",
+    "asOfET": "1/11/26, 11:22 AM",
     "marketHeadlines": [
       {
         "id": "mkt-001",
@@ -408,7 +408,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -434,7 +434,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:10.169Z"
+        "fetchedAtET": "2026-01-11T16:23:24.570Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -514,7 +514,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -540,7 +540,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:21.042Z"
+        "fetchedAtET": "2026-01-11T16:23:29.799Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -620,7 +620,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -646,7 +646,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:21.293Z"
+        "fetchedAtET": "2026-01-11T16:23:29.000Z"
       },
       "alphaScore": 89.2,
       "qualityTier": "WATCH",
@@ -726,7 +726,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -752,7 +752,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:21.228Z"
+        "fetchedAtET": "2026-01-11T16:23:29.848Z"
       },
       "alphaScore": 85.7,
       "qualityTier": "WATCH",
@@ -832,7 +832,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -858,7 +858,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:10.495Z"
+        "fetchedAtET": "2026-01-11T16:23:25.094Z"
       },
       "alphaScore": 78.4,
       "qualityTier": "WATCH",
@@ -938,7 +938,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -964,7 +964,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:09.916Z"
+        "fetchedAtET": "2026-01-11T16:23:24.974Z"
       },
       "alphaScore": 74.9,
       "qualityTier": "WATCH",
@@ -1044,7 +1044,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1070,7 +1070,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:20.457Z"
+        "fetchedAtET": "2026-01-11T16:23:28.906Z"
       },
       "alphaScore": 71.3,
       "qualityTier": "WATCH",
@@ -1150,7 +1150,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1176,7 +1176,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:15.736Z"
+        "fetchedAtET": "2026-01-11T16:23:27.039Z"
       },
       "alphaScore": 69.7,
       "qualityTier": "WATCH",
@@ -1256,7 +1256,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1282,7 +1282,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:20.459Z"
+        "fetchedAtET": "2026-01-11T16:23:29.619Z"
       },
       "alphaScore": 69.4,
       "qualityTier": "WATCH",
@@ -1362,7 +1362,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1388,7 +1388,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:10.733Z"
+        "fetchedAtET": "2026-01-11T16:23:25.246Z"
       },
       "alphaScore": 64.6,
       "qualityTier": "WATCH",
@@ -1468,7 +1468,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1494,7 +1494,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:20.673Z"
+        "fetchedAtET": "2026-01-11T16:23:29.719Z"
       },
       "alphaScore": 64,
       "qualityTier": "WATCH",
@@ -1574,7 +1574,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1600,7 +1600,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:21.045Z"
+        "fetchedAtET": "2026-01-11T16:23:29.702Z"
       },
       "alphaScore": 62.4,
       "qualityTier": "WATCH",
@@ -1682,7 +1682,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1708,7 +1708,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:25.428Z"
+        "fetchedAtET": "2026-01-11T16:23:32.015Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1782,7 +1782,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1808,7 +1808,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:25.226Z"
+        "fetchedAtET": "2026-01-11T16:23:31.841Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -1882,7 +1882,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -1908,7 +1908,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:25.824Z"
+        "fetchedAtET": "2026-01-11T16:23:32.039Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -1982,7 +1982,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2008,7 +2008,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:25.437Z"
+        "fetchedAtET": "2026-01-11T16:23:31.624Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2082,7 +2082,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2108,7 +2108,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:25.825Z"
+        "fetchedAtET": "2026-01-11T16:23:32.225Z"
       },
       "alphaScore": 90,
       "qualityTier": "WATCH",
@@ -2182,7 +2182,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2208,7 +2208,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:25.057Z"
+        "fetchedAtET": "2026-01-11T16:23:32.009Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2282,7 +2282,7 @@
           "dxy": {
             "value": 99.14249205
           },
-          "fetchedAtET": "2026-01-11T16:08:03.151Z",
+          "fetchedAtET": "2026-01-11T16:23:22.137Z",
           "ageSeconds": 0,
           "complete": true
         },
@@ -2308,7 +2308,7 @@
           "complete": true
         },
         "complete": false,
-        "fetchedAtET": "2026-01-11T16:08:25.498Z"
+        "fetchedAtET": "2026-01-11T16:23:31.847Z"
       },
       "alphaScore": 83.1,
       "qualityTier": "WATCH",
@@ -2324,6 +2324,1195 @@
       "symbol": "INBS"
     }
   ],
+  "sectors": {
+    "m7": [
+      {
+        "ticker": "AAPL",
+        "evidence": {
+          "price": {
+            "last": 259.37,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 259.04,
+            "changePct": 0.12739345274860409,
+            "vwap": 258.6764,
+            "vwapDistPct": 0.2681342403095155,
+            "rsi14": 27.065923481824555,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 39654348,
+            "relVol": 0.9226398217736286,
+            "gapPct": 0.013511426806658493,
+            "largeTradesUsd": -39377044,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": -39377044,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:10.827Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "MSFT",
+        "evidence": {
+          "price": {
+            "last": 479.28,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 478.11,
+            "changePct": 0.24471355964107824,
+            "vwap": 477.1493,
+            "vwapDistPct": 0.4465478624824537,
+            "rsi14": 45.22602928311299,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 18282830,
+            "relVol": 0.8368333057205068,
+            "gapPct": -0.8470853987576105,
+            "largeTradesUsd": -212270909,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": -212270909,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:10.806Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "GOOGL",
+        "evidence": {
+          "price": {
+            "last": 328.57,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 325.44,
+            "changePct": 0.9617748279252689,
+            "vwap": 329.0504,
+            "vwapDistPct": -0.1459958717570413,
+            "rsi14": 68.94525719386522,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 25895482,
+            "relVol": 0.879289953590789,
+            "gapPct": 0.5070058997050078,
+            "largeTradesUsd": 57896600,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 57896600,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:10.813Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "AMZN",
+        "evidence": {
+          "price": {
+            "last": 247.38,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 246.29,
+            "changePct": 0.442567704738318,
+            "vwap": 246.0724,
+            "vwapDistPct": 0.5313883231114127,
+            "rsi14": 69.13331042229852,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 34034789,
+            "relVol": 0.9011086617624712,
+            "gapPct": -0.6991757684030939,
+            "largeTradesUsd": 76820389,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 76820389,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:10.842Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "NVDA",
+        "evidence": {
+          "price": {
+            "last": 184.86,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 185.04,
+            "changePct": -0.09727626459142802,
+            "vwap": 185.113,
+            "vwapDistPct": -0.136673275242682,
+            "rsi14": 49.60484836035718,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 128577987,
+            "relVol": 0.7965907207302974,
+            "gapPct": 0.021616947686997658,
+            "largeTradesUsd": 215777054,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 215777054,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:11.067Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "META",
+        "evidence": {
+          "price": {
+            "last": 653.06,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 646.06,
+            "changePct": 1.0834906974584404,
+            "vwap": 651.0155,
+            "vwapDistPct": 0.31404782221006583,
+            "rsi14": 49.28971371091848,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 11461824,
+            "relVol": 0.8221510342687203,
+            "gapPct": -0.09674024084450361,
+            "largeTradesUsd": -507449390,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": -507449390,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:11.357Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "TSLA",
+        "evidence": {
+          "price": {
+            "last": 445.01,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 435.8,
+            "changePct": 2.113354749885264,
+            "vwap": 442.5118,
+            "vwapDistPct": 0.5645499170869561,
+            "rsi14": 47.49448576321314,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 65690572,
+            "relVol": 0.8635155499790735,
+            "gapPct": 0.033272143184943044,
+            "largeTradesUsd": 281682164,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 281682164,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:09.808Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:11.785Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      }
+    ],
+    "physicalAi": [
+      {
+        "ticker": "PLTR",
+        "evidence": {
+          "price": {
+            "last": 177.49,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 176.86,
+            "changePct": 0.3562139545403118,
+            "vwap": 177.0929,
+            "vwapDistPct": 0.22423259204633453,
+            "rsi14": 46.9684929975974,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 30528032,
+            "relVol": 0.8109578061643261,
+            "gapPct": 0.0904670360737287,
+            "largeTradesUsd": 22368511,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 22368511,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:30.382Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "ISRG",
+        "evidence": {
+          "price": {
+            "last": 586.24,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 585.08,
+            "changePct": 0.19826348533533328,
+            "vwap": 585.6299,
+            "vwapDistPct": 0.1041784239500047,
+            "rsi14": 60.65039343995266,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 1466383,
+            "relVol": 0.9155858348412984,
+            "gapPct": 0.3828536268544488,
+            "largeTradesUsd": 4099689,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 4099689,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:30.416Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "SYM",
+        "evidence": {
+          "price": {
+            "last": 70.82,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 70.61,
+            "changePct": 0.2974082991077662,
+            "vwap": 71.3668,
+            "vwapDistPct": -0.7661825947079098,
+            "rsi14": 60.109324476823744,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 1495913,
+            "relVol": 0.7504210704004627,
+            "gapPct": 1.8977481943067604,
+            "largeTradesUsd": 833739,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 833739,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:29.900Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "TER",
+        "evidence": {
+          "price": {
+            "last": 217.26,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 216.31,
+            "changePct": 0.43918450372150547,
+            "vwap": 217.6646,
+            "vwapDistPct": -0.18588231618738935,
+            "rsi14": 63.35963729206909,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 2544555,
+            "relVol": 0.8795977215921311,
+            "gapPct": -0.26351070223290335,
+            "largeTradesUsd": 2429896,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 2429896,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:29.945Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "RKLB",
+        "evidence": {
+          "price": {
+            "last": 84.85,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 83.08,
+            "changePct": 2.1304766490129947,
+            "vwap": 85.7558,
+            "vwapDistPct": -1.0562550871194711,
+            "rsi14": 70.88918270794396,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 23375693,
+            "relVol": 0.7728903854116003,
+            "gapPct": 1.7392874337987572,
+            "largeTradesUsd": 15415881,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 15415881,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:30.771Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      },
+      {
+        "ticker": "SERV",
+        "evidence": {
+          "price": {
+            "last": 14.71,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "prevClose": 15.41,
+            "changePct": -4.542504866969495,
+            "vwap": 15.0655,
+            "vwapDistPct": -2.359695994158835,
+            "rsi14": 66.52942685699205,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 12140230,
+            "relVol": 1.5942722638579343,
+            "gapPct": -1.817001946787796,
+            "largeTradesUsd": 493230,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 493230,
+            "complete": true
+          },
+          "options": {
+            "status": "FAILED",
+            "coveragePct": 0,
+            "gammaRegime": "Short Gamma",
+            "gex": 0,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0,
+            "callWall": 0,
+            "putFloor": 0,
+            "pinZone": 0,
+            "maxPain": 0,
+            "oiClusters": {
+              "callsTop": [],
+              "putsTop": []
+            },
+            "complete": false
+          },
+          "macro": {
+            "ndx": {
+              "price": 25983.7615,
+              "changePct": 1.0314761390558733
+            },
+            "vix": {
+              "value": 13.963040000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.14249205
+            },
+            "fetchedAtET": "2026-01-11T16:24:28.996Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-11T16:24:30.201Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false
+      }
+    ]
+  },
   "alphaGrid": {
     "top3": [
       {
@@ -2385,7 +3574,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2411,7 +3600,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:10.169Z"
+          "fetchedAtET": "2026-01-11T16:23:24.570Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -2484,7 +3673,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2510,7 +3699,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:21.042Z"
+          "fetchedAtET": "2026-01-11T16:23:29.799Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -2583,7 +3772,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2609,7 +3798,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:21.293Z"
+          "fetchedAtET": "2026-01-11T16:23:29.000Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -2684,7 +3873,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2710,7 +3899,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:10.169Z"
+          "fetchedAtET": "2026-01-11T16:23:24.570Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -2790,7 +3979,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2816,7 +4005,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:21.042Z"
+          "fetchedAtET": "2026-01-11T16:23:29.799Z"
         },
         "alphaScore": 90,
         "qualityTier": "WATCH",
@@ -2896,7 +4085,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -2922,7 +4111,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:21.293Z"
+          "fetchedAtET": "2026-01-11T16:23:29.000Z"
         },
         "alphaScore": 89.2,
         "qualityTier": "WATCH",
@@ -3002,7 +4191,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3028,7 +4217,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:21.228Z"
+          "fetchedAtET": "2026-01-11T16:23:29.848Z"
         },
         "alphaScore": 85.7,
         "qualityTier": "WATCH",
@@ -3108,7 +4297,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3134,7 +4323,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:10.495Z"
+          "fetchedAtET": "2026-01-11T16:23:25.094Z"
         },
         "alphaScore": 78.4,
         "qualityTier": "WATCH",
@@ -3214,7 +4403,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3240,7 +4429,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:09.916Z"
+          "fetchedAtET": "2026-01-11T16:23:24.974Z"
         },
         "alphaScore": 74.9,
         "qualityTier": "WATCH",
@@ -3320,7 +4509,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3346,7 +4535,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:20.457Z"
+          "fetchedAtET": "2026-01-11T16:23:28.906Z"
         },
         "alphaScore": 71.3,
         "qualityTier": "WATCH",
@@ -3426,7 +4615,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3452,7 +4641,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:15.736Z"
+          "fetchedAtET": "2026-01-11T16:23:27.039Z"
         },
         "alphaScore": 69.7,
         "qualityTier": "WATCH",
@@ -3532,7 +4721,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3558,7 +4747,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:20.459Z"
+          "fetchedAtET": "2026-01-11T16:23:29.619Z"
         },
         "alphaScore": 69.4,
         "qualityTier": "WATCH",
@@ -3638,7 +4827,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3664,7 +4853,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:10.733Z"
+          "fetchedAtET": "2026-01-11T16:23:25.246Z"
         },
         "alphaScore": 64.6,
         "qualityTier": "WATCH",
@@ -3744,7 +4933,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3770,7 +4959,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:20.673Z"
+          "fetchedAtET": "2026-01-11T16:23:29.719Z"
         },
         "alphaScore": 64,
         "qualityTier": "WATCH",
@@ -3850,7 +5039,7 @@
             "dxy": {
               "value": 99.14249205
             },
-            "fetchedAtET": "2026-01-11T16:08:03.151Z",
+            "fetchedAtET": "2026-01-11T16:23:22.137Z",
             "ageSeconds": 0,
             "complete": true
           },
@@ -3876,7 +5065,7 @@
             "complete": true
           },
           "complete": false,
-          "fetchedAtET": "2026-01-11T16:08:21.045Z"
+          "fetchedAtET": "2026-01-11T16:23:29.702Z"
         },
         "alphaScore": 62.4,
         "qualityTier": "WATCH",
@@ -3937,7 +5126,7 @@
         "label": "DXY"
       },
       "regime": "NEUTRAL",
-      "fetchedAtET": "2026-01-11T16:08:03.151Z",
+      "fetchedAtET": "2026-01-11T16:23:22.137Z",
       "ageSeconds": 0
     }
   },

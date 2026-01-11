@@ -1187,24 +1187,52 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     const moonshot = sortedItems.slice(10, 12); // Ranks 11, 12
 
     // [V4.7] M7 Filter (Extract M7 from available report items)
-    const m7Items = useMemo(() =>
-        sortedItems.filter(item => M7_TICKERS.includes(item.ticker)),
-        [sortedItems]
-    );
+    // [V4.7] M7 Filter (Extract M7 from available report items OR Segregated Sector)
+    const m7Items = useMemo(() => {
+        return M7_TICKERS.map(ticker => {
+            // Priority 1: Final Battle (Ranked) - Maintain Organic Rank/Score
+            const ranked = sortedItems.find(item => item.ticker === ticker);
+            if (ranked) return ranked;
+
+            // Priority 2: Segregated Sector Data (Unranked, but Analyzed)
+            const sectorItem = report?.sectors?.m7?.find((i: any) => i.ticker === ticker);
+            if (sectorItem) return sectorItem;
+
+            // Priority 3: Live Quote Fallback (Monitoring)
+            const live = liveQuotes[ticker];
+            return {
+                ticker,
+                rank: 99,
+                alphaScore: 0,
+                evidence: {
+                    price: {
+                        last: live?.price || 0,
+                        changePct: live?.changePercent || 0,
+                        extendedLabel: live ? 'LIVE' : undefined
+                    },
+                    flow: { vol: live?.volume || 0 },
+                    structure: { setup: 'Monitoring' },
+                    options: {},
+                    macro: {},
+                    policy: {},
+                    stealth: {}
+                },
+                decisionSSOT: { action: 'MONITOR', confidencePct: 0, triggersKR: [] }
+            } as any as TickerItem;
+        });
+    }, [sortedItems, liveQuotes, report]);
 
     const physicalAiItems = useMemo(() => {
-        // [Segregation] Use dedicated sector data if available (Priority 1)
-        if (report?.sectors?.physicalAi && report.sectors.physicalAi.length > 0) {
-            return report.sectors.physicalAi;
-        }
-
-        // Priority 2: Fallback to construction (legacy/resilience)
         return PHYSICAL_AI_TICKERS.map(ticker => {
-            // Check formatted list first
-            const analyzed = sortedItems.find(item => item.ticker === ticker);
-            if (analyzed) return analyzed;
+            // Priority 1: Final Battle (Ranked) - Maintain Organic Rank/Score
+            const ranked = sortedItems.find(item => item.ticker === ticker);
+            if (ranked) return ranked;
 
-            // Live fallback
+            // Priority 2: Segregated Sector Data (Unranked, but Analyzed)
+            const sectorItem = report?.sectors?.physicalAi?.find((i: any) => i.ticker === ticker);
+            if (sectorItem) return sectorItem;
+
+            // Priority 3: Live Quote Fallback (Monitoring)
             const live = liveQuotes[ticker];
             return {
                 ticker,
