@@ -1,5 +1,12 @@
 import { getOptionTrades, fetchOptionSnapshot, getOptionChainSnapshot } from './massiveClient';
 import { OptionTrade } from '@/types';
+import {
+    classifyTrade,
+    calculateWeightedValue,
+    detectBlockCluster,
+    calculateOffExchangePercent,
+    TradeChannel
+} from './conditionCodes';
 
 // [V3.7.3] Forensic Analysis Result
 export interface ForensicResult {
@@ -70,30 +77,44 @@ export class ForensicService {
             let marketMakerCallWall = 0; // Call Wall candidate
 
             if (chainSnapshot.length > 0) {
-                // [V3.8.1] 14-DAY DTE RULE (Engine Purity)
-                // User Requirement: "set to inquire for a 14-day period"
-                // Only analyze contracts expiring within 14 days for Gamma/Wall logic.
-                // This ensures we are measuring NEAR-TERM Market Maker exposure, not LEAPS.
+                // [V4.0] SMART DTE WINDOW (Engine V4.0 Upgrade)
+                // Base: 7 days (captures next weekly expiry for concentrated gamma)
+                // Fallback: If < 10 contracts, expand to 14d. If still < 5, expand to 21d.
+                // This ensures we never lose data while focusing on near-term exposure.
                 const today = new Date(targetDate);
                 today.setHours(0, 0, 0, 0); // Start of today
 
-                const fourteenDaysLater = new Date(today);
-                fourteenDaysLater.setDate(today.getDate() + 14);
-                fourteenDaysLater.setHours(23, 59, 59, 999); // End of the 14th day
+                // Helper function for filtering by window
+                const filterByWindow = (contracts: any[], days: number) => {
+                    const windowEnd = new Date(today);
+                    windowEnd.setDate(today.getDate() + days);
+                    windowEnd.setHours(23, 59, 59, 999);
 
-                // Filter: Expiration Date check (assuming snapshot has 'expiration' or 'details.expiration_date')
-                // If data format varies, we check safe access.
-                const relevantContracts = chainSnapshot.filter(c => {
-                    const expStr = c.details?.expiration_date; // YYYY-MM-DD
-                    if (!expStr) return false;
+                    return contracts.filter(c => {
+                        const expStr = c.details?.expiration_date; // YYYY-MM-DD
+                        if (!expStr) return false;
+                        const parts = expStr.split('-');
+                        if (parts.length !== 3) return false;
+                        const expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+                        return expDate >= today && expDate <= windowEnd;
+                    });
+                };
 
-                    // Parse expiration date and set to noon to avoid timezone shift dropping it to previous day
-                    const parts = expStr.split('-');
-                    if (parts.length !== 3) return false;
-                    const expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 12, 0, 0);
+                // Smart Fallback Protocol
+                let relevantContracts = filterByWindow(chainSnapshot, 7);  // Try 7 days
+                let windowUsed = 7;
 
-                    return expDate >= today && expDate <= fourteenDaysLater;
-                });
+                if (relevantContracts.length < 10) {
+                    relevantContracts = filterByWindow(chainSnapshot, 14); // Fallback to 14 days
+                    windowUsed = 14;
+                    console.log(`[Forensic] ${ticker}: 7d window insufficient (${relevantContracts.length}), expanded to 14d`);
+                }
+
+                if (relevantContracts.length < 5) {
+                    relevantContracts = filterByWindow(chainSnapshot, 21); // Final fallback to 21 days
+                    windowUsed = 21;
+                    console.log(`[Forensic] ${ticker}: 14d window insufficient (${relevantContracts.length}), expanded to 21d`);
+                }
 
                 // Find most active contract IN THIS 14-DAY WINDOW
                 for (const c of relevantContracts) {
@@ -145,63 +166,121 @@ export class ForensicService {
 
     // Refactored core logic
     private static analyzeData(ticker: string, trades: any[]): ForensicResult {
-        // 2. Forensics: Aggressor Logic (Simplified without Quotes)
+        // [V4.0] ADVANCED FORENSIC ANALYSIS
+        // Incorporates: Condition Codes, Size/Time/Channel Weighting, Block Cluster Detection
+
+        // Prepare for analysis
         let totalVol = 0;
+        let totalValue = 0;
+        let weightedValue = 0;
         let blockCount = 0;
         let maxBlockSize = 0;
+        let darkPoolValue = 0;
+        let offExchangeValue = 0;
+
+        // Market close time for time weighting (4 PM ET)
+        const marketClose = new Date();
+        marketClose.setHours(16, 0, 0, 0);
+
+        // Prepare trade data for cluster detection
+        const blockTradesForCluster: Array<{ timestamp: number; value: number; conditions?: string[]; side?: 'buy' | 'sell' }> = [];
 
         // Whale logic variables
-        const contractMap = new Map<string, { vol: number, val: number, strike: number, type: 'call' | 'put' }>();
+        const contractMap = new Map<string, { vol: number, val: number, strike: number, type: 'call' | 'put', weighted: number }>();
 
         for (const t of trades) {
-            const value = t.price * t.size * 100;
+            const rawValue = t.price * t.size * 100;
             totalVol += t.size;
+            totalValue += rawValue;
 
-            if (value > maxBlockSize) maxBlockSize = value;
+            if (rawValue > maxBlockSize) maxBlockSize = rawValue;
 
-            // Block Trade Logic
-            if (value >= BLOCK_THRESHOLD) {
+            // Get trade conditions (if available)
+            const conditions = t.conditions || [];
+            const tradeTime = t.sip_timestamp ? new Date(t.sip_timestamp / 1000000) : undefined;
+
+            // [V4.0] Calculate weighted value
+            const { weightedValue: wVal, sizeWeight, timeWeight, channelWeight } =
+                calculateWeightedValue(rawValue, conditions, tradeTime, marketClose);
+
+            weightedValue += wVal;
+
+            // Track dark pool / off-exchange
+            const channel = classifyTrade(conditions);
+            if (channel === 'DARK_POOL') {
+                darkPoolValue += rawValue;
+            } else if (channel === 'OFF_EXCHANGE') {
+                offExchangeValue += rawValue;
+            }
+
+            // Block Trade Logic (with weighted importance)
+            if (rawValue >= BLOCK_THRESHOLD) {
                 blockCount++;
+
+                // Add to cluster detection array
+                blockTradesForCluster.push({
+                    timestamp: t.sip_timestamp || Date.now() * 1000000,
+                    value: rawValue,
+                    conditions,
+                    side: t.conditions?.includes('B') ? 'buy' : (t.conditions?.includes('S') ? 'sell' : undefined)
+                });
 
                 // Group by Contract if details exist
                 if (t.details) {
                     const k = `${t.details.strike_price}${t.details.contract_type === 'call' ? 'C' : 'P'}`;
-                    const curr = contractMap.get(k) || { vol: 0, val: 0, strike: t.details.strike_price, type: t.details.contract_type };
+                    const curr = contractMap.get(k) || { vol: 0, val: 0, strike: t.details.strike_price, type: t.details.contract_type, weighted: 0 };
                     curr.vol += t.size;
-                    curr.val += (t.price * t.size); // Total Premium Paid
+                    curr.val += (t.price * t.size);
+                    curr.weighted += wVal; // Track weighted contribution
                     contractMap.set(k, curr);
                 }
             }
         }
 
-        // 3. Calculate Whale Index
-        // Without Quotes, we can't do Aggressor Ratio precisely.
-        // We rely on "Block Intensity".
-        // Base Score: 50 + (BlockCount * 10)
+        // [V4.0] Block Cluster Detection
+        const clusterResult = detectBlockCluster(blockTradesForCluster);
+
+        // [V4.0] Calculate Off-Exchange Percentage
+        const offExPct = totalValue > 0 ? ((darkPoolValue + offExchangeValue) / totalValue) * 100 : 0;
+
+        // 3. Calculate Whale Index (V4.0: Weighted Score)
+        // Uses weighted value instead of raw block count
         let score = 0;
         if (blockCount > 0) {
-            score = 40 + Math.min(blockCount * 15, 60); // Max 100
+            // Base score from weighted value (more meaningful than raw count)
+            const weightedRatio = weightedValue / (totalValue || 1);
+            score = 30 + Math.min(weightedRatio * 70, 70); // 30-100 range
+
+            // Cluster bonus: Sequential blocks indicate institutional accumulation
+            if (clusterResult.isCluster) {
+                score += 15;
+                console.log(`[Forensic] ${ticker}: Block cluster detected (${clusterResult.clusterCount} blocks, ${clusterResult.direction})`);
+            }
+
+            // Dark pool bonus: Hidden institutional activity
+            if (offExPct > 40) {
+                score += 10;
+            }
         }
 
-        // Sentiment: Simplified
-        // If we have blocks, assume "Smart Money" is directionally betting via contract type.
-        // (This is a heuristic: Usually blocks are opening positions)
+        // Sentiment from block cluster direction (more reliable than simple call/put ratio)
         let sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL' = 'NEUTRAL';
-        if (score >= 50) sentiment = 'BULLISH'; // Default to Bullish if Whale detected?
-        // Actually best to look at Call vs Put volume in blocks
+        if (clusterResult.isCluster && clusterResult.direction !== 'NEUTRAL') {
+            sentiment = clusterResult.direction === 'BUY' ? 'BULLISH' : 'BEARISH';
+        } else {
+            // Fallback to call vs put volume
+            let callBlockVol = 0;
+            let putBlockVol = 0;
+            contractMap.forEach(v => {
+                if (v.type === 'call') callBlockVol += v.vol;
+                else putBlockVol += v.vol;
+            });
 
-        let callBlockVol = 0;
-        let putBlockVol = 0;
-        contractMap.forEach(v => {
-            if (v.type === 'call') callBlockVol += v.vol;
-            else putBlockVol += v.vol;
-        });
+            if (callBlockVol > putBlockVol * 1.5) sentiment = 'BULLISH';
+            else if (putBlockVol > callBlockVol * 1.5) sentiment = 'BEARISH';
+        }
 
-        if (callBlockVol > putBlockVol * 1.5) sentiment = 'BULLISH';
-        else if (putBlockVol > callBlockVol * 1.5) sentiment = 'BEARISH';
-        else if (blockCount > 0) sentiment = 'NEUTRAL';
-
-        const aggressorRatio = 0.5; // Placeholder
+        const aggressorRatio = clusterResult.darkPoolRatio || 0.5; // Use dark pool ratio as proxy
 
         // Confidence
         let confidence: 'HIGH' | 'MED' | 'LOW' | 'NONE' = 'LOW';

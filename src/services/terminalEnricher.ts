@@ -429,10 +429,75 @@ function calculatePolicyEvidence(ticker: string, events: any[], policies: any[])
 }
 
 function calculateStealthLabel(price: UnifiedPrice, flow: UnifiedFlow, options: UnifiedOptions): UnifiedStealth {
+    // [V4.0] ENHANCED STEALTH TAG LOGIC
+    // Comprehensive condition-based tag assignment for maximum signal detection
     const tags: string[] = [];
-    if (flow.offExPct > 50) tags.push('offExSurge');
-    if (flow.largeTradesUsd > 5000000) tags.push('blockPrint');
-    if (tags.length === 0) tags.push('noSignal');
-    const label: 'A' | 'B' | 'C' = tags.includes('blockPrint') ? 'A' : 'C';
-    return { label, tags, impact: 'NEUTRAL', complete: true };
+
+    // 1. GAMMA SQUEEZE DETECTION
+    // GEX > $10M + Price near call wall = gamma squeeze potential
+    if (options.gex > 10000000 && options.callWall > 0) {
+        const priceToWallRatio = (price.last || 0) / options.callWall;
+        if (priceToWallRatio >= 0.95) {
+            tags.push('GammaSqueeze');
+        }
+    }
+
+    // 2. WHALE ACCUMULATION
+    // High off-exchange activity + positive net flow
+    if ((flow.offExPct || 0) > 40 && (flow.netFlow || 0) > 5000000) {
+        tags.push('WhaleAccumulation');
+    }
+
+    // 3. MASSIVE BLOCK PRINT
+    // Very large trades detected
+    if ((flow.largeTradesUsd || 0) > 10000000) {
+        tags.push('MassiveBlockPrint');
+    } else if ((flow.largeTradesUsd || 0) > 5000000) {
+        tags.push('blockPrint');
+    }
+
+    // 4. OFF-EXCHANGE SURGE
+    // Unusual dark pool activity
+    if ((flow.offExPct || 0) > 50) {
+        tags.push('offExSurge');
+    }
+
+    // 5. POSITIVE GAMMA REGIME
+    // Long gamma positioning provides support
+    if (options.gammaRegime === 'Long Gamma') {
+        tags.push('supportiveGamma');
+    }
+
+    // 6. AI MOMENTUM (Sector-specific)
+    // Note: We need ticker for this, but it's not passed. Consider enhancing later.
+    // For now, check if it looks like high-growth tech (high RSI + strong flow)
+    if ((price.rsi14 || 50) > 70 && (flow.relVol || 1) > 1.5) {
+        tags.push('highMomentum');
+    }
+
+    // 7. DIVERGENCE SIGNAL (Price down but flow up)
+    if ((price.changePct || 0) < 0 && (flow.netFlow || 0) > 5000000) {
+        tags.push('bullishDivergence');
+    }
+
+    // Fallback if no signal detected
+    if (tags.length === 0) {
+        tags.push('noSignal');
+    }
+
+    // Label assignment: A (strong signal), B (moderate), C (weak/none)
+    let label: 'A' | 'B' | 'C' = 'C';
+    if (tags.includes('GammaSqueeze') || tags.includes('WhaleAccumulation') || tags.includes('MassiveBlockPrint')) {
+        label = 'A';
+    } else if (tags.includes('blockPrint') || tags.includes('bullishDivergence') || tags.includes('highMomentum')) {
+        label = 'B';
+    }
+
+    // Impact assessment (uses type-compatible values)
+    let impact: 'NEUTRAL' | 'BOOST' | 'WARN' = 'NEUTRAL';
+    if (tags.includes('GammaSqueeze') || tags.includes('WhaleAccumulation') || tags.includes('bullishDivergence')) {
+        impact = 'BOOST';
+    }
+
+    return { label, tags, impact, complete: true };
 }
