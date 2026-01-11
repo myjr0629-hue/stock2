@@ -1121,7 +1121,11 @@ function IntelContent({ initialReport }: { initialReport: any }) {
 
         const fetchQuotes = async () => {
             try {
-                const symbols = report.items.map((i: any) => i.ticker).join(',');
+                // Combine Report Items + M7 + Physical AI (Unique)
+                const reportTickers = report.items.map((i: any) => i.ticker);
+                const allTickers = Array.from(new Set([...reportTickers, ...M7_TICKERS, ...PHYSICAL_AI_TICKERS]));
+                const symbols = allTickers.join(',');
+
                 if (!symbols) return;
 
                 const res = await fetch(`/api/live/quotes?symbols=${symbols}`, { cache: 'no-store' });
@@ -1188,10 +1192,35 @@ function IntelContent({ initialReport }: { initialReport: any }) {
         [sortedItems]
     );
 
-    const physicalAiItems = useMemo(() =>
-        sortedItems.filter(item => PHYSICAL_AI_TICKERS.includes(item.ticker)),
-        [sortedItems]
-    );
+    const physicalAiItems = useMemo(() => {
+        return PHYSICAL_AI_TICKERS.map(ticker => {
+            // Priority 1: Use analyzed item from report
+            const analyzed = sortedItems.find(item => item.ticker === ticker);
+            if (analyzed) return analyzed;
+
+            // Priority 2: Construct partial item from Live Quote
+            const live = liveQuotes[ticker];
+            return {
+                ticker,
+                rank: 99, // Unranked
+                alphaScore: 0, // No score available
+                evidence: {
+                    price: {
+                        last: live?.price || 0,
+                        changePct: live?.changePercent || 0,
+                        extendedLabel: live ? 'LIVE' : undefined
+                    },
+                    flow: { vol: live?.volume || 0 },
+                    structure: { setup: 'Monitoring' },
+                    options: {},
+                    macro: {},
+                    policy: {},
+                    stealth: {}
+                },
+                decisionSSOT: { action: 'MONITOR', confidencePct: 0, triggersKR: [] }
+            } as any as TickerItem;
+        });
+    }, [sortedItems, liveQuotes]);
     // Check if we are in a "Locked/Final" state to show the Tactical UI fully
     // We treat Final or Revised as tactical-ready.
     const isTacticalView = report?.type === 'final' || report?.type === 'revised' || sortedItems.length > 0;
@@ -1285,7 +1314,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                 <div className="max-w-[1920px] mx-auto px-8 py-8 space-y-8 relative z-10">
 
                     {/* Placeholder for Non-Final Tabs */}
-                    {activeTab !== 'FINAL' && activeTab !== 'DISCOVERY' && activeTab !== 'M7' && (
+                    {activeTab !== 'FINAL' && activeTab !== 'DISCOVERY' && activeTab !== 'M7' && activeTab !== 'PHYSICAL_AI' && (
                         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-in fade-in zoom-in duration-300">
                             <div className="w-20 h-20 bg-slate-900/50 rounded-full flex items-center justify-center mb-6 border border-slate-800 shadow-2xl">
                                 <Shield className="w-10 h-10 text-slate-600" />
