@@ -30,24 +30,11 @@ export class ForensicService {
             // 1. Fetch Tick Data (Today/Target)
             const params: any = { limit: '1000', sort: 'desc' };
 
-            // [V3.7.3] Smart Date Resolution: Handle Weekends/Holidays
-            let effectiveDate = targetDate;
-            if (!effectiveDate) {
-                const now = new Date();
-                const day = now.getDay(); // 0=Sun, 6=Sat
+            // [V3.7.3] Smart Date Resolution: rely on passed targetDate (SSOT)
+            // If targetDate is provided by Scheduler (which knows holidays), use it.
+            // If not, API defaults to today (which is fine for live checks).
 
-                // If Weekend, rollback to Friday
-                if (day === 0) { // Sunday -> Friday
-                    now.setDate(now.getDate() - 2);
-                    effectiveDate = now.toISOString().split('T')[0];
-                } else if (day === 6) { // Saturday -> Friday
-                    now.setDate(now.getDate() - 1);
-                    effectiveDate = now.toISOString().split('T')[0];
-                }
-                // Note: Standard 'today' is fine for Mon-Fri, API handles holidays usually or returns empty (which we catch now)
-            }
-
-            if (effectiveDate) params.date = effectiveDate;
+            if (targetDate) params.date = targetDate;
 
             let trades: any[] = [];
             let attempts = 0;

@@ -622,7 +622,7 @@ async function generateReportFromItems(
         await Promise.all(targetCandidates.map((item) => limit(async () => {
             // [V3.7.3] PRECISION PROTOCOL: Guaranteed Data (No more $-)
             const currentPrice = item.evidence?.price?.last || item.price || 0;
-            const forensicResult = await ForensicService.analyzeTarget(item.ticker, undefined, currentPrice);
+            const forensicResult = await ForensicService.analyzeTarget(item.ticker, marketDate, currentPrice);
 
             // Inject into SSOT
             if (!item.decisionSSOT) item.decisionSSOT = {};
