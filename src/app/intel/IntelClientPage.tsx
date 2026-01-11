@@ -1270,7 +1270,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                 <div className="max-w-[1920px] mx-auto px-8 py-8 space-y-8 relative z-10">
 
                     {/* Placeholder for Non-Final Tabs */}
-                    {activeTab !== 'FINAL' && activeTab !== 'DISCOVERY' && (
+                    {activeTab !== 'FINAL' && activeTab !== 'DISCOVERY' && activeTab !== 'M7' && (
                         <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-in fade-in zoom-in duration-300">
                             <div className="w-20 h-20 bg-slate-900/50 rounded-full flex items-center justify-center mb-6 border border-slate-800 shadow-2xl">
                                 <Shield className="w-10 h-10 text-slate-600" />
