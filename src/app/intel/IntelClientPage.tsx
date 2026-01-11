@@ -14,6 +14,9 @@ import { TacticalCard } from "@/components/TacticalCard";
 import { TacticalSidebar } from "@/components/TacticalSidebar"; // [NEW]
 import { PremiumBlur } from "@/components/PremiumBlur";
 import { TacticalBoard } from "@/components/intel/TacticalBoard"; // [NEW]
+import { M7OrbitalMap } from "@/components/intel/M7OrbitalMap";
+import { M7BriefingBar } from "@/components/intel/M7BriefingBar";
+import { M7TacticalDeck } from "@/components/intel/M7TacticalDeck";
 
 
 // ============================================================================
@@ -1341,78 +1344,39 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                     </div>
 
 
-                    {/* M7 REPORT CONTENT */}
-                    <div className={activeTab === 'M7' ? "space-y-8" : "hidden"}>
-                        <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 pt-4">
-                            <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
-                                        <Activity className="w-3 h-3 text-indigo-500" />
-                                        DAILY OPERATIONS
-                                    </span>
-                                </div>
-                                <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                                    <span className="text-indigo-500">M7 DAILY REPORT</span>
-                                    <span className="text-2xl">⚡</span>
-                                </h1>
-                                <p className="text-slate-400 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
-                                    Magnificent 7 (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA) Daily Setup Analysis.
-                                </p>
-                            </div>
+                    {/* M7 REPORT CONTENT (ORBITAL COMMAND) */}
+                    <div className={activeTab === 'M7' ? "space-y-6" : "hidden"}>
+
+                        {/* Zone A: Orbital Map */}
+                        <section>
+                            <M7OrbitalMap items={m7Items} />
                         </section>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                            {isLoading ? (
-                                [1, 2, 3].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
-                            ) : (
-                                m7Items.length > 0 ? (
-                                    m7Items.map((item, idx) => (
-                                        <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
-                                            <TacticalCard
-                                                ticker={item.ticker}
-                                                rank={idx + 1}
-                                                price={item.evidence.price.last}
-                                                change={
-                                                    (item.evidence.price.last && item.evidence.price.changePct
-                                                        ? item.evidence.price.last - (item.evidence.price.last / (1 + (item.evidence.price.changePct / 100)))
-                                                        : 0)
-                                                }
-                                                entryBand={
-                                                    item.entryBand
-                                                        ? { min: item.entryBand.low, max: item.entryBand.high }
-                                                        : (item.decisionSSOT?.entryBand || undefined)
-                                                }
-                                                cutPrice={item.decisionSSOT?.cutPrice}
-                                                isLocked={item.decisionSSOT?.isLocked}
-                                                name={item.symbol}
-                                                rsi={item.evidence.price.rsi14}
-                                                score={item.alphaScore}
-                                                isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
-                                                reasonKR={item.decisionSSOT?.whaleReasonKR || item.qualityReasonKR}
-                                                extendedPrice={item.evidence.price.extendedPrice}
-                                                extendedChange={item.evidence.price.extendedChangePct}
-                                                extendedLabel={item.evidence.price.extendedLabel}
-                                                whaleTargetLevel={item.decisionSSOT?.whaleTargetLevel}
-                                                whaleConfidence={item.decisionSSOT?.whaleConfidence}
-                                                dominantContract={item.decisionSSOT?.dominantContract}
-                                                triggers={item.decisionSSOT?.triggersKR}
-                                                isClosed={report?.marketState?.session === 'CLOSED' || report?.marketState?.session === 'PRE'}
-                                            />
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="col-span-full py-20 text-center text-slate-500 bg-slate-900/50 rounded-xl border border-dashed border-slate-800">
-                                        <div className="flex flex-col items-center gap-4">
-                                            <Shield className="w-12 h-12 text-slate-700" />
-                                            <div>
-                                                <p className="font-bold text-slate-400">No M7 Activity Detected in Top Ranks</p>
-                                                <p className="text-xs text-slate-600 mt-1">M7 stocks are not currently in the High-Probability list.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )
-                            )}
-                        </div>
+                        {/* Zone B: Briefing Bar */}
+                        <section>
+                            <M7BriefingBar
+                                message={
+                                    // Simple logic for briefing: Top 1 vs Top 2 comparison
+                                    m7Items.length > 1
+                                        ? `Today's capital flow is concentrating on ${m7Items.sort((a, b) => (b.alphaScore || 0) - (a.alphaScore || 0))[0].ticker}, while ${m7Items.sort((a, b) => (b.alphaScore || 0) - (a.alphaScore || 0))[1].ticker} shows defensive posturing.`
+                                        : "M7 Sector Analysis: Waiting for Market Data..."
+                                }
+                            />
+                        </section>
+
+                        {/* Zone C: Tactical Deck */}
+                        <section>
+                            <h2 className="text-sm font-bold text-slate-400 mb-4 px-2 flex items-center gap-2">
+                                <Layers className="w-4 h-4 text-emerald-500" />
+                                TACTICAL DECK <span className="text-[10px] text-slate-600 uppercase tracking-wider">Sorted by Alpha Priority</span>
+                            </h2>
+                            <M7TacticalDeck
+                                items={m7Items}
+                                selectedTicker={selectedTicker}
+                                onSelect={setSelectedTicker}
+                            />
+                        </section>
+
                     </div>
 
                     {/* FINAL BATTLE CONTENT */}
