@@ -110,11 +110,11 @@ export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps
                 />
 
                 <SidebarItem
-                    icon={<ShieldAlert />}
-                    label="SENTIMENT GATE"
-                    subLabel="NEWS PSYCHOLOGY"
-                    isActive={activeTab === 'SENTIMENT'}
-                    onClick={() => onTabChange('SENTIMENT')}
+                    icon={<Activity />}
+                    label="M7 REPORT"
+                    subLabel="DAILY ANALYSIS"
+                    isActive={activeTab === 'M7'}
+                    onClick={() => onTabChange('M7')}
                     accentColor="text-indigo-400"
                 />
 

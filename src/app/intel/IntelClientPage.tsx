@@ -62,6 +62,9 @@ const STRUCTURE_MAP: Record<string, string> = {
     'DeepPullback': '과도한 하락 (저가 매수)'
 };
 
+// [V4.7] M7 Watchlist
+const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
+
 // ============================================================================
 // TYPES (vNext Unified Evidence Model)
 // ============================================================================
@@ -1171,6 +1174,9 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     const middle7 = sortedItems.slice(3, 10);
     const moonshot = sortedItems.slice(10, 12); // Ranks 11, 12
 
+    // [V4.7] M7 Filter (Extract M7 from available report items)
+    const m7Items = sortedItems.filter(i => M7_TICKERS.includes(i.ticker));
+
     // Check if we are in a "Locked/Final" state to show the Tactical UI fully
     // We treat Final or Revised as tactical-ready.
     const isTacticalView = report?.type === 'final' || report?.type === 'revised' || sortedItems.length > 0;
@@ -1328,6 +1334,81 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                 ) : (
                                     <div className="col-span-full py-20 text-center text-slate-500">
                                         <p>No high-probability Hunter targets detected today.</p>
+                                    </div>
+                                )
+                            )}
+                        </div>
+                    </div>
+
+
+                    {/* M7 REPORT CONTENT */}
+                    <div className={activeTab === 'M7' ? "space-y-8" : "hidden"}>
+                        <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 pt-4">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
+                                        <Activity className="w-3 h-3 text-indigo-500" />
+                                        DAILY OPERATIONS
+                                    </span>
+                                </div>
+                                <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                                    <span className="text-indigo-500">M7 DAILY REPORT</span>
+                                    <span className="text-2xl">⚡</span>
+                                </h1>
+                                <p className="text-slate-400 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
+                                    Magnificent 7 (AAPL, MSFT, GOOGL, AMZN, NVDA, META, TSLA) Daily Setup Analysis.
+                                </p>
+                            </div>
+                        </section>
+
+                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                            {isLoading ? (
+                                [1, 2, 3].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
+                            ) : (
+                                m7Items.length > 0 ? (
+                                    m7Items.map((item, idx) => (
+                                        <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
+                                            <TacticalCard
+                                                ticker={item.ticker}
+                                                rank={idx + 1}
+                                                price={item.evidence.price.last}
+                                                change={
+                                                    (item.evidence.price.last && item.evidence.price.changePct
+                                                        ? item.evidence.price.last - (item.evidence.price.last / (1 + (item.evidence.price.changePct / 100)))
+                                                        : 0)
+                                                }
+                                                entryBand={
+                                                    item.entryBand
+                                                        ? { min: item.entryBand.low, max: item.entryBand.high }
+                                                        : (item.decisionSSOT?.entryBand || undefined)
+                                                }
+                                                cutPrice={item.decisionSSOT?.cutPrice}
+                                                isLocked={item.decisionSSOT?.isLocked}
+                                                name={item.symbol}
+                                                rsi={item.evidence.price.rsi14}
+                                                score={item.alphaScore}
+                                                isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
+                                                reasonKR={item.decisionSSOT?.whaleReasonKR || item.qualityReasonKR}
+                                                extendedPrice={item.evidence.price.extendedPrice}
+                                                extendedChange={item.evidence.price.extendedChangePct}
+                                                extendedLabel={item.evidence.price.extendedLabel}
+                                                whaleTargetLevel={item.decisionSSOT?.whaleTargetLevel}
+                                                whaleConfidence={item.decisionSSOT?.whaleConfidence}
+                                                dominantContract={item.decisionSSOT?.dominantContract}
+                                                triggers={item.decisionSSOT?.triggersKR}
+                                                isClosed={report?.marketState?.session === 'CLOSED' || report?.marketState?.session === 'PRE'}
+                                            />
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="col-span-full py-20 text-center text-slate-500 bg-slate-900/50 rounded-xl border border-dashed border-slate-800">
+                                        <div className="flex flex-col items-center gap-4">
+                                            <Shield className="w-12 h-12 text-slate-700" />
+                                            <div>
+                                                <p className="font-bold text-slate-400">No M7 Activity Detected in Top Ranks</p>
+                                                <p className="text-xs text-slate-600 mt-1">M7 stocks are not currently in the High-Probability list.</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 )
                             )}
