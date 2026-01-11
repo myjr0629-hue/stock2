@@ -1,7 +1,7 @@
 
 // M7 Orbital Map - The Alpha Constellation
 'use client';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TickerItem } from '@/app/intel/IntelClientPage';
 
@@ -11,6 +11,13 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
     const sun = sorted[0]; // The Sun (Highest Alpha)
     const planets = sorted.slice(1);
 
+    // [Fix] Hydration Mismatch: Ensure client-side only rendering for calculated positions
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    if (!isMounted) return <div className="w-full h-[500px] bg-[#050914] rounded-2xl animate-pulse" />; // Skeleton
     if (!sun) return null;
 
     return (
