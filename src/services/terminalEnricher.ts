@@ -162,57 +162,71 @@ async function enrichSingleTickerWithRetry(
 
     // ... inside enrichSingleTickerWithRetry ...
 
+    // [V4.1 UNIVERSAL ENGINE] Isolated error handling - NEVER fail completely
+    // Engine must work flawlessly at any time - weekday or weekend
+
+    let hubData: any = null;
+    let optionsData: any = null;
+    let forensicData: any = null;
+
+    // Step 1: Get price data (critical)
     try {
-        // [Phase 24.1] SSOT Integration: Central Data Hub
-        // [V3.7.7] Pass targetDate
-        const hubData = await CentralDataHub.getUnifiedData(ticker, force, targetDate);
-
-        // Fetch Options Analytics (Deep Structure) using SSOT Price
-        const optionsData = await fetchOptionsChain(ticker, hubData.price, force, targetDate);
-
-        // [V3.7.8] Automated Forensic Analysis (Whale Index)
-        // [V3.7.8] Automated Forensic Analysis (Whale Index)
-        // Ensure strictly defined date string is passed to ForensicService
-        const effectiveDate = targetDate || new Date().toISOString().split('T')[0];
-        const forensicData = await ForensicService.analyzeTarget(ticker, effectiveDate); // AUTOMATION
-        const whaleIndex = forensicData.whaleIndex || 0;
-        const whaleConfidence = forensicData.whaleConfidence || 'NONE';
-
-        // ... continue ...
-        // Build Evidence Layers
-        const price = buildPriceEvidence(hubData);
-        const flow = buildFlowEvidence(hubData, forensicData); // [V4.0] Pass forensic data for offExPct
-        const options = buildOptionsEvidence(optionsData);
-        const stealth = calculateStealthLabel(price, flow, options);
-        const policy = calculatePolicyEvidence(ticker, events, policies);
-
-        const evidence: UnifiedEvidence = {
-            price,
-            flow,
-            options,
-            macro,
-            policy,
-            stealth,
-            complete: false,
-            fetchedAtET: targetDate ? `${targetDate}T16:00:00.000Z` : new Date().toISOString()
-        };
-        // ...
-        if (evidence.complete) {
-            // ...
-        }
-
-        return {
-            ticker,
-            evidence,
-            alphaScore: null,
-            qualityTier: evidence.complete ? 'PENDING' : 'INCOMPLETE',
-            complete: evidence.complete || false
-        };
-
+        hubData = await CentralDataHub.getUnifiedData(ticker, force, targetDate);
     } catch (e) {
-        console.error(`[TerminalEnricher v2] Error enriching ${ticker}:`, e);
+        console.error(`[V4.1] ${ticker}: Price fetch failed:`, e);
         return createIncompleteItem(ticker, macro);
     }
+
+    // Step 2: Get options data (isolated - never crash on error)
+    try {
+        optionsData = await fetchOptionsChain(ticker, hubData.price, force, targetDate);
+        console.log(`[V4.1] ${ticker}: Options fetch ${optionsData ? 'OK' : 'NULL'}`);
+    } catch (e) {
+        console.warn(`[V4.1] ${ticker}: Options fetch error (isolated):`, e);
+        optionsData = null; // Continue with null - don't fail
+    }
+
+    // Step 3: Get forensic data (isolated - never crash on error)
+    try {
+        const effectiveDate = targetDate || new Date().toISOString().split('T')[0];
+        forensicData = await ForensicService.analyzeTarget(ticker, effectiveDate);
+    } catch (e) {
+        console.warn(`[V4.1] ${ticker}: Forensic fetch error (isolated):`, e);
+        forensicData = { whaleIndex: 0, whaleConfidence: 'NONE' };
+    }
+
+    const whaleIndex = forensicData?.whaleIndex || 0;
+    const whaleConfidence = forensicData?.whaleConfidence || 'NONE';
+
+    // Build Evidence Layers - with null safety
+    const price = buildPriceEvidence(hubData);
+    const flow = buildFlowEvidence(hubData, forensicData); // [V4.0] Pass forensic data for offExPct
+    const options = buildOptionsEvidence(optionsData);
+    const stealth = calculateStealthLabel(price, flow, options);
+    const policy = calculatePolicyEvidence(ticker, events, policies);
+
+    const evidence: UnifiedEvidence = {
+        price,
+        flow,
+        options,
+        macro,
+        policy,
+        stealth,
+        complete: false,
+        fetchedAtET: targetDate ? `${targetDate}T16:00:00.000Z` : new Date().toISOString()
+    };
+    // ...
+    if (evidence.complete) {
+        // ...
+    }
+
+    return {
+        ticker,
+        evidence,
+        alphaScore: null,
+        qualityTier: evidence.complete ? 'PENDING' : 'INCOMPLETE',
+        complete: evidence.complete || false
+    };
 }
 
 // ...

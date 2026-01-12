@@ -203,11 +203,26 @@ async function getTechnicalRSI(symbol: string, budget?: RunBudget): Promise<numb
 }
 
 // --- ENGINE 3: OPTIONS, MAX PAIN & GEX (OI Integrity + Retry) ---
+import { isWeekend, loadOptionsFromCache, saveOptionsToCache, getCacheStrategy } from './weekendOptionsCache';
+
 async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budget?: RunBudget, useCache: boolean = true, targetDate?: string) {
 
   let allResults: any[] = [];
   let targetExpiry: string = "-";
   let spot = presetSpot || 0;
+
+  // [V5.0] WEEKEND CACHE-FIRST STRATEGY
+  // On weekends, skip API entirely and use Friday's cached data
+  const strategy = getCacheStrategy();
+  if (strategy === 'CACHE') {
+    console.log(`[V5.0] ${symbol}: Weekend detected - using CACHE strategy`);
+    const cachedData = loadOptionsFromCache(symbol);
+    if (cachedData) {
+      console.log(`[V5.0] ${symbol}: Loaded ${cachedData.contracts?.length || 0} contracts from Friday cache`);
+      return cachedData;
+    }
+    console.warn(`[V5.0] ${symbol}: No cache available for weekend - falling back to API`);
+  }
 
   try {
     // 1) Spot Price
@@ -218,15 +233,43 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
     }
 
     // 2) Initial Fetch: Get ALL active options (no date filter)
+    // [V4.0] Find the NEXT valid expiration (first non-expired contract)
+    // Use America/New_York timezone for correct market date comparison
+    const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+
+    // [V4.2 Critical Fix] Handle Weekend Logic
+    // If today is Sunday(0) or Saturday(6), we MUST treat "today" as Friday for filtering purposes.
+    // Otherwise, Friday expiring contracts are filtered out as "past", returning 0 results.
+    const day = nowET.getDay(); // 0=Sun, 6=Sat
+    console.log(`[V4.2 DEBUG] ${symbol}: Raw nowET = ${nowET.toISOString()}, day = ${day} (0=Sun,6=Sat)`);
+
+    if (day === 0) { // Sunday -> Go back to Friday (-2 days)
+      nowET.setDate(nowET.getDate() - 2);
+      console.log(`[V4.2 DEBUG] ${symbol}: Adjusted for Sunday -> Friday: ${nowET.toISOString()}`);
+    } else if (day === 6) { // Saturday -> Go back to Friday (-1 day)
+      nowET.setDate(nowET.getDate() - 1);
+      console.log(`[V4.2 DEBUG] ${symbol}: Adjusted for Saturday -> Friday: ${nowET.toISOString()}`);
+    }
+
+    nowET.setHours(0, 0, 0, 0);
+    const todayStr = nowET.toISOString().split('T')[0];
+    console.log(`[V4.2 DEBUG] ${symbol}: Final todayStr = ${todayStr}`);
+
+    // [V4.2] Add Upper Bound (lte) to match Probe Logic
+    // Without this, API might return too many far-future contracts or time out.
+    const maxDate = new Date(nowET);
+    maxDate.setDate(maxDate.getDate() + 35); // 35 days window
+    const maxDateStr = maxDate.toISOString().split('T')[0];
+
     // [V4.0 FIX] Let API return ALL active contracts, filter in-code
     // This ensures we get Jan 16+ expirations even when Jan 9 has expired
-    console.log(`[V4.0] ${symbol}: Fetching ALL active options (no date restriction)`);
+    console.log(`[V4.0] ${symbol}: Fetching active options ${todayStr} ~ ${maxDateStr} (ET)`);
 
     const initialSnap = await fetchMassive(`/v3/snapshot/options/${symbol}`, {
       limit: '250',
-      // NO expiration_date filter - get ALL active contracts
-      sort: 'open_interest', // Get highest OI first to prioritize major contracts
-      order: 'desc'
+      'expiration_date.gte': todayStr,
+      'expiration_date.lte': maxDateStr // [V4.2 FIX] Added upper bound
+      // [V5.0 FIX] Removed sort/order - Polygon v3 snapshot doesn't support these params
     }, useCache, budget);
 
     if (!initialSnap?.results?.length) {
@@ -234,11 +277,7 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
       return { contracts: [], expiry: "NO_DATA", spot: spot || 0 };
     }
 
-    // [V4.0] Find the NEXT valid expiration (first non-expired contract)
-    // Use America/New_York timezone for correct market date comparison
-    const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-    nowET.setHours(0, 0, 0, 0);
-    const todayStr = nowET.toISOString().split('T')[0];
+    // [V4.0] Filter to only future expirations (using todayStr from above)
 
     console.log(`[V4.0] ${symbol}: Filtering for expirations >= ${todayStr} (ET)`);
 
@@ -294,7 +333,14 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
       });
 
     console.log(`[Massive] ${symbol} Valid Contracts (14d): ${contracts.length}`);
-    return { contracts, expiry: `Aggregated (<14d)`, spot: spot || 0 };
+
+    // [V5.0] Save to cache for weekend use (only on weekdays with valid data)
+    const result = { contracts, expiry: `Aggregated (<14d)`, spot: spot || 0 };
+    if (contracts.length > 0 && !isWeekend()) {
+      saveOptionsToCache(symbol, result);
+    }
+
+    return result;
   } catch (e) {
     console.error(`[Massive Pagination Protocol Error] ${symbol}:`, (e as any).details || e);
     // [Critical Fix] Graceful Degradation: Return what we have (Page 1 is better than nothing)

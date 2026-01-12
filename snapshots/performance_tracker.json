@@ -545,25 +545,25 @@
   {
     "date": "2026-01-11",
     "reportType": "eod",
-    "sessionType": "regular",
-    "timestamp": "2026-01-12T06:52:14.311Z",
+    "sessionType": "pre",
+    "timestamp": "2026-01-12T13:23:42.522Z",
     "tickers": [
       {
-        "symbol": "INTC",
+        "symbol": "ORCL",
         "rank": 1,
+        "baselinePrice": 198.52,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "INTC",
+        "rank": 2,
         "baselinePrice": 45.55,
         "alphaScore": 0
       },
       {
-        "symbol": "LOW",
-        "rank": 2,
-        "baselinePrice": 267.21,
-        "alphaScore": 0
-      },
-      {
-        "symbol": "LMT",
+        "symbol": "UNH",
         "rank": 3,
-        "baselinePrice": 542.92,
+        "baselinePrice": 343.98,
         "alphaScore": 0
       }
     ],

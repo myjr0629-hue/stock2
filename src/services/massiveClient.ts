@@ -4,7 +4,7 @@ import { StockData } from "./stockTypes";
 // --- CONFIGURATION ---
 // [S-56.4.5b] Use environment variable with fallback to hardcoded key for backwards compatibility
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
-const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.massive.com";
+const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
 
 export const CACHE_POLICY = {
     // Critical for decision making (Report Generation, Live Status) - NO STALE DATA
@@ -237,8 +237,17 @@ export async function fetchMassive(
 
                     if (res.ok) {
                         const data = await res.json();
-                        // Only cache in-memory if useCache is explicitly true (for short-term dupes during 1 run)
-                        if (useCache) massiveCache.set(cacheKey, { data, expiry: Date.now() + 60000 }); // 60s
+                        // [V4.2] CRITICAL: Only cache if data is valid
+                        // For options endpoints, empty results should NOT be cached
+                        // This prevents stale empty data from blocking fresh API calls
+                        const isOptionsEndpoint = endpoint.includes('/options/');
+                        const hasValidOptionsData = !isOptionsEndpoint || (data?.results?.length > 0);
+
+                        if (useCache && hasValidOptionsData) {
+                            massiveCache.set(cacheKey, { data, expiry: Date.now() + 60000 }); // 60s
+                        } else if (isOptionsEndpoint) {
+                            console.warn(`[Massive] NOT caching empty options data for ${endpoint}`);
+                        }
                         return data;
                     }
 
