@@ -58,40 +58,49 @@ const MULTIPLIERS = {
     DXY: 3.6315 // Calibrated UUP(27.05) -> DXY(98.23)
 };
 
-async function fetchIndexSnapshot(ticker: string, label: string, multiplier: number = 1): Promise<MacroFactor> {
-    const encodedTicker = encodeURIComponent(ticker);
-
-    // 1. Try Snapshot (Massive)
-    const endpoint = ticker.startsWith("I:")
-        ? `/v2/snapshot/locale/global/markets/indices/tickers/${encodedTicker}`
-        : `/v2/snapshot/locale/us/markets/stocks/tickers/${encodedTicker}`;
-
+async function fetchIndexSnapshot(ticker: string, label: string, multiplier: number = 1, marketStatus?: MarketStatusResult): Promise<MacroFactor> {
+    // [V3 Upgrade] Use Polygon V3 Snapshot for real-time accuracy (Pre/Post market support)
+    // V3 response: { results: [ { ticker, last_trade, min, day, updated } ] }
     try {
-        const res = await fetchMassive(endpoint, {}, true, undefined, CACHE_POLICY.LIVE);
-        const t = res?.ticker;
+        const res = await fetchMassive(`/v3/snapshot?ticker.any_of=${ticker}`, {}, true, undefined, CACHE_POLICY.LIVE);
+        const result = res?.results?.[0]; // Get first match
 
-        if (t && (t.lastTrade?.p || t.min?.c || t.day?.c)) {
-            const rawLevel = t.lastTrade?.p || t.min?.c || t.day?.c;
-            const rawChgAbs = t.todaysChange || 0;
-            // pct is independent of multiplier
+        if (result) {
+            // Priority: Last Trade (Live) > Min (Bar) > Day (Close)
+            // V3 'last_trade' updates during Extended Hours if trade occurs
+            // [Fix V3 Parsing] Use 'session' object if available (Standard V3 Snapshot)
+            const session = result.session;
 
-            return {
-                level: rawLevel * multiplier,
-                chgPct: t.todaysChangePerc || 0,
-                chgAbs: rawChgAbs * multiplier,
-                label: label,
-                source: "MASSIVE",
-                status: "OK",
-                symbolUsed: ticker
-            };
+            let rawLevel =
+                session?.price ||
+                session?.close ||
+                result.last_trade?.p ||
+                result.min?.c ||
+                result.day?.c ||
+                result.prev_day?.c;
+
+            const rawChgAbs = session?.change || result.todaysChange || (result.day?.c - result.prev_day?.c) || 0;
+            const rawChgPct = session?.change_percent || result.todaysChangePerc || (result.day?.change_percent) || 0;
+
+            if (rawLevel) {
+                return {
+                    level: rawLevel * multiplier,
+                    chgPct: rawChgPct,
+                    chgAbs: rawChgAbs * multiplier,
+                    label: label,
+                    source: "MASSIVE",
+                    status: "OK",
+                    symbolUsed: ticker
+                };
+            }
         }
     } catch (e) {
-        // Snapshot failed
+        // V3 failed, fall back?
     }
 
-    // 2. Fallback: Aggs (Previous Close)
+    // 2. Fallback: Aggs (Previous Close) - Kept for safety
     try {
-        const prevRes = await fetchMassive(`/v2/aggs/ticker/${encodedTicker}/prev`, {}, true);
+        const prevRes = await fetchMassive(`/v2/aggs/ticker/${ticker}/prev`, {}, true);
         if (prevRes?.results?.[0]) {
             const r = prevRes.results[0];
             return {
@@ -173,13 +182,13 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
 
     // Parallel Fetch with Multipliers
     const [qqq, vixy, us10y] = await Promise.all([
-        fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX),
-        fetchIndexSnapshot(SYMBOLS.VIX_PROXY, "VIX", MULTIPLIERS.VIX),
+        fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX, marketStatus),
+        fetchIndexSnapshot(SYMBOLS.VIX_PROXY, "VIX", MULTIPLIERS.VIX, marketStatus),
         fetchFedYield()
     ]);
 
     // DXY Proxy: UUP (Bullish Dollar ETF) -> Calibrated to ~98.23 (x3.6315)
-    const dxy = await fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY);
+    const dxy = await fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY, marketStatus);
 
     // Regime Logic: QQQ Price > SMA20
     // We need to fetch SMA20 for QQQ

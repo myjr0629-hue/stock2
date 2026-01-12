@@ -40,7 +40,10 @@ export function MacroTickerTape() {
                 {/* Nasdaq 100 (Futures) */}
                 <div className="flex items-center gap-3">
                     <div className="flex flex-col items-end">
-                        <span className="text-[10px] text-slate-400 font-bold tracking-wider">NASDAQ 100 (SYN)</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-400 font-bold tracking-wider">NASDAQ 100</span>
+                            <span className="text-[8px] text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">ETF PROXY</span>
+                        </div>
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-black text-white font-mono">
                                 {nasdaq100.level?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "---"}
@@ -71,9 +74,12 @@ export function MacroTickerTape() {
                 {/* VIX (Dynamic Label) */}
                 <div className="flex items-center gap-3">
                     <div className="flex flex-col items-end">
-                        <span className={`text-[10px] font-bold tracking-wider ${vixLevel >= 20 ? "text-rose-400" : "text-emerald-400"}`}>
-                            VIX ({vixLabel})
-                        </span>
+                        <div className="flex items-center gap-1">
+                            <span className={`text-[10px] font-bold tracking-wider ${vixLevel >= 20 ? "text-rose-400" : "text-emerald-400"}`}>
+                                VIX ({vixLabel})
+                            </span>
+                            <span className="text-[8px] text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">ETF PROXY</span>
+                        </div>
                         <div className="flex items-center gap-2">
                             <span className={`text-sm font-black font-mono ${vixColor}`}>
                                 {vix.level?.toFixed(2) ?? "---"}
@@ -89,7 +95,10 @@ export function MacroTickerTape() {
                 {/* DXY (Dollar) */}
                 <div className="flex items-center gap-3">
                     <div className="flex flex-col items-end">
-                        <span className="text-[10px] text-slate-400 font-bold tracking-wider">DOLLAR (DXY)</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[10px] text-slate-400 font-bold tracking-wider">DOLLAR (DXY)</span>
+                            <span className="text-[8px] text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">ETF PROXY</span>
+                        </div>
                         <div className="flex items-center gap-2">
                             <span className="text-sm font-black text-white font-mono">
                                 {dxy?.level?.toFixed(2) ?? "---"}

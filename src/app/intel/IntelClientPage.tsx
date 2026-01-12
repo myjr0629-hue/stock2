@@ -23,6 +23,8 @@ import { PhysicalAIOrbitalMap } from "@/components/intel/PhysicalAIOrbitalMap";
 import { PhysicalAIBriefingBar, PhysicalAITacticalDeck } from "@/components/intel/PhysicalAIComponents";
 
 
+
+
 // ============================================================================
 // [V4.6] Stealth Tag Translator (Korean)
 // ============================================================================
@@ -1340,8 +1342,10 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     // Regime for Header
     const regime = report?.engine?.regime || "NEUTRAL";
 
+
     return (
         <main className="min-h-screen bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-slate-950 via-[#0f172a] to-[#1e1b4b] font-sans selection:bg-cyan-500/30 selection:text-cyan-200 flex overflow-hidden">
+
 
             {/* Ambient Glow Effects (Global) */}
             <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/10 blur-[150px] rounded-full pointer-events-none mix-blend-screen z-0" />

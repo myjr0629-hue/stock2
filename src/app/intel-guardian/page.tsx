@@ -4,6 +4,8 @@
 import React, { useEffect, useState } from "react";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio } from "lucide-react";
+import { TradingViewTicker } from "@/components/TradingViewTicker";
+
 import SmartMoneyMap from "@/components/guardian/SmartMoneyMap";
 import GravityGauge from "@/components/guardian/GravityGauge";
 import { TypewriterText } from "@/components/guardian/TypewriterText";
@@ -139,6 +141,16 @@ export default function GuardianPage() {
     return (
         <div className="min-h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-emerald-500/30">
             <LandingHeader />
+
+            {/* MACRO TICKER (Engine Data) */}
+            {/* VISUAL TRACK: TRADINGVIEW WIDGET (User Request) */}
+            <div className="fixed top-[64px] left-0 right-0 z-40 shadow-lg shadow-black/20">
+                <TradingViewTicker key="v4-debug-force" />
+            </div>
+            {/* Spacer to prevent content overlap */}
+            <div className="h-[28px]"></div>
+
+
 
             {/* ORACLE HEADER (Sticky below Nav) */}
             <div>

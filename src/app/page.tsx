@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
-import { MacroTickerTape } from "@/components/MacroTickerTape";
+import { TradingViewTicker } from "@/components/TradingViewTicker";
 
 // --- Ticker Drawer (Detailed View) ---
 function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boolean, onClose: () => void }) {
@@ -247,8 +247,8 @@ export default function Page() {
       <LandingHeader />
 
       {/* 0) MACRO TICKER TAPE (Moved below header as requested) */}
-      <div className="fixed top-[60px] left-0 right-0 z-40 shadow-lg shadow-black/20">
-        <MacroTickerTape />
+      <div className="fixed top-[64px] left-0 right-0 z-40 shadow-lg shadow-black/20">
+        <TradingViewTicker key="v7-subtle" />
       </div>
 
       {/* 1) HERO SECTION */}
