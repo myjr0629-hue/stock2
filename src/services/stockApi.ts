@@ -217,44 +217,51 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
       spot = t?.lastTrade?.p || t?.min?.c || t?.day?.c || t?.prevDay?.c || 0;
     }
 
-    // 2) Initial Fetch: Get ALL contracts within 14 days (Near-Term Focus)
-    // [V4.0 FIX] On weekends, use last trading day (Friday) as reference date
-    let referenceDate = targetDate ? new Date(targetDate) : new Date();
-
-    // Weekend adjustment: go back to Friday if Saturday or Sunday
-    const dayOfWeek = referenceDate.getDay();
-    if (dayOfWeek === 0) { // Sunday
-      referenceDate.setDate(referenceDate.getDate() - 2);
-    } else if (dayOfWeek === 6) { // Saturday
-      referenceDate.setDate(referenceDate.getDate() - 1);
-    }
-
-    const todayStr = referenceDate.toISOString().split('T')[0];
-    const d = new Date(referenceDate);
-    d.setDate(d.getDate() + 14);
-    const limitStr = d.toISOString().split('T')[0];
-
-    console.log(`[V4.0] ${symbol}: Options date range ${todayStr} ~ ${limitStr} (dayOfWeek: ${dayOfWeek})`);
+    // 2) Initial Fetch: Get ALL active options (no date filter)
+    // [V4.0 FIX] Let API return ALL active contracts, filter in-code
+    // This ensures we get Jan 16+ expirations even when Jan 9 has expired
+    console.log(`[V4.0] ${symbol}: Fetching ALL active options (no date restriction)`);
 
     const initialSnap = await fetchMassive(`/v3/snapshot/options/${symbol}`, {
       limit: '250',
-      'expiration_date.gte': todayStr,
-      'expiration_date.lte': limitStr, // [S-FOCUSED] 14-Day Limit
+      // NO expiration_date filter - get ALL active contracts
       sort: 'open_interest', // Get highest OI first to prioritize major contracts
       order: 'desc'
     }, useCache, budget);
 
     if (!initialSnap?.results?.length) {
-      console.warn(`[Massive] No options snapshot found for ${symbol} (14d window)`);
-      return { contracts: [], expiry: "14D_AGG", spot: spot || 0 };
+      console.warn(`[Massive] No options snapshot found for ${symbol}`);
+      return { contracts: [], expiry: "NO_DATA", spot: spot || 0 };
     }
 
-    // Capture "Dominant Expiry" for display (the one with most results or soonest)
-    const dominantExpiry = initialSnap.results[0].expiration_date || "-";
-    console.log(`[Massive] ${symbol} 14-Day Scan. Results: ${initialSnap.results.length} (Partial)`);
+    // [V4.0] Find the NEXT valid expiration (first non-expired contract)
+    // Use America/New_York timezone for correct market date comparison
+    const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    nowET.setHours(0, 0, 0, 0);
+    const todayStr = nowET.toISOString().split('T')[0];
+
+    console.log(`[V4.0] ${symbol}: Filtering for expirations >= ${todayStr} (ET)`);
+
+    // Filter to only future expirations
+    const futureContracts = initialSnap.results.filter((c: any) => {
+      const expDate = c.details?.expiration_date || c.expiration_date;
+      return expDate && expDate >= todayStr;
+    });
+
+    console.log(`[V4.0] ${symbol}: Found ${initialSnap.results.length} total, ${futureContracts.length} future contracts`);
+
+    if (futureContracts.length === 0) {
+      console.warn(`[Massive] No future options found for ${symbol} (checked >= ${todayStr})`);
+      return { contracts: [], expiry: "NO_FUTURE", spot: spot || 0 };
+    }
+
+    // Capture dominant expiry (next available)
+    const dominantExpiry = futureContracts[0].details?.expiration_date || futureContracts[0].expiration_date || "-";
+    console.log(`[Massive] ${symbol}: Next expiry = ${dominantExpiry}, Future contracts = ${futureContracts.length}`);
 
     // 3) Deep Scan via Pagination (bounded)
-    allResults = [...initialSnap.results];
+    // [V4.0 FIX] Use futureContracts instead of all results
+    allResults = [...futureContracts];
     let nextUrl = initialSnap.next_url;
     let pagesFetched = 1;
     const MAX_PAGES = 8; // Increased depth for broader window
