@@ -56,7 +56,10 @@ export function LandingHeader() {
                         { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", active: false },
                         { label: "WATCHLIST", href: "/favorites", path: "/favorites", active: false }
                     ].map((item) => {
-                        const isActive = item.path ? pathname?.startsWith(item.path) : false;
+                        // Use exact match for /intel to avoid matching /intel-guardian
+                        const isActive = item.path
+                            ? (item.path === "/intel" ? pathname === "/intel" : pathname?.startsWith(item.path))
+                            : false;
                         return (
                             <Link
                                 key={item.label}
