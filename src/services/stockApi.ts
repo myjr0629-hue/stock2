@@ -218,10 +218,23 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
     }
 
     // 2) Initial Fetch: Get ALL contracts within 14 days (Near-Term Focus)
-    const todayStr = targetDate || new Date().toISOString().split('T')[0];
-    const d = targetDate ? new Date(targetDate) : new Date();
+    // [V4.0 FIX] On weekends, use last trading day (Friday) as reference date
+    let referenceDate = targetDate ? new Date(targetDate) : new Date();
+
+    // Weekend adjustment: go back to Friday if Saturday or Sunday
+    const dayOfWeek = referenceDate.getDay();
+    if (dayOfWeek === 0) { // Sunday
+      referenceDate.setDate(referenceDate.getDate() - 2);
+    } else if (dayOfWeek === 6) { // Saturday
+      referenceDate.setDate(referenceDate.getDate() - 1);
+    }
+
+    const todayStr = referenceDate.toISOString().split('T')[0];
+    const d = new Date(referenceDate);
     d.setDate(d.getDate() + 14);
     const limitStr = d.toISOString().split('T')[0];
+
+    console.log(`[V4.0] ${symbol}: Options date range ${todayStr} ~ ${limitStr} (dayOfWeek: ${dayOfWeek})`);
 
     const initialSnap = await fetchMassive(`/v3/snapshot/options/${symbol}`, {
       limit: '250',
@@ -319,13 +332,21 @@ function calculateGemsGreeks(contracts: any[], spot: number, targetDate?: string
   }
 
   // OI integrity check
+  // [V4.0 FIX] On weekends, OI may be 0 (stale) but contracts are still valid
   const totalOI = contracts.reduce((acc: number, c: any) => acc + (Number(c.open_interest) || 0), 0);
-  const options_status = totalOI > 0 ? "OK" : "PENDING";
-  // ✅ A 금지(2소스 교차 없으므로). 여기서는 B/C만.
-  const options_grade = totalOI > 5000 ? "B" : "C";
 
-  // ✅ Pending => do NOT return fake numbers
-  if (options_status === "PENDING") {
+  // Weekend detection
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+
+  // Accept OI=0 on weekends (stale but valid), require OI > 0 on weekdays
+  const options_status = (totalOI > 0 || isWeekend) ? "OK" : "PENDING";
+  // ✅ A 금지(2소스 교차 없으므로). 여기서는 B/C만.
+  const options_grade = totalOI > 5000 ? "B" : (isWeekend ? "B" : "C");
+
+  // ✅ Pending => do NOT return fake numbers (only apply on weekdays)
+  if (options_status === "PENDING" && !isWeekend) {
     // If total OI is zero, it's effectively NO_OPTIONS for this expiry
     return {
       maxPain: null,
