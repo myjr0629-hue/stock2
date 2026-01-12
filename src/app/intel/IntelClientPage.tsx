@@ -875,17 +875,24 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                     {/* [Phase 40] Net Premium Calculation */}
                                     <div className="flex flex-col">
                                         <div className="flex items-end gap-1.5">
-                                            <span className={`text-sm font-mono font-bold ${(ev.flow.netPremium || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                ${((ev.flow.netPremium || 0) / 1_000_000).toFixed(1)}M
-                                            </span>
-                                            {/* Calculate Ratio vs Total Volume (Approx) or just show direction */}
-                                            {ev.flow.vol > 0 && (
+                                            {(ev.flow.netPremium || 0) !== 0 ? (
+                                                <span className={`text-sm font-mono font-bold ${(ev.flow.netPremium || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    ${((ev.flow.netPremium || 0) / 1_000_000).toFixed(1)}M
+                                                </span>
+                                            ) : (
+                                                <span className="text-sm font-mono text-slate-400">$0.0M</span>
+                                            )}
+                                            {ev.flow.vol > 0 && (ev.flow.netPremium || 0) !== 0 && (
                                                 <span className={`text-[10px] font-bold mb-0.5 ${(ev.flow.netPremium || 0) > 0 ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
                                                     ({((Math.abs(ev.flow.netPremium || 0) / (ev.flow.vol * ev.price.last)) * 100).toFixed(2)}%)
                                                 </span>
                                             )}
                                         </div>
-                                        <span className="text-[9px] text-slate-500 font-medium">실질적 매수 압력 강도</span>
+                                        {(ev.flow.netPremium || 0) === 0 ? (
+                                            <span className="text-[9px] text-slate-500 font-medium italic">장 마감 - 기관 매수/매도 없음</span>
+                                        ) : (
+                                            <span className="text-[9px] text-slate-500 font-medium">실질적 매수 압력 강도</span>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -919,13 +926,23 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                             <div className="bg-slate-900 border border-slate-800 rounded p-3 h-full flex flex-col justify-center">
                                 <div className="flex justify-between items-center mb-1">
                                     <span className="text-[10px] text-slate-500">NDX</span>
-                                    <span className={`text-[10px] font-bold ${ev.macro?.ndx?.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {ev.macro?.ndx?.changePct?.toFixed(2)}%
-                                    </span>
+                                    {ev.macro?.ndx?.changePct !== undefined ? (
+                                        <span className={`text-[10px] font-bold ${ev.macro?.ndx?.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {ev.macro?.ndx?.changePct?.toFixed(2)}%
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] text-slate-500 italic">장 마감</span>
+                                    )}
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-[10px] text-slate-500">VIX</span>
-                                    <span className="text-[10px] font-bold text-slate-300">{ev.macro?.vix?.level?.toFixed(2)}</span>
+                                    {(ev.macro?.vix?.value ?? ev.macro?.vix?.level) ? (
+                                        <span className="text-[10px] font-bold text-slate-300">
+                                            {(ev.macro?.vix?.value ?? ev.macro?.vix?.level)?.toFixed(2)}
+                                        </span>
+                                    ) : (
+                                        <span className="text-[10px] text-slate-500 italic">장 마감</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -1697,14 +1714,17 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                                             </td>
                                                             <td className="p-4 hidden md:table-cell">
                                                                 <div className="flex flex-wrap gap-1 justify-end md:justify-start">
-                                                                    {(item.decisionSSOT?.triggersKR || []).slice(0, 2).map((code, i) => {
-                                                                        // Simplified tag rendering for table
-                                                                        return (
-                                                                            <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/5 border border-white/10 text-slate-300">
-                                                                                {code}
-                                                                            </span>
-                                                                        );
-                                                                    })}
+                                                                    {(item.decisionSSOT?.triggersKR || []).length > 0 ? (
+                                                                        (item.decisionSSOT?.triggersKR || []).slice(0, 2).map((code, i) => {
+                                                                            return (
+                                                                                <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/5 border border-white/10 text-slate-300">
+                                                                                    {code}
+                                                                                </span>
+                                                                            );
+                                                                        })
+                                                                    ) : (
+                                                                        <span className="text-[9px] text-slate-500 italic">장 마감</span>
+                                                                    )}
                                                                 </div>
                                                             </td>
                                                             <td className="p-4 text-center">

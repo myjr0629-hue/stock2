@@ -103,7 +103,15 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                         {/* 2. Main Price (Live Pulse) */}
                         <div className="text-center relative">
                             <div className="absolute top-[-10px] left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-500 whitespace-nowrap tracking-wider">
-                                {isLive ? <span className="text-emerald-400 animate-pulse">● LIVE</span> : "CLOSE"}
+                                {isLive ? (
+                                    <span className="text-emerald-400 animate-pulse">● LIVE</span>
+                                ) : extendedLabel === 'PRE' ? (
+                                    <span className="text-amber-400">◉ PRE (프리마켓)</span>
+                                ) : extendedLabel === 'POST' ? (
+                                    <span className="text-sky-400">◉ POST (애프터)</span>
+                                ) : (
+                                    <span className="text-slate-400">○ CLOSE (마감)</span>
+                                )}
                             </div>
                             {/* [User: Smaller Price] */}
                             <div className={`text-5xl font-black tabular-nums tracking-tighter drop-shadow-2xl ${gain >= 0
@@ -206,12 +214,15 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
 
                     <div className="p-3.5 rounded-lg bg-black/20 border border-white/5 backdrop-blur-sm group-hover:bg-black/30 transition-colors shadow-inner">
                         <p className="text-sm font-medium text-slate-100 leading-relaxed text-pretty">
-                            {reasonKR || "분석 완료. 매수 시그널 대기 중."}
+                            {reasonKR?.includes('누락')
+                                ? <>{reasonKR} <span className="text-slate-500 text-xs">(주말: 금요일 마지막 데이터 참조)</span></>
+                                : (reasonKR || "분석 완료. 매수 시그널 대기 중.")
+                            }
                         </p>
                     </div>
 
                     {/* Tags / Triggers */}
-                    {triggers && triggers.length > 0 && (
+                    {triggers && triggers.length > 0 ? (
                         <div className="flex flex-wrap gap-1 mt-2">
                             {triggers.slice(0, 3).map((t, i) => (
                                 <span key={i} className="text-[9px] px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-slate-400 font-medium">
@@ -219,7 +230,11 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                                 </span>
                             ))}
                         </div>
-                    )}
+                    ) : isClosed ? (
+                        <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-500">
+                            <span className="opacity-50">○</span> 장 마감 - 실시간 트리거 없음
+                        </div>
+                    ) : null}
                 </div>
 
                 {/* FOOTER: ENTRIES & EXITS */}

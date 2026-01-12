@@ -106,6 +106,10 @@ export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore, whaleEn
                         {fill.toFixed(0)}
                     </div>
                 )}
+                {/* [V5.0] Korean explanation for 0 value */}
+                {fill === 0 && !whaleTargetLevel && (
+                    <span className="text-[9px] text-slate-500 mt-1 italic">장 마감 - 실시간 고래 신호 없음</span>
+                )}
             </div>
 
             {/* Ready to Fire Overlay (If no target, or as backup) */}
