@@ -18,6 +18,7 @@ import { OracleHeader } from "@/components/guardian/OracleHeader";
 interface RLSIResult {
     score: number;
     level: 'DANGER' | 'NEUTRAL' | 'OPTIMAL';
+    session?: 'PRE' | 'REG' | 'POST' | 'CLOSED'; // [V5.0] Session indicator
     components: {
         sentimentScore: number;
         momentumScore: number;
@@ -195,7 +196,7 @@ export default function GuardianPage() {
                         <div className="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-slate-600"></div>
                         <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-slate-600"></div>
 
-                        <GravityGauge score={data?.rlsi.score || 0} loading={loading} />
+                        <GravityGauge score={data?.rlsi.score || 0} loading={loading} session={data?.rlsi.session} />
 
                         {/* Scanline Overlay */}
                         <div className="absolute inset-0 bg-[url('/scanline.png')] opacity-5 pointer-events-none"></div>

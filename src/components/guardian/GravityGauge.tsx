@@ -4,9 +4,10 @@ import { Activity } from "lucide-react";
 interface GravityGaugeProps {
     score: number;
     loading?: boolean;
+    session?: 'PRE' | 'REG' | 'POST' | 'CLOSED'; // [V5.0] Session indicator
 }
 
-export default function GravityGauge({ score, loading }: GravityGaugeProps) {
+export default function GravityGauge({ score, loading, session }: GravityGaugeProps) {
     const [animatedScore, setAnimatedScore] = useState(0);
 
     useEffect(() => {
@@ -38,6 +39,18 @@ export default function GravityGauge({ score, loading }: GravityGaugeProps) {
             <div className="absolute top-4 left-6 flex items-center gap-2">
                 <Activity className="w-3 h-3 text-white opacity-70" />
                 <span className="text-[10px] uppercase tracking-[0.2em] text-white font-bold opacity-70">Gravity Gauge</span>
+                {/* [V5.0] Session Badge */}
+                {session && (
+                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ml-2 ${session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                            session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
+                                    'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                        }`}>
+                        {session === 'PRE' ? 'PRE-MKT' :
+                            session === 'REG' ? 'LIVE' :
+                                session === 'POST' ? 'AFTER' : 'CLOSED'}
+                    </span>
+                )}
             </div>
 
             {/* Main Gauge Container */}
