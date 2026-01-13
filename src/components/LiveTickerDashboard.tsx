@@ -302,14 +302,30 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [User Override] If POST/CLOSED, Main Display MUST be Regular Close (Intraday Final)
     if (effectiveSession === 'POST' || effectiveSession === 'CLOSED') {
         const regularClose = liveQuote?.prices?.regularCloseToday;
+        const prevClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose;
+
         // Only override if we have a valid regular close
         if (regularClose && regularClose > 0) {
             displayPrice = regularClose;
 
-            // Also force change percent to be based on Regular Close vs Prev Close
-            const prevClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose;
-            if (prevClose > 0) {
+            // [FIX] Detect "No New Trading Day" scenario:
+            // If regularCloseToday === prevRegularClose, it means today's regular session hasn't happened yet.
+            // In this case, we should show the LAST session's change (prevChangePct), NOT 0.00%.
+            const isNewTradingDay = Math.abs(regularClose - prevClose) > 0.001; // Tolerance for floating point
+
+            if (isNewTradingDay && prevClose > 0) {
+                // Normal case: calculate today's change
                 displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
+            } else {
+                // [FIX] No new trading day yet (weekend/holiday/pre-open)
+                // Show the PREVIOUS session's change percentage
+                const prevDayChange = liveQuote?.prices?.prevChangePct;
+                if (prevDayChange !== undefined && prevDayChange !== null) {
+                    displayChangePct = prevDayChange;
+                } else {
+                    // Ultimate fallback: use initialStockData
+                    displayChangePct = initialStockData.changePercent || 0;
+                }
             }
         }
     }
