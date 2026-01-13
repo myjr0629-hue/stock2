@@ -1,0 +1,68 @@
+{
+  "ticker": "PAVM",
+  "savedAt": "2026-01-13T10:34:35.773Z",
+  "tradingDay": "2026-01-12",
+  "data": {
+    "contracts": [
+      {
+        "strike_price": 2.5,
+        "contract_type": "call",
+        "open_interest": 85,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 5,
+        "contract_type": "call",
+        "open_interest": 8,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 7.5,
+        "contract_type": "call",
+        "open_interest": 7,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 2.5,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {
+          "delta": 0,
+          "gamma": 0,
+          "theta": 0,
+          "vega": 0
+        },
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 5,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {
+          "delta": 0,
+          "gamma": 0,
+          "theta": 0,
+          "vega": 0
+        },
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 7.5,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {
+          "delta": 0,
+          "gamma": 0,
+          "theta": 0,
+          "vega": 0
+        },
+        "expiry": "2026-01-16"
+      }
+    ],
+    "expiry": "Aggregated (<14d)",
+    "spot": 8.13
+  }
+}

@@ -49,10 +49,11 @@ export async function enrichTerminalItems(
     force: boolean = false,
     targetDate?: string // [V3.7.7] Date Override
 ): Promise<TerminalItem[]> {
-    // [V3.7.6] Adaptive Concurrency: Force Mode = Serial Processing (Stability > Speed)
-    // If force is true (EOD Report), we use BATCH_SIZE 1 to prevent API overloaded
-    const adaptiveBatchSize = force ? 1 : CONFIG.BATCH_SIZE;
-    console.log(`[TerminalEnricher v2.2] Persistent Enrichment for ${tickers.length} tickers... (force=${force}, date=${targetDate || 'LIVE'})`);
+    // [V4.2] PERFORMANCE OPTIMIZATION: Vercel 300s limit compliance
+    // Previous: force=true used BATCH_SIZE=1 with 2000ms delay = 600s+ for 300 tickers
+    // Optimized: force=true uses BATCH_SIZE=10 with 500ms delay = ~60s for 300 tickers
+    const adaptiveBatchSize = force ? 10 : CONFIG.BATCH_SIZE;
+    console.log(`[TerminalEnricher v4.2] Enrichment for ${tickers.length} tickers... (force=${force}, batch=${adaptiveBatchSize})`);
     const startTime = Date.now();
 
     // 1. Fetch Global Context
@@ -78,10 +79,9 @@ export async function enrichTerminalItems(
         );
         results.push(...batchResults);
 
-        // [V3.7.6] Rate Limit Protection: Hard delay between batches
-        if (force) {
-            console.log(`[TerminalEnricher] Pacing... waiting 2000ms`);
-            await delay(2000);
+        // [V4.2] OPTIMIZED: Reduced delay from 2000ms to 500ms
+        if (force && i + adaptiveBatchSize < tickers.length) {
+            await delay(500);
         }
     }
 
@@ -186,14 +186,9 @@ async function enrichSingleTickerWithRetry(
         optionsData = null; // Continue with null - don't fail
     }
 
-    // Step 3: Get forensic data (isolated - never crash on error)
-    try {
-        const effectiveDate = targetDate || new Date().toISOString().split('T')[0];
-        forensicData = await ForensicService.analyzeTarget(ticker, effectiveDate);
-    } catch (e) {
-        console.warn(`[V4.1] ${ticker}: Forensic fetch error (isolated):`, e);
-        forensicData = { whaleIndex: 0, whaleConfidence: 'NONE' };
-    }
+    // [V4.2] MOVED: Forensic analysis is now handled centrally in reportScheduler.ts
+    // This prevents N × ForensicService calls during terminal enrichment
+    forensicData = { whaleIndex: 0, whaleConfidence: 'NONE' };
 
     const whaleIndex = forensicData?.whaleIndex || 0;
     const whaleConfidence = forensicData?.whaleConfidence || 'NONE';

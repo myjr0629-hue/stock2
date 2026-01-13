@@ -1,7 +1,7 @@
 {
   "ticker": "BDSX",
-  "savedAt": "2026-01-12T13:23:10.961Z",
-  "tradingDay": "2026-01-11",
+  "savedAt": "2026-01-13T10:19:32.529Z",
+  "tradingDay": "2026-01-12",
   "data": {
     "contracts": [
       {
@@ -51,10 +51,10 @@
         "contract_type": "call",
         "open_interest": 374,
         "greeks": {
-          "delta": 0.335240380946155,
-          "gamma": 0.24360658421178394,
-          "theta": -0.061827857003160736,
-          "vega": 0.00269001616554403
+          "delta": 0.5679921620770843,
+          "gamma": 0.618072375914703,
+          "theta": -0.035731612560674086,
+          "vega": 0.002962338287812612
         },
         "expiry": "2026-01-16"
       },
@@ -135,8 +135,8 @@
         "contract_type": "put",
         "open_interest": 0,
         "greeks": {
-          "delta": -1,
-          "gamma": 2.228638585908698e-8,
+          "delta": 0,
+          "gamma": 0,
           "theta": 0,
           "vega": 0
         },
@@ -144,6 +144,6 @@
       }
     ],
     "expiry": "Aggregated (<14d)",
-    "spot": 5.46
+    "spot": 8.08
   }
 }

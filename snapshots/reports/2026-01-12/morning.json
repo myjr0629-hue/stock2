@@ -1,0 +1,6800 @@
+{
+  "meta": {
+    "id": "2026-01-12-morning",
+    "type": "morning",
+    "generatedAt": "2026-01-13T10:35:15.757Z",
+    "generatedAtET": "01/13/2026, 05:35:15 AM",
+    "marketDate": "2026-01-12",
+    "version": "S-56.4.6e",
+    "pipelineVersion": "56.4.1",
+    "top3": [
+      {
+        "ticker": "INTC",
+        "velocity": "►",
+        "role": "ALPHA",
+        "whySummaryKR": "종합 분석 완료",
+        "rank": 1,
+        "changePct": 0
+      },
+      {
+        "ticker": "UNH",
+        "velocity": "►",
+        "role": "ALPHA",
+        "whySummaryKR": "종합 분석 완료",
+        "rank": 2,
+        "changePct": 0
+      },
+      {
+        "ticker": "VZ",
+        "velocity": "►",
+        "role": "ALPHA",
+        "whySummaryKR": "종합 분석 완료",
+        "rank": 3,
+        "changePct": 0
+      }
+    ],
+    "baseline": {
+      "source": "MASSIVE",
+      "session": "pre",
+      "tsISO": "2026-01-13T10:35:15.757Z",
+      "tsET": "01/13/2026, 05:35:15 AM",
+      "items": [
+        {
+          "ticker": "INTC",
+          "price": 44.06,
+          "priceField": "preMarket",
+          "prevClose": 44.06,
+          "refPriceForChange": 44.06
+        },
+        {
+          "ticker": "UNH",
+          "price": 340.51,
+          "priceField": "preMarket",
+          "prevClose": 340.51,
+          "refPriceForChange": 340.51
+        },
+        {
+          "ticker": "VZ",
+          "price": 39.84,
+          "priceField": "preMarket",
+          "prevClose": 39.84,
+          "refPriceForChange": 39.84
+        }
+      ]
+    },
+    "freshness": {
+      "generatedAtISO": "2026-01-13T10:35:15.757Z",
+      "ageMin": 0,
+      "isStale": false
+    },
+    "optionsStatus": {
+      "state": "READY",
+      "pendingTickers": [],
+      "coveragePct": 100,
+      "lastUpdatedAtISO": "2026-01-13T10:35:16.527Z",
+      "note": " [FORCE FINALIZED]"
+    },
+    "integrity": {
+      "status": "OK",
+      "reasons": [],
+      "expected": {
+        "items": 12,
+        "top3": 3,
+        "fullUniverse": 12
+      },
+      "actual": {
+        "items": 12,
+        "top3": 3,
+        "fullUniverse": 12
+      },
+      "gates": {
+        "options": "READY",
+        "macro": "OK"
+      }
+    },
+    "validationScore": 100,
+    "hardFails": [],
+    "softFails": []
+  },
+  "macro": {
+    "asOfET": "1/13/2026, 5:33:14 AM",
+    "fetchedAtET": "2026-01-13T10:33:14.244Z",
+    "ageSeconds": 0,
+    "marketStatus": {
+      "market": "extended-hours",
+      "session": "pre",
+      "isHoliday": false,
+      "serverTime": "2026-01-13T10:33:14.244Z",
+      "asOfET": "1/13/2026, 5:33:14 AM",
+      "source": "MASSIVE",
+      "cacheAgeSec": 0
+    },
+    "factors": {
+      "nasdaq100": {
+        "level": 25931.5345,
+        "chgPct": -0.249,
+        "chgAbs": -64.662,
+        "label": "NASDAQ 100 (Syn)",
+        "source": "MASSIVE",
+        "status": "OK",
+        "symbolUsed": "QQQ"
+      },
+      "vix": {
+        "level": 15.160400000000001,
+        "chgPct": 0.28,
+        "chgAbs": 0.042280000000000005,
+        "label": "VIX",
+        "source": "MASSIVE",
+        "status": "OK",
+        "symbolUsed": "VIXY"
+      },
+      "us10y": {
+        "level": 4.06,
+        "chgPct": 0,
+        "chgAbs": 0,
+        "label": "US 10Y (Fed)",
+        "source": "MASSIVE",
+        "status": "OK",
+        "symbolUsed": "FED:10Y"
+      },
+      "dxy": {
+        "level": 99.0264,
+        "chgPct": 0,
+        "chgAbs": 0,
+        "label": "DOLLAR (DXY)",
+        "source": "MASSIVE",
+        "status": "OK",
+        "symbolUsed": "UUP"
+      }
+    },
+    "nq": 25931.5345,
+    "nqChangePercent": -0.249,
+    "vix": 15.160400000000001,
+    "us10y": 4.06,
+    "dxy": 99.0264,
+    "fed": {
+      "treasury": {
+        "date": "2026-01-09",
+        "us2y": 3.54,
+        "us5y": 3.75,
+        "us10y": 4.18,
+        "us30y": 4.82,
+        "spread2s10s": 0.6399999999999997,
+        "source": "MASSIVE",
+        "updatedAt": "2026-01-13T10:33:45.480Z"
+      },
+      "inflation": {
+        "date": "2026-01-13",
+        "cpi": null,
+        "cpiYoY": null,
+        "pce": null,
+        "pceYoY": null,
+        "expectations": null,
+        "source": "FAIL",
+        "updatedAt": "2026-01-13T10:33:45.480Z"
+      },
+      "asOfET": "1/13/26, 5:33 AM"
+    }
+  },
+  "events": {
+    "asOfET": "1/13/26, 5:33 AM",
+    "events": [
+      {
+        "date": "2026-01-19",
+        "time": "00:00",
+        "name": "Martin Luther King, Jr. Day",
+        "nameKR": "휴장: Martin Luther King, Jr. Day",
+        "importance": "HIGH",
+        "expectedImpact": "시장 휴장 (Market Closed)",
+        "sourceGrade": "A",
+        "category": "HOLIDAY"
+      },
+      {
+        "date": "2026-01-19",
+        "time": "00:00",
+        "name": "Martin Luther King, Jr. Day",
+        "nameKR": "휴장: Martin Luther King, Jr. Day",
+        "importance": "HIGH",
+        "expectedImpact": "시장 휴장 (Market Closed)",
+        "sourceGrade": "A",
+        "category": "HOLIDAY"
+      }
+    ],
+    "shakeReasons": []
+  },
+  "policy": {
+    "asOfET": "1/13/26, 5:33 AM",
+    "policies72h": [
+      {
+        "id": "P0-2025-001",
+        "category": "P0",
+        "title": "China AI Chip Export Controls Extension",
+        "titleKR": "중국 AI 칩 수출통제 연장",
+        "description": "미 상무부, AI 관련 반도체 수출통제 품목 확대 검토 중. NVDA/AMD 직접 영향.",
+        "effectiveDate": "2026-01-15",
+        "sourceGrade": "B",
+        "affectedSectors": [
+          "Semiconductors",
+          "AI"
+        ],
+        "affectedTickers": [
+          "NVDA",
+          "AMD",
+          "AVGO"
+        ],
+        "impact": "NEGATIVE"
+      }
+    ],
+    "policies7d": [
+      {
+        "id": "P2-2025-001",
+        "category": "P2",
+        "title": "NVDA Antitrust Inquiry Update",
+        "titleKR": "NVDA 반독점 조사 진행상황",
+        "description": "DOJ의 NVIDIA GPU 시장 독점 조사 진행 중. 결과에 따라 주가 변동.",
+        "effectiveDate": "2026-01-20",
+        "sourceGrade": "B",
+        "affectedTickers": [
+          "NVDA"
+        ],
+        "impact": "NEGATIVE"
+      }
+    ],
+    "policyGateSummary": [
+      "[P0] 중국 AI 칩 수출통제 연장 (2026-01-15) - 미 상무부, AI 관련 반도체 수출통제 품목 확대 검토 중. NVDA/AMD 직접 영향...."
+    ]
+  },
+  "news": {
+    "asOfET": "1/13/26, 5:33 AM",
+    "marketHeadlines": [
+      {
+        "id": "mkt-001",
+        "headline": "Fed Officials Signal Patience on Rate Cuts in 2025",
+        "summaryKR": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAt": "2025-12-26T14:30:00Z",
+        "sentiment": "negative",
+        "catalystType": "fed",
+        "publishedAtET": "Dec 26, 09:30 AM",
+        "catalystAge": 428,
+        "isStale": true
+      },
+      {
+        "id": "mkt-002",
+        "headline": "Tech Stocks Lead Holiday Rally as Santa Claus Effect Takes Hold",
+        "summaryKR": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAt": "2025-12-25T18:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "market",
+        "publishedAtET": "Dec 25, 01:00 PM",
+        "catalystAge": 448,
+        "isStale": true
+      },
+      {
+        "id": "mkt-003",
+        "headline": "China Stimulus Hopes Boost Asian Markets Overnight",
+        "summaryKR": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAt": "2025-12-26T08:00:00Z",
+        "sentiment": "positive",
+        "catalystType": "global",
+        "publishedAtET": "Dec 26, 03:00 AM",
+        "catalystAge": 434,
+        "isStale": true
+      },
+      {
+        "id": "mkt-004",
+        "headline": "Oil Prices Rise on Middle East Tensions",
+        "summaryKR": "중동 긴장 고조로 유가 상승. 에너지 섹터 강세 예상.",
+        "source": "WSJ",
+        "publishedAt": "2025-12-26T10:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "commodities",
+        "publishedAtET": "Dec 26, 05:00 AM",
+        "catalystAge": 432,
+        "isStale": true
+      },
+      {
+        "id": "mkt-005",
+        "headline": "Year-End Rebalancing Could Drive Volatility This Week",
+        "summaryKR": "연말 리밸런싱으로 이번 주 변동성 확대 가능. 대형 펀드 매도세 주의.",
+        "source": "MarketWatch",
+        "publishedAt": "2025-12-26T06:00:00Z",
+        "sentiment": "neutral",
+        "catalystType": "technical",
+        "publishedAtET": "Dec 26, 01:00 AM",
+        "catalystAge": 436,
+        "isStale": true
+      }
+    ],
+    "stockNews": [],
+    "marketLikes": [
+      {
+        "text": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAtET": "Dec 25, 01:00 PM",
+        "isStale": true,
+        "catalystAgeHours": 448
+      },
+      {
+        "text": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAtET": "Dec 26, 03:00 AM",
+        "isStale": true,
+        "catalystAgeHours": 434
+      }
+    ],
+    "marketDislikes": [
+      {
+        "text": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAtET": "Dec 26, 09:30 AM",
+        "isStale": true,
+        "catalystAgeHours": 428
+      }
+    ]
+  },
+  "shakeReasons": [],
+  "marketSentiment": {
+    "likes": [
+      {
+        "text": "기술주 중심 산타 랠리 진행 중. 연말 수급 강세.",
+        "source": "CNBC",
+        "publishedAtET": "Dec 25, 01:00 PM",
+        "isStale": true,
+        "catalystAgeHours": 448
+      },
+      {
+        "text": "중국 추가 부양책 기대감에 아시아 증시 강세. 글로벌 위험선호 개선.",
+        "source": "Bloomberg",
+        "publishedAtET": "Dec 26, 03:00 AM",
+        "isStale": true,
+        "catalystAgeHours": 434
+      }
+    ],
+    "dislikes": [
+      {
+        "text": "연준 관계자들, 2025년 금리인하에 신중 입장. 인플레 재점화 우려.",
+        "source": "Reuters",
+        "publishedAtET": "Dec 26, 09:30 AM",
+        "isStale": true,
+        "catalystAgeHours": 428
+      }
+    ]
+  },
+  "items": [
+    {
+      "ticker": "INTC",
+      "evidence": {
+        "price": {
+          "last": 44.06,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 45.54,
+          "extendedChangePct": 3.359055832955054,
+          "extendedLabel": "PRE",
+          "prevClose": 44.06,
+          "changePct": 0,
+          "vwap": 44.06,
+          "vwapDistPct": 0,
+          "rsi14": 64.92428054834865,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 9216022,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 9216022,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 3383179.819868209,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.578938910979896,
+          "callWall": 50,
+          "putFloor": 40,
+          "pinZone": 45,
+          "maxPain": 33,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 50,
+                "oi": 108725
+              },
+              {
+                "strike": 40,
+                "oi": 77408
+              },
+              {
+                "strike": 45,
+                "oi": 64861
+              },
+              {
+                "strike": 38,
+                "oi": 26326
+              },
+              {
+                "strike": 42,
+                "oi": 26217
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 40,
+                "oi": 33408
+              },
+              {
+                "strike": 38,
+                "oi": 21409
+              },
+              {
+                "strike": 42,
+                "oi": 12299
+              },
+              {
+                "strike": 43,
+                "oi": 9405
+              },
+              {
+                "strike": 44,
+                "oi": 9341
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "blockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:50.852Z"
+      },
+      "alphaScore": 72,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 72,
+      "isBackfilled": true,
+      "rank": 1,
+      "symbol": "INTC",
+      "changePct": 0,
+      "price": 44.06,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "UNH",
+      "evidence": {
+        "price": {
+          "last": 340.51,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 339.31,
+          "extendedChangePct": -0.3524125576341337,
+          "extendedLabel": "PRE",
+          "prevClose": 340.51,
+          "changePct": 0,
+          "vwap": 340.51,
+          "vwapDistPct": 0,
+          "rsi14": 54.29118272199999,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 110862371.00000006,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 110862371.00000006,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 56429.89286737402,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.4646083955129181,
+          "callWall": 350,
+          "putFloor": 300,
+          "pinZone": 325,
+          "maxPain": 320,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 350,
+                "oi": 10452
+              },
+              {
+                "strike": 360,
+                "oi": 8205
+              },
+              {
+                "strike": 300,
+                "oi": 7684
+              },
+              {
+                "strike": 340,
+                "oi": 7513
+              },
+              {
+                "strike": 320,
+                "oi": 7236
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 300,
+                "oi": 9067
+              },
+              {
+                "strike": 290,
+                "oi": 6489
+              },
+              {
+                "strike": 320,
+                "oi": 5804
+              },
+              {
+                "strike": 330,
+                "oi": 5143
+              },
+              {
+                "strike": 310,
+                "oi": 4027
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "MassiveBlockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:50.942Z"
+      },
+      "alphaScore": 72,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 72,
+      "isBackfilled": true,
+      "rank": 2,
+      "symbol": "UNH",
+      "changePct": 0,
+      "price": 340.51,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "VZ",
+      "evidence": {
+        "price": {
+          "last": 39.84,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 39.78,
+          "extendedChangePct": -0.15060240963855992,
+          "extendedLabel": "PRE",
+          "prevClose": 39.84,
+          "changePct": 0,
+          "vwap": 39.84,
+          "vwapDistPct": 0,
+          "rsi14": 41.936814633669904,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 8596861,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 8596861,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Short Gamma",
+          "gex": -1185378.9547468736,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.7167208285974995,
+          "callWall": 42,
+          "putFloor": 40,
+          "pinZone": 41,
+          "maxPain": 41,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 42,
+                "oi": 76968
+              },
+              {
+                "strike": 45,
+                "oi": 30578
+              },
+              {
+                "strike": 43,
+                "oi": 28188
+              },
+              {
+                "strike": 41,
+                "oi": 26098
+              },
+              {
+                "strike": 44,
+                "oi": 11671
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 40,
+                "oi": 32530
+              },
+              {
+                "strike": 38,
+                "oi": 22911
+              },
+              {
+                "strike": 37,
+                "oi": 19253
+              },
+              {
+                "strike": 35,
+                "oi": 15971
+              },
+              {
+                "strike": 39,
+                "oi": 14510
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "blockPrint"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:34:01.416Z"
+      },
+      "alphaScore": 72,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 72,
+      "isBackfilled": true,
+      "rank": 3,
+      "symbol": "VZ",
+      "changePct": 0,
+      "price": 39.84,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "HOOD",
+      "evidence": {
+        "price": {
+          "last": 117.52,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 117.54,
+          "extendedChangePct": 0.017018379850246967,
+          "extendedLabel": "PRE",
+          "prevClose": 117.52,
+          "changePct": 0,
+          "vwap": 117.52,
+          "vwapDistPct": 0,
+          "rsi14": 46.23843093348786,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 14423564,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 14423564,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 224898.71847530687,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.6605735902949389,
+          "callWall": 120,
+          "putFloor": 100,
+          "pinZone": 110,
+          "maxPain": 75,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 120,
+                "oi": 29344
+              },
+              {
+                "strike": 125,
+                "oi": 23530
+              },
+              {
+                "strike": 130,
+                "oi": 14024
+              },
+              {
+                "strike": 100,
+                "oi": 12645
+              },
+              {
+                "strike": 135,
+                "oi": 8840
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 100,
+                "oi": 16124
+              },
+              {
+                "strike": 110,
+                "oi": 15408
+              },
+              {
+                "strike": 115,
+                "oi": 13593
+              },
+              {
+                "strike": 105,
+                "oi": 8786
+              },
+              {
+                "strike": 125,
+                "oi": 8274
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "MassiveBlockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:34:04.726Z"
+      },
+      "alphaScore": 72,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 72,
+      "isBackfilled": true,
+      "rank": 4,
+      "symbol": "HOOD",
+      "changePct": 0,
+      "price": 117.52,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "AMZN",
+      "evidence": {
+        "price": {
+          "last": 246.47,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 245.34,
+          "extendedChangePct": -0.45847364790846573,
+          "extendedLabel": "PRE",
+          "prevClose": 246.47,
+          "changePct": 0,
+          "vwap": 246.47,
+          "vwapDistPct": 0,
+          "rsi14": 67.44237613226139,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 59172046,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 59172046,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 1041314.7637770504,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.6734659272378851,
+          "callWall": 240,
+          "putFloor": 225,
+          "pinZone": 232.5,
+          "maxPain": 225,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 240,
+                "oi": 72886
+              },
+              {
+                "strike": 250,
+                "oi": 62734
+              },
+              {
+                "strike": 260,
+                "oi": 41299
+              },
+              {
+                "strike": 255,
+                "oi": 31564
+              },
+              {
+                "strike": 245,
+                "oi": 25484
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 225,
+                "oi": 28583
+              },
+              {
+                "strike": 230,
+                "oi": 27430
+              },
+              {
+                "strike": 220,
+                "oi": 23339
+              },
+              {
+                "strike": 210,
+                "oi": 21443
+              },
+              {
+                "strike": 235,
+                "oi": 16471
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "MassiveBlockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:47.480Z"
+      },
+      "alphaScore": 70,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 70,
+      "isBackfilled": true,
+      "rank": 5,
+      "symbol": "AMZN",
+      "changePct": 0,
+      "price": 246.47,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "CVX",
+      "evidence": {
+        "price": {
+          "last": 162.34,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 163.27,
+          "extendedChangePct": 0.5728717506467949,
+          "extendedLabel": "PRE",
+          "prevClose": 162.34,
+          "changePct": 0,
+          "vwap": 162.34,
+          "vwapDistPct": 0,
+          "rsi14": 64.27853258796863,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 15978118,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 15978118,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 280873.6845854435,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.7382304556183392,
+          "callWall": 157.5,
+          "putFloor": 150,
+          "pinZone": 153.75,
+          "maxPain": 155,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 157.5,
+                "oi": 6713
+              },
+              {
+                "strike": 162.5,
+                "oi": 4935
+              },
+              {
+                "strike": 167.5,
+                "oi": 4730
+              },
+              {
+                "strike": 160,
+                "oi": 1498
+              },
+              {
+                "strike": 172.5,
+                "oi": 1375
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 150,
+                "oi": 5209
+              },
+              {
+                "strike": 157.5,
+                "oi": 2564
+              },
+              {
+                "strike": 149,
+                "oi": 2520
+              },
+              {
+                "strike": 152.5,
+                "oi": 1073
+              },
+              {
+                "strike": 162.5,
+                "oi": 836
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "MassiveBlockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:58.975Z"
+      },
+      "alphaScore": 70,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 70,
+      "isBackfilled": true,
+      "rank": 6,
+      "symbol": "CVX",
+      "changePct": 0,
+      "price": 162.34,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "NVDA",
+      "evidence": {
+        "price": {
+          "last": 184.94,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 185.22,
+          "extendedChangePct": 0.15140045420136322,
+          "extendedLabel": "PRE",
+          "prevClose": 184.94,
+          "changePct": 0,
+          "vwap": 184.94,
+          "vwapDistPct": 0,
+          "rsi14": 49.73003880783365,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 261258683,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 261258683,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 1630371.0559959018,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.958152618237269,
+          "callWall": 200,
+          "putFloor": 160,
+          "pinZone": 180,
+          "maxPain": 160,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 200,
+                "oi": 163665
+              },
+              {
+                "strike": 195,
+                "oi": 86931
+              },
+              {
+                "strike": 190,
+                "oi": 84733
+              },
+              {
+                "strike": 180,
+                "oi": 76869
+              },
+              {
+                "strike": 189,
+                "oi": 70352
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 160,
+                "oi": 80294
+              },
+              {
+                "strike": 180,
+                "oi": 60786
+              },
+              {
+                "strike": 170,
+                "oi": 60570
+              },
+              {
+                "strike": 190,
+                "oi": 47816
+              },
+              {
+                "strike": 165,
+                "oi": 35714
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "MassiveBlockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:47.545Z"
+      },
+      "alphaScore": 68,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 68,
+      "isBackfilled": true,
+      "rank": 7,
+      "symbol": "NVDA",
+      "changePct": 0,
+      "price": 184.94,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "GOOGL",
+      "evidence": {
+        "price": {
+          "last": 331.86,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 333.55,
+          "extendedChangePct": 0.5092508889290658,
+          "extendedLabel": "PRE",
+          "prevClose": 331.86,
+          "changePct": 0,
+          "vwap": 331.86,
+          "vwapDistPct": 0,
+          "rsi14": 71.13048379894835,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 87091526,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 87091526,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 319378.7266031366,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.9165437905568932,
+          "callWall": 350,
+          "putFloor": 300,
+          "pinZone": 325,
+          "maxPain": 260,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 350,
+                "oi": 33908
+              },
+              {
+                "strike": 330,
+                "oi": 19770
+              },
+              {
+                "strike": 300,
+                "oi": 19737
+              },
+              {
+                "strike": 320,
+                "oi": 14258
+              },
+              {
+                "strike": 335,
+                "oi": 13411
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 300,
+                "oi": 41463
+              },
+              {
+                "strike": 310,
+                "oi": 20036
+              },
+              {
+                "strike": 290,
+                "oi": 7980
+              },
+              {
+                "strike": 315,
+                "oi": 7442
+              },
+              {
+                "strike": 320,
+                "oi": 7084
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "MassiveBlockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:47.724Z"
+      },
+      "alphaScore": 68,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 68,
+      "isBackfilled": true,
+      "rank": 8,
+      "symbol": "GOOGL",
+      "changePct": 0,
+      "price": 331.86,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "TSLA",
+      "evidence": {
+        "price": {
+          "last": 448.96,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 448.36,
+          "extendedChangePct": -0.13364219529578714,
+          "extendedLabel": "PRE",
+          "prevClose": 448.96,
+          "changePct": 0,
+          "vwap": 448.96,
+          "vwapDistPct": 0,
+          "rsi14": 49.1947722372283,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 387275854,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 387275854,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 227889.25822192416,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 1.0083699179317271,
+          "callWall": 500,
+          "putFloor": 400,
+          "pinZone": 450,
+          "maxPain": 420,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 500,
+                "oi": 43853
+              },
+              {
+                "strike": 450,
+                "oi": 35480
+              },
+              {
+                "strike": 470,
+                "oi": 27958
+              },
+              {
+                "strike": 445,
+                "oi": 19358
+              },
+              {
+                "strike": 460,
+                "oi": 18274
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 400,
+                "oi": 21119
+              },
+              {
+                "strike": 420,
+                "oi": 18447
+              },
+              {
+                "strike": 450,
+                "oi": 16645
+              },
+              {
+                "strike": 430,
+                "oi": 15117
+              },
+              {
+                "strike": 440,
+                "oi": 12383
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "MassiveBlockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:48.046Z"
+      },
+      "alphaScore": 68,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 68,
+      "isBackfilled": true,
+      "rank": 9,
+      "symbol": "TSLA",
+      "changePct": 0,
+      "price": 448.96,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "AMD",
+      "evidence": {
+        "price": {
+          "last": 207.69,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 210.6,
+          "extendedChangePct": 1.4011266791853227,
+          "extendedLabel": "PRE",
+          "prevClose": 207.69,
+          "changePct": 0,
+          "vwap": 207.69,
+          "vwapDistPct": 0,
+          "rsi14": 43.76968217660104,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 7311113,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 7311113,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 108651.39134947085,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.9382803565695156,
+          "callWall": 220,
+          "putFloor": 200,
+          "pinZone": 210,
+          "maxPain": 190,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 220,
+                "oi": 20474
+              },
+              {
+                "strike": 230,
+                "oi": 16422
+              },
+              {
+                "strike": 200,
+                "oi": 15788
+              },
+              {
+                "strike": 180,
+                "oi": 13308
+              },
+              {
+                "strike": 210,
+                "oi": 13175
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 200,
+                "oi": 20411
+              },
+              {
+                "strike": 210,
+                "oi": 13217
+              },
+              {
+                "strike": 180,
+                "oi": 11697
+              },
+              {
+                "strike": 195,
+                "oi": 10648
+              },
+              {
+                "strike": 190,
+                "oi": 10193
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "B",
+          "tags": [
+            "blockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:47.751Z"
+      },
+      "alphaScore": 68,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 68,
+      "isBackfilled": true,
+      "rank": 10,
+      "symbol": "AMD",
+      "changePct": 0,
+      "price": 207.69,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "QCOM",
+      "evidence": {
+        "price": {
+          "last": 169.27,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 167.79,
+          "extendedChangePct": -0.8743427659951665,
+          "extendedLabel": "PRE",
+          "prevClose": 169.27,
+          "changePct": 0,
+          "vwap": 169.27,
+          "vwapDistPct": 0,
+          "rsi14": 42.008972944844864,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 20016687,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 20016687,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 44121.7893117184,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.8165803773221986,
+          "callWall": 172.5,
+          "putFloor": 145,
+          "pinZone": 158.75,
+          "maxPain": 170,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 172.5,
+                "oi": 11849
+              },
+              {
+                "strike": 190,
+                "oi": 8015
+              },
+              {
+                "strike": 185,
+                "oi": 7484
+              },
+              {
+                "strike": 170,
+                "oi": 7015
+              },
+              {
+                "strike": 180,
+                "oi": 5571
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 145,
+                "oi": 11889
+              },
+              {
+                "strike": 150,
+                "oi": 8650
+              },
+              {
+                "strike": 160,
+                "oi": 6780
+              },
+              {
+                "strike": 170,
+                "oi": 5385
+              },
+              {
+                "strike": 155,
+                "oi": 4532
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "MassiveBlockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:49.849Z"
+      },
+      "alphaScore": 68,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 68,
+      "isBackfilled": true,
+      "rank": 11,
+      "symbol": "QCOM",
+      "changePct": 0,
+      "price": 169.27,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    },
+    {
+      "ticker": "LLY",
+      "evidence": {
+        "price": {
+          "last": 1081,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 1083.46,
+          "extendedChangePct": 0.22756706753006814,
+          "extendedLabel": "PRE",
+          "prevClose": 1081,
+          "changePct": 0,
+          "vwap": 1081,
+          "vwapDistPct": 0,
+          "rsi14": 56.05239957914892,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 26715514,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 26715514,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Long Gamma",
+          "gex": 11693.580949540872,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0.86714050674564,
+          "callWall": 1200,
+          "putFloor": 1000,
+          "pinZone": 1100,
+          "maxPain": 950,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 1200,
+                "oi": 5410
+              },
+              {
+                "strike": 1000,
+                "oi": 4561
+              },
+              {
+                "strike": 1060,
+                "oi": 4487
+              },
+              {
+                "strike": 1140,
+                "oi": 3176
+              },
+              {
+                "strike": 1120,
+                "oi": 1849
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 1000,
+                "oi": 2197
+              },
+              {
+                "strike": 1040,
+                "oi": 1079
+              },
+              {
+                "strike": 920,
+                "oi": 1041
+              },
+              {
+                "strike": 1065,
+                "oi": 782
+              },
+              {
+                "strike": 1030,
+                "oi": 778
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "A",
+          "tags": [
+            "MassiveBlockPrint",
+            "supportiveGamma"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:33:51.375Z"
+      },
+      "alphaScore": 68,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "MAIN",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 68,
+      "isBackfilled": true,
+      "rank": 12,
+      "symbol": "LLY",
+      "changePct": 0,
+      "price": 1081,
+      "v71": {
+        "options_status": "READY",
+        "options_note": "Backfilled/Live"
+      }
+    }
+  ],
+  "hunters": [
+    {
+      "ticker": "PAVM",
+      "evidence": {
+        "price": {
+          "last": 8.13,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 8.6,
+          "extendedChangePct": 5.781057810578091,
+          "extendedLabel": "PRE",
+          "prevClose": 8.13,
+          "changePct": 0,
+          "vwap": 8.13,
+          "vwapDistPct": 0,
+          "rsi14": 46.01427479322328,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 5,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 5,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 7.5,
+          "putFloor": 7.5,
+          "pinZone": 7.5,
+          "maxPain": 2.5,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 7.5,
+                "oi": 7
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 7.5,
+                "oi": 0
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:34:04.410Z"
+      },
+      "alphaScore": 49.1,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "HUNTER",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 49.1,
+      "isBackfilled": true,
+      "rank": 1,
+      "symbol": "PAVM"
+    },
+    {
+      "ticker": "KELYA",
+      "evidence": {
+        "price": {
+          "last": 9.56,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 11.13,
+          "extendedChangePct": 16.422594142259417,
+          "extendedLabel": "PRE",
+          "prevClose": 9.56,
+          "changePct": 0,
+          "vwap": 9.56,
+          "vwapDistPct": 0,
+          "rsi14": 65.31026020237633,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": -50,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": -50,
+          "complete": true
+        },
+        "options": {
+          "status": "FAILED",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": false
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:34:04.640Z"
+      },
+      "alphaScore": 36.3,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "HUNTER",
+      "qualityReasonKR": "부분 데이터 (3/5, 누락: 옵션/스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 36.3,
+      "isBackfilled": true,
+      "rank": 2,
+      "symbol": "KELYA"
+    },
+    {
+      "ticker": "KEP",
+      "evidence": {
+        "price": {
+          "last": 17.74,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 19.34,
+          "extendedChangePct": 9.019165727170247,
+          "extendedLabel": "PRE",
+          "prevClose": 17.74,
+          "changePct": 0,
+          "vwap": 17.74,
+          "vwapDistPct": 0,
+          "rsi14": 59.170019515342744,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 661,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 661,
+          "complete": true
+        },
+        "options": {
+          "status": "OK",
+          "coveragePct": 100,
+          "gammaRegime": "Short Gamma",
+          "gex": -1543.7031740373357,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 2.323232323232323,
+          "callWall": 17.5,
+          "putFloor": 17.5,
+          "pinZone": 17.5,
+          "maxPain": 17.5,
+          "oiClusters": {
+            "callsTop": [
+              {
+                "strike": 17.5,
+                "oi": 58
+              },
+              {
+                "strike": 20,
+                "oi": 21
+              }
+            ],
+            "putsTop": [
+              {
+                "strike": 17.5,
+                "oi": 122
+              },
+              {
+                "strike": 20,
+                "oi": 0
+              }
+            ]
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:34:05.557Z"
+      },
+      "alphaScore": 43.2,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "HUNTER",
+      "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 43.2,
+      "isBackfilled": true,
+      "rank": 3,
+      "symbol": "KEP"
+    },
+    {
+      "ticker": "NXTT",
+      "evidence": {
+        "price": {
+          "last": 6.9,
+          "priceSource": "OFFICIAL_CLOSE",
+          "extendedPrice": 7.31,
+          "extendedChangePct": 5.9420289855072355,
+          "extendedLabel": "PRE",
+          "prevClose": 6.9,
+          "changePct": 0,
+          "vwap": 6.9,
+          "vwapDistPct": 0,
+          "rsi14": 43.687882438729034,
+          "return3D": 0,
+          "structureState": "CONSOLIDATION",
+          "complete": true
+        },
+        "flow": {
+          "vol": 0,
+          "relVol": 1,
+          "gapPct": 0,
+          "largeTradesUsd": 0,
+          "offExPct": 0,
+          "offExDeltaPct": 0,
+          "netFlow": 0,
+          "complete": false
+        },
+        "options": {
+          "status": "NO_OPTIONS",
+          "coveragePct": 0,
+          "gammaRegime": "Short Gamma",
+          "gex": 0,
+          "gexZeroDte": 0,
+          "gexZeroDteRatio": 0,
+          "pcr": 0,
+          "callWall": 0,
+          "putFloor": 0,
+          "pinZone": 0,
+          "maxPain": 0,
+          "oiClusters": {
+            "callsTop": [],
+            "putsTop": []
+          },
+          "complete": true
+        },
+        "macro": {
+          "ndx": {
+            "price": 25931.5345,
+            "changePct": -0.249
+          },
+          "vix": {
+            "value": 15.160400000000001
+          },
+          "us10y": {
+            "yield": 4.06
+          },
+          "dxy": {
+            "value": 99.0264
+          },
+          "fetchedAtET": "2026-01-13T10:33:45.503Z",
+          "ageSeconds": 0,
+          "complete": true
+        },
+        "policy": {
+          "gate": {
+            "P0": [],
+            "P1": [],
+            "P2": [],
+            "blocked": false
+          },
+          "gradeA_B_C_counts": {
+            "A": 0,
+            "B": 0,
+            "C": 0
+          }
+        },
+        "stealth": {
+          "label": "C",
+          "tags": [
+            "noSignal"
+          ],
+          "impact": "NEUTRAL",
+          "complete": true
+        },
+        "complete": false,
+        "fetchedAtET": "2026-01-13T10:34:05.899Z"
+      },
+      "alphaScore": 48.8,
+      "qualityTier": "WATCH",
+      "complete": false,
+      "tacticalRole": "HUNTER",
+      "qualityReasonKR": "부분 데이터 (3/5, 누락: 거래량/스텔스)",
+      "decisionSSOT": {
+        "triggersKR": []
+      },
+      "powerScore": 48.8,
+      "isBackfilled": true,
+      "rank": 4,
+      "symbol": "NXTT"
+    }
+  ],
+  "sectors": {
+    "m7": [
+      {
+        "ticker": "AAPL",
+        "evidence": {
+          "price": {
+            "last": 260.25,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 259.03,
+            "extendedChangePct": -0.4687800192123064,
+            "extendedLabel": "PRE",
+            "prevClose": 260.25,
+            "changePct": 0,
+            "vwap": 260.25,
+            "vwapDistPct": 0,
+            "rsi14": 29.78215889414855,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": -145482065,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": -145482065,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 881505.4612518521,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.683554788071527,
+            "callWall": 270,
+            "putFloor": 250,
+            "pinZone": 260,
+            "maxPain": 230,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 270,
+                  "oi": 92919
+                },
+                {
+                  "strike": 280,
+                  "oi": 68941
+                },
+                {
+                  "strike": 260,
+                  "oi": 60848
+                },
+                {
+                  "strike": 275,
+                  "oi": 49082
+                },
+                {
+                  "strike": 290,
+                  "oi": 44737
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 250,
+                  "oi": 37098
+                },
+                {
+                  "strike": 230,
+                  "oi": 27974
+                },
+                {
+                  "strike": 270,
+                  "oi": 25033
+                },
+                {
+                  "strike": 240,
+                  "oi": 22127
+                },
+                {
+                  "strike": 260,
+                  "oi": 21847
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:36.143Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:37.367Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 260.25,
+          "whaleTargetLevel": 270,
+          "targetPrice": 270,
+          "cutPrice": 250,
+          "entryBand": [
+            258.95,
+            261.55
+          ],
+          "whaleReasonKR": "기관 순매도 $-145.5M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "MSFT",
+        "evidence": {
+          "price": {
+            "last": 477.18,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 474.98,
+            "extendedChangePct": -0.461041954817886,
+            "extendedLabel": "PRE",
+            "prevClose": 477.18,
+            "changePct": 0,
+            "vwap": 477.18,
+            "vwapDistPct": 0,
+            "rsi14": 43.39600437392083,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": -237606746,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": -237606746,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 14919.358376781076,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.6632988133375807,
+            "callWall": 520,
+            "putFloor": 450,
+            "pinZone": 485,
+            "maxPain": 460,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 520,
+                  "oi": 33620
+                },
+                {
+                  "strike": 510,
+                  "oi": 19446
+                },
+                {
+                  "strike": 500,
+                  "oi": 18064
+                },
+                {
+                  "strike": 490,
+                  "oi": 17592
+                },
+                {
+                  "strike": 450,
+                  "oi": 13510
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 450,
+                  "oi": 19728
+                },
+                {
+                  "strike": 470,
+                  "oi": 12878
+                },
+                {
+                  "strike": 460,
+                  "oi": 10175
+                },
+                {
+                  "strike": 480,
+                  "oi": 10105
+                },
+                {
+                  "strike": 475,
+                  "oi": 8355
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:36.143Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:37.413Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 477.18,
+          "whaleTargetLevel": 520,
+          "targetPrice": 520,
+          "cutPrice": 467.64,
+          "entryBand": [
+            474.79,
+            479.57
+          ],
+          "whaleReasonKR": "기관 순매도 $-237.6M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "GOOGL",
+        "evidence": {
+          "price": {
+            "last": 331.86,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 333.55,
+            "extendedChangePct": 0.5092508889290658,
+            "extendedLabel": "PRE",
+            "prevClose": 331.86,
+            "changePct": 0,
+            "vwap": 331.86,
+            "vwapDistPct": 0,
+            "rsi14": 71.13048379894835,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 87091526,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 87091526,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 305195.40510885033,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.9165437905568932,
+            "callWall": 350,
+            "putFloor": 300,
+            "pinZone": 325,
+            "maxPain": 260,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 350,
+                  "oi": 33908
+                },
+                {
+                  "strike": 330,
+                  "oi": 19770
+                },
+                {
+                  "strike": 300,
+                  "oi": 19737
+                },
+                {
+                  "strike": 320,
+                  "oi": 14258
+                },
+                {
+                  "strike": 335,
+                  "oi": 13411
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 300,
+                  "oi": 41463
+                },
+                {
+                  "strike": 310,
+                  "oi": 20036
+                },
+                {
+                  "strike": 290,
+                  "oi": 7980
+                },
+                {
+                  "strike": 315,
+                  "oi": 7442
+                },
+                {
+                  "strike": 320,
+                  "oi": 7084
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:36.143Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:37.321Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 331.86,
+          "whaleTargetLevel": 350,
+          "targetPrice": 350,
+          "cutPrice": 325.22,
+          "entryBand": [
+            330.2,
+            333.52
+          ],
+          "whaleReasonKR": "기관 순매수 $87.1M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "AMZN",
+        "evidence": {
+          "price": {
+            "last": 246.47,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 245.34,
+            "extendedChangePct": -0.45847364790846573,
+            "extendedLabel": "PRE",
+            "prevClose": 246.47,
+            "changePct": 0,
+            "vwap": 246.47,
+            "vwapDistPct": 0,
+            "rsi14": 67.44237613226139,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 59172046,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 59172046,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 1015049.8114280557,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.6734659272378851,
+            "callWall": 240,
+            "putFloor": 225,
+            "pinZone": 232.5,
+            "maxPain": 225,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 240,
+                  "oi": 72886
+                },
+                {
+                  "strike": 250,
+                  "oi": 62734
+                },
+                {
+                  "strike": 260,
+                  "oi": 41299
+                },
+                {
+                  "strike": 255,
+                  "oi": 31564
+                },
+                {
+                  "strike": 245,
+                  "oi": 25484
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 225,
+                  "oi": 28583
+                },
+                {
+                  "strike": 230,
+                  "oi": 27430
+                },
+                {
+                  "strike": 220,
+                  "oi": 23339
+                },
+                {
+                  "strike": 210,
+                  "oi": 21443
+                },
+                {
+                  "strike": 235,
+                  "oi": 16471
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:36.143Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:37.357Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 246.47,
+          "whaleTargetLevel": 253.8641,
+          "targetPrice": 253.86,
+          "cutPrice": 241.54,
+          "entryBand": [
+            245.24,
+            247.7
+          ],
+          "whaleReasonKR": "기관 순매수 $59.2M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "NVDA",
+        "evidence": {
+          "price": {
+            "last": 184.94,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 185.26,
+            "extendedChangePct": 0.17302909051583928,
+            "extendedLabel": "PRE",
+            "prevClose": 184.94,
+            "changePct": 0,
+            "vwap": 184.94,
+            "vwapDistPct": 0,
+            "rsi14": 49.73003880783365,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 261258683,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 261258683,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 1567215.0142788228,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.958152618237269,
+            "callWall": 200,
+            "putFloor": 160,
+            "pinZone": 180,
+            "maxPain": 160,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 200,
+                  "oi": 163665
+                },
+                {
+                  "strike": 195,
+                  "oi": 86931
+                },
+                {
+                  "strike": 190,
+                  "oi": 84733
+                },
+                {
+                  "strike": 180,
+                  "oi": 76869
+                },
+                {
+                  "strike": 189,
+                  "oi": 70352
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 160,
+                  "oi": 80294
+                },
+                {
+                  "strike": 180,
+                  "oi": 60786
+                },
+                {
+                  "strike": 170,
+                  "oi": 60570
+                },
+                {
+                  "strike": 190,
+                  "oi": 47816
+                },
+                {
+                  "strike": 165,
+                  "oi": 35714
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:36.143Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:37.511Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 184.94,
+          "whaleTargetLevel": 200,
+          "targetPrice": 200,
+          "cutPrice": 181.24,
+          "entryBand": [
+            184.02,
+            185.86
+          ],
+          "whaleReasonKR": "기관 순매수 $261.3M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "META",
+        "evidence": {
+          "price": {
+            "last": 641.97,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 641,
+            "extendedChangePct": -0.15109740330545465,
+            "extendedLabel": "PRE",
+            "prevClose": 641.97,
+            "changePct": 0,
+            "vwap": 641.97,
+            "vwapDistPct": 0,
+            "rsi14": 43.98892942386941,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": -569843678,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": -569843678,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Short Gamma",
+            "gex": -19784.345226606874,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.6707665244839448,
+            "callWall": 700,
+            "putFloor": 650,
+            "pinZone": 675,
+            "maxPain": 640,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 700,
+                  "oi": 34995
+                },
+                {
+                  "strike": 650,
+                  "oi": 13577
+                },
+                {
+                  "strike": 680,
+                  "oi": 9548
+                },
+                {
+                  "strike": 720,
+                  "oi": 8991
+                },
+                {
+                  "strike": 670,
+                  "oi": 8963
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 650,
+                  "oi": 14505
+                },
+                {
+                  "strike": 600,
+                  "oi": 14341
+                },
+                {
+                  "strike": 620,
+                  "oi": 10425
+                },
+                {
+                  "strike": 640,
+                  "oi": 10144
+                },
+                {
+                  "strike": 660,
+                  "oi": 8344
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:36.143Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "noSignal"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:38.014Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 641.97,
+          "whaleTargetLevel": 700,
+          "targetPrice": 700,
+          "cutPrice": 650,
+          "entryBand": [
+            638.76,
+            645.18
+          ],
+          "whaleReasonKR": "기관 순매도 $-569.8M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "TSLA",
+        "evidence": {
+          "price": {
+            "last": 448.96,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 448.42,
+            "extendedChangePct": -0.12027797576620715,
+            "extendedLabel": "PRE",
+            "prevClose": 448.96,
+            "changePct": 0,
+            "vwap": 448.96,
+            "vwapDistPct": 0,
+            "rsi14": 49.1947722372283,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 387275854,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 387275854,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 222434.8162313487,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 1.0083699179317271,
+            "callWall": 500,
+            "putFloor": 400,
+            "pinZone": 450,
+            "maxPain": 420,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 500,
+                  "oi": 43853
+                },
+                {
+                  "strike": 450,
+                  "oi": 35480
+                },
+                {
+                  "strike": 470,
+                  "oi": 27958
+                },
+                {
+                  "strike": 445,
+                  "oi": 19358
+                },
+                {
+                  "strike": 460,
+                  "oi": 18274
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 400,
+                  "oi": 21119
+                },
+                {
+                  "strike": 420,
+                  "oi": 18447
+                },
+                {
+                  "strike": 450,
+                  "oi": 16645
+                },
+                {
+                  "strike": 430,
+                  "oi": 15117
+                },
+                {
+                  "strike": 440,
+                  "oi": 12383
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:36.143Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:37.794Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 448.96,
+          "whaleTargetLevel": 500,
+          "targetPrice": 500,
+          "cutPrice": 439.98,
+          "entryBand": [
+            446.72,
+            451.2
+          ],
+          "whaleReasonKR": "기관 순매수 $387.3M 대규모 유입 포착."
+        }
+      }
+    ],
+    "physicalAi": [
+      {
+        "ticker": "PLTR",
+        "evidence": {
+          "price": {
+            "last": 179.41,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 178.81,
+            "extendedChangePct": -0.3344295189788721,
+            "extendedLabel": "PRE",
+            "prevClose": 179.41,
+            "changePct": 0,
+            "vwap": 179.41,
+            "vwapDistPct": 0,
+            "rsi14": 48.841649544133965,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 61784145,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 61784145,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 312630.02470737306,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.8691311665664097,
+            "callWall": 190,
+            "putFloor": 160,
+            "pinZone": 175,
+            "maxPain": 130,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 190,
+                  "oi": 39865
+                },
+                {
+                  "strike": 200,
+                  "oi": 33216
+                },
+                {
+                  "strike": 180,
+                  "oi": 28054
+                },
+                {
+                  "strike": 182.5,
+                  "oi": 24945
+                },
+                {
+                  "strike": 185,
+                  "oi": 18080
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 160,
+                  "oi": 15401
+                },
+                {
+                  "strike": 180,
+                  "oi": 12656
+                },
+                {
+                  "strike": 170,
+                  "oi": 12430
+                },
+                {
+                  "strike": 167.5,
+                  "oi": 11945
+                },
+                {
+                  "strike": 165,
+                  "oi": 11587
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:58.696Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:59.557Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 179.41,
+          "whaleTargetLevel": 190,
+          "targetPrice": 190,
+          "cutPrice": 175.82,
+          "entryBand": [
+            178.51,
+            180.31
+          ],
+          "whaleReasonKR": "기관 순매수 $61.8M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "ISRG",
+        "evidence": {
+          "price": {
+            "last": 572.745,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 0,
+            "extendedChangePct": 0,
+            "extendedLabel": "PRE",
+            "prevClose": 572.745,
+            "changePct": 0,
+            "vwap": 572.745,
+            "vwapDistPct": 0,
+            "rsi14": 51.74264652053123,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 2445350,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 2445350,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 79.76225309341312,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 1.1044942729567075,
+            "callWall": 600,
+            "putFloor": 580,
+            "pinZone": 590,
+            "maxPain": 555,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 600,
+                  "oi": 1711
+                },
+                {
+                  "strike": 620,
+                  "oi": 870
+                },
+                {
+                  "strike": 625,
+                  "oi": 854
+                },
+                {
+                  "strike": 570,
+                  "oi": 808
+                },
+                {
+                  "strike": 630,
+                  "oi": 668
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 580,
+                  "oi": 1120
+                },
+                {
+                  "strike": 500,
+                  "oi": 1101
+                },
+                {
+                  "strike": 490,
+                  "oi": 811
+                },
+                {
+                  "strike": 570,
+                  "oi": 723
+                },
+                {
+                  "strike": 540,
+                  "oi": 690
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:58.696Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:59.855Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 572.745,
+          "whaleTargetLevel": 600,
+          "targetPrice": 600,
+          "cutPrice": 580,
+          "entryBand": [
+            569.88,
+            575.61
+          ],
+          "whaleReasonKR": "기관 순매수 $2.4M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "SYM",
+        "evidence": {
+          "price": {
+            "last": 73.23,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 73.17,
+            "extendedChangePct": -0.08193363375666021,
+            "extendedLabel": "PRE",
+            "prevClose": 73.23,
+            "changePct": 0,
+            "vwap": 73.23,
+            "vwapDistPct": 0,
+            "rsi14": 63.01003399378881,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 945261,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 945261,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 21697.72953812239,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.8998986006895153,
+            "callWall": 70,
+            "putFloor": 62.5,
+            "pinZone": 66.25,
+            "maxPain": 55,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 70,
+                  "oi": 1201
+                },
+                {
+                  "strike": 65,
+                  "oi": 1079
+                },
+                {
+                  "strike": 62.5,
+                  "oi": 956
+                },
+                {
+                  "strike": 75,
+                  "oi": 917
+                },
+                {
+                  "strike": 80,
+                  "oi": 707
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 62.5,
+                  "oi": 2983
+                },
+                {
+                  "strike": 65,
+                  "oi": 769
+                },
+                {
+                  "strike": 70,
+                  "oi": 383
+                },
+                {
+                  "strike": 67.5,
+                  "oi": 168
+                },
+                {
+                  "strike": 72.5,
+                  "oi": 146
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:58.696Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:59.294Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 73.23,
+          "whaleTargetLevel": 75.4269,
+          "targetPrice": 75.43,
+          "cutPrice": 71.77,
+          "entryBand": [
+            72.86,
+            73.6
+          ],
+          "whaleReasonKR": "주요 저항벽($70) 돌파 시도 중. 구조적 분기점."
+        }
+      },
+      {
+        "ticker": "TER",
+        "evidence": {
+          "price": {
+            "last": 224.36,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 223.5,
+            "extendedChangePct": -0.3833125334284247,
+            "extendedLabel": "PRE",
+            "prevClose": 224.36,
+            "changePct": 0,
+            "vwap": 224.36,
+            "vwapDistPct": 0,
+            "rsi14": 67.07874065342075,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 2392215,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 2392215,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 5053.6437582872,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.6628029504741834,
+            "callWall": 250,
+            "putFloor": 212.5,
+            "pinZone": 231.25,
+            "maxPain": 160,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 250,
+                  "oi": 1524
+                },
+                {
+                  "strike": 210,
+                  "oi": 1504
+                },
+                {
+                  "strike": 220,
+                  "oi": 987
+                },
+                {
+                  "strike": 200,
+                  "oi": 831
+                },
+                {
+                  "strike": 240,
+                  "oi": 706
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 212.5,
+                  "oi": 3018
+                },
+                {
+                  "strike": 215,
+                  "oi": 2367
+                },
+                {
+                  "strike": 200,
+                  "oi": 422
+                },
+                {
+                  "strike": 195,
+                  "oi": 379
+                },
+                {
+                  "strike": 205,
+                  "oi": 91
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:58.696Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:59.358Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 224.36,
+          "whaleTargetLevel": 250,
+          "targetPrice": 250,
+          "cutPrice": 219.87,
+          "entryBand": [
+            223.24,
+            225.48
+          ],
+          "whaleReasonKR": "기관 순매수 $2.4M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "RKLB",
+        "evidence": {
+          "price": {
+            "last": 87.9,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 87.78,
+            "extendedChangePct": -0.1365187713310632,
+            "extendedLabel": "PRE",
+            "prevClose": 87.9,
+            "changePct": 0,
+            "vwap": 87.9,
+            "vwapDistPct": 0,
+            "rsi14": 73.05409796212781,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 21409535,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 21409535,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 186192.5689609204,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.9375825320363792,
+            "callWall": 100,
+            "putFloor": 80,
+            "pinZone": 90,
+            "maxPain": 45,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 100,
+                  "oi": 13795
+                },
+                {
+                  "strike": 80,
+                  "oi": 11784
+                },
+                {
+                  "strike": 90,
+                  "oi": 10240
+                },
+                {
+                  "strike": 75,
+                  "oi": 7198
+                },
+                {
+                  "strike": 85,
+                  "oi": 4486
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 80,
+                  "oi": 2393
+                },
+                {
+                  "strike": 75,
+                  "oi": 1514
+                },
+                {
+                  "strike": 85,
+                  "oi": 1012
+                },
+                {
+                  "strike": 76,
+                  "oi": 738
+                },
+                {
+                  "strike": 78,
+                  "oi": 695
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:58.696Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:59.787Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 87.9,
+          "whaleTargetLevel": 100,
+          "targetPrice": 100,
+          "cutPrice": 86.14,
+          "entryBand": [
+            87.46,
+            88.34
+          ],
+          "whaleReasonKR": "기관 순매수 $21.4M 대규모 유입 포착."
+        }
+      },
+      {
+        "ticker": "SERV",
+        "evidence": {
+          "price": {
+            "last": 14.34,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 14.41,
+            "extendedChangePct": 0.4881450488145068,
+            "extendedLabel": "PRE",
+            "prevClose": 14.34,
+            "changePct": 0,
+            "vwap": 14.34,
+            "vwapDistPct": 0,
+            "rsi14": 63.77557182518506,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 226425,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 226425,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 334265.6817820608,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.3906197761609858,
+            "callWall": 15,
+            "putFloor": 15,
+            "pinZone": 15,
+            "maxPain": 11,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 15,
+                  "oi": 3937
+                },
+                {
+                  "strike": 13,
+                  "oi": 2532
+                },
+                {
+                  "strike": 14,
+                  "oi": 2232
+                },
+                {
+                  "strike": 16,
+                  "oi": 1608
+                },
+                {
+                  "strike": 15.5,
+                  "oi": 474
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 15,
+                  "oi": 1496
+                },
+                {
+                  "strike": 12.5,
+                  "oi": 1156
+                },
+                {
+                  "strike": 13,
+                  "oi": 944
+                },
+                {
+                  "strike": 14,
+                  "oi": 547
+                },
+                {
+                  "strike": 13.5,
+                  "oi": 524
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:34:58.696Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "C",
+            "tags": [
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:59.342Z"
+        },
+        "alphaScore": null,
+        "qualityTier": "INCOMPLETE",
+        "complete": false,
+        "decisionSSOT": {
+          "whaleIndex": 0,
+          "whaleConfidence": "NONE",
+          "whaleEntryLevel": 14.34,
+          "whaleTargetLevel": 15,
+          "targetPrice": 15,
+          "cutPrice": 15,
+          "entryBand": [
+            14.27,
+            14.41
+          ],
+          "whaleReasonKR": "기술적 조정 흐름 지속. 특이 거래량 부재, 관망 필요."
+        }
+      }
+    ]
+  },
+  "alphaGrid": {
+    "top3": [
+      {
+        "ticker": "INTC",
+        "evidence": {
+          "price": {
+            "last": 44.06,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 45.54,
+            "extendedChangePct": 3.359055832955054,
+            "extendedLabel": "PRE",
+            "prevClose": 44.06,
+            "changePct": 0,
+            "vwap": 44.06,
+            "vwapDistPct": 0,
+            "rsi14": 64.92428054834865,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 9216022,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 9216022,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 3383179.819868209,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.578938910979896,
+            "callWall": 50,
+            "putFloor": 40,
+            "pinZone": 45,
+            "maxPain": 33,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 50,
+                  "oi": 108725
+                },
+                {
+                  "strike": 40,
+                  "oi": 77408
+                },
+                {
+                  "strike": 45,
+                  "oi": 64861
+                },
+                {
+                  "strike": 38,
+                  "oi": 26326
+                },
+                {
+                  "strike": 42,
+                  "oi": 26217
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 40,
+                  "oi": 33408
+                },
+                {
+                  "strike": 38,
+                  "oi": 21409
+                },
+                {
+                  "strike": 42,
+                  "oi": 12299
+                },
+                {
+                  "strike": 43,
+                  "oi": 9405
+                },
+                {
+                  "strike": 44,
+                  "oi": 9341
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "blockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:50.852Z"
+        },
+        "alphaScore": 72,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 72,
+        "isBackfilled": true,
+        "top3Action": "NO_TRADE"
+      },
+      {
+        "ticker": "UNH",
+        "evidence": {
+          "price": {
+            "last": 340.51,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 339.31,
+            "extendedChangePct": -0.3524125576341337,
+            "extendedLabel": "PRE",
+            "prevClose": 340.51,
+            "changePct": 0,
+            "vwap": 340.51,
+            "vwapDistPct": 0,
+            "rsi14": 54.29118272199999,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 110862371.00000006,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 110862371.00000006,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 56429.89286737402,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.4646083955129181,
+            "callWall": 350,
+            "putFloor": 300,
+            "pinZone": 325,
+            "maxPain": 320,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 350,
+                  "oi": 10452
+                },
+                {
+                  "strike": 360,
+                  "oi": 8205
+                },
+                {
+                  "strike": 300,
+                  "oi": 7684
+                },
+                {
+                  "strike": 340,
+                  "oi": 7513
+                },
+                {
+                  "strike": 320,
+                  "oi": 7236
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 300,
+                  "oi": 9067
+                },
+                {
+                  "strike": 290,
+                  "oi": 6489
+                },
+                {
+                  "strike": 320,
+                  "oi": 5804
+                },
+                {
+                  "strike": 330,
+                  "oi": 5143
+                },
+                {
+                  "strike": 310,
+                  "oi": 4027
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:50.942Z"
+        },
+        "alphaScore": 72,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 72,
+        "isBackfilled": true,
+        "top3Action": "NO_TRADE"
+      },
+      {
+        "ticker": "VZ",
+        "evidence": {
+          "price": {
+            "last": 39.84,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 39.78,
+            "extendedChangePct": -0.15060240963855992,
+            "extendedLabel": "PRE",
+            "prevClose": 39.84,
+            "changePct": 0,
+            "vwap": 39.84,
+            "vwapDistPct": 0,
+            "rsi14": 41.936814633669904,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 8596861,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 8596861,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Short Gamma",
+            "gex": -1185378.9547468736,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.7167208285974995,
+            "callWall": 42,
+            "putFloor": 40,
+            "pinZone": 41,
+            "maxPain": 41,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 42,
+                  "oi": 76968
+                },
+                {
+                  "strike": 45,
+                  "oi": 30578
+                },
+                {
+                  "strike": 43,
+                  "oi": 28188
+                },
+                {
+                  "strike": 41,
+                  "oi": 26098
+                },
+                {
+                  "strike": 44,
+                  "oi": 11671
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 40,
+                  "oi": 32530
+                },
+                {
+                  "strike": 38,
+                  "oi": 22911
+                },
+                {
+                  "strike": 37,
+                  "oi": 19253
+                },
+                {
+                  "strike": 35,
+                  "oi": 15971
+                },
+                {
+                  "strike": 39,
+                  "oi": 14510
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:01.416Z"
+        },
+        "alphaScore": 72,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 72,
+        "isBackfilled": true,
+        "top3Action": "NO_TRADE"
+      }
+    ],
+    "fullUniverse": [
+      {
+        "ticker": "INTC",
+        "evidence": {
+          "price": {
+            "last": 44.06,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 45.54,
+            "extendedChangePct": 3.359055832955054,
+            "extendedLabel": "PRE",
+            "prevClose": 44.06,
+            "changePct": 0,
+            "vwap": 44.06,
+            "vwapDistPct": 0,
+            "rsi14": 64.92428054834865,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 9216022,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 9216022,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 3383179.819868209,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.578938910979896,
+            "callWall": 50,
+            "putFloor": 40,
+            "pinZone": 45,
+            "maxPain": 33,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 50,
+                  "oi": 108725
+                },
+                {
+                  "strike": 40,
+                  "oi": 77408
+                },
+                {
+                  "strike": 45,
+                  "oi": 64861
+                },
+                {
+                  "strike": 38,
+                  "oi": 26326
+                },
+                {
+                  "strike": 42,
+                  "oi": 26217
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 40,
+                  "oi": 33408
+                },
+                {
+                  "strike": 38,
+                  "oi": 21409
+                },
+                {
+                  "strike": 42,
+                  "oi": 12299
+                },
+                {
+                  "strike": 43,
+                  "oi": 9405
+                },
+                {
+                  "strike": 44,
+                  "oi": 9341
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "blockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:50.852Z"
+        },
+        "alphaScore": 72,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 72,
+        "isBackfilled": true,
+        "rank": 1,
+        "symbol": "INTC",
+        "changePct": 0,
+        "price": 44.06,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "UNH",
+        "evidence": {
+          "price": {
+            "last": 340.51,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 339.31,
+            "extendedChangePct": -0.3524125576341337,
+            "extendedLabel": "PRE",
+            "prevClose": 340.51,
+            "changePct": 0,
+            "vwap": 340.51,
+            "vwapDistPct": 0,
+            "rsi14": 54.29118272199999,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 110862371.00000006,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 110862371.00000006,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 56429.89286737402,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.4646083955129181,
+            "callWall": 350,
+            "putFloor": 300,
+            "pinZone": 325,
+            "maxPain": 320,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 350,
+                  "oi": 10452
+                },
+                {
+                  "strike": 360,
+                  "oi": 8205
+                },
+                {
+                  "strike": 300,
+                  "oi": 7684
+                },
+                {
+                  "strike": 340,
+                  "oi": 7513
+                },
+                {
+                  "strike": 320,
+                  "oi": 7236
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 300,
+                  "oi": 9067
+                },
+                {
+                  "strike": 290,
+                  "oi": 6489
+                },
+                {
+                  "strike": 320,
+                  "oi": 5804
+                },
+                {
+                  "strike": 330,
+                  "oi": 5143
+                },
+                {
+                  "strike": 310,
+                  "oi": 4027
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:50.942Z"
+        },
+        "alphaScore": 72,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 72,
+        "isBackfilled": true,
+        "rank": 2,
+        "symbol": "UNH",
+        "changePct": 0,
+        "price": 340.51,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "VZ",
+        "evidence": {
+          "price": {
+            "last": 39.84,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 39.78,
+            "extendedChangePct": -0.15060240963855992,
+            "extendedLabel": "PRE",
+            "prevClose": 39.84,
+            "changePct": 0,
+            "vwap": 39.84,
+            "vwapDistPct": 0,
+            "rsi14": 41.936814633669904,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 8596861,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 8596861,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Short Gamma",
+            "gex": -1185378.9547468736,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.7167208285974995,
+            "callWall": 42,
+            "putFloor": 40,
+            "pinZone": 41,
+            "maxPain": 41,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 42,
+                  "oi": 76968
+                },
+                {
+                  "strike": 45,
+                  "oi": 30578
+                },
+                {
+                  "strike": 43,
+                  "oi": 28188
+                },
+                {
+                  "strike": 41,
+                  "oi": 26098
+                },
+                {
+                  "strike": 44,
+                  "oi": 11671
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 40,
+                  "oi": 32530
+                },
+                {
+                  "strike": 38,
+                  "oi": 22911
+                },
+                {
+                  "strike": 37,
+                  "oi": 19253
+                },
+                {
+                  "strike": 35,
+                  "oi": 15971
+                },
+                {
+                  "strike": 39,
+                  "oi": 14510
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "blockPrint"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:01.416Z"
+        },
+        "alphaScore": 72,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 72,
+        "isBackfilled": true,
+        "rank": 3,
+        "symbol": "VZ",
+        "changePct": 0,
+        "price": 39.84,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "HOOD",
+        "evidence": {
+          "price": {
+            "last": 117.52,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 117.54,
+            "extendedChangePct": 0.017018379850246967,
+            "extendedLabel": "PRE",
+            "prevClose": 117.52,
+            "changePct": 0,
+            "vwap": 117.52,
+            "vwapDistPct": 0,
+            "rsi14": 46.23843093348786,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 14423564,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 14423564,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 224898.71847530687,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.6605735902949389,
+            "callWall": 120,
+            "putFloor": 100,
+            "pinZone": 110,
+            "maxPain": 75,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 120,
+                  "oi": 29344
+                },
+                {
+                  "strike": 125,
+                  "oi": 23530
+                },
+                {
+                  "strike": 130,
+                  "oi": 14024
+                },
+                {
+                  "strike": 100,
+                  "oi": 12645
+                },
+                {
+                  "strike": 135,
+                  "oi": 8840
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 100,
+                  "oi": 16124
+                },
+                {
+                  "strike": 110,
+                  "oi": 15408
+                },
+                {
+                  "strike": 115,
+                  "oi": 13593
+                },
+                {
+                  "strike": 105,
+                  "oi": 8786
+                },
+                {
+                  "strike": 125,
+                  "oi": 8274
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:34:04.726Z"
+        },
+        "alphaScore": 72,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 72,
+        "isBackfilled": true,
+        "rank": 4,
+        "symbol": "HOOD",
+        "changePct": 0,
+        "price": 117.52,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "AMZN",
+        "evidence": {
+          "price": {
+            "last": 246.47,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 245.34,
+            "extendedChangePct": -0.45847364790846573,
+            "extendedLabel": "PRE",
+            "prevClose": 246.47,
+            "changePct": 0,
+            "vwap": 246.47,
+            "vwapDistPct": 0,
+            "rsi14": 67.44237613226139,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 59172046,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 59172046,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 1041314.7637770504,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.6734659272378851,
+            "callWall": 240,
+            "putFloor": 225,
+            "pinZone": 232.5,
+            "maxPain": 225,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 240,
+                  "oi": 72886
+                },
+                {
+                  "strike": 250,
+                  "oi": 62734
+                },
+                {
+                  "strike": 260,
+                  "oi": 41299
+                },
+                {
+                  "strike": 255,
+                  "oi": 31564
+                },
+                {
+                  "strike": 245,
+                  "oi": 25484
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 225,
+                  "oi": 28583
+                },
+                {
+                  "strike": 230,
+                  "oi": 27430
+                },
+                {
+                  "strike": 220,
+                  "oi": 23339
+                },
+                {
+                  "strike": 210,
+                  "oi": 21443
+                },
+                {
+                  "strike": 235,
+                  "oi": 16471
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:47.480Z"
+        },
+        "alphaScore": 70,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 70,
+        "isBackfilled": true,
+        "rank": 5,
+        "symbol": "AMZN",
+        "changePct": 0,
+        "price": 246.47,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "CVX",
+        "evidence": {
+          "price": {
+            "last": 162.34,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 163.27,
+            "extendedChangePct": 0.5728717506467949,
+            "extendedLabel": "PRE",
+            "prevClose": 162.34,
+            "changePct": 0,
+            "vwap": 162.34,
+            "vwapDistPct": 0,
+            "rsi14": 64.27853258796863,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 15978118,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 15978118,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 280873.6845854435,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.7382304556183392,
+            "callWall": 157.5,
+            "putFloor": 150,
+            "pinZone": 153.75,
+            "maxPain": 155,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 157.5,
+                  "oi": 6713
+                },
+                {
+                  "strike": 162.5,
+                  "oi": 4935
+                },
+                {
+                  "strike": 167.5,
+                  "oi": 4730
+                },
+                {
+                  "strike": 160,
+                  "oi": 1498
+                },
+                {
+                  "strike": 172.5,
+                  "oi": 1375
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 150,
+                  "oi": 5209
+                },
+                {
+                  "strike": 157.5,
+                  "oi": 2564
+                },
+                {
+                  "strike": 149,
+                  "oi": 2520
+                },
+                {
+                  "strike": 152.5,
+                  "oi": 1073
+                },
+                {
+                  "strike": 162.5,
+                  "oi": 836
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:58.975Z"
+        },
+        "alphaScore": 70,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 70,
+        "isBackfilled": true,
+        "rank": 6,
+        "symbol": "CVX",
+        "changePct": 0,
+        "price": 162.34,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "NVDA",
+        "evidence": {
+          "price": {
+            "last": 184.94,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 185.22,
+            "extendedChangePct": 0.15140045420136322,
+            "extendedLabel": "PRE",
+            "prevClose": 184.94,
+            "changePct": 0,
+            "vwap": 184.94,
+            "vwapDistPct": 0,
+            "rsi14": 49.73003880783365,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 261258683,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 261258683,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 1630371.0559959018,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.958152618237269,
+            "callWall": 200,
+            "putFloor": 160,
+            "pinZone": 180,
+            "maxPain": 160,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 200,
+                  "oi": 163665
+                },
+                {
+                  "strike": 195,
+                  "oi": 86931
+                },
+                {
+                  "strike": 190,
+                  "oi": 84733
+                },
+                {
+                  "strike": 180,
+                  "oi": 76869
+                },
+                {
+                  "strike": 189,
+                  "oi": 70352
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 160,
+                  "oi": 80294
+                },
+                {
+                  "strike": 180,
+                  "oi": 60786
+                },
+                {
+                  "strike": 170,
+                  "oi": 60570
+                },
+                {
+                  "strike": 190,
+                  "oi": 47816
+                },
+                {
+                  "strike": 165,
+                  "oi": 35714
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:47.545Z"
+        },
+        "alphaScore": 68,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 68,
+        "isBackfilled": true,
+        "rank": 7,
+        "symbol": "NVDA",
+        "changePct": 0,
+        "price": 184.94,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "GOOGL",
+        "evidence": {
+          "price": {
+            "last": 331.86,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 333.55,
+            "extendedChangePct": 0.5092508889290658,
+            "extendedLabel": "PRE",
+            "prevClose": 331.86,
+            "changePct": 0,
+            "vwap": 331.86,
+            "vwapDistPct": 0,
+            "rsi14": 71.13048379894835,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 87091526,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 87091526,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 319378.7266031366,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.9165437905568932,
+            "callWall": 350,
+            "putFloor": 300,
+            "pinZone": 325,
+            "maxPain": 260,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 350,
+                  "oi": 33908
+                },
+                {
+                  "strike": 330,
+                  "oi": 19770
+                },
+                {
+                  "strike": 300,
+                  "oi": 19737
+                },
+                {
+                  "strike": 320,
+                  "oi": 14258
+                },
+                {
+                  "strike": 335,
+                  "oi": 13411
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 300,
+                  "oi": 41463
+                },
+                {
+                  "strike": 310,
+                  "oi": 20036
+                },
+                {
+                  "strike": 290,
+                  "oi": 7980
+                },
+                {
+                  "strike": 315,
+                  "oi": 7442
+                },
+                {
+                  "strike": 320,
+                  "oi": 7084
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:47.724Z"
+        },
+        "alphaScore": 68,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 68,
+        "isBackfilled": true,
+        "rank": 8,
+        "symbol": "GOOGL",
+        "changePct": 0,
+        "price": 331.86,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "TSLA",
+        "evidence": {
+          "price": {
+            "last": 448.96,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 448.36,
+            "extendedChangePct": -0.13364219529578714,
+            "extendedLabel": "PRE",
+            "prevClose": 448.96,
+            "changePct": 0,
+            "vwap": 448.96,
+            "vwapDistPct": 0,
+            "rsi14": 49.1947722372283,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 387275854,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 387275854,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 227889.25822192416,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 1.0083699179317271,
+            "callWall": 500,
+            "putFloor": 400,
+            "pinZone": 450,
+            "maxPain": 420,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 500,
+                  "oi": 43853
+                },
+                {
+                  "strike": 450,
+                  "oi": 35480
+                },
+                {
+                  "strike": 470,
+                  "oi": 27958
+                },
+                {
+                  "strike": 445,
+                  "oi": 19358
+                },
+                {
+                  "strike": 460,
+                  "oi": 18274
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 400,
+                  "oi": 21119
+                },
+                {
+                  "strike": 420,
+                  "oi": 18447
+                },
+                {
+                  "strike": 450,
+                  "oi": 16645
+                },
+                {
+                  "strike": 430,
+                  "oi": 15117
+                },
+                {
+                  "strike": 440,
+                  "oi": 12383
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:48.046Z"
+        },
+        "alphaScore": 68,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 68,
+        "isBackfilled": true,
+        "rank": 9,
+        "symbol": "TSLA",
+        "changePct": 0,
+        "price": 448.96,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "AMD",
+        "evidence": {
+          "price": {
+            "last": 207.69,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 210.6,
+            "extendedChangePct": 1.4011266791853227,
+            "extendedLabel": "PRE",
+            "prevClose": 207.69,
+            "changePct": 0,
+            "vwap": 207.69,
+            "vwapDistPct": 0,
+            "rsi14": 43.76968217660104,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 7311113,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 7311113,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 108651.39134947085,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.9382803565695156,
+            "callWall": 220,
+            "putFloor": 200,
+            "pinZone": 210,
+            "maxPain": 190,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 220,
+                  "oi": 20474
+                },
+                {
+                  "strike": 230,
+                  "oi": 16422
+                },
+                {
+                  "strike": 200,
+                  "oi": 15788
+                },
+                {
+                  "strike": 180,
+                  "oi": 13308
+                },
+                {
+                  "strike": 210,
+                  "oi": 13175
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 200,
+                  "oi": 20411
+                },
+                {
+                  "strike": 210,
+                  "oi": 13217
+                },
+                {
+                  "strike": 180,
+                  "oi": 11697
+                },
+                {
+                  "strike": 195,
+                  "oi": 10648
+                },
+                {
+                  "strike": 190,
+                  "oi": 10193
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "B",
+            "tags": [
+              "blockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:47.751Z"
+        },
+        "alphaScore": 68,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 68,
+        "isBackfilled": true,
+        "rank": 10,
+        "symbol": "AMD",
+        "changePct": 0,
+        "price": 207.69,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "QCOM",
+        "evidence": {
+          "price": {
+            "last": 169.27,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 167.79,
+            "extendedChangePct": -0.8743427659951665,
+            "extendedLabel": "PRE",
+            "prevClose": 169.27,
+            "changePct": 0,
+            "vwap": 169.27,
+            "vwapDistPct": 0,
+            "rsi14": 42.008972944844864,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 20016687,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 20016687,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 44121.7893117184,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.8165803773221986,
+            "callWall": 172.5,
+            "putFloor": 145,
+            "pinZone": 158.75,
+            "maxPain": 170,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 172.5,
+                  "oi": 11849
+                },
+                {
+                  "strike": 190,
+                  "oi": 8015
+                },
+                {
+                  "strike": 185,
+                  "oi": 7484
+                },
+                {
+                  "strike": 170,
+                  "oi": 7015
+                },
+                {
+                  "strike": 180,
+                  "oi": 5571
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 145,
+                  "oi": 11889
+                },
+                {
+                  "strike": 150,
+                  "oi": 8650
+                },
+                {
+                  "strike": 160,
+                  "oi": 6780
+                },
+                {
+                  "strike": 170,
+                  "oi": 5385
+                },
+                {
+                  "strike": 155,
+                  "oi": 4532
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:49.849Z"
+        },
+        "alphaScore": 68,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 68,
+        "isBackfilled": true,
+        "rank": 11,
+        "symbol": "QCOM",
+        "changePct": 0,
+        "price": 169.27,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      },
+      {
+        "ticker": "LLY",
+        "evidence": {
+          "price": {
+            "last": 1081,
+            "priceSource": "OFFICIAL_CLOSE",
+            "extendedPrice": 1083.46,
+            "extendedChangePct": 0.22756706753006814,
+            "extendedLabel": "PRE",
+            "prevClose": 1081,
+            "changePct": 0,
+            "vwap": 1081,
+            "vwapDistPct": 0,
+            "rsi14": 56.05239957914892,
+            "return3D": 0,
+            "structureState": "CONSOLIDATION",
+            "complete": true
+          },
+          "flow": {
+            "vol": 0,
+            "relVol": 1,
+            "gapPct": 0,
+            "largeTradesUsd": 26715514,
+            "offExPct": 0,
+            "offExDeltaPct": 0,
+            "netFlow": 26715514,
+            "complete": true
+          },
+          "options": {
+            "status": "OK",
+            "coveragePct": 100,
+            "gammaRegime": "Long Gamma",
+            "gex": 11693.580949540872,
+            "gexZeroDte": 0,
+            "gexZeroDteRatio": 0,
+            "pcr": 0.86714050674564,
+            "callWall": 1200,
+            "putFloor": 1000,
+            "pinZone": 1100,
+            "maxPain": 950,
+            "oiClusters": {
+              "callsTop": [
+                {
+                  "strike": 1200,
+                  "oi": 5410
+                },
+                {
+                  "strike": 1000,
+                  "oi": 4561
+                },
+                {
+                  "strike": 1060,
+                  "oi": 4487
+                },
+                {
+                  "strike": 1140,
+                  "oi": 3176
+                },
+                {
+                  "strike": 1120,
+                  "oi": 1849
+                }
+              ],
+              "putsTop": [
+                {
+                  "strike": 1000,
+                  "oi": 2197
+                },
+                {
+                  "strike": 1040,
+                  "oi": 1079
+                },
+                {
+                  "strike": 920,
+                  "oi": 1041
+                },
+                {
+                  "strike": 1065,
+                  "oi": 782
+                },
+                {
+                  "strike": 1030,
+                  "oi": 778
+                }
+              ]
+            },
+            "complete": true
+          },
+          "macro": {
+            "ndx": {
+              "price": 25931.5345,
+              "changePct": -0.249
+            },
+            "vix": {
+              "value": 15.160400000000001
+            },
+            "us10y": {
+              "yield": 4.06
+            },
+            "dxy": {
+              "value": 99.0264
+            },
+            "fetchedAtET": "2026-01-13T10:33:45.503Z",
+            "ageSeconds": 0,
+            "complete": true
+          },
+          "policy": {
+            "gate": {
+              "P0": [],
+              "P1": [],
+              "P2": [],
+              "blocked": false
+            },
+            "gradeA_B_C_counts": {
+              "A": 0,
+              "B": 0,
+              "C": 0
+            }
+          },
+          "stealth": {
+            "label": "A",
+            "tags": [
+              "MassiveBlockPrint",
+              "supportiveGamma"
+            ],
+            "impact": "NEUTRAL",
+            "complete": true
+          },
+          "complete": false,
+          "fetchedAtET": "2026-01-13T10:33:51.375Z"
+        },
+        "alphaScore": 68,
+        "qualityTier": "WATCH",
+        "complete": false,
+        "tacticalRole": "MAIN",
+        "qualityReasonKR": "부분 데이터 (4/5, 누락: 스텔스)",
+        "decisionSSOT": {
+          "triggersKR": []
+        },
+        "powerScore": 68,
+        "isBackfilled": true,
+        "rank": 12,
+        "symbol": "LLY",
+        "changePct": 0,
+        "price": 1081,
+        "v71": {
+          "options_status": "READY",
+          "options_note": "Backfilled/Live"
+        }
+      }
+    ]
+  },
+  "engine": {
+    "regime": "NEUTRAL",
+    "regimeReasonKR": "Macro 데이터 미완성 (기본 NEUTRAL)",
+    "counts": {
+      "actionableCount": 0,
+      "watchCount": 0,
+      "fillerCount": 0,
+      "backfillCount": 0
+    },
+    "top3Stats": {
+      "actionableUsed": 0,
+      "watchUsed": 0,
+      "noTradeSlots": 3,
+      "changelogKR": [
+        "[NO_TRADE] INTC - 점수 72.0 (데이터 부분)",
+        "[NO_TRADE] UNH - 점수 72.0 (데이터 부분)",
+        "[NO_TRADE] VZ - 점수 72.0 (데이터 부분)"
+      ]
+    },
+    "macroSSOT": {
+      "ndx": {
+        "value": 25931.5345,
+        "changePct": -0.249,
+        "label": "NDX"
+      },
+      "vix": {
+        "value": 15.160400000000001,
+        "label": "VIX"
+      },
+      "us10y": {
+        "value": 4.06,
+        "label": "US10Y"
+      },
+      "dxy": {
+        "value": 99.0264,
+        "label": "DXY"
+      },
+      "regime": "NEUTRAL",
+      "fetchedAtET": "2026-01-13T10:33:45.503Z",
+      "ageSeconds": 0
+    }
+  },
+  "diffs": []
+}
