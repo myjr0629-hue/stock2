@@ -1,5 +1,5 @@
-import { calculateRLSI, RLSIResult } from "./rlsiEngine";
-import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector } from "./sectorEngine";
+import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rlsiEngine";
+import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationIntensity } from "./sectorEngine";
 import { getMacroSnapshotSSOT, MacroSnapshot } from "@/services/macroHubProvider";
 import { IntelligenceNode } from "./intelligenceNode";
 import { RvolEngine, RvolProfile } from "./rvolEngine";
@@ -22,15 +22,16 @@ export interface DivergenceAnalysis {
 
 export interface GuardianContext {
     rlsi: RLSIResult;
-    market: MacroSnapshot; // Consolidated Data Interface (SSOT)
-    sectors: SectorFlowRate[]; // Changed from SectorDensity (Phase 2)
-    vectors?: FlowVector[]; // Top 3 Flow Vectors
+    market: MacroSnapshot;
+    sectors: SectorFlowRate[];
+    vectors?: FlowVector[];
     verdict: GuardianVerdict;
-    divergence: DivergenceAnalysis; // NEW: Added Divergence Analysis
+    divergence: DivergenceAnalysis;
     verdictSourceId: string | null;
     verdictTargetId: string | null;
     marketStatus: 'GO' | 'WAIT' | 'STOP';
-    rvol?: { ndx: RvolProfile; dow: RvolProfile }; // NEW: RVOL Data
+    rvol?: { ndx: RvolProfile; dow: RvolProfile };
+    rotationIntensity?: RotationIntensity; // [V5.0] NEW
     tripleA?: {
         regime: 'BULL' | 'BEAR' | 'NEUTRAL';
         alignment: boolean;
@@ -63,18 +64,23 @@ export class GuardianDataHub {
 
         try {
             // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
-            console.log("[Guardian] Step 1: Fetching RLSI, Macro & RVOL Data in Parallel...");
-            const [rlsi, macro, rvolNdx, rvolDow] = await Promise.all([
-                calculateRLSI(force),
+            // [V5.0] Changed order: Sector first, then RLSI with RIS score
+            console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
+            const [sectorResult, macro, rvolNdx, rvolDow] = await Promise.all([
+                SectorEngine.getSectorFlows(),
                 getMacroSnapshotSSOT(),
                 RvolEngine.getRvol("QQQ"),
                 RvolEngine.getRvol("DIA")
             ]);
-            console.log(`[Guardian] Step 1 Complete. RLSI: ${rlsi.score.toFixed(1)}, RVOL(NDX): ${rvolNdx.rvol.toFixed(2)}x`);
 
-            // === STEP 2: SECTOR & FLOW ANALYSIS ===
-            console.log("[Guardian] Step 2: Fetching Sector Flows...");
-            const { flows, vectors, source, target, sourceId, targetId } = await SectorEngine.getSectorFlows();
+            const { flows, vectors, source, target, sourceId, targetId, rotationIntensity } = sectorResult;
+            console.log(`[Guardian V5.0] Step 1 Complete. RIS: ${rotationIntensity.score}, Direction: ${rotationIntensity.direction}`);
+
+            // === STEP 2: RLSI WITH RIS INTEGRATION ===
+            // [V5.0] Pass rotation score to RLSI for 4-factor calculation
+            console.log("[Guardian V5.0] Step 2: Calculating RLSI with RIS...");
+            const rlsi = await calculateRLSI(force, rotationIntensity.score);
+            console.log(`[Guardian V5.0] Step 2 Complete. RLSI: ${rlsi.score}, Session: ${rlsi.session}`);
 
             // === STEP 3: DIVERGENCE ANALYSIS (The Logic) ===
             // Logic: Compare Nasdaq Change vs RLSI Score
@@ -247,11 +253,12 @@ export class GuardianDataHub {
                 sectors: flows,
                 vectors: vectors || [],
                 verdict,
-                divergence: divCase, // Store for HUD
+                divergence: divCase,
                 verdictSourceId: sourceId,
                 verdictTargetId: targetId,
                 marketStatus,
-                rvol: { ndx: rvolNdx, dow: rvolDow }, // NEW RVOL DATA
+                rvol: { ndx: rvolNdx, dow: rvolDow },
+                rotationIntensity, // [V5.0] NEW
                 tripleA, // [V3.0] New Logic Core
                 timestamp: new Date().toISOString()
             };

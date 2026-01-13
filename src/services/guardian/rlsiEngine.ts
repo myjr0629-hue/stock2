@@ -13,37 +13,121 @@ const MARKET_CORE_10 = [
 const MOMENTUM_TICKER = 'QQQ';
 const MOMENTUM_WINDOW_DAYS = 22; // Approx 1 month trading days
 
+// [V5.0] Weight Configuration
+const WEIGHTS = {
+    PRICE_ACTION: 0.30,    // 가격 액션 센티먼트 (상승/하락 비율)
+    NEWS_SENTIMENT: 0.15,  // 뉴스 센티먼트
+    MOMENTUM: 0.35,        // 모멘텀 (20MA 대비)
+    ROTATION: 0.10,        // 순환매 강도 (외부 전달)
+    BASE_BUFFER: 10        // 기본 버퍼
+};
+
 // === TYPES ===
+export type MarketSession = 'PRE' | 'REG' | 'POST' | 'CLOSED';
+
 export interface RLSIResult {
     score: number;       // 0-100
     level: 'DANGER' | 'NEUTRAL' | 'OPTIMAL';
+    session: MarketSession; // [V5.0] Current session
     components: {
-        sentimentRaw: number; // -1 to 1
-        sentimentScore: number; // 0-100
-        momentumRaw: number;  // ratio (e.g. 1.05)
-        momentumScore: number; // 0-100
-        yieldRaw: number;     // %
-        yieldPenalty: number; // deduction
+        // [V5.0] Price Action Sentiment (NEW)
+        priceActionRaw: number;    // 0-1 (상승 종목 비율)
+        priceActionScore: number;  // 0-100
+        // News Sentiment
+        sentimentRaw: number;      // -1 to 1
+        sentimentScore: number;    // 0-100
+        // Momentum
+        momentumRaw: number;       // ratio (e.g. 1.05)
+        momentumScore: number;     // 0-100
+        // [V5.0] Rotation (from external)
+        rotationScore: number;     // 0-100
+        // Yield & VIX
+        yieldRaw: number;
+        yieldPenalty: number;
         vix: number;
         vixMultiplier: number;
     };
     timestamp: string;
 }
 
-// === HELPER: Sentiment Calculation ===
+// === [V5.0] NEW: Session Detection ===
+export function getMarketSession(): MarketSession {
+    const now = new Date();
+    const etString = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const et = new Date(etString);
+    const hour = et.getHours();
+    const minute = et.getMinutes();
+    const day = et.getDay();
+
+    // Weekend
+    if (day === 0 || day === 6) return 'CLOSED';
+
+    const time = hour * 100 + minute;
+    if (time >= 400 && time < 930) return 'PRE';
+    if (time >= 930 && time < 1600) return 'REG';
+    if (time >= 1600 && time < 2000) return 'POST';
+    return 'CLOSED';
+}
+
+// === [V5.0] NEW: Pre-market ETF Snapshot ===
+async function getETFPremarketData(tickers: string[]): Promise<{ avgChange: number; upRatio: number }> {
+    try {
+        const tickerStr = tickers.join(',');
+        const endpoint = `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickerStr}`;
+        const data = await fetchMassive(endpoint, {}, true);
+
+        if (!data.tickers || data.tickers.length === 0) {
+            return { avgChange: 0, upRatio: 0.5 };
+        }
+
+        let totalChange = 0;
+        let upCount = 0;
+
+        for (const t of data.tickers) {
+            const change = t.todaysChangePerc || 0;
+            totalChange += change;
+            if (change > 0) upCount++;
+        }
+
+        const avgChange = totalChange / data.tickers.length;
+        const upRatio = upCount / data.tickers.length;
+
+        console.log(`[RLSI V5.0] Pre-market: avgChange=${avgChange.toFixed(2)}%, upRatio=${(upRatio * 100).toFixed(0)}%`);
+        return { avgChange, upRatio };
+    } catch (e) {
+        console.warn("[RLSI] Pre-market ETF fetch failed:", e);
+        return { avgChange: 0, upRatio: 0.5 };
+    }
+}
+
+// === [V5.0] NEW: Price Action Sentiment ===
+// Uses real-time stock performance instead of news
+async function getPriceActionSentiment(): Promise<number> {
+    try {
+        const tickers = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'QQQ', 'SPY', 'IWM'];
+        const tickerStr = tickers.join(',');
+        const endpoint = `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickerStr}`;
+        const data = await fetchMassive(endpoint, {}, true);
+
+        if (!data.tickers || data.tickers.length === 0) return 0.5;
+
+        const upCount = data.tickers.filter((t: any) => (t.todaysChangePerc || 0) > 0).length;
+        return upCount / data.tickers.length; // 0-1
+    } catch (e) {
+        console.warn("[RLSI] Price action fetch failed:", e);
+        return 0.5; // Neutral
+    }
+}
+
+// === HELPER: News Sentiment Calculation ===
 // Returns -1.0 to 1.0
-function calculateSentimentScore(news: NewsItem[]): number {
+function calculateNewsSentimentScore(news: NewsItem[]): number {
     if (!news || news.length === 0) return 0;
 
     let score = 0;
     let totalWeight = 0;
 
-    // Weight recency
-    const now = Date.now();
-
     for (const item of news) {
-        // Decay score by age (older = less weight)
-        // 0h: 1.0, 24h: 0.5, 48h: 0.25
         const ageHours = item.catalystAge;
         const weight = Math.max(0.1, 1 / (1 + ageHours / 24));
 
@@ -56,32 +140,26 @@ function calculateSentimentScore(news: NewsItem[]): number {
     }
 
     if (totalWeight === 0) return 0;
-
-    // Normalize to -1 to 1 range
-    // We dampen extreme swings slightly
-    const rawRatio = score / totalWeight;
-    return Math.max(-1, Math.min(1, rawRatio));
+    return Math.max(-1, Math.min(1, score / totalWeight));
 }
 
 // === HELPER: Momentum Calculation ===
-// Returns current / 20MA ratio
+// Returns current / 20MA ratio (regular session only)
 async function getQQQMomentum(): Promise<number> {
     try {
-        // Fetch last 22 daily bars for 20MA
-        // We use a simplified endpoint if available, but poly/v2/aggs is standard
         const to = new Date().toISOString().split('T')[0];
         const fromDate = new Date();
-        fromDate.setDate(fromDate.getDate() - 40); // Safe buffer for weekends
+        fromDate.setDate(fromDate.getDate() - 40);
         const from = fromDate.toISOString().split('T')[0];
 
         const endpoint = `/v2/aggs/ticker/${MOMENTUM_TICKER}/range/1/day/${from}/${to}?adjusted=true&sort=desc&limit=${MOMENTUM_WINDOW_DAYS}`;
         const data = await fetchMassive(endpoint, {}, true);
 
-        if (!data.results || data.results.length < 5) return 1.0; // Fallback
+        if (!data.results || data.results.length < 5) return 1.0;
 
         const closes = data.results.map((r: any) => r.c);
         const current = closes[0];
-        const maSlice = closes.slice(0, 20); // Last 20 days
+        const maSlice = closes.slice(0, 20);
         const avg = maSlice.reduce((a: number, b: number) => a + b, 0) / maSlice.length;
 
         if (avg === 0) return 1.0;
@@ -96,9 +174,9 @@ async function getQQQMomentum(): Promise<number> {
 let cachedRLSI: RLSIResult | null = null;
 const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
 
-// === MAIN ENGINE ===
+// === [V5.0] MAIN ENGINE - UPGRADED ===
 
-export async function calculateRLSI(force: boolean = false): Promise<RLSIResult> {
+export async function calculateRLSI(force: boolean = false, rotationScore: number = 50): Promise<RLSIResult> {
     // 0. Check Cache
     if (!force && cachedRLSI) {
         const age = Date.now() - new Date(cachedRLSI.timestamp).getTime();
@@ -107,49 +185,72 @@ export async function calculateRLSI(force: boolean = false): Promise<RLSIResult>
         }
     }
 
+    const session = getMarketSession();
+    console.log(`[RLSI V5.0] Session: ${session}, Calculating...`);
+
     try {
-        // 1. Parallel Fetch Data (with defensive catch per fetch)
-        const [news, momentum, yields, macro] = await Promise.all([
-            fetchStockNews(MARKET_CORE_10, 30).catch(e => { console.warn("[RLSI] News fetch failed:", e?.message); return []; }),
-            getQQQMomentum().catch(e => { console.warn("[RLSI] Momentum fetch failed:", e?.message); return 1.0; }),
-            getTreasuryYields().catch(e => { console.warn("[RLSI] Yields fetch failed:", e?.message); return { us10y: 4.0 } as any; }),
-            getMacroSnapshotSSOT().catch(e => { console.warn("[RLSI] Macro fetch failed:", e?.message); return { vix: 15 } as any; })
+        // 1. Parallel Fetch Data based on session
+        let priceActionRaw: number;
+        let momentumRaw: number;
+
+        // [V5.0] Session-aware data fetching
+        if (session === 'PRE' || session === 'CLOSED') {
+            // Pre-market/Closed: Use ETF snapshots for both
+            const etfData = await getETFPremarketData(['QQQ', 'SPY', 'IWM', 'NVDA', 'AAPL', 'MSFT', 'AMZN']);
+            priceActionRaw = etfData.upRatio;
+            momentumRaw = 1 + (etfData.avgChange / 100); // Convert % to ratio
+        } else {
+            // Regular/Post: Use full data
+            const [priceAction, momentum] = await Promise.all([
+                getPriceActionSentiment(),
+                getQQQMomentum()
+            ]);
+            priceActionRaw = priceAction;
+            momentumRaw = momentum;
+        }
+
+        // Fetch other data (universal across sessions)
+        const [news, yields, macro] = await Promise.all([
+            fetchStockNews(MARKET_CORE_10, 30).catch(() => []),
+            getTreasuryYields().catch(() => ({ us10y: 4.0 } as any)),
+            getMacroSnapshotSSOT().catch(() => ({ vix: 15 } as any))
         ]);
 
         // 2. Component Calculations
 
-        // A. Sentiment Factor (0-100)
-        const sentimentRaw = calculateSentimentScore(news);
-        // Formula: (S + 1) * 50 -> Maps -1..1 to 0..100
+        // A. [V5.0] Price Action Score (0-100)
+        const priceActionScore = priceActionRaw * 100;
+
+        // B. News Sentiment Score (0-100)
+        const sentimentRaw = calculateNewsSentimentScore(news);
         const sentimentScore = (sentimentRaw + 1) * 50;
 
-        // B. Momentum Factor (0-100)
-        // Formula: 50 + (Ratio - 1) * 1000
-        // 1.00 -> 50
-        // 1.01 (+1%) -> 60
-        // 1.05 (+5%) -> 100 (Clamped)
-        // 0.95 (-5%) -> 0 (Clamped)
-        const momentumRaw = momentum;
+        // C. Momentum Score (0-100)
         let momentumScore = 50 + (momentumRaw - 1) * 1000;
         momentumScore = Math.max(0, Math.min(100, momentumScore));
 
-        // C. Yield Penalty
-        // Formula: max(0, (Y - 3.5) * 10)
-        const yieldRaw = yields.us10y || 4.0; // Default 4.0 if fail
+        // D. Rotation Score (passed from SectorEngine)
+        const rotationScoreNorm = Math.max(0, Math.min(100, rotationScore));
+
+        // E. Yield Penalty
+        const yieldRaw = yields.us10y || 4.0;
         const yieldPenalty = Math.max(0, (yieldRaw - 3.5) * 10);
 
-        // D. VIX Filter
-        // If VIX > 20: * 0.8
-        // If VIX > 30: * 0.5
+        // F. VIX Filter
         const vix = macro?.vix || 15;
         let vixMultiplier = 1.0;
         if (vix > 30) vixMultiplier = 0.5;
         else if (vix > 20) vixMultiplier = 0.8;
 
-        // 3. Final Calculation
-        // Base = (Sentiment * 0.4) + (Momentum * 0.4) + 20 - Penalty
-        // Note: The '20' is a base buffer to prevent 0 too easily
-        let baseScore = (sentimentScore * 0.4) + (momentumScore * 0.4) + 20 - yieldPenalty;
+        // 3. [V5.0] Final Calculation with New Weights
+        // PriceAction 30% + News 15% + Momentum 35% + Rotation 10% + Base 10 - Penalty
+        let baseScore =
+            (priceActionScore * WEIGHTS.PRICE_ACTION) +
+            (sentimentScore * WEIGHTS.NEWS_SENTIMENT) +
+            (momentumScore * WEIGHTS.MOMENTUM) +
+            (rotationScoreNorm * WEIGHTS.ROTATION) +
+            WEIGHTS.BASE_BUFFER -
+            yieldPenalty;
 
         // Apply VIX Multiplier
         let finalScore = baseScore * vixMultiplier;
@@ -165,11 +266,15 @@ export async function calculateRLSI(force: boolean = false): Promise<RLSIResult>
         const result: RLSIResult = {
             score: Number(finalScore.toFixed(1)),
             level,
+            session, // [V5.0] Include session
             components: {
+                priceActionRaw: Number(priceActionRaw.toFixed(2)),
+                priceActionScore: Number(priceActionScore.toFixed(1)),
                 sentimentRaw: Number(sentimentRaw.toFixed(2)),
                 sentimentScore: Number(sentimentScore.toFixed(1)),
                 momentumRaw: Number(momentumRaw.toFixed(3)),
                 momentumScore: Number(momentumScore.toFixed(1)),
+                rotationScore: Number(rotationScoreNorm.toFixed(1)),
                 yieldRaw: Number(yieldRaw.toFixed(2)),
                 yieldPenalty: Number(yieldPenalty.toFixed(1)),
                 vix: Number(vix.toFixed(2)),
@@ -180,20 +285,23 @@ export async function calculateRLSI(force: boolean = false): Promise<RLSIResult>
 
         // Update Cache
         cachedRLSI = result;
-        console.log(`[RLSI] Calculation complete. Score: ${result.score}`);
+        console.log(`[RLSI V5.0] Complete. Score: ${result.score}, Level: ${result.level}, Session: ${session}`);
         return result;
 
     } catch (error: any) {
-        console.error("[RLSI] CRITICAL ERROR in calculateRLSI:", error?.message || error);
-        // Return a safe fallback result
+        console.error("[RLSI] CRITICAL ERROR:", error?.message || error);
         return {
             score: 50,
             level: 'NEUTRAL',
+            session,
             components: {
+                priceActionRaw: 0.5,
+                priceActionScore: 50,
                 sentimentRaw: 0,
                 sentimentScore: 50,
                 momentumRaw: 1.0,
                 momentumScore: 50,
+                rotationScore: 50,
                 yieldRaw: 4.0,
                 yieldPenalty: 5,
                 vix: 15,

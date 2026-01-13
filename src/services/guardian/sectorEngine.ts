@@ -19,6 +19,81 @@ export interface FlowVector {
     rank: number; // 1, 2, 3
 }
 
+// [V5.0] Rotation Intensity Score (RIS)
+export interface RotationIntensity {
+    score: number;              // 0-100 순환매 강도
+    direction: 'RISK_ON' | 'RISK_OFF' | 'NEUTRAL';
+    topInflow: { sector: string; flow: number }[];  // 상위 유입 섹터
+    topOutflow: { sector: string; flow: number }[]; // 상위 유출 섹터
+    breadth: number;            // 전체 상승 섹터 비율 %
+    conviction: 'HIGH' | 'MEDIUM' | 'LOW';
+}
+
+// [V5.0] Risk-On / Risk-Off Sector Classification
+const RISK_ON_SECTORS = ['XLK', 'XLY', 'XLC']; // Tech, Consumer Disc, Comm
+const RISK_OFF_SECTORS = ['XLU', 'XLP', 'XLRE']; // Utilities, Staples, Real Estate
+
+// [V5.0] Calculate Rotation Intensity from Sector Flows
+export function calculateRotationIntensity(flows: SectorFlowRate[]): RotationIntensity {
+    if (!flows || flows.length === 0) {
+        return {
+            score: 50,
+            direction: 'NEUTRAL',
+            topInflow: [],
+            topOutflow: [],
+            breadth: 50,
+            conviction: 'LOW'
+        };
+    }
+
+    // 1. Sort by change
+    const sorted = [...flows].sort((a, b) => b.change - a.change);
+
+    // 2. Separate inflows and outflows
+    const inflows = sorted.filter(s => s.change > 0);
+    const outflows = sorted.filter(s => s.change < 0).sort((a, b) => a.change - b.change);
+
+    // 3. Calculate intensity score
+    // True rotation = both strong inflows AND outflows
+    const topInflowSum = inflows.slice(0, 3).reduce((sum, s) => sum + Math.abs(s.change), 0);
+    const topOutflowSum = outflows.slice(0, 3).reduce((sum, s) => sum + Math.abs(s.change), 0);
+
+    // Score: Higher when both are active (genuine rotation)
+    const score = Math.min(100, (topInflowSum + topOutflowSum) * 10);
+
+    // 4. Determine direction (Risk-On vs Risk-Off)
+    const riskOnFlow = flows
+        .filter(s => RISK_ON_SECTORS.includes(s.id))
+        .reduce((sum, s) => sum + s.change, 0);
+    const riskOffFlow = flows
+        .filter(s => RISK_OFF_SECTORS.includes(s.id))
+        .reduce((sum, s) => sum + s.change, 0);
+
+    let direction: 'RISK_ON' | 'RISK_OFF' | 'NEUTRAL' = 'NEUTRAL';
+    if (riskOnFlow > riskOffFlow + 0.5) direction = 'RISK_ON';
+    else if (riskOffFlow > riskOnFlow + 0.5) direction = 'RISK_OFF';
+
+    // 5. Breadth (% of sectors rising)
+    const breadth = flows.length > 0
+        ? (inflows.length / flows.length) * 100
+        : 50;
+
+    // 6. Conviction level
+    const conviction: 'HIGH' | 'MEDIUM' | 'LOW' =
+        score >= 70 ? 'HIGH' : score >= 40 ? 'MEDIUM' : 'LOW';
+
+    console.log(`[RIS V5.0] Score: ${score.toFixed(1)}, Direction: ${direction}, Breadth: ${breadth.toFixed(0)}%, Conviction: ${conviction}`);
+
+    return {
+        score: Number(score.toFixed(1)),
+        direction,
+        topInflow: inflows.slice(0, 3).map(s => ({ sector: s.name, flow: Number(s.change.toFixed(2)) })),
+        topOutflow: outflows.slice(0, 3).map(s => ({ sector: s.name, flow: Number(s.change.toFixed(2)) })),
+        breadth: Number(breadth.toFixed(1)),
+        conviction
+    };
+}
+
 export interface GuardianVerdict {
     title: string;
     description: string;
@@ -58,6 +133,7 @@ export class SectorEngine {
         target: string;
         sourceId: string | null;
         targetId: string | null;
+        rotationIntensity: RotationIntensity; // [V5.0] Added
     }> {
         try {
             console.log(`[SectorEngine] Starting Institutional Flow Analysis...`);
@@ -120,7 +196,7 @@ export class SectorEngine {
             console.log(`[SectorEngine] Final Snapshot Size: ${currentSnapshot.length}`);
 
             if (!currentSnapshot || currentSnapshot.length === 0) {
-                return { flows: [], vectors: [], source: "N/A", target: "N/A", sourceId: null, targetId: null };
+                return { flows: [], vectors: [], source: "N/A", target: "N/A", sourceId: null, targetId: null, rotationIntensity: { score: 50, direction: 'NEUTRAL', topInflow: [], topOutflow: [], breadth: 50, conviction: 'LOW' } };
             }
 
             // 3. Process Per Sector
@@ -205,18 +281,22 @@ export class SectorEngine {
 
             console.log(`[SectorEngine] Flows Analysis Complete (Cached Mode). Vectors: ${vectors.length}`);
 
+            // [V5.0] Calculate Rotation Intensity
+            const ris = calculateRotationIntensity(sectorScores);
+
             return {
                 flows: sectorScores,
                 vectors,
                 source: source.name,
                 target: target.name,
                 sourceId: target.id,
-                targetId: target.id
+                targetId: target.id,
+                rotationIntensity: ris // [V5.0]
             };
 
         } catch (e: any) {
             console.error("SectorEngine Error:", e?.message || e);
-            return { flows: [], vectors: [], source: "오류", target: "오류", sourceId: null, targetId: null };
+            return { flows: [], vectors: [], source: "오류", target: "오류", sourceId: null, targetId: null, rotationIntensity: { score: 50, direction: 'NEUTRAL', topInflow: [], topOutflow: [], breadth: 50, conviction: 'LOW' } };
         }
     }
 
