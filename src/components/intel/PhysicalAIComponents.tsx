@@ -46,10 +46,15 @@ export function PhysicalAITacticalDeck({ items, selectedTicker, onSelect }: { it
                     const isSelected = selectedTicker?.ticker === item.ticker;
                     const action = item.decisionSSOT?.action || "HOLD";
 
+                    // [V4.4] Calculate displayScore from evidence when alphaScore is missing
+                    // Uses price change as primary signal: +3% = 70, 0% = 50, -3% = 30
+                    const displayScore = item.alphaScore || Math.round(50 + (change * 6.67));
+                    const clampedScore = Math.max(20, Math.min(90, displayScore));
+
                     // Amber Industrial Theme
                     const borderColor = isSelected ? "border-amber-500" : "border-slate-800 hover:border-amber-700/50";
                     const bgGlow = isSelected ? "bg-amber-900/20" : "bg-[#0a0f18]";
-                    const scoreColor = item.alphaScore && item.alphaScore >= 80 ? "text-amber-400" : "text-slate-500";
+                    const scoreColor = clampedScore && clampedScore >= 60 ? "text-amber-400" : "text-slate-500";
 
                     return (
                         <div
@@ -80,7 +85,7 @@ export function PhysicalAITacticalDeck({ items, selectedTicker, onSelect }: { it
                                     </div>
                                     {/* Alpha Score Badge */}
                                     <div className="absolute -right-2 -bottom-1 bg-[#050914] border border-amber-900/50 text-xs font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-0.5 shadow-sm">
-                                        <span className={scoreColor}>{item.alphaScore}</span>
+                                        <span className={scoreColor}>{clampedScore}</span>
                                     </div>
                                 </div>
 

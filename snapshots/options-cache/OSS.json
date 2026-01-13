@@ -1,0 +1,158 @@
+{
+  "ticker": "OSS",
+  "savedAt": "2026-01-13T13:37:33.418Z",
+  "tradingDay": "2026-01-12",
+  "data": {
+    "contracts": [
+      {
+        "strike_price": 2.5,
+        "contract_type": "call",
+        "open_interest": 51,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 5,
+        "contract_type": "call",
+        "open_interest": 418,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 7.5,
+        "contract_type": "call",
+        "open_interest": 1327,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 10,
+        "contract_type": "call",
+        "open_interest": 2075,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 12.5,
+        "contract_type": "call",
+        "open_interest": 975,
+        "greeks": {
+          "delta": 0.30675770683777037,
+          "gamma": 0.33541985218676146,
+          "theta": -0.054027509828180206,
+          "vega": 0.004123331095854086
+        },
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 15,
+        "contract_type": "call",
+        "open_interest": 29,
+        "greeks": {
+          "delta": 0.1062308367451677,
+          "gamma": 0.08883040886463986,
+          "theta": -0.05485465131574799,
+          "vega": 0.002297235114001273
+        },
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 17.5,
+        "contract_type": "call",
+        "open_interest": 0,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 20,
+        "contract_type": "call",
+        "open_interest": 0,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 2.5,
+        "contract_type": "put",
+        "open_interest": 2,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 5,
+        "contract_type": "put",
+        "open_interest": 215,
+        "greeks": {
+          "delta": -0.03118396796930809,
+          "gamma": 0.010770953685003904,
+          "theta": -0.06669263086832393,
+          "vega": 0.0007387855726036606
+        },
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 7.5,
+        "contract_type": "put",
+        "open_interest": 654,
+        "greeks": {
+          "delta": -0.04469974486140221,
+          "gamma": 0.026530960729867804,
+          "theta": -0.0492299853445845,
+          "vega": 0.0009291096120871618
+        },
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 10,
+        "contract_type": "put",
+        "open_interest": 136,
+        "greeks": {
+          "delta": -0.20133256176968659,
+          "gamma": 0.09747175496915841,
+          "theta": -0.12097443323928289,
+          "vega": 0.0036520413616078677
+        },
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 12.5,
+        "contract_type": "put",
+        "open_interest": 21,
+        "greeks": {
+          "delta": -0.47218204836591915,
+          "gamma": 0.08692373687764561,
+          "theta": -0.26642447707527084,
+          "vega": 0.0046174119645898465
+        },
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 15,
+        "contract_type": "put",
+        "open_interest": 1,
+        "greeks": {
+          "delta": -0.5592943177879378,
+          "gamma": 0.0611387520044968,
+          "theta": -0.3762575902508346,
+          "vega": 0.004343667264934244
+        },
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 17.5,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      },
+      {
+        "strike_price": 20,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "expiry": "2026-01-16"
+      }
+    ],
+    "expiry": "Aggregated (<14d)",
+    "spot": 10.45
+  }
+}

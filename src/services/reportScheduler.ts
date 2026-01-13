@@ -819,6 +819,12 @@ async function generateReportFromItems(
     const scoredM7 = applyQualityTiers(enrichedM7, prevSymbols, new Set(), historyMap, guardianSignal, targetSectorId);
     const scoredPhysicalAi = applyQualityTiers(enrichedPhysicalAi, prevSymbols, new Set(), historyMap, guardianSignal, targetSectorId);
 
+    // DEBUG: Log sector scoring results
+    console.log(`[V4.4 DEBUG] M7 Scoring Results:`);
+    scoredM7.forEach(item => console.log(`  ${item.ticker}: alphaScore=${item.alphaScore}, powerScore=${item.powerScore}, tier=${item.qualityTier}`));
+    console.log(`[V4.4 DEBUG] Physical AI Scoring Results:`);
+    scoredPhysicalAi.forEach(item => console.log(`  ${item.ticker}: alphaScore=${item.alphaScore}, powerScore=${item.powerScore}, tier=${item.qualityTier}`));
+
     const finalM7 = scoredM7;
     const finalPhysicalAi = scoredPhysicalAi;
 

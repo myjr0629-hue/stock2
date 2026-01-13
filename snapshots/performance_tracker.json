@@ -595,5 +595,32 @@
       }
     ],
     "calculated": false
+  },
+  {
+    "date": "2026-01-12",
+    "reportType": "pre",
+    "sessionType": "pre",
+    "timestamp": "2026-01-13T13:53:13.520Z",
+    "tickers": [
+      {
+        "symbol": "INTC",
+        "rank": 1,
+        "baselinePrice": 44.06,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "UNH",
+        "rank": 2,
+        "baselinePrice": 340.51,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "HOOD",
+        "rank": 3,
+        "baselinePrice": 117.52,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
   }
 ]
