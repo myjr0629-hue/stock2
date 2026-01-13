@@ -172,6 +172,18 @@
   letter-spacing: -0.02em;
 }
 
+/* [NEW] Inter font for numeric data (prices, percentages, scores) */
+@utility font-num {
+  font-family: var(--font-inter), ui-monospace, 'SF Mono', monospace;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+/* [NEW] Pretendard for Korean body text */
+@utility font-body {
+  font-family: Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
 /* WHY text blocks (Korean explanations) */
 @utility why-text {
   font-size: max(13px, 0.8125rem);
