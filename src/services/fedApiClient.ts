@@ -1,9 +1,12 @@
 // [P1] FED API Client - Treasury Yields, Inflation Data
-// Uses Massive API /fed/v1/* endpoints
+// [V4.3] Added direct FRED API integration for Treasury yields
+// Uses Massive API /fed/v1/* endpoints as fallback
 
 import { fetchMassive } from "./massiveClient";
 
 const FED_CACHE_TTL = 60 * 30; // 30 minutes
+const FRED_API_KEY = process.env.FRED_API_KEY || "";
+const FRED_BASE_URL = "https://api.stlouisfed.org/fred/series/observations";
 
 export interface TreasuryYields {
     date: string;
@@ -12,7 +15,7 @@ export interface TreasuryYields {
     us10y: number | null;
     us30y: number | null;
     spread2s10s: number | null;
-    source: "MASSIVE" | "FAIL";
+    source: "FRED" | "MASSIVE" | "FAIL";
     updatedAt: string;
 }
 
@@ -23,7 +26,7 @@ export interface InflationData {
     pce: number | null;
     pceYoY: number | null;
     expectations: number | null;
-    source: "MASSIVE" | "FAIL";
+    source: "FRED" | "MASSIVE" | "FAIL";
     updatedAt: string;
 }
 
@@ -33,7 +36,32 @@ export interface FedSnapshot {
     asOfET: string;
 }
 
-// Fetch Treasury Yields from Massive FED API
+// [V4.3] Direct FRED API fetch helper
+async function fetchFredSeries(seriesId: string, limit: number = 1): Promise<number | null> {
+    if (!FRED_API_KEY) return null;
+
+    try {
+        const url = `${FRED_BASE_URL}?series_id=${seriesId}&api_key=${FRED_API_KEY}&file_type=json&sort_order=desc&limit=${limit}`;
+        const res = await fetch(url, { next: { revalidate: 1800 } }); // 30min cache
+
+        if (!res.ok) {
+            console.warn(`[FRED] ${seriesId} fetch failed: ${res.status}`);
+            return null;
+        }
+
+        const data = await res.json();
+        const obs = data?.observations?.[0];
+        if (obs && obs.value !== ".") {
+            return parseFloat(obs.value);
+        }
+        return null;
+    } catch (e) {
+        console.error(`[FRED] ${seriesId} error:`, e);
+        return null;
+    }
+}
+
+// Fetch Treasury Yields - Try FRED first, fallback to Massive
 export async function getTreasuryYields(): Promise<TreasuryYields> {
     const now = new Date().toISOString();
     const failResult: TreasuryYields = {
@@ -47,8 +75,37 @@ export async function getTreasuryYields(): Promise<TreasuryYields> {
         updatedAt: now
     };
 
+    // [V4.3] Try FRED API first if key is available
+    if (FRED_API_KEY) {
+        try {
+            console.log("[FedAPI] Fetching Treasury from FRED...");
+            const [us2y, us5y, us10y, us30y] = await Promise.all([
+                fetchFredSeries("DGS2"),   // 2-Year Treasury
+                fetchFredSeries("DGS5"),   // 5-Year Treasury
+                fetchFredSeries("DGS10"),  // 10-Year Treasury
+                fetchFredSeries("DGS30")   // 30-Year Treasury
+            ]);
+
+            if (us10y !== null) {
+                console.log(`[FedAPI] FRED Treasury OK: 10Y=${us10y}%`);
+                return {
+                    date: now.split('T')[0],
+                    us2y,
+                    us5y,
+                    us10y,
+                    us30y,
+                    spread2s10s: (us2y !== null && us10y !== null) ? us10y - us2y : null,
+                    source: "FRED",
+                    updatedAt: now
+                };
+            }
+        } catch (e) {
+            console.warn("[FedAPI] FRED Treasury failed, fallback to Massive:", e);
+        }
+    }
+
+    // Fallback: Massive API
     try {
-        // Massive API endpoint for treasury yields (New Structure)
         const data = await fetchMassive("/fed/v1/treasury-yields", {
             limit: "1",
             sort: "date.desc"

@@ -234,9 +234,22 @@ function calculateLayerScores(evidence: any): ScoreResult {
     // We update the score/meta, not just return a flag here. 
     // The flag determines the "Action".
 
-    // ... existing Stealth/Policy logic ...
+    // [V4.3] Stealth Layer - Calculate score based on stealth label
+    if (evidence?.stealth?.complete) {
+        const stealthLabel = evidence.stealth.label || 'C';
+        // A = MassiveBlockPrint (whale accumulation) = 90pts
+        // B = blockPrint + supportiveGamma = 60pts  
+        // C = neutral = 30pts
+        const stealthScore = stealthLabel === 'A' ? 90 : stealthLabel === 'B' ? 60 : 30;
+        layerScores.stealth = stealthScore;
+        calculatedLayers++;
+        totalWeight += 0.05; // 5% weight for stealth
+        weightedSum += layerScores.stealth * 0.05;
+    }
+
+    // Policy Layer
     if (evidence?.policy) {
-        // ... simplified policy logic ...
+        // ... simplified policy logic ..
         layerScores.policy = 50;
     }
 

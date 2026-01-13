@@ -1,12 +1,16 @@
 {
     "crons": [
         {
+            "path": "/api/cron/report?type=eod",
+            "schedule": "0 2 * * 2-6"
+        },
+        {
             "path": "/api/cron/report?type=pre",
             "schedule": "30 11 * * 1-5"
         },
         {
-            "path": "/api/cron/report?type=eod",
-            "schedule": "0 2 * * 2-6"
+            "path": "/api/cron/report?type=open",
+            "schedule": "0 14 * * 1-5"
         }
     ]
 }
