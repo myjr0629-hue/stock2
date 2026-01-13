@@ -111,7 +111,7 @@ const REPORT_VERSION = "S-56.4.6e";
 
 // [Universal Analysis] Mandatory Tickers (Always Analyzed)
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
-const PHYSICAL_AI_TICKERS = ['PLTR', 'ISRG', 'SYM', 'TER', 'RKLB', 'SERV'];
+const PHYSICAL_AI_TICKERS = ['PLTR', 'ISRG', 'SYM', 'TER', 'RKLB', 'SERV', 'PL'];
 
 // [P0] Schedule definitions (ET time) - 3 fixed reports
 export const REPORT_SCHEDULES: Record<ReportType, { hour: number; minute: number; description: string; labelKR: string }> = {

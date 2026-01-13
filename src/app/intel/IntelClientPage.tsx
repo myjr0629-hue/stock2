@@ -73,7 +73,7 @@ const STRUCTURE_MAP: Record<string, string> = {
 
 // [V4.7] M7 Watchlist
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
-const PHYSICAL_AI_TICKERS = ['PLTR', 'ISRG', 'SYM', 'TER', 'RKLB', 'SERV'];
+const PHYSICAL_AI_TICKERS = ['PLTR', 'ISRG', 'SYM', 'TER', 'RKLB', 'SERV', 'PL'];
 
 // ============================================================================
 // TYPES (vNext Unified Evidence Model)
