@@ -812,8 +812,16 @@ async function generateReportFromItems(
     // 8. Construct Final Report
     // [Universal Analysis] Re-Split Segregated Data after Forensic Analysis
     // We map back from uniqueTargets to get the ENRICHED (Forensic-analyzed) versions
-    const finalM7 = m7Raw?.map(raw => uniqueTargets.get(raw.ticker) || raw) || [];
-    const finalPhysicalAi = physicalAiRaw?.map(raw => uniqueTargets.get(raw.ticker) || raw) || [];
+    const enrichedM7 = m7Raw?.map(raw => uniqueTargets.get(raw.ticker) || raw) || [];
+    const enrichedPhysicalAi = physicalAiRaw?.map(raw => uniqueTargets.get(raw.ticker) || raw) || [];
+
+    // [V4.4] Apply Quality Tiers to sector items so they have alphaScore
+    const scoredM7 = applyQualityTiers(enrichedM7, prevSymbols, new Set(), historyMap, guardianSignal, targetSectorId);
+    const scoredPhysicalAi = applyQualityTiers(enrichedPhysicalAi, prevSymbols, new Set(), historyMap, guardianSignal, targetSectorId);
+
+    const finalM7 = scoredM7;
+    const finalPhysicalAi = scoredPhysicalAi;
+
 
     const report: PremiumReport = {
         meta: {
