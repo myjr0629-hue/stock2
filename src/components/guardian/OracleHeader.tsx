@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HelpCircle } from 'lucide-react';
 
 interface OracleHeaderProps {
@@ -17,11 +17,11 @@ export function OracleHeader({ nasdaq, rlsi, verdictTitle, isDivergent, timestam
     // 인사이트 메시지 생성
     const getInsight = () => {
         if (isDivergent) {
-            if (nasdaq > 0 && rlsi < 40) return "가격↑ 유동성↓ 괴리 감지";
-            if (nasdaq < 0 && rlsi > 60) return "가격↓ 유동성↑ 매집 신호";
-            return "지수-자금 괴리 발생";
+            if (nasdaq > 0 && rlsi < 40) return "가격↑ 유동성↓ 괴리";
+            if (nasdaq < 0 && rlsi > 60) return "가격↓ 유동성↑ 매집";
+            return "지수-자금 괴리";
         }
-        if (rlsi >= 60) return "기관 매수세 유입 확인";
+        if (rlsi >= 60) return "기관 매수세 확인";
         if (rlsi <= 35) return "유동성 이탈 경고";
         return "방향성 탐색 중";
     };
@@ -33,79 +33,69 @@ export function OracleHeader({ nasdaq, rlsi, verdictTitle, isDivergent, timestam
         return "text-slate-300";
     };
 
-    // 마지막 갱신 시간 계산
-    const getTimeSince = () => {
-        if (!timestamp) return "";
-        const diff = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
-        if (diff < 60) return `${diff}초 전`;
-        return `${Math.floor(diff / 60)}분 전`;
-    };
-
     return (
-        <div className="w-full h-10 bg-[#0a0e14] border-b border-slate-800 flex items-center justify-between px-4 md:px-6 select-none z-50">
-            {/* LEFT: LIVE STATUS */}
-            <div className="flex items-center gap-3 shrink-0">
-                <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-[10px] font-bold tracking-wider text-emerald-400">LIVE</span>
-                </div>
-                <div className="w-px h-3 bg-slate-700"></div>
-                <span className={`text-[11px] font-mono font-bold ${nasdaq >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                    NQ {nasdaq > 0 ? "+" : ""}{nasdaq.toFixed(2)}%
-                </span>
-            </div>
-
-            {/* CENTER: RLSI with Tooltip */}
-            <div className="flex items-center gap-3 relative">
-                <div
-                    className="flex items-center gap-1.5 cursor-help"
-                    onMouseEnter={() => setShowTooltip(true)}
-                    onMouseLeave={() => setShowTooltip(false)}
-                >
-                    <span className="text-[10px] text-slate-500 font-medium">RLSI</span>
-                    <span className={`text-sm font-mono font-bold ${getRlsiColor()}`}>
-                        {rlsi.toFixed(0)}
+        <div className="w-full h-12 bg-[#0a0e14] border-b border-slate-800 flex items-center justify-between px-6 relative overflow-hidden select-none z-50">
+            {/* LEFT: STATUS */}
+            <div className="flex items-center gap-4 relative z-10 shrink-0">
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>
+                    <span className="text-[10px] font-black tracking-[0.2em] text-emerald-400">
+                        GUARDIAN EYE : ONLINE
                     </span>
-                    <HelpCircle className="w-3 h-3 text-slate-600 hover:text-slate-400 transition-colors" />
                 </div>
-
-                {/* RLSI Tooltip */}
-                {showTooltip && (
-                    <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-64 bg-slate-900 border border-slate-700 rounded-lg p-3 shadow-xl z-50">
-                        <div className="text-[10px] font-bold text-emerald-400 mb-1">
-                            RLSI (Relative Liquid Strength Index)
-                        </div>
-                        <div className="text-[10px] text-slate-300 leading-relaxed">
-                            뉴스 센티먼트, 가격 모멘텀, 섹터 자금흐름, 금리를 종합한 <span className="text-white font-medium">시장 건강도 지수</span>입니다.
-                        </div>
-                        <div className="mt-2 pt-2 border-t border-slate-700 grid grid-cols-3 gap-1 text-[9px]">
-                            <div className="text-center">
-                                <div className="text-emerald-400 font-bold">60+</div>
-                                <div className="text-slate-500">강세</div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-slate-300 font-bold">40-60</div>
-                                <div className="text-slate-500">중립</div>
-                            </div>
-                            <div className="text-center">
-                                <div className="text-rose-400 font-bold">40-</div>
-                                <div className="text-slate-500">약세</div>
-                            </div>
-                        </div>
-                        {/* Tooltip Arrow */}
-                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 border-t border-l border-slate-700 rotate-45"></div>
-                    </div>
-                )}
-
-                <div className="w-px h-3 bg-slate-700 hidden md:block"></div>
-                <span className="text-[10px] text-slate-400 hidden md:block">{getInsight()}</span>
             </div>
 
-            {/* RIGHT: Timestamp */}
-            <div className="flex items-center gap-2 shrink-0">
-                <span className="text-[9px] text-slate-600 hidden md:block">
-                    {getTimeSince() && `갱신: ${getTimeSince()}`}
-                </span>
+            {/* CENTER: CORE INFO (Original Layout Style) */}
+            <div className="flex-1 flex justify-center items-center relative z-10 mx-4">
+                <div className="flex items-center gap-4 text-[11px] font-mono">
+                    {/* NASDAQ */}
+                    <span className={`font-bold ${nasdaq >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        NQ {nasdaq > 0 ? "+" : ""}{nasdaq.toFixed(2)}%
+                    </span>
+
+                    <span className="text-slate-700">│</span>
+
+                    {/* RLSI with Tooltip */}
+                    <div
+                        className="flex items-center gap-1 cursor-help relative"
+                        onMouseEnter={() => setShowTooltip(true)}
+                        onMouseLeave={() => setShowTooltip(false)}
+                    >
+                        <span className="text-slate-500">RLSI</span>
+                        <span className={`font-bold ${getRlsiColor()}`}>{rlsi.toFixed(0)}</span>
+                        <HelpCircle className="w-3 h-3 text-slate-600 hover:text-slate-400" />
+
+                        {/* Tooltip */}
+                        {showTooltip && (
+                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-56 bg-slate-900 border border-slate-700 rounded-lg p-3 shadow-xl z-50">
+                                <div className="text-[10px] font-bold text-emerald-400 mb-1">
+                                    RLSI (시장 건강도 지수)
+                                </div>
+                                <div className="text-[9px] text-slate-300 leading-relaxed">
+                                    뉴스·모멘텀·자금흐름·금리를 종합한 지표
+                                </div>
+                                <div className="mt-2 pt-2 border-t border-slate-700 grid grid-cols-3 gap-1 text-[9px] text-center">
+                                    <div><span className="text-emerald-400">60+</span> 강세</div>
+                                    <div><span className="text-slate-300">40-60</span> 중립</div>
+                                    <div><span className="text-rose-400">40-</span> 약세</div>
+                                </div>
+                                <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 border-t border-l border-slate-700 rotate-45"></div>
+                            </div>
+                        )}
+                    </div>
+
+                    <span className="text-slate-700">│</span>
+
+                    {/* Insight */}
+                    <span className="text-slate-400">{getInsight()}</span>
+                </div>
+            </div>
+
+            {/* RIGHT: VERSION */}
+            <div className="flex items-center gap-2 relative z-10 shrink-0">
+                <div className="text-[9px] text-slate-600 font-black tracking-widest uppercase opacity-50">
+                    V6.0 CORE
+                </div>
             </div>
         </div>
     );
