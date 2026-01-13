@@ -42,9 +42,9 @@ export default function GravityGauge({ score, loading, session }: GravityGaugePr
                 {/* [V5.0] Session Badge */}
                 {session && (
                     <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ml-2 ${session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                            session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                                session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
-                                    'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                        session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                            session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
+                                'bg-slate-500/20 text-slate-400 border border-slate-500/30'
                         }`}>
                         {session === 'PRE' ? 'PRE-MKT' :
                             session === 'REG' ? 'LIVE' :
@@ -141,18 +141,31 @@ export default function GravityGauge({ score, loading, session }: GravityGaugePr
                 </div>
             </div>
 
-            {/* Context / Meaning Footer */}
-            <div className="text-center max-w-[200px] border-t border-slate-800/50 pt-3">
-                <p className="text-[10px] text-slate-200 leading-tight">
-                    <span className="text-emerald-500 font-bold block mb-1">AI INTERPRETATION</span>
-                    <span className="opacity-90">
-                        {statusText === "NEUTRAL" && "Market forces are balanced. No extreme positioning detected."}
-                        {statusText === "OVERHEATED" && "Extreme bullish sentiment. High risk of mean reversion pullback."}
-                        {statusText === "OVERSOLD" && "Extreme fear detected. Potential for reflexive bounce."}
-                        {statusText === "BULLISH" && "Smart money inflows supporting trend continuation."}
-                        {statusText === "BEARISH" && "Defensive rotation active. Caution advised."}
-                    </span>
-                </p>
+            {/* RLSI Infographic Legend */}
+            <div className="text-center max-w-[220px] border-t border-slate-800/50 pt-3">
+                {/* Scale Bar */}
+                <div className="flex items-center justify-center gap-0.5 mb-2">
+                    <div className="text-[8px] text-slate-500 pr-1">0</div>
+                    <div className="w-12 h-1.5 bg-gradient-to-r from-rose-500 to-rose-400 rounded-l"></div>
+                    <div className="w-12 h-1.5 bg-gradient-to-r from-slate-500 to-slate-400"></div>
+                    <div className="w-12 h-1.5 bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-r"></div>
+                    <div className="text-[8px] text-slate-500 pl-1">100</div>
+                </div>
+
+                {/* Zone Labels */}
+                <div className="flex justify-between text-[8px] font-bold mb-2 px-2">
+                    <span className="text-rose-400">약세 40-</span>
+                    <span className="text-slate-400">중립</span>
+                    <span className="text-emerald-400">강세 60+</span>
+                </div>
+
+                {/* Data Sources */}
+                <div className="flex justify-center gap-2 flex-wrap">
+                    <span className="text-[7px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">뉴스</span>
+                    <span className="text-[7px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">모멘텀</span>
+                    <span className="text-[7px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">섹터</span>
+                    <span className="text-[7px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">금리</span>
+                </div>
             </div>
         </div>
     );
