@@ -1,0 +1,85 @@
+name: Report Generator
+
+on:
+  schedule:
+    # EOD Report: 02:00 UTC (화-토) = 21:00 ET (전일) = 11:00 KST
+    - cron: '0 2 * * 2-6'
+    # Pre-market Report: 11:30 UTC (월-금) = 06:30 ET = 20:30 KST
+    - cron: '30 11 * * 1-5'
+    # Open Report: 14:00 UTC (월-금) = 09:00 ET = 23:00 KST
+    - cron: '0 14 * * 1-5'
+  
+  # 수동 실행을 위한 트리거
+  workflow_dispatch:
+    inputs:
+      report_type:
+        description: 'Report type to generate'
+        required: true
+        default: 'eod'
+        type: choice
+        options:
+          - eod
+          - pre
+          - open
+
+env:
+  VERCEL_URL: ${{ secrets.VERCEL_URL }}
+  CRON_SECRET: ${{ secrets.CRON_SECRET }}
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    
+    steps:
+      - name: Determine Report Type
+        id: report-type
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "type=${{ github.event.inputs.report_type }}" >> $GITHUB_OUTPUT
+          else
+            # Auto-detect based on current UTC hour
+            HOUR=$(date -u +%H)
+            MINUTE=$(date -u +%M)
+            
+            if [ "$HOUR" == "02" ]; then
+              echo "type=eod" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" == "11" ] && [ "$MINUTE" -ge "25" ]; then
+              echo "type=pre" >> $GITHUB_OUTPUT
+            elif [ "$HOUR" == "14" ]; then
+              echo "type=open" >> $GITHUB_OUTPUT
+            else
+              echo "type=eod" >> $GITHUB_OUTPUT
+            fi
+          fi
+
+      - name: Generate Report
+        run: |
+          echo "🚀 Generating ${{ steps.report-type.outputs.type }} report..."
+          
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X GET \
+            "${{ env.VERCEL_URL }}/api/cron/report?type=${{ steps.report-type.outputs.type }}&force=true" \
+            -H "Authorization: Bearer ${{ env.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          
+          HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          echo "HTTP Status: $HTTP_CODE"
+          echo "Response: $BODY"
+          
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Report generated successfully!"
+          else
+            echo "❌ Report generation failed!"
+            exit 1
+          fi
+
+      - name: Report Summary
+        if: always()
+        run: |
+          echo "## 📊 Report Generation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Type:** ${{ steps.report-type.outputs.type }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time (UTC):** $(date -u +%Y-%m-%d\ %H:%M:%S)" >> $GITHUB_STEP_SUMMARY
