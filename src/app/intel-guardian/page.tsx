@@ -75,6 +75,11 @@ interface GuardianContext {
         acceleration: boolean;
         accumulation: boolean;
         isTargetLock: boolean;
+        checklist?: {
+            passedCount: number;
+            totalCount: number;
+            message: string;
+        };
     };
     verdictSourceId: string | null;
     verdictTargetId: string | null;
@@ -298,97 +303,101 @@ export default function GuardianPage() {
                                     <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">TARGET LOCK</div>
                                     <div className={`text-sm font-mono font-bold ${data?.tripleA?.isTargetLock ? "text-amber-400 animate-pulse" : "text-white"}`}>
                                         {data?.tripleA?.isTargetLock ? "LOCKED" : "SEARCHING"}
+                                        {data?.tripleA?.checklist && (
+                                            <span className="text-[9px] text-slate-500 ml-1">
+                                                ({data.tripleA.checklist.passedCount}/{data.tripleA.checklist.totalCount})
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">
                                         {data?.tripleA?.regime || "NEUTRAL"} REGIME
                                     </div>
-                                    <div className={`text-[8px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
-                                        data?.tripleA?.regime === 'BEAR' ? "text-rose-400" : "text-white"
+                                    <div className={`text-[8px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.isTargetLock ? "text-amber-400" :
+                                        data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
+                                            data?.tripleA?.regime === 'BEAR' ? "text-rose-400" : "text-white"
                                         }`}>
-                                        {data?.tripleA?.regime === 'BULL' ? "강세장 진입 :: 적극 매수 (Alpha Seek)" :
-                                            data?.tripleA?.regime === 'BEAR' ? "약세장 진입 :: 보수적 운용 (Defense)" :
-                                                "방향성 부재 :: 관망 권장 (Wait)"}
+                                        {data?.tripleA?.checklist?.message || "방향성 부재 :: 관망 권장 (Wait)"}
                                     </div>
                                 </div>
                             </div>
                         </div>
-
-                        {/* 2. SECTOR INTEL (Fill Rest, Bottom) */}
-                        <div className="flex-1 bg-[#0a0e14] border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col min-h-0">
-                            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 border-b border-cyan-900/30 pb-2 flex-none">
-                                SECTOR INTEL {selectedSector && <span className="text-slate-500 font-mono opacity-50 ml-2">:: {selectedSector.id}</span>}
-                            </h3>
-
-                            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-                                {selectedSector ? (
-                                    <div className="h-full flex flex-col">
-                                        <div className="flex justify-between items-baseline mb-4 flex-none">
-                                            <span className="text-lg font-bold text-white">{selectedSector.name}</span>
-                                            <span className={`text-xl font-mono ${selectedSector.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                {selectedSector.change > 0 ? "+" : ""}{selectedSector.change.toFixed(2)}%
-                                            </span>
-                                        </div>
-
-                                        {/* LIVE TICKER TABLE */}
-                                        <div className="space-y-1">
-                                            {topMovers.length > 0 ? (
-                                                topMovers.map(stock => (
-                                                    <a key={stock.symbol} href={`/ticker?ticker=${stock.symbol}`} className="flex items-center justify-between text-xs py-2 px-2 rounded hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group">
-                                                        {/* Left: Logo & Symbol */}
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-6 h-6 rounded bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                                                <span className="text-[7px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
-                                                                <img
-                                                                    src={`https://financialmodelingprep.com/image-stock/${stock.symbol}.png`}
-                                                                    alt={stock.symbol}
-                                                                    className="w-full h-full object-contain relative z-10"
-                                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                                                />
-                                                            </div>
-                                                            <span className="font-bold text-slate-200 group-hover:text-cyan-300 w-10">{stock.symbol}</span>
-                                                        </div>
-
-                                                        {/* Right: Data */}
-                                                        <div className="text-right">
-                                                            <div className="text-slate-200 font-mono">${stock.price.toFixed(2)}</div>
-                                                            <div className={`text-[10px] font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                                {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
-                                                            </div>
-                                                        </div>
-                                                    </a>
-                                                ))
-                                            ) : (
-                                                <div className="text-xs text-slate-500 py-2 text-center">Loading live data...</div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="h-full flex flex-col items-center justify-center text-xs text-slate-600">
-                                        <Layers className="w-8 h-8 opacity-20 mb-2" />
-                                        SELECT A SECTOR ON MAP
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
                     </div>
 
-                    {/* ROW 3: HEX FOOTER (Replaces Controls) */}
-                    <div className="col-span-12 bg-[#0a0e14] border border-slate-800 rounded-lg h-[30px] flex items-center relative overflow-hidden shadow-2xl opacity-80">
-                        {/* HEX BACKGROUND AUTOMATION */}
-                        <div className="absolute inset-0 flex items-center gap-2 opacity-20 overflow-hidden">
-                            <div className="animate-slide-left whitespace-nowrap font-mono text-[9px] text-emerald-800">
-                                {Array(50).fill("0x2F 0xA4 0x1B . . . STREAMING . . . ").join("")}
-                            </div>
+                    {/* 2. SECTOR INTEL (Fill Rest, Bottom) */}
+                    <div className="flex-1 bg-[#0a0e14] border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col min-h-0">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 border-b border-cyan-900/30 pb-2 flex-none">
+                            SECTOR INTEL {selectedSector && <span className="text-slate-500 font-mono opacity-50 ml-2">:: {selectedSector.id}</span>}
+                        </h3>
+
+                        <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+                            {selectedSector ? (
+                                <div className="h-full flex flex-col">
+                                    <div className="flex justify-between items-baseline mb-4 flex-none">
+                                        <span className="text-lg font-bold text-white">{selectedSector.name}</span>
+                                        <span className={`text-xl font-mono ${selectedSector.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                            {selectedSector.change > 0 ? "+" : ""}{selectedSector.change.toFixed(2)}%
+                                        </span>
+                                    </div>
+
+                                    {/* LIVE TICKER TABLE */}
+                                    <div className="space-y-1">
+                                        {topMovers.length > 0 ? (
+                                            topMovers.map(stock => (
+                                                <a key={stock.symbol} href={`/ticker?ticker=${stock.symbol}`} className="flex items-center justify-between text-xs py-2 px-2 rounded hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group">
+                                                    {/* Left: Logo & Symbol */}
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-6 h-6 rounded bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
+                                                            <span className="text-[7px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
+                                                            <img
+                                                                src={`https://financialmodelingprep.com/image-stock/${stock.symbol}.png`}
+                                                                alt={stock.symbol}
+                                                                className="w-full h-full object-contain relative z-10"
+                                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                            />
+                                                        </div>
+                                                        <span className="font-bold text-slate-200 group-hover:text-cyan-300 w-10">{stock.symbol}</span>
+                                                    </div>
+
+                                                    {/* Right: Data */}
+                                                    <div className="text-right">
+                                                        <div className="text-slate-200 font-mono">${stock.price.toFixed(2)}</div>
+                                                        <div className={`text-[10px] font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                            {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
+                                                        </div>
+                                                    </div>
+                                                </a>
+                                            ))
+                                        ) : (
+                                            <div className="text-xs text-slate-500 py-2 text-center">Loading live data...</div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center text-xs text-slate-600">
+                                    <Layers className="w-8 h-8 opacity-20 mb-2" />
+                                    SELECT A SECTOR ON MAP
+                                </div>
+                            )}
                         </div>
-                        <div className="w-full text-center relative z-10">
-                            <span className="text-[9px] font-black tracking-[0.5em] text-slate-600 animate-pulse">SYSTEM CORE PROCESSING...</span>
-                        </div>
-                        {/* INVISIBLE CLICK AREA FOR DEBUG (Hidden Easter Egg?) */}
-                        <div className="absolute top-0 right-0 w-10 h-full cursor-help" onClick={() => refresh(true)} title="Force Refresh"></div>
                     </div>
 
                 </div>
+
+                {/* ROW 3: HEX FOOTER (Replaces Controls) */}
+                <div className="col-span-12 bg-[#0a0e14] border border-slate-800 rounded-lg h-[30px] flex items-center relative overflow-hidden shadow-2xl opacity-80">
+                    {/* HEX BACKGROUND AUTOMATION */}
+                    <div className="absolute inset-0 flex items-center gap-2 opacity-20 overflow-hidden">
+                        <div className="animate-slide-left whitespace-nowrap font-mono text-[9px] text-emerald-800">
+                            {Array(50).fill("0x2F 0xA4 0x1B . . . STREAMING . . . ").join("")}
+                        </div>
+                    </div>
+                    <div className="w-full text-center relative z-10">
+                        <span className="text-[9px] font-black tracking-[0.5em] text-slate-600 animate-pulse">SYSTEM CORE PROCESSING...</span>
+                    </div>
+                    {/* INVISIBLE CLICK AREA FOR DEBUG (Hidden Easter Egg?) */}
+                    <div className="absolute top-0 right-0 w-10 h-full cursor-help" onClick={() => refresh(true)} title="Force Refresh"></div>
+                </div>
+
             </main>
         </div>
     );
