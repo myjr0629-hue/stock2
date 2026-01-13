@@ -30,9 +30,17 @@ export interface InflationData {
     updatedAt: string;
 }
 
+export interface VixData {
+    date: string;
+    vix: number | null;
+    source: "FRED" | "PROXY" | "FAIL";
+    updatedAt: string;
+}
+
 export interface FedSnapshot {
     treasury: TreasuryYields;
     inflation: InflationData;
+    vix: VixData;
     asOfET: string;
 }
 
@@ -183,16 +191,53 @@ export async function getInflationData(): Promise<InflationData> {
     }
 }
 
+// [V4.4] Get VIX from FRED (VIXCLS series)
+export async function getVixFromFred(): Promise<VixData> {
+    const now = new Date().toISOString();
+    const failResult: VixData = {
+        date: now.split('T')[0],
+        vix: null,
+        source: "FAIL",
+        updatedAt: now
+    };
+
+    // Try FRED API first (VIXCLS = CBOE Volatility Index)
+    if (FRED_API_KEY) {
+        try {
+            console.log("[FedAPI] Fetching VIX from FRED (VIXCLS)...");
+            const vix = await fetchFredSeries("VIXCLS");
+
+            if (vix !== null) {
+                console.log(`[FedAPI] FRED VIX OK: ${vix}`);
+                return {
+                    date: now.split('T')[0],
+                    vix,
+                    source: "FRED",
+                    updatedAt: now
+                };
+            }
+        } catch (e) {
+            console.warn("[FedAPI] FRED VIX failed:", e);
+        }
+    }
+
+    // Fallback: Return fail (macroHubProvider will use proxy calculation)
+    console.log("[FedAPI] VIX fallback to PROXY calculation");
+    return { ...failResult, source: "PROXY" };
+}
+
 // Get complete FED snapshot
 export async function getFedSnapshot(): Promise<FedSnapshot> {
-    const [treasury, inflation] = await Promise.all([
+    const [treasury, inflation, vix] = await Promise.all([
         getTreasuryYields(),
-        getInflationData()
+        getInflationData(),
+        getVixFromFred()
     ]);
 
     return {
         treasury,
         inflation,
+        vix,
         asOfET: new Date().toLocaleString('en-US', {
             timeZone: 'America/New_York',
             dateStyle: 'short',
