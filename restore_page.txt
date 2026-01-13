@@ -1,4 +1,4 @@
-
+﻿
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -75,11 +75,6 @@ interface GuardianContext {
         acceleration: boolean;
         accumulation: boolean;
         isTargetLock: boolean;
-        checklist?: {
-            passedCount: number;
-            totalCount: number;
-            message: string;
-        };
     };
     verdictSourceId: string | null;
     verdictTargetId: string | null;
@@ -310,9 +305,9 @@ export default function GuardianPage() {
                                     <div className={`text-[8px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
                                         data?.tripleA?.regime === 'BEAR' ? "text-rose-400" : "text-white"
                                         }`}>
-                                        {data?.tripleA?.regime === 'BULL' ? "강세장 진입 :: 적극 매수 (Alpha Seek)" :
-                                            data?.tripleA?.regime === 'BEAR' ? "약세장 진입 :: 보수적 운용 (Defense)" :
-                                                "방향성 부재 :: 관망 권장 (Wait)"}
+                                        {data?.tripleA?.regime === 'BULL' ? "媛뺤꽭??吏꾩엯 :: ?곴레 留ㅼ닔 (Alpha Seek)" :
+                                            data?.tripleA?.regime === 'BEAR' ? "?쎌꽭??吏꾩엯 :: 蹂댁닔???댁슜 (Defense)" :
+                                                "諛⑺뼢??遺??:: 愿留?沅뚯옣 (Wait)"}
                                     </div>
                                 </div>
                             </div>
