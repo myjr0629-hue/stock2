@@ -378,21 +378,6 @@ export default function GuardianPage() {
 
                     </div>
 
-                    {/* ROW 3: HEX FOOTER (Replaces Controls) */}
-                    <div className="col-span-12 bg-[#0a0e14] border border-slate-800 rounded-lg h-[30px] flex items-center relative overflow-hidden shadow-2xl opacity-80">
-                        {/* HEX BACKGROUND AUTOMATION */}
-                        <div className="absolute inset-0 flex items-center gap-2 opacity-20 overflow-hidden">
-                            <div className="animate-slide-left whitespace-nowrap font-mono text-[9px] text-emerald-800">
-                                {Array(50).fill("0x2F 0xA4 0x1B . . . STREAMING . . . ").join("")}
-                            </div>
-                        </div>
-                        <div className="w-full text-center relative z-10">
-                            <span className="text-[9px] font-black tracking-[0.5em] text-slate-600 animate-pulse">SYSTEM CORE PROCESSING...</span>
-                        </div>
-                        {/* INVISIBLE CLICK AREA FOR DEBUG (Hidden Easter Egg?) */}
-                        <div className="absolute top-0 right-0 w-10 h-full cursor-help" onClick={() => refresh(true)} title="Force Refresh"></div>
-                    </div>
-
                 </div>
             </main>
         </div>

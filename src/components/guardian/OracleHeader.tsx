@@ -1,8 +1,7 @@
-
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { TypewriterText } from './TypewriterText';
+import React, { useState } from 'react';
+import { HelpCircle } from 'lucide-react';
 
 interface OracleHeaderProps {
     nasdaq: number;
@@ -12,90 +11,102 @@ interface OracleHeaderProps {
     timestamp: string;
 }
 
-export function OracleHeader({ nasdaq, rlsi, verdictTitle, isDivergent }: OracleHeaderProps) {
-    const [latency, setLatency] = useState(12);
-    const [messageIndex, setMessageIndex] = useState(0);
+export function OracleHeader({ nasdaq, rlsi, verdictTitle, isDivergent, timestamp }: OracleHeaderProps) {
+    const [showTooltip, setShowTooltip] = useState(false);
 
-    // Latency Simulation (jitter 8-24ms)
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setLatency(Math.floor(Math.random() * 16) + 8);
-        }, 2000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // Message Cycle Timer
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setMessageIndex(prev => (prev + 1) % 3);
-        }, 8000); // Rotate every 8 seconds
-        return () => clearInterval(timer);
-    }, []);
-
-    // Construct the "Prophecy" String
-    const getProphecy = () => {
-        const nqStr = `나스닥 ${nasdaq > 0 ? "+" : ""}${nasdaq.toFixed(2)}%`;
-        // const rlsiStr = `RLSI ${rlsi.toFixed(1)}`; // This line was removed as it's not used in the final string
-
-        let insight = "";
+    // 인사이트 메시지 생성
+    const getInsight = () => {
         if (isDivergent) {
-            if (nasdaq > 0 && rlsi < 40) insight = "그러나 유동성은 이탈 중 (시장 기만 감지)";
-            else if (nasdaq < 0 && rlsi > 60) insight = "그러나 스마트 머니 강력 유입 (침묵의 매집)";
-            else insight = "지수와 자금의 괴리 발생";
-        } else {
-            if (rlsi > 60) insight = "기관 자금의 강력한 지지 확인";
-            else if (rlsi < 30) insight = "유동성 지지 기반 붕괴";
-            else insight = "방향성 탐색 중 (관망)";
+            if (nasdaq > 0 && rlsi < 40) return "가격↑ 유동성↓ 괴리 감지";
+            if (nasdaq < 0 && rlsi > 60) return "가격↓ 유동성↑ 매집 신호";
+            return "지수-자금 괴리 발생";
         }
-
-        return `[시스템 감시] ${nqStr} 기록 ... ${insight} ... 판독결과: ${verdictTitle}`;
+        if (rlsi >= 60) return "기관 매수세 유입 확인";
+        if (rlsi <= 35) return "유동성 이탈 경고";
+        return "방향성 탐색 중";
     };
 
-    const messages = [
-        "SOVEREIGN GUARDIAN V3.0 :: 시장의 노이즈를 제거하고 오직 자금의 진실만을 추적합니다.",
-        "SYSTEM CAPABILITY :: 실시간 유동성 파동 추적 / 세력 의도 암호 해독 / 다이버전스 조기 경보 가동 라인",
-        getProphecy()
-    ];
+    // RLSI 상태 색상
+    const getRlsiColor = () => {
+        if (rlsi >= 60) return "text-emerald-400";
+        if (rlsi <= 35) return "text-rose-400";
+        return "text-slate-300";
+    };
+
+    // 마지막 갱신 시간 계산
+    const getTimeSince = () => {
+        if (!timestamp) return "";
+        const diff = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000);
+        if (diff < 60) return `${diff}초 전`;
+        return `${Math.floor(diff / 60)}분 전`;
+    };
 
     return (
-        <div className="w-full h-12 bg-[#0a0e14] border-b border-slate-800 flex items-center justify-between px-6 relative overflow-hidden select-none z-50">
-            {/* BACKGROUND HEX CASCADE (Subtle) */}
-            <div className="absolute inset-0 opacity-[0.03] font-mono text-[8px] leading-tight overflow-hidden pointer-events-none whitespace-pre wrap text-emerald-500">
-                {Array(20).fill("0F 2A 4C 8B 9D 1E 3F 5A 7B 9C 2D 4E 6F 8A 0B 1C 2D 3E 4F 5A 6B 7C 8D 9E 0F 1A 2B 3C").join("\n")}
+        <div className="w-full h-10 bg-[#0a0e14] border-b border-slate-800 flex items-center justify-between px-4 md:px-6 select-none z-50">
+            {/* LEFT: LIVE STATUS */}
+            <div className="flex items-center gap-3 shrink-0">
+                <div className="flex items-center gap-1.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-[10px] font-bold tracking-wider text-emerald-400">LIVE</span>
+                </div>
+                <div className="w-px h-3 bg-slate-700"></div>
+                <span className={`text-[11px] font-mono font-bold ${nasdaq >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    NQ {nasdaq > 0 ? "+" : ""}{nasdaq.toFixed(2)}%
+                </span>
             </div>
 
-            {/* LEFT: STATUS */}
-            <div className="flex items-center gap-4 relative z-10 shrink-0">
-                <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>
-                    <span className="text-[10px] font-black tracking-[0.2em] text-emerald-400">
-                        GUARDIAN EYE : ONLINE
+            {/* CENTER: RLSI with Tooltip */}
+            <div className="flex items-center gap-3 relative">
+                <div
+                    className="flex items-center gap-1.5 cursor-help"
+                    onMouseEnter={() => setShowTooltip(true)}
+                    onMouseLeave={() => setShowTooltip(false)}
+                >
+                    <span className="text-[10px] text-slate-500 font-medium">RLSI</span>
+                    <span className={`text-sm font-mono font-bold ${getRlsiColor()}`}>
+                        {rlsi.toFixed(0)}
                     </span>
+                    <HelpCircle className="w-3 h-3 text-slate-600 hover:text-slate-400 transition-colors" />
                 </div>
-                <div className="hidden md:block w-px h-3 bg-slate-800"></div>
-                <div className="hidden md:flex items-center gap-1 text-[9px] font-mono text-slate-500">
-                    <span>LATENCY:</span>
-                    <span className="text-emerald-500 font-bold">{latency}ms</span>
-                </div>
+
+                {/* RLSI Tooltip */}
+                {showTooltip && (
+                    <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 w-64 bg-slate-900 border border-slate-700 rounded-lg p-3 shadow-xl z-50">
+                        <div className="text-[10px] font-bold text-emerald-400 mb-1">
+                            RLSI (Relative Liquid Strength Index)
+                        </div>
+                        <div className="text-[10px] text-slate-300 leading-relaxed">
+                            뉴스 센티먼트, 가격 모멘텀, 섹터 자금흐름, 금리를 종합한 <span className="text-white font-medium">시장 건강도 지수</span>입니다.
+                        </div>
+                        <div className="mt-2 pt-2 border-t border-slate-700 grid grid-cols-3 gap-1 text-[9px]">
+                            <div className="text-center">
+                                <div className="text-emerald-400 font-bold">60+</div>
+                                <div className="text-slate-500">강세</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-slate-300 font-bold">40-60</div>
+                                <div className="text-slate-500">중립</div>
+                            </div>
+                            <div className="text-center">
+                                <div className="text-rose-400 font-bold">40-</div>
+                                <div className="text-slate-500">약세</div>
+                            </div>
+                        </div>
+                        {/* Tooltip Arrow */}
+                        <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 border-t border-l border-slate-700 rotate-45"></div>
+                    </div>
+                )}
+
+                <div className="w-px h-3 bg-slate-700 hidden md:block"></div>
+                <span className="text-[10px] text-slate-400 hidden md:block">{getInsight()}</span>
             </div>
 
-            {/* CENTER: PROPHECY TICKER */}
-            <div className="flex-1 flex justify-center items-center relative z-10 mx-4 overflow-hidden">
-                <div className="text-[11px] font-mono font-bold text-slate-300 transition-all duration-300">
-                    <TypewriterText text={messages[messageIndex]} speed={20} />
-                </div>
+            {/* RIGHT: Timestamp */}
+            <div className="flex items-center gap-2 shrink-0">
+                <span className="text-[9px] text-slate-600 hidden md:block">
+                    {getTimeSince() && `갱신: ${getTimeSince()}`}
+                </span>
             </div>
-
-            {/* RIGHT: DECRYPTION / WATERMARK */}
-            <div className="flex items-center gap-2 relative z-10 shrink-0">
-                <div className="text-[9px] text-slate-600 font-black tracking-widest uppercase opacity-50">
-                    V3.0 CORE ACTIVE
-                </div>
-                <div className="w-1 h-3 bg-emerald-500/20 animate-pulse"></div>
-            </div>
-
-            {/* SCANLINE */}
-            <div className="absolute inset-0 bg-[url('/scanline.png')] opacity-5 pointer-events-none"></div>
         </div>
     );
 }
