@@ -13,11 +13,36 @@ export interface SectorDensity {
 }
 
 export interface DivergenceAnalysis {
-    caseId: 'A' | 'B' | 'C' | 'D' | 'N'; // N for Neutral/None
+    caseId: 'A' | 'B' | 'C' | 'D' | 'N';
     verdictTitle: string;
     verdictDesc: string;
     isDivergent: boolean;
-    score: number; // Divergence Score
+    score: number;
+}
+
+// [V6.0] Rule-based Market Verdict
+export interface MarketVerdict {
+    status: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+    headline: string;       // 1줄 핵심 결론
+    keyMetrics: string[];   // 근거 수치 3개
+    action: string;         // 명확한 액션
+}
+
+// [V6.0] TARGET LOCK Checklist
+export interface TripleACondition {
+    id: string;
+    label: string;
+    passed: boolean;
+    current: string;
+    required: string;
+}
+
+export interface TripleAChecklist {
+    conditions: TripleACondition[];
+    passedCount: number;
+    totalCount: number;
+    isLocked: boolean;
+    message: string;        // 사용자 친화적 메시지
 }
 
 export interface GuardianContext {
@@ -31,13 +56,16 @@ export interface GuardianContext {
     verdictTargetId: string | null;
     marketStatus: 'GO' | 'WAIT' | 'STOP';
     rvol?: { ndx: RvolProfile; dow: RvolProfile };
-    rotationIntensity?: RotationIntensity; // [V5.0] NEW
+    rotationIntensity?: RotationIntensity;
+    // [V6.0] Hybrid Intelligence
+    ruleVerdict?: MarketVerdict;        // 규칙 기반 핵심 결론
     tripleA?: {
         regime: 'BULL' | 'BEAR' | 'NEUTRAL';
         alignment: boolean;
         acceleration: boolean;
         accumulation: boolean;
         isTargetLock: boolean;
+        checklist: TripleAChecklist;    // [V6.0] 체크리스트
     };
     timestamp: string;
 }
@@ -239,13 +267,107 @@ export class GuardianDataHub {
             // FINAL LOCK DECISION
             const isTargetLock = regime === 'BULL' && isSectorAligned && isAccelerating && isAccumulating && !yieldSpike;
 
+            // [V6.0] Build Checklist with actual values
+            const yieldPct = macro?.factors?.us10y?.chgPct || 0;
+            const targetSectorChange = targetSector?.change || 0;
+
+            const checklist: TripleAChecklist = {
+                conditions: [
+                    {
+                        id: 'rlsi',
+                        label: 'RLSI 55+',
+                        passed: rlsi.score >= 55,
+                        current: `${rlsi.score.toFixed(0)}점`,
+                        required: '55점 이상'
+                    },
+                    {
+                        id: 'nasdaq',
+                        label: 'NASDAQ 상승',
+                        passed: nq > 0,
+                        current: `${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`,
+                        required: '> 0%'
+                    },
+                    {
+                        id: 'sector',
+                        label: '타겟 섹터 상승',
+                        passed: isSectorAligned,
+                        current: targetSector ? `${targetSector.name} ${targetSectorChange > 0 ? '+' : ''}${targetSectorChange.toFixed(2)}%` : 'N/A',
+                        required: '상승'
+                    },
+                    {
+                        id: 'rvol',
+                        label: 'RVOL 1.2+',
+                        passed: isAccelerating,
+                        current: `${rvolNdx.rvol.toFixed(2)}x`,
+                        required: '1.2x 이상'
+                    },
+                    {
+                        id: 'yield',
+                        label: '금리 안정',
+                        passed: !yieldSpike,
+                        current: `${yieldPct > 0 ? '+' : ''}${yieldPct.toFixed(2)}%`,
+                        required: '< 2.5%'
+                    }
+                ],
+                passedCount: [rlsi.score >= 55, nq > 0, isSectorAligned, isAccelerating, !yieldSpike].filter(Boolean).length,
+                totalCount: 5,
+                isLocked: isTargetLock,
+                message: isTargetLock
+                    ? '🎯 TARGET LOCKED: 강세장 진입 조건 충족'
+                    : regime === 'BEAR'
+                        ? '❄️ 약세장: 보수적 운용 권장'
+                        : '⏸️ 방향성 부재: 관망 권장'
+            };
+
             const tripleA = {
                 regime,
                 alignment: isSectorAligned,
                 acceleration: isAccelerating,
                 accumulation: isAccumulating,
-                isTargetLock
+                isTargetLock,
+                checklist // [V6.0]
             };
+
+            // [V6.0] Rule-based Market Verdict
+            const breadth = rotationIntensity?.breadth || 50;
+            let ruleVerdict: MarketVerdict;
+
+            if (rlsi.score >= 60 && rotationIntensity?.direction === 'RISK_ON') {
+                ruleVerdict = {
+                    status: 'BULLISH',
+                    headline: '📈 강세 지속 구간',
+                    keyMetrics: [
+                        `RLSI ${rlsi.score.toFixed(0)}점 (양호)`,
+                        `순환매: ${rotationIntensity.direction}`,
+                        `NASDAQ ${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`
+                    ],
+                    action: '상승 종목 비중 확대 유효'
+                };
+            } else if (rlsi.score <= 35 || rotationIntensity?.direction === 'RISK_OFF') {
+                ruleVerdict = {
+                    status: 'BEARISH',
+                    headline: '📉 방어 구간',
+                    keyMetrics: [
+                        `RLSI ${rlsi.score.toFixed(0)}점 (위험)`,
+                        `순환매: ${rotationIntensity?.direction || 'N/A'}`,
+                        `상승비율 ${breadth.toFixed(0)}%`
+                    ],
+                    action: '신규 매수 자제, 현금 비중 확대'
+                };
+            } else {
+                ruleVerdict = {
+                    status: 'NEUTRAL',
+                    headline: '⏸️ 관망 구간',
+                    keyMetrics: [
+                        `RLSI ${rlsi.score.toFixed(0)}점`,
+                        `순환매: ${rotationIntensity?.direction || 'NEUTRAL'}`,
+                        `Breadth ${breadth.toFixed(0)}%`
+                    ],
+                    action: '방향성 확인 후 진입'
+                };
+            }
+
+            console.log(`[Guardian V6.0] RuleVerdict: ${ruleVerdict.headline}, Action: ${ruleVerdict.action}`);
 
             const context: GuardianContext = {
                 rlsi,
@@ -258,8 +380,9 @@ export class GuardianDataHub {
                 verdictTargetId: targetId,
                 marketStatus,
                 rvol: { ndx: rvolNdx, dow: rvolDow },
-                rotationIntensity, // [V5.0] NEW
-                tripleA, // [V3.0] New Logic Core
+                rotationIntensity,
+                ruleVerdict, // [V6.0] 규칙 기반 핵심 결론
+                tripleA,     // [V6.0] 체크리스트 포함
                 timestamp: new Date().toISOString()
             };
 

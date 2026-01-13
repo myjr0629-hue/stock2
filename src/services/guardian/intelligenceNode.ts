@@ -80,27 +80,28 @@ export class IntelligenceNode {
             : "No significant rotation";
 
         const prompt = `
-        ACT AS AN ELITE INSTITUTIONAL STRATEGIST (WALL STREET VETERAN).
-        ANALYZE SECTOR ROTATION WITH HIGH-RESOLUTION PRECISION.
-        
-        MARKET DATA:
-        - NASDAQ CHANGE: ${ctx.nasdaqChange.toFixed(2)}%
-        - FLOW VECTORS: [${vectorDesc}]
-        - VIX: ${ctx.vix}
+        당신은 기관 투자 전략가입니다.
 
-        TASK:
-        Provide a professional analysis of money flow.
-        - Is this a "Risk-On" rotation into Tech/Cyclicals?
-        - Is this a "Flight to Safety" (Risk-Off) into Utilities/Staples?
-        - Is liquidity concentrating in specific themes (e.g., AI Infra)?
-        
-        CRITICAL OUTPUT RULES:
-        1. **VOICE**: PROFESSIONAL, ANALYTICAL, SHARP. Use industry-standard terminology (Risk-On, Beta, Sector Rotation).
-        2. **TONE**: Confident but grounded in data. Avoid "Commander" drama, use "Analyst" precision.
-        3. **NO TICKER SYMBOLS**: Use Korean sector names only (기술주, 헬스케어, etc.).
-        4. **AI INFRA**: If 'AI 전력망' is active, explicitly mention "AI 인프라 슈퍼사이클에 따른 수급 집중".
-        5. **Lang**: Korean (High-level Expert Style - e.g., "판단됩니다" is okay here if backed by strong logic, or "관측됩니다").
-        6. **Length**: 2-3 sentences. Dense with insight.
+        **현재 데이터:**
+        - NASDAQ 변동: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - 자금 흐름: [${vectorDesc}]
+        - VIX: ${ctx.vix.toFixed(1)}
+        - RVOL: ${ctx.rvol.toFixed(2)}x
+
+        **출력 형식 (반드시 이 형식으로):**
+        [현황] (섹터 이동 현황 1문장)
+        [해석] (의미 1문장)
+        [액션] (구체적 행동 지시 1문장)
+
+        **예시:**
+        [현황] 부동산/헬스케어에서 에너지/AI인프라로 자금 이동 중
+        [해석] Risk-On 순환매, 성장주 선호 심화
+        [액션] AI/에너지 섹터 ETF 비중 확대 유효
+
+        **규칙:**
+        - 한국어 전문가 스타일
+        - 섹터명은 한글 (기술주, 에너지, 부동산 등)
+        - 3줄 이내, 간결하게
         `;
 
         const result = await this.callGemini(prompt, "ROTATION");
@@ -126,33 +127,29 @@ export class IntelligenceNode {
         if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
 
         const prompt = `
-        ACT AS "THE ORACLE OF TRUTH".
-        YOUR MISSION: REVEAL THE CORE REALITY BEHIND THE PRICE.
-        
-        MARKET DATA:
-        - RLSI (Internal Truth): ${ctx.rlsiScore.toFixed(0)}/100.
-        - PRICE (External Mask): ${ctx.nasdaqChange.toFixed(2)}%.
-        - RVOL (Conviction): ${ctx.rvol.toFixed(2)}x.
-        
-        TASK:
-        Compare Price vs RLSI and DECLARE the verdict.
-        
-        CONTEXTUAL VOCABULARY RULE (CRITICAL):
-        1. **IF ALIGNED (Good)**: Use "입증합니다 (Prove)", "확증합니다 (Confirm)", "지목합니다 (Point to)". 
-           - Example: "내부 데이터가 상승의 정당성을 입증합니다."
-           - BAD Example: "견고함을 폭로합니다" (Awkward).
-        2. **IF DIVERGENT (Bad/Fake)**: Use "폭로합니다 (Expose)", "경고합니다 (Warn)", "간파했습니다 (Detected)".
-           - Example: "상승의 허구성을 폭로합니다."
-        
-        SCENARIOS:
-        - Price UP / RLSI LOW: "지수의 상승은 기만입니다 (DECEPTION). 내부는 썩어가고 있음을 폭로합니다."
-        - Price DOWN / RLSI HIGH: "하락은 속임수입니다 (TRAP). 세력은 바닥을 쓸어담고 있음을 간파했습니다."
-        - Both ALIGN: "시장의 방향성은 진실입니다 (TRUE). 상승/하락 추세가 데이터로 확증되었습니다."
-        
-        OUTPUT RULES:
-        1. **VOICE**: PROPHETIC, ABSOLUTE, BUT NATURAL.
-        2. **Lang**: Korean (High-Impact).
-        3. **Structure**: [Fact] -> [Revelation]. 2 sentences.
+        당신은 시장 분석가입니다. 가격과 내부 지표를 비교하여 시장의 본질을 분석합니다.
+
+        **현재 데이터:**
+        - RLSI (내부 지표): ${ctx.rlsiScore.toFixed(0)}점
+        - NASDAQ 변동: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - RVOL: ${ctx.rvol.toFixed(2)}x
+
+        **분석 기준:**
+        - RLSI 높은데 가격 하락 → 매집 구간 (저가 매수 기회)
+        - RLSI 낮은데 가격 상승 → 과열/의심 (추격 매수 위험)
+        - 둘 다 정렬 → 추세 유효
+
+        **출력 형식:**
+        [진단] 현재 상태 1줄 (가격과 RLSI 비교)
+        [결론] 시장 본질 1줄 (진실인지 허구인지)
+
+        **예시:**
+        [진단] NASDAQ +0.85% 상승에도 RLSI 45점으로 유동성 부족
+        [결론] 상승의 지속 가능성 낮음, 추격 매수 자제 권장
+
+        **규칙:**
+        - 한국어, 명확하고 간결하게
+        - 2줄 이내
         `;
 
         const result = await this.callGemini(prompt, "REALITY");
