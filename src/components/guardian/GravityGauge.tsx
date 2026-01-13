@@ -161,10 +161,10 @@ export default function GravityGauge({ score, loading, session }: GravityGaugePr
 
                 {/* Data Sources */}
                 <div className="flex justify-center gap-2 flex-wrap">
-                    <span className="text-[7px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">뉴스</span>
-                    <span className="text-[7px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">모멘텀</span>
-                    <span className="text-[7px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">섹터</span>
-                    <span className="text-[7px] text-slate-500 bg-slate-800/50 px-1.5 py-0.5 rounded">금리</span>
+                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">뉴스</span>
+                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">모멘텀</span>
+                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">섹터</span>
+                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">금리</span>
                 </div>
             </div>
         </div>
