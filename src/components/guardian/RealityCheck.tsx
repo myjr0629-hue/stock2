@@ -1,8 +1,9 @@
 "use client";
 
 import React from 'react';
-import { Activity, MessageSquare } from "lucide-react";
+import { Activity, MessageSquare, TrendingUp, DollarSign } from "lucide-react";
 import { TypewriterText } from "./TypewriterText";
+import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 
 interface RealityCheckProps {
     nasdaqChange: number; // e.g. +0.80
@@ -30,6 +31,18 @@ export function RealityCheck({
     const statusText = isDivergent ? "DIVERGENCE" : "ALIGNMENT OK";
     const statusColor = isDivergent ? "text-rose-400" : "text-emerald-400";
 
+    // Get macro data for VIX/DXY
+    const { snapshot } = useMacroSnapshot();
+    const vix = snapshot?.factors?.vix;
+    const dxy = snapshot?.factors?.dxy;
+
+    // VIX color based on level
+    const getVixColor = (level: number) => {
+        if (level >= 30) return 'text-rose-400';
+        if (level >= 20) return 'text-amber-400';
+        return 'text-emerald-400';
+    };
+
     return (
         <div className="h-full flex flex-col p-1">
             {/* HEADER */}
@@ -40,7 +53,38 @@ export function RealityCheck({
                         REALITY CHECK
                     </h3>
                 </div>
-                <span className="text-[9px] font-mono text-white opacity-60">MKT_SYNC::ACTIVE</span>
+
+                {/* RIGHT SIDE: VIX/DXY + Status */}
+                <div className="flex items-center gap-3">
+                    {/* VIX */}
+                    <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/50 border border-slate-700/50">
+                        <TrendingUp size={10} className={vix?.level ? getVixColor(vix.level) : 'text-slate-500'} />
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">VIX</span>
+                        <span className={`text-[10px] font-black tabular-nums ${vix?.level ? getVixColor(vix.level) : 'text-white'}`}>
+                            {vix?.level?.toFixed(2) || '—'}
+                        </span>
+                        {vix?.chgPct !== undefined && vix.chgPct !== null && (
+                            <span className={`text-[8px] font-bold ${vix.chgPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {vix.chgPct >= 0 ? '+' : ''}{vix.chgPct.toFixed(1)}%
+                            </span>
+                        )}
+                    </div>
+                    {/* DXY */}
+                    <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/50 border border-slate-700/50">
+                        <DollarSign size={10} className="text-sky-400" />
+                        <span className="text-[9px] font-bold text-slate-400 uppercase">DXY</span>
+                        <span className="text-[10px] font-black text-sky-300 tabular-nums">
+                            {dxy?.level?.toFixed(2) || '—'}
+                        </span>
+                        {dxy?.chgPct !== undefined && dxy.chgPct !== null && (
+                            <span className={`text-[8px] font-bold ${dxy.chgPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {dxy.chgPct >= 0 ? '+' : ''}{dxy.chgPct.toFixed(1)}%
+                            </span>
+                        )}
+                    </div>
+                    {/* Status */}
+                    <span className="text-[9px] font-mono text-white opacity-60">MKT_SYNC::ACTIVE</span>
+                </div>
             </div>
 
             {/* SPLIT CONTENT AREA */}

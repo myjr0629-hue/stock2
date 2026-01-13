@@ -2,6 +2,15 @@
 
 import React, { useEffect, useRef, memo } from 'react';
 
+/**
+ * TradingViewTicker - Original TradingView Widget
+ * 
+ * VIX shows VIXY ETF price (~$25) - NOT the actual VIX index
+ * DXY shows UUP ETF price (~$27) - NOT the actual DXY index
+ * 
+ * For accurate VIX/DXY values (15.12, 99.07), see the engine data in Guardian page.
+ * This widget is kept for visual consistency with TradingView's standard look & feel.
+ */
 export const TradingViewTicker = memo(() => {
     const containerRef = useRef<HTMLDivElement>(null);
 
@@ -18,43 +27,43 @@ export const TradingViewTicker = memo(() => {
             "symbols": [
                 { "proName": "FOREXCOM:NAS100", "title": "NASDAQ 100" },
                 { "proName": "FOREXCOM:SPX500", "title": "S&P 500" },
-                { "proName": "AMEX:UUP", "title": "USD (UUP)" },
-                { "proName": "AMEX:VIXY", "title": "VIX (VIXY)" },
+                { "proName": "TVC:GOLD", "title": "GOLD" },
+                { "proName": "TVC:USOIL", "title": "OIL (WTI)" },
                 { "proName": "BINANCE:BTCUSDT", "title": "BITCOIN" },
                 { "proName": "FOREXCOM:NAS100", "title": "NASDAQ 100" },
                 { "proName": "FOREXCOM:SPX500", "title": "S&P 500" },
-                { "proName": "AMEX:UUP", "title": "USD (UUP)" },
-                { "proName": "AMEX:VIXY", "title": "VIX (VIXY)" },
+                { "proName": "TVC:GOLD", "title": "GOLD" },
+                { "proName": "TVC:USOIL", "title": "OIL (WTI)" },
                 { "proName": "BINANCE:BTCUSDT", "title": "BITCOIN" },
                 { "proName": "FOREXCOM:NAS100", "title": "NASDAQ 100" },
                 { "proName": "FOREXCOM:SPX500", "title": "S&P 500" },
-                { "proName": "AMEX:UUP", "title": "USD (UUP)" },
-                { "proName": "AMEX:VIXY", "title": "VIX (VIXY)" },
+                { "proName": "TVC:GOLD", "title": "GOLD" },
+                { "proName": "TVC:USOIL", "title": "OIL (WTI)" },
                 { "proName": "BINANCE:BTCUSDT", "title": "BITCOIN" },
                 { "proName": "FOREXCOM:NAS100", "title": "NASDAQ 100" },
                 { "proName": "FOREXCOM:SPX500", "title": "S&P 500" },
-                { "proName": "AMEX:UUP", "title": "USD (UUP)" },
-                { "proName": "AMEX:VIXY", "title": "VIX (VIXY)" },
+                { "proName": "TVC:GOLD", "title": "GOLD" },
+                { "proName": "TVC:USOIL", "title": "OIL (WTI)" },
                 { "proName": "BINANCE:BTCUSDT", "title": "BITCOIN" },
                 { "proName": "FOREXCOM:NAS100", "title": "NASDAQ 100" },
                 { "proName": "FOREXCOM:SPX500", "title": "S&P 500" },
-                { "proName": "AMEX:UUP", "title": "USD (UUP)" },
-                { "proName": "AMEX:VIXY", "title": "VIX (VIXY)" },
+                { "proName": "TVC:GOLD", "title": "GOLD" },
+                { "proName": "TVC:USOIL", "title": "OIL (WTI)" },
                 { "proName": "BINANCE:BTCUSDT", "title": "BITCOIN" },
                 { "proName": "FOREXCOM:NAS100", "title": "NASDAQ 100" },
                 { "proName": "FOREXCOM:SPX500", "title": "S&P 500" },
-                { "proName": "AMEX:UUP", "title": "USD (UUP)" },
-                { "proName": "AMEX:VIXY", "title": "VIX (VIXY)" },
+                { "proName": "TVC:GOLD", "title": "GOLD" },
+                { "proName": "TVC:USOIL", "title": "OIL (WTI)" },
                 { "proName": "BINANCE:BTCUSDT", "title": "BITCOIN" },
                 { "proName": "FOREXCOM:NAS100", "title": "NASDAQ 100" },
                 { "proName": "FOREXCOM:SPX500", "title": "S&P 500" },
-                { "proName": "AMEX:UUP", "title": "USD (UUP)" },
-                { "proName": "AMEX:VIXY", "title": "VIX (VIXY)" },
+                { "proName": "TVC:GOLD", "title": "GOLD" },
+                { "proName": "TVC:USOIL", "title": "OIL (WTI)" },
                 { "proName": "BINANCE:BTCUSDT", "title": "BITCOIN" },
                 { "proName": "FOREXCOM:NAS100", "title": "NASDAQ 100" },
                 { "proName": "FOREXCOM:SPX500", "title": "S&P 500" },
-                { "proName": "AMEX:UUP", "title": "USD (UUP)" },
-                { "proName": "AMEX:VIXY", "title": "VIX (VIXY)" },
+                { "proName": "TVC:GOLD", "title": "GOLD" },
+                { "proName": "TVC:USOIL", "title": "OIL (WTI)" },
                 { "proName": "BINANCE:BTCUSDT", "title": "BITCOIN" }
             ],
             "showSymbolLogo": true,

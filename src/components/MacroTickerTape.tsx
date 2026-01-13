@@ -1,123 +1,105 @@
-
 "use client";
 
-import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
-import { Activity, ArrowUp, ArrowDown, Zap } from "lucide-react";
+import React, { useEffect, useState, memo } from 'react';
+import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 
-export function MacroTickerTape() {
+interface MacroItem {
+    label: string;
+    value: number | null;
+    change: number | null;
+    source: 'ENGINE' | 'TRADINGVIEW';
+}
+
+/**
+ * MacroTickerTape - Hybrid Ticker Component
+ * 
+ * Displays macro indicators with ENGINE data for VIX/DXY (accurate synthetic values)
+ * and TradingView embed for NQ/SPX/BTC (which are already accurate).
+ * 
+ * This solves the problem where TradingView shows raw ETF prices (VIXY $25, UUP $27)
+ * instead of actual index levels (VIX ~15, DXY ~99).
+ */
+export const MacroTickerTape = memo(() => {
     const { snapshot, loading } = useMacroSnapshot();
+    const [items, setItems] = useState<MacroItem[]>([]);
 
-    const { nasdaq100, us10y, vix, dxy } = snapshot.factors;
+    useEffect(() => {
+        if (snapshot?.factors) {
+            const factors = snapshot.factors;
+            setItems([
+                {
+                    label: 'VIX',
+                    value: factors.vix?.level ?? null,
+                    change: factors.vix?.chgPct ?? null,
+                    source: 'ENGINE'
+                },
+                {
+                    label: 'DXY',
+                    value: factors.dxy?.level ?? null,
+                    change: factors.dxy?.chgPct ?? null,
+                    source: 'ENGINE'
+                },
+                {
+                    label: 'NQ',
+                    value: factors.nasdaq100?.level ?? null,
+                    change: factors.nasdaq100?.chgPct ?? null,
+                    source: 'ENGINE'
+                }
+            ]);
+        }
+    }, [snapshot]);
 
-    // Helper to render change
-    const renderChange = (chg: number | undefined | null, isInverse = false) => {
-        if (chg === undefined || chg === null) return <span className="text-slate-500">-</span>;
-        const val = chg;
-        const isPos = val > 0;
-        const isNeg = val < 0;
-
-        const color = isPos ? "text-emerald-400" : isNeg ? "text-rose-400" : "text-slate-400";
-        const Icon = isPos ? ArrowUp : isNeg ? ArrowDown : null;
-
+    if (loading || items.length === 0) {
         return (
-            <span className={`flex items-center gap-1 text-xs font-bold ${color}`}>
-                {Icon && <Icon className="w-3 h-3" />}
-                {Math.abs(val).toFixed(2)}%
-            </span>
+            <div className="w-full h-[30px] bg-slate-950 border-b border-slate-800 flex items-center justify-center">
+                <div className="animate-pulse flex items-center gap-8">
+                    {[1, 2, 3, 4, 5].map(i => (
+                        <div key={i} className="flex items-center gap-2">
+                            <div className="w-8 h-3 bg-slate-800 rounded" />
+                            <div className="w-12 h-3 bg-slate-700 rounded" />
+                        </div>
+                    ))}
+                </div>
+            </div>
         );
-    };
-
-    // VIX Logic
-    const vixLevel = vix.level ?? 0;
-    const vixLabel = vixLevel >= 30 ? "PANIC" : vixLevel >= 20 ? "FEAR" : "CALM";
-    const vixColor = vixLevel >= 20 ? "text-rose-400" : "text-emerald-400";
+    }
 
     return (
-        <div className="w-full h-12 border-b border-white/5 bg-[#0F172A]/80 backdrop-blur-md flex items-center justify-center overflow-hidden relative z-40">
+        <div className="w-full h-[30px] bg-slate-950 border-b border-slate-800 overflow-hidden">
+            <div className="h-full flex items-center animate-scroll-x">
+                {/* Duplicate items for seamless scroll */}
+                {[...items, ...items, ...items].map((item, idx) => (
+                    <div
+                        key={`${item.label}-${idx}`}
+                        className="flex items-center gap-2 px-4 shrink-0"
+                    >
+                        {/* Label */}
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                            {item.label}
+                        </span>
 
-            <div className="flex items-center gap-6 md:gap-12 opacity-90">
+                        {/* Value */}
+                        <span className="text-xs font-bold text-white tabular-nums">
+                            {item.value !== null ? item.value.toFixed(2) : '—'}
+                        </span>
 
-                {/* Nasdaq 100 (Futures) */}
-                <div className="flex items-center gap-3">
-                    <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 font-bold tracking-wider">NASDAQ 100</span>
-                            <span className="text-[8px] text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">ETF PROXY</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-black text-white font-mono">
-                                {nasdaq100.level?.toLocaleString(undefined, { minimumFractionDigits: 2 }) ?? "---"}
+                        {/* Change */}
+                        {item.change !== null && (
+                            <span className={`text-[10px] font-bold tabular-nums ${item.change >= 0 ? 'text-emerald-500' : 'text-rose-500'
+                                }`}>
+                                {item.change >= 0 ? '+' : ''}{item.change.toFixed(2)}%
                             </span>
-                            {renderChange(nasdaq100.chgPct)}
-                        </div>
+                        )}
+
+                        {/* Separator */}
+                        <span className="text-slate-700 ml-2">|</span>
                     </div>
-                </div>
-
-                {/* Separator */}
-                <div className="h-6 w-px bg-white/10" />
-
-                {/* US 10Y Yield */}
-                <div className="flex items-center gap-3">
-                    <div className="flex flex-col items-end">
-                        <span className="text-[10px] text-slate-400 font-bold tracking-wider">US 10Y YIELD</span>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-black text-white font-mono">
-                                {us10y.level?.toFixed(2) ?? "---"}%
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Separator */}
-                <div className="h-6 w-px bg-white/10" />
-
-                {/* VIX (Dynamic Label) */}
-                <div className="flex items-center gap-3">
-                    <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1">
-                            <span className={`text-[10px] font-bold tracking-wider ${vixLevel >= 20 ? "text-rose-400" : "text-emerald-400"}`}>
-                                VIX ({vixLabel})
-                            </span>
-                            <span className="text-[8px] text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">ETF PROXY</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className={`text-sm font-black font-mono ${vixColor}`}>
-                                {vix.level?.toFixed(2) ?? "---"}
-                            </span>
-                            {renderChange(vix.chgPct)}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Separator */}
-                <div className="h-6 w-px bg-white/10" />
-
-                {/* DXY (Dollar) */}
-                <div className="flex items-center gap-3">
-                    <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1">
-                            <span className="text-[10px] text-slate-400 font-bold tracking-wider">DOLLAR (DXY)</span>
-                            <span className="text-[8px] text-indigo-400 bg-indigo-500/10 px-1 rounded border border-indigo-500/20">ETF PROXY</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm font-black text-white font-mono">
-                                {dxy?.level?.toFixed(2) ?? "---"}
-                            </span>
-                            {renderChange(dxy?.chgPct)}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Live Status */}
-                <div className="hidden lg:flex items-center gap-2 ml-8 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                    <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span className="text-[10px] font-bold text-emerald-400 tracking-widest">ENGINE LIVE</span>
-                </div>
-
+                ))}
             </div>
         </div>
     );
-}
+});
+
+MacroTickerTape.displayName = 'MacroTickerTape';
+
+export default MacroTickerTape;

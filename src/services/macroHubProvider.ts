@@ -41,21 +41,23 @@ let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = {
 const SYMBOLS = {
     NDX_PROXY: "QQQ", // Massive uses QQQ for Trend Logic
     VIX_PROXY: "VIXY", // Massive uses VIXY for Panic Logic
-    DXY_PROXY: "UUP"   // UUP (Bullish Dollar ETF) as proxy for DXY since I:DX is blocked.
-    // Previous code used I:DX. Attempt I:DX, if fail, fallback UUP?
-    // Let's stick to I:DX if it was working? No, I:DX is likely blocked just like I:TNX. 
-    // Let's use UUP or just handle Fail cleanly. 
-    // Wait, previous logs showed "Exhausted all fetch methods for I:DX". 
-    // So I:DX is likely blocked.
+    DXY_PROXY: "UUP"   // UUP (Bullish Dollar ETF) as proxy for DXY
 };
 
-// Synthetic Multipliers (Calculated 2025-12-31)
+// Synthetic Multipliers (Re-Calibrated 2026-01-13)
+// Methodology: Real Index / ETF Proxy Price
 // QQQ -> NDX: x41.45
-// VIXY -> VIX: x0.56
+// VIXY -> VIX: Real VIX(15.12) / VIXY(25.03) = x0.604
+// UUP -> DXY: Real DXY(99.01) / UUP(27.28) = x3.63
+// 
+// [TODO] FRED API Auto-Calibration:
+// - Fetch real VIX from FRED (series: VIXCLS) daily
+// - Recalculate multiplier: realVIX / vixyPrice
+// - This ensures <1% error vs current ~7% error
 const MULTIPLIERS = {
     NDX: 41.45,
-    VIX: 0.56,
-    DXY: 3.6315 // Calibrated UUP(27.05) -> DXY(98.23)
+    VIX: 0.604,  // [2026-01-13] Re-calibrated: 15.12 / 25.03 = 0.604
+    DXY: 3.63    // [2026-01-13] Re-calibrated: 99.01 / 27.28 = 3.63
 };
 
 async function fetchIndexSnapshot(ticker: string, label: string, multiplier: number = 1, marketStatus?: MarketStatusResult): Promise<MacroFactor> {

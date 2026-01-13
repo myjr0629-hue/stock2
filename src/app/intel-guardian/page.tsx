@@ -201,7 +201,7 @@ export default function GuardianPage() {
                         <div className="absolute inset-0 bg-[url('/scanline.png')] opacity-5 pointer-events-none"></div>
                     </div>
 
-                    {/* BLOCK B: REALITY CHECK (Top Right - 8 cols) */}
+                    {/* BLOCK B: REALITY CHECK (Top Right - 8 cols) - VIX/DXY now inline in header */}
                     <div className="col-span-12 lg:col-span-8 bg-[#0a0e14]/80 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center">
                         <RealityCheck
                             nasdaqChange={data?.market?.nqChangePercent || 0}

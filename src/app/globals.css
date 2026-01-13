@@ -223,3 +223,24 @@
 .dark .why-headline {
   color: hsl(215 30% 90%);
 }
+
+/* ===== [S-52] TICKER SCROLL ANIMATION ===== */
+@keyframes ticker-scroll {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-ticker-scroll {
+  animation: ticker-scroll 30s linear infinite;
+  display: flex;
+  width: max-content;
+}
+
+.animate-ticker-scroll:hover {
+  animation-play-state: paused;
+}
