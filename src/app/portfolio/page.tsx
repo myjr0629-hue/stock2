@@ -270,9 +270,9 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
             href={`/ticker?ticker=${holding.ticker}`}
             className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_2fr_2fr] px-4 py-3 hover:bg-white/[0.02] transition-colors items-center group"
         >
-            {/* 종목 (2fr) */}
+            {/* 종목 (2fr) - with sparkline */}
             <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
                     <img
                         src={`https://financialmodelingprep.com/image-stock/${holding.ticker}.png`}
                         alt={holding.ticker}
@@ -281,10 +281,14 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                     />
                     <span className="text-[9px] font-bold text-slate-500 absolute">{holding.ticker.slice(0, 2)}</span>
                 </div>
-                <div>
+                <div className="flex-1 min-w-0">
                     <div className="font-bold text-sm text-white">{holding.ticker}</div>
-                    <div className="text-[10px] text-slate-500 truncate max-w-[80px]">{holding.name}</div>
+                    <div className="text-[10px] text-slate-500 truncate">{holding.name}</div>
                 </div>
+                {/* Intraday Sparkline */}
+                {holding.sparkline && holding.sparkline.length > 2 && (
+                    <Sparkline data={holding.sparkline} isPositive={holding.changePct >= 0} />
+                )}
             </div>
 
             {/* 수량 (1fr) */}
@@ -477,7 +481,44 @@ function GexIndicator({ gexM }: { gexM: number }) {
     );
 }
 
-// === ENHANCED ADD MODAL ===
+// Sparkline - SVG mini chart for intraday price movement
+function Sparkline({ data, isPositive }: { data: number[]; isPositive: boolean }) {
+    if (!data || data.length < 2) return null;
+
+    const width = 40;
+    const height = 16;
+    const padding = 1;
+
+    const min = Math.min(...data);
+    const max = Math.max(...data);
+    const range = max - min || 1;
+
+    const points = data.map((value, i) => {
+        const x = padding + (i / (data.length - 1)) * (width - 2 * padding);
+        const y = height - padding - ((value - min) / range) * (height - 2 * padding);
+        return `${x},${y}`;
+    }).join(' ');
+
+    const strokeColor = isPositive ? '#34d399' : '#f87171'; // emerald-400 : rose-400
+
+    return (
+        <svg
+            width={width}
+            height={height}
+            className="flex-shrink-0"
+        >
+            <title>{`당일 가격 흐름 (${data.length}개 데이터)`}</title>
+            <polyline
+                points={points}
+                fill="none"
+                stroke={strokeColor}
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+            />
+        </svg>
+    );
+}
 
 function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onHoldingAdded: () => void }) {
     // Import addHolding directly from store to avoid separate hook instance

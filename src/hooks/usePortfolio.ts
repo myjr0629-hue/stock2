@@ -27,6 +27,7 @@ export interface EnrichedHolding extends Holding {
     action?: 'HOLD' | 'TRIM' | 'ADD' | 'WATCH';
     confidence?: number; // 0-100%
     triggers?: string[]; // Signal reasoning
+    sparkline?: number[]; // Intraday price chart data
     threeDay?: number;
     rsi?: number;
     sectorFlow?: 'INFLOW' | 'OUTFLOW' | 'NEUTRAL';
@@ -120,6 +121,7 @@ export function usePortfolio() {
                         action: alphaData.action,
                         confidence: alphaData.confidence,
                         triggers: alphaData.triggers,
+                        sparkline: alphaData.sparkline,
                         threeDay: alphaData.threeDay,
                         rvol: alphaData.rvol,
                         maxPainDist: alphaData.maxPainDist,
@@ -213,6 +215,7 @@ export function usePortfolio() {
         action: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH';
         confidence: number;
         triggers: string[];
+        sparkline: number[];
         threeDay: number;
         rvol: number;
         maxPainDist: number;
@@ -238,6 +241,7 @@ export function usePortfolio() {
                         action: data.alphaSnapshot.action,
                         confidence: data.alphaSnapshot.confidence,
                         triggers: data.alphaSnapshot.triggers || [],
+                        sparkline: data.realtime.sparkline || [],
                         threeDay: data.realtime.changePct || 0,
                         rvol: data.realtime.rvol || 1.0,
                         maxPainDist: data.realtime.maxPainDist || 0,

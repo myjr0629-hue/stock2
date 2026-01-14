@@ -125,6 +125,8 @@ export async function GET(request: Request) {
                 changePct: changePct,
                 session: stockData.session || 'reg',
                 rvol: (stockData as any).rvol || ((stockData as any).volume && (stockData as any).avgVolume ? (stockData as any).volume / (stockData as any).avgVolume : 1.0),
+                // Sparkline data (last 20 intraday prices)
+                sparkline: stockData.history?.slice(-20).map(h => h.close) || [],
                 // Options indicators
                 maxPain: maxPain,
                 maxPainDist: Number(maxPainDist.toFixed(2)), // Distance % from current price
