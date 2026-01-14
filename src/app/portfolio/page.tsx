@@ -113,16 +113,17 @@ export default function PortfolioPage() {
 
                     {/* Table Content */}
                     <div className="relative">
-                        {/* Table Header - 8 Clear Columns */}
-                        <div className="grid grid-cols-16 gap-2 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
-                            <div className="col-span-3">종목</div>
+                        {/* Table Header - 9 Clear Columns */}
+                        <div className="grid grid-cols-18 gap-1 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
+                            <div className="col-span-2">종목</div>
                             <div className="col-span-1 text-right">수량</div>
                             <div className="col-span-2 text-right">매입가</div>
                             <div className="col-span-2 text-right">현재가</div>
                             <div className="col-span-2 text-right">손익</div>
                             <div className="col-span-2 text-center">Alpha</div>
                             <div className="col-span-2 text-center">Signal</div>
-                            <div className="col-span-2 text-center">Edge</div>
+                            <div className="col-span-2 text-center">MaxPain</div>
+                            <div className="col-span-2 text-center">GEX</div>
                         </div>
 
                         {/* Holdings Rows */}
@@ -267,10 +268,10 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
     return (
         <Link
             href={`/ticker?ticker=${holding.ticker}`}
-            className="grid grid-cols-16 gap-2 px-4 py-3 hover:bg-white/[0.02] transition-colors items-center group"
+            className="grid grid-cols-18 gap-1 px-4 py-3 hover:bg-white/[0.02] transition-colors items-center group"
         >
-            {/* TICKER (3 cols) - Logo + Name */}
-            <div className="col-span-3 flex items-center gap-3">
+            {/* TICKER (2 cols) - Logo + Name */}
+            <div className="col-span-2 flex items-center gap-2">
                 <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden">
                     <img
                         src={`https://financialmodelingprep.com/image-stock/${holding.ticker}.png`}
@@ -344,13 +345,15 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                 <SignalBadge action={holding.action || 'HOLD'} confidence={holding.confidence || 50} />
             </div>
 
-            {/* EDGE (2 cols) - RVOL + Triple-A with tooltips */}
-            <div className="col-span-2 flex items-center justify-center gap-2">
-                <EdgeIndicators
-                    maxPainDist={holding.maxPainDist || 0}
-                    gexM={holding.gexM || 0}
-                />
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
+            {/* MAXPAIN (2 cols) - Distance % with arrow */}
+            <div className="col-span-2 flex items-center justify-center">
+                <MaxPainIndicator dist={holding.maxPainDist || 0} />
+            </div>
+
+            {/* GEX (2 cols) - Long/Short badge with delete button */}
+            <div className="col-span-2 flex items-center justify-center gap-1">
+                <GexIndicator gexM={holding.gexM || 0} />
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         onClick={(e) => { e.preventDefault(); onRemove(); }}
                         className="p-1 hover:bg-rose-500/20 rounded text-rose-400"
@@ -444,43 +447,39 @@ function SignalBadge({ action, confidence }: { action?: string; confidence?: num
     );
 }
 
-// Edge Indicators - Max Pain & GEX Premium Display
-function EdgeIndicators({ maxPainDist, gexM }: {
-    maxPainDist: number;
-    gexM: number;
-}) {
-    // Max Pain Distance: positive = price below (upside pressure), negative = price above (downside pressure)
-    const maxPainColor = maxPainDist > 0 ? 'text-emerald-400' : maxPainDist < 0 ? 'text-rose-400' : 'text-slate-400';
-    const maxPainArrow = maxPainDist > 0 ? '↑' : maxPainDist < 0 ? '↓' : '→';
-    const maxPainLabel = maxPainDist > 0 ? '상승압력' : maxPainDist < 0 ? '하락압력' : '중립';
-
-    // GEX: positive = dealer hedging dampens volatility, negative = dealer hedging amplifies volatility
-    const gexColor = gexM > 0 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
-        : gexM < 0 ? 'text-rose-400 bg-rose-400/10 border-rose-400/30'
-            : 'text-slate-400 bg-slate-400/10 border-slate-400/30';
-    const gexLabel = gexM > 0 ? 'LONG' : gexM < 0 ? 'SHORT' : 'N/A';
-    const gexIcon = gexM > 0 ? '🛡️' : gexM < 0 ? '⚡' : '—';
+// MaxPain Indicator - Distance % with arrow
+function MaxPainIndicator({ dist }: { dist: number }) {
+    const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-slate-400';
+    const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
+    const label = dist > 0 ? '상승압력' : dist < 0 ? '하락압력' : '중립';
 
     return (
-        <div className="flex items-center gap-3">
-            {/* Max Pain Distance - Intuitive arrow display */}
-            <div
-                className="flex items-center gap-1"
-                title={`Max Pain 이격도: ${maxPainDist > 0 ? '+' : ''}${maxPainDist.toFixed(1)}%\n${maxPainLabel}`}
-            >
-                <span className={`text-lg font-bold ${maxPainColor}`}>{maxPainArrow}</span>
-                <span className={`text-xs font-bold font-num ${maxPainColor}`}>
-                    {maxPainDist > 0 ? '+' : ''}{maxPainDist.toFixed(1)}%
-                </span>
-            </div>
+        <div
+            className="flex items-center gap-1"
+            title={`Max Pain 이격도: ${dist > 0 ? '+' : ''}${dist.toFixed(1)}%\n${label}`}
+        >
+            <span className={`text-base font-bold ${color}`}>{arrow}</span>
+            <span className={`text-xs font-bold font-num ${color}`}>
+                {dist > 0 ? '+' : ''}{dist.toFixed(1)}%
+            </span>
+        </div>
+    );
+}
 
-            {/* GEX - Long/Short badge */}
-            <div
-                className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${gexColor}`}
-                title={`감마 노출(GEX): ${gexM > 0 ? '+' : ''}${gexM.toFixed(1)}M\n${gexM > 0 ? '딜러가 변동성 억제 (안정적)' : gexM < 0 ? '딜러가 변동성 가속 (주의)' : '데이터 없음'}`}
-            >
-                {gexIcon} {gexLabel}
-            </div>
+// GEX Indicator - Long/Short badge
+function GexIndicator({ gexM }: { gexM: number }) {
+    const color = gexM > 0 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
+        : gexM < 0 ? 'text-rose-400 bg-rose-400/10 border-rose-400/30'
+            : 'text-slate-400 bg-slate-400/10 border-slate-400/30';
+    const label = gexM > 0 ? 'LONG' : gexM < 0 ? 'SHORT' : 'N/A';
+    const icon = gexM > 0 ? '🛡️' : gexM < 0 ? '⚡' : '—';
+
+    return (
+        <div
+            className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${color}`}
+            title={`감마 노출(GEX): ${gexM > 0 ? '+' : ''}${gexM.toFixed(1)}M\n${gexM > 0 ? '딜러가 변동성 억제 (안정적)' : gexM < 0 ? '딜러가 변동성 가속 (주의)' : '데이터 없음'}`}
+        >
+            {icon} {label}
         </div>
     );
 }
