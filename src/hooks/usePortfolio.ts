@@ -218,7 +218,7 @@ export function usePortfolio() {
         return result;
     }
 
-    // Fetch Alpha data from Reports API
+    // Fetch Alpha data by calling Alpha engine for each ticker
     interface AlphaData {
         score: number;
         grade: 'A' | 'B' | 'C' | 'D' | 'F';
@@ -233,46 +233,33 @@ export function usePortfolio() {
     async function fetchAlphaData(tickers: string[]): Promise<Record<string, AlphaData>> {
         const result: Record<string, AlphaData> = {};
 
-        try {
-            // Fetch latest report
-            const res = await fetch('/api/reports/latest');
-            if (!res.ok) return result;
+        // Call Alpha engine API for each ticker in parallel (with limit)
+        const analyzePromises = tickers.map(async (ticker) => {
+            try {
+                const res = await fetch(`/api/portfolio/analyze?ticker=${ticker.toUpperCase()}`);
+                if (!res.ok) return null;
 
-            const report = await res.json();
-            const items = report?.items || report?.data?.items || [];
-
-            // Extract alpha data for each holding ticker
-            for (const ticker of tickers) {
-                const item = items.find((i: any) => i.ticker?.toUpperCase() === ticker.toUpperCase());
-                if (item) {
-                    const decisionSSOT = item.decisionSSOT || {};
-                    const indicators = item.indicators || {};
-                    const evidence = item.evidence || {};
-
-                    // Calculate grade from score
-                    const score = item.score?.final || item.alphaScore || 50;
-                    const grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
-
+                const data = await res.json();
+                if (data.alphaSnapshot && data.realtime) {
                     result[ticker] = {
-                        score,
-                        grade: grade as AlphaData['grade'],
-                        action: (decisionSSOT.action || 'HOLD') as AlphaData['action'],
-                        confidence: decisionSSOT.confidencePct || 50,
-                        threeDay: indicators.return3D || evidence?.price?.change3D || 0,
-                        rvol: indicators.rvol || evidence?.volume?.rvol || 1.0,
-                        maxPainDist: evidence?.options?.maxPainDistance || 0,
-                        tripleA: {
-                            direction: decisionSSOT.triggersKR?.includes('방향') || false,
-                            acceleration: decisionSSOT.triggersKR?.includes('가속') || false,
-                            accumulation: decisionSSOT.triggersKR?.includes('매집') || false
-                        }
+                        score: data.alphaSnapshot.score,
+                        grade: data.alphaSnapshot.grade,
+                        action: data.alphaSnapshot.action,
+                        confidence: data.alphaSnapshot.confidence,
+                        threeDay: data.realtime.changePct || 0,
+                        rvol: data.realtime.rvol || 1.0,
+                        maxPainDist: data.realtime.maxPainDist || 0,
+                        tripleA: data.realtime.tripleA || { direction: false, acceleration: false, accumulation: false }
                     };
                 }
+                return data;
+            } catch (e) {
+                console.error(`Failed to analyze ${ticker}:`, e);
+                return null;
             }
-        } catch (e) {
-            console.error('Failed to fetch alpha data:', e);
-        }
+        });
 
+        await Promise.all(analyzePromises);
         return result;
     }
 

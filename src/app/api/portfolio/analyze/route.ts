@@ -90,11 +90,12 @@ export async function GET(request: Request) {
                 price: stockData.price || 0,
                 changePct: changePct,
                 session: stockData.session || 'reg',
+                rvol: (stockData as any).rvol || ((stockData as any).volume && (stockData as any).avgVolume ? (stockData as any).volume / (stockData as any).avgVolume : 1.0),
                 maxPainDist: opts?.maxPainDistance || 0,
                 tripleA: {
                     direction: changePct > 0,
                     acceleration: Math.abs(changePct) > 1,
-                    accumulation: false // Simplified
+                    accumulation: opts?.netFlow > 0 || false
                 }
             },
             meta: {
