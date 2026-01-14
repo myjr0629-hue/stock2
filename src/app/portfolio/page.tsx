@@ -179,7 +179,7 @@ function SummaryCard({ icon, label, value }: {
     value: string;
 }) {
     return (
-        <div className="relative rounded-xl overflow-hidden group">
+        <div className="relative rounded-lg overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-slate-900/60 backdrop-blur-xl border border-white/5 group-hover:border-white/10 transition-colors" />
             <div className="relative p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -238,7 +238,7 @@ function PortfolioScoreCard({ score, holdingsCount }: { score: number; holdingsC
             grade === 'C' ? 'text-amber-400 border-amber-400' : 'text-rose-400 border-rose-400';
 
     return (
-        <div className="relative rounded-xl overflow-hidden group">
+        <div className="relative rounded-lg overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-slate-900/60 backdrop-blur-xl border border-white/5 group-hover:border-white/10 transition-colors" />
             <div className="relative p-4">
                 <div className="flex items-center gap-2 mb-2">
@@ -445,40 +445,46 @@ function SignalBadge({ action, confidence }: { action?: string; confidence?: num
     );
 }
 
-// Edge Indicators with tooltips (RVOL, Triple-A)
+// Edge Indicators - Intuitive Visual Display
 function EdgeIndicators({ rvol, maxPainDist, tripleA }: {
     rvol: number;
     maxPainDist: number;
     tripleA: { direction: boolean; acceleration: boolean; accumulation: boolean };
 }) {
-    const rvolColor = rvol >= 1.5 ? 'text-amber-400' : rvol >= 1.0 ? 'text-emerald-400' : 'text-slate-500';
+    // RVOL visual: bar width based on value (1.0 = 50%, 2.0 = 100%)
+    const rvolPercent = Math.min(rvol * 50, 100);
+    const rvolColor = rvol >= 1.5 ? 'bg-amber-400' : rvol >= 1.0 ? 'bg-emerald-400' : 'bg-slate-600';
+    const rvolTextColor = rvol >= 1.5 ? 'text-amber-400' : rvol >= 1.0 ? 'text-emerald-400' : 'text-slate-500';
+
     const tripleACount = [tripleA.direction, tripleA.acceleration, tripleA.accumulation].filter(Boolean).length;
+    const tripleAColor = tripleACount >= 3 ? 'text-emerald-400' : tripleACount >= 2 ? 'text-cyan-400' : tripleACount >= 1 ? 'text-amber-400' : 'text-slate-500';
 
     return (
-        <div className="flex items-center gap-3">
-            {/* RVOL with tooltip */}
-            <div
-                className={`flex items-center gap-0.5 text-[10px] font-num font-bold ${rvolColor}`}
-                title={`상대 거래량: ${rvol}x\n1.0x = 평균, 1.5x+ = 높은 관심`}
-            >
-                <Zap className="w-3 h-3" />
-                <span>{rvol}x</span>
+        <div className="flex items-center gap-4">
+            {/* RVOL - Volume bar indicator */}
+            <div className="flex items-center gap-1.5" title={`거래량 ${rvol.toFixed(1)}x (평균 대비)`}>
+                <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                        className={`h-full ${rvolColor} rounded-full transition-all`}
+                        style={{ width: `${rvolPercent}%` }}
+                    />
+                </div>
+                <span className={`text-xs font-bold font-num ${rvolTextColor}`}>
+                    {rvol.toFixed(1)}x
+                </span>
             </div>
 
-            {/* Triple-A dots with tooltip */}
-            <div
-                className="flex items-center gap-1"
-                title={`Triple-A 정렬: ${tripleACount}/3\n● 방향: ${tripleA.direction ? 'ON' : 'OFF'}\n● 가속: ${tripleA.acceleration ? 'ON' : 'OFF'}\n● 매집: ${tripleA.accumulation ? 'ON' : 'OFF'}`}
-            >
-                <div className="flex gap-0.5">
-                    {[tripleA.direction, tripleA.acceleration, tripleA.accumulation].map((active, i) => (
-                        <div
-                            key={i}
-                            className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-400' : 'bg-slate-700'}`}
-                        />
-                    ))}
-                </div>
-                <span className="text-[9px] text-slate-500 font-bold">{tripleACount}/3</span>
+            {/* Triple-A - Signal strength indicator */}
+            <div className="flex items-center gap-1" title={`신호강도 ${tripleACount}/3`}>
+                {[0, 1, 2].map((i) => (
+                    <div
+                        key={i}
+                        className={`w-1.5 h-3 rounded-sm ${i < tripleACount ? 'bg-emerald-400' : 'bg-slate-700'}`}
+                    />
+                ))}
+                <span className={`text-xs font-bold ml-0.5 ${tripleAColor}`}>
+                    {tripleACount}/3
+                </span>
             </div>
         </div>
     );
