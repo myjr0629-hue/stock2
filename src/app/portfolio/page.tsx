@@ -283,9 +283,19 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                 <div className="text-[9px] text-slate-600">매입가</div>
             </div>
 
-            {/* CURRENT PRICE (2 cols) - 현재가 */}
+            {/* CURRENT PRICE (2 cols) - 현재가 with PRE/POST label */}
             <div className="col-span-2 text-right">
-                <div className="font-bold font-num text-sm text-white">${holding.currentPrice.toFixed(2)}</div>
+                <div className="flex items-center justify-end gap-1.5">
+                    <span className="font-bold font-num text-sm text-white">${holding.currentPrice.toFixed(2)}</span>
+                    {holding.isExtended && holding.session && (
+                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${holding.session === 'pre'
+                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                                : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                            }`}>
+                            {holding.session === 'pre' ? 'PRE' : 'POST'}
+                        </span>
+                    )}
+                </div>
                 <div className={`flex items-center justify-end gap-0.5 text-[10px] font-num font-bold ${holding.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {holding.changePct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                     {holding.changePct >= 0 ? '+' : ''}{holding.changePct.toFixed(2)}%

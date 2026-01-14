@@ -18,6 +18,9 @@ export interface EnrichedHolding extends Holding {
     marketValue: number;
     gainLoss: number;
     gainLossPct: number;
+    // Session info
+    session?: 'pre' | 'reg' | 'post';
+    isExtended?: boolean;
     // Alpha engine data (to be enriched)
     alphaScore?: number;
     alphaGrade?: 'A' | 'B' | 'C' | 'D' | 'F';
@@ -80,6 +83,8 @@ export function usePortfolio() {
                     currentPrice: priceData.price,
                     change: priceData.change,
                     changePct: priceData.changePct,
+                    session: priceData.session,
+                    isExtended: priceData.isExtended,
                     marketValue,
                     gainLoss,
                     gainLossPct,
@@ -140,20 +145,43 @@ export function usePortfolio() {
         }
     }, []);
 
-    // Fetch prices from API
-    async function fetchPrices(tickers: string[]): Promise<Record<string, { price: number; change: number; changePct: number }>> {
-        const result: Record<string, { price: number; change: number; changePct: number }> = {};
+    // Fetch prices from API with session info
+    async function fetchPrices(tickers: string[]): Promise<Record<string, {
+        price: number;
+        change: number;
+        changePct: number;
+        session?: 'pre' | 'reg' | 'post';
+        isExtended?: boolean;
+    }>> {
+        const result: Record<string, {
+            price: number;
+            change: number;
+            changePct: number;
+            session?: 'pre' | 'reg' | 'post';
+            isExtended?: boolean;
+        }> = {};
 
         // Batch fetch (or individual if batch not available)
         for (const ticker of tickers) {
             try {
-                const res = await fetch(`/api/stock?ticker=${ticker}`);
+                // Fixed: use 'symbol=' instead of 'ticker='
+                const res = await fetch(`/api/stock?symbol=${ticker}`);
                 if (res.ok) {
                     const data = await res.json();
+
+                    // Use extended hours price if available, otherwise regular price
+                    const isExtended = data.session === 'pre' || data.session === 'post';
+                    const displayPrice = isExtended && data.extPrice ? data.extPrice : (data.price || data.last || 0);
+                    const displayChange = isExtended && data.extChangePercent !== undefined
+                        ? data.extChangePercent
+                        : (data.changePct || data.changePercent || 0);
+
                     result[ticker] = {
-                        price: data.price || data.last || 0,
+                        price: displayPrice,
                         change: data.change || 0,
-                        changePct: data.changePct || data.changePercent || 0
+                        changePct: displayChange,
+                        session: data.session as 'pre' | 'reg' | 'post',
+                        isExtended
                     };
                 }
             } catch {
