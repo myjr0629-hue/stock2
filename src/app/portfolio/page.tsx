@@ -113,17 +113,17 @@ export default function PortfolioPage() {
 
                     {/* Table Content */}
                     <div className="relative">
-                        {/* Table Header - 9 Clear Columns */}
-                        <div className="grid grid-cols-18 gap-1 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
-                            <div className="col-span-2">종목</div>
-                            <div className="col-span-1 text-right">수량</div>
-                            <div className="col-span-2 text-right">매입가</div>
-                            <div className="col-span-2 text-right">현재가</div>
-                            <div className="col-span-2 text-right">손익</div>
-                            <div className="col-span-2 text-center">Alpha</div>
-                            <div className="col-span-2 text-center">Signal</div>
-                            <div className="col-span-2 text-center">MaxPain</div>
-                            <div className="col-span-2 text-center">GEX</div>
+                        {/* Table Header - Precise Grid (Total: 17 cols) */}
+                        <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_2fr_2fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
+                            <div>종목</div>
+                            <div className="text-center">수량</div>
+                            <div className="text-center">매입가</div>
+                            <div className="text-center">현재가</div>
+                            <div className="text-center">손익</div>
+                            <div className="text-center">Alpha</div>
+                            <div className="text-center">Signal</div>
+                            <div className="text-center">MaxPain</div>
+                            <div className="text-center">GEX</div>
                         </div>
 
                         {/* Holdings Rows */}
@@ -268,90 +268,70 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
     return (
         <Link
             href={`/ticker?ticker=${holding.ticker}`}
-            className="grid grid-cols-18 gap-1 px-4 py-3 hover:bg-white/[0.02] transition-colors items-center group"
+            className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_2fr_2fr] px-4 py-3 hover:bg-white/[0.02] transition-colors items-center group"
         >
-            {/* TICKER (2 cols) - Logo + Name */}
-            <div className="col-span-2 flex items-center gap-2">
-                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden">
+            {/* 종목 (2fr) */}
+            <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden">
                     <img
                         src={`https://financialmodelingprep.com/image-stock/${holding.ticker}.png`}
                         alt={holding.ticker}
-                        className="w-6 h-6 object-contain"
+                        className="w-5 h-5 object-contain"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
-                    <span className="text-[10px] font-bold text-slate-500 absolute">{holding.ticker.slice(0, 2)}</span>
+                    <span className="text-[9px] font-bold text-slate-500 absolute">{holding.ticker.slice(0, 2)}</span>
                 </div>
                 <div>
                     <div className="font-bold text-sm text-white">{holding.ticker}</div>
-                    <div className="text-xs text-slate-400 truncate max-w-[100px]">{holding.name}</div>
+                    <div className="text-[10px] text-slate-500 truncate max-w-[80px]">{holding.name}</div>
                 </div>
             </div>
 
-            {/* QUANTITY (1 col) */}
-            <div className="col-span-1 text-right font-num text-sm text-slate-300">
+            {/* 수량 (1fr) */}
+            <div className="text-center font-num text-sm text-slate-300">
                 {holding.quantity}
             </div>
 
-            {/* AVG PRICE (2 cols) - 매입가 */}
-            <div className="col-span-2 text-right">
+            {/* 매입가 (1.5fr) */}
+            <div className="text-center">
                 <div className="font-num text-sm text-slate-400">${holding.avgPrice.toFixed(2)}</div>
-                <div className="text-[11px] text-slate-400">매입가</div>
             </div>
 
-            {/* CURRENT PRICE (2 cols) - 현재가 with PRE/POST label */}
-            <div className="col-span-2 text-right">
-                <div className="flex items-center justify-end gap-1.5">
-                    <span className="font-bold font-num text-sm text-white">${holding.currentPrice.toFixed(2)}</span>
-                    {holding.isExtended && holding.session && (
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${holding.session === 'pre'
-                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                            : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                            }`}>
-                            {holding.session === 'pre' ? 'PRE' : 'POST'}
-                        </span>
-                    )}
-                </div>
-                <div className={`flex items-center justify-end gap-0.5 text-[10px] font-num font-bold ${holding.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {holding.changePct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+            {/* 현재가 (1.5fr) */}
+            <div className="text-center">
+                <div className="font-bold font-num text-sm text-white">${holding.currentPrice.toFixed(2)}</div>
+                <div className={`text-[10px] font-num font-bold ${holding.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {holding.changePct >= 0 ? '+' : ''}{holding.changePct.toFixed(2)}%
                 </div>
             </div>
 
-            {/* P/L (2 cols) - 손익 */}
-            <div className="col-span-2 text-right">
+            {/* 손익 (1.5fr) */}
+            <div className="text-center">
                 <div className={`font-bold font-num text-sm ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {isPositive ? '+' : ''}${holding.gainLoss.toFixed(0)}
                 </div>
-                <div className="flex items-center justify-end gap-1 mt-0.5">
-                    <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
-                        <div
-                            className={`h-full rounded-full ${isPositive ? 'bg-emerald-400' : 'bg-rose-400'}`}
-                            style={{ width: `${Math.min(Math.abs(holding.gainLossPct), 50) * 2}%` }}
-                        />
-                    </div>
-                    <span className={`text-[10px] font-num font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                        {isPositive ? '+' : ''}{holding.gainLossPct.toFixed(1)}%
-                    </span>
+                <div className={`text-[10px] font-num font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {isPositive ? '+' : ''}{holding.gainLossPct.toFixed(1)}%
                 </div>
             </div>
 
-            {/* ALPHA (2 cols) - Circular Gauge */}
-            <div className="col-span-2 flex justify-center">
+            {/* Alpha (1.5fr) */}
+            <div className="flex justify-center">
                 <CircularAlphaGauge score={holding.alphaScore || 50} grade={holding.alphaGrade || 'C'} />
             </div>
 
-            {/* SIGNAL (2 cols) - Action + Confidence */}
-            <div className="col-span-2 flex justify-center">
+            {/* Signal (1.5fr) */}
+            <div className="flex justify-center">
                 <SignalBadge action={holding.action || 'HOLD'} confidence={holding.confidence || 50} />
             </div>
 
-            {/* MAXPAIN (2 cols) - Distance % with arrow */}
-            <div className="col-span-2 flex items-center justify-center">
-                <MaxPainIndicator dist={holding.maxPainDist || 0} />
+            {/* MaxPain (2fr) - with price */}
+            <div className="flex justify-center">
+                <MaxPainIndicator dist={holding.maxPainDist || 0} price={holding.currentPrice * (1 + (holding.maxPainDist || 0) / 100)} />
             </div>
 
-            {/* GEX (2 cols) - Long/Short badge with delete button */}
-            <div className="col-span-2 flex items-center justify-center gap-1">
+            {/* GEX (2fr) */}
+            <div className="flex items-center justify-center gap-1">
                 <GexIndicator gexM={holding.gexM || 0} />
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
@@ -447,21 +427,26 @@ function SignalBadge({ action, confidence }: { action?: string; confidence?: num
     );
 }
 
-// MaxPain Indicator - Distance % with arrow
-function MaxPainIndicator({ dist }: { dist: number }) {
+// MaxPain Indicator - Distance % with arrow + actual price
+function MaxPainIndicator({ dist, price }: { dist: number; price?: number }) {
     const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-slate-400';
     const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
     const label = dist > 0 ? '상승압력' : dist < 0 ? '하락압력' : '중립';
 
     return (
         <div
-            className="flex items-center gap-1"
+            className="flex flex-col items-center"
             title={`Max Pain 이격도: ${dist > 0 ? '+' : ''}${dist.toFixed(1)}%\n${label}`}
         >
-            <span className={`text-base font-bold ${color}`}>{arrow}</span>
-            <span className={`text-xs font-bold font-num ${color}`}>
-                {dist > 0 ? '+' : ''}{dist.toFixed(1)}%
-            </span>
+            <div className="flex items-center gap-1">
+                <span className={`text-sm font-bold ${color}`}>{arrow}</span>
+                <span className={`text-xs font-bold font-num ${color}`}>
+                    {dist > 0 ? '+' : ''}{dist.toFixed(1)}%
+                </span>
+            </div>
+            {price !== undefined && (
+                <span className="text-[10px] font-num text-slate-400">${price.toFixed(0)}</span>
+            )}
         </div>
     );
 }
