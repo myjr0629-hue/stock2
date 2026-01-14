@@ -83,26 +83,39 @@ export function usePortfolio() {
                     marketValue,
                     gainLoss,
                     gainLossPct,
-                    // Demo alpha data (to be replaced with real API)
-                    alphaScore: Math.floor(Math.random() * 40) + 40,
-                    alphaGrade: (['A', 'B', 'C', 'D', 'F'] as const)[Math.floor(Math.random() * 3)], // Mostly A-C
-                    action: ['HOLD', 'ADD', 'TRIM', 'WATCH'][Math.floor(Math.random() * 4)] as EnrichedHolding['action'],
-                    confidence: Math.floor(Math.random() * 40) + 55, // 55-95%
-                    threeDay: (Math.random() * 10) - 5,
-                    rsi: Math.floor(Math.random() * 40) + 30,
-                    sectorFlow: ['INFLOW', 'OUTFLOW', 'NEUTRAL'][Math.floor(Math.random() * 3)] as EnrichedHolding['sectorFlow'],
-                    // Premium Edge Indicators
-                    rvol: parseFloat((Math.random() * 2 + 0.5).toFixed(1)), // 0.5x - 2.5x
-                    maxPainDist: parseFloat(((Math.random() * 10) - 5).toFixed(1)), // -5% to +5%
-                    tripleA: {
-                        direction: Math.random() > 0.3,
-                        acceleration: Math.random() > 0.4,
-                        accumulation: Math.random() > 0.5
-                    }
+                    // Placeholder - will be enriched from Reports API
+                    alphaScore: undefined,
+                    alphaGrade: undefined,
+                    action: undefined,
+                    confidence: undefined,
+                    threeDay: undefined,
+                    rvol: undefined,
+                    maxPainDist: undefined,
+                    tripleA: undefined
                 };
             });
 
-            setHoldings(enriched);
+            // Enrich with Alpha data from Reports API
+            const alphaMap = await fetchAlphaData(tickers);
+            const fullyEnriched = enriched.map(h => {
+                const alphaData = alphaMap[h.ticker];
+                if (alphaData) {
+                    return {
+                        ...h,
+                        alphaScore: alphaData.score,
+                        alphaGrade: alphaData.grade,
+                        action: alphaData.action,
+                        confidence: alphaData.confidence,
+                        threeDay: alphaData.threeDay,
+                        rvol: alphaData.rvol,
+                        maxPainDist: alphaData.maxPainDist,
+                        tripleA: alphaData.tripleA
+                    };
+                }
+                return h;
+            });
+
+            setHoldings(fullyEnriched);
 
             // Calculate summary
             const totalValue = enriched.reduce((sum, h) => sum + h.marketValue, 0);
@@ -147,6 +160,64 @@ export function usePortfolio() {
                 // Use placeholder if API fails
                 result[ticker] = { price: 0, change: 0, changePct: 0 };
             }
+        }
+
+        return result;
+    }
+
+    // Fetch Alpha data from Reports API
+    interface AlphaData {
+        score: number;
+        grade: 'A' | 'B' | 'C' | 'D' | 'F';
+        action: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH';
+        confidence: number;
+        threeDay: number;
+        rvol: number;
+        maxPainDist: number;
+        tripleA: { direction: boolean; acceleration: boolean; accumulation: boolean };
+    }
+
+    async function fetchAlphaData(tickers: string[]): Promise<Record<string, AlphaData>> {
+        const result: Record<string, AlphaData> = {};
+
+        try {
+            // Fetch latest report
+            const res = await fetch('/api/reports/latest');
+            if (!res.ok) return result;
+
+            const report = await res.json();
+            const items = report?.items || report?.data?.items || [];
+
+            // Extract alpha data for each holding ticker
+            for (const ticker of tickers) {
+                const item = items.find((i: any) => i.ticker?.toUpperCase() === ticker.toUpperCase());
+                if (item) {
+                    const decisionSSOT = item.decisionSSOT || {};
+                    const indicators = item.indicators || {};
+                    const evidence = item.evidence || {};
+
+                    // Calculate grade from score
+                    const score = item.score?.final || item.alphaScore || 50;
+                    const grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
+
+                    result[ticker] = {
+                        score,
+                        grade: grade as AlphaData['grade'],
+                        action: (decisionSSOT.action || 'HOLD') as AlphaData['action'],
+                        confidence: decisionSSOT.confidencePct || 50,
+                        threeDay: indicators.return3D || evidence?.price?.change3D || 0,
+                        rvol: indicators.rvol || evidence?.volume?.rvol || 1.0,
+                        maxPainDist: evidence?.options?.maxPainDistance || 0,
+                        tripleA: {
+                            direction: decisionSSOT.triggersKR?.includes('방향') || false,
+                            acceleration: decisionSSOT.triggersKR?.includes('가속') || false,
+                            accumulation: decisionSSOT.triggersKR?.includes('매집') || false
+                        }
+                    };
+                }
+            }
+        } catch (e) {
+            console.error('Failed to fetch alpha data:', e);
         }
 
         return result;

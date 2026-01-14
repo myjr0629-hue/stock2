@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usePortfolio, type EnrichedHolding } from '@/hooks/usePortfolio';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { TradingViewTicker } from '@/components/TradingViewTicker';
@@ -434,80 +434,226 @@ function EdgeIndicators({ rvol, maxPainDist, tripleA }: {
     );
 }
 
-// === ADD MODAL ===
+// === ENHANCED ADD MODAL ===
 
 function AddHoldingModal({ onClose }: { onClose: () => void }) {
     const { addHolding } = usePortfolio();
     const [ticker, setTicker] = useState('');
     const [quantity, setQuantity] = useState('');
     const [avgPrice, setAvgPrice] = useState('');
+    const [companyName, setCompanyName] = useState('');
+    const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [validated, setValidated] = useState(false);
+
+    // Auto-fetch company info when ticker changes
+    const fetchTickerInfo = async (t: string) => {
+        if (!t || t.length < 1) {
+            setCompanyName('');
+            setCurrentPrice(null);
+            setValidated(false);
+            setError('');
+            return;
+        }
+
+        setLoading(true);
+        setError('');
+        try {
+            const res = await fetch(`/api/stock?ticker=${t.toUpperCase()}`);
+            if (!res.ok) throw new Error('Ticker not found');
+            const data = await res.json();
+
+            setCompanyName(data.name || data.shortName || t.toUpperCase());
+            setCurrentPrice(data.price || data.last || data.close || null);
+            setValidated(true);
+
+            // Auto-fill current price as default avgPrice if empty
+            if (!avgPrice && data.price) {
+                setAvgPrice(data.price.toFixed(2));
+            }
+        } catch {
+            setError('유효하지 않은 티커입니다');
+            setCompanyName('');
+            setCurrentPrice(null);
+            setValidated(false);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Debounced ticker lookup
+    useEffect(() => {
+        const timeout = setTimeout(() => {
+            if (ticker.length >= 1) {
+                fetchTickerInfo(ticker);
+            }
+        }, 500);
+        return () => clearTimeout(timeout);
+    }, [ticker]);
+
+    // Calculate preview
+    const qty = parseFloat(quantity) || 0;
+    const avg = parseFloat(avgPrice) || 0;
+    const totalCost = qty * avg;
+    const estimatedValue = qty * (currentPrice || avg);
+    const estimatedPL = estimatedValue - totalCost;
+    const estimatedPLPct = totalCost > 0 ? (estimatedPL / totalCost) * 100 : 0;
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (ticker && quantity && avgPrice) {
+        if (ticker && quantity && avgPrice && validated) {
             addHolding({
                 ticker: ticker.toUpperCase(),
-                name: ticker.toUpperCase(),
-                quantity: parseFloat(quantity),
-                avgPrice: parseFloat(avgPrice)
+                name: companyName || ticker.toUpperCase(),
+                quantity: qty,
+                avgPrice: avg
             });
             onClose();
         }
     };
 
+    const canSubmit = ticker && quantity && avgPrice && qty > 0 && avg > 0 && validated && !loading;
+
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="relative rounded-2xl overflow-hidden max-w-md w-full">
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 via-slate-900/80 to-slate-900/90 backdrop-blur-xl border border-white/10" />
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div
+                className="relative rounded-2xl overflow-hidden max-w-lg w-full"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Glass Background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-slate-900/95 backdrop-blur-xl border border-white/10" />
+
                 <div className="relative p-6">
-                    <h2 className="text-lg font-bold mb-4">종목 추가</h2>
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-6">
                         <div>
-                            <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">티커</label>
-                            <input
-                                type="text"
-                                value={ticker}
-                                onChange={(e) => setTicker(e.target.value)}
-                                placeholder="NVDA"
-                                className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-cyan-500 focus:outline-none uppercase"
-                            />
+                            <h2 className="text-xl font-bold">종목 추가</h2>
+                            <p className="text-[11px] text-slate-500 mt-0.5">포트폴리오에 새 종목을 추가합니다</p>
                         </div>
+                        <button
+                            onClick={onClose}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        {/* Ticker Input with Validation */}
+                        <div>
+                            <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                티커 심볼
+                            </label>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={ticker}
+                                    onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                                    placeholder="NVDA, AAPL, TSLA..."
+                                    className={`w-full bg-slate-900/70 border ${error ? 'border-rose-500/50' : validated ? 'border-emerald-500/50' : 'border-slate-700'} rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-cyan-500 focus:outline-none uppercase tracking-wider placeholder:text-slate-600 placeholder:font-normal`}
+                                    autoFocus
+                                />
+                                {loading && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <RefreshCw className="w-4 h-4 text-cyan-400 animate-spin" />
+                                    </div>
+                                )}
+                                {validated && !loading && (
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400">✓</div>
+                                )}
+                            </div>
+                            {error && <p className="text-rose-400 text-xs mt-1">{error}</p>}
+                            {companyName && !error && (
+                                <div className="flex items-center gap-2 mt-2">
+                                    <div className="w-6 h-6 rounded bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden">
+                                        <img
+                                            src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
+                                            alt={ticker}
+                                            className="w-5 h-5 object-contain"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    </div>
+                                    <span className="text-sm text-slate-300">{companyName}</span>
+                                    {currentPrice && (
+                                        <span className="text-sm font-num text-cyan-400 ml-auto">${currentPrice.toFixed(2)}</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Quantity & Price Grid */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">수량</label>
+                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                    보유 수량
+                                </label>
                                 <input
                                     type="number"
+                                    min="0"
+                                    step="1"
                                     value={quantity}
                                     onChange={(e) => setQuantity(e.target.value)}
                                     placeholder="10"
-                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-cyan-500 focus:outline-none"
+                                    className="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-white font-num text-lg focus:border-cyan-500 focus:outline-none"
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">평균 매수가</label>
+                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                    평균 매수가 ($)
+                                </label>
                                 <input
                                     type="number"
+                                    min="0"
                                     step="0.01"
                                     value={avgPrice}
                                     onChange={(e) => setAvgPrice(e.target.value)}
-                                    placeholder="150.00"
-                                    className="w-full bg-slate-900/50 border border-slate-700 rounded-lg px-3 py-2 text-white focus:border-cyan-500 focus:outline-none"
+                                    placeholder={currentPrice ? currentPrice.toFixed(2) : '150.00'}
+                                    className="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-white font-num text-lg focus:border-cyan-500 focus:outline-none"
                                 />
                             </div>
                         </div>
+
+                        {/* Investment Preview */}
+                        {qty > 0 && avg > 0 && (
+                            <div className="bg-slate-900/50 border border-white/5 rounded-xl p-4">
+                                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-3 font-bold">투자 요약</div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <div className="text-[10px] text-slate-600 mb-0.5">총 투자금액</div>
+                                        <div className="text-lg font-bold font-num text-white">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                                    </div>
+                                    {currentPrice && currentPrice !== avg && (
+                                        <div>
+                                            <div className="text-[10px] text-slate-600 mb-0.5">예상 손익</div>
+                                            <div className={`text-lg font-bold font-num ${estimatedPL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {estimatedPL >= 0 ? '+' : ''}${estimatedPL.toFixed(2)}
+                                                <span className="text-xs ml-1">({estimatedPLPct >= 0 ? '+' : ''}{estimatedPLPct.toFixed(1)}%)</span>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Actions */}
                         <div className="flex gap-3 pt-2">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="flex-1 py-2 border border-slate-700 rounded-lg text-slate-400 hover:bg-slate-800 transition-colors"
+                                className="flex-1 py-3 border border-slate-700 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors font-bold"
                             >
                                 취소
                             </button>
                             <button
                                 type="submit"
-                                className="flex-1 py-2 bg-gradient-to-r from-cyan-500 to-indigo-500 text-white font-bold rounded-lg hover:from-cyan-400 hover:to-indigo-400 transition-colors"
+                                disabled={!canSubmit}
+                                className={`flex-1 py-3 rounded-xl font-bold transition-all ${canSubmit
+                                    ? 'bg-gradient-to-r from-cyan-500 to-indigo-500 text-white hover:from-cyan-400 hover:to-indigo-400 shadow-lg shadow-cyan-500/20'
+                                    : 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                                    }`}
                             >
-                                추가
+                                포트폴리오에 추가
                             </button>
                         </div>
                     </form>
