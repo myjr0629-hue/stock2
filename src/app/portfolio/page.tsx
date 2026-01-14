@@ -331,9 +331,9 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
             </div>
 
             {/* GEX (2fr) */}
-            <div className="flex items-center justify-center gap-1">
+            <div className="relative flex justify-center">
                 <GexIndicator gexM={holding.gexM || 0} />
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                         onClick={(e) => { e.preventDefault(); onRemove(); }}
                         className="p-1 hover:bg-rose-500/20 rounded text-rose-400"
