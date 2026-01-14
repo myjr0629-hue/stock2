@@ -18,13 +18,15 @@ import {
     PiggyBank,
     Activity,
     Zap,
-    Target
+    Target,
+    Edit3
 } from 'lucide-react';
 import Link from 'next/link';
 
 export default function PortfolioPage() {
     const { holdings, summary, loading, isRefreshing, refresh, removeHolding } = usePortfolio();
     const [showAddModal, setShowAddModal] = useState(false);
+    const [editingHolding, setEditingHolding] = useState<EnrichedHolding | null>(null);
 
     // Auto-refresh every 30 seconds for real-time price updates
     useEffect(() => {
@@ -153,6 +155,7 @@ export default function PortfolioPage() {
                                         key={holding.ticker}
                                         holding={holding}
                                         onRemove={() => removeHolding(holding.ticker)}
+                                        onEdit={() => setEditingHolding(holding)}
                                     />
                                 ))}
                             </div>
@@ -166,6 +169,15 @@ export default function PortfolioPage() {
                 <AddHoldingModal
                     onClose={() => setShowAddModal(false)}
                     onHoldingAdded={refresh}
+                />
+            )}
+
+            {/* Edit Modal */}
+            {editingHolding && (
+                <EditHoldingModal
+                    holding={editingHolding}
+                    onClose={() => setEditingHolding(null)}
+                    onUpdated={refresh}
                 />
             )}
         </div>
@@ -262,7 +274,7 @@ function PortfolioScoreCard({ score, holdingsCount }: { score: number; holdingsC
 
 // === PREMIUM HOLDING ROW ===
 
-function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; onRemove: () => void }) {
+function PremiumHoldingRow({ holding, onRemove, onEdit }: { holding: EnrichedHolding; onRemove: () => void; onEdit: () => void }) {
     const isPositive = holding.gainLossPct >= 0;
 
     return (
@@ -337,7 +349,14 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
             {/* GEX (2fr) */}
             <div className="relative flex justify-center">
                 <GexIndicator gexM={holding.gexM || 0} />
-                <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                    <button
+                        onClick={(e) => { e.preventDefault(); onEdit(); }}
+                        className="p-1 hover:bg-cyan-500/20 rounded text-cyan-400"
+                        title="수정"
+                    >
+                        <Edit3 className="w-3.5 h-3.5" />
+                    </button>
                     <button
                         onClick={(e) => { e.preventDefault(); onRemove(); }}
                         className="p-1 hover:bg-rose-500/20 rounded text-rose-400"
@@ -778,6 +797,237 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                             </button>
                         </div>
                     </form>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// === EDIT HOLDING MODAL ===
+
+function EditHoldingModal({ holding, onClose, onUpdated }: {
+    holding: EnrichedHolding;
+    onClose: () => void;
+    onUpdated: () => void
+}) {
+    const [mode, setMode] = useState<'edit' | 'add'>('edit');
+    const [quantity, setQuantity] = useState(holding.quantity.toString());
+    const [avgPrice, setAvgPrice] = useState(holding.avgPrice.toFixed(2));
+
+    // Add shares mode
+    const [addQty, setAddQty] = useState('');
+    const [addPrice, setAddPrice] = useState(holding.currentPrice?.toFixed(2) || '');
+
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleUpdate = async () => {
+        setIsSubmitting(true);
+        try {
+            const { updateHolding } = await import('@/lib/storage/portfolioStore');
+            updateHolding(holding.ticker, {
+                quantity: parseInt(quantity),
+                avgPrice: parseFloat(avgPrice)
+            });
+            onUpdated();
+            onClose();
+        } catch (e) {
+            console.error('Failed to update holding:', e);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleAddShares = async () => {
+        setIsSubmitting(true);
+        try {
+            const { addHolding } = await import('@/lib/storage/portfolioStore');
+            // addHolding will automatically average the price
+            addHolding({
+                ticker: holding.ticker,
+                name: holding.name,
+                quantity: parseInt(addQty),
+                avgPrice: parseFloat(addPrice)
+            });
+            onUpdated();
+            onClose();
+        } catch (e) {
+            console.error('Failed to add shares:', e);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    // Calculate new average for add shares mode
+    const newQty = parseInt(addQty) || 0;
+    const newPrice = parseFloat(addPrice) || 0;
+    const totalShares = holding.quantity + newQty;
+    const newAvgPrice = totalShares > 0
+        ? ((holding.avgPrice * holding.quantity) + (newPrice * newQty)) / totalShares
+        : 0;
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            onClick={onClose}
+        >
+            <div
+                className="relative rounded-2xl overflow-hidden max-w-md w-full mx-4"
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* Glass Background */}
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-slate-900/95 backdrop-blur-xl border border-white/10" />
+
+                <div className="relative p-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <span className="text-cyan-400">{holding.ticker}</span>
+                                <span className="text-slate-400">수정</span>
+                            </h2>
+                            <p className="text-[11px] text-slate-500 mt-0.5">{holding.name}</p>
+                        </div>
+                        <button
+                            onClick={onClose}
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5 text-slate-400 hover:text-white transition-colors"
+                        >
+                            ✕
+                        </button>
+                    </div>
+
+                    {/* Mode Tabs */}
+                    <div className="flex gap-2 mb-5">
+                        <button
+                            onClick={() => setMode('edit')}
+                            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'edit'
+                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                                    : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:bg-slate-800'
+                                }`}
+                        >
+                            직접 수정
+                        </button>
+                        <button
+                            onClick={() => setMode('add')}
+                            className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'add'
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:bg-slate-800'
+                                }`}
+                        >
+                            추가 매수
+                        </button>
+                    </div>
+
+                    {mode === 'edit' ? (
+                        /* Edit Mode */
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                    수량
+                                </label>
+                                <input
+                                    type="number"
+                                    value={quantity}
+                                    onChange={(e) => setQuantity(e.target.value)}
+                                    className="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-cyan-500 focus:outline-none font-num"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                    평균 매입가 ($)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={avgPrice}
+                                    onChange={(e) => setAvgPrice(e.target.value)}
+                                    className="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-cyan-500 focus:outline-none font-num"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={onClose}
+                                    className="flex-1 py-3 border border-slate-700 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors font-bold"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    onClick={handleUpdate}
+                                    disabled={isSubmitting || !quantity || !avgPrice}
+                                    className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-indigo-500 text-white rounded-xl font-bold hover:from-cyan-400 hover:to-indigo-400 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? '저장 중...' : '저장'}
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        /* Add Shares Mode (물타기/불타기) */
+                        <div className="space-y-4">
+                            <div>
+                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                    추가 수량
+                                </label>
+                                <input
+                                    type="number"
+                                    value={addQty}
+                                    onChange={(e) => setAddQty(e.target.value)}
+                                    placeholder="추가할 주식 수"
+                                    className="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-emerald-500 focus:outline-none font-num placeholder:text-slate-600 placeholder:font-normal"
+                                />
+                            </div>
+                            <div>
+                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                    매수 가격 ($)
+                                </label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={addPrice}
+                                    onChange={(e) => setAddPrice(e.target.value)}
+                                    className="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-emerald-500 focus:outline-none font-num"
+                                />
+                            </div>
+
+                            {/* Preview */}
+                            {newQty > 0 && (
+                                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
+                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-bold">변경 예상</div>
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                        <div>
+                                            <div className="text-slate-500 text-[10px]">총 수량</div>
+                                            <div className="font-bold font-num text-white">{holding.quantity} → {totalShares}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-slate-500 text-[10px]">평균단가</div>
+                                            <div className="font-bold font-num text-white">${holding.avgPrice.toFixed(2)} → ${newAvgPrice.toFixed(2)}</div>
+                                        </div>
+                                    </div>
+                                    {newPrice < holding.avgPrice && (
+                                        <div className="mt-2 text-[10px] text-emerald-400 font-bold">💧 물타기: 평단가 {((1 - newAvgPrice / holding.avgPrice) * 100).toFixed(1)}% 하락</div>
+                                    )}
+                                    {newPrice > holding.avgPrice && (
+                                        <div className="mt-2 text-[10px] text-rose-400 font-bold">🔥 불타기: 평단가 {((newAvgPrice / holding.avgPrice - 1) * 100).toFixed(1)}% 상승</div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="flex gap-3 pt-2">
+                                <button
+                                    onClick={onClose}
+                                    className="flex-1 py-3 border border-slate-700 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors font-bold"
+                                >
+                                    취소
+                                </button>
+                                <button
+                                    onClick={handleAddShares}
+                                    disabled={isSubmitting || !addQty || parseInt(addQty) <= 0 || !addPrice}
+                                    className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl font-bold hover:from-emerald-400 hover:to-cyan-400 disabled:opacity-50"
+                                >
+                                    {isSubmitting ? '추가 중...' : '추가 매수'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
