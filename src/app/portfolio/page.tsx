@@ -343,12 +343,12 @@ function PremiumHoldingRow({ holding, onRemove, onEdit }: { holding: EnrichedHol
 
             {/* MaxPain (2fr) - with price */}
             <div className="flex justify-center">
-                <MaxPainIndicator dist={holding.maxPainDist || 0} price={holding.currentPrice * (1 + (holding.maxPainDist || 0) / 100)} />
+                <MaxPainIndicator dist={holding.maxPainDist} price={holding.maxPainDist !== undefined ? holding.currentPrice * (1 + holding.maxPainDist / 100) : undefined} />
             </div>
 
             {/* GEX (2fr) */}
             <div className="relative flex justify-center">
-                <GexIndicator gexM={holding.gexM || 0} />
+                <GexIndicator gexM={holding.gexM} />
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                     <button
                         onClick={(e) => { e.preventDefault(); onEdit(); }}
@@ -458,8 +458,17 @@ function SignalBadge({ action, confidence, triggers }: { action?: string; confid
     );
 }
 
-// MaxPain Indicator - Distance % with arrow + actual price
-function MaxPainIndicator({ dist, price }: { dist: number; price?: number }) {
+// MaxPain Indicator - Distance % with arrow + actual price (with loading)
+function MaxPainIndicator({ dist, price }: { dist?: number; price?: number }) {
+    // Loading state
+    if (dist === undefined || dist === null) {
+        return (
+            <div className="flex flex-col items-center animate-pulse">
+                <span className="text-xs text-slate-500">⏳ 로딩</span>
+            </div>
+        );
+    }
+
     const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-slate-400';
     const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
     const label = dist > 0 ? '상승압력' : dist < 0 ? '하락압력' : '중립';
@@ -482,8 +491,17 @@ function MaxPainIndicator({ dist, price }: { dist: number; price?: number }) {
     );
 }
 
-// GEX Indicator - Long/Short badge
-function GexIndicator({ gexM }: { gexM: number }) {
+// GEX Indicator - Long/Short badge with loading state
+function GexIndicator({ gexM }: { gexM?: number }) {
+    // Loading state
+    if (gexM === undefined || gexM === null) {
+        return (
+            <div className="px-1.5 py-0.5 rounded border text-[10px] font-bold text-slate-500 bg-slate-800/50 border-slate-700 animate-pulse">
+                ⏳ 로딩
+            </div>
+        );
+    }
+
     const color = gexM > 0 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
         : gexM < 0 ? 'text-rose-400 bg-rose-400/10 border-rose-400/30'
             : 'text-slate-400 bg-slate-400/10 border-slate-400/30';
@@ -900,8 +918,8 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                         <button
                             onClick={() => setMode('edit')}
                             className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'edit'
-                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                                    : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:bg-slate-800'
+                                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                                : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:bg-slate-800'
                                 }`}
                         >
                             직접 수정
@@ -909,8 +927,8 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                         <button
                             onClick={() => setMode('add')}
                             className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'add'
-                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                    : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:bg-slate-800'
+                                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:bg-slate-800'
                                 }`}
                         >
                             추가 매수
