@@ -244,9 +244,9 @@ export function usePortfolio() {
                         sparkline: data.realtime.sparkline || [],
                         threeDay: data.realtime.changePct || 0,
                         rvol: data.realtime.rvol || 1.0,
-                        maxPainDist: data.realtime.maxPainDist || 0,
-                        gex: data.realtime.gex || 0,
-                        gexM: data.realtime.gexM || 0,
+                        maxPainDist: data.realtime.maxPainDist, // Keep null if no options data
+                        gex: data.realtime.gex,
+                        gexM: data.realtime.gexM, // Keep null if no options data
                         tripleA: data.realtime.tripleA || { direction: false, acceleration: false, accumulation: false }
                     };
                 }

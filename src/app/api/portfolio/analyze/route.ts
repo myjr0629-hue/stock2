@@ -98,16 +98,18 @@ export async function GET(request: Request) {
             triggers.push('→ 관망 권장');
         }
 
-        // Calculate Max Pain distance %
-        const maxPain = opts?.maxPain || 0;
+        // Calculate Max Pain distance % - null if no options data
+        const hasOptionsData = optionsData && (opts?.maxPain || opts?.gems?.gex || opts?.gex);
+        const maxPain = hasOptionsData ? (opts?.maxPain || null) : null;
         const currentPrice = stockData.price || 0;
         const maxPainDist = (maxPain && currentPrice)
-            ? ((maxPain - currentPrice) / currentPrice) * 100
-            : 0;
+            ? Number(((maxPain - currentPrice) / currentPrice * 100).toFixed(2))
+            : null;
 
-        // Get GEX from options data
-        const gex = opts?.gems?.gex || opts?.gex || 0;
-        const gexNormalized = gex / 1000000; // Normalize to millions
+        // Get GEX from options data - null if no options data
+        const rawGex = opts?.gems?.gex || opts?.gex;
+        const gex = hasOptionsData ? (rawGex || null) : null;
+        const gexM = gex !== null ? Number((gex / 1000000).toFixed(2)) : null;
 
         const result = {
             ticker: tickerUpper,
@@ -127,11 +129,11 @@ export async function GET(request: Request) {
                 rvol: (stockData as any).rvol || ((stockData as any).volume && (stockData as any).avgVolume ? (stockData as any).volume / (stockData as any).avgVolume : 1.0),
                 // Sparkline data (last 20 intraday prices)
                 sparkline: stockData.history?.slice(-20).map(h => h.close) || [],
-                // Options indicators
+                // Options indicators - null if no data
                 maxPain: maxPain,
-                maxPainDist: Number(maxPainDist.toFixed(2)), // Distance % from current price
+                maxPainDist: maxPainDist,
                 gex: gex,
-                gexM: Number(gexNormalized.toFixed(2)), // GEX in millions
+                gexM: gexM,
                 pcr: opts?.putCallRatio || null, // Put/Call Ratio
                 tripleA: {
                     direction: changePct > 0,
