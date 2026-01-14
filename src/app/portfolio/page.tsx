@@ -102,14 +102,16 @@ export default function PortfolioPage() {
 
                     {/* Table Content */}
                     <div className="relative">
-                        {/* Table Header - 6 Premium Columns */}
-                        <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5">
+                        {/* Table Header - 8 Clear Columns */}
+                        <div className="grid grid-cols-16 gap-2 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5">
                             <div className="col-span-3">종목</div>
-                            <div className="col-span-2 text-right">가격</div>
+                            <div className="col-span-1 text-right">수량</div>
+                            <div className="col-span-2 text-right">매입가</div>
+                            <div className="col-span-2 text-right">현재가</div>
                             <div className="col-span-2 text-right">손익</div>
                             <div className="col-span-2 text-center">Alpha</div>
                             <div className="col-span-2 text-center">Signal</div>
-                            <div className="col-span-1 text-center">Edge</div>
+                            <div className="col-span-2 text-center">Edge</div>
                         </div>
 
                         {/* Holdings Rows */}
@@ -251,26 +253,37 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
     return (
         <Link
             href={`/ticker?ticker=${holding.ticker}`}
-            className="grid grid-cols-12 gap-2 px-4 py-4 hover:bg-white/[0.02] transition-colors items-center group"
+            className="grid grid-cols-16 gap-2 px-4 py-3 hover:bg-white/[0.02] transition-colors items-center group"
         >
             {/* TICKER (3 cols) - Logo + Name */}
             <div className="col-span-3 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden">
+                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden">
                     <img
                         src={`https://financialmodelingprep.com/image-stock/${holding.ticker}.png`}
                         alt={holding.ticker}
-                        className="w-7 h-7 object-contain"
+                        className="w-6 h-6 object-contain"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
-                    <span className="text-[10px] font-bold text-slate-500 absolute">{holding.ticker.slice(0, 2)}</span>
+                    <span className="text-[9px] font-bold text-slate-600 absolute">{holding.ticker.slice(0, 2)}</span>
                 </div>
                 <div>
                     <div className="font-bold text-sm text-white">{holding.ticker}</div>
-                    <div className="text-[10px] text-slate-500 truncate max-w-[100px]">{holding.name}</div>
+                    <div className="text-[10px] text-slate-500 truncate max-w-[80px]">{holding.name}</div>
                 </div>
             </div>
 
-            {/* PRICE (2 cols) - Current + Change */}
+            {/* QUANTITY (1 col) */}
+            <div className="col-span-1 text-right font-num text-sm text-slate-300">
+                {holding.quantity}
+            </div>
+
+            {/* AVG PRICE (2 cols) - 매입가 */}
+            <div className="col-span-2 text-right">
+                <div className="font-num text-sm text-slate-400">${holding.avgPrice.toFixed(2)}</div>
+                <div className="text-[9px] text-slate-600">매입가</div>
+            </div>
+
+            {/* CURRENT PRICE (2 cols) - 현재가 */}
             <div className="col-span-2 text-right">
                 <div className="font-bold font-num text-sm text-white">${holding.currentPrice.toFixed(2)}</div>
                 <div className={`flex items-center justify-end gap-0.5 text-[10px] font-num font-bold ${holding.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -279,13 +292,13 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                 </div>
             </div>
 
-            {/* P/L (2 cols) - Gain/Loss with mini bar */}
+            {/* P/L (2 cols) - 손익 */}
             <div className="col-span-2 text-right">
                 <div className={`font-bold font-num text-sm ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {isPositive ? '+' : ''}${holding.gainLoss.toFixed(0)}
                 </div>
-                <div className="flex items-center justify-end gap-1.5 mt-0.5">
-                    <div className="w-12 h-1 bg-slate-800 rounded-full overflow-hidden">
+                <div className="flex items-center justify-end gap-1 mt-0.5">
+                    <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
                         <div
                             className={`h-full rounded-full ${isPositive ? 'bg-emerald-400' : 'bg-rose-400'}`}
                             style={{ width: `${Math.min(Math.abs(holding.gainLossPct), 50) * 2}%` }}
@@ -297,7 +310,7 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                 </div>
             </div>
 
-            {/* ALPHA (2 cols) - Circular Gauge + Grade */}
+            {/* ALPHA (2 cols) - Circular Gauge */}
             <div className="col-span-2 flex justify-center">
                 <CircularAlphaGauge score={holding.alphaScore || 50} grade={holding.alphaGrade || 'C'} />
             </div>
@@ -307,22 +320,21 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                 <SignalBadge action={holding.action || 'HOLD'} confidence={holding.confidence || 50} />
             </div>
 
-            {/* EDGE (1 col) - RVOL, MaxPain, Triple-A */}
-            <div className="col-span-1 flex items-center justify-end gap-2">
+            {/* EDGE (2 cols) - RVOL + Triple-A with tooltips */}
+            <div className="col-span-2 flex items-center justify-center gap-2">
                 <EdgeIndicators
                     rvol={holding.rvol || 1.0}
                     maxPainDist={holding.maxPainDist || 0}
                     tripleA={holding.tripleA || { direction: false, acceleration: false, accumulation: false }}
                 />
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
                     <button
                         onClick={(e) => { e.preventDefault(); onRemove(); }}
-                        className="p-1.5 hover:bg-rose-500/20 rounded text-rose-400"
-                        title="Remove"
+                        className="p-1 hover:bg-rose-500/20 rounded text-rose-400"
+                        title="삭제"
                     >
                         <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                    <ChevronRight className="w-4 h-4 text-slate-600" />
                 </div>
             </div>
         </Link>
@@ -383,26 +395,40 @@ function SignalBadge({ action, confidence }: { action: string; confidence: numbe
     );
 }
 
-// Edge Indicators (RVOL, MaxPain, Triple-A)
+// Edge Indicators with tooltips (RVOL, Triple-A)
 function EdgeIndicators({ rvol, maxPainDist, tripleA }: {
     rvol: number;
     maxPainDist: number;
     tripleA: { direction: boolean; acceleration: boolean; accumulation: boolean };
 }) {
-    const rvolColor = rvol >= 1.5 ? 'text-amber-400' : rvol >= 1.0 ? 'text-slate-300' : 'text-slate-500';
+    const rvolColor = rvol >= 1.5 ? 'text-amber-400' : rvol >= 1.0 ? 'text-emerald-400' : 'text-slate-500';
     const tripleACount = [tripleA.direction, tripleA.acceleration, tripleA.accumulation].filter(Boolean).length;
 
     return (
-        <div className="flex items-center gap-1.5">
-            {/* RVOL */}
-            <div className={`text-[9px] font-num font-bold ${rvolColor}`} title="Relative Volume">
-                <Zap className="w-3 h-3 inline" />{rvol}x
+        <div className="flex items-center gap-3">
+            {/* RVOL with tooltip */}
+            <div
+                className={`flex items-center gap-0.5 text-[10px] font-num font-bold ${rvolColor}`}
+                title={`상대 거래량: ${rvol}x\n1.0x = 평균, 1.5x+ = 높은 관심`}
+            >
+                <Zap className="w-3 h-3" />
+                <span>{rvol}x</span>
             </div>
-            {/* Triple-A dots */}
-            <div className="flex gap-0.5" title={`Triple-A: ${tripleACount}/3`}>
-                {[tripleA.direction, tripleA.acceleration, tripleA.accumulation].map((active, i) => (
-                    <div key={i} className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-400' : 'bg-slate-700'}`} />
-                ))}
+
+            {/* Triple-A dots with tooltip */}
+            <div
+                className="flex items-center gap-1"
+                title={`Triple-A 정렬: ${tripleACount}/3\n● 방향: ${tripleA.direction ? 'ON' : 'OFF'}\n● 가속: ${tripleA.acceleration ? 'ON' : 'OFF'}\n● 매집: ${tripleA.accumulation ? 'ON' : 'OFF'}`}
+            >
+                <div className="flex gap-0.5">
+                    {[tripleA.direction, tripleA.acceleration, tripleA.accumulation].map((active, i) => (
+                        <div
+                            key={i}
+                            className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-400' : 'bg-slate-700'}`}
+                        />
+                    ))}
+                </div>
+                <span className="text-[9px] text-slate-500 font-bold">{tripleACount}/3</span>
             </div>
         </div>
     );
