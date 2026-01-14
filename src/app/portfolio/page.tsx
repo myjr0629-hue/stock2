@@ -151,7 +151,10 @@ export default function PortfolioPage() {
 
             {/* Add Modal */}
             {showAddModal && (
-                <AddHoldingModal onClose={() => setShowAddModal(false)} />
+                <AddHoldingModal
+                    onClose={() => setShowAddModal(false)}
+                    onHoldingAdded={refresh}
+                />
             )}
         </div>
     );
@@ -472,8 +475,12 @@ function EdgeIndicators({ rvol, maxPainDist, tripleA }: {
 
 // === ENHANCED ADD MODAL ===
 
-function AddHoldingModal({ onClose }: { onClose: () => void }) {
-    const { addHolding } = usePortfolio();
+function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onHoldingAdded: () => void }) {
+    // Import addHolding directly from store to avoid separate hook instance
+    const storeAddHolding = async (holding: any) => {
+        const { addHolding } = await import('@/lib/storage/portfolioStore');
+        addHolding(holding);
+    };
     const [ticker, setTicker] = useState('');
     const [quantity, setQuantity] = useState('');
     const [avgPrice, setAvgPrice] = useState('');
@@ -505,8 +512,8 @@ function AddHoldingModal({ onClose }: { onClose: () => void }) {
             setCurrentPrice(data.price || data.last || data.close || null);
             setValidated(true);
 
-            // Auto-fill current price as default avgPrice if empty
-            if (!avgPrice && data.price) {
+            // Always auto-fill current price as avgPrice when ticker changes
+            if (data.price) {
                 setAvgPrice(data.price.toFixed(2));
             }
         } catch {
@@ -555,7 +562,7 @@ function AddHoldingModal({ onClose }: { onClose: () => void }) {
             }
 
             // Add holding with Alpha snapshot
-            addHolding({
+            await storeAddHolding({
                 ticker: ticker.toUpperCase(),
                 name: companyName || ticker.toUpperCase(),
                 quantity: qty,
@@ -563,16 +570,19 @@ function AddHoldingModal({ onClose }: { onClose: () => void }) {
                 alphaSnapshot
             });
 
+            // Trigger refresh in parent BEFORE closing modal
+            onHoldingAdded();
             onClose();
         } catch (err) {
             console.error('Failed to analyze ticker:', err);
             // Still add holding without alpha data
-            addHolding({
+            await storeAddHolding({
                 ticker: ticker.toUpperCase(),
                 name: companyName || ticker.toUpperCase(),
                 quantity: qty,
                 avgPrice: avg
             });
+            onHoldingAdded();
             onClose();
         } finally {
             setLoading(false);

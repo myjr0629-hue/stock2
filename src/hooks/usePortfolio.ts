@@ -59,12 +59,8 @@ export function usePortfolio() {
     const loadHoldings = useCallback(async () => {
         try {
             setLoading(true);
-            let data = getPortfolio();
-
-            // If empty, load demo data
-            if (data.holdings.length === 0) {
-                data = loadDemoPortfolio();
-            }
+            const data = getPortfolio();
+            // Keep empty portfolio as-is (no auto demo data)
 
             // Fetch current prices for all tickers
             const tickers = data.holdings.map(h => h.ticker);
