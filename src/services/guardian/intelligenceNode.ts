@@ -48,16 +48,39 @@ interface IntelligenceContext {
     vix: number;
 }
 
+// === TIME-BASED GATING ===
+// Off-hours: POST close (20:00 ET) ~ PRE start (04:00 ET)
+// During off-hours, skip Gemini API calls and use cached results
+function isOffHours(): boolean {
+    const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const hour = nowET.getHours();
+    const day = nowET.getDay();
+
+    // Weekend: always off-hours
+    if (day === 0 || day === 6) return true;
+
+    // Weekday off-hours: 20:00 ~ 03:59 ET
+    if (hour >= 20 || hour < 4) return true;
+
+    return false;
+}
+
 // === INTELLIGENCE CACHE SYSTEM ===
-// Rotation: Fast-moving (2 mins)
+// Normal TTL: 2 mins (Rotation), 10 mins (Reality)
+// Off-hours TTL: 12 hours (preserve last analysis)
+const ROTATION_TTL_NORMAL = 2 * 60 * 1000;
+const REALITY_TTL_NORMAL = 10 * 60 * 1000;
+const OFF_HOURS_TTL = 12 * 60 * 60 * 1000; // 12 hours
+
 let _cachedRotation: string | null = null;
 let _lastRotationTime = 0;
-const ROTATION_TTL = 2 * 60 * 1000;
 
-// Reality: Slow-moving Deep Insight (10 mins)
 let _cachedReality: string | null = null;
 let _lastRealityTime = 0;
-const REALITY_TTL = 10 * 60 * 1000;
+
+// Default messages for empty cache during off-hours
+const OFF_HOURS_ROTATION_DEFAULT = "[현황] 장외 시간 - 실시간 분석 대기 중\n[해석] 프리마켓 시작 시 자동 갱신\n[액션] 다음 세션까지 기존 포지션 유지";
+const OFF_HOURS_REALITY_DEFAULT = "[진단] 장외 시간 - 시장 비활성\n[결론] 프리마켓 04:00 ET 이후 분석 재개";
 
 export class IntelligenceNode {
 
@@ -66,10 +89,18 @@ export class IntelligenceNode {
      * Focus: Sector Rotation & Money Flow.
      */
     static async generateRotationInsight(ctx: IntelligenceContext): Promise<string> {
-        // Cache Check
+        // Off-hours check: skip Gemini, use cached or default
         const now = Date.now();
-        if (_cachedRotation && (now - _lastRotationTime < ROTATION_TTL)) {
+        const ttl = isOffHours() ? OFF_HOURS_TTL : ROTATION_TTL_NORMAL;
+
+        if (_cachedRotation && (now - _lastRotationTime < ttl)) {
             return _cachedRotation;
+        }
+
+        // During off-hours, return cached or default (don't call Gemini)
+        if (isOffHours()) {
+            console.log('[IntelligenceNode] Off-hours: skipping Gemini call for Rotation');
+            return _cachedRotation || OFF_HOURS_ROTATION_DEFAULT;
         }
 
         const apiKey = getApiKey();
@@ -117,10 +148,18 @@ export class IntelligenceNode {
      * Focus: RLSI vs Price (Market Essence).
      */
     static async generateRealityInsight(ctx: IntelligenceContext): Promise<string> {
-        // Cache Check
+        // Off-hours check: skip Gemini, use cached or default
         const now = Date.now();
-        if (_cachedReality && (now - _lastRealityTime < REALITY_TTL)) {
+        const ttl = isOffHours() ? OFF_HOURS_TTL : REALITY_TTL_NORMAL;
+
+        if (_cachedReality && (now - _lastRealityTime < ttl)) {
             return _cachedReality;
+        }
+
+        // During off-hours, return cached or default (don't call Gemini)
+        if (isOffHours()) {
+            console.log('[IntelligenceNode] Off-hours: skipping Gemini call for Reality');
+            return _cachedReality || OFF_HOURS_REALITY_DEFAULT;
         }
 
         const apiKey = getApiKey();
