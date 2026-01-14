@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { usePortfolio, type EnrichedHolding } from '@/hooks/usePortfolio';
+import { LandingHeader } from '@/components/landing/LandingHeader';
+import { TradingViewTicker } from '@/components/TradingViewTicker';
 import {
     TrendingUp,
     TrendingDown,
@@ -12,7 +14,11 @@ import {
     ChevronRight,
     Trash2,
     ArrowUpRight,
-    ArrowDownRight
+    ArrowDownRight,
+    Wallet,
+    PiggyBank,
+    TrendingUp as ProfitIcon,
+    Percent
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -21,105 +27,131 @@ export default function PortfolioPage() {
     const [showAddModal, setShowAddModal] = useState(false);
 
     return (
-        <div className="min-h-screen bg-[#050505] text-slate-100">
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-[#0a0a0a]/90 backdrop-blur-xl border-b border-slate-800">
-                <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="min-h-screen bg-[#0a0e14] text-slate-100">
+            {/* Global Header */}
+            <LandingHeader />
+
+            {/* Live Ticker Bar */}
+            <TradingViewTicker />
+
+            {/* Page Header */}
+            <div className="border-b border-white/5 bg-gradient-to-r from-[#0a0e14] via-[#0f1520] to-[#0a0e14]">
+                <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <Briefcase className="w-5 h-5 text-cyan-400" />
-                        <h1 className="text-lg font-bold tracking-tight">PORTFOLIO</h1>
-                        <span className="text-[10px] text-slate-500 font-mono">BETA</span>
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30 flex items-center justify-center">
+                            <Briefcase className="w-5 h-5 text-cyan-400" />
+                        </div>
+                        <div>
+                            <h1 className="text-lg font-bold tracking-tight flex items-center gap-2">
+                                PORTFOLIO
+                                <span className="text-[9px] font-bold text-slate-500 bg-slate-900/50 px-2 py-0.5 rounded-full border border-slate-700">BETA</span>
+                            </h1>
+                            <p className="text-[10px] text-slate-500">실시간 포트폴리오 대시보드</p>
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => refresh()}
-                            className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                            className="p-2.5 hover:bg-white/5 rounded-xl transition-all border border-transparent hover:border-slate-700"
                             title="Refresh prices"
                         >
                             <RefreshCw className={`w-4 h-4 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
                         </button>
                         <button
                             onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-500/10 text-cyan-400 rounded-lg hover:bg-cyan-500/20 transition-colors text-sm font-medium"
+                            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-400 rounded-xl hover:from-cyan-500/30 hover:to-indigo-500/30 transition-all text-sm font-bold border border-cyan-500/30"
                         >
                             <Plus className="w-4 h-4" />
                             종목 추가
                         </button>
                     </div>
                 </div>
-            </header>
+            </div>
 
-            <main className="max-w-7xl mx-auto px-4 py-6 space-y-6">
-                {/* Summary Cards */}
+            <main className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-6">
+                {/* Summary Cards - Glassmorphism */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <SummaryCard
+                        icon={<Wallet className="w-4 h-4 text-cyan-400" />}
                         label="총 평가금액"
                         value={`$${summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     />
                     <SummaryCard
+                        icon={<PiggyBank className="w-4 h-4 text-indigo-400" />}
                         label="총 투자금액"
                         value={`$${summary.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     />
                     <SummaryCard
+                        icon={<ProfitIcon className="w-4 h-4" />}
                         label="총 손익"
                         value={`${summary.totalGainLoss >= 0 ? '+' : ''}$${summary.totalGainLoss.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                         variant={summary.totalGainLoss >= 0 ? 'positive' : 'negative'}
                     />
                     <SummaryCard
+                        icon={<Percent className="w-4 h-4" />}
                         label="수익률"
                         value={`${summary.totalGainLossPct >= 0 ? '+' : ''}${summary.totalGainLossPct.toFixed(2)}%`}
                         variant={summary.totalGainLossPct >= 0 ? 'positive' : 'negative'}
                     />
                 </div>
 
-                {/* Holdings Table */}
-                <div className="bg-[#0a0a0a] border border-slate-800 rounded-xl overflow-hidden">
-                    {/* Table Header */}
-                    <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-slate-900/50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-slate-800">
-                        <div className="col-span-3">종목</div>
-                        <div className="col-span-1 text-right">수량</div>
-                        <div className="col-span-1 text-right">평균가</div>
-                        <div className="col-span-1 text-right">현재가</div>
-                        <div className="col-span-1 text-right">수익률</div>
-                        <div className="col-span-1 text-center">액션</div>
-                        <div className="col-span-1 text-center">Alpha</div>
-                        <div className="col-span-1 text-center">3D</div>
-                        <div className="col-span-1 text-center">섹터</div>
-                        <div className="col-span-1"></div>
-                    </div>
+                {/* Holdings Table - Glassmorphism */}
+                <div className="relative rounded-2xl overflow-hidden">
+                    {/* Glass Background */}
+                    <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-slate-900/30 to-slate-900/50 backdrop-blur-xl border border-white/5" />
 
-                    {/* Holdings Rows */}
-                    {loading ? (
-                        <div className="px-4 py-12 text-center text-slate-500">
-                            <RefreshCw className="w-6 h-6 mx-auto mb-2 animate-spin" />
-                            Loading portfolio...
+                    {/* Table Content */}
+                    <div className="relative">
+                        {/* Table Header */}
+                        <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5">
+                            <div className="col-span-3">종목</div>
+                            <div className="col-span-1 text-right">수량</div>
+                            <div className="col-span-1 text-right">평균가</div>
+                            <div className="col-span-1 text-right">현재가</div>
+                            <div className="col-span-1 text-right">수익률</div>
+                            <div className="col-span-1 text-center">액션</div>
+                            <div className="col-span-1 text-center">Alpha</div>
+                            <div className="col-span-1 text-center">3D</div>
+                            <div className="col-span-1 text-center">섹터</div>
+                            <div className="col-span-1"></div>
                         </div>
-                    ) : holdings.length === 0 ? (
-                        <div className="px-4 py-12 text-center text-slate-500">
-                            <Briefcase className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                            <p>보유 종목이 없습니다</p>
-                            <button
-                                onClick={() => setShowAddModal(true)}
-                                className="mt-4 text-cyan-400 hover:text-cyan-300 text-sm"
-                            >
-                                + 종목 추가하기
-                            </button>
-                        </div>
-                    ) : (
-                        <div className="divide-y divide-slate-800/50">
-                            {holdings.map(holding => (
-                                <HoldingRow
-                                    key={holding.ticker}
-                                    holding={holding}
-                                    onRemove={() => removeHolding(holding.ticker)}
-                                />
-                            ))}
-                        </div>
-                    )}
+
+                        {/* Holdings Rows */}
+                        {loading ? (
+                            <div className="px-4 py-16 text-center">
+                                <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-cyan-500/50" />
+                                <p className="text-slate-500 text-sm">포트폴리오 로딩 중...</p>
+                            </div>
+                        ) : holdings.length === 0 ? (
+                            <div className="px-4 py-16 text-center">
+                                <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-800/30 border border-white/5 flex items-center justify-center">
+                                    <Briefcase className="w-8 h-8 text-slate-600" />
+                                </div>
+                                <p className="text-slate-400 font-medium mb-1">보유 종목이 없습니다</p>
+                                <p className="text-slate-600 text-xs mb-4">종목을 추가하여 포트폴리오를 시작하세요</p>
+                                <button
+                                    onClick={() => setShowAddModal(true)}
+                                    className="text-cyan-400 hover:text-cyan-300 text-sm font-bold"
+                                >
+                                    + 첫 번째 종목 추가하기
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="divide-y divide-white/5">
+                                {holdings.map(holding => (
+                                    <HoldingRow
+                                        key={holding.ticker}
+                                        holding={holding}
+                                        onRemove={() => removeHolding(holding.ticker)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </main>
 
-            {/* Add Modal (simplified placeholder) */}
+            {/* Add Modal */}
             {showAddModal && (
                 <AddHoldingModal onClose={() => setShowAddModal(false)} />
             )}
@@ -127,8 +159,9 @@ export default function PortfolioPage() {
     );
 }
 
-// Summary Card Component
-function SummaryCard({ label, value, variant = 'neutral' }: {
+// Summary Card Component with Glassmorphism
+function SummaryCard({ icon, label, value, variant = 'neutral' }: {
+    icon?: React.ReactNode;
     label: string;
     value: string;
     variant?: 'positive' | 'negative' | 'neutral'
@@ -136,10 +169,22 @@ function SummaryCard({ label, value, variant = 'neutral' }: {
     const colorClass = variant === 'positive' ? 'text-emerald-400' :
         variant === 'negative' ? 'text-rose-400' : 'text-white';
 
+    const iconColorClass = variant === 'positive' ? 'text-emerald-400' :
+        variant === 'negative' ? 'text-rose-400' : '';
+
     return (
-        <div className="bg-[#0a0a0a] border border-slate-800 rounded-xl p-4">
-            <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">{label}</div>
-            <div className={`text-xl font-bold font-num tracking-tight ${colorClass}`}>{value}</div>
+        <div className="relative rounded-xl overflow-hidden group">
+            {/* Glass Background */}
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-slate-900/60 backdrop-blur-xl border border-white/5 group-hover:border-white/10 transition-colors" />
+
+            {/* Content */}
+            <div className="relative p-4">
+                <div className="flex items-center gap-2 mb-2">
+                    {icon && <span className={iconColorClass}>{icon}</span>}
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">{label}</span>
+                </div>
+                <div className={`text-xl font-black font-num tracking-tight ${colorClass}`}>{value}</div>
+            </div>
         </div>
     );
 }
