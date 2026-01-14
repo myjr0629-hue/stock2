@@ -496,7 +496,8 @@ function AddHoldingModal({ onClose }: { onClose: () => void }) {
         setLoading(true);
         setError('');
         try {
-            const res = await fetch(`/api/stock?ticker=${t.toUpperCase()}`);
+            // Fixed: use 'symbol=' instead of 'ticker='
+            const res = await fetch(`/api/stock?symbol=${t.toUpperCase()}`);
             if (!res.ok) throw new Error('Ticker not found');
             const data = await res.json();
 
