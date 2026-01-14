@@ -17,9 +17,19 @@ import * as path from 'path';
 const CACHE_DIR = path.join(process.cwd(), 'snapshots', 'options-cache');
 
 // Ensure cache directory exists
-function ensureCacheDir() {
-    if (!fs.existsSync(CACHE_DIR)) {
-        fs.mkdirSync(CACHE_DIR, { recursive: true });
+// Note: This will fail on Vercel (read-only fs) but we gracefully handle it
+function ensureCacheDir(): boolean {
+    try {
+        if (!fs.existsSync(CACHE_DIR)) {
+            fs.mkdirSync(CACHE_DIR, { recursive: true });
+        }
+        return true;
+    } catch (e: any) {
+        // EROFS on Vercel - silently ignore, cache won't work but won't crash
+        if (e.code !== 'EROFS') {
+            console.warn('[WeekendCache] Cannot create cache dir:', e.message);
+        }
+        return false;
     }
 }
 
@@ -52,16 +62,27 @@ export function getLastTradingDay(): string {
  * Save options data for a ticker to cache
  */
 export function saveOptionsToCache(ticker: string, data: any): void {
-    ensureCacheDir();
-    const cacheFile = path.join(CACHE_DIR, `${ticker.toUpperCase()}.json`);
-    const cacheData = {
-        ticker: ticker.toUpperCase(),
-        savedAt: new Date().toISOString(),
-        tradingDay: getLastTradingDay(),
-        data
-    };
-    fs.writeFileSync(cacheFile, JSON.stringify(cacheData, null, 2));
-    console.log(`[WeekendCache] Saved ${ticker} options data to cache`);
+    // Skip if we can't create cache dir (Vercel read-only fs)
+    if (!ensureCacheDir()) {
+        return;
+    }
+
+    try {
+        const cacheFile = path.join(CACHE_DIR, `${ticker.toUpperCase()}.json`);
+        const cacheData = {
+            ticker: ticker.toUpperCase(),
+            savedAt: new Date().toISOString(),
+            tradingDay: getLastTradingDay(),
+            data
+        };
+        fs.writeFileSync(cacheFile, JSON.stringify(cacheData, null, 2));
+        console.log(`[WeekendCache] Saved ${ticker} options data to cache`);
+    } catch (e: any) {
+        // EROFS on Vercel - silently ignore
+        if (e.code !== 'EROFS') {
+            console.warn(`[WeekendCache] Cannot save ${ticker}:`, e.message);
+        }
+    }
 }
 
 /**
@@ -107,12 +128,19 @@ export function getCacheStrategy(): 'LIVE' | 'CACHE' {
  * Clear all cached options data
  */
 export function clearOptionsCache(): void {
-    if (fs.existsSync(CACHE_DIR)) {
-        const files = fs.readdirSync(CACHE_DIR);
-        files.forEach(file => {
-            fs.unlinkSync(path.join(CACHE_DIR, file));
-        });
-        console.log(`[WeekendCache] Cleared ${files.length} cached files`);
+    try {
+        if (fs.existsSync(CACHE_DIR)) {
+            const files = fs.readdirSync(CACHE_DIR);
+            files.forEach(file => {
+                fs.unlinkSync(path.join(CACHE_DIR, file));
+            });
+            console.log(`[WeekendCache] Cleared ${files.length} cached files`);
+        }
+    } catch (e: any) {
+        // EROFS on Vercel - silently ignore
+        if (e.code !== 'EROFS') {
+            console.warn('[WeekendCache] Cannot clear cache:', e.message);
+        }
     }
 }
 
