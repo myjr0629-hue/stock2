@@ -318,9 +318,16 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
       }
     }
 
-    // 4) Filter contracts + map
-    // ✅ Use ALL fetched contracts in the 14-day window
-    const contracts = allResults
+    // 4) Filter contracts to NEAREST EXPIRY ONLY for accurate Max Pain/GEX
+    // [V6.0] Use ONLY the nearest expiration for precision
+    const nearestExpiryContracts = allResults.filter((c: any) => {
+      const expDate = c.details?.expiration_date || c.expiration_date;
+      return expDate === dominantExpiry;
+    });
+
+    console.log(`[V6.0] ${symbol}: Filtering to nearest expiry ${dominantExpiry} -> ${nearestExpiryContracts.length} contracts`);
+
+    const contracts = nearestExpiryContracts
       .map((c: any) => {
         const oi = Number(c.open_interest); // official OI
         return {
@@ -332,10 +339,10 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
         };
       });
 
-    console.log(`[Massive] ${symbol} Valid Contracts (14d): ${contracts.length}`);
+    console.log(`[Massive] ${symbol} Valid Contracts (nearest expiry): ${contracts.length}`);
 
     // [V5.0] Save to cache for weekend use (only on weekdays with valid data)
-    const result = { contracts, expiry: `Aggregated (<14d)`, spot: spot || 0 };
+    const result = { contracts, expiry: dominantExpiry, spot: spot || 0 };
     if (contracts.length > 0 && !isWeekend()) {
       saveOptionsToCache(symbol, result);
     }
