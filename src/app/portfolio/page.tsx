@@ -536,9 +536,36 @@ function AddHoldingModal({ onClose }: { onClose: () => void }) {
     const estimatedPL = estimatedValue - totalCost;
     const estimatedPLPct = totalCost > 0 ? (estimatedPL / totalCost) * 100 : 0;
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (ticker && quantity && avgPrice && validated) {
+        if (!ticker || !quantity || !avgPrice || !validated) return;
+
+        setLoading(true);
+        setError('');
+
+        try {
+            // Run Alpha engine for this ticker
+            const analyzeRes = await fetch(`/api/portfolio/analyze?ticker=${ticker.toUpperCase()}`);
+            let alphaSnapshot = undefined;
+
+            if (analyzeRes.ok) {
+                const analyzeData = await analyzeRes.json();
+                alphaSnapshot = analyzeData.alphaSnapshot;
+            }
+
+            // Add holding with Alpha snapshot
+            addHolding({
+                ticker: ticker.toUpperCase(),
+                name: companyName || ticker.toUpperCase(),
+                quantity: qty,
+                avgPrice: avg,
+                alphaSnapshot
+            });
+
+            onClose();
+        } catch (err) {
+            console.error('Failed to analyze ticker:', err);
+            // Still add holding without alpha data
             addHolding({
                 ticker: ticker.toUpperCase(),
                 name: companyName || ticker.toUpperCase(),
@@ -546,6 +573,8 @@ function AddHoldingModal({ onClose }: { onClose: () => void }) {
                 avgPrice: avg
             });
             onClose();
+        } finally {
+            setLoading(false);
         }
     };
 

@@ -1,12 +1,21 @@
 // Portfolio LocalStorage Store
 // Manages user's portfolio holdings with persistence
 
+export interface AlphaSnapshot {
+    score: number;
+    grade: 'A' | 'B' | 'C' | 'D' | 'F';
+    action: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH';
+    confidence: number;
+    capturedAt: string;
+}
+
 export interface Holding {
     ticker: string;
     name: string;
     quantity: number;
     avgPrice: number;
     addedAt: string;
+    alphaSnapshot?: AlphaSnapshot;
 }
 
 export interface PortfolioData {

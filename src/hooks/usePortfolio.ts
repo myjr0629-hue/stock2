@@ -100,9 +100,28 @@ export function usePortfolio() {
                 };
             });
 
-            // Enrich with Alpha data from Reports API
+            // Enrich with Alpha data: prioritize stored alphaSnapshot, fallback to Reports API
             const alphaMap = await fetchAlphaData(tickers);
             const fullyEnriched = enriched.map(h => {
+                // First check if holding has stored alphaSnapshot
+                const storedSnapshot = data.holdings.find(dh => dh.ticker === h.ticker)?.alphaSnapshot;
+
+                if (storedSnapshot) {
+                    return {
+                        ...h,
+                        alphaScore: storedSnapshot.score,
+                        alphaGrade: storedSnapshot.grade,
+                        action: storedSnapshot.action,
+                        confidence: storedSnapshot.confidence,
+                        // Real-time indicators from API (not stored)
+                        threeDay: undefined,
+                        rvol: undefined,
+                        maxPainDist: undefined,
+                        tripleA: undefined
+                    };
+                }
+
+                // Fallback to Reports API data
                 const alphaData = alphaMap[h.ticker];
                 if (alphaData) {
                     return {
@@ -251,8 +270,15 @@ export function usePortfolio() {
         return result;
     }
 
-    // Add holding
+    // Add holding (basic - without alpha)
     const addHolding = useCallback((holding: Omit<Holding, 'addedAt'>) => {
+        storeAddHolding(holding);
+        loadHoldings();
+    }, [loadHoldings]);
+
+    // Add holding with Alpha snapshot (called from modal after API analysis)
+    const addHoldingWithAlpha = useCallback((holding: Omit<Holding, 'addedAt'>) => {
+        // This will include alphaSnapshot if provided
         storeAddHolding(holding);
         loadHoldings();
     }, [loadHoldings]);
@@ -279,6 +305,7 @@ export function usePortfolio() {
         loading,
         error,
         addHolding,
+        addHoldingWithAlpha,
         removeHolding,
         refresh
     };
