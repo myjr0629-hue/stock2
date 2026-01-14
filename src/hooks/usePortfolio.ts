@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     getPortfolio,
     savePortfolio,
@@ -53,12 +53,20 @@ export function usePortfolio() {
         holdingsCount: 0
     });
     const [loading, setLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false); // Background refresh indicator
     const [error, setError] = useState<string | null>(null);
+    const isInitialLoad = useRef(true);
 
     // Load and enrich holdings
     const loadHoldings = useCallback(async () => {
         try {
-            setLoading(true);
+            // Only show full loading spinner on initial load
+            if (isInitialLoad.current) {
+                setLoading(true);
+            } else {
+                setIsRefreshing(true); // Silent background refresh
+            }
+
             const data = getPortfolio();
             // Keep empty portfolio as-is (no auto demo data)
 
@@ -157,6 +165,8 @@ export function usePortfolio() {
             console.error(e);
         } finally {
             setLoading(false);
+            setIsRefreshing(false);
+            isInitialLoad.current = false;
         }
     }, []);
 
@@ -299,6 +309,7 @@ export function usePortfolio() {
         holdings,
         summary,
         loading,
+        isRefreshing, // For subtle refresh indicator
         error,
         addHolding,
         addHoldingWithAlpha,

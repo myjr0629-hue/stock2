@@ -23,7 +23,7 @@ import {
 import Link from 'next/link';
 
 export default function PortfolioPage() {
-    const { holdings, summary, loading, refresh, removeHolding } = usePortfolio();
+    const { holdings, summary, loading, isRefreshing, refresh, removeHolding } = usePortfolio();
     const [showAddModal, setShowAddModal] = useState(false);
 
     // Auto-refresh every 30 seconds for real-time price updates
@@ -59,16 +59,19 @@ export default function PortfolioPage() {
                                 PORTFOLIO
                                 <span className="text-[9px] font-bold text-slate-500 bg-slate-900/50 px-2 py-0.5 rounded-full border border-slate-700">PREMIUM</span>
                             </h1>
-                            <p className="text-[10px] text-slate-400">Alpha Engine 기반 실시간 분석</p>
+                            <p className="text-xs text-slate-400">Alpha Engine 기반 실시간 분석</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => refresh()}
-                            className="p-2.5 hover:bg-white/5 rounded-xl transition-all border border-transparent hover:border-slate-700"
+                            className="p-2.5 hover:bg-white/5 rounded-xl transition-all border border-transparent hover:border-slate-700 relative"
                             title="Refresh prices"
                         >
                             <RefreshCw className={`w-4 h-4 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
+                            {isRefreshing && (
+                                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                            )}
                         </button>
                         <button
                             onClick={() => setShowAddModal(true)}
@@ -111,7 +114,7 @@ export default function PortfolioPage() {
                     {/* Table Content */}
                     <div className="relative">
                         {/* Table Header - 8 Clear Columns */}
-                        <div className="grid grid-cols-16 gap-2 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-[10px] font-bold text-slate-500 uppercase tracking-wider border-b border-white/5">
+                        <div className="grid grid-cols-16 gap-2 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
                             <div className="col-span-3">종목</div>
                             <div className="col-span-1 text-right">수량</div>
                             <div className="col-span-2 text-right">매입가</div>
@@ -275,11 +278,11 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                         className="w-6 h-6 object-contain"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
-                    <span className="text-[9px] font-bold text-slate-600 absolute">{holding.ticker.slice(0, 2)}</span>
+                    <span className="text-[10px] font-bold text-slate-500 absolute">{holding.ticker.slice(0, 2)}</span>
                 </div>
                 <div>
                     <div className="font-bold text-sm text-white">{holding.ticker}</div>
-                    <div className="text-[10px] text-slate-400 truncate max-w-[80px]">{holding.name}</div>
+                    <div className="text-xs text-slate-400 truncate max-w-[100px]">{holding.name}</div>
                 </div>
             </div>
 
@@ -291,7 +294,7 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
             {/* AVG PRICE (2 cols) - 매입가 */}
             <div className="col-span-2 text-right">
                 <div className="font-num text-sm text-slate-400">${holding.avgPrice.toFixed(2)}</div>
-                <div className="text-[9px] text-slate-400">매입가</div>
+                <div className="text-[11px] text-slate-400">매입가</div>
             </div>
 
             {/* CURRENT PRICE (2 cols) - 현재가 with PRE/POST label */}
@@ -299,7 +302,7 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                 <div className="flex items-center justify-end gap-1.5">
                     <span className="font-bold font-num text-sm text-white">${holding.currentPrice.toFixed(2)}</span>
                     {holding.isExtended && holding.session && (
-                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${holding.session === 'pre'
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${holding.session === 'pre'
                             ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
                             : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                             }`}>
