@@ -20,10 +20,16 @@ export interface EnrichedHolding extends Holding {
     gainLossPct: number;
     // Alpha engine data (to be enriched)
     alphaScore?: number;
+    alphaGrade?: 'A' | 'B' | 'C' | 'D' | 'F';
     action?: 'HOLD' | 'TRIM' | 'ADD' | 'WATCH';
+    confidence?: number; // 0-100%
     threeDay?: number;
     rsi?: number;
     sectorFlow?: 'INFLOW' | 'OUTFLOW' | 'NEUTRAL';
+    // Premium Edge Indicators
+    rvol?: number; // Relative Volume (1.0 = average)
+    maxPainDist?: number; // % distance from max pain
+    tripleA?: { direction: boolean; acceleration: boolean; accumulation: boolean }; // Triple-A alignment
 }
 
 export interface PortfolioSummary {
@@ -79,10 +85,20 @@ export function usePortfolio() {
                     gainLossPct,
                     // Demo alpha data (to be replaced with real API)
                     alphaScore: Math.floor(Math.random() * 40) + 40,
-                    action: ['HOLD', 'WATCH', 'TRIM', 'ADD'][Math.floor(Math.random() * 4)] as EnrichedHolding['action'],
+                    alphaGrade: (['A', 'B', 'C', 'D', 'F'] as const)[Math.floor(Math.random() * 3)], // Mostly A-C
+                    action: ['HOLD', 'ADD', 'TRIM', 'WATCH'][Math.floor(Math.random() * 4)] as EnrichedHolding['action'],
+                    confidence: Math.floor(Math.random() * 40) + 55, // 55-95%
                     threeDay: (Math.random() * 10) - 5,
                     rsi: Math.floor(Math.random() * 40) + 30,
-                    sectorFlow: ['INFLOW', 'OUTFLOW', 'NEUTRAL'][Math.floor(Math.random() * 3)] as EnrichedHolding['sectorFlow']
+                    sectorFlow: ['INFLOW', 'OUTFLOW', 'NEUTRAL'][Math.floor(Math.random() * 3)] as EnrichedHolding['sectorFlow'],
+                    // Premium Edge Indicators
+                    rvol: parseFloat((Math.random() * 2 + 0.5).toFixed(1)), // 0.5x - 2.5x
+                    maxPainDist: parseFloat(((Math.random() * 10) - 5).toFixed(1)), // -5% to +5%
+                    tripleA: {
+                        direction: Math.random() > 0.3,
+                        acceleration: Math.random() > 0.4,
+                        accumulation: Math.random() > 0.5
+                    }
                 };
             });
 
