@@ -106,15 +106,15 @@ export function clearPortfolio(): PortfolioData {
     return empty;
 }
 
-// Demo data for development
+// Demo data for development - using tickers from report universe
 export function loadDemoPortfolio(): PortfolioData {
     const demo: PortfolioData = {
         holdings: [
-            { ticker: 'NVDA', name: 'NVIDIA Corp', quantity: 10, avgPrice: 120, addedAt: '2024-01-15T00:00:00Z' },
-            { ticker: 'AAPL', name: 'Apple Inc', quantity: 25, avgPrice: 178, addedAt: '2024-02-01T00:00:00Z' },
-            { ticker: 'TSLA', name: 'Tesla Inc', quantity: 8, avgPrice: 245, addedAt: '2024-01-20T00:00:00Z' },
-            { ticker: 'MSFT', name: 'Microsoft Corp', quantity: 15, avgPrice: 380, addedAt: '2024-02-10T00:00:00Z' },
-            { ticker: 'GOOGL', name: 'Alphabet Inc', quantity: 12, avgPrice: 140, addedAt: '2024-01-25T00:00:00Z' },
+            { ticker: 'AMD', name: 'Advanced Micro Devices', quantity: 15, avgPrice: 135, addedAt: '2024-01-15T00:00:00Z' },
+            { ticker: 'INTC', name: 'Intel Corp', quantity: 40, avgPrice: 45, addedAt: '2024-02-01T00:00:00Z' },
+            { ticker: 'COIN', name: 'Coinbase Global', quantity: 8, avgPrice: 175, addedAt: '2024-01-20T00:00:00Z' },
+            { ticker: 'BA', name: 'Boeing Co', quantity: 10, avgPrice: 195, addedAt: '2024-02-10T00:00:00Z' },
+            { ticker: 'V', name: 'Visa Inc', quantity: 12, avgPrice: 270, addedAt: '2024-01-25T00:00:00Z' },
         ],
         updatedAt: new Date().toISOString()
     };

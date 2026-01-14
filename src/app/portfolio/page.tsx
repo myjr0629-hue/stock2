@@ -289,8 +289,8 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                     <span className="font-bold font-num text-sm text-white">${holding.currentPrice.toFixed(2)}</span>
                     {holding.isExtended && holding.session && (
                         <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${holding.session === 'pre'
-                                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                                : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                            ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                            : 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
                             }`}>
                             {holding.session === 'pre' ? 'PRE' : 'POST'}
                         </span>
@@ -353,15 +353,30 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
 
 // === PREMIUM COMPONENTS ===
 
-// Circular Alpha Gauge with Grade
-function CircularAlphaGauge({ score, grade }: { score: number; grade: string }) {
+// Circular Alpha Gauge with Grade (handles missing data)
+function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }) {
+    // Show N/A state if no data
+    if (score === undefined || score === null) {
+        return (
+            <div className="flex items-center gap-2">
+                <div className="relative w-10 h-10">
+                    <div className="w-10 h-10 rounded-full border-2 border-slate-700 flex items-center justify-center">
+                        <span className="text-[9px] text-slate-500">N/A</span>
+                    </div>
+                </div>
+                <div className="text-sm font-bold font-num text-slate-500">-</div>
+            </div>
+        );
+    }
+
     const percentage = Math.min(Math.max(score, 0), 100);
     const circumference = 2 * Math.PI * 16;
     const offset = circumference - (percentage / 100) * circumference;
 
-    const gradeColor = grade === 'A' ? 'text-emerald-400 stroke-emerald-400' :
-        grade === 'B' ? 'text-cyan-400 stroke-cyan-400' :
-            grade === 'C' ? 'text-amber-400 stroke-amber-400' : 'text-rose-400 stroke-rose-400';
+    const displayGrade = grade || (score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F');
+    const gradeColor = displayGrade === 'A' ? 'text-emerald-400 stroke-emerald-400' :
+        displayGrade === 'B' ? 'text-cyan-400 stroke-cyan-400' :
+            displayGrade === 'C' ? 'text-amber-400 stroke-amber-400' : 'text-rose-400 stroke-rose-400';
 
     return (
         <div className="flex items-center gap-2">
@@ -379,7 +394,7 @@ function CircularAlphaGauge({ score, grade }: { score: number; grade: string }) 
                     />
                 </svg>
                 <div className={`absolute inset-0 flex items-center justify-center text-xs font-black ${gradeColor}`}>
-                    {grade}
+                    {displayGrade}
                 </div>
             </div>
             <div className="text-sm font-bold font-num text-white">{score}</div>
@@ -387,8 +402,17 @@ function CircularAlphaGauge({ score, grade }: { score: number; grade: string }) 
     );
 }
 
-// Signal Badge with Confidence
-function SignalBadge({ action, confidence }: { action: string; confidence: number }) {
+// Signal Badge with Confidence (handles missing data)
+function SignalBadge({ action, confidence }: { action?: string; confidence?: number }) {
+    // Show N/A state if no data
+    if (!action) {
+        return (
+            <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-800/50 border border-slate-700">
+                <span className="text-[10px] font-bold text-slate-500">N/A</span>
+            </div>
+        );
+    }
+
     const config: Record<string, { bg: string; text: string; border: string }> = {
         'HOLD': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
         'ADD': { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/30' },
@@ -400,7 +424,9 @@ function SignalBadge({ action, confidence }: { action: string; confidence: numbe
     return (
         <div className={`flex items-center gap-2 px-2.5 py-1 rounded-lg ${c.bg} border ${c.border}`}>
             <span className={`text-[10px] font-black ${c.text}`}>{action}</span>
-            <span className="text-[9px] font-bold font-num text-slate-400">{confidence}%</span>
+            {confidence !== undefined && (
+                <span className="text-[9px] font-bold font-num text-slate-400">{confidence}%</span>
+            )}
         </div>
     );
 }
