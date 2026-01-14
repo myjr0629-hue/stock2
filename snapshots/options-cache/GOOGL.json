@@ -1,6 +1,6 @@
 {
   "ticker": "GOOGL",
-  "savedAt": "2026-01-14T14:49:11.234Z",
+  "savedAt": "2026-01-14T14:55:05.118Z",
   "tradingDay": "2026-01-14",
   "data": {
     "contracts": [
@@ -9240,6 +9240,6 @@
       }
     ],
     "expiry": "Aggregated (<14d)",
-    "spot": 334.14
+    "spot": 332.08
   }
 }

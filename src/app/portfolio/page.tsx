@@ -26,6 +26,14 @@ export default function PortfolioPage() {
     const { holdings, summary, loading, refresh, removeHolding } = usePortfolio();
     const [showAddModal, setShowAddModal] = useState(false);
 
+    // Auto-refresh every 30 seconds for real-time price updates
+    useEffect(() => {
+        const interval = setInterval(() => {
+            refresh();
+        }, 30000); // 30 seconds
+        return () => clearInterval(interval);
+    }, [refresh]);
+
     // Calculate portfolio score (average of all alpha scores)
     const portfolioScore = holdings.length > 0
         ? Math.round(holdings.reduce((sum, h) => sum + (h.alphaScore || 50), 0) / holdings.length)
@@ -51,7 +59,7 @@ export default function PortfolioPage() {
                                 PORTFOLIO
                                 <span className="text-[9px] font-bold text-slate-500 bg-slate-900/50 px-2 py-0.5 rounded-full border border-slate-700">PREMIUM</span>
                             </h1>
-                            <p className="text-[10px] text-slate-500">Alpha Engine 기반 실시간 분석</p>
+                            <p className="text-[10px] text-slate-400">Alpha Engine 기반 실시간 분석</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -271,7 +279,7 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
                 </div>
                 <div>
                     <div className="font-bold text-sm text-white">{holding.ticker}</div>
-                    <div className="text-[10px] text-slate-500 truncate max-w-[80px]">{holding.name}</div>
+                    <div className="text-[10px] text-slate-400 truncate max-w-[80px]">{holding.name}</div>
                 </div>
             </div>
 
@@ -283,7 +291,7 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
             {/* AVG PRICE (2 cols) - 매입가 */}
             <div className="col-span-2 text-right">
                 <div className="font-num text-sm text-slate-400">${holding.avgPrice.toFixed(2)}</div>
-                <div className="text-[9px] text-slate-600">매입가</div>
+                <div className="text-[9px] text-slate-400">매입가</div>
             </div>
 
             {/* CURRENT PRICE (2 cols) - 현재가 with PRE/POST label */}
