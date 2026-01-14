@@ -1,7 +1,51 @@
 
 import { GoogleGenAI } from "@google/genai";
+import { Redis } from "@upstash/redis";
 import * as fs from 'fs';
 import * as path from 'path';
+
+// Redis Keys for persistent cache
+const REDIS_KEY_ROTATION = "guardian:gemini:rotation";
+const REDIS_KEY_REALITY = "guardian:gemini:reality";
+
+// Get Redis client
+function getRedis(): Redis | null {
+    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+    if (!url || !token) return null;
+    return new Redis({ url, token });
+}
+
+// Save insight to Redis (for persistence across cold starts)
+async function saveInsightToRedis(key: string, text: string): Promise<void> {
+    try {
+        const redis = getRedis();
+        if (!redis) return;
+        await redis.set(key, JSON.stringify({
+            text,
+            updatedAt: new Date().toISOString()
+        }), { ex: 43200 }); // 12 hour expiry
+        console.log(`[IntelligenceNode] Saved ${key} to Redis`);
+    } catch (e) {
+        console.warn("[IntelligenceNode] Redis save error:", e);
+    }
+}
+
+// Load insight from Redis
+async function loadInsightFromRedis(key: string): Promise<string | null> {
+    try {
+        const redis = getRedis();
+        if (!redis) return null;
+        const data = await redis.get(key) as { text: string; updatedAt: string } | null;
+        if (data?.text) {
+            console.log(`[IntelligenceNode] Loaded ${key} from Redis (${data.updatedAt})`);
+            return data.text;
+        }
+    } catch (e) {
+        console.warn("[IntelligenceNode] Redis load error:", e);
+    }
+    return null;
+}
 
 // Robust API Key Loader
 const getApiKey = (): string => {
@@ -100,7 +144,14 @@ export class IntelligenceNode {
         // During off-hours, return cached or default (don't call Gemini)
         if (isOffHours()) {
             console.log('[IntelligenceNode] Off-hours: skipping Gemini call for Rotation');
-            return _cachedRotation || OFF_HOURS_ROTATION_DEFAULT;
+            // Try memory cache first, then Redis, then default
+            if (_cachedRotation) return _cachedRotation;
+            const redisCache = await loadInsightFromRedis(REDIS_KEY_ROTATION);
+            if (redisCache) {
+                _cachedRotation = redisCache;
+                return redisCache;
+            }
+            return OFF_HOURS_ROTATION_DEFAULT;
         }
 
         const apiKey = getApiKey();
@@ -139,6 +190,8 @@ export class IntelligenceNode {
         if (result && !result.includes("failed")) {
             _cachedRotation = result;
             _lastRotationTime = Date.now();
+            // Save to Redis for persistence across cold starts
+            saveInsightToRedis(REDIS_KEY_ROTATION, result);
         }
         return result;
     }
@@ -159,7 +212,14 @@ export class IntelligenceNode {
         // During off-hours, return cached or default (don't call Gemini)
         if (isOffHours()) {
             console.log('[IntelligenceNode] Off-hours: skipping Gemini call for Reality');
-            return _cachedReality || OFF_HOURS_REALITY_DEFAULT;
+            // Try memory cache first, then Redis, then default
+            if (_cachedReality) return _cachedReality;
+            const redisCache = await loadInsightFromRedis(REDIS_KEY_REALITY);
+            if (redisCache) {
+                _cachedReality = redisCache;
+                return redisCache;
+            }
+            return OFF_HOURS_REALITY_DEFAULT;
         }
 
         const apiKey = getApiKey();
@@ -195,6 +255,8 @@ export class IntelligenceNode {
         if (result && !result.includes("failed")) {
             _cachedReality = result;
             _lastRealityTime = Date.now();
+            // Save to Redis for persistence across cold starts
+            saveInsightToRedis(REDIS_KEY_REALITY, result);
         }
         return result;
     }
