@@ -26,6 +26,7 @@ export interface EnrichedHolding extends Holding {
     alphaGrade?: 'A' | 'B' | 'C' | 'D' | 'F';
     action?: 'HOLD' | 'TRIM' | 'ADD' | 'WATCH';
     confidence?: number; // 0-100%
+    triggers?: string[]; // Signal reasoning
     threeDay?: number;
     rsi?: number;
     sectorFlow?: 'INFLOW' | 'OUTFLOW' | 'NEUTRAL';
@@ -118,6 +119,7 @@ export function usePortfolio() {
                         alphaGrade: alphaData.grade,
                         action: alphaData.action,
                         confidence: alphaData.confidence,
+                        triggers: alphaData.triggers,
                         threeDay: alphaData.threeDay,
                         rvol: alphaData.rvol,
                         maxPainDist: alphaData.maxPainDist,
@@ -210,6 +212,7 @@ export function usePortfolio() {
         grade: 'A' | 'B' | 'C' | 'D' | 'F';
         action: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH';
         confidence: number;
+        triggers: string[];
         threeDay: number;
         rvol: number;
         maxPainDist: number;
@@ -234,6 +237,7 @@ export function usePortfolio() {
                         grade: data.alphaSnapshot.grade,
                         action: data.alphaSnapshot.action,
                         confidence: data.alphaSnapshot.confidence,
+                        triggers: data.alphaSnapshot.triggers || [],
                         threeDay: data.realtime.changePct || 0,
                         rvol: data.realtime.rvol || 1.0,
                         maxPainDist: data.realtime.maxPainDist || 0,

@@ -58,22 +58,44 @@ export async function GET(request: Request) {
         // Determine grade
         const grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
 
-        // Determine action
+        // Determine action with triggers (reasons)
         let action: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH' = 'HOLD';
         let confidence = 50;
+        const triggers: string[] = [];
 
+        // Build triggers based on conditions
+        if (score >= 75) triggers.push(`Alpha ${score}점 (강세)`);
+        else if (score >= 50) triggers.push(`Alpha ${score}점 (중립)`);
+        else triggers.push(`Alpha ${score}점 (약세)`);
+
+        if (changePct > 2) triggers.push(`금일 +${changePct.toFixed(1)}% 상승`);
+        else if (changePct > 0) triggers.push(`금일 +${changePct.toFixed(1)}%`);
+        else if (changePct < -2) triggers.push(`금일 ${changePct.toFixed(1)}% 하락`);
+        else if (changePct < 0) triggers.push(`금일 ${changePct.toFixed(1)}%`);
+
+        if (optionsData) {
+            const pcRatio = optionsData.putCallRatio || 1;
+            if (pcRatio < 0.7) triggers.push('콜옵션 우세 (강세)');
+            else if (pcRatio > 1.3) triggers.push('풋옵션 우세 (약세)');
+        }
+
+        // Determine action
         if (score >= 75 && changePct > 0) {
             action = 'ADD';
             confidence = Math.min(90, 50 + score - 50);
+            triggers.push('→ 추가 매수 적합');
         } else if (score <= 35 || (changePct < -3 && score < 50)) {
             action = 'TRIM';
             confidence = Math.min(90, 50 + (50 - score));
+            triggers.push('→ 비중 축소 권장');
         } else if (score >= 50 && score < 75) {
             action = 'HOLD';
             confidence = 60 + (score - 50);
+            triggers.push('→ 현 포지션 유지');
         } else {
             action = 'WATCH';
             confidence = 50;
+            triggers.push('→ 관망 권장');
         }
 
         // Calculate Max Pain distance %
@@ -94,6 +116,7 @@ export async function GET(request: Request) {
                 grade,
                 action,
                 confidence: Math.round(confidence),
+                triggers, // Signal reasoning
                 capturedAt: new Date().toISOString()
             },
             // Real-time indicators

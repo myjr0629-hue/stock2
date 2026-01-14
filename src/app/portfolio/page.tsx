@@ -322,7 +322,7 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
 
             {/* Signal (1.5fr) */}
             <div className="flex justify-center">
-                <SignalBadge action={holding.action || 'HOLD'} confidence={holding.confidence || 50} />
+                <SignalBadge action={holding.action || 'HOLD'} confidence={holding.confidence || 50} triggers={holding.triggers} />
             </div>
 
             {/* MaxPain (2fr) - with price */}
@@ -398,8 +398,8 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
     );
 }
 
-// Signal Badge with Confidence (handles missing data)
-function SignalBadge({ action, confidence }: { action?: string; confidence?: number }) {
+// Signal Badge with Confidence + Triggers Tooltip
+function SignalBadge({ action, confidence, triggers }: { action?: string; confidence?: number; triggers?: string[] }) {
     // Show N/A state if no data
     if (!action) {
         return (
@@ -417,8 +417,16 @@ function SignalBadge({ action, confidence }: { action?: string; confidence?: num
     };
     const c = config[action] || config['HOLD'];
 
+    // Build tooltip from triggers
+    const tooltipText = triggers && triggers.length > 0
+        ? `📊 Signal 근거\n━━━━━━━━━━━━━━\n${triggers.join('\n')}`
+        : `${action} ${confidence}%`;
+
     return (
-        <div className={`flex items-center gap-2 px-2.5 py-1 rounded-lg ${c.bg} border ${c.border}`}>
+        <div
+            className={`flex items-center gap-2 px-2.5 py-1 rounded-lg ${c.bg} border ${c.border} cursor-help`}
+            title={tooltipText}
+        >
             <span className={`text-[10px] font-black ${c.text}`}>{action}</span>
             {confidence !== undefined && (
                 <span className="text-[9px] font-bold font-num text-slate-400">{confidence}%</span>
