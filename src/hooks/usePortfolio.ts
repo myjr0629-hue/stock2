@@ -104,28 +104,10 @@ export function usePortfolio() {
                 };
             });
 
-            // Enrich with Alpha data: prioritize stored alphaSnapshot, fallback to Reports API
+            // Enrich with Alpha data from real-time API (always use fresh data)
             const alphaMap = await fetchAlphaData(tickers);
             const fullyEnriched = enriched.map(h => {
-                // First check if holding has stored alphaSnapshot
-                const storedSnapshot = data.holdings.find(dh => dh.ticker === h.ticker)?.alphaSnapshot;
-
-                if (storedSnapshot) {
-                    return {
-                        ...h,
-                        alphaScore: storedSnapshot.score,
-                        alphaGrade: storedSnapshot.grade,
-                        action: storedSnapshot.action,
-                        confidence: storedSnapshot.confidence,
-                        // Real-time indicators from API (not stored)
-                        threeDay: undefined,
-                        rvol: undefined,
-                        maxPainDist: undefined,
-                        tripleA: undefined
-                    };
-                }
-
-                // Fallback to Reports API data
+                // Always use fresh API data for real-time analysis
                 const alphaData = alphaMap[h.ticker];
                 if (alphaData) {
                     return {
