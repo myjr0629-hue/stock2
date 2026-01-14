@@ -76,6 +76,17 @@ export async function GET(request: Request) {
             confidence = 50;
         }
 
+        // Calculate Max Pain distance %
+        const maxPain = opts?.maxPain || 0;
+        const currentPrice = stockData.price || 0;
+        const maxPainDist = (maxPain && currentPrice)
+            ? ((maxPain - currentPrice) / currentPrice) * 100
+            : 0;
+
+        // Get GEX from options data
+        const gex = opts?.gems?.gex || opts?.gex || 0;
+        const gexNormalized = gex / 1000000; // Normalize to millions
+
         const result = {
             ticker: tickerUpper,
             alphaSnapshot: {
@@ -91,11 +102,16 @@ export async function GET(request: Request) {
                 changePct: changePct,
                 session: stockData.session || 'reg',
                 rvol: (stockData as any).rvol || ((stockData as any).volume && (stockData as any).avgVolume ? (stockData as any).volume / (stockData as any).avgVolume : 1.0),
-                maxPainDist: opts?.maxPainDistance || 0,
+                // Options indicators
+                maxPain: maxPain,
+                maxPainDist: Number(maxPainDist.toFixed(2)), // Distance % from current price
+                gex: gex,
+                gexM: Number(gexNormalized.toFixed(2)), // GEX in millions
+                pcr: opts?.putCallRatio || null, // Put/Call Ratio
                 tripleA: {
                     direction: changePct > 0,
                     acceleration: Math.abs(changePct) > 1,
-                    accumulation: opts?.netFlow > 0 || false
+                    accumulation: gex > 0 // Positive GEX = accumulation
                 }
             },
             meta: {

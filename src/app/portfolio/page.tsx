@@ -347,9 +347,8 @@ function PremiumHoldingRow({ holding, onRemove }: { holding: EnrichedHolding; on
             {/* EDGE (2 cols) - RVOL + Triple-A with tooltips */}
             <div className="col-span-2 flex items-center justify-center gap-2">
                 <EdgeIndicators
-                    rvol={holding.rvol || 1.0}
                     maxPainDist={holding.maxPainDist || 0}
-                    tripleA={holding.tripleA || { direction: false, acceleration: false, accumulation: false }}
+                    gexM={holding.gexM || 0}
                 />
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center">
                     <button
@@ -445,46 +444,42 @@ function SignalBadge({ action, confidence }: { action?: string; confidence?: num
     );
 }
 
-// Edge Indicators - Intuitive Visual Display
-function EdgeIndicators({ rvol, maxPainDist, tripleA }: {
-    rvol: number;
+// Edge Indicators - Max Pain & GEX Premium Display
+function EdgeIndicators({ maxPainDist, gexM }: {
     maxPainDist: number;
-    tripleA: { direction: boolean; acceleration: boolean; accumulation: boolean };
+    gexM: number;
 }) {
-    // RVOL visual: bar width based on value (1.0 = 50%, 2.0 = 100%)
-    const rvolPercent = Math.min(rvol * 50, 100);
-    const rvolColor = rvol >= 1.5 ? 'bg-amber-400' : rvol >= 1.0 ? 'bg-emerald-400' : 'bg-slate-600';
-    const rvolTextColor = rvol >= 1.5 ? 'text-amber-400' : rvol >= 1.0 ? 'text-emerald-400' : 'text-slate-500';
+    // Max Pain Distance: positive = price below (upside pressure), negative = price above (downside pressure)
+    const maxPainColor = maxPainDist > 0 ? 'text-emerald-400' : maxPainDist < 0 ? 'text-rose-400' : 'text-slate-400';
+    const maxPainArrow = maxPainDist > 0 ? '↑' : maxPainDist < 0 ? '↓' : '→';
+    const maxPainLabel = maxPainDist > 0 ? '상승압력' : maxPainDist < 0 ? '하락압력' : '중립';
 
-    const tripleACount = [tripleA.direction, tripleA.acceleration, tripleA.accumulation].filter(Boolean).length;
-    const tripleAColor = tripleACount >= 3 ? 'text-emerald-400' : tripleACount >= 2 ? 'text-cyan-400' : tripleACount >= 1 ? 'text-amber-400' : 'text-slate-500';
+    // GEX: positive = dealer hedging dampens volatility, negative = dealer hedging amplifies volatility
+    const gexColor = gexM > 0 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
+        : gexM < 0 ? 'text-rose-400 bg-rose-400/10 border-rose-400/30'
+            : 'text-slate-400 bg-slate-400/10 border-slate-400/30';
+    const gexLabel = gexM > 0 ? 'LONG' : gexM < 0 ? 'SHORT' : 'N/A';
+    const gexIcon = gexM > 0 ? '🛡️' : gexM < 0 ? '⚡' : '—';
 
     return (
-        <div className="flex items-center gap-4">
-            {/* RVOL - Volume bar indicator */}
-            <div className="flex items-center gap-1.5" title={`거래량 ${rvol.toFixed(1)}x (평균 대비)`}>
-                <div className="w-12 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div
-                        className={`h-full ${rvolColor} rounded-full transition-all`}
-                        style={{ width: `${rvolPercent}%` }}
-                    />
-                </div>
-                <span className={`text-xs font-bold font-num ${rvolTextColor}`}>
-                    {rvol.toFixed(1)}x
+        <div className="flex items-center gap-3">
+            {/* Max Pain Distance - Intuitive arrow display */}
+            <div
+                className="flex items-center gap-1"
+                title={`Max Pain 이격도: ${maxPainDist > 0 ? '+' : ''}${maxPainDist.toFixed(1)}%\n${maxPainLabel}`}
+            >
+                <span className={`text-lg font-bold ${maxPainColor}`}>{maxPainArrow}</span>
+                <span className={`text-xs font-bold font-num ${maxPainColor}`}>
+                    {maxPainDist > 0 ? '+' : ''}{maxPainDist.toFixed(1)}%
                 </span>
             </div>
 
-            {/* Triple-A - Signal strength indicator */}
-            <div className="flex items-center gap-1" title={`신호강도 ${tripleACount}/3`}>
-                {[0, 1, 2].map((i) => (
-                    <div
-                        key={i}
-                        className={`w-1.5 h-3 rounded-sm ${i < tripleACount ? 'bg-emerald-400' : 'bg-slate-700'}`}
-                    />
-                ))}
-                <span className={`text-xs font-bold ml-0.5 ${tripleAColor}`}>
-                    {tripleACount}/3
-                </span>
+            {/* GEX - Long/Short badge */}
+            <div
+                className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${gexColor}`}
+                title={`감마 노출(GEX): ${gexM > 0 ? '+' : ''}${gexM.toFixed(1)}M\n${gexM > 0 ? '딜러가 변동성 억제 (안정적)' : gexM < 0 ? '딜러가 변동성 가속 (주의)' : '데이터 없음'}`}
+            >
+                {gexIcon} {gexLabel}
             </div>
         </div>
     );

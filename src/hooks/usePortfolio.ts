@@ -32,6 +32,8 @@ export interface EnrichedHolding extends Holding {
     // Premium Edge Indicators
     rvol?: number; // Relative Volume (1.0 = average)
     maxPainDist?: number; // % distance from max pain
+    gex?: number; // Gamma Exposure (raw)
+    gexM?: number; // Gamma Exposure (millions)
     tripleA?: { direction: boolean; acceleration: boolean; accumulation: boolean }; // Triple-A alignment
 }
 
@@ -119,6 +121,8 @@ export function usePortfolio() {
                         threeDay: alphaData.threeDay,
                         rvol: alphaData.rvol,
                         maxPainDist: alphaData.maxPainDist,
+                        gex: alphaData.gex,
+                        gexM: alphaData.gexM,
                         tripleA: alphaData.tripleA
                     };
                 }
@@ -209,6 +213,8 @@ export function usePortfolio() {
         threeDay: number;
         rvol: number;
         maxPainDist: number;
+        gex: number;
+        gexM: number;
         tripleA: { direction: boolean; acceleration: boolean; accumulation: boolean };
     }
 
@@ -231,6 +237,8 @@ export function usePortfolio() {
                         threeDay: data.realtime.changePct || 0,
                         rvol: data.realtime.rvol || 1.0,
                         maxPainDist: data.realtime.maxPainDist || 0,
+                        gex: data.realtime.gex || 0,
+                        gexM: data.realtime.gexM || 0,
                         tripleA: data.realtime.tripleA || { direction: false, acceleration: false, accumulation: false }
                     };
                 }
