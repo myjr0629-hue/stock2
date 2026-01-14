@@ -214,10 +214,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
 
                     <div className="p-3.5 rounded-lg bg-black/20 border border-white/5 backdrop-blur-sm group-hover:bg-black/30 transition-colors shadow-inner">
                         <p className="text-sm font-medium text-slate-100 leading-relaxed text-pretty">
-                            {reasonKR?.includes('누락')
-                                ? <>{reasonKR} <span className="text-slate-500 text-xs">(주말: 금요일 마지막 데이터 참조)</span></>
-                                : (reasonKR || "분석 완료. 매수 시그널 대기 중.")
-                            }
+                            {reasonKR || "분석 완료. 매수 시그널 대기 중."}
                         </p>
                     </div>
 
