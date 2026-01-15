@@ -400,20 +400,16 @@ function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }
 
     const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white';
     const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
-    const label = dist > 0 ? '저평가' : dist < 0 ? '고평가' : '균형';
 
     return (
-        <div className="flex items-center gap-1" title={`Max Pain: $${maxPain?.toFixed(2)} - 옵션 만기 예상가`}>
-            <div className="text-center">
-                {maxPain && (
-                    <span className="text-[9px] text-white font-num font-bold block">${maxPain.toFixed(0)}</span>
-                )}
-                <span className={color}>
-                    <span className="text-sm">{arrow}</span>
-                    <span className="text-[10px] font-bold font-num">{dist > 0 ? '+' : ''}{dist.toFixed(1)}%</span>
-                </span>
-            </div>
-            <span className="text-[8px] text-white/80">{label}</span>
+        <div className="text-center" title={`Max Pain: $${maxPain?.toFixed(2)} - 옵션 만기 예상가`}>
+            {maxPain && (
+                <span className="text-[9px] text-white font-num font-bold block">${maxPain.toFixed(0)}</span>
+            )}
+            <span className={color}>
+                <span className="text-sm">{arrow}</span>
+                <span className="text-[10px] font-bold font-num">{dist > 0 ? '+' : ''}{dist.toFixed(1)}%</span>
+            </span>
         </div>
     );
 }
