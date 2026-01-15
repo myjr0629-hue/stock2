@@ -168,27 +168,35 @@ export default function Page() {
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-3">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <a href="/ticker?ticker=NVDA"
-              className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-cyan-400 
+              className="px-10 py-3.5 bg-gradient-to-r from-cyan-500 to-cyan-400 
                 text-slate-900 rounded-full font-bold text-sm 
                 hover:from-cyan-400 hover:to-cyan-300 transition-all 
-                flex items-center gap-2 shadow-[0_0_25px_rgba(6,182,212,0.4)]">
-              ENTER COMMAND <ArrowRight size={16} />
+                flex items-center gap-2 shadow-[0_0_30px_rgba(6,182,212,0.4)]">
+              Enter Command <ArrowRight size={16} />
             </a>
-            <a href="#live-demo"
-              className="px-8 py-3 bg-transparent border border-cyan-500/50 
-                text-cyan-400 rounded-full font-bold text-sm hover:bg-cyan-500/10 transition-all">
-              VIEW DEMO
+            <a href="#features"
+              className="px-10 py-3.5 bg-[#0a1628] border border-white/10 
+                text-slate-300 rounded-full font-medium text-sm hover:bg-white/5 transition-all">
+              How It Works
             </a>
           </div>
         </div>
       </section>
 
+      {/* Decorative Separator - Radar Signal */}
+      <div className="flex justify-center py-6">
+        <svg width="60" height="30" viewBox="0 0 60 30" className="text-cyan-500/30">
+          <path d="M10,25 Q30,5 50,25" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+          <circle cx="30" cy="10" r="3" fill="currentColor" className="animate-pulse" />
+        </svg>
+      </div>
+
       {/* ========================================= */}
       {/* FEATURES SECTION */}
       {/* ========================================= */}
-      <section id="features" className="py-10 px-6">
+      <section id="features" className="py-14 px-6">
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-8">
@@ -300,10 +308,19 @@ export default function Page() {
         </div>
       </section>
 
+      {/* Decorative Separator - Signal Wave */}
+      <div className="flex justify-center py-8">
+        <svg width="80" height="40" viewBox="0 0 80 40" className="text-cyan-500/20">
+          <path d="M5,35 Q20,10 40,20 T75,10" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
+          <circle cx="40" cy="20" r="4" fill="currentColor" className="animate-pulse opacity-60" />
+          <circle cx="60" cy="15" r="2" fill="currentColor" className="opacity-40" />
+        </svg>
+      </div>
+
       {/* ========================================= */}
       {/* LIVE DASHBOARD */}
       {/* ========================================= */}
-      <section id="live-demo" className="py-10 px-6">
+      <section id="live-demo" className="py-12 px-6">
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}
           <div className="flex items-center justify-between mb-5">
