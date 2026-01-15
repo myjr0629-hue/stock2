@@ -41,7 +41,7 @@ export function LandingHeader() {
                         <line x1="24" y1="24" x2="34" y2="14" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
                     </svg>
 
-                    <span className="text-base font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
+                    <span className="text-xl font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
                         SIGNUM<span className="text-cyan-400">HQ</span>
                     </span>
                 </Link>

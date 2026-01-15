@@ -167,7 +167,7 @@ export default function Page() {
               className="px-10 py-4 bg-[#0a1628]/50 border border-[#1e293b] 
                 text-[#38bdf8] rounded-md font-bold text-sm uppercase tracking-wider 
                 hover:bg-[#0a1628] hover:border-[#38bdf8]/30 transition-all">
-              View Demo
+              How It Works
             </a>
           </div>
         </div>
@@ -176,38 +176,38 @@ export default function Page() {
       {/* ========================================= */}
       {/* FEATURES SECTION */}
       {/* ========================================= */}
-      <section id="features" className="py-16 px-6">
+      <section id="features" className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}
-          <div className="text-center mb-12">
-            <h2 className="text-2xl md:text-3xl font-black text-white mb-3">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
               왜 <span className="text-cyan-400">SIGNUM HQ</span>인가?
             </h2>
-            <p className="text-[11px] text-slate-500 uppercase tracking-[0.25em]">
+            <p className="text-xs text-slate-500 uppercase tracking-[0.25em]">
               $450+/월 가치의 프리미엄 데이터 통합
             </p>
           </div>
 
-          {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Feature Cards - Glassmorphism */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Card 1 */}
-            <div className="relative p-6 rounded-2xl bg-[#0d1829] border border-[#1a2942] overflow-hidden group hover:border-cyan-500/30 transition-all duration-300">
-              <div className="absolute -right-8 -bottom-8 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+            <div className="relative p-7 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/20 transition-all duration-300">
+              <div className="absolute -right-8 -bottom-8 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
                 <Waves className="w-36 h-36 text-cyan-400" />
               </div>
 
               <div className="relative z-10">
-                <div className="flex items-start justify-between mb-5">
-                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
                     <Waves className="w-6 h-6 text-cyan-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg">
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
                     $200/mo 가치
                   </span>
                 </div>
 
                 <h3 className="text-lg font-bold text-white mb-3">감마 익스포져 분석</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-5">
+                <p className="text-xs text-slate-400 leading-relaxed mb-6">
                   MM의 감마 익스포져를 추적하여 가격 자석(Max Pain)과 저항선을 식별. 기관급 데이터 시각화.
                 </p>
 
@@ -219,23 +219,23 @@ export default function Page() {
             </div>
 
             {/* Card 2 */}
-            <div className="relative p-6 rounded-2xl bg-[#0d1829] border border-[#1a2942] overflow-hidden group hover:border-amber-500/30 transition-all duration-300">
-              <div className="absolute -right-8 -bottom-8 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+            <div className="relative p-7 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-amber-500/20 transition-all duration-300">
+              <div className="absolute -right-8 -bottom-8 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
                 <Eye className="w-36 h-36 text-amber-400" />
               </div>
 
               <div className="relative z-10">
-                <div className="flex items-start justify-between mb-5">
-                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
                     <Eye className="w-6 h-6 text-amber-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg">
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
                     $150/mo 가치
                   </span>
                 </div>
 
                 <h3 className="text-lg font-bold text-white mb-3">다크풀 & 고래 추적</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-5">
+                <p className="text-xs text-slate-400 leading-relaxed mb-6">
                   일반 거래소에 보이지 않는 대형 블록 트레이드와 기관 매집을 실시간 탐지. 스마트 머니를 따라가세요.
                 </p>
 
@@ -247,23 +247,23 @@ export default function Page() {
             </div>
 
             {/* Card 3 */}
-            <div className="relative p-6 rounded-2xl bg-[#0d1829] border border-[#1a2942] overflow-hidden group hover:border-cyan-500/30 transition-all duration-300">
-              <div className="absolute -right-8 -bottom-8 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+            <div className="relative p-7 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/20 transition-all duration-300">
+              <div className="absolute -right-8 -bottom-8 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
                 <Radar className="w-36 h-36 text-cyan-400" />
               </div>
 
               <div className="relative z-10">
-                <div className="flex items-start justify-between mb-5">
-                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                <div className="flex items-start justify-between mb-6">
+                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
                     <Radar className="w-6 h-6 text-cyan-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg">
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
                     $100/mo 가치
                   </span>
                 </div>
 
                 <h3 className="text-lg font-bold text-white mb-3">3일 스나이퍼 시그널</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-5">
+                <p className="text-xs text-slate-400 leading-relaxed mb-6">
                   모멘텀, 수급, 기술적 조건이 정렬된 '3일 급등 후보' 자동 스캔. 고확률 진입 타이밍 포착.
                 </p>
 
@@ -276,10 +276,10 @@ export default function Page() {
           </div>
 
           {/* Consolidated Pricing Badge */}
-          <div className="mt-12 flex justify-center">
-            <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-[#0d1829] border border-[#1a2942]">
+          <div className="mt-16 flex justify-center">
+            <div className="inline-flex items-center gap-3 px-8 py-3 rounded-full bg-[#0a1628] border border-[#1e293b]">
               <span className="text-sm text-slate-500 line-through">$450+/월</span>
-              <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">Consolidated Pricing</span>
+              <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">통합 요금제</span>
             </div>
           </div>
         </div>
