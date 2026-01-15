@@ -28,17 +28,15 @@ export function LandingHeader() {
                 {/* 1. LOGO (SIGNUM HQ - Text Only, Premium Style) */}
                 <Link href="/" className="flex items-center gap-3 group">
                     {/* Decorative accent bar */}
-                    <div className="w-0.5 h-5 bg-gradient-to-b from-cyan-400 to-amber-500 rounded-full opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <div className="w-0.5 h-6 bg-gradient-to-b from-cyan-400 to-amber-500 rounded-full opacity-90 group-hover:opacity-100 transition-opacity" />
 
-                    <div className="flex flex-col">
-                        <div className="flex items-baseline gap-0.5">
-                            <span className="text-sm font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
-                                SIGNUM
-                            </span>
-                            <span className="text-sm font-black tracking-tight text-cyan-400 leading-none">
-                                HQ
-                            </span>
-                        </div>
+                    <div className="flex items-baseline gap-1">
+                        <span className="text-base font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
+                            SIGNUM
+                        </span>
+                        <span className="text-base font-black tracking-tight text-cyan-400 leading-none">
+                            HQ
+                        </span>
                     </div>
                 </Link>
 
@@ -78,13 +76,13 @@ export function LandingHeader() {
                     {/* Search Bar */}
                     <div className="hidden lg:block relative group">
                         <form onSubmit={handleSearch}>
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-emerald-500 transition-colors" />
+                            <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-500 group-focus-within:text-cyan-500 transition-colors" />
                             <input
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 placeholder="TICKER..."
-                                className="pl-9 pr-3 h-9 w-32 focus:w-48 bg-slate-900/50 border border-slate-700 rounded-lg text-xs font-bold text-white placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-0 transition-all outline-none uppercase tracking-wider"
+                                className="pl-7 pr-2 h-7 w-28 focus:w-40 bg-slate-900/50 border border-slate-700/50 rounded text-[10px] font-bold text-white placeholder:text-slate-600 focus:border-cyan-500/50 focus:ring-0 transition-all outline-none uppercase tracking-wider"
                             />
                         </form>
                     </div>
@@ -97,8 +95,11 @@ export function LandingHeader() {
                         <span>EN <span className="text-slate-700">|</span> KO</span>
                     </button>
 
-                    {/* Login Button - Minimal */}
-                    <Link href="/login" className="hidden md:block text-[10px] font-bold text-slate-400 hover:text-cyan-400 transition-colors uppercase tracking-widest">
+                    {/* Login Button - Visible */}
+                    <Link
+                        href="/login"
+                        className="hidden md:flex items-center gap-1.5 px-4 py-1.5 text-[10px] font-bold text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/10 transition-all uppercase tracking-wider"
+                    >
                         Sign In
                     </Link>
 

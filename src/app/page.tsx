@@ -155,15 +155,15 @@ export default function Page() {
       <section className="relative pt-24 pb-10 px-6 overflow-hidden">
         {/* Background - Premium Abstract Grid + Glow */}
         <div className="absolute inset-0 z-0 select-none pointer-events-none overflow-hidden">
-          {/* Subtle grid pattern */}
+          {/* Subtle grid pattern - MORE VISIBLE */}
           <div
-            className="absolute inset-0 opacity-[0.03]"
+            className="absolute inset-0 opacity-[0.08]"
             style={{
               backgroundImage: `
-                linear-gradient(rgba(6,182,212,0.5) 1px, transparent 1px),
-                linear-gradient(90deg, rgba(6,182,212,0.5) 1px, transparent 1px)
+                linear-gradient(rgba(6,182,212,0.8) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6,182,212,0.8) 1px, transparent 1px)
               `,
-              backgroundSize: '60px 60px'
+              backgroundSize: '80px 80px'
             }}
           />
 
@@ -194,9 +194,9 @@ export default function Page() {
             />
           </svg>
 
-          {/* Center glow */}
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-cyan-500/5 rounded-full blur-[120px]" />
-          <div className="absolute top-1/3 right-1/4 w-[300px] h-[200px] bg-amber-500/5 rounded-full blur-[100px]" />
+          {/* Center glow - STRONGER */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] bg-cyan-500/8 rounded-full blur-[150px]" />
+          <div className="absolute top-1/3 right-1/4 w-[400px] h-[300px] bg-amber-500/8 rounded-full blur-[120px]" />
 
           {/* Bottom fade */}
           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050810]" />
@@ -245,13 +245,13 @@ export default function Page() {
       {/* ========================================= */}
       {/* FEATURES - Glassmorphism Cards with Content */}
       {/* ========================================= */}
-      <section id="features" className="py-12 px-6 border-t border-white/5">
+      <section id="features" className="py-12 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-black text-white mb-2">
               왜 <span className="text-cyan-400">SIGNUM HQ</span>인가?
             </h2>
-            <p className="text-sm text-slate-500">$500+/월 가치의 프리미엄 데이터를 통합</p>
+            <p className="text-sm text-slate-500">$450+/월 가치의 프리미엄 데이터를 통합</p>
           </div>
 
           {/* Feature Cards - 3 columns with descriptions */}
@@ -326,7 +326,7 @@ export default function Page() {
       {/* ========================================= */}
       {/* LIVE DEMO */}
       {/* ========================================= */}
-      <section id="live-demo" className="py-12 px-6 bg-[#030508] border-t border-white/5">
+      <section id="live-demo" className="py-12 px-6 bg-[#030508]/50">
         <div className="max-w-5xl mx-auto">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -351,7 +351,7 @@ export default function Page() {
       </section>
 
       {/* FOOTER */}
-      <footer className="py-6 px-6 border-t border-white/5">
+      <footer className="py-6 px-6">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
             <img src="/logo-signum-original.jpg" alt="SIGNUM HQ" className="w-6 h-6 rounded" />
