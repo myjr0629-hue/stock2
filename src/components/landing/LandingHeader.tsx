@@ -23,25 +23,22 @@ export function LandingHeader() {
     };
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-[#0F172A]/80 backdrop-blur-xl">
-            <div className="container flex h-16 items-center justify-between px-4 sm:px-8">
+        <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-[#0a0f1a]/90 backdrop-blur-xl">
+            <div className="container flex h-12 items-center justify-between px-4 sm:px-6">
                 {/* 1. LOGO (SIGNUM HQ - Text Only, Premium Style) */}
                 <Link href="/" className="flex items-center gap-3 group">
                     {/* Decorative accent bar */}
-                    <div className="w-1 h-8 bg-gradient-to-b from-cyan-400 to-amber-500 rounded-full opacity-80 group-hover:opacity-100 transition-opacity" />
+                    <div className="w-0.5 h-5 bg-gradient-to-b from-cyan-400 to-amber-500 rounded-full opacity-80 group-hover:opacity-100 transition-opacity" />
 
                     <div className="flex flex-col">
-                        <div className="flex items-baseline gap-1">
-                            <span className="text-lg font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
+                        <div className="flex items-baseline gap-0.5">
+                            <span className="text-sm font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
                                 SIGNUM
                             </span>
-                            <span className="text-lg font-black tracking-tight text-cyan-400 leading-none">
+                            <span className="text-sm font-black tracking-tight text-cyan-400 leading-none">
                                 HQ
                             </span>
                         </div>
-                        <span className="text-[9px] font-medium text-slate-500 tracking-[0.2em] uppercase leading-none mt-1 group-hover:text-slate-400 transition-colors">
-                            Signal Command
-                        </span>
                     </div>
                 </Link>
 
@@ -100,12 +97,9 @@ export function LandingHeader() {
                         <span>EN <span className="text-slate-700">|</span> KO</span>
                     </button>
 
-                    {/* Login Button */}
-                    <Link href="/login" className="hidden md:block">
-                        <Button className="bg-emerald-600 hover:bg-emerald-500 text-white h-9 px-5 rounded-lg text-[10px] font-black tracking-widest uppercase shadow-[0_0_15px_rgba(5,150,105,0.4)] hover:shadow-[0_0_25px_rgba(5,150,105,0.6)] transition-all border border-emerald-400/20">
-                            <LogIn size={12} className="mr-2" />
-                            Login
-                        </Button>
+                    {/* Login Button - Minimal */}
+                    <Link href="/login" className="hidden md:block text-[10px] font-bold text-slate-400 hover:text-cyan-400 transition-colors uppercase tracking-widest">
+                        Sign In
                     </Link>
 
                     {/* [Mobile Menu Toggle] */}

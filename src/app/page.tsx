@@ -145,23 +145,61 @@ export default function Page() {
       <LandingHeader />
 
       {/* MACRO TICKER TAPE */}
-      <div className="fixed top-[64px] left-0 right-0 z-40">
+      <div className="fixed top-[48px] left-0 right-0 z-40">
         <TradingViewTicker key="v7-subtle" />
       </div>
 
       {/* ========================================= */}
       {/* HERO SECTION */}
       {/* ========================================= */}
-      <section className="relative pt-28 pb-12 px-6 overflow-hidden">
-        {/* Background - Tech logos - SPREAD WIDE */}
-        <div className="absolute inset-0 z-0 select-none pointer-events-none">
-          <img
-            src="/us_tech_logos_tight.png?v=1"
-            alt="Background"
-            className="w-full h-full object-cover opacity-40"
+      <section className="relative pt-24 pb-10 px-6 overflow-hidden">
+        {/* Background - Premium Abstract Grid + Glow */}
+        <div className="absolute inset-0 z-0 select-none pointer-events-none overflow-hidden">
+          {/* Subtle grid pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: `
+                linear-gradient(rgba(6,182,212,0.5) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6,182,212,0.5) 1px, transparent 1px)
+              `,
+              backgroundSize: '60px 60px'
+            }}
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#050810]/50 via-[#050810]/40 to-[#050810]" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,#050810_80%)] opacity-80" />
+
+          {/* Abstract chart line suggestion */}
+          <svg className="absolute inset-0 w-full h-full opacity-[0.08]" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="chartLine" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#06b6d4" stopOpacity="0" />
+                <stop offset="30%" stopColor="#06b6d4" stopOpacity="1" />
+                <stop offset="70%" stopColor="#f59e0b" stopOpacity="1" />
+                <stop offset="100%" stopColor="#f59e0b" stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path
+              d="M0,70% Q15%,65% 25%,55% T50%,45% T75%,50% T100%,40%"
+              fill="none"
+              stroke="url(#chartLine)"
+              strokeWidth="2"
+              vectorEffect="non-scaling-stroke"
+            />
+            <path
+              d="M0,80% Q20%,75% 35%,60% T60%,55% T85%,60% T100%,50%"
+              fill="none"
+              stroke="url(#chartLine)"
+              strokeWidth="1"
+              strokeOpacity="0.5"
+              vectorEffect="non-scaling-stroke"
+            />
+          </svg>
+
+          {/* Center glow */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-cyan-500/5 rounded-full blur-[120px]" />
+          <div className="absolute top-1/3 right-1/4 w-[300px] h-[200px] bg-amber-500/5 rounded-full blur-[100px]" />
+
+          {/* Bottom fade */}
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#050810]" />
         </div>
 
         {/* Content */}
