@@ -49,38 +49,31 @@ export default function PortfolioPage() {
             {/* Live Ticker Bar */}
             <TradingViewTicker />
 
-            {/* Page Header */}
-            <div className="border-b border-white/5 bg-gradient-to-r from-[#0a0e14] via-[#0f1520] to-[#0a0e14]">
-                <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30 flex items-center justify-center">
-                            <Briefcase className="w-5 h-5 text-cyan-400" />
-                        </div>
-                        <div>
-                            <h1 className="text-lg font-bold tracking-tight flex items-center gap-2">
-                                PORTFOLIO
-                                <span className="text-[9px] font-bold text-slate-500 bg-slate-900/50 px-2 py-0.5 rounded-full border border-slate-700">PREMIUM</span>
-                            </h1>
-                            <p className="text-xs text-slate-400">Alpha Engine 기반 실시간 분석</p>
-                        </div>
-                    </div>
+            {/* Page Header - Minimal & Premium */}
+            <div className="border-b border-white/5">
+                <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
+                        <Briefcase className="w-4 h-4 text-cyan-400/80" />
+                        <span className="text-sm font-bold tracking-wide text-white/90">PORTFOLIO</span>
+                        <span className="text-[8px] font-medium text-cyan-400/60 tracking-widest">PREMIUM</span>
+                    </div>
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => refresh()}
-                            className="p-2.5 hover:bg-white/5 rounded-xl transition-all border border-transparent hover:border-slate-700 relative"
-                            title="Refresh prices"
+                            className="p-2 hover:bg-white/5 rounded transition-all relative"
+                            title="Refresh"
                         >
-                            <RefreshCw className={`w-4 h-4 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 hover:text-slate-300 ${loading ? 'animate-spin' : ''}`} />
                             {isRefreshing && (
-                                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                                <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-cyan-400 rounded-full" />
                             )}
                         </button>
                         <button
                             onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-400 rounded-xl hover:from-cyan-500/30 hover:to-indigo-500/30 transition-all text-sm font-bold border border-cyan-500/30"
+                            className="flex items-center gap-1 px-3 py-1.5 text-cyan-400/90 hover:text-cyan-300 text-xs font-medium transition-colors"
                         >
-                            <Plus className="w-4 h-4" />
-                            종목 추가
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add</span>
                         </button>
                     </div>
                 </div>
