@@ -119,49 +119,47 @@ export default function Page() {
       {/* ========================================= */}
       {/* HERO SECTION */}
       {/* ========================================= */}
-      <section className="relative pt-24 pb-10 px-6">
-        <div className="max-w-4xl mx-auto text-center">
-          {/* Cloud Logo */}
-          <div className="flex justify-center mb-5">
-            <svg width="50" height="32" viewBox="0 0 50 32" className="text-cyan-400/60">
-              <path d="M25 4 Q35 4 40 12 Q48 12 48 20 Q48 28 40 28 L10 28 Q2 28 2 20 Q2 12 10 12 Q15 4 25 4 Z"
-                fill="none" stroke="currentColor" strokeWidth="1.5" />
-            </svg>
-          </div>
+      <section className="relative pt-28 pb-12 px-6 overflow-hidden">
+        {/* Background Glow Effect */}
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-gradient-radial from-cyan-900/20 via-transparent to-transparent blur-3xl" />
+          <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-radial from-amber-900/10 via-transparent to-transparent blur-3xl" />
+        </div>
 
+        <div className="relative z-10 max-w-4xl mx-auto text-center">
           {/* Live Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full 
-            bg-[#0d1829] border border-[#1a2942]
-            text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400 mb-8">
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full 
+            bg-[#0f1a2a] border border-[#1f3350]
+            text-[10px] font-bold uppercase tracking-[0.25em] text-cyan-400 mb-10">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             실시간 미국 마켓 데이터
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-5xl md:text-7xl font-black italic tracking-tight leading-[0.95] mb-6">
-            <span className="text-white">MARKET LOGIC,</span><br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-300">SOLVED.</span>
+          <h1 className="text-5xl md:text-7xl font-black italic tracking-tight leading-[0.95] mb-8">
+            <span className="text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.15)]">MARKET LOGIC,</span><br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-400 drop-shadow-[0_0_40px_rgba(251,191,36,0.4)]">SOLVED.</span>
           </h1>
 
           {/* Tagline */}
-          <p className="text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed mb-8">
-            기관의 <span className="text-white font-semibold">다크풀</span> 움직임과 알고리즘
-            <span className="text-white font-semibold"> 옵션 플로우</span>를 실시간으로 추적하세요.
-            <span className="text-cyan-400 font-semibold"> 미국 주식 시장</span>을 위한 궁극의 사령부.
+          <p className="text-base text-slate-400 max-w-2xl mx-auto leading-relaxed mb-10">
+            기관의 <span className="text-white font-bold">다크풀</span> 움직임과 알고리즘
+            <span className="text-white font-bold"> 옵션 플로우</span>를 실시간으로 추적하세요.<br />
+            <span className="text-cyan-400 font-bold">미국 주식 시장</span>을 위한 궁극의 사령부.
           </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a href="/ticker?ticker=NVDA"
-              className="px-10 py-3.5 bg-gradient-to-r from-cyan-500 to-cyan-400 
+              className="px-10 py-4 bg-gradient-to-r from-cyan-500 to-cyan-400 
                 text-slate-900 rounded-full font-bold text-sm uppercase tracking-wide
                 hover:from-cyan-400 hover:to-cyan-300 transition-all 
-                flex items-center gap-2 shadow-[0_0_30px_rgba(6,182,212,0.3)]">
+                flex items-center gap-2 shadow-[0_0_35px_rgba(6,182,212,0.4)]">
               Enter Command <ArrowRight size={16} />
             </a>
             <a href="#features"
-              className="px-10 py-3.5 bg-transparent border border-cyan-500/50 
-                text-cyan-400 rounded-full font-bold text-sm uppercase tracking-wide hover:bg-cyan-500/10 transition-all">
+              className="px-10 py-4 bg-transparent border-2 border-amber-500/70 
+                text-amber-400 rounded-full font-bold text-sm uppercase tracking-wide hover:bg-amber-500/10 transition-all">
               View Demo
             </a>
           </div>
