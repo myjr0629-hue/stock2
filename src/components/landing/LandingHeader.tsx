@@ -25,19 +25,25 @@ export function LandingHeader() {
     return (
         <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-[#0a0f1a]/90 backdrop-blur-xl">
             <div className="container flex h-12 items-center justify-between px-4 sm:px-6">
-                {/* 1. LOGO (SIGNUM HQ - Text Only, Premium Style) */}
-                <Link href="/" className="flex items-center gap-3 group">
-                    {/* Decorative accent bar */}
-                    <div className="w-0.5 h-6 bg-gradient-to-b from-cyan-400 to-amber-500 rounded-full opacity-90 group-hover:opacity-100 transition-opacity" />
+                {/* 1. LOGO (SIGNUM HQ with Icon) */}
+                <Link href="/" className="flex items-center gap-2 group">
+                    {/* Logo Icon SVG */}
+                    <svg width="24" height="24" viewBox="0 0 48 48" className="text-cyan-400">
+                        <path
+                            d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            className="opacity-80"
+                        />
+                        <circle cx="24" cy="24" r="8" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-50" />
+                        <circle cx="24" cy="24" r="3" fill="currentColor" className="animate-pulse" />
+                        <line x1="24" y1="24" x2="34" y2="14" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
+                    </svg>
 
-                    <div className="flex items-baseline gap-1">
-                        <span className="text-base font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
-                            SIGNUM
-                        </span>
-                        <span className="text-base font-black tracking-tight text-cyan-400 leading-none">
-                            HQ
-                        </span>
-                    </div>
+                    <span className="text-base font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
+                        SIGNUM<span className="text-cyan-400">HQ</span>
+                    </span>
                 </Link>
 
                 {/* 2. NAVIGATION (COMMAND / INTEL / PORTFOLIO / WATCHLIST) */}

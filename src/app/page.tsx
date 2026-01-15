@@ -11,8 +11,6 @@ import {
   Eye,
   Radar
 } from "lucide-react";
-import { useMarketStatus } from "@/hooks/useMarketStatus";
-import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { TradingViewTicker } from "@/components/TradingViewTicker";
 
 // --- Ticker Drawer ---
@@ -35,7 +33,7 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-[#0F172A] h-full shadow-2xl border-l border-white/10 p-6 overflow-y-auto">
+      <div className="relative w-full max-w-md bg-[#0a1628] h-full shadow-2xl border-l border-white/10 p-6 overflow-y-auto">
         <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full">
           <X size={20} className="text-slate-400" />
         </button>
@@ -71,40 +69,19 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
   );
 }
 
-// --- Compact Ticker Card ---
+// --- Ticker Card ---
 function TickerCard({ symbol }: { symbol: string }) {
-  const [price, setPrice] = useState<number | null>(null);
-  const [change, setChange] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/portfolio/analyze`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tickers: [symbol] })
-    })
-      .then(r => r.json())
-      .then((d) => {
-        const item = d.results?.[0];
-        if (item) {
-          setPrice(item.price);
-          setChange(item.changePct);
-        }
-      })
-      .catch(() => { });
-  }, [symbol]);
-
-  const isPositive = (change ?? 0) >= 0;
 
   return (
     <>
       <div
         onClick={() => setDrawerOpen(true)}
-        className="group cursor-pointer p-4 rounded-lg transition-all duration-200
-          bg-[#0a1628] hover:bg-[#0d1d35] border border-white/5 hover:border-cyan-500/30"
+        className="group cursor-pointer p-4 rounded-xl transition-all duration-200
+          bg-[#0d1829] hover:bg-[#111f36] border border-[#1a2942] hover:border-cyan-500/30"
       >
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-lg bg-slate-800/80 border border-white/10 flex items-center justify-center overflow-hidden">
+          <div className="w-9 h-9 rounded-lg bg-[#0a1420] border border-[#1a2942] flex items-center justify-center overflow-hidden">
             <img src={`https://financialmodelingprep.com/image-stock/${symbol}.png`} alt={symbol} className="w-5 h-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
           </div>
           <div>
@@ -113,13 +90,12 @@ function TickerCard({ symbol }: { symbol: string }) {
           </div>
         </div>
         <div className="flex items-end justify-between">
-          <div className="h-8 w-16 flex items-end gap-0.5">
-            {/* Mini chart placeholder */}
-            <div className={`w-1 rounded-t ${isPositive ? 'bg-cyan-500/60' : 'bg-rose-500/60'}`} style={{ height: '40%' }} />
-            <div className={`w-1 rounded-t ${isPositive ? 'bg-cyan-500/60' : 'bg-rose-500/60'}`} style={{ height: '60%' }} />
-            <div className={`w-1 rounded-t ${isPositive ? 'bg-cyan-500/60' : 'bg-rose-500/60'}`} style={{ height: '45%' }} />
-            <div className={`w-1 rounded-t ${isPositive ? 'bg-cyan-500/60' : 'bg-rose-500/60'}`} style={{ height: '80%' }} />
-            <div className={`w-1 rounded-t ${isPositive ? 'bg-cyan-500' : 'bg-rose-500'}`} style={{ height: '100%' }} />
+          <div className="h-6 flex items-end gap-0.5">
+            <div className="w-1 rounded-t bg-cyan-500/50" style={{ height: '40%' }} />
+            <div className="w-1 rounded-t bg-cyan-500/50" style={{ height: '60%' }} />
+            <div className="w-1 rounded-t bg-cyan-500/60" style={{ height: '50%' }} />
+            <div className="w-1 rounded-t bg-cyan-500/70" style={{ height: '80%' }} />
+            <div className="w-1 rounded-t bg-cyan-500" style={{ height: '100%' }} />
           </div>
           <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-cyan-400 transition-colors" />
         </div>
@@ -132,7 +108,7 @@ function TickerCard({ symbol }: { symbol: string }) {
 
 export default function Page() {
   return (
-    <div className="min-h-screen bg-[#050810] text-slate-200 font-sans">
+    <div className="min-h-screen bg-[#060a12] text-slate-200 font-sans">
       <LandingHeader />
 
       {/* MACRO TICKER TAPE */}
@@ -143,123 +119,90 @@ export default function Page() {
       {/* ========================================= */}
       {/* HERO SECTION */}
       {/* ========================================= */}
-      <section className="relative pt-20 pb-8 px-6">
-        {/* Content */}
-        <div className="max-w-4xl mx-auto text-center space-y-5">
-          {/* Status Badge */}
+      <section className="relative pt-24 pb-10 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          {/* Cloud Logo */}
+          <div className="flex justify-center mb-5">
+            <svg width="50" height="32" viewBox="0 0 50 32" className="text-cyan-400/60">
+              <path d="M25 4 Q35 4 40 12 Q48 12 48 20 Q48 28 40 28 L10 28 Q2 28 2 20 Q2 12 10 12 Q15 4 25 4 Z"
+                fill="none" stroke="currentColor" strokeWidth="1.5" />
+            </svg>
+          </div>
+
+          {/* Live Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full 
-            bg-cyan-500/10 border border-cyan-500/20 
-            text-[10px] font-bold uppercase tracking-[0.15em] text-cyan-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+            bg-[#0d1829] border border-[#1a2942]
+            text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-400 mb-8">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             실시간 미국 마켓 데이터
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.9] text-white">
-            MARKET LOGIC,<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-300">SOLVED.</span>
+          <h1 className="text-5xl md:text-7xl font-black italic tracking-tight leading-[0.95] mb-6">
+            <span className="text-white">MARKET LOGIC,</span><br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-300">SOLVED.</span>
           </h1>
 
           {/* Tagline */}
-          <p className="text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed mb-8">
             기관의 <span className="text-white font-semibold">다크풀</span> 움직임과 알고리즘
             <span className="text-white font-semibold"> 옵션 플로우</span>를 실시간으로 추적하세요.
             <span className="text-cyan-400 font-semibold"> 미국 주식 시장</span>을 위한 궁극의 사령부.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a href="/ticker?ticker=NVDA"
               className="px-10 py-3.5 bg-gradient-to-r from-cyan-500 to-cyan-400 
-                text-slate-900 rounded-full font-bold text-sm 
+                text-slate-900 rounded-full font-bold text-sm uppercase tracking-wide
                 hover:from-cyan-400 hover:to-cyan-300 transition-all 
-                flex items-center gap-2 shadow-[0_0_30px_rgba(6,182,212,0.4)]">
+                flex items-center gap-2 shadow-[0_0_30px_rgba(6,182,212,0.3)]">
               Enter Command <ArrowRight size={16} />
             </a>
             <a href="#features"
-              className="px-10 py-3.5 bg-[#0a1628] border border-white/10 
-                text-slate-300 rounded-full font-medium text-sm hover:bg-white/5 transition-all">
-              How It Works
+              className="px-10 py-3.5 bg-transparent border border-cyan-500/50 
+                text-cyan-400 rounded-full font-bold text-sm uppercase tracking-wide hover:bg-cyan-500/10 transition-all">
+              View Demo
             </a>
           </div>
         </div>
       </section>
 
-      {/* Decorative Separator - Radar Signal */}
-      <div className="flex justify-center py-6">
-        <svg width="60" height="30" viewBox="0 0 60 30" className="text-cyan-500/30">
-          <path d="M10,25 Q30,5 50,25" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-          <circle cx="30" cy="10" r="3" fill="currentColor" className="animate-pulse" />
-        </svg>
-      </div>
-
       {/* ========================================= */}
       {/* FEATURES SECTION */}
       {/* ========================================= */}
-      <section id="features" className="py-20 px-6">
+      <section id="features" className="py-16 px-6">
         <div className="max-w-5xl mx-auto">
-          {/* Section Header with Logo */}
-          <div className="text-center mb-10">
-            {/* SIGNUM HQ Logo SVG */}
-            <div className="flex justify-center mb-4">
-              <svg width="48" height="48" viewBox="0 0 48 48" className="text-cyan-400">
-                {/* Hexagon Frame */}
-                <path
-                  d="M24 2 L44 14 L44 34 L24 46 L4 34 L4 14 Z"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  className="opacity-60"
-                />
-                {/* Inner Radar Circles */}
-                <circle cx="24" cy="24" r="12" fill="none" stroke="currentColor" strokeWidth="0.75" className="opacity-30" />
-                <circle cx="24" cy="24" r="8" fill="none" stroke="currentColor" strokeWidth="0.75" className="opacity-40" />
-                <circle cx="24" cy="24" r="4" fill="none" stroke="currentColor" strokeWidth="0.75" className="opacity-50" />
-                {/* Scanner Line */}
-                <line x1="24" y1="24" x2="36" y2="12" stroke="url(#scanGradient)" strokeWidth="2" strokeLinecap="round" />
-                {/* Center Dot */}
-                <circle cx="24" cy="24" r="2" fill="currentColor" className="animate-pulse" />
-                {/* Signal Point */}
-                <circle cx="34" cy="14" r="2.5" fill="#f59e0b" className="animate-pulse" />
-                {/* Gradient Definition */}
-                <defs>
-                  <linearGradient id="scanGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#06b6d4" />
-                    <stop offset="100%" stopColor="#f59e0b" />
-                  </linearGradient>
-                </defs>
-              </svg>
-            </div>
-
-            <h2 className="text-2xl md:text-3xl font-black text-white mb-2">
-              왜 <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-cyan-300">SIGNUM</span> <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-300">HQ</span>인가?
+          {/* Section Header */}
+          <div className="text-center mb-12">
+            <h2 className="text-2xl md:text-3xl font-black text-white mb-3">
+              왜 <span className="text-cyan-400">SIGNUM HQ</span>인가?
             </h2>
-            <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
+            <p className="text-[11px] text-slate-500 uppercase tracking-[0.25em]">
               $450+/월 가치의 프리미엄 데이터 통합
             </p>
           </div>
 
           {/* Feature Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Card 1: Gamma - Glassmorphism */}
-            <div className="relative p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/30 hover:bg-white/[0.05] transition-all duration-300">
-              {/* Watermark Icon */}
-              <div className="absolute -right-6 -bottom-6 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
-                <Waves className="w-32 h-32 text-cyan-400" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Card 1 */}
+            <div className="relative p-6 rounded-2xl bg-[#0d1829] border border-[#1a2942] overflow-hidden group hover:border-cyan-500/30 transition-all duration-300">
+              <div className="absolute -right-8 -bottom-8 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+                <Waves className="w-36 h-36 text-cyan-400" />
               </div>
 
               <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                    <Waves className="w-5 h-5 text-cyan-400" />
+                <div className="flex items-start justify-between mb-5">
+                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                    <Waves className="w-6 h-6 text-cyan-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-1 rounded">
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg">
                     $200/mo 가치
                   </span>
                 </div>
 
-                <h3 className="text-base font-bold text-white mb-2">감마 익스포져 분석</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                <h3 className="text-lg font-bold text-white mb-3">감마 익스포져 분석</h3>
+                <p className="text-xs text-slate-400 leading-relaxed mb-5">
                   MM의 감마 익스포져를 추적하여 가격 자석(Max Pain)과 저항선을 식별. 기관급 데이터 시각화.
                 </p>
 
@@ -270,25 +213,24 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Card 2: Dark Pool - Glassmorphism */}
-            <div className="relative p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-amber-500/30 hover:bg-white/[0.05] transition-all duration-300">
-              {/* Watermark Icon */}
-              <div className="absolute -right-6 -bottom-6 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
-                <Eye className="w-32 h-32 text-amber-400" />
+            {/* Card 2 */}
+            <div className="relative p-6 rounded-2xl bg-[#0d1829] border border-[#1a2942] overflow-hidden group hover:border-amber-500/30 transition-all duration-300">
+              <div className="absolute -right-8 -bottom-8 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+                <Eye className="w-36 h-36 text-amber-400" />
               </div>
 
               <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center">
-                    <Eye className="w-5 h-5 text-amber-400" />
+                <div className="flex items-start justify-between mb-5">
+                  <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center">
+                    <Eye className="w-6 h-6 text-amber-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-1 rounded">
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg">
                     $150/mo 가치
                   </span>
                 </div>
 
-                <h3 className="text-base font-bold text-white mb-2">다크풀 & 고래 추적</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                <h3 className="text-lg font-bold text-white mb-3">다크풀 & 고래 추적</h3>
+                <p className="text-xs text-slate-400 leading-relaxed mb-5">
                   일반 거래소에 보이지 않는 대형 블록 트레이드와 기관 매집을 실시간 탐지. 스마트 머니를 따라가세요.
                 </p>
 
@@ -299,25 +241,24 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Card 3: 3-Day Sniper - Glassmorphism */}
-            <div className="relative p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/30 hover:bg-white/[0.05] transition-all duration-300">
-              {/* Watermark Icon */}
-              <div className="absolute -right-6 -bottom-6 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
-                <Radar className="w-32 h-32 text-cyan-400" />
+            {/* Card 3 */}
+            <div className="relative p-6 rounded-2xl bg-[#0d1829] border border-[#1a2942] overflow-hidden group hover:border-cyan-500/30 transition-all duration-300">
+              <div className="absolute -right-8 -bottom-8 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+                <Radar className="w-36 h-36 text-cyan-400" />
               </div>
 
               <div className="relative z-10">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center">
-                    <Radar className="w-5 h-5 text-cyan-400" />
+                <div className="flex items-start justify-between mb-5">
+                  <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                    <Radar className="w-6 h-6 text-cyan-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2 py-1 rounded">
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg">
                     $100/mo 가치
                   </span>
                 </div>
 
-                <h3 className="text-base font-bold text-white mb-2">3일 스나이퍼 시그널</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-4">
+                <h3 className="text-lg font-bold text-white mb-3">3일 스나이퍼 시그널</h3>
+                <p className="text-xs text-slate-400 leading-relaxed mb-5">
                   모멘텀, 수급, 기술적 조건이 정렬된 '3일 급등 후보' 자동 스캔. 고확률 진입 타이밍 포착.
                 </p>
 
@@ -330,31 +271,22 @@ export default function Page() {
           </div>
 
           {/* Consolidated Pricing Badge */}
-          <div className="mt-8 flex justify-center">
-            <div className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-amber-500/10 to-cyan-500/10 border border-amber-500/20">
+          <div className="mt-12 flex justify-center">
+            <div className="inline-flex items-center gap-3 px-6 py-3 rounded-full bg-[#0d1829] border border-[#1a2942]">
               <span className="text-sm text-slate-500 line-through">$450+/월</span>
-              <span className="text-sm font-bold text-amber-400">통합 제공</span>
+              <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">Consolidated Pricing</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Decorative Separator - Signal Wave */}
-      <div className="flex justify-center py-8">
-        <svg width="80" height="40" viewBox="0 0 80 40" className="text-cyan-500/20">
-          <path d="M5,35 Q20,10 40,20 T75,10" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" />
-          <circle cx="40" cy="20" r="4" fill="currentColor" className="animate-pulse opacity-60" />
-          <circle cx="60" cy="15" r="2" fill="currentColor" className="opacity-40" />
-        </svg>
-      </div>
-
       {/* ========================================= */}
       {/* LIVE DASHBOARD */}
       {/* ========================================= */}
-      <section id="live-demo" className="py-12 px-6">
+      <section id="live-demo" className="py-14 px-6">
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-6">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -368,7 +300,7 @@ export default function Page() {
           </div>
 
           {/* Ticker Grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {["NVDA", "TSLA", "AAPL", "MSFT"].map((ticker) => (
               <TickerCard key={ticker} symbol={ticker} />
             ))}
@@ -377,11 +309,19 @@ export default function Page() {
       </section>
 
       {/* FOOTER */}
-      <footer className="py-8 px-6 border-t border-white/5">
-        <div className="max-w-5xl mx-auto flex justify-between items-center">
+      <footer className="py-8 px-6 border-t border-[#1a2942]">
+        <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-0.5 h-4 bg-gradient-to-b from-cyan-400 to-amber-500 rounded-full" />
+            <svg width="20" height="20" viewBox="0 0 48 48" className="text-cyan-400">
+              <path d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-60" />
+              <circle cx="24" cy="24" r="3" fill="currentColor" />
+            </svg>
             <span className="font-bold text-sm text-white/60">SIGNUM HQ</span>
+          </div>
+          <div className="flex items-center gap-6 text-[10px] text-slate-500">
+            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
+            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
+            <a href="#" className="hover:text-white transition-colors">Contact</a>
           </div>
           <p className="text-[10px] text-slate-600">© 2026 Market Signal Command</p>
         </div>
