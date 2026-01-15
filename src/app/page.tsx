@@ -141,10 +141,10 @@ export default function Page() {
             실시간 미국 마켓 데이터
           </div>
 
-          {/* Main Headline - Exact Match */}
-          <h1 className="text-6xl md:text-[5.5rem] font-black italic tracking-tighter leading-[0.9] mb-10 drop-shadow-2xl">
-            <span className="block text-white mb-2">MARKET LOGIC,</span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fbbf24] via-[#fcd34d] to-[#10b981]">SOLVED.</span>
+          {/* Main Headline - Exact Match (No Italic, Gold->Cyan Gradient) */}
+          <h1 className="text-6xl md:text-[6rem] font-black tracking-tighter leading-[0.9] mb-10 drop-shadow-2xl">
+            <span className="block text-white mb-1">MARKET LOGIC,</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fbbf24] via-[#fde047] to-[#22d3ee]">SOLVED.</span>
           </h1>
 
           {/* Tagline - Exact Match */}
