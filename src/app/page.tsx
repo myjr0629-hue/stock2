@@ -166,15 +166,15 @@ export default function Page() {
       {/* HERO SECTION */}
       {/* ========================================= */}
       <section className="relative pt-32 pb-16 px-6 overflow-hidden">
-        {/* Background - Tech logos */}
+        {/* Background - Tech logos - MORE VISIBLE */}
         <div className="absolute inset-0 z-0 select-none pointer-events-none">
           <img
             src="/us_tech_logos_tight.png?v=1"
             alt="Background"
-            className="w-full h-full object-contain object-center opacity-30"
+            className="w-full h-full object-contain object-center opacity-50"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#050810]/70 via-[#050810]/50 to-[#050810]" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#050810_100%)] opacity-80" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#050810]/40 via-[#050810]/30 to-[#050810]/80" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,#050810_90%)] opacity-70" />
         </div>
 
         {/* Content */}

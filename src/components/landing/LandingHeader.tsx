@@ -28,9 +28,9 @@ export function LandingHeader() {
                 {/* 1. LOGO (SIGNUM HQ) */}
                 <Link href="/" className="flex items-center gap-2.5 group">
                     <img
-                        src="/logo-signum.svg"
+                        src="/logo-signum-original.jpg"
                         alt="SIGNUM HQ"
-                        className="w-8 h-8 group-hover:scale-105 transition-transform"
+                        className="w-9 h-9 rounded-lg group-hover:scale-105 transition-transform"
                     />
                     <div className="flex flex-col">
                         <span className="text-sm font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
