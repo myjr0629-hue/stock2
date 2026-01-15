@@ -1132,16 +1132,35 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       }
 
       // Debug: Log unique dates in processed data
-      const uniqueDates = [...new Set(processed.map((p: any) => p.etDate))];
+      const uniqueDates = [...new Set(processed.map((p: any) => p.etDate))] as string[];
+      uniqueDates.sort().reverse();
       console.log(`[1D Chart Debug] AvailableDates: ${uniqueDates.join(', ')}, TargetDay: ${targetTradingDayET}, Session: ${currentClassified.session}`);
 
-      finalProcessed = processed.filter((p: any) => p.etDate === targetTradingDayET);
+      // [Pre-Market Fix] Filter to target day first
+      let todayData = processed.filter((p: any) => p.etDate === targetTradingDayET);
+
+      // [Pre-Market Fix] If today's data is too sparse (< 5 points), show previous trading day
+      // This ensures sparkline charts have meaningful data during early pre-market
+      const MIN_SPARKLINE_POINTS = 5;
+      if (todayData.length < MIN_SPARKLINE_POINTS && currentClassified.session === 'PRE') {
+        // Find previous trading day from available dates
+        const previousDayET = uniqueDates.find(d => d < targetTradingDayET);
+        if (previousDayET) {
+          console.log(`[1D Chart Pre-Market] Today has only ${todayData.length} points, showing previous day: ${previousDayET}`);
+          finalProcessed = processed.filter((p: any) => p.etDate === previousDayET);
+        } else {
+          finalProcessed = todayData; // No fallback available
+        }
+      } else {
+        finalProcessed = todayData;
+      }
       console.log(`[1D Chart Filter] TargetDay: ${targetTradingDayET}, Filtered: ${finalProcessed.length} from ${processed.length}`);
 
       // Preserve sessionMaskDebug
       (finalProcessed as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
       (finalProcessed as any).sessionMaskDebug.todayDateET = todayDateET;
       (finalProcessed as any).sessionMaskDebug.currentSession = currentClassified.session;
+      (finalProcessed as any).sessionMaskDebug.usedFallbackDay = todayData.length < MIN_SPARKLINE_POINTS && currentClassified.session === 'PRE';
 
       // Limit to max points for performance
       if (finalProcessed.length > 1200) return finalProcessed.slice(-1200);
