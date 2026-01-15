@@ -122,13 +122,52 @@ export default function Page() {
       {/* ========================================= */}
       {/* HERO SECTION */}
       {/* ========================================= */}
-      <section className="relative pt-32 pb-16 px-6 overflow-hidden">
-        {/* Background Glow Effect - Exact Match */}
+      <section className="relative pt-32 pb-16 px-6 overflow-hidden min-h-screen flex flex-col justify-center">
+        {/* === BACKGROUND UPGRADE === */}
+
+        {/* 1. Base Gradient with Noise Texture */}
+        <div className="absolute inset-0 z-0 bg-[#050914]">
+          <div className="absolute inset-0 opacity-[0.03]"
+            style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")` }}
+          />
+        </div>
+
+        {/* 2. Abstract Data Lines (Financial Infographic Feel) */}
+        <div className="absolute inset-0 z-0 overflow-hidden opacity-20 pointer-events-none">
+          <svg className="absolute w-full h-full" viewBox="0 0 1440 900" preserveAspectRatio="none">
+            <path d="M-100 450 Q 300 350 720 450 T 1540 450" fill="none" stroke="url(#lineGradient1)" strokeWidth="1.5" className="animate-[pulse_8s_ease-in-out_infinite]" />
+            <path d="M-100 550 Q 300 450 720 550 T 1540 550" fill="none" stroke="url(#lineGradient2)" strokeWidth="1.5" className="animate-[pulse_10s_ease-in-out_infinite_1s]" />
+            <path d="M-100 350 Q 300 250 720 350 T 1540 350" fill="none" stroke="url(#lineGradient3)" strokeWidth="1" opacity="0.5" />
+
+            <defs>
+              <linearGradient id="lineGradient1" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="transparent" />
+                <stop offset="50%" stopColor="#22d3ee" stopOpacity="0.5" />
+                <stop offset="100%" stopColor="transparent" />
+              </linearGradient>
+              <linearGradient id="lineGradient2" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="transparent" />
+                <stop offset="50%" stopColor="#fbbf24" stopOpacity="0.3" />
+                <stop offset="100%" stopColor="transparent" />
+              </linearGradient>
+              <linearGradient id="lineGradient3" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="transparent" />
+                <stop offset="50%" stopColor="#38bdf8" stopOpacity="0.2" />
+                <stop offset="100%" stopColor="transparent" />
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+
+        {/* 3. Deep Ambient Aurora (Glassmorphism Depth) */}
         <div className="absolute inset-0 z-0 pointer-events-none">
-          {/* Top Center glow - Cyan/Teal mix */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-radial from-[#083344] via-transparent to-transparent blur-[100px] opacity-60" />
-          {/* Detailed accent glow behind text */}
-          <div className="absolute top-[30%] left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-radial from-[#0c4a6e]/40 via-transparent to-transparent blur-[80px]" />
+          {/* Main Top Light */}
+          <div className="absolute -top-[10%] left-1/2 -translate-x-1/2 w-[80%] h-[60%] 
+            bg-gradient-conic from-cyan-900/40 via-[#0c4a6e]/20 to-transparent blur-[120px] opacity-70" />
+
+          {/* Bottom Golden Haze */}
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[40%] 
+            bg-gradient-to-t from-[#1e1b4b]/30 to-transparent blur-[80px]" />
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto text-center">
