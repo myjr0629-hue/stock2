@@ -315,7 +315,15 @@ function PremiumHoldingRow({ holding, onRemove, onEdit }: { holding: EnrichedHol
 
             {/* 현재가 (1.5fr) */}
             <div className="text-center">
-                <div className="font-bold font-num text-sm text-white">${holding.currentPrice.toFixed(2)}</div>
+                <div className="flex items-center justify-center gap-1">
+                    <span className="font-bold font-num text-sm text-white">${holding.currentPrice.toFixed(2)}</span>
+                    {holding.session && holding.session !== 'reg' && (
+                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${holding.session === 'pre' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-amber-500/20 text-amber-400'
+                            }`}>
+                            {holding.session === 'pre' ? 'PRE' : 'POST'}
+                        </span>
+                    )}
+                </div>
                 <div className={`text-[10px] font-num font-bold ${holding.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {holding.changePct >= 0 ? '+' : ''}{holding.changePct.toFixed(2)}%
                 </div>

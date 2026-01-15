@@ -167,7 +167,15 @@ function WatchlistRow({ item, onRemove }: { item: EnrichedWatchlistItem; onRemov
 
             {/* 현재가 */}
             <div className="text-center">
-                <div className="font-bold font-num text-sm text-white">${item.currentPrice.toFixed(2)}</div>
+                <div className="flex items-center justify-center gap-1">
+                    <span className="font-bold font-num text-sm text-white">${item.currentPrice.toFixed(2)}</span>
+                    {item.session && item.session !== 'reg' && (
+                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${item.session === 'pre' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-amber-500/20 text-amber-400'
+                            }`}>
+                            {item.session === 'pre' ? 'PRE' : 'POST'}
+                        </span>
+                    )}
+                </div>
                 <div className={`text-[10px] font-num font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {isPositive ? '+' : ''}{item.changePct.toFixed(2)}%
                 </div>
