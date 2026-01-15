@@ -25,24 +25,19 @@ export function LandingHeader() {
     return (
         <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-[#0F172A]/80 backdrop-blur-xl">
             <div className="container flex h-16 items-center justify-between px-4 sm:px-8">
-                {/* 1. LOGO (Alpha V2) */}
-                <Link href="/" className="flex items-center gap-3 group">
-                    <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-slate-900 border border-slate-700 shadow-lg group-hover:border-emerald-500/50 transition-all overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-indigo-500/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        {/* Abstract A / Pulse Logo */}
-                        <svg className="w-5 h-5 text-emerald-500 relative z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M12 2L2 22h20L12 2z" className="text-slate-600 group-hover:text-emerald-500/50 transition-colors" strokeWidth="1.5" />
-                            <path d="M2 22h20" className="opacity-0" />
-                            <path d="M12 6l-6 16h12l-6-16" stroke="currentColor" />
-                            <path d="M12 11h.01" stroke="currentColor" strokeWidth="3" />
-                        </svg>
-                    </div>
+                {/* 1. LOGO (SIGNUM HQ) */}
+                <Link href="/" className="flex items-center gap-2.5 group">
+                    <img
+                        src="/logo-signum.svg"
+                        alt="SIGNUM HQ"
+                        className="w-8 h-8 group-hover:scale-105 transition-transform"
+                    />
                     <div className="flex flex-col">
-                        <span className="text-base font-black tracking-tight text-white leading-none group-hover:text-emerald-400 transition-colors">
-                            ALPHA <span className="text-emerald-500">V2</span>
+                        <span className="text-sm font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
+                            SIGNUM <span className="text-cyan-400">HQ</span>
                         </span>
-                        <span className="text-[9px] font-bold text-slate-500 tracking-[0.2em] uppercase leading-none mt-1 group-hover:text-slate-300">
-                            Engine Operational
+                        <span className="text-[8px] font-bold text-slate-500 tracking-[0.15em] uppercase leading-none mt-0.5">
+                            Signal Command
                         </span>
                     </div>
                 </Link>
