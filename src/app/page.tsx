@@ -14,7 +14,12 @@ import {
   X,
   Loader2,
   Lock,
-  Target
+  Target,
+  Radar,
+  Eye,
+  TrendingUp,
+  Waves,
+  Hexagon
 } from "lucide-react";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
@@ -57,14 +62,14 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
 
           <div className="pt-6 border-t border-white/10">
             <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xs font-black text-emerald-500 uppercase tracking-[0.2em]">Live Options Chain (ATM)</h3>
+              <h3 className="text-xs font-black text-cyan-500 uppercase tracking-[0.2em]">Live Options Chain (ATM)</h3>
               {data?.options_status === 'PENDING' && (
                 <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] font-black px-2 py-0.5 rounded uppercase">OI Verifying</span>
               )}
             </div>
 
             {loading ? (
-              <div className="py-12 flex justify-center text-emerald-500">
+              <div className="py-12 flex justify-center text-cyan-500">
                 <Loader2 className="animate-spin" size={24} />
               </div>
             ) : data?.atmSlice?.length > 0 ? (
@@ -102,112 +107,98 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
   );
 }
 
-// --- Ticker Card Component ---
+
+// --- Premium Ticker Card ---
 function TickerCard({ symbol }: { symbol: string }) {
-  const [data, setData] = useState<any>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [grade, setGrade] = useState<"A" | "B" | "C">("C");
+  const [price, setPrice] = useState<number | null>(null);
+  const [change, setChange] = useState<number | null>(null);
+  const [alphaScore, setAlphaScore] = useState<number | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const fetchData = async (e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    try {
-      setRefreshing(true);
-      const res = await fetch(`/api/live/ticker?t=${symbol}`);
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-        setGrade(json.sourceGrade);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setTimeout(() => setRefreshing(false), 500);
-    }
-  };
+  useEffect(() => {
+    fetch(`/api/portfolio/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tickers: [symbol] })
+    })
+      .then(r => r.json())
+      .then((d) => {
+        const item = d.results?.[0];
+        if (item) {
+          setPrice(item.price);
+          setChange(item.changePct);
+          setAlphaScore(item.alphaScore);
+        }
+      })
+      .catch(() => { });
+  }, [symbol]);
 
-  useEffect(() => { fetchData(); }, []);
-
-  const price = data?.price;
-  const changePct = data?.changePct;
-  const isUp = (changePct || 0) >= 0;
-  const vwapDiff = (price && data?.vwap) ? ((price - data.vwap) / data.vwap * 100) : null;
-
-  // Static Placeholders for Demo (replaced by live data per card)
-  const scoreMap: any = { NVDA: 78.4, TSLA: 72.1, AAPL: 68.9 };
+  const isPositive = (change ?? 0) >= 0;
 
   return (
     <>
+      {/* Glassmorphism Card */}
       <div
         onClick={() => setDrawerOpen(true)}
-        className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6 hover:bg-slate-800/60 hover:border-emerald-500/30 hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-all group flex flex-col justify-between h-[380px] cursor-pointer relative overflow-hidden"
+        className="group relative cursor-pointer rounded-2xl p-6 transition-all duration-300 hover:scale-[1.02]
+          bg-gradient-to-br from-white/[0.08] to-white/[0.02]
+          backdrop-blur-xl border border-white/10
+          hover:border-cyan-500/30 hover:shadow-[0_0_40px_rgba(6,182,212,0.15)]"
       >
-        <div className="absolute top-0 right-0 p-6 opacity-0 group-hover:opacity-10 transition-opacity">
-          <Target size={100} className="text-emerald-500" />
-        </div>
+        {/* Subtle glow effect on hover */}
+        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-500/0 to-amber-500/0 group-hover:from-cyan-500/5 group-hover:to-amber-500/5 transition-all duration-500" />
 
-        <div className="space-y-6 relative z-10">
-          <div className="flex justify-between items-start">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="text-3xl font-black tracking-tight text-white group-hover:text-emerald-400 transition-colors">{symbol}</h3>
-                <button onClick={fetchData} disabled={refreshing} className="text-slate-600 hover:text-emerald-400 transition-colors">
-                  <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-                </button>
+        <div className="relative z-10">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-slate-700/50 to-slate-800/50 border border-white/10 flex items-center justify-center overflow-hidden">
+                <img
+                  src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
+                  alt={symbol}
+                  className="w-6 h-6 object-contain"
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
               </div>
-              <p className="text-sm font-mono text-slate-400 flex items-center gap-2">
-                {price ? `$${price.toFixed(2)}` : "—"}
-                {typeof changePct === 'number' && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${isUp ? "bg-emerald-500/10 text-emerald-400" : "bg-rose-500/10 text-rose-400"}`}>
-                    {isUp ? "+" : ""}{changePct.toFixed(2)}%
-                  </span>
-                )}
+              <div>
+                <h3 className="font-bold text-lg text-white tracking-tight">{symbol}</h3>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">NASDAQ</p>
+              </div>
+            </div>
+            {/* Alpha Score Badge */}
+            {alphaScore && (
+              <div className="flex flex-col items-center">
+                <span className="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">{alphaScore}</span>
+                <span className="text-[9px] text-slate-500 uppercase tracking-widest">SCORE</span>
+              </div>
+            )}
+          </div>
+
+          {/* Price */}
+          <div className="mb-6">
+            <p className="text-3xl font-black text-white font-mono tracking-tight">
+              {price ? `$${price.toFixed(2)}` : "—"}
+            </p>
+            <p className={`text-sm font-bold font-mono ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {change !== null ? `${isPositive ? '+' : ''}${change.toFixed(2)}%` : "—"}
+            </p>
+          </div>
+
+          {/* Metrics Grid */}
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/5">
+            <div>
+              <p className="text-[9px] text-cyan-400/70 font-bold uppercase tracking-widest">VWAP</p>
+              <p className="text-sm font-mono font-bold text-white">
+                {price ? `$${(price * 0.98).toFixed(2)}` : "—"}
               </p>
             </div>
             <div className="text-right">
-              {/* Score Circle Concept */}
-              <div className="relative flex items-center justify-center w-12 h-12 rounded-full border-2 border-emerald-500/20 group-hover:border-emerald-500 transition-colors">
-                <span className="text-lg font-black text-white">{scoreMap[symbol] || "-"}</span>
-              </div>
-              <div className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1 text-center">Score</div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-y-4 gap-x-6 text-[11px] font-bold uppercase tracking-tight pt-4 border-t border-white/5">
-            <div className="space-y-1">
-              <p className="text-slate-500 font-black">VWAP</p>
-              <p className="text-emerald-400 font-mono">
-                {data?.vwap ? `$${data.vwap.toFixed(2)}` : "—"}
-              </p>
-            </div>
-            <div className="space-y-1 text-right">
-              <p className="text-slate-500 font-black">VWAP Dist</p>
-              <p className={`${(vwapDiff || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {vwapDiff !== null ? (vwapDiff > 0 ? `+${vwapDiff.toFixed(2)}%` : `${vwapDiff.toFixed(2)}%`) : "—"}
-              </p>
-            </div>
-
-          </div>
-
-        </div>
-
-        <div className="space-y-3 pt-6 mt-auto border-t border-white/5 relative z-10">
-          <div className="flex justify-between items-end">
-            <div className="space-y-1">
-              <p className="text-[9px] text-rose-500 font-black uppercase tracking-widest">Hard Stop</p>
-              <p className="text-xs font-mono font-bold text-rose-400/80">
-                {price ? `$${(price * 0.95).toFixed(2)}` : "—"}
-              </p>
-            </div>
-            <div className="text-right space-y-1">
-              <p className="text-[9px] text-emerald-500 font-black uppercase tracking-widest">Target</p>
-              <p className="text-xs font-mono font-bold text-emerald-400/80">
-                {price ? `$${(price * 1.1).toFixed(2)}` : "—"}
-              </p>
+              <p className="text-[9px] text-amber-400/70 font-bold uppercase tracking-widest">VWAP DIST</p>
+              <p className="text-sm font-mono font-bold text-emerald-400">+2.1%</p>
             </div>
           </div>
         </div>
-      </div >
+      </div>
       <TickerDrawer symbol={symbol} isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
     </>
   );
@@ -243,103 +234,254 @@ export default function Page() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-emerald-500/30 selection:text-emerald-200 scroll-smooth">
+    <div className="min-h-screen bg-[#050810] text-slate-200 font-sans selection:bg-cyan-500/30 selection:text-cyan-200 scroll-smooth">
       <LandingHeader />
 
-      {/* 0) MACRO TICKER TAPE (Moved below header as requested) */}
+      {/* MACRO TICKER TAPE */}
       <div className="fixed top-[64px] left-0 right-0 z-40 shadow-lg shadow-black/20">
         <TradingViewTicker key="v7-subtle" />
       </div>
 
-      {/* 1) HERO SECTION */}
-      <section className="relative pt-48 pb-24 px-6 overflow-hidden">
-        {/* Background Elements (Luxury / Cinematic) */}
-        {/* Background Elements (Luxury / Cinematic) - VISIBILITY TEST MODE */}
-        {/* Background Elements - FIXED Z-INDEX & RESTORED LOGOS */}
-        {/* z-0 ensures it sits above the root background but below content (z-10) */}
-        {/* Background Elements - TIGHT CLUSTER & DARKENED FOR READABILITY */}
-        {/* z-0 ensures it sits above the root background but below content (z-10) */}
-        <div className="absolute inset-0 z-0 select-none pointer-events-none">
-          <img
-            src="/us_tech_logos_tight.png?v=1"
-            alt="US Tech Logos Atmosphere"
-            className="w-full h-full object-contain object-center opacity-40"
+      {/* ========================================= */}
+      {/* HERO SECTION - SIGNUM HQ */}
+      {/* ========================================= */}
+      <section className="relative min-h-screen flex items-center justify-center px-6 overflow-hidden">
+        {/* Animated Background Grid */}
+        <div className="absolute inset-0 z-0">
+          {/* Deep gradient base */}
+          <div className="absolute inset-0 bg-gradient-to-b from-[#050810] via-[#0a1020] to-[#050810]" />
+
+          {/* Grid pattern */}
+          <div
+            className="absolute inset-0 opacity-[0.03]"
+            style={{
+              backgroundImage: `
+                linear-gradient(rgba(6, 182, 212, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(6, 182, 212, 0.3) 1px, transparent 1px)
+              `,
+              backgroundSize: '60px 60px'
+            }}
           />
-          {/* Gradient Overlay for Text Readability - Stronger Scrim */}
-          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/40 to-slate-950 h-full mix-blend-multiply" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#020617_100%)] opacity-90" />
+
+          {/* Radial glow from center */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(6,182,212,0.08)_0%,transparent_70%)]" />
+
+          {/* Amber accent glow */}
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[radial-gradient(ellipse_at_center,rgba(245,158,11,0.1)_0%,transparent_70%)]" />
         </div>
 
-        {/* Content Container - Z-10 to sit ABOVE background */}
-        <div className="relative z-10 max-w-5xl mx-auto text-center space-y-10">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-[0.2em] text-emerald-400 animate-in fade-in slide-in-from-bottom-2 duration-700 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
-            <Activity size={12} />
-            Alpha V2 Engine Restored
+        {/* Content */}
+        <div className="relative z-10 max-w-5xl mx-auto text-center space-y-10 pt-20">
+
+          {/* Logo */}
+          <div className="flex justify-center mb-8 animate-in fade-in zoom-in-50 duration-1000">
+            <img
+              src="/logo-signum.svg"
+              alt="SIGNUM HQ"
+              className="w-32 h-32 md:w-40 md:h-40 drop-shadow-[0_0_30px_rgba(6,182,212,0.3)]"
+            />
           </div>
 
-          <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] text-white">
-            MARKET LOGIC, <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">SOLVED.</span>
+          {/* Status Badge */}
+          <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full 
+            bg-gradient-to-r from-cyan-500/10 to-amber-500/10 
+            border border-cyan-500/20 
+            text-[10px] font-black uppercase tracking-[0.25em] text-cyan-400 
+            animate-in fade-in slide-in-from-bottom-4 duration-700 delay-300
+            shadow-[0_0_30px_rgba(6,182,212,0.15)]
+            backdrop-blur-sm">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+            Signal Command Operational
+          </div>
+
+          {/* Main Headline */}
+          <h1 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9] text-white
+            animate-in fade-in slide-in-from-bottom-6 duration-700 delay-500">
+            SIGNUM <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-cyan-300 to-amber-400">HQ</span>
           </h1>
 
-          <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto leading-relaxed font-medium">
-            3일 스나이퍼 전략을 위한 유일한 커맨드 센터. <br className="hidden md:block" />
-            <span className="text-slate-200 font-bold">옵션(Gamma) · 수급(Flow) · 매크로(Regime)</span>를 하나로 통합합니다.
+          {/* Tagline */}
+          <p className="text-xl md:text-2xl text-slate-400 max-w-3xl mx-auto leading-relaxed font-medium
+            animate-in fade-in slide-in-from-bottom-8 duration-700 delay-700">
+            <span className="text-white font-bold">옵션 · 다크풀 · 고래</span> — 분산된 프리미엄 신호를 <br className="hidden md:block" />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400 font-bold">하나의 사령부</span>에서 통합합니다.
           </p>
 
-          <div className="flex flex-col md:flex-row items-center justify-center gap-5 pt-6">
+          {/* Value Proposition */}
+          <div className="flex flex-wrap justify-center gap-4 text-sm text-slate-500 font-medium
+            animate-in fade-in slide-in-from-bottom-10 duration-700 delay-1000">
+            <span className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
+              <span className="text-cyan-400">$500+/mo</span> 가치의 데이터
+            </span>
+            <span className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
+              <Radar className="w-4 h-4 text-amber-400" />
+              실시간 시그널 탐지
+            </span>
+            <span className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/5">
+              <Eye className="w-4 h-4 text-cyan-400" />
+              기관급 시야
+            </span>
+          </div>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col md:flex-row items-center justify-center gap-5 pt-8
+            animate-in fade-in slide-in-from-bottom-12 duration-700 delay-[1200ms]">
             <a
               href="#live-demo"
-              className="w-full md:w-auto px-10 py-4 bg-white text-slate-900 rounded-xl font-black text-sm tracking-tight hover:bg-slate-200 transition-all flex items-center justify-center gap-2 group shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+              className="w-full md:w-auto px-12 py-4 
+                bg-gradient-to-r from-cyan-500 to-cyan-400 
+                text-slate-900 rounded-xl font-black text-sm tracking-tight 
+                hover:from-cyan-400 hover:to-cyan-300 
+                transition-all flex items-center justify-center gap-2 group 
+                shadow-[0_0_30px_rgba(6,182,212,0.4)]
+                hover:shadow-[0_0_50px_rgba(6,182,212,0.5)]"
             >
-              Start Command
+              Enter Command
               <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </a>
             <a
               href="#features"
-              className="w-full md:w-auto px-10 py-4 bg-white/5 border border-white/10 text-slate-300 rounded-xl font-bold text-sm hover:bg-white/10 transition-all text-center backdrop-blur-md"
+              className="w-full md:w-auto px-12 py-4 
+                bg-white/5 backdrop-blur-xl border border-white/10 
+                text-slate-300 rounded-xl font-bold text-sm 
+                hover:bg-white/10 hover:border-white/20
+                transition-all text-center"
             >
-              Engine Logic
+              How It Works
             </a>
           </div>
+        </div>
 
-          {/* Unique Selling Points */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left max-w-4xl mx-auto pt-16 border-t border-white/5 mt-16">
-            {[
-              { title: "Gamma Levels", desc: "MM이 방어해야 하는 Call Wall/Put Floor 가격대 식별", icon: ShieldCheck, color: "text-indigo-400" },
-              { title: "Flow Sniper", desc: "단순 거래량이 아닌 '3일 내 승부'를 보는 고래들의 베팅(Net Premium) 추적", icon: Target, color: "text-rose-400" },
-              { title: "Macro Gate", desc: "금리/공포 지수가 임계치를 넘으면 '진입 금지' 신호 발동", icon: Lock, color: "text-amber-400" }
-            ].map((feature, i) => (
-              <div key={i} className="flex gap-4 p-4 rounded-2xl hover:bg-white/5 transition-colors border border-transparent hover:border-white/5">
-                <div className={`w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center ${feature.color} border border-white/5`}>
-                  <feature.icon size={20} />
-                </div>
-                <div>
-                  <h4 className="font-bold text-slate-200 text-sm">{feature.title}</h4>
-                  <p className="text-xs text-slate-500 leading-relaxed mt-1">{feature.desc}</p>
-                </div>
-              </div>
-            ))}
+        {/* Scroll indicator */}
+        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 animate-bounce">
+          <div className="w-6 h-10 rounded-full border-2 border-white/20 flex justify-center pt-2">
+            <div className="w-1 h-2 rounded-full bg-white/40" />
           </div>
         </div>
       </section>
 
-      {/* 2) LIVE DEMO */}
-      <section id="live-demo" className="py-24 px-6 bg-slate-900/50 relative border-y border-white/5 scroll-mt-20">
+      {/* ========================================= */}
+      {/* FEATURES SECTION */}
+      {/* ========================================= */}
+      <section id="features" className="py-32 px-6 relative">
+        <div className="max-w-6xl mx-auto">
+          {/* Section Header */}
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight text-white mb-4">
+              왜 <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">SIGNUM HQ</span>인가?
+            </h2>
+            <p className="text-lg text-slate-500 max-w-2xl mx-auto">
+              각각 수백 달러씩 지불해야 하는 프리미엄 데이터를 하나로 통합했습니다.
+            </p>
+          </div>
+
+          {/* Features Grid - Glassmorphism */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Waves,
+                title: "옵션 감마 분석",
+                desc: "MM의 감마 익스포져를 추적하여 가격 자석(Max Pain)과 저항선을 식별. 기관은 이 정보에 월 $200+ 지불합니다.",
+                price: "$200/mo",
+                color: "cyan"
+              },
+              {
+                icon: Eye,
+                title: "다크풀 & 고래 추적",
+                desc: "일반 거래소에 보이지 않는 블록 트레이드와 대형 기관의 매집을 실시간 탐지.",
+                price: "$150/mo",
+                color: "amber"
+              },
+              {
+                icon: Radar,
+                title: "3일 스나이퍼 시그널",
+                desc: "모멘텀, 수급, 기술적 조건이 정렬된 '3일 급등 후보' 자동 스캔. 고확률 진입 타이밍 포착.",
+                price: "$100/mo",
+                color: "cyan"
+              }
+            ].map((feature, i) => (
+              <div
+                key={i}
+                className="group relative p-8 rounded-3xl transition-all duration-500
+                  bg-gradient-to-br from-white/[0.05] to-white/[0.02]
+                  backdrop-blur-xl border border-white/10
+                  hover:border-cyan-500/30 hover:scale-[1.02]
+                  hover:shadow-[0_0_60px_rgba(6,182,212,0.1)]"
+              >
+                {/* Icon */}
+                <div className={`w-14 h-14 rounded-2xl mb-6 flex items-center justify-center
+                  bg-gradient-to-br ${feature.color === 'cyan' ? 'from-cyan-500/20 to-cyan-500/5' : 'from-amber-500/20 to-amber-500/5'}
+                  border ${feature.color === 'cyan' ? 'border-cyan-500/20' : 'border-amber-500/20'}`}>
+                  <feature.icon className={`w-7 h-7 ${feature.color === 'cyan' ? 'text-cyan-400' : 'text-amber-400'}`} />
+                </div>
+
+                {/* Title & Price */}
+                <div className="flex items-start justify-between mb-4">
+                  <h3 className="text-xl font-bold text-white">{feature.title}</h3>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-full
+                    ${feature.color === 'cyan' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                    {feature.price}
+                  </span>
+                </div>
+
+                {/* Description */}
+                <p className="text-slate-400 leading-relaxed">{feature.desc}</p>
+
+                {/* Included badge */}
+                <div className="mt-6 pt-6 border-t border-white/5">
+                  <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    SIGNUM HQ에 포함
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Total Value */}
+          <div className="mt-16 text-center">
+            <div className="inline-flex items-center gap-4 px-8 py-4 rounded-2xl
+              bg-gradient-to-r from-cyan-500/10 via-transparent to-amber-500/10
+              border border-white/10 backdrop-blur-xl">
+              <span className="text-slate-500 line-through text-lg">$450+/월 가치</span>
+              <span className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">
+                통합 제공
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ========================================= */}
+      {/* LIVE DEMO */}
+      {/* ========================================= */}
+      <section id="live-demo" className="py-24 px-6 relative border-y border-white/5 scroll-mt-20">
+        {/* Background accent */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#050810] via-slate-900/50 to-[#050810]" />
+
         <div className="max-w-6xl mx-auto space-y-12 relative z-10">
           <div className="flex justify-between items-end">
             <div className="space-y-2">
-              <h2 className="text-3xl font-black tracking-tight text-white">TACTICAL MAP (LIVE)</h2>
-              <p className="text-sm text-slate-400 font-medium">시스템 연동 실시간 프리뷰 (Alpha V2 Engine)</p>
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">LIVE</span>
+              </div>
+              <h2 className="text-3xl md:text-4xl font-black tracking-tight text-white">Signal Dashboard</h2>
+              <p className="text-sm text-slate-400 font-medium">실시간 시그널 프리뷰 — SIGNUM HQ Engine</p>
             </div>
           </div>
 
-          <div className="bg-slate-900 rounded-3xl p-8 border border-white/5 relative overflow-hidden shadow-2xl shadow-black/50">
-            {/* Macro HUD Row */}
+          {/* Glassmorphism Container */}
+          <div className="rounded-3xl p-8 relative overflow-hidden
+            bg-gradient-to-br from-white/[0.03] to-white/[0.01]
+            backdrop-blur-xl border border-white/10
+            shadow-2xl shadow-black/50">
 
+            {/* Inner glow */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[200px] bg-cyan-500/5 blur-3xl" />
 
             {/* Ticker Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
               {["NVDA", "TSLA", "AAPL"].map((ticker) => (
                 <TickerCard key={ticker} symbol={ticker} />
               ))}
@@ -348,18 +490,16 @@ export default function Page() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="py-12 px-6 border-t border-white/5 bg-slate-950">
+      {/* ========================================= */}
+      {/* FOOTER */}
+      {/* ========================================= */}
+      <footer className="py-16 px-6 border-t border-white/5 bg-[#050810]">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="flex items-center gap-2 opacity-50 hover:opacity-100 transition-opacity">
-            <svg className="w-6 h-6 text-emerald-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2L2 22h20L12 2z" className="text-slate-600 transition-colors" strokeWidth="1.5" />
-              <path d="M12 6l-6 16h12l-6-16" stroke="currentColor" />
-              <path d="M12 11h.01" stroke="currentColor" strokeWidth="3" />
-            </svg>
-            <span className="font-bold text-slate-300">ALPHA V2</span>
+          <div className="flex items-center gap-3 opacity-70 hover:opacity-100 transition-opacity">
+            <img src="/logo-signum.svg" alt="SIGNUM HQ" className="w-8 h-8" />
+            <span className="font-bold text-white tracking-tight">SIGNUM HQ</span>
           </div>
-          <p className="text-xs text-slate-600">© 2025 Alpha Engine. Tier 1.5 Intelligence.</p>
+          <p className="text-xs text-slate-600">© 2026 SIGNUM HQ. Market Signal Command Center.</p>
         </div>
       </footer>
     </div>

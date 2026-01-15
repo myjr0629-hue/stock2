@@ -1,0 +1,88 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- Cyan to Amber Gradient (diagonal) -->
+    <linearGradient id="hexGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="50%" stop-color="#0891B2"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    
+    <!-- Scanner line gradient -->
+    <linearGradient id="scannerGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#06B6D4"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
+    </linearGradient>
+    
+    <!-- Glow Effect -->
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="6" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Strong Glow for center -->
+    <filter id="strongGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="15" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    
+    <!-- Radial gradient for center -->
+    <radialGradient id="centerGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F59E0B"/>
+      <stop offset="60%" stop-color="#F59E0B" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  
+  <!-- Dark Background -->
+  <rect width="512" height="512" fill="#0a0e14"/>
+  
+  <!-- Outer Hexagon Frame with Gradient - THICKER -->
+  <path 
+    d="M256 56 L424 144 L424 320 L256 408 L88 320 L88 144 Z" 
+    fill="none" 
+    stroke="url(#hexGradient)" 
+    stroke-width="6"
+    filter="url(#glow)"
+  />
+  
+  <!-- Radar Circles (3 rings) - THICKER -->
+  <circle cx="256" cy="232" r="130" fill="none" stroke="#06B6D4" stroke-width="3" stroke-opacity="0.35"/>
+  <circle cx="256" cy="232" r="90" fill="none" stroke="#06B6D4" stroke-width="3" stroke-opacity="0.5"/>
+  <circle cx="256" cy="232" r="50" fill="none" stroke="#06B6D4" stroke-width="3" stroke-opacity="0.65"/>
+  
+  <!-- Partial arc segments (broken circles for tech feel) - THICKER -->
+  <path d="M 126 232 A 130 130 0 0 1 200 120" fill="none" stroke="#06B6D4" stroke-width="4" stroke-opacity="0.6" stroke-linecap="round"/>
+  <path d="M 312 120 A 130 130 0 0 1 386 232" fill="none" stroke="#0891B2" stroke-width="4" stroke-opacity="0.55" stroke-linecap="round"/>
+  <path d="M 386 232 A 130 130 0 0 1 312 344" fill="none" stroke="#F59E0B" stroke-width="4" stroke-opacity="0.45" stroke-linecap="round"/>
+  
+  <!-- Scanner Line (from center going up-right) - THICKER -->
+  <line 
+    x1="256" y1="232" 
+    x2="350" y2="145" 
+    stroke="url(#scannerGradient)" 
+    stroke-width="5"
+    stroke-linecap="round"
+    filter="url(#glow)"
+  />
+  
+  <!-- Center Glow -->
+  <circle cx="256" cy="232" r="45" fill="url(#centerGlow)"/>
+  
+  <!-- Center Point - BIGGER -->
+  <circle cx="256" cy="232" r="16" fill="#F59E0B" filter="url(#glow)"/>
+  <circle cx="256" cy="232" r="8" fill="#FCD34D"/>
+  
+  <!-- Detection Point at scanner tip - BIGGER -->
+  <circle cx="350" cy="145" r="12" fill="#F59E0B" filter="url(#strongGlow)"/>
+  <circle cx="350" cy="145" r="6" fill="#FBBF24"/>
+  
+  <!-- Small detection dots - BIGGER -->
+  <circle cx="180" cy="180" r="6" fill="#06B6D4" fill-opacity="0.6"/>
+  <circle cx="320" cy="280" r="5" fill="#0891B2" fill-opacity="0.45"/>
+</svg>
