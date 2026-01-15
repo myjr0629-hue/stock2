@@ -4,28 +4,19 @@ import React, { useEffect, useState } from "react";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import {
   ArrowRight,
-  ShieldCheck,
-  Zap,
-  Activity,
-  BarChart3,
-  Clock,
-  RefreshCw,
-  AlertCircle,
   X,
   Loader2,
-  Lock,
-  Target,
-  Radar,
-  Eye,
-  TrendingUp,
+  ChevronRight,
   Waves,
-  ChevronRight
+  Eye,
+  Radar,
+  Target
 } from "lucide-react";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { TradingViewTicker } from "@/components/TradingViewTicker";
 
-// --- Ticker Drawer (Detailed View) ---
+// --- Ticker Drawer ---
 function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boolean, onClose: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
@@ -45,21 +36,17 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-[#0F172A] h-full shadow-2xl border-l border-white/10 p-6 overflow-y-auto animate-in slide-in-from-right duration-300">
-        <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full transition-colors">
-          <X size={20} className="text-slate-400 hover:text-white" />
+      <div className="relative w-full max-w-md bg-[#0F172A] h-full shadow-2xl border-l border-white/10 p-6 overflow-y-auto">
+        <button onClick={onClose} className="absolute top-4 right-4 p-2 hover:bg-white/10 rounded-full">
+          <X size={20} className="text-slate-400" />
         </button>
         <div className="mt-8 space-y-6">
-          <div className="space-y-1">
-            <h2 className="text-4xl font-black text-white tracking-tighter">{symbol}</h2>
-            {data?.underlyingPrice && (
-              <p className="text-2xl font-mono font-bold text-cyan-400">
-                ${data.underlyingPrice.toFixed(2)}
-              </p>
-            )}
-          </div>
+          <h2 className="text-4xl font-black text-white">{symbol}</h2>
+          {data?.underlyingPrice && (
+            <p className="text-2xl font-mono font-bold text-cyan-400">${data.underlyingPrice.toFixed(2)}</p>
+          )}
           <div className="pt-6 border-t border-white/10">
-            <h3 className="text-xs font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">Live Options Chain</h3>
+            <h3 className="text-xs font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">Options Chain</h3>
             {loading ? (
               <div className="py-8 flex justify-center"><Loader2 className="animate-spin text-cyan-500" size={24} /></div>
             ) : data?.atmSlice?.length > 0 ? (
@@ -165,20 +152,20 @@ export default function Page() {
       {/* ========================================= */}
       {/* HERO SECTION */}
       {/* ========================================= */}
-      <section className="relative pt-32 pb-16 px-6 overflow-hidden">
-        {/* Background - Tech logos - MORE VISIBLE */}
+      <section className="relative pt-28 pb-12 px-6 overflow-hidden">
+        {/* Background - Tech logos - SPREAD WIDE */}
         <div className="absolute inset-0 z-0 select-none pointer-events-none">
           <img
             src="/us_tech_logos_tight.png?v=1"
             alt="Background"
-            className="w-full h-full object-contain object-center opacity-50"
+            className="w-full h-full object-cover opacity-40"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#050810]/40 via-[#050810]/30 to-[#050810]/80" />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_20%,#050810_90%)] opacity-70" />
+          <div className="absolute inset-0 bg-gradient-to-b from-[#050810]/50 via-[#050810]/40 to-[#050810]" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,#050810_80%)] opacity-80" />
         </div>
 
         {/* Content */}
-        <div className="relative z-10 max-w-5xl mx-auto text-center space-y-6">
+        <div className="relative z-10 max-w-4xl mx-auto text-center space-y-4">
           {/* Status Badge */}
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full 
             bg-cyan-500/10 border border-cyan-500/20 
@@ -188,19 +175,19 @@ export default function Page() {
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.95] text-white">
+          <h1 className="text-4xl md:text-6xl font-black tracking-tighter leading-[0.95] text-white">
             MARKET LOGIC,<br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">SOLVED.</span>
           </h1>
 
           {/* Tagline */}
-          <p className="text-base md:text-lg text-slate-400 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-sm md:text-base text-slate-400 max-w-xl mx-auto leading-relaxed">
             <span className="text-white font-semibold">옵션 · 다크풀 · 고래</span> — 분산된 프리미엄 신호를
             <span className="text-cyan-400 font-semibold"> 하나의 사령부</span>에서 통합합니다.
           </p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-4">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
             <a href="#live-demo"
               className="px-8 py-3 bg-gradient-to-r from-cyan-500 to-cyan-400 
                 text-slate-900 rounded-lg font-bold text-sm 
@@ -218,45 +205,80 @@ export default function Page() {
       </section>
 
       {/* ========================================= */}
-      {/* FEATURES - Compact Grid */}
+      {/* FEATURES - Glassmorphism Cards with Content */}
       {/* ========================================= */}
-      <section id="features" className="py-16 px-6 border-t border-white/5">
+      <section id="features" className="py-12 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-10">
+          <div className="text-center mb-8">
             <h2 className="text-2xl md:text-3xl font-black text-white mb-2">
               왜 <span className="text-cyan-400">SIGNUM HQ</span>인가?
             </h2>
             <p className="text-sm text-slate-500">$500+/월 가치의 프리미엄 데이터를 통합</p>
           </div>
 
-          {/* Compact Feature Cards - 4 columns */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Feature Cards - 3 columns with descriptions */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {[
-              { icon: Waves, title: "감마 분석", desc: "MM 포지션 추적", price: "$200", color: "cyan" },
-              { icon: Eye, title: "다크풀", desc: "블록 트레이드 탐지", price: "$150", color: "amber" },
-              { icon: Radar, title: "고래 추적", desc: "대형 매집 알림", price: "$100", color: "cyan" },
-              { icon: Target, title: "3D 스나이퍼", desc: "급등 후보 스캔", price: "$50", color: "amber" }
+              {
+                icon: Waves,
+                title: "옵션 감마 분석",
+                desc: "MM의 감마 익스포져를 추적하여 가격 자석(Max Pain)과 저항선을 식별. 기관은 이 정보에 월 $200+ 지불합니다.",
+                price: "$200/mo",
+                color: "cyan"
+              },
+              {
+                icon: Eye,
+                title: "다크풀 & 고래 추적",
+                desc: "일반 거래소에 보이지 않는 블록 트레이드와 대형 기관의 매집을 실시간 탐지.",
+                price: "$150/mo",
+                color: "amber"
+              },
+              {
+                icon: Radar,
+                title: "3일 스나이퍼 시그널",
+                desc: "모멘텀, 수급, 기술적 조건이 정렬된 '3일 급등 후보' 자동 스캔. 고확률 진입 타이밍 포착.",
+                price: "$100/mo",
+                color: "cyan"
+              }
             ].map((f, i) => (
-              <div key={i} className="p-4 rounded-xl bg-white/[0.02] border border-white/5 hover:border-cyan-500/20 transition-all">
-                <div className={`w-8 h-8 rounded-lg mb-3 flex items-center justify-center
-                  ${f.color === 'cyan' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                  <f.icon className="w-4 h-4" />
-                </div>
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h3 className="font-bold text-sm text-white">{f.title}</h3>
-                    <p className="text-[10px] text-slate-500 mt-0.5">{f.desc}</p>
+              <div
+                key={i}
+                className="p-5 rounded-2xl transition-all duration-300
+                  bg-gradient-to-br from-white/[0.04] to-white/[0.01]
+                  backdrop-blur-xl border border-white/5
+                  hover:border-cyan-500/20 hover:scale-[1.01]"
+              >
+                {/* Icon & Price */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center
+                    ${f.color === 'cyan' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                    <f.icon className="w-5 h-5" />
                   </div>
-                  <span className={`text-[10px] font-bold ${f.color === 'cyan' ? 'text-cyan-400/60' : 'text-amber-400/60'}`}>{f.price}</span>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-full
+                    ${f.color === 'cyan' ? 'bg-cyan-500/10 text-cyan-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                    {f.price}
+                  </span>
                 </div>
+
+                {/* Title */}
+                <h3 className="text-base font-bold text-white mb-2">{f.title}</h3>
+
+                {/* Description */}
+                <p className="text-xs text-slate-400 leading-relaxed mb-3">{f.desc}</p>
+
+                {/* Included badge */}
+                <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
+                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                  SIGNUM HQ에 포함
+                </span>
               </div>
             ))}
           </div>
 
-          {/* Total Value - Inline */}
+          {/* Total Value */}
           <div className="mt-6 flex justify-center">
             <div className="inline-flex items-center gap-3 px-4 py-2 rounded-lg bg-white/5 border border-white/10 text-sm">
-              <span className="text-slate-500 line-through">$500/월</span>
+              <span className="text-slate-500 line-through">$450+/월</span>
               <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">통합 제공</span>
             </div>
           </div>
@@ -264,11 +286,11 @@ export default function Page() {
       </section>
 
       {/* ========================================= */}
-      {/* LIVE DEMO - Compact */}
+      {/* LIVE DEMO */}
       {/* ========================================= */}
-      <section id="live-demo" className="py-16 px-6 bg-[#030508] border-t border-white/5">
+      <section id="live-demo" className="py-12 px-6 bg-[#030508] border-t border-white/5">
         <div className="max-w-5xl mx-auto">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
@@ -281,7 +303,7 @@ export default function Page() {
             </a>
           </div>
 
-          {/* Ticker Grid - 4 columns for compactness */}
+          {/* Ticker Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {["NVDA", "TSLA", "AAPL", "MSFT"].map((ticker) => (
               <TickerCard key={ticker} symbol={ticker} />
@@ -290,10 +312,8 @@ export default function Page() {
         </div>
       </section>
 
-      {/* ========================================= */}
-      {/* FOOTER - Minimal */}
-      {/* ========================================= */}
-      <footer className="py-8 px-6 border-t border-white/5">
+      {/* FOOTER */}
+      <footer className="py-6 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
             <img src="/logo-signum-original.jpg" alt="SIGNUM HQ" className="w-6 h-6 rounded" />
