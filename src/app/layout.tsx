@@ -11,8 +11,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Alpha (Tier 0.1)",
-  description: "Real-time US Stock Quote Site",
+  title: "SIGNUM HQ",
+  description: "Market Signal Command Center - 옵션 · 다크풀 · 고래 통합 분석",
 };
 
 export default function RootLayout({

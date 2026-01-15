@@ -296,7 +296,7 @@ export default function Page() {
       <footer className="py-8 px-6 border-t border-white/5">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
           <div className="flex items-center gap-2">
-            <img src="/logo-signum.svg" alt="SIGNUM HQ" className="w-6 h-6" />
+            <img src="/logo-signum-original.jpg" alt="SIGNUM HQ" className="w-6 h-6 rounded" />
             <span className="font-bold text-sm text-white/60">SIGNUM HQ</span>
           </div>
           <p className="text-[10px] text-slate-600">© 2026 Market Signal Command</p>
