@@ -145,7 +145,7 @@ export default function GuardianPage() {
 
 
     return (
-        <div className="min-h-screen bg-[#050505] text-white overflow-hidden font-sans selection:bg-emerald-500/30">
+        <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30 overflow-y-auto">
             <LandingHeader />
 
             {/* MACRO TICKER (Engine Data) */}
@@ -170,7 +170,7 @@ export default function GuardianPage() {
             </div>
 
             {/* MAIN HUD CONTAINER */}
-            <main className="pb-4 px-4 h-[calc(100vh-110px)] max-w-[1920px] mx-auto flex flex-col gap-4 mt-4">
+            <main className="pb-4 px-4 min-h-[calc(100vh-110px)] max-w-[1920px] mx-auto flex flex-col gap-4 mt-4">
 
                 {/* --- TOP ROW: GAUGE | REALITY | MAP | VERDICT (GRID) --- */}
                 {/* 

@@ -263,7 +263,7 @@ export default function Page() {
           <img
             src="/us_tech_logos_tight.png?v=1"
             alt="US Tech Logos Atmosphere"
-            className="w-full h-full object-cover opacity-40"
+            className="w-full h-full object-contain object-center opacity-40"
           />
           {/* Gradient Overlay for Text Readability - Stronger Scrim */}
           <div className="absolute inset-0 bg-gradient-to-b from-slate-950/60 via-slate-950/40 to-slate-950 h-full mix-blend-multiply" />
