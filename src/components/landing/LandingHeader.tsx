@@ -54,7 +54,7 @@ export function LandingHeader() {
                         { label: "COMMAND", href: "/ticker?ticker=NVDA", path: "/ticker", active: false },
                         { label: "INTEL", href: "/intel", path: "/intel", active: false },
                         { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", active: false },
-                        { label: "WATCHLIST", href: "/favorites", path: "/favorites", active: false }
+                        { label: "WATCHLIST", href: "/watchlist", path: "/watchlist", active: false }
                     ].map((item) => {
                         // Use exact match for /intel to avoid matching /intel-guardian
                         const isActive = item.path
@@ -124,7 +124,7 @@ export function LandingHeader() {
                                     { label: "COMMAND", href: "/ticker?ticker=NVDA" },
                                     { label: "INTEL", href: "/intel" },
                                     { label: "PORTFOLIO", href: "/portfolio" },
-                                    { label: "WATCHLIST", href: "/favorites" }
+                                    { label: "WATCHLIST", href: "/watchlist" }
                                 ].map((item) => (
                                     <Link
                                         key={item.label}
