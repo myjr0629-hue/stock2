@@ -25,6 +25,7 @@ export interface EnrichedWatchlistItem extends WatchlistItem {
     rsi?: number;
     rvol?: number;
     return3d?: number;
+    maxPain?: number;
     maxPainDist?: number;
     gexM?: number;
     sparkline?: number[];
@@ -81,6 +82,7 @@ export function useWatchlist() {
                         rsi: apiData.realtime.rsi,
                         rvol: apiData.realtime.rvol,
                         return3d: apiData.realtime.return3d,
+                        maxPain: apiData.realtime.maxPain,
                         maxPainDist: apiData.realtime.maxPainDist,
                         gexM: apiData.realtime.gexM,
                         sparkline: apiData.realtime.sparkline

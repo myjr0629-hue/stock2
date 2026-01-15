@@ -212,7 +212,7 @@ function WatchlistRow({ item, onRemove }: { item: EnrichedWatchlistItem; onRemov
 
             {/* MaxPain */}
             <div className="flex justify-center">
-                <MaxPainIndicator dist={item.maxPainDist} />
+                <MaxPainIndicator maxPain={item.maxPain} dist={item.maxPainDist} />
             </div>
 
             {/* GEX + Delete */}
@@ -338,15 +338,18 @@ function WhaleIndicator({ index, confidence }: { index?: number; confidence?: st
         return <span className="text-[10px] text-slate-600">N/A</span>;
     }
 
-    const level = index >= 70 ? 'HIGH' : index >= 40 ? 'MED' : 'LOW';
+    const level = index >= 70 ? '강한 매집' : index >= 40 ? '관심 종목' : '정상';
     const color = index >= 70 ? 'text-amber-400 bg-amber-400/10 border-amber-400/30' :
         index >= 40 ? 'text-slate-300 bg-slate-300/10 border-slate-400/30' :
             'text-slate-500 bg-slate-500/10 border-slate-600/30';
 
     return (
-        <div className={`flex items-center gap-1 px-2 py-0.5 rounded border ${color}`} title={`Whale Index: ${index}`}>
-            <span className="text-[10px]">🐋</span>
-            <span className="text-[9px] font-bold font-num">{index}</span>
+        <div className="text-center" title={`Whale Index: ${index} - 기관/고래 매집 강도`}>
+            <div className={`flex items-center gap-1 px-2 py-0.5 rounded border ${color}`}>
+                <span className="text-[10px]">🐋</span>
+                <span className="text-[9px] font-bold font-num">{index}</span>
+            </div>
+            <span className="text-[8px] text-white/80 block mt-0.5">{level}</span>
         </div>
     );
 }
@@ -356,13 +359,13 @@ function RSIIndicator({ value }: { value?: number }) {
         return <span className="text-[10px] text-slate-600">—</span>;
     }
 
-    const color = value >= 70 ? 'text-rose-400' : value <= 30 ? 'text-emerald-400' : 'text-slate-300';
-    const label = value >= 70 ? '과매수' : value <= 30 ? '과매도' : '';
+    const color = value >= 70 ? 'text-rose-400' : value <= 30 ? 'text-emerald-400' : 'text-white';
+    const label = value >= 70 ? '과매수' : value <= 30 ? '과매도' : '중립';
 
     return (
-        <div className="text-center" title={`RSI(14): ${value.toFixed(0)}`}>
+        <div className="text-center" title={`RSI(14): ${value.toFixed(0)} - 상대강도지수`}>
             <span className={`text-xs font-bold font-num ${color}`}>{value.toFixed(0)}</span>
-            {label && <span className={`text-[8px] block ${color}`}>{label}</span>}
+            <span className="text-[8px] text-white/80 block">{label}</span>
         </div>
     );
 }
@@ -372,12 +375,14 @@ function RVOLIndicator({ value }: { value?: number }) {
         return <span className="text-[10px] text-slate-600">—</span>;
     }
 
-    const color = value >= 2.0 ? 'text-amber-400' : value >= 1.5 ? 'text-slate-200' : 'text-slate-500';
+    const color = value >= 2.0 ? 'text-amber-400' : value >= 1.5 ? 'text-white' : 'text-slate-400';
+    const label = value >= 2.0 ? '급등' : value >= 1.5 ? '활발' : '보통';
 
     return (
-        <span className={`text-xs font-bold font-num ${color}`} title={`상대거래량: ${value.toFixed(2)}x`}>
-            {value.toFixed(1)}x
-        </span>
+        <div className="text-center" title={`상대거래량: ${value.toFixed(2)}x (평균 대비)`}>
+            <span className={`text-xs font-bold font-num ${color}`}>{value.toFixed(1)}x</span>
+            <span className="text-[8px] text-white/80 block">{label}</span>
+        </div>
     );
 }
 
@@ -386,29 +391,38 @@ function Return3DIndicator({ value }: { value?: number }) {
         return <span className="text-[10px] text-slate-600">—</span>;
     }
 
-    const color = value > 0 ? 'text-emerald-400' : value < 0 ? 'text-rose-400' : 'text-slate-400';
+    const color = value > 0 ? 'text-emerald-400' : value < 0 ? 'text-rose-400' : 'text-white';
+    const label = value > 3 ? '강세' : value > 0 ? '상승' : value < -3 ? '약세' : value < 0 ? '하락' : '보합';
 
     return (
-        <span className={`text-xs font-bold font-num ${color}`} title={`3일 수익률: ${value.toFixed(1)}%`}>
-            {value > 0 ? '+' : ''}{value.toFixed(1)}%
-        </span>
+        <div className="text-center" title={`3일 수익률: ${value.toFixed(1)}% - 단기 모멘텀`}>
+            <span className={`text-xs font-bold font-num ${color}`}>
+                {value > 0 ? '+' : ''}{value.toFixed(1)}%
+            </span>
+            <span className="text-[8px] text-white/80 block">{label}</span>
+        </div>
     );
 }
 
-function MaxPainIndicator({ dist }: { dist?: number }) {
+function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }) {
     if (dist === undefined || dist === null) {
         return <span className="text-[10px] text-slate-600">—</span>;
     }
 
-    const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-slate-400';
+    const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white';
     const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
+    const label = dist > 0 ? '저평가' : dist < 0 ? '고평가' : '균형';
 
     return (
-        <div className="text-center" title={`Max Pain 이격도: ${dist > 0 ? '+' : ''}${dist.toFixed(1)}%`}>
+        <div className="text-center" title={`Max Pain: $${maxPain?.toFixed(2)} - 옵션 만기 예상가`}>
+            {maxPain && (
+                <span className="text-[9px] text-white font-num font-bold block">${maxPain.toFixed(0)}</span>
+            )}
             <span className={color}>
                 <span className="text-sm">{arrow}</span>
-                <span className="text-xs font-bold font-num ml-0.5">{dist > 0 ? '+' : ''}{dist.toFixed(1)}%</span>
+                <span className="text-[10px] font-bold font-num">{dist > 0 ? '+' : ''}{dist.toFixed(1)}%</span>
             </span>
+            <span className="text-[8px] text-white/80 block">{label}</span>
         </div>
     );
 }
@@ -421,12 +435,15 @@ function GexIndicator({ gexM }: { gexM?: number }) {
     const color = gexM > 0 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
         : gexM < 0 ? 'text-rose-400 bg-rose-400/10 border-rose-400/30'
             : 'text-slate-400 bg-slate-400/10 border-slate-400/30';
-    const label = gexM > 0 ? 'LONG' : gexM < 0 ? 'SHORT' : 'N/A';
-    const icon = gexM > 0 ? '🛡️' : gexM < 0 ? '⚡' : '—';
+    const label = gexM > 0 ? '🛡️ LONG' : gexM < 0 ? '⚡ SHORT' : '— N/A';
+    const meaning = gexM > 0 ? '안정' : gexM < 0 ? '변동성' : '';
 
     return (
-        <div className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${color}`} title={`GEX: ${gexM}M`}>
-            {icon} {label}
+        <div className="text-center" title={`GEX: ${gexM}M - 감마 노출`}>
+            <div className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${color}`}>
+                {label}
+            </div>
+            <span className="text-[8px] text-white/80 block mt-0.5">{meaning}</span>
         </div>
     );
 }
