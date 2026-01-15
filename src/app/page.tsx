@@ -196,12 +196,43 @@ export default function Page() {
       {/* ========================================= */}
       {/* FEATURES SECTION */}
       {/* ========================================= */}
-      <section id="features" className="py-14 px-6">
+      <section id="features" className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
-          {/* Section Header */}
-          <div className="text-center mb-8">
+          {/* Section Header with Logo */}
+          <div className="text-center mb-10">
+            {/* SIGNUM HQ Logo SVG */}
+            <div className="flex justify-center mb-4">
+              <svg width="48" height="48" viewBox="0 0 48 48" className="text-cyan-400">
+                {/* Hexagon Frame */}
+                <path
+                  d="M24 2 L44 14 L44 34 L24 46 L4 34 L4 14 Z"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  className="opacity-60"
+                />
+                {/* Inner Radar Circles */}
+                <circle cx="24" cy="24" r="12" fill="none" stroke="currentColor" strokeWidth="0.75" className="opacity-30" />
+                <circle cx="24" cy="24" r="8" fill="none" stroke="currentColor" strokeWidth="0.75" className="opacity-40" />
+                <circle cx="24" cy="24" r="4" fill="none" stroke="currentColor" strokeWidth="0.75" className="opacity-50" />
+                {/* Scanner Line */}
+                <line x1="24" y1="24" x2="36" y2="12" stroke="url(#scanGradient)" strokeWidth="2" strokeLinecap="round" />
+                {/* Center Dot */}
+                <circle cx="24" cy="24" r="2" fill="currentColor" className="animate-pulse" />
+                {/* Signal Point */}
+                <circle cx="34" cy="14" r="2.5" fill="#f59e0b" className="animate-pulse" />
+                {/* Gradient Definition */}
+                <defs>
+                  <linearGradient id="scanGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#06b6d4" />
+                    <stop offset="100%" stopColor="#f59e0b" />
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+
             <h2 className="text-2xl md:text-3xl font-black text-white mb-2">
-              왜 <span className="text-cyan-400">SIGNUM HQ</span>인가?
+              왜 <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-cyan-300">SIGNUM</span> <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-amber-300">HQ</span>인가?
             </h2>
             <p className="text-xs text-slate-500 uppercase tracking-[0.2em]">
               $450+/월 가치의 프리미엄 데이터 통합
@@ -210,8 +241,8 @@ export default function Page() {
 
           {/* Feature Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Card 1: Gamma */}
-            <div className="relative p-5 rounded-xl bg-[#0a1628] border border-white/5 overflow-hidden group hover:border-cyan-500/20 transition-all">
+            {/* Card 1: Gamma - Glassmorphism */}
+            <div className="relative p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/30 hover:bg-white/[0.05] transition-all duration-300">
               {/* Watermark Icon */}
               <div className="absolute -right-6 -bottom-6 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
                 <Waves className="w-32 h-32 text-cyan-400" />
@@ -239,8 +270,8 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Card 2: Dark Pool */}
-            <div className="relative p-5 rounded-xl bg-[#0a1628] border border-white/5 overflow-hidden group hover:border-amber-500/20 transition-all">
+            {/* Card 2: Dark Pool - Glassmorphism */}
+            <div className="relative p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-amber-500/30 hover:bg-white/[0.05] transition-all duration-300">
               {/* Watermark Icon */}
               <div className="absolute -right-6 -bottom-6 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
                 <Eye className="w-32 h-32 text-amber-400" />
@@ -268,8 +299,8 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Card 3: 3-Day Sniper */}
-            <div className="relative p-5 rounded-xl bg-[#0a1628] border border-white/5 overflow-hidden group hover:border-cyan-500/20 transition-all">
+            {/* Card 3: 3-Day Sniper - Glassmorphism */}
+            <div className="relative p-5 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/30 hover:bg-white/[0.05] transition-all duration-300">
               {/* Watermark Icon */}
               <div className="absolute -right-6 -bottom-6 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
                 <Radar className="w-32 h-32 text-cyan-400" />
