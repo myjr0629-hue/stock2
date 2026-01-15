@@ -25,18 +25,21 @@ export function LandingHeader() {
     return (
         <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-[#0F172A]/80 backdrop-blur-xl">
             <div className="container flex h-16 items-center justify-between px-4 sm:px-8">
-                {/* 1. LOGO (SIGNUM HQ) */}
-                <Link href="/" className="flex items-center gap-2.5 group">
-                    <img
-                        src="/logo-signum-light.png"
-                        alt="SIGNUM HQ"
-                        className="w-9 h-9 group-hover:scale-105 transition-transform"
-                    />
+                {/* 1. LOGO (SIGNUM HQ - Text Only, Premium Style) */}
+                <Link href="/" className="flex items-center gap-3 group">
+                    {/* Decorative accent bar */}
+                    <div className="w-1 h-8 bg-gradient-to-b from-cyan-400 to-amber-500 rounded-full opacity-80 group-hover:opacity-100 transition-opacity" />
+
                     <div className="flex flex-col">
-                        <span className="text-sm font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
-                            SIGNUM <span className="text-cyan-400">HQ</span>
-                        </span>
-                        <span className="text-[8px] font-bold text-slate-500 tracking-[0.15em] uppercase leading-none mt-0.5">
+                        <div className="flex items-baseline gap-1">
+                            <span className="text-lg font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
+                                SIGNUM
+                            </span>
+                            <span className="text-lg font-black tracking-tight text-cyan-400 leading-none">
+                                HQ
+                            </span>
+                        </div>
+                        <span className="text-[9px] font-medium text-slate-500 tracking-[0.2em] uppercase leading-none mt-1 group-hover:text-slate-400 transition-colors">
                             Signal Command
                         </span>
                     </div>
