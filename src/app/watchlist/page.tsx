@@ -29,38 +29,31 @@ export default function WatchlistPage() {
             {/* Live Ticker Bar */}
             <TradingViewTicker />
 
-            {/* Page Header */}
-            <div className="border-b border-amber-900/20 bg-gradient-to-r from-[#0c1118] via-[#111820] to-[#0c1118]">
-                <div className="max-w-7xl mx-auto px-4 sm:px-8 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-500/30 flex items-center justify-center">
-                            <Star className="w-5 h-5 text-amber-400" />
-                        </div>
-                        <div>
-                            <h1 className="text-lg font-bold tracking-tight flex items-center gap-2">
-                                WATCHLIST
-                                <span className="text-[9px] font-bold text-slate-500 bg-slate-900/50 px-2 py-0.5 rounded-full border border-slate-700">PREMIUM</span>
-                            </h1>
-                            <p className="text-xs text-slate-400">프리미엄 지표 실시간 모니터링</p>
-                        </div>
-                    </div>
+            {/* Page Header - Minimal & Premium */}
+            <div className="border-b border-white/5">
+                <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
+                        <Star className="w-4 h-4 text-amber-400/80" />
+                        <span className="text-sm font-bold tracking-wide text-white/90">WATCHLIST</span>
+                        <span className="text-[8px] font-medium text-amber-400/60 tracking-widest">PREMIUM</span>
+                    </div>
+                    <div className="flex items-center gap-3">
                         <button
                             onClick={() => refresh()}
-                            className="p-2.5 hover:bg-white/5 rounded-lg transition-all border border-transparent hover:border-amber-700/30 relative"
-                            title="Refresh data"
+                            className="p-2 hover:bg-white/5 rounded transition-all relative"
+                            title="Refresh"
                         >
-                            <RefreshCw className={`w-4 h-4 text-slate-400 ${loading ? 'animate-spin' : ''}`} />
+                            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 hover:text-slate-300 ${loading ? 'animate-spin' : ''}`} />
                             {isRefreshing && (
-                                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                                <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-amber-400 rounded-full" />
                             )}
                         </button>
                         <button
                             onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 rounded-lg hover:from-amber-500/30 hover:to-orange-500/30 transition-all text-sm font-bold border border-amber-500/30"
+                            className="flex items-center gap-1 px-3 py-1.5 text-amber-400/90 hover:text-amber-300 text-xs font-medium transition-colors"
                         >
-                            <Plus className="w-4 h-4" />
-                            종목 추가
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add</span>
                         </button>
                     </div>
                 </div>
