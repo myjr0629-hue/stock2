@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from "@/lib/utils";
 import { Zap, Crosshair } from "lucide-react";
 
@@ -9,13 +10,14 @@ interface ExecutionDialProps {
     whaleIndex: number; // 0-100
     whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE';
     alphaScore: number;
-    whaleEntryLevel?: number; // [NEW]
-    whaleTargetLevel?: number; // [NEW]
-    dominantContract?: string; // [NEW]
+    whaleEntryLevel?: number;
+    whaleTargetLevel?: number;
+    dominantContract?: string;
 }
 
 export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore, whaleEntryLevel, whaleTargetLevel, dominantContract }: ExecutionDialProps) {
     const [fill, setFill] = useState(0);
+    const t = useTranslations('command');
 
     // Animate fill on mount
     useEffect(() => {
@@ -56,10 +58,10 @@ export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore, whaleEn
                     <path
                         d="M 10 50 A 40 40 0 0 1 90 50"
                         fill="none"
-                        stroke={isFireReady ? "#ec4899" : "#10b981"} // Pink or Emerald
+                        stroke={isFireReady ? "#ec4899" : "#10b981"}
                         strokeWidth="6"
                         strokeLinecap="round"
-                        strokeDasharray="126" // Approx length of arc
+                        strokeDasharray="126"
                         strokeDashoffset={126 - (126 * (fill / 100))}
                         className="transition-all duration-1000 ease-out"
                     />
@@ -83,19 +85,18 @@ export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore, whaleEn
                         </span>
                         {isFireReady && <Zap className="w-3 h-3 text-fuchsia-500 animate-pulse" />}
                     </div>
-                    {/* [V4.7] Korean Context Label */}
-                    {!dominantContract && <span className="text-[9px] text-slate-600 font-medium -mt-0.5">AI 확신도 (승률 예상)</span>}
+                    {!dominantContract && <span className="text-[9px] text-slate-600 font-medium -mt-0.5">{t('aiConfidence')}</span>}
                 </div>
 
                 {whaleTargetLevel ? (
                     <div className="flex flex-col items-center animate-in fade-in zoom-in duration-300">
-                        <span className="text-[10px] text-emerald-400 font-bold tracking-wider mb-0.5">세력 목표가 (Target)</span>
+                        <span className="text-[10px] text-emerald-400 font-bold tracking-wider mb-0.5">{t('whaleTargetPrice')}</span>
                         <span className="text-xl font-black text-white font-mono tracking-tight underline decoration-emerald-500/30 decoration-2 underline-offset-4">
                             ${whaleTargetLevel.toFixed(2)}
                         </span>
                         {whaleEntryLevel && (
                             <span className="text-[9px] text-slate-500 mt-1 font-mono">
-                                세력 매집가: <span className="text-slate-400">${whaleEntryLevel.toFixed(2)}</span>
+                                {t('whaleEntryPrice')}: <span className="text-slate-400">${whaleEntryLevel.toFixed(2)}</span>
                             </span>
                         )}
                     </div>
@@ -106,13 +107,12 @@ export function ExecutionDial({ whaleIndex, whaleConfidence, alphaScore, whaleEn
                         {fill.toFixed(0)}
                     </div>
                 )}
-                {/* [V5.0] Korean explanation for 0 value */}
                 {fill === 0 && !whaleTargetLevel && (
-                    <span className="text-[9px] text-slate-500 mt-1 italic">장 마감 - 실시간 고래 신호 없음</span>
+                    <span className="text-[9px] text-slate-500 mt-1 italic">{t('marketClosedNoWhaleSignal')}</span>
                 )}
             </div>
 
-            {/* Ready to Fire Overlay (If no target, or as backup) */}
+            {/* Ready to Fire Overlay */}
             {isFireReady && !whaleTargetLevel && (
                 <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-3 py-0.5 bg-fuchsia-500 text-slate-950 font-black text-[10px] tracking-widest animate-pulse whitespace-nowrap">
                     READY TO FIRE

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { usePortfolio, type EnrichedHolding } from '@/hooks/usePortfolio';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { TradingViewTicker } from '@/components/TradingViewTicker';
+import { useTranslations, useLocale } from 'next-intl';
 import {
     TrendingUp,
     TrendingDown,
@@ -27,6 +28,9 @@ export default function PortfolioPage() {
     const { holdings, summary, loading, isRefreshing, refresh, removeHolding } = usePortfolio();
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingHolding, setEditingHolding] = useState<EnrichedHolding | null>(null);
+    const t = useTranslations('portfolio');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
 
     // Auto-refresh every 30 seconds for real-time price updates
     useEffect(() => {
@@ -84,12 +88,12 @@ export default function PortfolioPage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <SummaryCard
                         icon={<Wallet className="w-4 h-4 text-cyan-400" />}
-                        label="총 평가금액"
+                        label={t('totalEvaluation')}
                         value={`$${summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     />
                     <SummaryCard
                         icon={<PiggyBank className="w-4 h-4 text-indigo-400" />}
-                        label="총 투자금액"
+                        label={t('totalInvestment')}
                         value={`$${summary.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                     />
                     {/* Profit Gauge Card */}
@@ -110,11 +114,11 @@ export default function PortfolioPage() {
                     <div className="relative">
                         {/* Table Header - Precise Grid (Total: 17 cols) */}
                         <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_2fr_2fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
-                            <div>종목</div>
-                            <div className="text-center">수량</div>
-                            <div className="text-center">매입가</div>
-                            <div className="text-center">현재가</div>
-                            <div className="text-center">손익</div>
+                            <div>{t('ticker')}</div>
+                            <div className="text-center">{t('quantity')}</div>
+                            <div className="text-center">{t('avgPrice')}</div>
+                            <div className="text-center">{t('currentPrice')}</div>
+                            <div className="text-center">{t('profitLoss')}</div>
                             <div className="text-center">Alpha</div>
                             <div className="text-center">Signal</div>
                             <div className="text-center">MaxPain</div>
@@ -125,20 +129,20 @@ export default function PortfolioPage() {
                         {loading ? (
                             <div className="px-4 py-16 text-center">
                                 <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-cyan-500/50" />
-                                <p className="text-slate-500 text-sm">포트폴리오 로딩 중...</p>
+                                <p className="text-slate-500 text-sm">{t('loadingPortfolio')}</p>
                             </div>
                         ) : holdings.length === 0 ? (
                             <div className="px-4 py-16 text-center">
                                 <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-slate-800/50 to-slate-800/30 border border-white/5 flex items-center justify-center">
                                     <Briefcase className="w-8 h-8 text-slate-600" />
                                 </div>
-                                <p className="text-slate-400 font-medium mb-1">보유 종목이 없습니다</p>
-                                <p className="text-slate-600 text-xs mb-4">종목을 추가하여 포트폴리오를 시작하세요</p>
+                                <p className="text-slate-400 font-medium mb-1">{t('noHoldings')}</p>
+                                <p className="text-slate-600 text-xs mb-4">{t('startPortfolio')}</p>
                                 <button
                                     onClick={() => setShowAddModal(true)}
                                     className="text-cyan-400 hover:text-cyan-300 text-sm font-bold"
                                 >
-                                    + 첫 번째 종목 추가하기
+                                    {t('addFirstHolding')}
                                 </button>
                             </div>
                         ) : (
@@ -200,6 +204,7 @@ function SummaryCard({ icon, label, value }: {
 
 // Profit Gauge with Semi-circular visualization
 function ProfitGaugeCard({ gainLoss, gainLossPct }: { gainLoss: number; gainLossPct: number }) {
+    const t = useTranslations('portfolio');
     const isPositive = gainLossPct >= 0;
     const absPercent = Math.min(Math.abs(gainLossPct), 50); // Cap at 50%
     const rotation = isPositive ? (absPercent / 50) * 90 : -(absPercent / 50) * 90;
@@ -210,7 +215,7 @@ function ProfitGaugeCard({ gainLoss, gainLossPct }: { gainLoss: number; gainLoss
             <div className="relative p-4">
                 <div className="flex items-center gap-2 mb-2">
                     <Activity className={`w-4 h-4 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`} />
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">수익률</span>
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">{t('returnRate')}</span>
                 </div>
                 <div className="flex items-center gap-3">
                     {/* Mini Gauge */}
@@ -238,6 +243,7 @@ function ProfitGaugeCard({ gainLoss, gainLossPct }: { gainLoss: number; gainLoss
 
 // Portfolio Score Card with Grade
 function PortfolioScoreCard({ score, holdingsCount }: { score: number; holdingsCount: number }) {
+    const t = useTranslations('portfolio');
     const grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
     const gradeColor = grade === 'A' ? 'text-emerald-400 border-emerald-400' :
         grade === 'B' ? 'text-cyan-400 border-cyan-400' :
@@ -249,7 +255,7 @@ function PortfolioScoreCard({ score, holdingsCount }: { score: number; holdingsC
             <div className="relative p-4">
                 <div className="flex items-center gap-2 mb-2">
                     <Target className="w-4 h-4 text-indigo-400" />
-                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">포트폴리오 점수</span>
+                    <span className="text-[10px] text-slate-500 uppercase tracking-wider font-bold">{t('portfolioScore')}</span>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg border-2 ${gradeColor} flex items-center justify-center text-xl font-black`}>
@@ -257,7 +263,7 @@ function PortfolioScoreCard({ score, holdingsCount }: { score: number; holdingsC
                     </div>
                     <div>
                         <div className="text-xl font-black font-num tracking-tight text-white">{score}</div>
-                        <div className="text-[10px] text-slate-500">{holdingsCount}개 종목 평균</div>
+                        <div className="text-[10px] text-slate-500">{holdingsCount} {t('avgOfHoldings')}</div>
                     </div>
                 </div>
             </div>

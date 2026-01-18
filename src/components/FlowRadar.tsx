@@ -113,23 +113,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         };
     }, [rawChain, currentPrice]);
 
-    // Auto-scroll to ATM (current price) on mount
-    useEffect(() => {
-        if (scrollContainerRef.current && flowMap.length > 0) {
-            // Use setTimeout to ensure DOM is rendered
-            setTimeout(() => {
-                const atmIndex = flowMap.findIndex(row =>
-                    Math.abs(row.strike - currentPrice) / currentPrice < 0.02
-                );
-                if (atmIndex >= 0 && scrollContainerRef.current) {
-                    const rows = scrollContainerRef.current.children;
-                    if (rows[atmIndex]) {
-                        rows[atmIndex].scrollIntoView({ block: 'center', behavior: 'auto' });
-                    }
-                }
-            }, 100);
-        }
-    }, [flowMap, currentPrice]);
+
 
     // Intelligent Default Mode
     const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');

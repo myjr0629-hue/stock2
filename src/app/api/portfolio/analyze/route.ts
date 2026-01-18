@@ -9,6 +9,7 @@ import { getStockData, getOptionsData } from '@/services/stockApi';
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const ticker = searchParams.get('ticker');
+    // Force Recompile 1234
 
     if (!ticker) {
         return NextResponse.json({ error: 'Ticker required' }, { status: 400 });
@@ -19,16 +20,22 @@ export async function GET(request: Request) {
     try {
         const startTime = Date.now();
 
-        // Parallel fetch stock data and options
-        const [stockData, optionsData] = await Promise.all([
+        // [FIX] Fetch options structure from same API as Command page for consistency
+        const baseUrl = request.url.split('/api/')[0];
+
+        // Parallel fetch stock data, options, and options structure
+        const [stockData, optionsData, structureRes] = await Promise.all([
             getStockData(tickerUpper, '1d'),
-            getOptionsData(tickerUpper).catch(() => null)
+            getOptionsData(tickerUpper).catch(() => null),
+            fetch(`${baseUrl}/api/live/options/structure?t=${tickerUpper}`).then(r => r.ok ? r.json() : null).catch(() => null)
         ]);
 
         const elapsed = Date.now() - startTime;
 
         // Calculate Alpha score (simplified version of powerEngine)
         let score = 50; // Base score
+        const triggers: string[] = [];
+        const currentPrice = stockData.price || 0;
 
         // Price momentum component (+/- 15) - using 'change' field
         const changePct = stockData.changePercent || 0;
@@ -52,6 +59,29 @@ export async function GET(request: Request) {
             else score -= 5; // Negative GEX
         }
 
+        // [S-99] Gamma Flip Integration (Accelerator/Brake)
+        const gammaFlip = opts?.gems?.gammaFlipLevel;
+        const gammaState = opts?.gems?.gammaState; // 'SHORT_GAMMA' | 'LONG_GAMMA'
+
+        if (gammaFlip) {
+            // 1. Short Gamma Acceleration (Price > Flip)
+            if (gammaState === 'SHORT_GAMMA') {
+                if (changePct > 0) {
+                    score += 10; // Momentum Boost
+                    triggers.push(`🚀 Gamma Flip($${gammaFlip}) 돌파 (가속)`);
+                } else {
+                    triggers.push(`⚠️ 숏감마 구간 진입 ($${gammaFlip} 위)`);
+                }
+            }
+            // 2. Long Gamma Stability (Price < Flip)
+            else if (gammaState === 'LONG_GAMMA') {
+                if (changePct > -2) {
+                    score += 5; // Stability Bonus
+                    triggers.push(`🛡️ 롱감마 구간 ($${gammaFlip} 아래)`);
+                }
+            }
+        }
+
         // Clamp score to 0-100
         score = Math.max(0, Math.min(100, Math.round(score)));
 
@@ -61,7 +91,6 @@ export async function GET(request: Request) {
         // Determine action with triggers (reasons)
         let action: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH' = 'HOLD';
         let confidence = 50;
-        const triggers: string[] = [];
 
         // Build triggers based on conditions
         if (score >= 75) triggers.push(`Alpha ${score}점 (강세)`);
@@ -98,18 +127,20 @@ export async function GET(request: Request) {
             triggers.push('→ 관망 권장');
         }
 
-        // Calculate Max Pain distance % - null if no options data
+        // [FIX] Use options/structure API for MaxPain (same source as Command page)
         const hasOptionsData = optionsData && (opts?.maxPain || opts?.gems?.gex || opts?.gex);
-        const maxPain = hasOptionsData ? (opts?.maxPain || null) : null;
-        const currentPrice = stockData.price || 0;
+        const maxPain = structureRes?.maxPain || (hasOptionsData ? (opts?.maxPain || null) : null);
         const maxPainDist = (maxPain && currentPrice)
             ? Number(((maxPain - currentPrice) / currentPrice * 100).toFixed(2))
             : null;
 
-        // Get GEX from options data - null if no options data
+        // [FIX] Use options/structure API for GEX (same source as Command page)
         const rawGex = opts?.gems?.gex || opts?.gex;
-        const gex = hasOptionsData ? (rawGex || null) : null;
+        const gex = structureRes?.netGex ?? (hasOptionsData ? (rawGex || null) : null);
         const gexM = gex !== null ? Number((gex / 1000000).toFixed(2)) : null;
+
+        // [FIX] Use Gamma Flip from structure API for consistency
+        const gammaFlipFromStructure = structureRes?.gammaFlipLevel || null;
 
         const result = {
             ticker: tickerUpper,
@@ -134,6 +165,8 @@ export async function GET(request: Request) {
                 maxPainDist: maxPainDist,
                 gex: gex,
                 gexM: gexM,
+                gammaFlip: gammaFlipFromStructure || gammaFlip || null, // [FIX] Prioritize structure API
+                gammaState: gammaState || null, // [S-99] Exposed for UI/Debug
                 pcr: opts?.putCallRatio || null, // Put/Call Ratio
                 tripleA: {
                     direction: changePct > 0,

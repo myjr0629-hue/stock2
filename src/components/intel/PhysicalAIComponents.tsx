@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import Image from 'next/image';
 import { TypewriterText } from '@/components/guardian/TypewriterText';
 import { Bot, ArrowUpRight, ArrowDownRight, CircuitBoard } from 'lucide-react';
-import { TickerItem } from '@/app/intel/IntelClientPage';
+import { TickerItem } from '@/types/intel';
 
 // ----------------------------------------------------------------------
 // 1. Briefing Bar (Mechanized Font)

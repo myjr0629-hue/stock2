@@ -8,8 +8,11 @@ import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
 import { clsx } from 'clsx';
 import { useFavorites } from "@/hooks/useFavorites";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslations } from 'next-intl';
 
 export function LandingHeader() {
+    const t = useTranslations();
     const router = useRouter();
     const pathname = usePathname();
     const { favorites } = useFavorites();
@@ -95,18 +98,17 @@ export function LandingHeader() {
 
                     <div className="w-px h-4 bg-slate-800 hidden md:block" />
 
-                    {/* EN/KO Toggle */}
-                    <button className="hidden md:flex items-center gap-2 text-[10px] font-black text-slate-400 hover:text-white transition-colors uppercase tracking-widest">
-                        <Globe size={12} />
-                        <span>EN <span className="text-slate-700">|</span> KO</span>
-                    </button>
+                    {/* Language Switcher */}
+                    <div className="hidden md:block">
+                        <LanguageSwitcher />
+                    </div>
 
                     {/* Login Button - Visible */}
                     <Link
                         href="/login"
                         className="hidden md:flex items-center gap-1.5 px-4 py-1.5 text-[10px] font-bold text-cyan-400 border border-cyan-500/30 rounded hover:bg-cyan-500/10 transition-all uppercase tracking-wider"
                     >
-                        Sign In
+                        {t('nav.signIn')}
                     </Link>
 
                     {/* [Mobile Menu Toggle] */}
@@ -135,7 +137,7 @@ export function LandingHeader() {
                                 ))}
                                 <div className="h-px bg-slate-800 my-1" />
                                 <Link href="/login" className="block px-4 py-3 text-xs font-black text-emerald-400 hover:bg-emerald-950/30 rounded-lg uppercase tracking-widest">
-                                    Login
+                                    {t('nav.signIn')}
                                 </Link>
                             </div>
                         </details>

@@ -10,8 +10,9 @@ export async function GET(request: Request) {
     try {
         const { searchParams } = new URL(request.url);
         const force = searchParams.get('force') === 'true';
+        const locale = (searchParams.get('locale') || 'ko') as 'ko' | 'en' | 'ja';
 
-        const context = await GuardianDataHub.getGuardianSnapshot(force);
+        const context = await GuardianDataHub.getGuardianSnapshot(force, locale);
 
         return NextResponse.json({
             success: true,

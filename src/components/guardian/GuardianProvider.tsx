@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { usePathname } from 'next/navigation';
 
 // Re-using types from unifiedDataStream (or similar shape)
 // We might want to import them if they are shared, or define flexible types here.
@@ -33,12 +34,17 @@ const GuardianContext = createContext<GuardianContextType>({
 export function GuardianProvider({ children }: { children: React.ReactNode }) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const pathname = usePathname();
+
+    // Extract locale from pathname (e.g., /en/intel-guardian -> 'en')
+    const locale = pathname?.split('/')[1] || 'ko';
+    const validLocale = ['ko', 'en', 'ja'].includes(locale) ? locale : 'ko';
 
     const refresh = async (force: boolean = false) => {
         setLoading(true);
         try {
-            // Using existing API endpoint
-            const res = await fetch(`/api/debug/guardian?force=${force}`);
+            // Using existing API endpoint with locale
+            const res = await fetch(`/api/debug/guardian?force=${force}&locale=${validLocale}`);
             const json = await res.json();
             if (json.success && json.data) {
                 setData(json.data);
@@ -55,7 +61,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
         // Poll every 60s
         const interval = setInterval(refresh, 60000);
         return () => clearInterval(interval);
-    }, []);
+    }, [validLocale]); // Re-fetch when locale changes
 
     const value = {
         data,

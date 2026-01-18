@@ -4,13 +4,14 @@ import React from 'react';
 import { Activity, MessageSquare, TrendingUp, DollarSign } from "lucide-react";
 import { TypewriterText } from "./TypewriterText";
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
+import { useTranslations } from 'next-intl';
 
 interface RealityCheckProps {
-    nasdaqChange: number; // e.g. +0.80
-    guardianScore: number; // e.g. 88.0
+    nasdaqChange: number;
+    guardianScore: number;
     divergenceCase?: 'A' | 'B' | 'C' | 'D' | 'N';
-    rvolNdx?: number; // NASDAQ 20d Avg Vol (1.2 = 120%)
-    rvolDow?: number; // DOW 20d Avg Vol
+    rvolNdx?: number;
+    rvolDow?: number;
     verdict?: {
         title: string;
         desc: string;
@@ -26,6 +27,7 @@ export function RealityCheck({
     rvolDow = 1.0,
     verdict
 }: RealityCheckProps) {
+    const t = useTranslations('guardian');
     // 1. Determine Alignment Status
     const isDivergent = divergenceCase === 'A' || divergenceCase === 'B';
     const statusText = isDivergent ? "DIVERGENCE" : "ALIGNMENT OK";
@@ -175,7 +177,7 @@ export function RealityCheck({
                     <div className="flex justify-between items-center px-3 py-2 border-b border-slate-800/50 bg-slate-900/30">
                         <div className="flex items-center gap-2">
                             <MessageSquare className="w-4 h-4 text-emerald-500" />
-                            <span className="text-[11px] font-black text-slate-200 uppercase tracking-widest leading-none">RLSI (시장의 본질 분석)</span>
+                            <span className="text-[11px] font-black text-slate-200 uppercase tracking-widest leading-none">{t('rlsi')}</span>
                         </div>
                         <div className={`text-[9px] font-black uppercase ${statusColor} border border-current px-1.5 py-0.5 rounded`}>
                             {statusText}

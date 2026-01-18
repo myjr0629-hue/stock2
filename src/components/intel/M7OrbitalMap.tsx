@@ -4,7 +4,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
-import { TickerItem } from '@/app/intel/IntelClientPage';
+import { TickerItem } from '@/types/intel';
 
 export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
     // 1. Sort by Alpha Score

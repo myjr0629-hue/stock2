@@ -2,6 +2,7 @@
 "use client";
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 
 interface MarketStatusProps {
     status: {
@@ -19,19 +20,20 @@ interface MarketStatusProps {
 export const MarketStatusBadge: React.FC<MarketStatusProps> = ({ status, variant = "dashboard", className = "" }) => {
     const { market, session, isHoliday, holidayName, serverTime } = status;
     const isClosed = market === "closed";
+    const t = useTranslations('common');
 
     // Status Logic
     const displayText = isHoliday
-        ? `휴장 (${holidayName || "Holiday"})`
+        ? `${t('holidayClosed')} (${holidayName || "Holiday"})`
         : isClosed
-            ? "장 종료 (Closed)"
+            ? t('marketClosed')
             : session === "pre"
-                ? "프리마켓 (Pre-Market)"
+                ? t('preMarket')
                 : session === "regular"
-                    ? "정규장 (Open)"
+                    ? t('regularOpen')
                     : session === "post"
-                        ? "애프터마켓 (Post)"
-                        : "장 종료";
+                        ? t('afterMarket')
+                        : t('marketClosed');
 
     // Color Logic
     const dotColor = isHoliday
@@ -70,7 +72,7 @@ export const MarketStatusBadge: React.FC<MarketStatusProps> = ({ status, variant
                 </div>
                 {serverTime && (
                     <span className="text-[9px] text-slate-600 mt-0.5 font-mono">
-                        기준: {new Date(serverTime).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Seoul' })} KST
+                        {t('basedOn')}: {new Date(serverTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' })} ET
                         {status.source === "FALLBACK" && " (Logic)"}
                     </span>
                 )}

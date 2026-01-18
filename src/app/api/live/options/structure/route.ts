@@ -150,6 +150,55 @@ export async function GET(req: NextRequest) {
     let contractsUsedForGex = 0;
     let gexNotes = "";
 
+    // [V7.1] Gamma Flip Level - Calculate independently of options_status
+    // This ensures Gamma Flip is always available when ANY gamma data exists
+    let gammaFlipLevel: number | null = null;
+
+    // Pre-calculate Gamma Flip regardless of options_status
+    if (cleanContracts.length > 0) {
+        const gexByStrike = new Map<number, number>();
+        let gammaDataCount = 0;
+
+        cleanContracts.forEach(c => {
+            const g = c.greeks?.gamma;
+            if (typeof g === 'number' && isFinite(g) && g !== 0) {
+                const dir = c.type === 'call' ? 1 : -1;
+                const gex = g * c.oi * 100 * dir;
+                gexByStrike.set(c.k, (gexByStrike.get(c.k) || 0) + gex);
+                gammaDataCount++;
+            }
+        });
+
+        // Only calculate if we have SOME gamma data (relaxed from 50%)
+        if (gammaDataCount > 0) {
+            const strikesWithGex = Array.from(gexByStrike.entries())
+                .sort((a, b) => a[0] - b[0]);
+
+            let cumulativeGex = 0;
+            let prevCumulativeGex = 0;
+
+            for (let i = 0; i < strikesWithGex.length; i++) {
+                const [strike, gexAtStrike] = strikesWithGex[i];
+                cumulativeGex += gexAtStrike;
+
+                if (i > 0) {
+                    // Positive → Negative crossover
+                    if (prevCumulativeGex > 0 && cumulativeGex <= 0) {
+                        gammaFlipLevel = strike;
+                        break;
+                    }
+                    // Negative → Positive crossover
+                    if (prevCumulativeGex <= 0 && cumulativeGex > 0) {
+                        gammaFlipLevel = strike;
+                        break;
+                    }
+                }
+                prevCumulativeGex = cumulativeGex;
+            }
+            console.log(`[V7.1] ${ticker}: GammaFlip calculated = $${gammaFlipLevel} (from ${gammaDataCount} gamma points)`);
+        }
+    }
+
     if (options_status === "OK" && cleanContracts.length > 0 && underlyingPrice > 0) {
         // Max Pain (LOGIC UNCHANGED)
         let minLoss = Infinity;
@@ -202,7 +251,11 @@ export async function GET(req: NextRequest) {
             }
         });
 
+
         gammaCoverage = contractsUsedForGex > 0 ? gammaCount / contractsUsedForGex : 0;
+
+        // [V7.1] gammaFlipLevel is now calculated BEFORE this block (lines 152-198)
+        // Removed duplicate calculation here
 
         if (gammaCoverage >= 0.80) {
             netGex = gexSum;
@@ -221,6 +274,7 @@ export async function GET(req: NextRequest) {
             structure: { strikes: sortedStrikes, callsOI, putsOI },
             maxPain,
             netGex,
+            gammaFlipLevel,  // NEW: Gamma Flip Level
             levels: {
                 callWall: callWall || null,
                 putFloor: putFloor || null,
@@ -255,6 +309,7 @@ export async function GET(req: NextRequest) {
             structure: { strikes: sortedStrikes, callsOI, putsOI },
             maxPain: null,
             netGex: null,
+            gammaFlipLevel,  // [V7.1] Always include Gamma Flip
             levels: { callWall: null, putFloor: null, pinZone: null },
             sourceGrade: "B",
             debug: {

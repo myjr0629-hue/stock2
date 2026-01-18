@@ -52,7 +52,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         setRange(initialRange);
     }, [data, ticker, initialRange]);
 
-    // [FIX] Fetch fresh data on mount to ensure etMinute is present for 1D charts
+    // [FIX V2] Fetch fresh data on mount AND when returning to 1D range
     useEffect(() => {
         const fetchInitialData = async () => {
             if (range === '1d') {
@@ -76,21 +76,25 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             }
         };
         fetchInitialData();
-    }, [ticker]); // Only run once per ticker
+    }, [ticker, range]); // [FIX] Added range to re-fetch when switching back to 1D
 
-    // [FIX] Real-time Chart Update: Update last data point with currentPrice
+    // [FIX V2] Real-time Chart Update: Update last data point with currentPrice
+    // Added chartData.length to dependency to ensure this runs after new data loads
     useEffect(() => {
         if (range === '1d' && currentPrice && chartData && chartData.length > 0) {
             setChartData(prev => {
                 if (!prev || prev.length === 0) return prev;
                 const newData = [...prev];
                 const lastIdx = newData.length - 1;
-                // Update the last candle's close to the live price so the line connects to the badge
-                newData[lastIdx] = { ...newData[lastIdx], close: currentPrice };
-                return newData;
+                // Only update if the price actually changed
+                if (newData[lastIdx].close !== currentPrice) {
+                    newData[lastIdx] = { ...newData[lastIdx], close: currentPrice };
+                    return newData;
+                }
+                return prev; // No change, don't trigger re-render
             });
         }
-    }, [currentPrice, range]);
+    }, [currentPrice, range, chartData.length]); // [FIX] Added chartData.length
 
     const handleRangeChange = async (value: string) => {
         setRange(value);

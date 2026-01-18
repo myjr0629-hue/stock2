@@ -17,10 +17,14 @@ export async function GET(request: Request) {
     try {
         const startTime = Date.now();
 
-        // Parallel fetch stock data and options
-        const [stockData, optionsData] = await Promise.all([
+        // [FIX] Fetch options structure from the same API as Command page for consistency
+        const baseUrl = request.url.split('/api/')[0];
+
+        // Parallel fetch stock data, options, and options structure (for gamma flip)
+        const [stockData, optionsData, structureRes] = await Promise.all([
             getStockData(tickerUpper, '1d'),
-            getOptionsData(tickerUpper).catch(() => null)
+            getOptionsData(tickerUpper).catch(() => null),
+            fetch(`${baseUrl}/api/live/options/structure?t=${tickerUpper}`).then(r => r.ok ? r.json() : null).catch(() => null)
         ]);
 
         const elapsed = Date.now() - startTime;
@@ -89,27 +93,49 @@ export async function GET(request: Request) {
         const gex = hasOptionsData ? (rawGex || null) : null;
         const gexM = gex !== null ? Number((gex / 1000000).toFixed(2)) : null;
 
-        // === WHALE INDEX (Simplified - based on volume & options) ===
-        // Full forensic analysis is heavy, use lightweight proxy
+        // === WHALE INDEX (Fixed - based on GEX and Put/Call Ratio) ===
+        // Replaced broken RVOL heuristics with actual options data
         let whaleIndex = 0;
         let whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE' = 'NONE';
 
-        const rvol = (stockData as any).rvol ||
-            ((stockData as any).volume && (stockData as any).avgVolume
-                ? (stockData as any).volume / (stockData as any).avgVolume
-                : 1.0);
+        const pcr = opts?.putCallRatio || 1;
+        const gexDirection = gex ? (gex > 0 ? 'LONG' : 'SHORT') : null;
 
-        // Whale heuristics: High RVOL + Positive GEX = Accumulation signals
-        if (rvol > 2.0 && gex && gex > 0) {
-            whaleIndex = Math.min(85, 50 + rvol * 10);
-            whaleConfidence = 'MED';
-        } else if (rvol > 1.5) {
-            whaleIndex = Math.min(60, 30 + rvol * 15);
-            whaleConfidence = 'LOW';
+        // WHALE scoring based on GEX + PCR
+        if (gex !== null && gex !== undefined) {
+            // Strong Long Gamma + Low PCR = Accumulation
+            if (gex > 0 && pcr < 0.8) {
+                whaleIndex = Math.min(90, 60 + Math.abs(gex / 100000));
+                whaleConfidence = 'HIGH';
+            }
+            // Long Gamma + Neutral PCR = Moderate Accumulation
+            else if (gex > 0 && pcr <= 1.2) {
+                whaleIndex = Math.min(70, 40 + Math.abs(gex / 200000));
+                whaleConfidence = 'MED';
+            }
+            // Short Gamma or High PCR = Distribution/Risk
+            else if (gex < 0 || pcr > 1.3) {
+                whaleIndex = Math.max(10, 30 - Math.abs(gex / 500000));
+                whaleConfidence = 'LOW';
+            }
+            else {
+                whaleIndex = 35;
+                whaleConfidence = 'LOW';
+            }
         } else {
-            whaleIndex = Math.min(30, rvol * 20);
+            // No options data
+            whaleIndex = 0;
             whaleConfidence = 'NONE';
         }
+
+        // === GAMMA FLIP LEVEL (Prioritize structure API for consistency with Command page) ===
+        const gammaFlipLevel = structureRes?.gammaFlipLevel || opts?.gems?.gammaFlipLevel || opts?.gammaFlipLevel || null;
+
+        // === NET GEX from Structure API (for consistent gamma state display) ===
+        const structureGexM = structureRes?.netGex ? Number((structureRes.netGex / 1000000).toFixed(2)) : null;
+
+        // === IV (Implied Volatility) - Use average from options if available ===
+        const iv = opts?.gems?.iv || opts?.iv || null;
 
         // === RESPONSE ===
         const result = {
@@ -126,7 +152,6 @@ export async function GET(request: Request) {
                 price: stockData.price || 0,
                 changePct,
                 session: stockData.session || 'reg',
-                rvol: Number(rvol.toFixed(2)),
                 rsi: stockData.rsi || null,
                 return3d: stockData.return3d || null,
                 sparkline: stockData.history?.slice(-20).map(h => h.close) || [],
@@ -134,11 +159,12 @@ export async function GET(request: Request) {
                 maxPain,
                 maxPainDist,
                 gex,
-                gexM,
+                gexM: structureGexM ?? gexM,  // [FIX] Prioritize structure API for consistency
                 pcr: opts?.putCallRatio || null,
-                // Whale
                 whaleIndex: Math.round(whaleIndex),
-                whaleConfidence
+                whaleConfidence,
+                gammaFlipLevel,
+                iv
             },
             meta: {
                 elapsed,

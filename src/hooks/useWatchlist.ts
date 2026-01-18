@@ -23,12 +23,13 @@ export interface EnrichedWatchlistItem extends WatchlistItem {
     whaleIndex?: number;
     whaleConfidence?: 'HIGH' | 'MED' | 'LOW' | 'NONE';
     rsi?: number;
-    rvol?: number;
     return3d?: number;
     maxPain?: number;
     maxPainDist?: number;
     gexM?: number;
     sparkline?: number[];
+    gammaFlipLevel?: number;  // [NEW] Gamma Flip Level
+    iv?: number;              // [NEW] Implied Volatility
 }
 
 export function useWatchlist() {
@@ -80,12 +81,13 @@ export function useWatchlist() {
                         whaleIndex: apiData.realtime.whaleIndex,
                         whaleConfidence: apiData.realtime.whaleConfidence,
                         rsi: apiData.realtime.rsi,
-                        rvol: apiData.realtime.rvol,
                         return3d: apiData.realtime.return3d,
                         maxPain: apiData.realtime.maxPain,
                         maxPainDist: apiData.realtime.maxPainDist,
                         gexM: apiData.realtime.gexM,
-                        sparkline: apiData.realtime.sparkline
+                        sparkline: apiData.realtime.sparkline,
+                        gammaFlipLevel: apiData.realtime.gammaFlipLevel,
+                        iv: apiData.realtime.iv
                     };
                 }
                 return {

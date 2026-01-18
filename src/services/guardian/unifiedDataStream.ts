@@ -75,13 +75,156 @@ let _cachedContext: GuardianContext | null = null;
 let _lastFetchTime = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+// === LOCALIZED TEXT FOR VERDICTS ===
+type Locale = 'ko' | 'en' | 'ja';
+
+const VERDICT_TEXTS: Record<string, Record<Locale, { title: string; desc: string }>> = {
+    SYNC: {
+        ko: { title: "MARKET SYNCHRONIZED", desc: "지수와 유동성이 동기화됨. 특이사항 없음." },
+        en: { title: "MARKET SYNCHRONIZED", desc: "Index and liquidity are aligned. No anomalies detected." },
+        ja: { title: "MARKET SYNCHRONIZED", desc: "指数と流動性が同期中。特異事項なし。" }
+    },
+    RETAIL_TRAP: {
+        ko: { title: "⚠️ RETAIL TRAP (개미지옥)", desc: "지수는 상승하나 유동성은 이탈 중. 추격 매수 금지." },
+        en: { title: "⚠️ RETAIL TRAP", desc: "Index rising but liquidity is exiting. Avoid chasing." },
+        ja: { title: "⚠️ RETAIL TRAP", desc: "指数上昇中も流動性は離脱中。追撃買い禁止。" }
+    },
+    SILENT_ACCUM: {
+        ko: { title: "💎 SILENT ACCUMULATION (침묵의 매집)", desc: "가격 하락 중 스마트 머니 강력 유입. 분할 매수 적기." },
+        en: { title: "💎 SILENT ACCUMULATION", desc: "Smart money accumulating during price decline. Good entry zone." },
+        ja: { title: "💎 SILENT ACCUMULATION", desc: "価格下落中にスマートマネーが強力流入。分割買いの好機。" }
+    },
+    QUANTUM_LEAP: {
+        ko: { title: "🚀 QUANTUM LEAP (상승 폭발)", desc: "강력한 유동성 동반 상승. 수익 극대화 구간." },
+        en: { title: "🚀 QUANTUM LEAP", desc: "Strong liquidity-backed rally. Maximize gains." },
+        ja: { title: "🚀 QUANTUM LEAP", desc: "強力な流動性を伴う上昇。収益最大化区間。" }
+    },
+    DEEP_FREEZE: {
+        ko: { title: "❄️ DEEP FREEZE (빙하기)", desc: "모멘텀 소멸. 현금 확보 필수." },
+        en: { title: "❄️ DEEP FREEZE", desc: "Momentum depleted. Cash preservation essential." },
+        ja: { title: "❄️ DEEP FREEZE", desc: "モメンタム消失。現金確保必須。" }
+    },
+    STABLE: {
+        ko: { title: "SYSTEM STABLE", desc: "특이 징후 없음. 섹터 순환매 감시 중." },
+        en: { title: "SYSTEM STABLE", desc: "No anomalies detected. Monitoring sector rotation." },
+        ja: { title: "SYSTEM STABLE", desc: "特異兆候なし。セクターローテーション監視中。" }
+    },
+    SETUP_REQUIRED: {
+        ko: { title: "SETUP REQUIRED", desc: "AI 인텔리전스를 활성화하려면 .env.local 파일에 GEMINI_API_KEY가 필요합니다." },
+        en: { title: "SETUP REQUIRED", desc: "GEMINI_API_KEY is required in .env.local to activate AI intelligence." },
+        ja: { title: "SETUP REQUIRED", desc: "AIインテリジェンスを有効にするには.env.localにGEMINI_API_KEYが必要です。" }
+    }
+};
+
+const REGIME_TEXTS: Record<string, Record<Locale, string>> = {
+    BULL: {
+        ko: "강세장 진입 :: 적극 매수 (Alpha Seek)",
+        en: "Bull Market Entry :: Aggressive Buy (Alpha Seek)",
+        ja: "強気相場参入 :: 積極買い (Alpha Seek)"
+    },
+    BEAR: {
+        ko: "약세장 진입 :: 보수적 운용 (Defense)",
+        en: "Bear Market Entry :: Defensive Mode (Defense)",
+        ja: "弱気相場参入 :: 防御運用 (Defense)"
+    },
+    NEUTRAL: {
+        ko: "방향성 부재 :: 관망 권장 (Wait)",
+        en: "No Direction :: Wait Recommended (Wait)",
+        ja: "方向性不在 :: 様子見推奨 (Wait)"
+    }
+};
+
+const CHECKLIST_TEXTS: Record<Locale, {
+    targetLocked: string;
+    bearMode: string;
+    waitMode: string;
+    nasdaqUp: string;
+    targetSectorUp: string;
+    yieldStable: string;
+    above: string;
+    rising: string;
+    under: string;
+}> = {
+    ko: {
+        targetLocked: "🎯 TARGET LOCKED: 강세장 진입 조건 충족",
+        bearMode: "❄️ 약세장: 보수적 운용 권장",
+        waitMode: "⏸️ 방향성 부재: 관망 권장",
+        nasdaqUp: "NASDAQ 상승",
+        targetSectorUp: "타겟 섹터 상승",
+        yieldStable: "금리 안정",
+        above: "이상",
+        rising: "상승",
+        under: "미만"
+    },
+    en: {
+        targetLocked: "🎯 TARGET LOCKED: Bull market conditions met",
+        bearMode: "❄️ Bear Mode: Defensive stance recommended",
+        waitMode: "⏸️ No Direction: Wait recommended",
+        nasdaqUp: "NASDAQ Rising",
+        targetSectorUp: "Target Sector Rising",
+        yieldStable: "Yield Stable",
+        above: "or above",
+        rising: "Rising",
+        under: "under"
+    },
+    ja: {
+        targetLocked: "🎯 TARGET LOCKED: 強気相場条件充足",
+        bearMode: "❄️ 弱気相場: 防御運用推奨",
+        waitMode: "⏸️ 方向性不在: 様子見推奨",
+        nasdaqUp: "NASDAQ上昇",
+        targetSectorUp: "ターゲットセクター上昇",
+        yieldStable: "金利安定",
+        above: "以上",
+        rising: "上昇",
+        under: "未満"
+    }
+};
+
+const RULE_VERDICT_TEXTS: Record<Locale, {
+    bullish: { headline: string; action: string };
+    bearish: { headline: string; action: string };
+    neutral: { headline: string; action: string };
+    rotation: string;
+    riskScore: string;
+    dangerScore: string;
+    advanceRatio: string;
+}> = {
+    ko: {
+        bullish: { headline: "📈 강세 지속 구간", action: "상승 종목 비중 확대 유효" },
+        bearish: { headline: "📉 방어 구간", action: "신규 매수 자제, 현금 비중 확대" },
+        neutral: { headline: "⏸️ 관망 구간", action: "방향성 확인 후 진입" },
+        rotation: "순환매",
+        riskScore: "양호",
+        dangerScore: "위험",
+        advanceRatio: "상승비율"
+    },
+    en: {
+        bullish: { headline: "📈 Bull Phase Continues", action: "Increase exposure to rising stocks" },
+        bearish: { headline: "📉 Defensive Phase", action: "Avoid new buys, increase cash" },
+        neutral: { headline: "⏸️ Wait Phase", action: "Enter after direction confirmed" },
+        rotation: "Rotation",
+        riskScore: "Healthy",
+        dangerScore: "Danger",
+        advanceRatio: "Advance Ratio"
+    },
+    ja: {
+        bullish: { headline: "📈 強気継続区間", action: "上昇銘柄のウェイト拡大有効" },
+        bearish: { headline: "📉 防御区間", action: "新規買い自制、現金ウェイト拡大" },
+        neutral: { headline: "⏸️ 様子見区間", action: "方向性確認後にエントリー" },
+        rotation: "ローテーション",
+        riskScore: "良好",
+        dangerScore: "危険",
+        advanceRatio: "上昇比率"
+    }
+};
+
 export class GuardianDataHub {
 
     /**
      * Get the Unified Guardian Context (SSOT)
      * Optimized with Parallel Execution for RLSI & Macro Data.
      */
-    static async getGuardianSnapshot(force: boolean = false): Promise<GuardianContext> {
+    static async getGuardianSnapshot(force: boolean = false, locale: Locale = 'ko'): Promise<GuardianContext> {
         const now = Date.now();
 
         if (!force && _cachedContext && (now - _lastFetchTime < CACHE_TTL_MS)) {
@@ -118,8 +261,8 @@ export class GuardianDataHub {
             // caseId: 'N' (Neutral)
             let divCase: DivergenceAnalysis = {
                 caseId: 'N',
-                verdictTitle: "MARKET SYNCHRONIZED",
-                verdictDesc: "지수와 유동성이 동기화됨. 특이사항 없음.",
+                verdictTitle: VERDICT_TEXTS.SYNC[locale].title,
+                verdictDesc: VERDICT_TEXTS.SYNC[locale].desc,
                 isDivergent: false,
                 score: 0
             };
@@ -128,8 +271,8 @@ export class GuardianDataHub {
             if (nq > 0.3 && score < 40) {
                 divCase = {
                     caseId: 'A',
-                    verdictTitle: "⚠️ RETAIL TRAP (개미지옥)",
-                    verdictDesc: "지수는 상승하나 유동성은 이탈 중. 추격 매수 금지.",
+                    verdictTitle: VERDICT_TEXTS.RETAIL_TRAP[locale].title,
+                    verdictDesc: VERDICT_TEXTS.RETAIL_TRAP[locale].desc,
                     isDivergent: true,
                     score: 90
                 };
@@ -138,8 +281,8 @@ export class GuardianDataHub {
             else if (nq < -0.2 && score > 60) {
                 divCase = {
                     caseId: 'B',
-                    verdictTitle: "💎 SILENT ACCUMULATION (침묵의 매집)",
-                    verdictDesc: "가격 하락 중 스마트 머니 강력 유입. 분할 매수 적기.",
+                    verdictTitle: VERDICT_TEXTS.SILENT_ACCUM[locale].title,
+                    verdictDesc: VERDICT_TEXTS.SILENT_ACCUM[locale].desc,
                     isDivergent: true,
                     score: 90
                 };
@@ -148,9 +291,9 @@ export class GuardianDataHub {
             else if (nq > 0.5 && score > 70) {
                 divCase = {
                     caseId: 'C',
-                    verdictTitle: "🚀 QUANTUM LEAP (상승 폭발)",
-                    verdictDesc: "강력한 유동성 동반 상승. 수익 극대화 구간.",
-                    isDivergent: false, // Not a divergence, but a strong signal
+                    verdictTitle: VERDICT_TEXTS.QUANTUM_LEAP[locale].title,
+                    verdictDesc: VERDICT_TEXTS.QUANTUM_LEAP[locale].desc,
+                    isDivergent: false,
                     score: 0
                 };
             }
@@ -158,8 +301,8 @@ export class GuardianDataHub {
             else if (nq < -0.5 && score < 30) {
                 divCase = {
                     caseId: 'D',
-                    verdictTitle: "❄️ DEEP FREEZE (빙하기)",
-                    verdictDesc: "모멘텀 소멸. 현금 확보 필수.",
+                    verdictTitle: VERDICT_TEXTS.DEEP_FREEZE[locale].title,
+                    verdictDesc: VERDICT_TEXTS.DEEP_FREEZE[locale].desc,
                     isDivergent: false,
                     score: 0
                 };
@@ -178,8 +321,8 @@ export class GuardianDataHub {
             } else {
                 // Standard Market: Use Dual Stream AI
                 const staticVerdict: GuardianVerdict = {
-                    title: "SYSTEM STABLE",
-                    description: "특이 징후 없음. 섹터 순환매 감시 중.",
+                    title: VERDICT_TEXTS.STABLE[locale].title,
+                    description: VERDICT_TEXTS.STABLE[locale].desc,
                     sentiment: 'NEUTRAL',
                 };
 
@@ -205,8 +348,8 @@ export class GuardianDataHub {
                     // [PART 3] Construct Verdict
                     if (rotationText.includes("NO KEY")) {
                         verdict = {
-                            title: "SETUP REQUIRED",
-                            description: "AI 인텔리전스를 활성화하려면 .env.local 파일에 GEMINI_API_KEY가 필요합니다.",
+                            title: VERDICT_TEXTS.SETUP_REQUIRED[locale].title,
+                            description: VERDICT_TEXTS.SETUP_REQUIRED[locale].desc,
                             sentiment: 'NEUTRAL'
                         };
                     } else {
@@ -277,46 +420,46 @@ export class GuardianDataHub {
                         id: 'rlsi',
                         label: 'RLSI 55+',
                         passed: rlsi.score >= 55,
-                        current: `${rlsi.score.toFixed(0)}점`,
-                        required: '55점 이상'
+                        current: `${rlsi.score.toFixed(0)}`,
+                        required: `55 ${CHECKLIST_TEXTS[locale].above}`
                     },
                     {
                         id: 'nasdaq',
-                        label: 'NASDAQ 상승',
+                        label: CHECKLIST_TEXTS[locale].nasdaqUp,
                         passed: nq > 0,
                         current: `${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`,
                         required: '> 0%'
                     },
                     {
                         id: 'sector',
-                        label: '타겟 섹터 상승',
+                        label: CHECKLIST_TEXTS[locale].targetSectorUp,
                         passed: isSectorAligned,
                         current: targetSector ? `${targetSector.name} ${targetSectorChange > 0 ? '+' : ''}${targetSectorChange.toFixed(2)}%` : 'N/A',
-                        required: '상승'
+                        required: CHECKLIST_TEXTS[locale].rising
                     },
                     {
                         id: 'rvol',
                         label: 'RVOL 1.2+',
                         passed: isAccelerating,
                         current: `${rvolNdx.rvol.toFixed(2)}x`,
-                        required: '1.2x 이상'
+                        required: `1.2x ${CHECKLIST_TEXTS[locale].above}`
                     },
                     {
                         id: 'yield',
-                        label: '금리 안정',
+                        label: CHECKLIST_TEXTS[locale].yieldStable,
                         passed: !yieldSpike,
                         current: `${yieldPct > 0 ? '+' : ''}${yieldPct.toFixed(2)}%`,
-                        required: '< 2.5%'
+                        required: `< 2.5%`
                     }
                 ],
                 passedCount: [rlsi.score >= 55, nq > 0, isSectorAligned, isAccelerating, !yieldSpike].filter(Boolean).length,
                 totalCount: 5,
                 isLocked: isTargetLock,
                 message: isTargetLock
-                    ? '🎯 TARGET LOCKED: 강세장 진입 조건 충족'
+                    ? CHECKLIST_TEXTS[locale].targetLocked
                     : regime === 'BEAR'
-                        ? '❄️ 약세장: 보수적 운용 권장'
-                        : '⏸️ 방향성 부재: 관망 권장'
+                        ? CHECKLIST_TEXTS[locale].bearMode
+                        : CHECKLIST_TEXTS[locale].waitMode
             };
 
             const tripleA = {
@@ -335,35 +478,35 @@ export class GuardianDataHub {
             if (rlsi.score >= 60 && rotationIntensity?.direction === 'RISK_ON') {
                 ruleVerdict = {
                     status: 'BULLISH',
-                    headline: '📈 강세 지속 구간',
+                    headline: RULE_VERDICT_TEXTS[locale].bullish.headline,
                     keyMetrics: [
-                        `RLSI ${rlsi.score.toFixed(0)}점 (양호)`,
-                        `순환매: ${rotationIntensity.direction}`,
+                        `RLSI ${rlsi.score.toFixed(0)} (${RULE_VERDICT_TEXTS[locale].riskScore})`,
+                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotationIntensity.direction}`,
                         `NASDAQ ${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`
                     ],
-                    action: '상승 종목 비중 확대 유효'
+                    action: RULE_VERDICT_TEXTS[locale].bullish.action
                 };
             } else if (rlsi.score <= 35 || rotationIntensity?.direction === 'RISK_OFF') {
                 ruleVerdict = {
                     status: 'BEARISH',
-                    headline: '📉 방어 구간',
+                    headline: RULE_VERDICT_TEXTS[locale].bearish.headline,
                     keyMetrics: [
-                        `RLSI ${rlsi.score.toFixed(0)}점 (위험)`,
-                        `순환매: ${rotationIntensity?.direction || 'N/A'}`,
-                        `상승비율 ${breadth.toFixed(0)}%`
+                        `RLSI ${rlsi.score.toFixed(0)} (${RULE_VERDICT_TEXTS[locale].dangerScore})`,
+                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotationIntensity?.direction || 'N/A'}`,
+                        `${RULE_VERDICT_TEXTS[locale].advanceRatio} ${breadth.toFixed(0)}%`
                     ],
-                    action: '신규 매수 자제, 현금 비중 확대'
+                    action: RULE_VERDICT_TEXTS[locale].bearish.action
                 };
             } else {
                 ruleVerdict = {
                     status: 'NEUTRAL',
-                    headline: '⏸️ 관망 구간',
+                    headline: RULE_VERDICT_TEXTS[locale].neutral.headline,
                     keyMetrics: [
-                        `RLSI ${rlsi.score.toFixed(0)}점`,
-                        `순환매: ${rotationIntensity?.direction || 'NEUTRAL'}`,
+                        `RLSI ${rlsi.score.toFixed(0)}`,
+                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotationIntensity?.direction || 'NEUTRAL'}`,
                         `Breadth ${breadth.toFixed(0)}%`
                     ],
-                    action: '방향성 확인 후 진입'
+                    action: RULE_VERDICT_TEXTS[locale].neutral.action
                 };
             }
 

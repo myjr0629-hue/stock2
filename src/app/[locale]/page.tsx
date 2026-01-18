@@ -12,9 +12,11 @@ import {
   Radar
 } from "lucide-react";
 import { TradingViewTicker } from "@/components/TradingViewTicker";
+import { useTranslations } from 'next-intl';
 
 // --- Ticker Drawer ---
 function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boolean, onClose: () => void }) {
+  const t = useTranslations();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +45,7 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
             <p className="text-2xl font-mono font-bold text-cyan-400">${data.underlyingPrice.toFixed(2)}</p>
           )}
           <div className="pt-6 border-t border-white/10">
-            <h3 className="text-xs font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">Options Chain</h3>
+            <h3 className="text-xs font-black text-cyan-500 uppercase tracking-[0.2em] mb-4">{t('home.optionsChain')}</h3>
             {loading ? (
               <div className="py-8 flex justify-center"><Loader2 className="animate-spin text-cyan-500" size={24} /></div>
             ) : data?.atmSlice?.length > 0 ? (
@@ -61,7 +63,7 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
                   ))}
                 </tbody>
               </table>
-            ) : <p className="text-slate-500 text-sm">No data</p>}
+            ) : <p className="text-slate-500 text-sm">{t('common.noData')}</p>}
           </div>
         </div>
       </div>
@@ -107,6 +109,8 @@ function TickerCard({ symbol }: { symbol: string }) {
 
 
 export default function Page() {
+  const t = useTranslations();
+
   return (
     <div className="min-h-screen bg-[#060a12] text-slate-200 font-sans">
       <LandingHeader />
@@ -116,75 +120,88 @@ export default function Page() {
         <TradingViewTicker key="v7-subtle" />
       </div>
 
-      {/* ========================================= */}
       {/* HERO SECTION */}
-      {/* ========================================= */}
-      {/* ========================================= */}
-      {/* HERO SECTION */}
-      {/* ========================================= */}
       <section className="relative pt-32 pb-16 px-6 overflow-hidden">
-        {/* Background Glow Effect - Exact Match */}
+        {/* Layer 1: Light Grid */}
+        <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04]"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(56,189,248,0.5) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(56,189,248,0.5) 1px, transparent 1px)
+            `,
+            backgroundSize: '60px 60px'
+          }}
+        />
+
+        {/* Layer 2: Depth Glow */}
         <div className="absolute inset-0 z-0 pointer-events-none">
-          {/* Top Center glow - Cyan/Teal mix */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-radial from-[#083344] via-transparent to-transparent blur-[100px] opacity-60" />
-          {/* Detailed accent glow behind text */}
-          <div className="absolute top-[30%] left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-radial from-[#0c4a6e]/40 via-transparent to-transparent blur-[80px]" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1200px] h-[600px] 
+            bg-gradient-radial from-[#0e7490]/25 via-[#083344]/15 to-transparent blur-[120px]" />
+          <div className="absolute top-[25%] left-1/2 -translate-x-1/2 w-[800px] h-[400px] 
+            bg-gradient-radial from-[#164e63]/30 via-transparent to-transparent blur-[100px]" />
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-full h-[30%] 
+            bg-gradient-to-t from-[#451a03]/10 to-transparent blur-[60px]" />
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto text-center">
-          {/* Live Badge - Exact Match */}
+          {/* Live Badge */}
           <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full 
             bg-transparent border border-[#d97706]/30
             shadow-[0_0_15px_rgba(217,119,6,0.15)]
             text-[11px] font-bold uppercase tracking-[0.2em] text-[#fbbf24] mb-12">
             <span className="w-1.5 h-1.5 rounded-full bg-[#fbbf24]" />
-            실시간 미국 마켓 데이터
+            {t('home.badge')}
           </div>
 
-          {/* Main Headline - Exact Match (No Italic, Gold->Cyan Gradient) */}
+          {/* Main Headline */}
           <h1 className="text-6xl md:text-[6rem] font-black tracking-tighter leading-[0.9] mb-10 drop-shadow-2xl">
-            <span className="block text-white mb-1">MARKET LOGIC,</span>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fbbf24] via-[#fde047] to-[#22d3ee]">SOLVED.</span>
+            <span className="block text-white mb-1">{t('home.headline1')}</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fbbf24] via-[#fde047] to-[#22d3ee]">{t('home.headline2')}</span>
           </h1>
 
-          {/* Tagline - Exact Match */}
+          {/* Tagline */}
           <p className="text-lg text-slate-400 max-w-3xl mx-auto leading-relaxed mb-12 tracking-wide font-medium">
-            기관의 <span className="text-white font-bold">다크풀</span> 움직임과 알고리즘
-            <span className="text-white font-bold"> 옵션 플로우</span>를 실시간으로 추적하세요.<br />
-            <span className="text-[#fbbf24] font-bold">미국 주식 시장</span>을 위한 궁극의 사령부.
+            {t('home.tagline1')}
+            <span className="text-white font-bold">{t('home.tagline1Bold1')}</span>
+            {t('home.tagline1Mid')}
+            <span className="text-white font-bold">{t('home.tagline1Bold2')}</span>
+            {t('home.tagline1End')}<br />
+            {t('home.tagline2Start')}
+            <span className="text-[#fbbf24] font-bold">{t('home.tagline2Bold')}</span>
+            {t('home.tagline2End')}
           </p>
 
-          {/* CTA Buttons - Exact Match */}
+          {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
             <a href="/ticker?ticker=NVDA"
               className="group px-10 py-4 bg-gradient-to-r from-[#d97706] to-[#b45309]
                 text-black rounded-md font-extrabold text-sm uppercase tracking-wider
                 hover:brightness-110 transition-all 
                 flex items-center gap-2 shadow-[0_0_40px_rgba(217,119,6,0.3)] border border-[#f59e0b]/20">
-              Enter Command <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              {t('home.enterCommand')} <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </a>
-            <a href="#features"
+            <a href="/how-it-works"
               className="px-10 py-4 bg-[#0a1628]/50 border border-[#1e293b] 
                 text-[#38bdf8] rounded-md font-bold text-sm uppercase tracking-wider 
                 hover:bg-[#0a1628] hover:border-[#38bdf8]/30 transition-all">
-              How It Works
+              {t('home.howItWorks')}
             </a>
           </div>
         </div>
       </section>
 
-      {/* ========================================= */}
       {/* FEATURES SECTION */}
-      {/* ========================================= */}
       <section id="features" className="py-20 px-6">
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-              왜 <span className="text-cyan-400">SIGNUM HQ</span>인가?
+              {t('home.whySignumPrefix')}
+              <span className="text-cyan-400">SIGNUM HQ</span>
+              {t('home.whySignumSuffix')}
             </h2>
             <p className="text-xs text-slate-500 uppercase tracking-[0.25em]">
-              $450+/월 가치의 프리미엄 데이터 통합
+              {t('home.premiumValue')}
             </p>
           </div>
 
@@ -202,18 +219,18 @@ export default function Page() {
                     <Waves className="w-6 h-6 text-cyan-400" />
                   </div>
                   <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
-                    $200/mo 가치
+                    $200/mo {t('home.valuePerMonth')}
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-white mb-3">감마 익스포져 분석</h3>
+                <h3 className="text-lg font-bold text-white mb-3">{t('home.gammaExposure')}</h3>
                 <p className="text-xs text-slate-400 leading-relaxed mb-6">
-                  MM의 감마 익스포져를 추적하여 가격 자석(Max Pain)과 저항선을 식별. 기관급 데이터 시각화.
+                  {t('home.gammaExposureDesc')}
                 </p>
 
                 <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
                   <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                  SIGNUM HQ에 포함
+                  {t('home.includedInSignum')}
                 </span>
               </div>
             </div>
@@ -230,18 +247,18 @@ export default function Page() {
                     <Eye className="w-6 h-6 text-amber-400" />
                   </div>
                   <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
-                    $150/mo 가치
+                    $150/mo {t('home.valuePerMonth')}
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-white mb-3">다크풀 & 고래 추적</h3>
+                <h3 className="text-lg font-bold text-white mb-3">{t('home.darkPoolTracking')}</h3>
                 <p className="text-xs text-slate-400 leading-relaxed mb-6">
-                  일반 거래소에 보이지 않는 대형 블록 트레이드와 기관 매집을 실시간 탐지. 스마트 머니를 따라가세요.
+                  {t('home.darkPoolTrackingDesc')}
                 </p>
 
                 <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
                   <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                  SIGNUM HQ에 포함
+                  {t('home.includedInSignum')}
                 </span>
               </div>
             </div>
@@ -258,18 +275,18 @@ export default function Page() {
                     <Radar className="w-6 h-6 text-cyan-400" />
                   </div>
                   <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
-                    $100/mo 가치
+                    $100/mo {t('home.valuePerMonth')}
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-white mb-3">3일 스나이퍼 시그널</h3>
+                <h3 className="text-lg font-bold text-white mb-3">{t('home.sniperSignal')}</h3>
                 <p className="text-xs text-slate-400 leading-relaxed mb-6">
-                  모멘텀, 수급, 기술적 조건이 정렬된 '3일 급등 후보' 자동 스캔. 고확률 진입 타이밍 포착.
+                  {t('home.sniperSignalDesc')}
                 </p>
 
                 <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
                   <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                  SIGNUM HQ에 포함
+                  {t('home.includedInSignum')}
                 </span>
               </div>
             </div>
@@ -279,15 +296,13 @@ export default function Page() {
           <div className="mt-16 flex justify-center">
             <div className="inline-flex items-center gap-3 px-8 py-3 rounded-full bg-[#0a1628] border border-[#1e293b]">
               <span className="text-sm text-slate-500 line-through">$450+/월</span>
-              <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">통합 요금제</span>
+              <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">{t('home.consolidatedPricing')}</span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ========================================= */}
       {/* LIVE DASHBOARD */}
-      {/* ========================================= */}
       <section id="live-demo" className="py-14 px-6">
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}
@@ -295,12 +310,12 @@ export default function Page() {
             <div>
               <div className="flex items-center gap-2 mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">LIVE FEED</span>
+                <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest">{t('common.liveFeed')}</span>
               </div>
-              <h2 className="text-xl font-black text-white">Signal Dashboard</h2>
+              <h2 className="text-xl font-black text-white">{t('home.signalDashboard')}</h2>
             </div>
             <a href="/watchlist" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold">
-              View All <ChevronRight size={14} />
+              {t('common.viewAll')} <ChevronRight size={14} />
             </a>
           </div>
 
@@ -324,11 +339,11 @@ export default function Page() {
             <span className="font-bold text-sm text-white/60">SIGNUM HQ</span>
           </div>
           <div className="flex items-center gap-6 text-[10px] text-slate-500">
-            <a href="#" className="hover:text-white transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-white transition-colors">Terms of Service</a>
-            <a href="#" className="hover:text-white transition-colors">Contact</a>
+            <a href="#" className="hover:text-white transition-colors">{t('footer.privacy')}</a>
+            <a href="#" className="hover:text-white transition-colors">{t('footer.terms')}</a>
+            <a href="#" className="hover:text-white transition-colors">{t('footer.contact')}</a>
           </div>
-          <p className="text-[10px] text-slate-600">© 2026 Market Signal Command</p>
+          <p className="text-[10px] text-slate-600">{t('footer.copyright')}</p>
         </div>
       </footer>
     </div>

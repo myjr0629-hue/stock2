@@ -3,7 +3,7 @@
 'use client';
 import { useMemo } from 'react';
 import Image from 'next/image';
-import { TickerItem } from '@/app/intel/IntelClientPage';
+import { TickerItem } from '@/types/intel';
 import { ArrowUpRight, ArrowDownRight, Minus, MousePointerClick } from 'lucide-react';
 
 export function M7TacticalDeck({ items, selectedTicker, onSelect }: { items: TickerItem[], selectedTicker: TickerItem | null, onSelect: (item: TickerItem) => void }) {

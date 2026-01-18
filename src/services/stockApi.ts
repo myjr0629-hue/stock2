@@ -6,7 +6,7 @@ export type { StockData, OptionData, Range, GemsTicker, Tier01Data, MacroData, N
 export { analyzeGemsTicker };
 
 // --- CONFIGURATION ---
-import { fetchMassive, RunBudget, StatusUpdate, setStatusCallback } from './massiveClient';
+import { fetchMassive, fetchMassiveAll, RunBudget, StatusUpdate, setStatusCallback } from './massiveClient';
 
 // [S-56.4.5c] Legacy compatibility - these constants are used in getMarketStatus_LEGACY
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
@@ -265,12 +265,12 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
     // This ensures we get Jan 16+ expirations even when Jan 9 has expired
     console.log(`[V4.0] ${symbol}: Fetching active options ${todayStr} ~ ${maxDateStr} (ET)`);
 
-    const initialSnap = await fetchMassive(`/v3/snapshot/options/${symbol}`, {
+    const initialSnap = await fetchMassiveAll(`/v3/snapshot/options/${symbol}`, {
       limit: '250',
       'expiration_date.gte': todayStr,
-      'expiration_date.lte': maxDateStr // [V4.2 FIX] Added upper bound
-      // [V5.0 FIX] Removed sort/order - Polygon v3 snapshot doesn't support these params
+      'expiration_date.lte': maxDateStr
     }, useCache, budget);
+
 
     if (!initialSnap?.results?.length) {
       console.warn(`[Massive] No options snapshot found for ${symbol}`);
@@ -298,36 +298,17 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
     const dominantExpiry = futureContracts[0].details?.expiration_date || futureContracts[0].expiration_date || "-";
     console.log(`[Massive] ${symbol}: Next expiry = ${dominantExpiry}, Future contracts = ${futureContracts.length}`);
 
-    // 3) Deep Scan via Pagination (bounded)
+    // 3) Deep Scan via Pagination (Managed by fetchMassiveAll)
     // [V4.0 FIX] Use futureContracts instead of all results
     allResults = [...futureContracts];
-    let nextUrl = initialSnap.next_url;
-    let pagesFetched = 1;
-    const MAX_PAGES = 8; // Increased depth for broader window
+    // Manual pagination loop removed as fetchMassiveAll handles it internally
 
-    while (nextUrl && pagesFetched < MAX_PAGES) {
-      console.log(`[Massive] Fetching page ${pagesFetched + 1} for ${symbol}...`);
-      notifyStatus({ progress: { currentTicker: symbol, pagesFetchedCurrent: pagesFetched + 1 } });
-      const nextSnap = await fetchMassive(nextUrl, {}, useCache, budget);
-      if (nextSnap?.results?.length) {
-        allResults = [...allResults, ...nextSnap.results];
-        nextUrl = nextSnap.next_url;
-        pagesFetched++;
-      } else {
-        break;
-      }
-    }
+    // [V7.0] ALL EXPIRIES AGGREGATION MODEL
+    // Now includes ALL contracts within the 35-day window for institutional-grade GEX
+    // This produces a more stable Gamma Flip Level that reflects total market positioning
+    console.log(`[V7.0] ${symbol}: Using ALL ${allResults.length} contracts for GEX (All Expiries Model)`);
 
-    // 4) Filter contracts to NEAREST EXPIRY ONLY for accurate Max Pain/GEX
-    // [V6.0] Use ONLY the nearest expiration for precision
-    const nearestExpiryContracts = allResults.filter((c: any) => {
-      const expDate = c.details?.expiration_date || c.expiration_date;
-      return expDate === dominantExpiry;
-    });
-
-    console.log(`[V6.0] ${symbol}: Filtering to nearest expiry ${dominantExpiry} -> ${nearestExpiryContracts.length} contracts`);
-
-    const contracts = nearestExpiryContracts
+    const contracts = allResults
       .map((c: any) => {
         const oi = Number(c.open_interest); // official OI
         return {
@@ -339,7 +320,7 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
         };
       });
 
-    console.log(`[Massive] ${symbol} Valid Contracts (nearest expiry): ${contracts.length}`);
+    console.log(`[Massive] ${symbol} Valid Contracts (All Expiries): ${contracts.length}`);
 
     // [V5.0] Save to cache for weekend use (only on weekdays with valid data)
     const result = { contracts, expiry: dominantExpiry, spot: spot || 0 };
@@ -445,14 +426,17 @@ function calculateGemsGreeks(contracts: any[], spot: number, targetDate?: string
   // Net GEX & 0DTE GEX
   let totalGex = 0;
   let gexZeroDte = 0;
+  let summaryGexByStrike: Record<number, number> = {};
 
   contracts.forEach((c: any) => {
     const gamma = c.greeks?.gamma || 0;
     const OI = Number(c.open_interest) || 0;
     const val = (gamma * OI * 100);
     const flow = c.contract_type === 'call' ? val : -val;
+    const strike = Number(c.strike_price) || 0;
 
     totalGex += flow;
+    summaryGexByStrike[strike] = (summaryGexByStrike[strike] || 0) + flow;
 
     // 0DTE Check: Expiry matches today or tomorrow (handling timezones loosely for "Near Term")
     // Note: c.expiration_date is YYYY-MM-DD
@@ -460,6 +444,29 @@ function calculateGemsGreeks(contracts: any[], spot: number, targetDate?: string
       gexZeroDte += flow;
     }
   });
+
+  // [S-99] Gamma Flip Level Calculation
+  let cumulativeGex = 0;
+  let prevCumulativeGex = 0;
+  let gammaFlipLevel: number | null = null;
+
+  // Sort and iterate strikes to find the zero-crossing point
+  const sortedStrikes = Object.keys(summaryGexByStrike).map(Number).sort((a, b) => a - b);
+
+  for (const strike of sortedStrikes) {
+    const flow = summaryGexByStrike[strike];
+    cumulativeGex += flow;
+
+    // Flip Detection: check sign change
+    if (cumulativeGex > 0 && prevCumulativeGex < 0) {
+      gammaFlipLevel = strike; // - to + (Short to Long)
+    }
+    else if (cumulativeGex < 0 && prevCumulativeGex > 0) {
+      gammaFlipLevel = strike; // + to - (Long to Short)
+    }
+
+    prevCumulativeGex = cumulativeGex;
+  }
 
   const gexZeroDteRatio = totalGex !== 0 ? Math.abs(gexZeroDte / totalGex) : 0;
 
@@ -474,11 +481,18 @@ function calculateGemsGreeks(contracts: any[], spot: number, targetDate?: string
     .reduce((acc: number, c: any) => acc + (Number(c.open_interest) || 0), 0);
   const putCallRatio = totalCallsOI > 0 ? (totalPutsOI / totalCallsOI) : null;
 
-  const comment = `[Options] NetGEX ${totalGex > 0 ? "+" : ""}${(totalGex / 1000000).toFixed(1)}M. 0DTE Impact: ${(gexZeroDteRatio * 100).toFixed(0)}%. MaxPain $${Number(maxPain).toFixed(2)}.`;
+  const comment = `[Options] NetGEX ${totalGex > 0 ? "+" : ""}${(totalGex / 1000000).toFixed(1)}M. Flip $${gammaFlipLevel || 'N/A'}. 0DTE: ${(gexZeroDteRatio * 100).toFixed(0)}%.`;
+
+  // Determine Gamma State for current spot
+  const gammaState = gammaFlipLevel ? (spot > gammaFlipLevel ? "SHORT_GAMMA" : "LONG_GAMMA") : (totalGex > 0 ? "LONG_GAMMA" : "SHORT_GAMMA");
+
+  console.log(`[DEBUG] CalcGemsGreeks: ${gammaFlipLevel} / ${gammaState} / GEX=${totalGex}`);
 
   return {
     maxPain,
     totalGex,
+    gammaFlipLevel, // NEW
+    gammaState,     // NEW
     gexZeroDte,
     gexZeroDteRatio,
     mmPos,
@@ -575,7 +589,14 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
     callsOI: chartStrikes.map((s: number) => chainData.contracts.find((c: any) => c.strike_price === s && c.contract_type === 'call')?.open_interest || 0),
     putsOI: chartStrikes.map((s: number) => chainData.contracts.find((c: any) => c.strike_price === s && c.contract_type === 'put')?.open_interest || 0),
     putCallRatio: analytics.putCallRatio,
-    gems: { mmPos: analytics.mmPos, edge: analytics.edge, gex: analytics.totalGex, comment: analytics.comment },
+    gems: {
+      mmPos: analytics.mmPos,
+      edge: analytics.edge,
+      gex: analytics.totalGex,
+      comment: analytics.comment,
+      gammaFlipLevel: analytics.gammaFlipLevel,
+      gammaState: analytics.gammaState
+    },
     options_status: analytics.options_status,
     options_grade: analytics.options_grade,
     options_reason: analytics.options_reason

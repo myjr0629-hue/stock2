@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info } from "lucide-react";
+import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown } from "lucide-react";
 import { StockData, OptionData, NewsItem } from "@/services/stockTypes";
 import { OIChart } from "@/components/OIChart";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
@@ -13,6 +13,7 @@ import { MarketStatusBadge } from "@/components/common/MarketStatusBadge";
 import { GammaLevelsViz } from "@/components/GammaLevelsViz";
 import { FlowSniper } from "@/components/FlowSniper";
 import { FlowRadar } from "@/components/FlowRadar";
+import { useTranslations } from 'next-intl';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -42,6 +43,7 @@ interface Props {
 }
 
 const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any) => {
+    const t = useTranslations('command');
     let status: 'PASS' | 'WATCH' | 'FAIL' = 'WATCH';
     const reasons: string[] = [];
     let actionHint = "";
@@ -69,34 +71,34 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
 
     // 2. Specific Conditions & Reasons
     if (session === "CLOSED") {
-        reasons.push("시장 폐장: 실행은 프리/정규장 기준으로 판단");
+        reasons.push(t('marketClosed'));
         if (status === 'PASS') status = 'WATCH';
     }
 
     if (isFail) {
-        reasons.push("옵션 검증: 대기 중 → 구조 기반 트리거 비활성");
-        actionHint = "옵션 데이터 회복 후 재평가";
+        reasons.push(t('optionsVerify'));
+        actionHint = t('optionsRecovery');
     }
 
     if (!isFail && netGex === null && (gammaCoverage !== undefined && gammaCoverage < 80)) {
         status = 'WATCH';
-        reasons.push("감마 커버리지 부족: GEX 해석 보류");
+        reasons.push(t('gammaCoverageLow'));
     }
 
     if (pinZone && Math.abs(displayPrice - pinZone) / displayPrice <= 0.02) {
-        reasons.push("가격이 자석 구간 인근");
-        if (netGex < 0) reasons.push("숏 감마 성향 → 변동성 확대 가능");
-        if (netGex > 0) reasons.push("롱 감마 성향 → 변동성 완화 가능");
+        reasons.push(t('priceNearMagnet'));
+        if (netGex < 0) reasons.push(t('shortGammaVolUp'));
+        if (netGex > 0) reasons.push(t('longGammaVolDown'));
     }
 
     if (callWall && putFloor) {
         if (displayPrice >= putFloor && displayPrice <= callWall) {
-            reasons.push("주요 레벨 사이");
+            reasons.push(t('betweenLevels'));
         } else if (displayPrice > callWall) {
-            reasons.push("상단 레벨 상회");
+            reasons.push(t('aboveResistance'));
             if (status === 'PASS') status = 'WATCH';
         } else if (displayPrice < putFloor) {
-            reasons.push("하단 레벨 하회");
+            reasons.push(t('belowSupport'));
             if (status === 'PASS') status = 'WATCH';
         }
     }
@@ -110,22 +112,22 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
     const hasRumor = krNews.some((n: any) => n.isRumor && n.ageHours <= 24);
 
     if (hasMajorEvent) {
-        reasons.push("중대 이벤트 뉴스: 보수 운용");
+        reasons.push(t('majorEventNews'));
         if (status === 'PASS') status = 'WATCH';
         else if (status === 'WATCH') status = 'FAIL';
     }
 
     if (hasRumor) {
-        reasons.push("⚠️ [AI 감지] 미확인 루머/찌라시 유입");
+        reasons.push(t('rumorDetected'));
         // Rumors are high risk, but could be opportunity. We flag it ensuring visibility.
         // We force at least WATCH if currently PASS.
         if (status === 'PASS') status = 'WATCH';
     }
 
     if (!actionHint) {
-        if (status === 'PASS') actionHint = "구조적 우위 확보: 분할 진입 고려";
-        else if (status === 'WATCH') actionHint = "관찰 필요: 주요 레벨 도달 시 재진입";
-        else actionHint = "진입 금지: 옵션 구조 불확실성 노출";
+        if (status === 'PASS') actionHint = t('structuralAdvantage');
+        else if (status === 'WATCH') actionHint = t('observeNeeded');
+        else actionHint = t('entryProhibited');
     }
 
     return (
@@ -156,14 +158,14 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any)
                             <span className="leading-tight">{r}</span>
                         </div>
                     ))}
-                    {reasons.length === 0 && <div className="text-[11px] text-slate-500 italic">특이 사항 없음 (안전)</div>}
+                    {reasons.length === 0 && <div className="text-[11px] text-slate-500 italic">{t('noIssues')}</div>}
                 </div>
                 {/* Rumor Detection Status (Compact) */}
                 <div className="flex items-center justify-between text-[10px] py-1.5 px-2 rounded bg-slate-800/50 border border-white/5 ml-2">
                     <span className="text-slate-500 font-bold uppercase tracking-wider">AI Rumor</span>
                     {hasRumor ? (
                         <span className="text-rose-400 font-black flex items-center gap-1">
-                            <AlertCircle size={10} /> 감지됨
+                            <AlertCircle size={10} /> {t('detected')}
                         </span>
                     ) : (
                         <span className="text-emerald-400 font-black">✓ Clean</span>
@@ -192,6 +194,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     // [Phase 50] Tab Navigation
     const [activeTab, setActiveTab] = useState<'COMMAND' | 'FLOW'>('COMMAND');
+
+    // i18n translations
+    const t = useTranslations('command');
 
     // [S-45] SSOT Integration
     const { status: marketStatus } = useMarketStatus();
@@ -280,6 +285,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     }, [ticker]);
 
     useEffect(() => {
+        // [FIX] Reset structure state when ticker changes to prevent stale data
+        setStructure(null);
         fetchOptions();
     }, [ticker]);
 
@@ -575,21 +582,33 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             </div>
                         </div>
 
-                        {/* B. Advanced Options Analysis (Fixed Height: 250px) */}
-                        <div className="h-[250px] min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+                        {/* B. Advanced Options Analysis (Fixed Height: 380px) */}
+                        <div className="h-[380px] min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
 
                             {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
-                            <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                            <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
                                 {/* Header */}
                                 <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
-                                    <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-                                        <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm animate-pulse" />
-                                        Tactical Range
-                                    </h4>
+                                    <div className="flex items-center gap-2">
+                                        <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm animate-pulse" />
+                                            Tactical Range
+                                        </h4>
+                                        {structure?.expiration && (() => {
+                                            const expDate = new Date(structure.expiration + 'T16:00:00-05:00');
+                                            const now = new Date();
+                                            const diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                                            return diffDays >= 0 ? (
+                                                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${diffDays <= 1 ? 'bg-rose-950/50 text-rose-400 border border-rose-500/30' : 'bg-cyan-950/50 text-cyan-400 border border-cyan-500/30'}`}>
+                                                    D-{diffDays}
+                                                </span>
+                                            ) : null;
+                                        })()}
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-xs font-black text-amber-500 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/30 flex items-center gap-2 shadow-lg">
                                             <span className="text-[10px] font-black tracking-tighter">MAX PAIN</span>
-                                            <span className="text-[9px] text-amber-300/60 font-medium uppercase tracking-tighter">(최대고통)</span>
+                                            <span className="text-[9px] text-amber-300/60 font-medium uppercase tracking-tighter">({t('maxPainLabel')})</span>
                                             <span className="text-sm font-black pl-1 border-l border-amber-500/20">${structure?.maxPain || initialStockData.flow?.maxPain || "---"}</span>
                                             {(structure?.maxPain || initialStockData.flow?.maxPain) && (
                                                 <span className={`text-[9px] font-bold ml-1 ${((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain)) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
@@ -644,53 +663,292 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         </div>
                                     </div>
                                 </div>
+
+                                {/* Tactical Metrics - Small Grid */}
+                                <div className="px-3 py-2 border-t border-white/5 bg-slate-950/20 grid grid-cols-2 gap-2">
+                                    {/* Max Pain Distance % */}
+                                    {(() => {
+                                        const maxPain = structure?.maxPain || 0;
+                                        const distance = maxPain ? ((displayPrice - maxPain) / maxPain * 100) : 0;
+                                        const absDistance = Math.abs(distance);
+                                        const color = absDistance < 1 ? "text-amber-400" : distance > 0 ? "text-rose-400" : "text-emerald-400";
+                                        return (
+                                            <div className="bg-slate-800/40 rounded-md px-2 py-1.5 border border-white/5">
+                                                <div className="text-[8px] text-slate-500 font-bold uppercase">{t('maxPainDistance')}</div>
+                                                <div className={`text-sm font-black ${color}`}>
+                                                    {distance > 0 ? "+" : ""}{distance.toFixed(1)}%
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+
+                                    {/* Range Width % */}
+                                    {(() => {
+                                        const resist = structure?.levels?.callWall || displayPrice * 1.05;
+                                        const support = structure?.levels?.putFloor || displayPrice * 0.95;
+                                        const rangeWidth = resist && support ? ((resist - support) / displayPrice * 100) : 0;
+                                        const color = rangeWidth > 10 ? "text-rose-400" : rangeWidth > 5 ? "text-amber-400" : "text-emerald-400";
+                                        return (
+                                            <div className="bg-slate-800/40 rounded-md px-2 py-1.5 border border-white/5">
+                                                <div className="text-[8px] text-slate-500 font-bold uppercase">{t('rangeWidth')}</div>
+                                                <div className={`text-sm font-black ${color}`}>
+                                                    {rangeWidth.toFixed(1)}%
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </div>
+
+                                {/* Insight Footer */}
+                                <div className="px-4 py-2 border-t border-white/5 bg-slate-950/30">
+                                    <p className="text-[10px] text-white/70 leading-relaxed">
+                                        {displayPrice > (structure?.maxPain || 0)
+                                            ? "📈 Max Pain 위 → 하방 수렴 압력"
+                                            : displayPrice < (structure?.maxPain || 0)
+                                                ? "📉 Max Pain 아래 → 상방 수렴 기대"
+                                                : "⚖️ Max Pain 근처 → 현 유지"}
+                                    </p>
+                                </div>
                             </div>
 
-                            {/* 2. NET GAMMA ENGINE (Reactor) */}
-                            <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md shadow-2xl overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                            {/* 2. NET GAMMA ENGINE (Infographic Style) */}
+                            <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
                                 {/* Header */}
                                 <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
                                     <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
                                         <Activity size={10} className={structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"} />
                                         NET GAMMA ENGINE
                                     </h4>
+                                    {structure?.expiration && (
+                                        <span className="text-xs text-white font-mono">EXP: {structure.expiration}</span>
+                                    )}
                                 </div>
 
-                                <div className="flex-1 flex items-center justify-between p-4 px-6 relative">
-                                    {/* Background Glow */}
-                                    <div className={`absolute inset-0 bg-radial-gradient from-${structure?.netGex > 0 ? "emerald" : "rose"}-500/05 to-transparent opacity-30`} />
-
-                                    {/* Left: Reactor Core */}
-                                    <div className="relative">
-                                        {/* Outer Ring */}
-                                        <div className={`w-24 h-24 rounded-full border-4 ${structure?.netGex > 0 ? "border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.6)] brightness-125" : "border-rose-500/30 shadow-[0_0_20px_rgba(244,63,94,0.6)] brightness-125"} flex items-center justify-center animate-[spin_10s_linear_infinite] border-dashed`} />
-
-                                        {/* Inner Core */}
-                                        <div className={`absolute inset-2 rounded-full bg-slate-900/80 flex flex-col items-center justify-center border ${structure?.netGex > 0 ? "border-emerald-500/50" : "border-rose-500/50"}`}>
-                                            <div className="text-[8px] text-slate-500 uppercase font-bold mb-0.5">NET GEX</div>
-                                            <div className={`text-lg font-black tracking-tighter ${structure?.netGex > 0 ? "text-emerald-100" : "text-rose-100"}`}>
-                                                {structure?.netGex ? (structure.netGex / 1000000).toFixed(1) + "M" : "0.0M"}
+                                {/* Main Content - Infographic Layout */}
+                                <div className="flex-1 p-3 flex flex-col gap-2 overflow-hidden">
+                                    {/* Top Row: Core GEX + Status + P/C OI Circle */}
+                                    <div className="flex items-center justify-between gap-4">
+                                        {/* Left: Reactor Core (GEX Only) */}
+                                        <div className="relative shrink-0">
+                                            <div className={`w-20 h-20 rounded-full border-4 border-dashed ${structure?.netGex > 0 ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.5)]" : "border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.5)]"} flex items-center justify-center animate-[spin_10s_linear_infinite]`} />
+                                            <div className={`absolute inset-2 rounded-full bg-slate-900/95 flex flex-col items-center justify-center border ${structure?.netGex > 0 ? "border-emerald-500/50" : "border-rose-500/50"}`}>
+                                                <div className="text-[8px] text-slate-500 uppercase font-bold">NET GEX</div>
+                                                <div className={`text-lg font-black ${structure?.netGex > 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                                                    {structure?.netGex ? (structure.netGex / 1000000).toFixed(1) + "M" : "0.0M"}
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
 
-                                    {/* Right: Info & Logic */}
-                                    <div className="flex-1 text-right pl-4 z-10">
-                                        <div className={`text-sm font-black mb-2 tracking-tight ${structure?.netGex > 0 ? "text-emerald-400 drop-shadow-sm" : "text-rose-400 drop-shadow-sm"}`}>
-                                            {structure?.netGex > 0 ? "STABLE (변동성 억제)" : "VOLATILE (변동성 확대)"}
-                                        </div>
-
-                                        <div className="space-y-3">
-                                            <p className="text-xs text-slate-200 font-medium leading-normal break-keep bg-slate-950/30 p-2 rounded border border-white/5">
+                                        {/* Center: Status */}
+                                        <div className="flex-1">
+                                            <div className={`text-sm font-black ${structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                {structure?.netGex > 0 ? "⚡ STABLE" : "⚡ VOLATILE"}
+                                            </div>
+                                            <div className="text-[11px] text-white/80 leading-snug mt-0.5">
                                                 {structure?.netGex > 0
-                                                    ? "Positive Gamma: 주가 변동을 줄이는 방향으로 헷징 (Range Bound)."
-                                                    : "Negative Gamma: 주가 변동을 키우는 방향으로 가속 (Acceleration)."}
-                                            </p>
-                                            <div className="inline-block px-2 py-1 rounded bg-slate-800 border border-white/10 text-[10px] text-slate-400 font-mono tracking-wide">
-                                                Logic: Dealer Hedging Impact
+                                                    ? "딜러 롱감마 → 변동성 억제"
+                                                    : "딜러 숏감마 → 방향 가속"}
+                                            </div>
+                                        </div>
+
+                                        {/* Right: P/C & OI Circle (White Dashed) */}
+                                        <div className="relative shrink-0">
+                                            <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/30 flex items-center justify-center" />
+                                            <div className="absolute inset-1 rounded-full bg-slate-900/80 flex flex-col items-center justify-center">
+                                                {(() => {
+                                                    const callsTotal = structure?.structure?.callsOI?.reduce((a: number, b: number) => a + (b || 0), 0) || 0;
+                                                    const putsTotal = structure?.structure?.putsOI?.reduce((a: number, b: number) => a + (b || 0), 0) || 0;
+                                                    const pcr = callsTotal > 0 ? (putsTotal / callsTotal) : 0;
+                                                    const totalOI = callsTotal + putsTotal;
+                                                    const oiFormatted = totalOI >= 1000000 ? (totalOI / 1000000).toFixed(1) + "M"
+                                                        : totalOI >= 1000 ? (totalOI / 1000).toFixed(0) + "K" : totalOI.toString();
+                                                    const pcrColor = pcr > 1.2 ? "text-rose-400" : pcr < 0.8 ? "text-emerald-400" : "text-white";
+                                                    return (
+                                                        <>
+                                                            <div className="text-[9px] text-white/80 uppercase font-bold">P/C Ratio</div>
+                                                            <div className={`text-sm font-black ${pcrColor}`}>{pcr.toFixed(2)}</div>
+                                                            <div className="text-[9px] text-white/80 uppercase font-bold mt-1">Total OI</div>
+                                                            <div className="text-sm font-black text-indigo-300">{oiFormatted}</div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
                                     </div>
+
+                                    {/* Gamma Flip Level - Infographic Style (No Emoji) */}
+                                    {/* [V7.2] Show loading state until options_status === "OK" for accurate data */}
+                                    {structure?.gammaFlipLevel && structure?.options_status === "OK" ? (
+                                        <div className="relative p-3 rounded-xl bg-gradient-to-r from-amber-950/50 via-amber-900/30 to-amber-950/50 border border-amber-500/40 overflow-hidden">
+                                            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.15),transparent_70%)]" />
+
+                                            <div className="relative z-10 flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-3">
+                                                    {/* Infographic Icon (No Emoji) */}
+                                                    <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500/30 to-amber-600/20 flex items-center justify-center border border-amber-500/40">
+                                                        <div className="w-4 h-4 border-2 border-amber-400 rounded-full relative">
+                                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                                <div className="w-1 h-3 bg-amber-400 rounded-full" />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-xs text-amber-400 font-black uppercase tracking-wider flex items-center gap-2">
+                                                            Gamma Flip Level
+                                                            <span className="text-[8px] bg-emerald-500/80 text-white px-1.5 py-0.5 rounded font-bold">READY</span>
+                                                        </div>
+                                                        <div className="text-[11px] text-white/70">감마 전환 가격대</div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-right">
+                                                    <div className="text-2xl font-black text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.6)]">
+                                                        ${structure.gammaFlipLevel}
+                                                    </div>
+                                                    {displayPrice && (
+                                                        <div className={`text-[10px] font-bold ${displayPrice > structure.gammaFlipLevel ? "text-rose-400" : "text-emerald-400"}`}>
+                                                            {displayPrice > structure.gammaFlipLevel
+                                                                ? "↑ 숏감마 구간"
+                                                                : "↓ 롱감마 구간"}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Position Bar with Labels */}
+                                            <div className="relative z-10">
+                                                <div className="flex justify-between text-[9px] mb-0.5">
+                                                    <span className="text-emerald-400 font-bold">롱감마</span>
+                                                    <span className="text-white/50">← Flip →</span>
+                                                    <span className="text-rose-400 font-bold">숏감마</span>
+                                                </div>
+                                                <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                    {(() => {
+                                                        const flip = structure.gammaFlipLevel;
+                                                        const low = flip * 0.93;
+                                                        const high = flip * 1.07;
+                                                        const range = high - low;
+                                                        const pos = Math.min(100, Math.max(0, ((displayPrice - low) / range) * 100));
+                                                        return (
+                                                            <>
+                                                                <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-600/60 to-emerald-500/40" style={{ width: '50%' }} />
+                                                                <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-rose-600/60 to-rose-500/40" style={{ width: '50%' }} />
+                                                                <div
+                                                                    className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)] border-2 border-slate-700"
+                                                                    style={{ left: `${pos}%`, transform: 'translate(-50%, -50%)' }}
+                                                                />
+                                                                <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" style={{ left: '50%' }} />
+                                                            </>
+                                                        );
+                                                    })()}
+                                                </div>
+                                                <div className="flex justify-between text-[9px] text-white/60 mt-0.5">
+                                                    <span>${(structure.gammaFlipLevel * 0.93).toFixed(0)}</span>
+                                                    <span className="text-amber-300 font-bold">${structure.gammaFlipLevel}</span>
+                                                    <span>${(structure.gammaFlipLevel * 1.07).toFixed(0)}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : structure && structure.options_status !== "OK" ? (
+                                        /* Loading State - Show while options data is being fetched */
+                                        <div className="relative p-3 rounded-xl bg-gradient-to-r from-slate-900/50 via-slate-800/30 to-slate-900/50 border border-slate-600/40 overflow-hidden">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-9 h-9 rounded-lg bg-slate-800/50 flex items-center justify-center border border-slate-600/40 animate-pulse">
+                                                    <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-slate-400 font-black uppercase tracking-wider flex items-center gap-2">
+                                                        Gamma Flip Level
+                                                        <span className="text-[8px] bg-slate-600/80 text-white px-1.5 py-0.5 rounded font-bold animate-pulse">LOADING</span>
+                                                    </div>
+                                                    <div className="text-[11px] text-white/50">옵션 데이터 로딩 중...</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ) : structure && structure.options_status === "OK" && !structure.gammaFlipLevel ? (
+                                        /* [V7.5] Context-Aware Empty State - Show meaningful message based on netGex */
+                                        (() => {
+                                            const netGex = structure?.netGex;
+                                            // [FIX] Low liquidity = netGex is null AND gammaCoverage is low
+                                            // If netGex exists (even if 0), data is sufficient
+                                            const gammaCoverage = structure?.debug?.gammaCoverage || structure?.gammaCoverage || 0;
+                                            const isLowLiquidity = netGex === null && gammaCoverage < 0.5;
+
+                                            // Determine message based on gamma state
+                                            let message = "";
+                                            let badgeText = "N/A";
+                                            let badgeColor = "bg-slate-700/80 text-slate-300";
+
+                                            if (isLowLiquidity) {
+                                                message = "옵션 유동성 부족";
+                                            } else if (netGex !== null && netGex < 0) {
+                                                message = "전 구간 숏감마 (Flip 지점 없음)";
+                                                badgeText = "SHORT";
+                                                badgeColor = "bg-rose-600/80 text-white";
+                                            } else if (netGex !== null && netGex > 0) {
+                                                message = "전 구간 롱감마 (Flip 지점 없음)";
+                                                badgeText = "LONG";
+                                                badgeColor = "bg-emerald-600/80 text-white";
+                                            } else if (netGex !== null && netGex === 0) {
+                                                message = "GEX 균형 (Flip 지점 미확인)";
+                                            } else {
+                                                message = "감마 데이터 계산 불가";
+                                            }
+
+                                            return (
+                                                <div className="relative p-3 rounded-xl bg-gradient-to-r from-slate-900/50 via-slate-800/30 to-slate-900/50 border border-slate-600/40 overflow-hidden">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-9 h-9 rounded-lg flex items-center justify-center border ${netGex < 0 ? 'bg-rose-900/30 border-rose-500/40' : netGex > 0 ? 'bg-emerald-900/30 border-emerald-500/40' : 'bg-slate-800/50 border-slate-600/40'}`}>
+                                                            {netGex < 0 ? <TrendingDown className="w-4 h-4 text-rose-400" /> :
+                                                                netGex > 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> :
+                                                                    <AlertCircle className="w-4 h-4 text-slate-500" />}
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs text-slate-400 font-black uppercase tracking-wider flex items-center gap-2">
+                                                                Gamma Flip Level
+                                                                <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${badgeColor}`}>{badgeText}</span>
+                                                            </div>
+                                                            <div className="text-[11px] text-white/50">{message}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })()
+                                    ) : null}
+
+                                    {/* Infographic Grid - 0DTE & Squeeze Risk */}
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {/* 0DTE Impact */}
+                                        <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[9px] text-white/80 font-bold uppercase">0DTE Impact</span>
+                                                <Zap size={10} className={structure?.gexZeroDteRatio > 0.3 ? "text-amber-400" : "text-slate-600"} />
+                                            </div>
+                                            <div className={`text-lg font-black ${structure?.gexZeroDteRatio > 0.3 ? "text-amber-400" : "text-slate-300"}`}>
+                                                {structure?.gexZeroDteRatio ? (structure.gexZeroDteRatio * 100).toFixed(0) : "0"}%
+                                            </div>
+                                        </div>
+
+                                        {/* Squeeze Risk */}
+                                        <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
+                                            <div className="flex items-center justify-between mb-1">
+                                                <span className="text-[9px] text-white/80 font-bold uppercase">Squeeze Risk</span>
+                                            </div>
+                                            {(() => {
+                                                const risk = structure?.netGex < 0 && structure?.gexZeroDteRatio > 0.3 ? "HIGH"
+                                                    : structure?.netGex < 0 ? "MED" : "LOW";
+                                                const color = risk === "HIGH" ? "text-rose-400" : risk === "MED" ? "text-amber-400" : "text-emerald-400";
+                                                return <div className={`text-lg font-black ${color}`}>{risk}</div>;
+                                            })()}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* MM Insight Footer (Simplified) */}
+                                <div className="px-3 py-2 border-t border-white/5 bg-slate-950/30">
+                                    <p className="text-[10px] text-white/70 leading-relaxed">
+                                        {structure?.netGex > 0 ? "🛡️ 숏감마: 급등락 주의" : "⚡ 롱감마: 변동성 억제"}
+                                    </p>
                                 </div>
                             </div>
                         </div>

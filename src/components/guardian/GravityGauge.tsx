@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
 import { Activity } from "lucide-react";
+import { useTranslations } from 'next-intl';
 
 interface GravityGaugeProps {
     score: number;
     loading?: boolean;
-    session?: 'PRE' | 'REG' | 'POST' | 'CLOSED'; // [V5.0] Session indicator
+    session?: 'PRE' | 'REG' | 'POST' | 'CLOSED';
 }
 
 export default function GravityGauge({ score, loading, session }: GravityGaugeProps) {
     const [animatedScore, setAnimatedScore] = useState(0);
+    const t = useTranslations('guardian');
 
     useEffect(() => {
         const timer = setTimeout(() => setAnimatedScore(score), 100);
@@ -16,22 +18,20 @@ export default function GravityGauge({ score, loading, session }: GravityGaugePr
     }, [score]);
 
     // Calculate Gauge Parameters
-    // Scale reduced: Radius 60
     const radius = 60;
     const stroke = 8;
     const normalizedScore = Math.min(Math.max(animatedScore, 0), 100);
     const circumference = 2 * Math.PI * radius;
-    // Semi-circle (180 deg) = circumference / 2
     const maxOffset = circumference / 2;
     const offset = maxOffset - (normalizedScore / 100) * maxOffset;
 
     // Determine Status
     let statusText = "NEUTRAL";
-    let statusColor = "#94a3b8"; // slate-400
-    if (normalizedScore >= 80) { statusText = "OVERHEATED"; statusColor = "#f43f5e"; } // rose-500
-    else if (normalizedScore >= 60) { statusText = "BULLISH"; statusColor = "#34d399"; } // emerald-400
+    let statusColor = "#94a3b8";
+    if (normalizedScore >= 80) { statusText = "OVERHEATED"; statusColor = "#f43f5e"; }
+    else if (normalizedScore >= 60) { statusText = "BULLISH"; statusColor = "#34d399"; }
     else if (normalizedScore <= 20) { statusText = "OVERSOLD"; statusColor = "#f43f5e"; }
-    else if (normalizedScore <= 40) { statusText = "BEARISH"; statusColor = "#60a5fa"; } // blue-400
+    else if (normalizedScore <= 40) { statusText = "BEARISH"; statusColor = "#60a5fa"; }
 
     return (
         <div className="flex flex-col items-center justify-center p-4 h-full relative">
@@ -39,7 +39,6 @@ export default function GravityGauge({ score, loading, session }: GravityGaugePr
             <div className="absolute top-4 left-6 flex items-center gap-2">
                 <Activity className="w-3 h-3 text-white opacity-70" />
                 <span className="text-[10px] uppercase tracking-[0.2em] text-white font-bold opacity-70">Gravity Gauge</span>
-                {/* [V5.0] Session Badge */}
                 {session && (
                     <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ml-2 ${session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                         session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
@@ -56,12 +55,11 @@ export default function GravityGauge({ score, loading, session }: GravityGaugePr
             {/* Main Gauge Container */}
             <div className="relative mt-2">
                 <svg width="200" height="120" viewBox="0 0 200 120" className="overflow-visible">
-                    {/* Defs for Gradients */}
                     <defs>
                         <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#60a5fa" />   {/* Blue (Low) */}
-                            <stop offset="50%" stopColor="#34d399" />  {/* Green (Mid) */}
-                            <stop offset="100%" stopColor="#f43f5e" /> {/* Red (High) */}
+                            <stop offset="0%" stopColor="#60a5fa" />
+                            <stop offset="50%" stopColor="#34d399" />
+                            <stop offset="100%" stopColor="#f43f5e" />
                         </linearGradient>
                         <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
                             <feGaussianBlur stdDeviation="3" result="coloredBlur" />
@@ -72,16 +70,16 @@ export default function GravityGauge({ score, loading, session }: GravityGaugePr
                         </filter>
                     </defs>
 
-                    {/* TICK MARKS (Speedometer Style) */}
+                    {/* TICK MARKS */}
                     {Array.from({ length: 31 }).map((_, i) => {
-                        const angle = Math.PI - (i / 30) * Math.PI; // 180 to 0 degrees
+                        const angle = Math.PI - (i / 30) * Math.PI;
                         const cx = 100;
                         const cy = 100;
-                        const rInner = 68; // Start of tick
-                        const rOuter = i % 5 === 0 ? 76 : 72; // Major/Minor ticks
+                        const rInner = 68;
+                        const rOuter = i % 5 === 0 ? 76 : 72;
 
                         const x1 = cx + rInner * Math.cos(angle);
-                        const y1 = cy - rInner * Math.sin(angle); // Y grows down, so minus sin
+                        const y1 = cy - rInner * Math.sin(angle);
                         const x2 = cx + rOuter * Math.cos(angle);
                         const y2 = cy - rOuter * Math.sin(angle);
 
@@ -154,17 +152,17 @@ export default function GravityGauge({ score, loading, session }: GravityGaugePr
 
                 {/* Zone Labels */}
                 <div className="flex justify-between text-[8px] font-bold mb-2 px-2">
-                    <span className="text-rose-400">약세 40-</span>
-                    <span className="text-slate-400">중립</span>
-                    <span className="text-emerald-400">강세 60+</span>
+                    <span className="text-rose-400">{t('bearish')} 40-</span>
+                    <span className="text-slate-400">{t('neutral')}</span>
+                    <span className="text-emerald-400">{t('bullish')} 60+</span>
                 </div>
 
                 {/* Data Sources */}
                 <div className="flex justify-center gap-2 flex-wrap">
-                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">뉴스</span>
-                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">모멘텀</span>
-                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">섹터</span>
-                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">금리</span>
+                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{t('news')}</span>
+                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{t('momentum')}</span>
+                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{t('sector')}</span>
+                    <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{t('yield')}</span>
                 </div>
             </div>
         </div>

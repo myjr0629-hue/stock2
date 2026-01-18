@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { useTranslations } from 'next-intl';
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio } from "lucide-react";
 import { TradingViewTicker } from "@/components/TradingViewTicker";
@@ -89,6 +90,7 @@ interface GuardianContext {
 
 export default function GuardianPage() {
     const { data: globalData, loading, refresh } = useGuardian();
+    const t = useTranslations('guardian');
     // Map global data to local type if necessary, or just cast
     const data = globalData as GuardianContext | null;
     const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
@@ -150,7 +152,7 @@ export default function GuardianPage() {
 
             {/* MACRO TICKER (Engine Data) */}
             {/* VISUAL TRACK: TRADINGVIEW WIDGET (User Request) */}
-            <div className="fixed top-[64px] left-0 right-0 z-40 shadow-lg shadow-black/20">
+            <div className="fixed top-12 left-0 right-0 z-40 shadow-lg shadow-black/20">
                 <TradingViewTicker key="v4-debug-force" />
             </div>
             {/* Spacer to prevent content overlap */}
@@ -233,17 +235,17 @@ export default function GuardianPage() {
                             </h3>
                         </div>
 
-                        {/* [V3.0] TARGET LOCK HOLOGRAM OVERLAY */}
+                        {/* [V3.0] TARGET LOCK HOLOGRAM OVERLAY - Positioned at bottom, slow animation */}
                         {isTargetLocked && (
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 pointer-events-none flex flex-col items-center select-none">
-                                {/* Crosshair */}
-                                <div className="absolute w-[300px] h-[300px] border border-amber-500/20 rounded-full animate-[spin_8s_linear_infinite]" />
-                                <div className="absolute w-[200px] h-[200px] border border-dashed border-amber-500/40 rounded-full animate-[spin_4s_linear_infinite_reverse]" />
+                            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center select-none">
+                                {/* Subtle Crosshair - smaller, behind text */}
+                                <div className="absolute w-[180px] h-[180px] border border-amber-500/15 rounded-full animate-[spin_12s_linear_infinite]" />
+                                <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/25 rounded-full animate-[spin_6s_linear_infinite_reverse]" />
 
-                                <div className="text-5xl font-black text-amber-400 tracking-[0.2em] animate-pulse drop-shadow-[0_0_30px_rgba(245,158,11,0.8)] whitespace-nowrap">
+                                <div className="text-2xl font-black text-amber-400 tracking-[0.15em] animate-[pulse_3s_ease-in-out_infinite] drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] whitespace-nowrap">
                                     TARGET LOCKED
                                 </div>
-                                <div className="text-xs text-amber-200 tracking-[0.8em] mt-3 uppercase font-bold bg-black/50 px-4 py-1 rounded border border-amber-500/30">
+                                <div className="text-[10px] text-amber-200 tracking-[0.5em] mt-2 uppercase font-bold bg-black/60 px-3 py-1 rounded border border-amber-500/30">
                                     TRIPLE-A SEQUENCE ENGAGED
                                 </div>
                             </div>
@@ -310,9 +312,9 @@ export default function GuardianPage() {
                                     <div className={`text-[8px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
                                         data?.tripleA?.regime === 'BEAR' ? "text-rose-400" : "text-white"
                                         }`}>
-                                        {data?.tripleA?.regime === 'BULL' ? "강세장 진입 :: 적극 매수 (Alpha Seek)" :
-                                            data?.tripleA?.regime === 'BEAR' ? "약세장 진입 :: 보수적 운용 (Defense)" :
-                                                "방향성 부재 :: 관망 권장 (Wait)"}
+                                        {data?.tripleA?.regime === 'BULL' ? t('bullRegime') :
+                                            data?.tripleA?.regime === 'BEAR' ? t('bearRegime') :
+                                                t('neutralRegime')}
                                     </div>
                                 </div>
                             </div>

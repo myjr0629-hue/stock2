@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useWatchlist, type EnrichedWatchlistItem } from '@/hooks/useWatchlist';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { TradingViewTicker } from '@/components/TradingViewTicker';
+import { useTranslations } from 'next-intl';
 import {
     Star,
     Plus,
@@ -13,13 +14,24 @@ import {
     TrendingDown,
     X,
     Loader2,
-    Activity
+    Activity,
+    Fish,
+    Zap,
+    Target,
+    BarChart3,
+    Shield,
+    RefreshCcw,
+    Crosshair
 } from 'lucide-react';
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 
 export default function WatchlistPage() {
     const { items, loading, isRefreshing, refresh, addItem, removeItem } = useWatchlist();
     const [showAddModal, setShowAddModal] = useState(false);
+    const t = useTranslations('watchlist');
+    const tCommon = useTranslations('common');
+    const locale = useLocale();
 
     return (
         <div className="min-h-screen bg-[#0c1118] text-slate-100">
@@ -35,13 +47,13 @@ export default function WatchlistPage() {
                     <div className="flex items-center gap-2">
                         <Star className="w-4 h-4 text-amber-400/80" />
                         <span className="text-sm font-bold tracking-wide text-white/90">WATCHLIST</span>
-                        <span className="text-[8px] font-medium text-amber-400/60 tracking-widest">PREMIUM</span>
+                        <span className="text-[8px] font-medium text-amber-400/60 tracking-widest">{t('premium')}</span>
                     </div>
                     <div className="flex items-center gap-3">
                         <button
                             onClick={() => refresh()}
                             className="p-2 hover:bg-white/5 rounded transition-all relative"
-                            title="Refresh"
+                            title={t('refresh')}
                         >
                             <RefreshCw className={`w-3.5 h-3.5 text-slate-500 hover:text-slate-300 ${loading ? 'animate-spin' : ''}`} />
                             {isRefreshing && (
@@ -53,7 +65,7 @@ export default function WatchlistPage() {
                             className="flex items-center gap-1 px-3 py-1.5 text-amber-400/90 hover:text-amber-300 text-xs font-medium transition-colors"
                         >
                             <Plus className="w-3.5 h-3.5" />
-                            <span>Add</span>
+                            <span>{tCommon('add')}</span>
                         </button>
                     </div>
                 </div>
@@ -65,7 +77,7 @@ export default function WatchlistPage() {
                     <div className="flex items-center gap-2 text-slate-400">
                         <Activity className="w-4 h-4 text-amber-400" />
                         <span className="font-bold text-white">{items.length}</span>
-                        <span>종목 모니터링 중</span>
+                        <span>{t('monitoring')}</span>
                     </div>
                 </div>
 
@@ -78,36 +90,36 @@ export default function WatchlistPage() {
                     <div className="relative">
                         {/* Table Header */}
                         <div className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
-                            <div>종목</div>
-                            <div className="text-center">현재가</div>
-                            <div className="text-center">Alpha</div>
-                            <div className="text-center">Signal</div>
-                            <div className="text-center">🐋 Whale</div>
-                            <div className="text-center">RSI</div>
-                            <div className="text-center">RVOL</div>
-                            <div className="text-center">3D</div>
-                            <div className="text-center">MaxPain</div>
-                            <div className="text-center">GEX</div>
+                            <div>{t('symbol')}</div>
+                            <div className="text-center">{t('price')}</div>
+                            <div className="flex items-center justify-center gap-1"><Zap className="w-3 h-3" />Alpha</div>
+                            <div className="flex items-center justify-center gap-1"><Target className="w-3 h-3" />{t('signal')}</div>
+                            <div className="flex items-center justify-center gap-1"><Fish className="w-3 h-3 text-cyan-400" />Whale</div>
+                            <div className="flex items-center justify-center gap-1"><BarChart3 className="w-3 h-3" />{t('rsiLabel')}</div>
+                            <div className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3" />{t('gammaFlip')}</div>
+                            <div className="flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" />{t('return3d')}</div>
+                            <div className="flex items-center justify-center gap-1"><Crosshair className="w-3 h-3" />MaxPain</div>
+                            <div className="flex items-center justify-center gap-1"><Shield className="w-3 h-3" />{t('gex')}</div>
                         </div>
 
                         {/* Rows */}
                         {loading ? (
                             <div className="px-4 py-16 text-center">
                                 <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-amber-500/50" />
-                                <p className="text-slate-500 text-sm">Watchlist 로딩 중...</p>
+                                <p className="text-slate-500 text-sm">{t('loadingWatchlist')}</p>
                             </div>
                         ) : items.length === 0 ? (
                             <div className="px-4 py-16 text-center">
                                 <div className="w-16 h-16 mx-auto mb-4 rounded-lg bg-gradient-to-br from-slate-800/50 to-slate-800/30 border border-white/5 flex items-center justify-center">
                                     <Star className="w-8 h-8 text-slate-600" />
                                 </div>
-                                <p className="text-slate-400 font-medium mb-1">관심 종목이 없습니다</p>
-                                <p className="text-slate-600 text-xs mb-4">종목을 추가하여 모니터링을 시작하세요</p>
+                                <p className="text-slate-400 font-medium mb-1">{t('noWatchlist')}</p>
+                                <p className="text-slate-600 text-xs mb-4">{t('startMonitoring')}</p>
                                 <button
                                     onClick={() => setShowAddModal(true)}
                                     className="text-amber-400 hover:text-amber-300 text-sm font-bold"
                                 >
-                                    + 첫 번째 종목 추가하기
+                                    {t('addFirstItem')}
                                 </button>
                             </div>
                         ) : (
@@ -117,6 +129,7 @@ export default function WatchlistPage() {
                                         key={item.ticker}
                                         item={item}
                                         onRemove={() => removeItem(item.ticker)}
+                                        locale={locale}
                                     />
                                 ))}
                             </div>
@@ -137,12 +150,14 @@ export default function WatchlistPage() {
 }
 
 // === ROW COMPONENT ===
-function WatchlistRow({ item, onRemove }: { item: EnrichedWatchlistItem; onRemove: () => void }) {
+function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem; onRemove: () => void; locale: string }) {
     const isPositive = item.changePct >= 0;
+    const t = useTranslations('watchlist');
+    const tCommon = useTranslations('common');
 
     return (
         <Link
-            href={`/ticker?ticker=${item.ticker}`}
+            href={`/${locale}/ticker?ticker=${item.ticker}`}
             className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
         >
             {/* 종목 with Sparkline */}
@@ -201,9 +216,9 @@ function WatchlistRow({ item, onRemove }: { item: EnrichedWatchlistItem; onRemov
                 <RSIIndicator value={item.rsi} />
             </div>
 
-            {/* RVOL */}
+            {/* Gamma Flip */}
             <div className="flex justify-center">
-                <RVOLIndicator value={item.rvol} />
+                <GammaFlipIndicator value={item.gammaFlipLevel} price={item.currentPrice} gexM={item.gexM} />
             </div>
 
             {/* 3D Return */}
@@ -222,7 +237,7 @@ function WatchlistRow({ item, onRemove }: { item: EnrichedWatchlistItem; onRemov
                 <button
                     onClick={(e) => { e.preventDefault(); onRemove(); }}
                     className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
-                    title="삭제"
+                    title={tCommon('delete')}
                 >
                     <Trash2 className="w-3.5 h-3.5" />
                 </button>
@@ -326,9 +341,9 @@ function SignalBadge({ action, confidence }: { action?: string; confidence?: num
 
     return (
         <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded ${c.bg} border ${c.border}`}>
-            <span className={`text-[9px] font-black ${c.text}`}>{action}</span>
+            <span className={`text-[11px] font-black ${c.text}`}>{action}</span>
             {confidence !== undefined && (
-                <span className="text-[8px] font-bold font-num text-slate-400">{confidence}%</span>
+                <span className="text-[10px] font-bold font-num text-slate-400">{confidence}%</span>
             )}
         </div>
     );
@@ -339,18 +354,19 @@ function WhaleIndicator({ index, confidence }: { index?: number; confidence?: st
         return <span className="text-[10px] text-slate-600">N/A</span>;
     }
 
-    const level = index >= 70 ? '강한 매집' : index >= 40 ? '관심' : '정상';
+    const t = useTranslations('watchlist');
+    const level = index >= 70 ? t('strongAccumulation') : index >= 40 ? t('attention') : t('normal');
     const color = index >= 70 ? 'text-amber-400 bg-amber-400/10 border-amber-400/30' :
         index >= 40 ? 'text-slate-300 bg-slate-300/10 border-slate-400/30' :
             'text-slate-500 bg-slate-500/10 border-slate-600/30';
 
     return (
-        <div className="flex items-center gap-1" title={`Whale Index: ${index} - 기관/고래 매집 강도`}>
+        <div className="flex items-center gap-1" title={`Whale Index: ${index}`}>
             <div className={`flex items-center gap-1 px-2 py-0.5 rounded border ${color}`}>
-                <span className="text-[10px]">🐋</span>
-                <span className="text-[9px] font-bold font-num">{index}</span>
+                <Fish className="w-3 h-3" />
+                <span className="text-[11px] font-bold font-num">{index}</span>
             </div>
-            <span className="text-[8px] text-white/80">{level}</span>
+            <span className="text-[10px] text-white/80">{level}</span>
         </div>
     );
 }
@@ -360,31 +376,54 @@ function RSIIndicator({ value }: { value?: number }) {
         return <span className="text-[10px] text-slate-600">—</span>;
     }
 
+    const t = useTranslations('watchlist');
     const color = value >= 70 ? 'text-rose-400' : value <= 30 ? 'text-emerald-400' : 'text-white';
-    const label = value >= 70 ? '과매수' : value <= 30 ? '과매도' : '중립';
+    const label = value >= 70 ? t('overbought') : value <= 30 ? t('oversold') : t('neutral');
 
     return (
-        <div className="flex items-center gap-1" title={`RSI(14): ${value.toFixed(0)} - 상대강도지수`}>
+        <div className="flex items-center gap-1" title={`RSI(14): ${value.toFixed(0)}`}>
             <span className={`text-xs font-bold font-num ${color}`}>{value.toFixed(0)}</span>
-            <span className="text-[8px] text-white/80">{label}</span>
+            <span className="text-[10px] text-white/80">{label}</span>
         </div>
     );
 }
 
-function RVOLIndicator({ value }: { value?: number }) {
-    if (value === undefined || value === null) {
-        return <span className="text-[10px] text-slate-600">—</span>;
+function GammaFlipIndicator({ value, price, gexM }: { value?: number; price?: number; gexM?: number }) {
+    // [V7.4] Context-aware display matching Command page
+
+    const tInd = useTranslations('indicators');
+    // Case 1: Value exists and is valid
+    if (value !== undefined && value !== null && value > 0) {
+        const isAbove = price ? price > value : false;
+        const color = isAbove ? 'text-rose-400' : 'text-emerald-400';
+        const label = isAbove ? tInd('shortGamma') : tInd('longGamma');
+        return (
+            <div className="flex items-center gap-1" title={`Gamma Flip Level: $${value}`}>
+                <span className={`text-xs font-bold font-num ${color}`}>${value.toFixed(0)}</span>
+                <span className="text-[10px] text-white/80">{label}</span>
+            </div>
+        );
     }
 
-    const color = value >= 2.0 ? 'text-amber-400' : value >= 1.5 ? 'text-white' : 'text-slate-400';
-    const label = value >= 2.0 ? '급등' : value >= 1.5 ? '활발' : '보통';
+    // Case 2: No value but have GEX data - show gamma state
+    if (gexM !== undefined && gexM !== null) {
+        if (gexM < 0) {
+            return (
+                <div className="flex items-center gap-1" title={tInd('allShortGamma')}>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-600/80 text-white">SHORT</span>
+                </div>
+            );
+        } else if (gexM > 0) {
+            return (
+                <div className="flex items-center gap-1" title={tInd('allLongGamma')}>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-600/80 text-white">LONG</span>
+                </div>
+            );
+        }
+    }
 
-    return (
-        <div className="flex items-center gap-1" title={`상대거래량: ${value.toFixed(2)}x (평균 대비)`}>
-            <span className={`text-xs font-bold font-num ${color}`}>{value.toFixed(1)}x</span>
-            <span className="text-[8px] text-white/80">{label}</span>
-        </div>
-    );
+    // Case 3: No data at all
+    return <span className="text-[10px] text-slate-600">—</span>;
 }
 
 function Return3DIndicator({ value }: { value?: number }) {
@@ -412,7 +451,7 @@ function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }
     return (
         <div className="text-center" title={`Max Pain: $${maxPain?.toFixed(2)} - 옵션 만기 예상가`}>
             {maxPain && (
-                <span className="text-[9px] text-white font-num font-bold block">${maxPain.toFixed(0)}</span>
+                <span className="text-[11px] text-white font-num font-bold block">${maxPain.toFixed(0)}</span>
             )}
             <span className={color}>
                 <span className="text-sm">{arrow}</span>
@@ -430,11 +469,11 @@ function GexIndicator({ gexM }: { gexM?: number }) {
     const color = gexM > 0 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
         : gexM < 0 ? 'text-rose-400 bg-rose-400/10 border-rose-400/30'
             : 'text-slate-400 bg-slate-400/10 border-slate-400/30';
-    const label = gexM > 0 ? '🛡️ LONG' : gexM < 0 ? '⚡ SHORT' : '— N/A';
 
     return (
-        <div className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${color}`} title={`GEX: ${gexM}M - 감마 노출`}>
-            {label}
+        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-bold ${color}`} title={`GEX: ${gexM}M - 감마 노출`}>
+            {gexM > 0 ? <Shield className="w-3 h-3" /> : gexM < 0 ? <Zap className="w-3 h-3" /> : null}
+            <span>{gexM > 0 ? 'LONG' : gexM < 0 ? 'SHORT' : 'N/A'}</span>
         </div>
     );
 }
@@ -446,9 +485,11 @@ function AddWatchlistModal({ onClose, onAdd }: { onClose: () => void; onAdd: (ti
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [validated, setValidated] = useState(false);
+    const t = useTranslations('watchlist');
+    const tCommon = useTranslations('common');
 
-    const fetchTickerInfo = async (t: string) => {
-        if (!t || t.length < 1) {
+    const fetchTickerInfo = async (tickerInput: string) => {
+        if (!tickerInput || tickerInput.length < 1) {
             setCompanyName('');
             setValidated(false);
             setError('');
@@ -458,14 +499,14 @@ function AddWatchlistModal({ onClose, onAdd }: { onClose: () => void; onAdd: (ti
         setLoading(true);
         setError('');
         try {
-            const res = await fetch(`/api/stock?symbol=${t.toUpperCase()}`);
+            const res = await fetch(`/api/stock?symbol=${tickerInput.toUpperCase()}`);
             if (!res.ok) throw new Error('Ticker not found');
             const data = await res.json();
 
-            setCompanyName(data.name || data.shortName || t.toUpperCase());
+            setCompanyName(data.name || data.shortName || tickerInput.toUpperCase());
             setValidated(true);
         } catch {
-            setError('유효하지 않은 티커입니다');
+            setError(t('invalidTicker'));
             setCompanyName('');
             setValidated(false);
         } finally {
@@ -506,8 +547,8 @@ function AddWatchlistModal({ onClose, onAdd }: { onClose: () => void; onAdd: (ti
                 <div className="relative p-6">
                     <div className="flex items-center justify-between mb-6">
                         <div>
-                            <h2 className="text-xl font-bold text-amber-400">관심 종목 추가</h2>
-                            <p className="text-[11px] text-slate-500 mt-0.5">Watchlist에 종목을 추가합니다</p>
+                            <h2 className="text-xl font-bold text-amber-400">{t('addToWatchlist')}</h2>
+                            <p className="text-[11px] text-slate-500 mt-0.5">{t('addToWatchlistDesc')}</p>
                         </div>
                         <button
                             onClick={onClose}
@@ -520,7 +561,7 @@ function AddWatchlistModal({ onClose, onAdd }: { onClose: () => void; onAdd: (ti
                     <form onSubmit={handleSubmit} className="space-y-5">
                         <div>
                             <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
-                                티커 심볼
+                                {t('tickerSymbol')}
                             </label>
                             <div className="relative">
                                 <input
@@ -562,7 +603,7 @@ function AddWatchlistModal({ onClose, onAdd }: { onClose: () => void; onAdd: (ti
                                 onClick={onClose}
                                 className="flex-1 px-4 py-3 bg-slate-800/50 text-slate-300 rounded-lg font-bold hover:bg-slate-800 transition-colors border border-slate-700"
                             >
-                                취소
+                                {tCommon('cancel')}
                             </button>
                             <button
                                 type="submit"
@@ -574,7 +615,7 @@ function AddWatchlistModal({ onClose, onAdd }: { onClose: () => void; onAdd: (ti
                                 ) : (
                                     <>
                                         <Star className="w-4 h-4" />
-                                        추가
+                                        {tCommon('add')}
                                     </>
                                 )}
                             </button>
