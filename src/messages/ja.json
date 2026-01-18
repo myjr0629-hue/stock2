@@ -109,7 +109,21 @@
         "news": "News",
         "momentum": "Momentum",
         "sector": "Sector",
-        "yield": "Yield"
+        "yield": "Yield",
+        "sectors": {
+            "XLK": "テクノロジー",
+            "XLC": "コミュニケーション",
+            "XLY": "一般消費財",
+            "XLE": "エネルギー",
+            "XLF": "金融",
+            "XLV": "ヘルスケア",
+            "XLI": "産業財",
+            "XLB": "素材",
+            "XLP": "生活必需品",
+            "XLRE": "不動産",
+            "XLU": "公益事業",
+            "AI_PWR": "AI電力網"
+        }
     },
     "command": {
         "title": "COMMAND",

@@ -109,7 +109,21 @@
         "news": "뉴스",
         "momentum": "모멘텀",
         "sector": "섹터",
-        "yield": "금리"
+        "yield": "금리",
+        "sectors": {
+            "XLK": "기술주",
+            "XLC": "커뮤니케이션",
+            "XLY": "임의소비재",
+            "XLE": "에너지",
+            "XLF": "금융",
+            "XLV": "헬스케어",
+            "XLI": "산업재",
+            "XLB": "소재",
+            "XLP": "필수소비재",
+            "XLRE": "부동산",
+            "XLU": "유틸리티",
+            "AI_PWR": "AI 전력망"
+        }
     },
     "command": {
         "title": "COMMAND",

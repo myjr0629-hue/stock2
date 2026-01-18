@@ -4,9 +4,11 @@ import { Redis } from "@upstash/redis";
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Redis Keys for persistent cache
-const REDIS_KEY_ROTATION = "guardian:gemini:rotation";
-const REDIS_KEY_REALITY = "guardian:gemini:reality";
+// Supported locales
+type Locale = 'ko' | 'en' | 'ja';
+
+// Redis Keys for persistent cache (per locale)
+const getRedisKey = (type: string, locale: Locale) => `guardian:gemini:${type}:${locale}`;
 
 // Get Redis client
 function getRedis(): Redis | null {
@@ -49,12 +51,10 @@ async function loadInsightFromRedis(key: string): Promise<string | null> {
 
 // Robust API Key Loader
 const getApiKey = (): string => {
-    // 1. Try Process Env (SWAPPED: Use NEWS KEY for Verdict)
     if (process.env.GEMINI_NEWS_KEY) return process.env.GEMINI_NEWS_KEY;
     if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
     if (process.env.GOOGLE_API_KEY) return process.env.GOOGLE_API_KEY;
 
-    // 2. Try Manual File Read (.env.local)
     try {
         const envPath = path.join(process.cwd(), '.env.local');
         if (fs.existsSync(envPath)) {
@@ -62,7 +62,6 @@ const getApiKey = (): string => {
             const lines = content.split('\n');
             for (const line of lines) {
                 const trimmed = line.trim();
-                // Match key=value (Prioritize VERDICT_KEY)
                 if (trimmed.startsWith('GEMINI_VERDICT_KEY=')) {
                     return trimmed.split('=')[1].trim();
                 }
@@ -81,87 +80,53 @@ const getApiKey = (): string => {
 };
 
 const API_KEY = getApiKey();
-// Use New SDK Client
 const genAI = new GoogleGenAI({ apiKey: API_KEY });
 
 interface IntelligenceContext {
     rlsiScore: number;
     nasdaqChange: number;
     vectors: { source: string, target: string, strength: number }[];
-    rvol: number; // Nasdaq RVOL
+    rvol: number;
     vix: number;
+    locale?: Locale;
 }
 
 // === TIME-BASED GATING ===
-// Off-hours: POST close (20:00 ET) ~ PRE start (04:00 ET)
-// During off-hours, skip Gemini API calls and use cached results
 function isOffHours(): boolean {
     const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
     const hour = nowET.getHours();
     const day = nowET.getDay();
-
-    // Weekend: always off-hours
     if (day === 0 || day === 6) return true;
-
-    // Weekday off-hours: 20:00 ~ 03:59 ET
     if (hour >= 20 || hour < 4) return true;
-
     return false;
 }
 
-// === INTELLIGENCE CACHE SYSTEM ===
-// Normal TTL: 2 mins (Rotation), 10 mins (Reality)
-// Off-hours TTL: 12 hours (preserve last analysis)
+// === CACHE SYSTEM (per locale) ===
 const ROTATION_TTL_NORMAL = 2 * 60 * 1000;
 const REALITY_TTL_NORMAL = 10 * 60 * 1000;
-const OFF_HOURS_TTL = 12 * 60 * 60 * 1000; // 12 hours
+const OFF_HOURS_TTL = 12 * 60 * 60 * 1000;
 
-let _cachedRotation: string | null = null;
-let _lastRotationTime = 0;
+const _cachedRotation: Record<Locale, string | null> = { ko: null, en: null, ja: null };
+const _lastRotationTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
+const _cachedReality: Record<Locale, string | null> = { ko: null, en: null, ja: null };
+const _lastRealityTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 
-let _cachedReality: string | null = null;
-let _lastRealityTime = 0;
+// === LOCALIZED DEFAULT MESSAGES ===
+const OFF_HOURS_ROTATION: Record<Locale, string> = {
+    ko: "[현황] 장외 시간 - 실시간 분석 대기 중\n[해석] 프리마켓 시작 시 자동 갱신\n[액션] 다음 세션까지 기존 포지션 유지",
+    en: "[Status] Off-hours - waiting for live analysis\n[Interpretation] Auto-refresh at pre-market\n[Action] Maintain current positions until next session",
+    ja: "[現況] 場外時間 - リアルタイム分析待機中\n[解釈] プレマーケット開始時に自動更新\n[アクション] 次のセッションまで既存ポジション維持"
+};
 
-// Default messages for empty cache during off-hours
-const OFF_HOURS_ROTATION_DEFAULT = "[현황] 장외 시간 - 실시간 분석 대기 중\n[해석] 프리마켓 시작 시 자동 갱신\n[액션] 다음 세션까지 기존 포지션 유지";
-const OFF_HOURS_REALITY_DEFAULT = "[진단] 장외 시간 - 시장 비활성\n[결론] 프리마켓 04:00 ET 이후 분석 재개";
+const OFF_HOURS_REALITY: Record<Locale, string> = {
+    ko: "[진단] 장외 시간 - 시장 비활성\n[결론] 프리마켓 04:00 ET 이후 분석 재개",
+    en: "[Diagnosis] Off-hours - market inactive\n[Conclusion] Analysis resumes after pre-market 04:00 ET",
+    ja: "[診断] 場外時間 - 市場非活性\n[結論] プレマーケット04:00 ET以降分析再開"
+};
 
-export class IntelligenceNode {
-
-    /**
-     * [PART 1] TACTICAL ROTATION (Sidebar)
-     * Focus: Sector Rotation & Money Flow.
-     */
-    static async generateRotationInsight(ctx: IntelligenceContext): Promise<string> {
-        // Off-hours check: skip Gemini, use cached or default
-        const now = Date.now();
-        const ttl = isOffHours() ? OFF_HOURS_TTL : ROTATION_TTL_NORMAL;
-
-        if (_cachedRotation && (now - _lastRotationTime < ttl)) {
-            return _cachedRotation;
-        }
-
-        // During off-hours, return cached or default (don't call Gemini)
-        if (isOffHours()) {
-            console.log('[IntelligenceNode] Off-hours: skipping Gemini call for Rotation');
-            // Try memory cache first, then Redis, then default
-            if (_cachedRotation) return _cachedRotation;
-            const redisCache = await loadInsightFromRedis(REDIS_KEY_ROTATION);
-            if (redisCache) {
-                _cachedRotation = redisCache;
-                return redisCache;
-            }
-            return OFF_HOURS_ROTATION_DEFAULT;
-        }
-
-        const apiKey = getApiKey();
-        if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
-
-        const vectorDesc = ctx.vectors.length > 0
-            ? ctx.vectors.slice(0, 3).map(v => `${v.source}->${v.target}`).join(", ")
-            : "No significant rotation";
-
-        const prompt = `
+// === LOCALIZED PROMPTS ===
+const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: string) => string> = {
+    ko: (ctx, vectorDesc) => `
         당신은 기관 투자 전략가입니다.
 
         **현재 데이터:**
@@ -175,57 +140,53 @@ export class IntelligenceNode {
         [해석] (의미 1문장)
         [액션] (구체적 행동 지시 1문장)
 
-        **예시:**
-        [현황] 부동산/헬스케어에서 에너지/AI인프라로 자금 이동 중
-        [해석] Risk-On 순환매, 성장주 선호 심화
-        [액션] AI/에너지 섹터 ETF 비중 확대 유효
-
         **규칙:**
         - 한국어 전문가 스타일
         - 섹터명은 한글 (기술주, 에너지, 부동산 등)
         - 3줄 이내, 간결하게
-        `;
+    `,
+    en: (ctx, vectorDesc) => `
+        You are an institutional investment strategist.
 
-        const result = await this.callGemini(prompt, "ROTATION");
-        if (result && !result.includes("failed")) {
-            _cachedRotation = result;
-            _lastRotationTime = Date.now();
-            // Save to Redis for persistence across cold starts
-            saveInsightToRedis(REDIS_KEY_ROTATION, result);
-        }
-        return result;
-    }
+        **Current Data:**
+        - NASDAQ Change: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - Money Flow: [${vectorDesc}]
+        - VIX: ${ctx.vix.toFixed(1)}
+        - RVOL: ${ctx.rvol.toFixed(2)}x
 
-    /**
-     * [PART 2] REALITY CHECK (Center)
-     * Focus: RLSI vs Price (Market Essence).
-     */
-    static async generateRealityInsight(ctx: IntelligenceContext): Promise<string> {
-        // Off-hours check: skip Gemini, use cached or default
-        const now = Date.now();
-        const ttl = isOffHours() ? OFF_HOURS_TTL : REALITY_TTL_NORMAL;
+        **Output Format (strictly follow):**
+        [Status] (sector rotation status in 1 sentence)
+        [Interpretation] (meaning in 1 sentence)
+        [Action] (specific action directive in 1 sentence)
 
-        if (_cachedReality && (now - _lastRealityTime < ttl)) {
-            return _cachedReality;
-        }
+        **Rules:**
+        - Professional English style
+        - Use sector names like Tech, Energy, Real Estate
+        - 3 lines max, concise
+    `,
+    ja: (ctx, vectorDesc) => `
+        あなたは機関投資戦略家です。
 
-        // During off-hours, return cached or default (don't call Gemini)
-        if (isOffHours()) {
-            console.log('[IntelligenceNode] Off-hours: skipping Gemini call for Reality');
-            // Try memory cache first, then Redis, then default
-            if (_cachedReality) return _cachedReality;
-            const redisCache = await loadInsightFromRedis(REDIS_KEY_REALITY);
-            if (redisCache) {
-                _cachedReality = redisCache;
-                return redisCache;
-            }
-            return OFF_HOURS_REALITY_DEFAULT;
-        }
+        **現在のデータ:**
+        - NASDAQ変動: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - 資金フロー: [${vectorDesc}]
+        - VIX: ${ctx.vix.toFixed(1)}
+        - RVOL: ${ctx.rvol.toFixed(2)}x
 
-        const apiKey = getApiKey();
-        if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
+        **出力形式 (必ずこの形式で):**
+        [現況] (セクター移動現況 1文)
+        [解釈] (意味 1文)
+        [アクション] (具体的行動指示 1文)
 
-        const prompt = `
+        **ルール:**
+        - 日本語専門家スタイル
+        - セクター名は日本語（テクノロジー、エネルギー、不動産など）
+        - 3行以内、簡潔に
+    `
+};
+
+const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
+    ko: (ctx) => `
         당신은 시장 분석가입니다. 가격과 내부 지표를 비교하여 시장의 본질을 분석합니다.
 
         **현재 데이터:**
@@ -242,32 +203,129 @@ export class IntelligenceNode {
         [진단] 현재 상태 1줄 (가격과 RLSI 비교)
         [결론] 시장 본질 1줄 (진실인지 허구인지)
 
-        **예시:**
-        [진단] NASDAQ +0.85% 상승에도 RLSI 45점으로 유동성 부족
-        [결론] 상승의 지속 가능성 낮음, 추격 매수 자제 권장
-
         **규칙:**
         - 한국어, 명확하고 간결하게
         - 2줄 이내
-        `;
+    `,
+    en: (ctx) => `
+        You are a market analyst. Compare price and internal indicators to analyze market essence.
 
-        const result = await this.callGemini(prompt, "REALITY");
+        **Current Data:**
+        - RLSI (internal indicator): ${ctx.rlsiScore.toFixed(0)} points
+        - NASDAQ Change: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - RVOL: ${ctx.rvol.toFixed(2)}x
+
+        **Analysis Criteria:**
+        - High RLSI with falling price → Accumulation zone (buying opportunity)
+        - Low RLSI with rising price → Overheated/Suspicious (chase risk)
+        - Both aligned → Trend valid
+
+        **Output Format:**
+        [Diagnosis] Current state in 1 line (price vs RLSI comparison)
+        [Conclusion] Market essence in 1 line (truth or fiction)
+
+        **Rules:**
+        - English, clear and concise
+        - 2 lines max
+    `,
+    ja: (ctx) => `
+        あなたは市場アナリストです。価格と内部指標を比較して市場の本質を分析します。
+
+        **現在のデータ:**
+        - RLSI (内部指標): ${ctx.rlsiScore.toFixed(0)}点
+        - NASDAQ変動: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - RVOL: ${ctx.rvol.toFixed(2)}x
+
+        **分析基準:**
+        - RLSI高いのに価格下落 → 買い集め区間（低価買いチャンス）
+        - RLSI低いのに価格上昇 → 過熱/疑惑（追撃買いリスク）
+        - 両方整列 → トレンド有効
+
+        **出力形式:**
+        [診断] 現在状態 1行（価格とRLSI比較）
+        [結論] 市場本質 1行（真実か虚構か）
+
+        **ルール:**
+        - 日本語、明確で簡潔に
+        - 2行以内
+    `
+};
+
+export class IntelligenceNode {
+
+    static async generateRotationInsight(ctx: IntelligenceContext): Promise<string> {
+        const locale = ctx.locale || 'ko';
+        const now = Date.now();
+        const ttl = isOffHours() ? OFF_HOURS_TTL : ROTATION_TTL_NORMAL;
+
+        if (_cachedRotation[locale] && (now - _lastRotationTime[locale] < ttl)) {
+            return _cachedRotation[locale]!;
+        }
+
+        if (isOffHours()) {
+            console.log(`[IntelligenceNode] Off-hours: skipping Gemini call for Rotation (${locale})`);
+            if (_cachedRotation[locale]) return _cachedRotation[locale]!;
+            const redisCache = await loadInsightFromRedis(getRedisKey('rotation', locale));
+            if (redisCache) {
+                _cachedRotation[locale] = redisCache;
+                return redisCache;
+            }
+            return OFF_HOURS_ROTATION[locale];
+        }
+
+        const apiKey = getApiKey();
+        if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
+
+        const vectorDesc = ctx.vectors.length > 0
+            ? ctx.vectors.slice(0, 3).map(v => `${v.source}->${v.target}`).join(", ")
+            : "No significant rotation";
+
+        const prompt = ROTATION_PROMPTS[locale](ctx, vectorDesc);
+        const result = await this.callGemini(prompt, `ROTATION_${locale}`);
+
         if (result && !result.includes("failed")) {
-            _cachedReality = result;
-            _lastRealityTime = Date.now();
-            // Save to Redis for persistence across cold starts
-            saveInsightToRedis(REDIS_KEY_REALITY, result);
+            _cachedRotation[locale] = result;
+            _lastRotationTime[locale] = Date.now();
+            saveInsightToRedis(getRedisKey('rotation', locale), result);
         }
         return result;
     }
 
-    // Shared Helper for API Calls
-    private static async callGemini(prompt: string, cacheKeySuffix: string): Promise<string> {
-        // Simple Memory Cache (Map)
-        // Note: In serverless, static props persist per instance.
-        // We'll use a global var pattern if needed, but simple separate cache keys are fine.
+    static async generateRealityInsight(ctx: IntelligenceContext): Promise<string> {
+        const locale = ctx.locale || 'ko';
+        const now = Date.now();
+        const ttl = isOffHours() ? OFF_HOURS_TTL : REALITY_TTL_NORMAL;
 
-        // Retry Logic
+        if (_cachedReality[locale] && (now - _lastRealityTime[locale] < ttl)) {
+            return _cachedReality[locale]!;
+        }
+
+        if (isOffHours()) {
+            console.log(`[IntelligenceNode] Off-hours: skipping Gemini call for Reality (${locale})`);
+            if (_cachedReality[locale]) return _cachedReality[locale]!;
+            const redisCache = await loadInsightFromRedis(getRedisKey('reality', locale));
+            if (redisCache) {
+                _cachedReality[locale] = redisCache;
+                return redisCache;
+            }
+            return OFF_HOURS_REALITY[locale];
+        }
+
+        const apiKey = getApiKey();
+        if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
+
+        const prompt = REALITY_PROMPTS[locale](ctx);
+        const result = await this.callGemini(prompt, `REALITY_${locale}`);
+
+        if (result && !result.includes("failed")) {
+            _cachedReality[locale] = result;
+            _lastRealityTime[locale] = Date.now();
+            saveInsightToRedis(getRedisKey('reality', locale), result);
+        }
+        return result;
+    }
+
+    private static async callGemini(prompt: string, cacheKeySuffix: string): Promise<string> {
         let attempts = 0;
         const maxAttempts = 3;
 

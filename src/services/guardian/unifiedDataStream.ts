@@ -333,7 +333,8 @@ export class GuardianDataHub {
                         nasdaqChange: macro?.nqChangePercent || 0,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
                         rvol: rvolNdx.rvol,
-                        vix: macro?.vix || 0
+                        vix: macro?.vix || 0,
+                        locale
                     });
 
                     // [PART 2] Reality Insight (Center) - Call Sequentially
@@ -342,7 +343,8 @@ export class GuardianDataHub {
                         nasdaqChange: macro?.nqChangePercent || 0,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
                         rvol: rvolNdx.rvol,
-                        vix: macro?.vix || 0
+                        vix: macro?.vix || 0,
+                        locale
                     });
 
                     // [PART 3] Construct Verdict

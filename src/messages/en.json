@@ -109,7 +109,21 @@
         "news": "News",
         "momentum": "Momentum",
         "sector": "Sector",
-        "yield": "Yield"
+        "yield": "Yield",
+        "sectors": {
+            "XLK": "Technology",
+            "XLC": "Communication",
+            "XLY": "Consumer Disc.",
+            "XLE": "Energy",
+            "XLF": "Financials",
+            "XLV": "Healthcare",
+            "XLI": "Industrials",
+            "XLB": "Materials",
+            "XLP": "Consumer Staples",
+            "XLRE": "Real Estate",
+            "XLU": "Utilities",
+            "AI_PWR": "AI Power Grid"
+        }
     },
     "command": {
         "title": "COMMAND",
