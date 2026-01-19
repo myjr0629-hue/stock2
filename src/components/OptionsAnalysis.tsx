@@ -14,12 +14,14 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Anchor, AlertCircle } from "lucide-react";
+import { useTranslations } from 'next-intl';
 
 interface OptionsAnalysisProps {
     data: OptionData;
 }
 
 export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
+    const t = useTranslations('options');
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -33,8 +35,8 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
             <div className="flex items-center justify-center p-12 bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200">
                 <div className="text-center space-y-3">
                     <AlertCircle className="w-8 h-8 text-slate-400 mx-auto" />
-                    <p className="text-sm font-medium text-slate-500">옵션 분석 데이터가 없습니다.</p>
-                    <p className="text-[10px] text-slate-400">API 연결 실패 또는 데이터가 존재하지 않습니다. (Retry/Plan 확인 필요)</p>
+                    <p className="text-sm font-medium text-slate-500">{t('noData')}</p>
+                    <p className="text-[10px] text-slate-400">{t('noDataDesc')}</p>
                 </div>
             </div>
         );
@@ -71,7 +73,7 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                     <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
                         Advanced Options Analysis
                         <span className="text-sm font-normal text-slate-400 bg-slate-100 px-2 py-1 rounded-md ml-2">
-                            만기: {data.expirationDate || "N/A"}
+                            {t('expiration')}: {data.expirationDate || "N/A"}
                         </span>
                     </h2>
                     <p className="text-[10px] text-slate-400 mt-1 font-medium italic">
@@ -83,7 +85,7 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                         <span className={`px-2 py-1 rounded text-xs font-bold border ${gex > 0 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : gex < 0 ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
                             Net GEX: {gex > 0 ? '+' : ''}{(gex / 1000000).toFixed(1)}M
                         </span>
-                        <span className="text-[9px] text-slate-400 mt-1">Gamma Exposure (감마 노출)</span>
+                        <span className="text-[9px] text-slate-400 mt-1">{t('gammaExposure')}</span>
                     </div>
                 </div>
             </div>
@@ -92,7 +94,7 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center gap-3">
                     <AlertCircle className="w-4 h-4 text-amber-600" />
                     <p className="text-xs text-amber-700">
-                        <strong>데이터 부분 누락:</strong> 옵션 계약 리스트는 확보했으나, Open Interest(미결제약정) 데이터가 제공되지 않고 있습니다.
+                        <strong>{t('partialDataMissing')}:</strong> {t('partialDataMissingDesc')}
                     </p>
                 </div>
             )}
@@ -102,7 +104,7 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                 <Card className="shadow-sm border-slate-200 bg-white hover:border-emerald-200 transition-colors">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-extrabold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                            <Anchor className="w-4 h-4 text-emerald-500" /> Max Pain (최대 고통 지점)
+                            <Anchor className="w-4 h-4 text-emerald-500" /> {t('maxPain')}
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
@@ -110,10 +112,10 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                             ${maxPain.toFixed(2)}
                         </div>
                         <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-                            만기 시 옵션 매수자들이 가장 큰 손실을 보는 가격대입니다.
+                            {t('maxPainDesc')}
                         </p>
                         <div className="flex items-center gap-2 text-xs pt-1 border-t border-slate-50 mt-2">
-                            <span className="text-slate-500 font-semibold">현재가 대비:</span>
+                            <span className="text-slate-500 font-semibold">{t('vsCurrentPrice')}:</span>
                             <span className={`font-black ${maxPainDiff > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                                 {maxPainDiff > 0 ? '+' : ''}{maxPainDiff.toFixed(2)}%
                             </span>
@@ -133,7 +135,7 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                             {mmPos.replace("Dealer ", "")}
                         </div>
                         <p className="text-[10px] text-slate-400 font-medium leading-relaxed">
-                            {gex > 0 ? "딜러가 시장 변동성을 억제하려는 구간입니다. (안정적)" : "딜러가 변동성을 가속화하여 급등락이 가능한 구간입니다. (주의)"}
+                            {gex > 0 ? t('dealerStable') : t('dealerVolatile')}
                         </p>
                         <div className="text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded inline-block">
                             Net GEX: {gex > 0 ? '+' : ''}{(gex / 1000000).toFixed(2)}M
@@ -145,7 +147,7 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                 <Card className="shadow-sm border-blue-100 bg-blue-50/20 hover:bg-blue-50/40 transition-colors">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-xs font-extrabold text-blue-600 uppercase tracking-widest">
-                            Strategic Edge (추천 전략)
+                            Strategic Edge ({t('recommendedStrategy')})
                         </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-2">
@@ -153,7 +155,7 @@ export function OptionsAnalysis({ data }: OptionsAnalysisProps) {
                             {edge}
                         </div>
                         <p className="text-[10px] text-slate-500 font-bold leading-relaxed">
-                            수급(GEX)과 가격 이격도를 종합하여 도출된 시스템 권고 사항입니다.
+                            {t('strategicEdgeDesc')}
                         </p>
                     </CardContent>
                 </Card>

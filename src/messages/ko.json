@@ -341,6 +341,28 @@
         "gainers": "상승 (Gainers)",
         "losers": "하락 (Losers)"
     },
+    "options": {
+        "noData": "옵션 분석 데이터가 없습니다.",
+        "noDataDesc": "API 연결 실패 또는 데이터가 존재하지 않습니다. (Retry/Plan 확인 필요)",
+        "expiration": "만기",
+        "gemsEngineNote": "GEMS V8.1 정밀 엔진: 전체 옵션 체인 딥 스캔 기반 연산 완료",
+        "gammaExposure": "Gamma Exposure (감마 노출)",
+        "partialDataMissing": "데이터 부분 누락",
+        "partialDataMissingDesc": "옵션 계약 리스트는 확보했으나, Open Interest(미결제약정) 데이터가 제공되지 않고 있습니다.",
+        "maxPain": "Max Pain (최대 고통 지점)",
+        "maxPainDesc": "만기 시 옵션 매수자들이 가장 큰 손실을 보는 가격대입니다.",
+        "vsCurrentPrice": "현재가 대비",
+        "dealerStable": "딜러가 시장 변동성을 억제하려는 구간입니다. (안정적)",
+        "dealerVolatile": "딜러가 변동성을 가속화하여 급등락이 가능한 구간입니다. (주의)",
+        "recommendedStrategy": "추천 전략",
+        "strategicEdgeDesc": "수급(GEX)과 가격 이격도를 종합하여 도출된 시스템 권고 사항입니다."
+    },
+    "flowSniper": {
+        "realtimeTracking": "실시간 금일 옵션 자금 추적",
+        "viewFlowRadar": "Flow Radar 기관지표 확인",
+        "gammaSqueeze": "감마 스퀴즈 발동",
+        "panicSelling": "패닉 셀링"
+    },
     "language": {
         "ko": "한국어",
         "en": "English",

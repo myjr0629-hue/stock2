@@ -341,6 +341,28 @@
         "gainers": "Gainers",
         "losers": "Losers"
     },
+    "options": {
+        "noData": "No options analysis data available.",
+        "noDataDesc": "API connection failed or data does not exist.",
+        "expiration": "Expiration",
+        "gemsEngineNote": "GEMS V8.1 Engine: Full option chain deep scan complete",
+        "gammaExposure": "Gamma Exposure",
+        "partialDataMissing": "Partial Data Missing",
+        "partialDataMissingDesc": "Option contract list obtained, but Open Interest data is not available.",
+        "maxPain": "Max Pain",
+        "maxPainDesc": "The price at which option buyers suffer the maximum loss at expiration.",
+        "vsCurrentPrice": "vs Current Price",
+        "dealerStable": "Dealers are suppressing market volatility. (Stable)",
+        "dealerVolatile": "Dealers are accelerating volatility, sharp moves possible. (Caution)",
+        "recommendedStrategy": "Recommended Strategy",
+        "strategicEdgeDesc": "System recommendation based on supply/demand (GEX) and price deviation."
+    },
+    "flowSniper": {
+        "realtimeTracking": "Real-time option flow tracking",
+        "viewFlowRadar": "View Flow Radar Institutional Metrics",
+        "gammaSqueeze": "Gamma Squeeze Activated",
+        "panicSelling": "Panic Selling"
+    },
     "language": {
         "ko": "한국어",
         "en": "English",

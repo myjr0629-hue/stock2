@@ -2,6 +2,7 @@
 
 
 import { Target, TrendingUp, TrendingDown, Info } from "lucide-react";
+import { useTranslations } from 'next-intl';
 
 interface FlowSniperProps {
     netPremium: number;
@@ -12,6 +13,7 @@ interface FlowSniperProps {
 }
 
 export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, onClickFlowRadar }: FlowSniperProps) {
+    const t = useTranslations('flowSniper');
     const totalVol = callPremium + putPremium;
     // Prevent divide by zero
     const callPct = totalVol > 0 ? (callPremium / totalVol) * 100 : 50;
@@ -42,22 +44,22 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                             ) : isPanicSelling ? (
                                 <span className="block text-[9px] text-rose-300 font-black animate-pulse">📉 PANIC SELLING DETECTED</span>
                             ) : (
-                                <span className="block text-[8px] text-indigo-400 font-bold normal-case opacity-90">실시간 금일 옵션 자금 추적</span>
+                                <span className="block text-[8px] text-indigo-400 font-bold normal-case opacity-90">{t('realtimeTracking')}</span>
                             )}
                         </div>
                         <div
                             className={`flex items-center gap-1 mt-1.5 p-1 rounded bg-sky-500/10 border border-sky-500/20 ${onClickFlowRadar ? "cursor-pointer hover:bg-sky-500/20 transition-colors" : ""}`}
                             onClick={onClickFlowRadar}
                         >
-                            <span className="text-[9px] text-sky-400 font-bold">Flow Radar 기관지표 확인</span>
+                            <span className="text-[9px] text-sky-400 font-bold">{t('viewFlowRadar')}</span>
                         </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${isGammaSqueeze ? 'bg-indigo-400 shadow-[0_0_10px_#818cf8]' : isPanicSelling ? 'bg-rose-500 shadow-[0_0_10px_#f43f5e]' : isBullish ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
                     <span className={`text-[9px] font-black ${isGammaSqueeze ? 'text-indigo-300' : isPanicSelling ? 'text-rose-300' : isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
-                        {isGammaSqueeze ? "감마 스퀴즈 발동" :
-                            isPanicSelling ? "패닉 셀링" :
+                        {isGammaSqueeze ? t('gammaSqueeze') :
+                            isPanicSelling ? t('panicSelling') :
                                 isBullish ? "BULLISH" : "BEARISH"}
                     </span>
                 </div>
