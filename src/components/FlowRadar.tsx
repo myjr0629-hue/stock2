@@ -5,6 +5,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "./ui/progress";
+import { useTranslations } from 'next-intl';
 
 interface FlowRadarProps {
     ticker: string;

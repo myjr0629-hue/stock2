@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import { generateVerdictWHY, VerdictWHY } from "@/lib/whyEngine";
 import { WithExplanation } from "@/components/common/ExplanationTooltip";
+import { useTranslations } from 'next-intl';
 
 interface VerdictPanelProps {
     vix: number | null;
@@ -23,6 +24,8 @@ export function VerdictPanel({
     pinZone = false,
     gammaExposure = null
 }: VerdictPanelProps) {
+    const t = useTranslations('verdict');
+
     // Determine regime from VIX
     const regime = useMemo(() => {
         if (!vix) return "Neutral";
@@ -67,19 +70,19 @@ export function VerdictPanel({
             <div className="space-y-3">
                 {/* 가격 구조 */}
                 <div className="flex items-start gap-2">
-                    <span className="badge-text text-indigo-400 shrink-0">1️⃣ 가격</span>
+                    <span className="badge-text text-indigo-400 shrink-0">1️⃣ {t('price')}</span>
                     <p className="why-text text-slate-300">{verdict.priceStructure}</p>
                 </div>
 
                 {/* 레짐/변동성 */}
                 <div className="flex items-start gap-2">
-                    <span className="badge-text text-amber-400 shrink-0">2️⃣ 레짐</span>
+                    <span className="badge-text text-amber-400 shrink-0">2️⃣ {t('regime')}</span>
                     <p className="why-text text-slate-300">{verdict.regimeContext}</p>
                 </div>
 
                 {/* 실행 규칙 */}
                 <div className="flex items-start gap-2">
-                    <span className="badge-text text-rose-400 shrink-0">3️⃣ 실행</span>
+                    <span className="badge-text text-rose-400 shrink-0">3️⃣ {t('execution')}</span>
                     <p className="why-text text-slate-300">{verdict.executionRule}</p>
                 </div>
             </div>
@@ -88,7 +91,7 @@ export function VerdictPanel({
             <div className="mt-4 pt-3 border-t border-slate-700/40 flex items-center justify-between">
                 <span className="badge-text text-slate-500">Engine V9.0</span>
                 <span className={`text-sm font-bold ${headlineColor}`}>
-                    {regime === "Risk-On" ? "📈 상승 우호" : regime === "Risk-Off" ? "📉 방어 모드" : "⏸️ 관망"}
+                    {regime === "Risk-On" ? `📈 ${t('bullish')}` : regime === "Risk-Off" ? `📉 ${t('defensive')}` : `⏸️ ${t('wait')}`}
                 </span>
             </div>
         </div>

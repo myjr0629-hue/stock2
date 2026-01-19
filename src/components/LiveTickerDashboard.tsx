@@ -703,10 +703,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="px-4 py-2 border-t border-white/5 bg-slate-950/30">
                                     <p className="text-[10px] text-white/70 leading-relaxed">
                                         {displayPrice > (structure?.maxPain || 0)
-                                            ? "📈 Max Pain 위 → 하방 수렴 압력"
+                                            ? t('aboveMaxPain')
                                             : displayPrice < (structure?.maxPain || 0)
-                                                ? "📉 Max Pain 아래 → 상방 수렴 기대"
-                                                : "⚖️ Max Pain 근처 → 현 유지"}
+                                                ? t('belowMaxPain')
+                                                : t('nearMaxPain')}
                                     </p>
                                 </div>
                             </div>
@@ -746,8 +746,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             </div>
                                             <div className="text-[11px] text-white/80 leading-snug mt-0.5">
                                                 {structure?.netGex > 0
-                                                    ? "딜러 롱감마 → 변동성 억제"
-                                                    : "딜러 숏감마 → 방향 가속"}
+                                                    ? t('netGexStable')
+                                                    : t('netGexVolatile')}
                                             </div>
                                         </div>
 
@@ -797,7 +797,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                             Gamma Flip Level
                                                             <span className="text-[8px] bg-emerald-500/80 text-white px-1.5 py-0.5 rounded font-bold">READY</span>
                                                         </div>
-                                                        <div className="text-[11px] text-white/70">감마 전환 가격대</div>
+                                                        <div className="text-[11px] text-white/70">{t('gammaFlipLevel')}</div>
                                                     </div>
                                                 </div>
 
@@ -808,8 +808,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                     {displayPrice && (
                                                         <div className={`text-[10px] font-bold ${displayPrice > structure.gammaFlipLevel ? "text-rose-400" : "text-emerald-400"}`}>
                                                             {displayPrice > structure.gammaFlipLevel
-                                                                ? "↑ 숏감마 구간"
-                                                                : "↓ 롱감마 구간"}
+                                                                ? t('shortGammaZone')
+                                                                : t('longGammaZone')}
                                                         </div>
                                                     )}
                                                 </div>
@@ -818,9 +818,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             {/* Position Bar with Labels */}
                                             <div className="relative z-10">
                                                 <div className="flex justify-between text-[9px] mb-0.5">
-                                                    <span className="text-emerald-400 font-bold">롱감마</span>
+                                                    <span className="text-emerald-400 font-bold">{t('longGammaLabel')}</span>
                                                     <span className="text-white/50">← Flip →</span>
-                                                    <span className="text-rose-400 font-bold">숏감마</span>
+                                                    <span className="text-rose-400 font-bold">{t('shortGammaLabel')}</span>
                                                 </div>
                                                 <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
                                                     {(() => {
@@ -861,7 +861,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                         Gamma Flip Level
                                                         <span className="text-[8px] bg-slate-600/80 text-white px-1.5 py-0.5 rounded font-bold animate-pulse">LOADING</span>
                                                     </div>
-                                                    <div className="text-[11px] text-white/50">옵션 데이터 로딩 중...</div>
+                                                    <div className="text-[11px] text-white/50">{t('optionsDataLoading')}</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -880,19 +880,19 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             let badgeColor = "bg-slate-700/80 text-slate-300";
 
                                             if (isLowLiquidity) {
-                                                message = "옵션 유동성 부족";
+                                                message = t('lowOptionsLiquidity');
                                             } else if (netGex !== null && netGex < 0) {
-                                                message = "전 구간 숏감마 (Flip 지점 없음)";
+                                                message = t('allShortGammaNoFlip');
                                                 badgeText = "SHORT";
                                                 badgeColor = "bg-rose-600/80 text-white";
                                             } else if (netGex !== null && netGex > 0) {
-                                                message = "전 구간 롱감마 (Flip 지점 없음)";
+                                                message = t('allLongGammaNoFlip');
                                                 badgeText = "LONG";
                                                 badgeColor = "bg-emerald-600/80 text-white";
                                             } else if (netGex !== null && netGex === 0) {
-                                                message = "GEX 균형 (Flip 지점 미확인)";
+                                                message = t('gexBalanceNoFlip');
                                             } else {
-                                                message = "감마 데이터 계산 불가";
+                                                message = t('gammaDataUnavailable');
                                             }
 
                                             return (
@@ -947,7 +947,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 {/* MM Insight Footer (Simplified) */}
                                 <div className="px-3 py-2 border-t border-white/5 bg-slate-950/30">
                                     <p className="text-[10px] text-white/70 leading-relaxed">
-                                        {structure?.netGex > 0 ? "🛡️ 숏감마: 급등락 주의" : "⚡ 롱감마: 변동성 억제"}
+                                        {structure?.netGex > 0 ? t('shortGammaWarning') : t('longGammaStable')}
                                     </p>
                                 </div>
                             </div>

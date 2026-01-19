@@ -248,6 +248,14 @@
         "maxPainDistance": "Max Pain 이격도",
         "signalTriggers": "📊 Signal 근거"
     },
+    "verdict": {
+        "price": "가격",
+        "regime": "레짐",
+        "execution": "실행",
+        "bullish": "상승 우호",
+        "defensive": "방어 모드",
+        "wait": "관망"
+    },
     "watchlist": {
         "title": "관심종목",
         "subtitle": "관심 종목을 실시간으로 모니터링합니다",
@@ -290,6 +298,48 @@
         "intelFeed": "Intelligence Feed",
         "source": "소스",
         "timestamp": "시간"
+    },
+    "report": {
+        "date": "날짜",
+        "type": "타입",
+        "postMarket": "장마감 (Post)",
+        "nightWatch": "야간 (Night)",
+        "preMarket": "장전 (Pre)",
+        "eodFinal": "EOD (구)",
+        "pre2h": "Pre+2h (구)",
+        "open30m": "Open (구)",
+        "manualGenerate": "수동 생성",
+        "generating": "생성 중...",
+        "generate": "생성",
+        "loadingReport": "리포트 로딩 중...",
+        "reportNotFound": "해당 리포트가 없습니다.",
+        "loadingFailed": "리포트 로딩 실패",
+        "generateFailed": "리포트 생성 실패",
+        "generateError": "리포트 생성 중 오류",
+        "noArchive": "아카이브 없음",
+        "selectOrGenerate": "리포트를 선택하거나 생성하세요.",
+        "shakeReasons": "오늘 흔들릴 이유",
+        "marketLikes": "시장이 좋아하는 것",
+        "marketDislikes": "시장이 싫어하는 것",
+        "pastReference": "과거(참고)"
+    },
+    "market": {
+        "extremeGreed": "극도의 탐욕",
+        "sellConsider": "매도 고려 구간",
+        "greed": "탐욕",
+        "buySpread": "매수 심리 확산",
+        "neutral": "중립",
+        "searchDirection": "시장 방향성 탐색",
+        "extremeFear": "극도의 공포",
+        "buyOpportunity": "저점 매수 기회",
+        "fear": "공포",
+        "volatilityWarning": "변동성 확대 주의",
+        "fearGreedTitle": "Fear & Greed (공포/탐욕)",
+        "macroRegime": "Macro Regime (시장 상태)",
+        "vixTitle": "VIX (변동성 지수)",
+        "marketPulse": "Market Pulse (시장 주요 지표)",
+        "gainers": "상승 (Gainers)",
+        "losers": "하락 (Losers)"
     },
     "language": {
         "ko": "한국어",

@@ -248,6 +248,14 @@
         "maxPainDistance": "Max Pain Distance",
         "signalTriggers": "📊 Signal Triggers"
     },
+    "verdict": {
+        "price": "Price",
+        "regime": "Regime",
+        "execution": "Execution",
+        "bullish": "Bullish",
+        "defensive": "Defensive Mode",
+        "wait": "Wait"
+    },
     "watchlist": {
         "title": "Watchlist",
         "subtitle": "Monitor your watchlist in real-time",
@@ -290,6 +298,48 @@
         "intelFeed": "Intelligence Feed",
         "source": "Source",
         "timestamp": "Timestamp"
+    },
+    "report": {
+        "date": "Date",
+        "type": "Type",
+        "postMarket": "Post-Market",
+        "nightWatch": "Night-Watch",
+        "preMarket": "Pre-Market",
+        "eodFinal": "EOD Final",
+        "pre2h": "Pre+2h",
+        "open30m": "Open-30m",
+        "manualGenerate": "Manual Generate",
+        "generating": "Generating...",
+        "generate": "Generate",
+        "loadingReport": "Loading report...",
+        "reportNotFound": "Report not found.",
+        "loadingFailed": "Loading failed",
+        "generateFailed": "Generate failed",
+        "generateError": "Error generating report",
+        "noArchive": "No archive",
+        "selectOrGenerate": "Select or generate a report.",
+        "shakeReasons": "Reasons for volatility today",
+        "marketLikes": "What market likes",
+        "marketDislikes": "What market dislikes",
+        "pastReference": "Past (Reference)"
+    },
+    "market": {
+        "extremeGreed": "Extreme Greed",
+        "sellConsider": "Consider Selling",
+        "greed": "Greed",
+        "buySpread": "Bullish Sentiment Spreading",
+        "neutral": "Neutral",
+        "searchDirection": "Searching Direction",
+        "extremeFear": "Extreme Fear",
+        "buyOpportunity": "Buy Opportunity",
+        "fear": "Fear",
+        "volatilityWarning": "Volatility Warning",
+        "fearGreedTitle": "Fear & Greed",
+        "macroRegime": "Macro Regime",
+        "vixTitle": "VIX (Volatility Index)",
+        "marketPulse": "Market Pulse",
+        "gainers": "Gainers",
+        "losers": "Losers"
     },
     "language": {
         "ko": "한국어",

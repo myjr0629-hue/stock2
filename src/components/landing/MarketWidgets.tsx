@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, ArrowUpRight, Activity, Newspaper, Smile, Frown, ShieldAlert, BarChart3, Megaphone, Waves } from "lucide-react";
 import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
 import { NewsItem, MacroData } from '@/services/stockApi';
+import { useTranslations } from 'next-intl';
 
 export interface IndexData {
     symbol: string;
@@ -26,6 +27,7 @@ interface MarketPulseProps {
 }
 
 export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) {
+    const t = useTranslations('market');
     const [isMounted, setIsMounted] = useState(false);
 
     useEffect(() => {
@@ -85,11 +87,11 @@ export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) 
         const score = fearAndGreed.value;
         const getStatusInfo = (label: string) => {
             const l = label.toLowerCase();
-            if (l.includes("extreme greed")) return { ko: "극도의 탐욕", desc: "매도 고려 구간" };
-            if (l.includes("greed")) return { ko: "탐욕", desc: "매수 심리 확산" };
-            if (l.includes("neutral")) return { ko: "중립", desc: "시장 방향성 탐색" };
-            if (l.includes("extreme fear")) return { ko: "극도의 공포", desc: "저점 매수 기회" };
-            if (l.includes("fear")) return { ko: "공포", desc: "변동성 확대 주의" };
+            if (l.includes("extreme greed")) return { ko: t('extremeGreed'), desc: t('sellConsider') };
+            if (l.includes("greed")) return { ko: t('greed'), desc: t('buySpread') };
+            if (l.includes("neutral")) return { ko: t('neutral'), desc: t('searchDirection') };
+            if (l.includes("extreme fear")) return { ko: t('extremeFear'), desc: t('buyOpportunity') };
+            if (l.includes("fear")) return { ko: t('fear'), desc: t('volatilityWarning') };
             return { ko: label, desc: "" };
         };
 
@@ -104,7 +106,7 @@ export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) 
         return (
             <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors h-full flex flex-col justify-between">
                 <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate">Fear & Greed (공포/탐욕)</h4>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate">{t('fearGreedTitle')}</h4>
                     <div className="mt-2 flex items-baseline gap-2">
                         <span className="text-2xl font-extrabold" style={{ color }}>{Math.round(score)}</span>
                         <div className="flex flex-col">
@@ -130,7 +132,7 @@ export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) 
         return (
             <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors h-full flex flex-col justify-between">
                 <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate">Macro Regime (시장 상태)</h4>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate">{t('macroRegime')}</h4>
                     <div className="mt-3 flex items-center justify-between">
                         <span className={`px-2 py-1 rounded-md text-sm font-bold tracking-tight ${regimeColor}`}>{macro.regime}</span>
                     </div>
@@ -158,7 +160,7 @@ export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) 
         return (
             <div className="p-4 bg-slate-50/50 rounded-xl border border-slate-100 hover:border-slate-200 transition-colors h-full flex flex-col justify-between">
                 <div>
-                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate">VIX (변동성 지수)</h4>
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide truncate">{t('vixTitle')}</h4>
                     <div className="mt-2 flex items-baseline gap-2">
                         <span className={`text-2xl font-extrabold ${vixColor}`}>{macro.vix.toFixed(2)}</span>
                     </div>
@@ -182,7 +184,7 @@ export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) 
             <div className="flex justify-between items-center mb-4">
                 <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
                     <Activity className="w-4 h-4 text-primary" />
-                    Market Pulse (시장 주요 지표)
+                    {t('marketPulse')}
                 </h3>
             </div>
 
@@ -203,6 +205,7 @@ export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) 
 import Link from 'next/link';
 
 export function MarketMovers({ gainers = [], losers = [] }: { gainers: any[], losers: any[] }) {
+    const t = useTranslations('market');
     const [activeTab, setActiveTab] = useState<'gainers' | 'losers'>('gainers');
     const data = activeTab === 'gainers' ? gainers : losers;
     const isGainers = activeTab === 'gainers';
@@ -216,12 +219,12 @@ export function MarketMovers({ gainers = [], losers = [] }: { gainers: any[], lo
                 <button
                     onClick={() => setActiveTab('gainers')}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1.5 ${activeTab === 'gainers' ? "bg-white text-emerald-600 shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700"}`}>
-                    <TrendingUp className="w-3.5 h-3.5" /> 상승 (Gainers)
+                    <TrendingUp className="w-3.5 h-3.5" /> {t('gainers')}
                 </button>
                 <button
                     onClick={() => setActiveTab('losers')}
                     className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all flex items-center justify-center gap-1.5 ${activeTab === 'losers' ? "bg-white text-rose-600 shadow-sm ring-1 ring-black/5" : "text-slate-500 hover:text-slate-700"}`}>
-                    <TrendingDown className="w-3.5 h-3.5" /> 하락 (Losers)
+                    <TrendingDown className="w-3.5 h-3.5" /> {t('losers')}
                 </button>
             </div>
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 scrollbar-thin">

@@ -4,6 +4,7 @@
 // Allows switching between EOD/Pre+2h/Open-30m reports and dates
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 
 type ReportType = 'post_market' | 'night_watch' | 'pre_market' | 'eod' | 'pre2h' | 'open30m'; // Backward compat
 
@@ -32,13 +33,13 @@ interface PremiumReport {
     };
 }
 
-const REPORT_LABELS: Record<ReportType, { label: string; labelKR: string; time: string }> = {
-    'post_market': { label: 'Post-Market', labelKR: '장마감 (Post)', time: '16:30 ET' },
-    'night_watch': { label: 'Night-Watch', labelKR: '야간 (Night)', time: '20:00 ET' },
-    'pre_market': { label: 'Pre-Market', labelKR: '장전 (Pre)', time: '04:00 ET' },
-    'eod': { label: 'EOD Final', labelKR: 'EOD (구)', time: '16:30 ET' },
-    'pre2h': { label: 'Pre+2h', labelKR: 'Pre+2h (구)', time: '06:30 ET' },
-    'open30m': { label: 'Open-30m', labelKR: 'Open (구)', time: '09:00 ET' }
+const REPORT_LABELS: Record<ReportType, { label: string; labelKey: string; time: string }> = {
+    'post_market': { label: 'Post-Market', labelKey: 'postMarket', time: '16:30 ET' },
+    'night_watch': { label: 'Night-Watch', labelKey: 'nightWatch', time: '20:00 ET' },
+    'pre_market': { label: 'Pre-Market', labelKey: 'preMarket', time: '04:00 ET' },
+    'eod': { label: 'EOD Final', labelKey: 'eodFinal', time: '16:30 ET' },
+    'pre2h': { label: 'Pre+2h', labelKey: 'pre2h', time: '06:30 ET' },
+    'open30m': { label: 'Open-30m', labelKey: 'open30m', time: '09:00 ET' }
 };
 
 interface ReportSelectorProps {
@@ -46,6 +47,7 @@ interface ReportSelectorProps {
 }
 
 export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
+    const t = useTranslations('report');
     const [archives, setArchives] = useState<ArchiveItem[]>([]);
     const [selectedDate, setSelectedDate] = useState<string>('');
     const [selectedType, setSelectedType] = useState<ReportType>('eod');
@@ -96,10 +98,10 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
                 onReportLoad?.(report);
             } else if (res.status === 404) {
                 setCurrentReport(null);
-                setError('해당 리포트가 없습니다.');
+                setError(t('reportNotFound'));
             }
         } catch (e) {
-            setError('리포트 로딩 실패');
+            setError(t('loadingFailed'));
         } finally {
             setLoading(false);
         }
@@ -118,10 +120,10 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
                 setSelectedDate(today);
                 await loadReport(today, selectedType);
             } else {
-                setError('리포트 생성 실패');
+                setError(t('generateFailed'));
             }
         } catch (e) {
-            setError('리포트 생성 중 오류');
+            setError(t('generateError'));
         } finally {
             setGenerating(false);
         }
@@ -142,13 +144,13 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
             <div className="flex flex-wrap gap-3 mb-4">
                 {/* Date Selector */}
                 <div className="flex flex-col gap-1">
-                    <label className="text-[9px] text-slate-500 uppercase tracking-wider">날짜</label>
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wider">{t('date')}</label>
                     <select
                         value={selectedDate}
                         onChange={(e) => setSelectedDate(e.target.value)}
                         className="bg-slate-800 border border-slate-600 rounded px-2 py-1 text-xs text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500"
                     >
-                        {archives.length === 0 && <option value="">아카이브 없음</option>}
+                        {archives.length === 0 && <option value="">{t('noArchive')}</option>}
                         {archives.map(a => (
                             <option key={a.date} value={a.date}>{a.date}</option>
                         ))}
@@ -157,7 +159,7 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
 
                 {/* Type Selector */}
                 <div className="flex flex-col gap-1">
-                    <label className="text-[9px] text-slate-500 uppercase tracking-wider">타입</label>
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wider">{t('type')}</label>
                     <div className="flex gap-1">
                         {(['post_market', 'night_watch', 'pre_market'] as ReportType[]).map(type => (
                             <button
@@ -171,7 +173,7 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
                                     }`}
                                 disabled={!availableTypes.includes(type) && selectedDate !== ''}
                             >
-                                {REPORT_LABELS[type].labelKR}
+                                {t(REPORT_LABELS[type].labelKey)}
                             </button>
                         ))}
                     </div>
@@ -179,20 +181,20 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
 
                 {/* Generate Button */}
                 <div className="flex flex-col gap-1 ml-auto">
-                    <label className="text-[9px] text-slate-500 uppercase tracking-wider">수동 생성</label>
+                    <label className="text-[9px] text-slate-500 uppercase tracking-wider">{t('manualGenerate')}</label>
                     <button
                         onClick={generateReport}
                         disabled={generating}
                         className="px-3 py-1 text-[10px] font-bold bg-amber-600 hover:bg-amber-500 text-white rounded transition-colors disabled:opacity-50"
                     >
-                        {generating ? '생성 중...' : `${REPORT_LABELS[selectedType].labelKR} 생성`}
+                        {generating ? t('generating') : `${t(REPORT_LABELS[selectedType].labelKey)} ${t('generate')}`}
                     </button>
                 </div>
             </div>
 
             {/* Status / Error */}
             {loading && (
-                <div className="text-xs text-slate-400 animate-pulse">리포트 로딩 중...</div>
+                <div className="text-xs text-slate-400 animate-pulse">{t('loadingReport')}</div>
             )}
             {error && !loading && (
                 <div className="text-xs text-rose-400 mb-2">{error}</div>
@@ -214,7 +216,7 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
                     {/* Shake Reasons - "오늘 흔들릴 이유 3가지" */}
                     {currentReport.shakeReasons?.length > 0 && (
                         <div className="bg-slate-800/50 rounded-lg p-3">
-                            <h4 className="text-[10px] font-bold text-amber-400 mb-2">⚠️ 오늘 흔들릴 이유</h4>
+                            <h4 className="text-[10px] font-bold text-amber-400 mb-2">⚠️ {t('shakeReasons')}</h4>
                             <ul className="space-y-1">
                                 {currentReport.shakeReasons.map((reason, i) => (
                                     <li key={i} className="text-[11px] text-slate-300 leading-tight">
@@ -228,7 +230,7 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
                     {/* [S-53.8] Market Sentiment with source transparency */}
                     <div className="grid grid-cols-2 gap-2">
                         <div className="bg-emerald-500/10 rounded-lg p-2">
-                            <h4 className="text-[9px] font-bold text-emerald-400 mb-1">👍 시장이 좋아하는 것</h4>
+                            <h4 className="text-[9px] font-bold text-emerald-400 mb-1">👍 {t('marketLikes')}</h4>
                             <ul className="space-y-1">
                                 {currentReport.marketSentiment?.likes?.map((item: any, i: number) => {
                                     const text = typeof item === 'string' ? item : item.text;
@@ -242,7 +244,7 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
                                                 <span className="flex gap-1 mt-0.5">
                                                     <span className="text-[8px] text-slate-600">[{source}]</span>
                                                     {timeET && <span className="text-[8px] text-slate-600">{timeET}</span>}
-                                                    {isStale && <span className="text-[7px] text-amber-600">과거(참고)</span>}
+                                                    {isStale && <span className="text-[7px] text-amber-600">{t('pastReference')}</span>}
                                                 </span>
                                             )}
                                         </li>
@@ -251,7 +253,7 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
                             </ul>
                         </div>
                         <div className="bg-rose-500/10 rounded-lg p-2">
-                            <h4 className="text-[9px] font-bold text-rose-400 mb-1">👎 시장이 싫어하는 것</h4>
+                            <h4 className="text-[9px] font-bold text-rose-400 mb-1">👎 {t('marketDislikes')}</h4>
                             <ul className="space-y-1">
                                 {currentReport.marketSentiment?.dislikes?.map((item: any, i: number) => {
                                     const text = typeof item === 'string' ? item : item.text;
@@ -265,7 +267,7 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
                                                 <span className="flex gap-1 mt-0.5">
                                                     <span className="text-[8px] text-slate-600">[{source}]</span>
                                                     {timeET && <span className="text-[8px] text-slate-600">{timeET}</span>}
-                                                    {isStale && <span className="text-[7px] text-amber-600">과거(참고)</span>}
+                                                    {isStale && <span className="text-[7px] text-amber-600">{t('pastReference')}</span>}
                                                 </span>
                                             )}
                                         </li>
@@ -299,7 +301,7 @@ export function ReportSelector({ onReportLoad }: ReportSelectorProps) {
             {/* No Report State */}
             {!currentReport && !loading && !error && (
                 <div className="text-center py-6 text-slate-500 text-xs">
-                    리포트를 선택하거나 생성하세요.
+                    {t('selectOrGenerate')}
                 </div>
             )}
         </div>
