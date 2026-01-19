@@ -23,7 +23,7 @@ import {
     RefreshCcw,
     Crosshair
 } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
 
 export default function WatchlistPage() {

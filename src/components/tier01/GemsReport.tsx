@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { Link } from "@/i18n/routing";
 import { useState } from "react";
 import { Tier01Data, GemsTicker } from "@/services/stockApi";
 import { Activity, Shield, Zap, TrendingUp, AlertTriangle, Cpu, Globe, Database, ChevronDown, ChevronUp, Lock, CheckCircle2, Server, Eye, ArrowRightLeft, LockKeyhole } from "lucide-react";
