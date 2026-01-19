@@ -1,7 +1,8 @@
 'use client';
 
 import { useLocale } from 'next-intl';
-import { usePathname, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from '@/i18n/routing';
+import { useSearchParams } from 'next/navigation';
 import { useState } from 'react';
 import { Globe, ChevronDown } from 'lucide-react';
 
@@ -15,20 +16,19 @@ export function LanguageSwitcher() {
     const locale = useLocale();
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const [isOpen, setIsOpen] = useState(false);
 
     const currentLocale = locales.find(l => l.code === locale) || locales[0];
 
     const switchLocale = (newLocale: string) => {
-        const segments = pathname.split('/');
-        if (segments[1] && locales.some(l => l.code === segments[1])) {
-            segments[1] = newLocale;
-        } else {
-            segments.splice(1, 0, newLocale);
-        }
-        const newPath = segments.join('/') || '/';
+        // next-intl's usePathname returns path without locale prefix
+        // next-intl's useRouter handles locale prefix automatically
+        const queryString = searchParams.toString();
+        const newPath = queryString ? `${pathname}?${queryString}` : pathname;
 
-        router.push(newPath);
+        // Use replace to change locale while keeping the path
+        router.replace(newPath, { locale: newLocale as 'ko' | 'en' | 'ja' });
         setIsOpen(false);
     };
 
