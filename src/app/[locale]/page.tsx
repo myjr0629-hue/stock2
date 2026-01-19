@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { TradingViewTicker } from "@/components/TradingViewTicker";
 import { useTranslations } from 'next-intl';
+import { Link } from '@/i18n/routing';
 
 // --- Ticker Drawer ---
 function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boolean, onClose: () => void }) {
@@ -173,19 +174,19 @@ export default function Page() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
-            <a href="/ticker?ticker=NVDA"
+            <Link href="/ticker?ticker=NVDA"
               className="group px-10 py-4 bg-gradient-to-r from-[#d97706] to-[#b45309]
                 text-black rounded-md font-extrabold text-sm uppercase tracking-wider
                 hover:brightness-110 transition-all 
                 flex items-center gap-2 shadow-[0_0_40px_rgba(217,119,6,0.3)] border border-[#f59e0b]/20">
               {t('home.enterCommand')} <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </a>
-            <a href="/how-it-works"
+            </Link>
+            <Link href="/how-it-works"
               className="px-10 py-4 bg-[#0a1628]/50 border border-[#1e293b] 
                 text-[#38bdf8] rounded-md font-bold text-sm uppercase tracking-wider 
                 hover:bg-[#0a1628] hover:border-[#38bdf8]/30 transition-all">
               {t('home.howItWorks')}
-            </a>
+            </Link>
           </div>
         </div>
       </section>
@@ -314,9 +315,9 @@ export default function Page() {
               </div>
               <h2 className="text-xl font-black text-white">{t('home.signalDashboard')}</h2>
             </div>
-            <a href="/watchlist" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold">
+            <Link href="/watchlist" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold">
               {t('common.viewAll')} <ChevronRight size={14} />
-            </a>
+            </Link>
           </div>
 
           {/* Ticker Grid */}

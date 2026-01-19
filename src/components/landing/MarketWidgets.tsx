@@ -202,7 +202,7 @@ export function MarketPulse({ indices, fearAndGreed, macro }: MarketPulseProps) 
     );
 }
 
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 
 export function MarketMovers({ gainers = [], losers = [] }: { gainers: any[], losers: any[] }) {
     const t = useTranslations('market');

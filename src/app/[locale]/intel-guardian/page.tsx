@@ -6,6 +6,7 @@ import { useTranslations } from 'next-intl';
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio } from "lucide-react";
 import { TradingViewTicker } from "@/components/TradingViewTicker";
+import { Link } from "@/i18n/routing";
 
 import SmartMoneyMap from "@/components/guardian/SmartMoneyMap";
 import GravityGauge from "@/components/guardian/GravityGauge";
@@ -340,7 +341,7 @@ export default function GuardianPage() {
                                         <div className="space-y-1">
                                             {topMovers.length > 0 ? (
                                                 topMovers.map(stock => (
-                                                    <a key={stock.symbol} href={`/ticker?ticker=${stock.symbol}`} className="flex items-center justify-between text-xs py-2 px-2 rounded hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group">
+                                                    <Link key={stock.symbol} href={`/ticker?ticker=${stock.symbol}`} className="flex items-center justify-between text-xs py-2 px-2 rounded hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all group">
                                                         {/* Left: Logo & Symbol */}
                                                         <div className="flex items-center gap-3">
                                                             <div className="w-6 h-6 rounded bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
@@ -362,7 +363,7 @@ export default function GuardianPage() {
                                                                 {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
                                                             </div>
                                                         </div>
-                                                    </a>
+                                                    </Link>
                                                 ))
                                             ) : (
                                                 <div className="text-xs text-slate-500 py-2 text-center">Loading live data...</div>

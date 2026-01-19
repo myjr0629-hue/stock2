@@ -22,7 +22,7 @@ import {
     Target,
     Edit3
 } from 'lucide-react';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 
 export default function PortfolioPage() {
     const { holdings, summary, loading, isRefreshing, refresh, removeHolding } = usePortfolio();
