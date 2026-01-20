@@ -81,72 +81,6 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
     // Process Data: Group by Strike
     const { flowMap, totalVolume } = useMemo(() => {
         if (!rawChain || rawChain.length === 0) return { flowMap: [], totalVolume: 0 };
-        // ... (lines 75-680 unchanged, resume at line 681)
-        {/* 1. Current Position Status (Hero Block) - Glass */ }
-        <div className="bg-gradient-to-b from-white/5 to-transparent rounded-lg border border-white/10 p-3 text-center relative overflow-hidden group shrink-0 transition-all hover:bg-white/10">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">{t('currentPositionSuggestion')}</span>
-            <div className={`text-sm font-black tracking-tight flex items-center justify-center gap-2 ${isSystemReady ? (analysis?.color || "text-slate-300") : "text-indigo-300"}`}>
-                {isSystemReady ? (
-                    <>
-                        {analysis?.status === 'RANGE BOUND' && <Activity size={16} />}
-                        {analysis?.status === 'BULLISH' && <TrendingUp size={16} />}
-                        {analysis?.status === 'BEARISH' && <TrendingDown size={16} />}
-                        <span className="drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{analysis?.status}</span>
-                    </>
-                ) : (
-                    <div className="flex items-center gap-2 animate-pulse">
-                        <Loader2 size={14} className="animate-spin" />
-                        <span className="font-mono text-xs tracking-widest">CALCULATING...</span>
-                    </div>
-                )}
-            </div>
-        </div>
-
-        {/* 2. Probability Meter */ }
-        {
-            analysis?.probability && analysis.probability !== 50 && isSystemReady && (
-                <div className="space-y-1.5 shrink-0 mt-1 px-1">
-                    <div className="flex justify-between items-end px-1">
-                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{t('probabilityAnalysis')}</span>
-                        <span className={`text-[10px] font-bold ${analysis.probColor}`}>{analysis.probLabel}</span>
-                    </div>
-                    <div className="h-1.5 bg-slate-800/50 rounded-full overflow-hidden relative border border-white/5">
-                        <div
-                            className={`h-full rounded-full shadow-[0_0_10px_currentColor] transition-all duration-1000 ${analysis.probColor.replace('text', 'bg')}`}
-                            style={{ width: `${analysis.probability}%` }}
-                        />
-                    </div>
-                    <div className="text-[9px] text-right text-slate-500 font-mono opacity-70">{analysis.probability.toFixed(0)}%</div>
-                </div>
-            )
-        }
-
-        {/* 3. Analysis Message Box - High Visibility Glass */ }
-        <div className="bg-indigo-950/40 rounded-lg border border-indigo-500/30 p-3.5 relative shrink-0 mt-1 backdrop-blur-md shadow-lg shadow-indigo-500/10 group hover:bg-indigo-900/40 transition-colors">
-            <div className="absolute left-0 top-3 bottom-3 w-1 bg-indigo-400 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.6)] group-hover:bg-indigo-300 transition-colors" />
-            <div className="flex gap-3 pl-3">
-                <div className="mt-0.5 shrink-0">
-                    {isSystemReady ? (
-                        analysis?.status === 'BULLISH' ? <TrendingUp size={16} className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> :
-                            analysis?.status === 'BEARISH' ? <TrendingDown size={16} className="text-rose-400 drop-shadow-[0_0_5px_rgba(251,113,133,0.5)]" /> :
-                                <Activity size={16} className="text-indigo-400 drop-shadow-[0_0_5px_rgba(129,140,248,0.5)]" />
-                    ) : (
-                        <Loader2 size={16} className="text-indigo-400 animate-spin" />
-                    )}
-                </div>
-                <p className="text-xs leading-relaxed text-indigo-50 font-medium font-sans whitespace-pre-line shadow-black/50 drop-shadow-sm">
-                    {isSystemReady ? (
-                        analysis?.message
-                    ) : (
-                        <span className="text-indigo-200/80 font-mono text-[11px] animate-pulse">
-                            INITIALIZING QUANT ENGINE...<br />
-                            SYNCHRONIZING INSTITUTIONAL ORDER FLOW...
-                        </span>
-                    )}
-                </p>
-            </div>
-        </div>
 
         const strikeMap = new Map<number, { callVol: number; putVol: number; callOI: number; putOI: number }>();
         let totalVol = 0;
@@ -757,16 +691,25 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             <div className="bg-gradient-to-b from-white/5 to-transparent rounded-lg border border-white/10 p-3 text-center relative overflow-hidden group shrink-0 transition-all hover:bg-white/10">
                                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-500/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-1.5">{t('currentPositionSuggestion')}</span>
-                                <div className={`text-sm font-black tracking-tight flex items-center justify-center gap-2 ${analysis?.color || "text-slate-300"}`}>
-                                    {analysis?.status === 'RANGE BOUND' && <Activity size={16} />}
-                                    {analysis?.status === 'BULLISH' && <TrendingUp size={16} />}
-                                    {analysis?.status === 'BEARISH' && <TrendingDown size={16} />}
-                                    <span className="drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{analysis?.status}</span>
+                                <div className={`text-sm font-black tracking-tight flex items-center justify-center gap-2 ${isSystemReady ? (analysis?.color || "text-slate-300") : "text-indigo-300"}`}>
+                                    {isSystemReady ? (
+                                        <>
+                                            {analysis?.status === 'RANGE BOUND' && <Activity size={16} />}
+                                            {analysis?.status === 'BULLISH' && <TrendingUp size={16} />}
+                                            {analysis?.status === 'BEARISH' && <TrendingDown size={16} />}
+                                            <span className="drop-shadow-[0_0_10px_rgba(255,255,255,0.2)]">{analysis?.status}</span>
+                                        </>
+                                    ) : (
+                                        <div className="flex items-center gap-2 animate-pulse">
+                                            <Loader2 size={14} className="animate-spin" />
+                                            <span className="font-mono text-xs tracking-widest">CALCULATING...</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
                             {/* 2. Probability Meter */}
-                            {analysis?.probability && analysis.probability !== 50 && (
+                            {analysis?.probability && analysis.probability !== 50 && isSystemReady && (
                                 <div className="space-y-1.5 shrink-0 mt-1 px-1">
                                     <div className="flex justify-between items-end px-1">
                                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wide">{t('probabilityAnalysis')}</span>
@@ -787,12 +730,23 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 <div className="absolute left-0 top-3 bottom-3 w-1 bg-indigo-400 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.6)] group-hover:bg-indigo-300 transition-colors" />
                                 <div className="flex gap-3 pl-3">
                                     <div className="mt-0.5 shrink-0">
-                                        {analysis?.status === 'BULLISH' ? <TrendingUp size={16} className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> :
-                                            analysis?.status === 'BEARISH' ? <TrendingDown size={16} className="text-rose-400 drop-shadow-[0_0_5px_rgba(251,113,133,0.5)]" /> :
-                                                <Activity size={16} className="text-indigo-400 drop-shadow-[0_0_5px_rgba(129,140,248,0.5)]" />}
+                                        {isSystemReady ? (
+                                            analysis?.status === 'BULLISH' ? <TrendingUp size={16} className="text-emerald-400 drop-shadow-[0_0_5px_rgba(52,211,153,0.5)]" /> :
+                                                analysis?.status === 'BEARISH' ? <TrendingDown size={16} className="text-rose-400 drop-shadow-[0_0_5px_rgba(251,113,133,0.5)]" /> :
+                                                    <Activity size={16} className="text-indigo-400 drop-shadow-[0_0_5px_rgba(129,140,248,0.5)]" />
+                                        ) : (
+                                            <Loader2 size={16} className="text-indigo-400 animate-spin" />
+                                        )}
                                     </div>
                                     <p className="text-xs leading-relaxed text-indigo-50 font-medium font-sans whitespace-pre-line shadow-black/50 drop-shadow-sm">
-                                        {analysis?.message}
+                                        {isSystemReady ? (
+                                            analysis?.message
+                                        ) : (
+                                            <span className="text-indigo-200/80 font-mono text-[11px] animate-pulse">
+                                                INITIALIZING QUANT ENGINE...<br />
+                                                SYNCHRONIZING INSTITUTIONAL ORDER FLOW...
+                                            </span>
+                                        )}
                                     </p>
                                 </div>
                             </div>
