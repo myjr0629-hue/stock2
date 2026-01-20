@@ -43,6 +43,12 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
     const [tradesLoading, setTradesLoading] = useState(false);
     const [isSystemReady, setIsSystemReady] = useState(false); // [Fix] Initial Load State
 
+    // [Fix] Reset State on Ticker Change (Prevent Stale Data)
+    useEffect(() => {
+        setWhaleTrades([]);
+        setIsSystemReady(false);
+    }, [ticker]);
+
     // Fetch Whale Trades
     const fetchWhaleTrades = async () => {
         try {
