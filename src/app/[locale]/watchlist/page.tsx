@@ -157,7 +157,7 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
 
     return (
         <Link
-            href={`/${locale}/ticker?ticker=${item.ticker}`}
+            href={`/ticker?ticker=${item.ticker}`}
             className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
         >
             {/* 종목 with Sparkline */}
