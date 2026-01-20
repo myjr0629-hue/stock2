@@ -363,6 +363,27 @@
         "gammaSqueeze": "Gamma Squeeze Activated",
         "panicSelling": "Panic Selling"
     },
+    "performance": {
+        "collectingData": "Collecting performance data...",
+        "collectingDataDesc": "Measured from D+3 after report generation.",
+        "d3Return": "D+3 Return",
+        "winRate": "Win Rate",
+        "times": " times",
+        "recentTrials": "Recent {count} trials",
+        "d3Average": "D+3 Average",
+        "sampleSize": "Sample Size",
+        "stocks": " stocks"
+    },
+    "tactical": {
+        "preMarket": "Pre-Market",
+        "afterMarket": "After-Hours",
+        "closed": "Closed",
+        "reportBasisPrice": "Report Issue Price",
+        "realtimeReturn": "Real-time Return",
+        "analysisComplete": "Analysis complete. Awaiting buy signal.",
+        "marketClosedNoTrigger": "Market closed - No real-time triggers",
+        "whaleAccumulationZone": "Whale accumulation safe zone"
+    },
     "language": {
         "ko": "한국어",
         "en": "English",

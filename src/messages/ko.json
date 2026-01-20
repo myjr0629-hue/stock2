@@ -363,6 +363,27 @@
         "gammaSqueeze": "감마 스퀴즈 발동",
         "panicSelling": "패닉 셀링"
     },
+    "performance": {
+        "collectingData": "성과 데이터 수집 중...",
+        "collectingDataDesc": "리포트 생성 후 D+3부터 측정됩니다.",
+        "d3Return": "D+3 수익률",
+        "winRate": "승률",
+        "times": "회",
+        "recentTrials": "최근 {count}회",
+        "d3Average": "D+3 평균",
+        "sampleSize": "표본수",
+        "stocks": "종목"
+    },
+    "tactical": {
+        "preMarket": "프리마켓",
+        "afterMarket": "애프터",
+        "closed": "마감",
+        "reportBasisPrice": "리포트 발행 기준가",
+        "realtimeReturn": "실시간 수익률",
+        "analysisComplete": "분석 완료. 매수 시그널 대기 중.",
+        "marketClosedNoTrigger": "장 마감 - 실시간 트리거 없음",
+        "whaleAccumulationZone": "기관(Whale) 매집 시작 안전 구간"
+    },
     "language": {
         "ko": "한국어",
         "en": "English",

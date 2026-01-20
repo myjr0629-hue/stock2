@@ -4,6 +4,7 @@ import React from 'react';
 import { Card } from "@/components/ui/card";
 import { AlertOctagon, Zap, Shield, Target } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTranslations } from 'next-intl';
 
 interface TacticalCardProps {
     ticker: string;
@@ -32,6 +33,7 @@ interface TacticalCardProps {
 }
 
 export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice, isLocked, name, rsi, score, isDayTradeOnly, reasonKR, extendedPrice, extendedChange, extendedLabel, whaleTargetLevel, whaleConfidence, dominantContract, triggers, isClosed }: TacticalCardProps) {
+    const t = useTranslations('tactical');
 
     // Safety Fallbacks & Live Price Logic
     const isLive = extendedLabel === 'LIVE';
@@ -106,11 +108,11 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                                 {isLive ? (
                                     <span className="text-emerald-400 animate-pulse">● LIVE</span>
                                 ) : extendedLabel === 'PRE' ? (
-                                    <span className="text-amber-400">◉ PRE (프리마켓)</span>
+                                    <span className="text-amber-400">◉ PRE ({t('preMarket')})</span>
                                 ) : extendedLabel === 'POST' ? (
-                                    <span className="text-sky-400">◉ POST (애프터)</span>
+                                    <span className="text-sky-400">◉ POST ({t('afterMarket')})</span>
                                 ) : (
-                                    <span className="text-slate-400">○ CLOSE (마감)</span>
+                                    <span className="text-slate-400">○ CLOSE ({t('closed')})</span>
                                 )}
                             </div>
                             {/* [User: Smaller Price] */}
@@ -184,7 +186,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                             <span className="text-xl font-mono font-bold text-slate-400">
                                 ${safePrice.toFixed(2)}
                             </span>
-                            <span className="text-[9px] text-slate-600 font-medium">리포트 발행 기준가</span>
+                            <span className="text-[9px] text-slate-600 font-medium">{t('reportBasisPrice')}</span>
                         </div>
                     </div>
 
@@ -200,7 +202,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                                     : "N/A"
                                 }
                             </div>
-                            <span className="text-[9px] text-slate-600 font-medium block mt-0.5">실시간 수익률</span>
+                            <span className="text-[9px] text-slate-600 font-medium block mt-0.5">{t('realtimeReturn')}</span>
                         </div>
                     )}
                 </div>
@@ -214,7 +216,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
 
                     <div className="p-3.5 rounded-lg bg-black/20 border border-white/5 backdrop-blur-sm group-hover:bg-black/30 transition-colors shadow-inner">
                         <p className="text-sm font-medium text-slate-100 leading-relaxed text-pretty">
-                            {reasonKR || "분석 완료. 매수 시그널 대기 중."}
+                            {reasonKR || t('analysisComplete')}
                         </p>
                     </div>
 
@@ -229,7 +231,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                         </div>
                     ) : isClosed ? (
                         <div className="flex items-center gap-1 mt-2 text-[10px] text-slate-500">
-                            <span className="opacity-50">○</span> 장 마감 - 실시간 트리거 없음
+                            <span className="opacity-50">○</span> {t('marketClosedNoTrigger')}
                         </div>
                     ) : null}
                 </div>
@@ -243,7 +245,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                             ${minEntry.toFixed(2)} <span className="text-slate-600 text-xs mx-0.5">~</span> ${maxEntry.toFixed(2)}
                         </div>
                         <div className="text-[9px] text-emerald-500/50 font-medium leading-tight mt-0.5 -mb-0.5 tracking-tight">
-                            기관(Whale) 매집 시작 안전 구간
+                            {t('whaleAccumulationZone')}
                         </div>
                     </div>
 

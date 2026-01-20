@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { TrendingUp, TrendingDown, Award, BarChart3 } from "lucide-react";
+import { useTranslations } from 'next-intl';
 
 interface PerformanceSummary {
     sampleSize: number;
@@ -20,6 +21,7 @@ interface PerformanceCardProps {
 }
 
 export function PerformanceCard({ compact = false }: PerformanceCardProps) {
+    const t = useTranslations('performance');
     const [summary, setSummary] = useState<PerformanceSummary | null>(null);
     const [loading, setLoading] = useState(true);
 
@@ -58,8 +60,8 @@ export function PerformanceCard({ compact = false }: PerformanceCardProps) {
                     <BarChart3 className="w-4 h-4 text-slate-500" />
                     <span className="badge-text text-slate-500">ENGINE PERFORMANCE</span>
                 </div>
-                <p className="text-sm text-slate-400">성과 데이터 수집 중...</p>
-                <p className="text-xs text-slate-500 mt-1">리포트 생성 후 D+3부터 측정됩니다.</p>
+                <p className="text-sm text-slate-400">{t('collectingData')}</p>
+                <p className="text-xs text-slate-500 mt-1">{t('collectingDataDesc')}</p>
             </div>
         );
     }
@@ -73,16 +75,16 @@ export function PerformanceCard({ compact = false }: PerformanceCardProps) {
             <div className="bg-[#1A1F26] border border-slate-700/50 rounded-xl p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Award className="w-4 h-4 text-indigo-400" />
-                    <span className="text-xs font-bold text-slate-400">D+3 수익률</span>
+                    <span className="text-xs font-bold text-slate-400">{t('d3Return')}</span>
                 </div>
                 <div className="flex items-center gap-3">
                     <span className={`text-sm font-bold num-highlight ${returnColor}`}>
                         {summary.avgReturnD3 !== null ? `${summary.avgReturnD3 >= 0 ? '+' : ''}${summary.avgReturnD3.toFixed(2)}%` : '—'}
                     </span>
                     <span className={`text-xs font-medium ${winRateColor}`}>
-                        승률 {summary.winRate?.toFixed(0) ?? '—'}%
+                        {t('winRate')} {summary.winRate?.toFixed(0) ?? '—'}%
                     </span>
-                    <span className="text-xs text-slate-500">({summary.sampleSize}회)</span>
+                    <span className="text-xs text-slate-500">({summary.sampleSize}{t('times')})</span>
                 </div>
             </div>
         );
@@ -96,14 +98,14 @@ export function PerformanceCard({ compact = false }: PerformanceCardProps) {
                     <Award className="w-5 h-5 text-indigo-400" />
                     <span className="section-title text-slate-200">Engine Performance</span>
                 </div>
-                <span className="badge-text text-slate-500">최근 {summary.sampleSize}회</span>
+                <span className="badge-text text-slate-500">{t('recentTrials', { count: summary.sampleSize })}</span>
             </div>
 
             {/* Main Stats */}
             <div className="grid grid-cols-3 gap-4 mb-4">
                 {/* D+3 Return */}
                 <div className="text-center">
-                    <p className="text-xs text-slate-500 mb-1">D+3 평균</p>
+                    <p className="text-xs text-slate-500 mb-1">{t('d3Average')}</p>
                     <p className={`text-xl font-bold num-highlight ${returnColor}`}>
                         {summary.avgReturnD3 !== null ? `${summary.avgReturnD3 >= 0 ? '+' : ''}${summary.avgReturnD3.toFixed(2)}%` : '—'}
                     </p>
@@ -111,7 +113,7 @@ export function PerformanceCard({ compact = false }: PerformanceCardProps) {
 
                 {/* Win Rate */}
                 <div className="text-center border-x border-slate-700/50">
-                    <p className="text-xs text-slate-500 mb-1">승률</p>
+                    <p className="text-xs text-slate-500 mb-1">{t('winRate')}</p>
                     <p className={`text-xl font-bold num-highlight ${winRateColor}`}>
                         {summary.winRate !== null ? `${summary.winRate.toFixed(0)}%` : '—'}
                     </p>
@@ -119,9 +121,9 @@ export function PerformanceCard({ compact = false }: PerformanceCardProps) {
 
                 {/* Sample Size */}
                 <div className="text-center">
-                    <p className="text-xs text-slate-500 mb-1">표본수</p>
+                    <p className="text-xs text-slate-500 mb-1">{t('sampleSize')}</p>
                     <p className="text-xl font-bold num-highlight text-slate-300">
-                        {summary.sampleSize * 3}종목
+                        {summary.sampleSize * 3}{t('stocks')}
                     </p>
                 </div>
             </div>
