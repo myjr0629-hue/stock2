@@ -438,6 +438,211 @@
         "portfolioDesc": "アルファスコアとシグナルバッジによるポートフォリオ管理",
         "watchlistDesc": "ウォッチリストモニタリング指標とカラム説明"
     },
+    "guardianGuide": {
+        "subtitle": "市場全体のGEXポジショニングとマクロ経済状況を分析します",
+        "valueDesc": "市場全体の方向性とボラティリティレジームを把握するための最上位レベルの分析ツール",
+        "gravityGaugeDesc": "市場全体の流動性強度を0-100スケールで測定します。価格モメンタムと資金フローを総合し、現在の市場が<weak>{weak}</weak>、<neutral>{neutral}</neutral>、<strong>{strong}</strong>のいずれの状態かを直感的に表示します。",
+        "interpretationTitle": "解釈基準",
+        "weak": "弱気 - 防衛的ポジション推奨",
+        "neutral": "中立 - 方向性待ち",
+        "strong": "強気 - 攻撃的ポジション可能",
+        "divergenceSub": "価格-資金フロー乖離分析",
+        "divergenceDesc": "価格変動(EXT)と実際の資金フロー(INT)の乖離を測定します。価格が上昇しているのに資金が流出していれば<correction>{correction}</correction>シグナル、逆に価格が下落しているのに資金が流入していれば<rebound>{rebound}</rebound>シグナルです。",
+        "rvolTitle": "指数別RVOL",
+        "rvolDesc": "NASDAQ/DOWの相対出来高(RVOL)を表示します。100%以上は平均より活発な取引、200%以上は<highlight>{highlight}</highlight>を意味します。",
+        "flowMapSub": "セクター別資金フロー可視化",
+        "flowMapDesc": "11セクターのリアルタイム資金フローをネットワーク形式で可視化します。円の大きさは時価総額、位置はセクター間の相関関係を表します。",
+        "visualLegend": "視覚要素の解釈",
+        "legendReturn": "円の枠色 = 収益率の方向",
+        "legendFlow": "接続線 = 資金移動経路",
+        "legendPulse": "パルス = リアルタイム流入",
+        "flowMapTip": "AI INFRA、ENERGYなどテーマセクターの資金フローを一目で把握できます。",
+        "verdictSub": "戦術的結論およびアクションガイド",
+        "verdictDesc": "全指標を総合して現在の市場に対する<finalVerdict>{finalVerdict}</finalVerdict>を提示します。MOMENTUM、TARGET LOCK、REGIMEを通じて即座の意思決定を支援します。",
+        "bullishAction": "ロングポジション維持または追加",
+        "bearishAction": "ショートポジションまたは現金保有",
+        "neutralAction": "方向性不在 - 観望推奨、既存ポジション維持",
+        "rlsiSub": "市場の本質分析",
+        "rlsiDesc": "現在の市場セッション状態と分析可能性をリアルタイムで表示します。プレマーケット、正規市場、アフターマーケット各セッションごとに異なる分析ロジックが適用されます。",
+        "alignmentState": "ALIGNMENT 状態",
+        "alignOk": "全指標正常受信中",
+        "alignPartial": "一部指標遅延",
+        "alignOffline": "時間外 - 分析中断"
+    },
+    "commandGuide": {
+        "subtitle": "個別銘柄のGamma構造とTactical Rangeを分析します",
+        "cards": {
+            "gammaFlip": {
+                "badge": "Core Indicator",
+                "meaning": "ディーラーのGammaポジションがLongからShortへ（またはその逆へ）転換する価格レベルです。このレベルを基準に市場のボラティリティ特性が変化します。",
+                "longGammaTitle": "現在価格 < Flip Level",
+                "longGammaDesc": "Long Gamma Zone - 価格安定化傾向、ボラティリティ抑制",
+                "shortGammaTitle": "現在価格 > Flip Level",
+                "shortGammaDesc": "Short Gamma Zone - ボラティリティ拡大、トレンド加速の可能性",
+                "signals": {
+                    "ready": "Gamma Flip Level 計算完了",
+                    "short": "全区間 Short Gamma (Flip地点なし)",
+                    "long": "全区間 Long Gamma (Flip地点なし)",
+                    "na": "オプション流動性不足"
+                }
+            },
+            "netGex": {
+                "badge": "Real-time",
+                "meaning": "現在のオプション市場の総Gamma Exposureです。正ならディーラーはLong Gamma、負ならShort Gammaポジションを保有中です。",
+                "stableTitle": "STABLE (正のGEX)",
+                "stableDesc": "Dealer Long Gamma → ボラティリティ抑制、価格安定",
+                "volatileTitle": "VOLATILE (負のGEX)",
+                "volatileDesc": "Dealer Short Gamma → ボラティリティ拡大、方向性加速"
+            },
+            "tacticalRange": {
+                "badge": "Tactical Levels",
+                "meaning": "オプションデータに基づいて算出した短期サポート/レジスタンスレベルとMax Pain価格です。",
+                "resist": "Call Wall ベースのレジスタンス",
+                "maxPain": "オプション満期時の収束予想価格",
+                "support": "Put Floor ベースのサポート"
+            },
+            "risk": {
+                "badge": "Risk",
+                "meaning": "当日満期(0DTE)オプションの影響度とShort Squeezeリスクを測定します。",
+                "impactDesc": "総GEXに占める0DTEオプションの割合。30%以上なら引け前のボラティリティに注意。",
+                "squeezeDesc": "LOW/MED/HIGH - 発生可能性。高いほど急激な上昇反転の可能性あり。"
+            }
+        }
+    },
+    "intelGuide": {
+        "subtitle": "AI基盤の市場Rumorとニュースインテリジェンスを提供します",
+        "cards": {
+            "aiRumor": {
+                "badge": "AI Analysis",
+                "meaning": "AIがソーシャルメディア、ニュース、フォーラムから検知した市場Rumorとその信頼度を分析します。",
+                "clean": "検証済み情報 / 信頼できるソース",
+                "unverified": "未検証Rumor / 追加確認必要",
+                "false": "虚偽情報と判明 / 無視推奨"
+            },
+            "intelFeed": {
+                "badge": "Real-time",
+                "meaning": "主要金融メディアからリアルタイムで収集したニュースをAIが分析し、核心情報を要約します。",
+                "descIntro": "各ニュース項目には以下の情報が含まれます:",
+                "source": "Source",
+                "sourceDesc": "Benzinga, Investing.com など",
+                "summary": "Summary",
+                "summaryDesc": "AIが生成した核心内容要約",
+                "related": "Related Tickers",
+                "relatedDesc": "言及されたティッカータグ"
+            }
+        }
+    },
+    "portfolioGuide": {
+        "subtitle": "保有銘柄のAlpha ScoreとSignal Badgeでポートフォリオを管理します",
+        "cards": {
+            "alphaScore": {
+                "meaning": "価格モメンタム、オプションフロー、GEXなどを総合した銘柄の強度スコアです。高いほど上昇ポテンシャルが高いです。",
+                "desc": {
+                    "a": "80-100 - 非常に強気、追加買い推奨",
+                    "b": "65-79 - 強気、維持推奨",
+                    "c": "50-64 - 中立、様子見",
+                    "d": "35-49 - 弱気、比重縮小検討",
+                    "f": "0-34 - 非常に弱気、比重縮小推奨"
+                }
+            },
+            "signalBadge": {
+                "badge": "Action",
+                "meaning": "Alpha Scoreと市場状況に基づいた投資アクション提案です。",
+                "add": "Buy/Add - Alpha 75+ & 上昇モメンタム",
+                "hold": "Hold - 安定した状態",
+                "watch": "Watch - 方向性不確実",
+                "trim": "Trim - Alpha 35未満 または急落"
+            },
+            "confidence": {
+                "badge": "Confidence",
+                "meaning": "Signal Badgeの信頼度をパーセンテージで表示します。高いほど確信度が高いです。",
+                "high": "High Confidence - 強いシグナル",
+                "mid": "Medium Confidence - 注意深くモニタリング",
+                "low": "Low Confidence - 追加確認必要"
+            },
+            "sparkline": {
+                "badge": "Visualization",
+                "meaning": "最近の20個の価格データをミニチャートで表示します。一目でトレンドを把握できます。",
+                "descIntro": "Sparklineは銘柄名の横に表示され:",
+                "uptrend": "• 上昇トレンド → 右上がり曲線",
+                "downtrend": "• 下降トレンド → 右下がり曲線",
+                "sideways": "• 横ばい → 平坦な曲線"
+            }
+        }
+    },
+    "watchlistGuide": {
+        "subtitle": "関心銘柄の主要指標を一目でモニタリングします",
+        "cards": {
+            "alphaColumn": {
+                "badge": "Score",
+                "meaning": "各銘柄のAlpha Scoreを数値で表示します。グレード(A/B/C/D/F)と共に素早く強度を把握できます。",
+                "desc": "数値横の色でグレードを区別します。<green>Green</green>は強気、<red>Red</red>は弱気です。"
+            },
+            "whaleIndex": {
+                "badge": "Whale Index",
+                "meaning": "GEXとPut/Call Ratioに基づいて機関投資家(Whale)の蓄積/配布状態を推定します。",
+                "high": "HIGH - 強い蓄積シグナル",
+                "mid": "MED - 普通の関心度",
+                "low": "LOW - 低い関心 または配布"
+            },
+            "rsi": {
+                "badge": "Momentum",
+                "meaning": "14日相対力指数(RSI)です。買われすぎ/売られすぎ状態を判断するテクニカル指標です。",
+                "overbought": "Overbought - 調整の可能性",
+                "neutral": "Neutral Zone",
+                "oversold": "Oversold - 反発の可能性"
+            },
+            "gammaFlip": {
+                "badge": "Gamma",
+                "meaning": "銘柄のGamma Flip Levelまたは現在のGamma状態を表示します。",
+                "flipDesc": "Gamma Flip 価格 + 現在のGamma Zone",
+                "shortDesc": "全区間 Short Gamma (Flipなし)",
+                "longDesc": "全区間 Long Gamma (Flipなし)"
+            },
+            "maxPain": {
+                "badge": "Expiry",
+                "meaning": "オプション満期日にオプション保有者の損失を最大化する価格です。満期日接近時にこの価格に収束する傾向があります。",
+                "descIntro": "現在価格からMaxPainまでの距離(%)も共に表示されます:",
+                "upside": "上昇余地あり",
+                "downside": "下落圧力あり"
+            },
+            "gex": {
+                "badge": "Gamma Exposure",
+                "meaning": "銘柄のNet GEXを百万ドル単位で表示し、Long/Short状態をバッジで表します。",
+                "longDesc": "Dealer Long Gamma → ボラティリティ抑制",
+                "shortDesc": "Dealer Short Gamma → ボラティリティ拡大"
+            }
+        }
+    },
+    "flowRadarGuide": {
+        "subtitle": "リアルタイムの大型オプション取引を追跡し、機関投資家の動向を把握します",
+        "cards": {
+            "flowSniper": {
+                "badge": "Real-time",
+                "meaning": "大型オプション取引(Premium $50K+)をリアルタイムで検知し、機関投資家の売買方向を追跡します。",
+                "bullishDesc": "Call Option 買い または Put Option 売り 優勢 - 上昇賭け",
+                "bearishDesc": "Put Option 買い または Call Option 売り 優勢 - 下落賭け",
+                "signals": {
+                    "bullish": "Bullish Flow 検知",
+                    "bearish": "Bearish Flow 検知",
+                    "neutral": "方向性未確定"
+                }
+            },
+            "netPremium": {
+                "badge": "Premium",
+                "meaning": "Call PremiumとPut Premiumの純差額を表示します。正ならCall優勢、負ならPut優勢です。",
+                "callDesc": "Call Premium 優勢 (強気)",
+                "putDesc": "Put Premium 優勢 (弱気)"
+            },
+            "volumeStrength": {
+                "badge": "Volume",
+                "meaning": "現在のオプション取引量が平均と比較してどれほど活発かを示します。",
+                "activeDesc": "平均以上の取引量 → 機関投資家の参加活発",
+                "normalDesc": "平均レベルの取引量",
+                "lowDesc": "平均以下 → 関心度低い"
+            }
+        }
+    },
     "footer": {
         "privacy": "プライバシーポリシー",
         "terms": "利用規約",

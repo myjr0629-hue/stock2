@@ -438,6 +438,211 @@
         "portfolioDesc": "Portfolio management with Alpha Score and Signal Badge",
         "watchlistDesc": "Watchlist monitoring metrics and column explanations"
     },
+    "guardianGuide": {
+        "subtitle": "Analyzes GEX positioning and macroeconomic conditions of the overall market",
+        "valueDesc": "The highest-level analytical tool for identifying overall market direction and volatility regime",
+        "gravityGaugeDesc": "Measures overall market liquidity strength on a 0-100 scale. Combining price momentum and money flow, it intuitively displays whether the current market is <weak>{weak}</weak>, <neutral>{neutral}</neutral>, or <strong>{strong}</strong>.",
+        "interpretationTitle": "Interpretation Criteria",
+        "weak": "Weak - Defensive position recommended",
+        "neutral": "Neutral - Wait for direction",
+        "strong": "Strong - Aggressive position possible",
+        "divergenceSub": "Price-Flow Divergence Analysis",
+        "divergenceDesc": "Measures the divergence between price movement (EXT) and actual money flow (INT). If price rises but money flows out, it's a <correction>{correction}</correction> signal; conversely, if price falls but money flows in, it's a <rebound>{rebound}</rebound> signal.",
+        "rvolTitle": "RVOL by Index",
+        "rvolDesc": "Displays relative volume (RVOL) for NASDAQ/DOW. Over 100% indicates active trading, over 200% signifies <highlight>{highlight}</highlight>.",
+        "flowMapSub": "Sector Flow Visualization",
+        "flowMapDesc": "Visualizes real-time money flow of 11 sectors as a network. Circle size represents market cap, position represents inter-sector correlation.",
+        "visualLegend": "Visual Legend",
+        "legendReturn": "Circle Border Color = Return Direction",
+        "legendFlow": "Line = Money Flow Path",
+        "legendPulse": "Pulse = Real-time Inflow",
+        "flowMapTip": "View money flow of theme sectors like AI INFRA, ENERGY at a glance.",
+        "verdictSub": "Tactical Verdict & Action Guide",
+        "verdictDesc": "Synthesizes all indicators to present a <finalVerdict>{finalVerdict}</finalVerdict> for the current market. Supports immediate decision-making via MOMENTUM, TARGET LOCK, and REGIME.",
+        "bullishAction": "Maintain or add long positions",
+        "bearishAction": "Short positions or hold cash",
+        "neutralAction": "No direction - Wait recommended, maintain existing positions",
+        "rlsiSub": "Market Essence Analysis",
+        "rlsiDesc": "Displays current market session status and analysis availability in real-time. Different analysis logic applies to Pre-market, Regular, and After-market sessions.",
+        "alignmentState": "ALIGNMENT Status",
+        "alignOk": "All indicators receiving normally",
+        "alignPartial": "Some indicators delayed",
+        "alignOffline": "Off-hours - Analysis paused"
+    },
+    "commandGuide": {
+        "subtitle": "Analyzes gamma structure and tactical range of individual tickers",
+        "cards": {
+            "gammaFlip": {
+                "badge": "Core Indicator",
+                "meaning": "The price level where dealer gamma positioning flips from long to short (or vice-versa). Market volatility characteristics change around this level.",
+                "longGammaTitle": "Price < Flip Level",
+                "longGammaDesc": "Long Gamma Zone - Price stabilization tendency, suppressed volatility",
+                "shortGammaTitle": "Price > Flip Level",
+                "shortGammaDesc": "Short Gamma Zone - Expanded volatility, potential trend acceleration",
+                "signals": {
+                    "ready": "Gamma Flip Level Calculated",
+                    "short": "All-Range Short Gamma (No Flip Point)",
+                    "long": "All-Range Long Gamma (No Flip Point)",
+                    "na": "Insufficient Options Liquidity"
+                }
+            },
+            "netGex": {
+                "badge": "Real-time",
+                "meaning": "Total gamma exposure of the current options market. Positive means dealers are long gamma, negative means short gamma.",
+                "stableTitle": "STABLE (Positive GEX)",
+                "stableDesc": "Dealer Long Gamma → Volatility Suppression, Price Stability",
+                "volatileTitle": "VOLATILE (Negative GEX)",
+                "volatileDesc": "Dealer Short Gamma → Volatility Expansion, Direction Acceleration"
+            },
+            "tacticalRange": {
+                "badge": "Tactical Levels",
+                "meaning": "Short-term support/resistance levels and Max Pain price derived from options data.",
+                "resist": "Call Wall based Resistance",
+                "maxPain": "Expected Price Convergence at Expiry",
+                "support": "Put Floor based Support"
+            },
+            "risk": {
+                "badge": "Risk",
+                "meaning": "Measures the impact of 0DTE options and short squeeze risk.",
+                "impactDesc": "Percentage of 0DTE options in total GEX. >30% implies volatility caution before close.",
+                "squeezeDesc": "LOW/MED/HIGH - Squeeze probability. Higher means potential for sharp upward reversal."
+            }
+        }
+    },
+    "intelGuide": {
+        "subtitle": "Provides AI-based market rumors and news intelligence",
+        "cards": {
+            "aiRumor": {
+                "badge": "AI Analysis",
+                "meaning": "Analyzes market rumors and their credibility detected by AI from social media, news, and forums.",
+                "clean": "Verified Information / Reliable Source",
+                "unverified": "Unverified Rumor / Further verification needed",
+                "false": "Proven False / Recommend ignoring"
+            },
+            "intelFeed": {
+                "badge": "Real-time",
+                "meaning": "AI analyzes real-time news collected from major financial media and summarizes key information.",
+                "descIntro": "Each news item includes the following information:",
+                "source": "Source",
+                "sourceDesc": "Benzinga, Investing.com, etc.",
+                "summary": "Summary",
+                "summaryDesc": "Core content summary generated by AI",
+                "related": "Related Tickers",
+                "relatedDesc": "Mentioned ticker tags"
+            }
+        }
+    },
+    "portfolioGuide": {
+        "subtitle": "Manage your portfolio with Alpha Score and Signal Badge of held tickers",
+        "cards": {
+            "alphaScore": {
+                "meaning": "Ticker strength score combining price momentum, options flow, GEX, etc. Higher values imply higher upside potential.",
+                "desc": {
+                    "a": "80-100 - Very Strong, Suitable for Adding",
+                    "b": "65-79 - Strong, Recommended Holding",
+                    "c": "50-64 - Neutral, Wait and See",
+                    "d": "35-49 - Weak, Consider Reducing",
+                    "f": "0-34 - Very Weak, Recommend Reducing"
+                }
+            },
+            "signalBadge": {
+                "badge": "Action",
+                "meaning": "Investment action suggestion based on Alpha Score and market conditions.",
+                "add": "Buy/Add - Alpha 75+ & Upward Momentum",
+                "hold": "Hold - Stable Condition",
+                "watch": "Watch - Uncertain Direction",
+                "trim": "Trim/Sell - Alpha < 35 or Sharp Drop"
+            },
+            "confidence": {
+                "badge": "Confidence",
+                "meaning": "Displays confidence level of the Signal Badge in percentage. Higher values mean higher certainty.",
+                "high": "High Confidence - Strong Signal",
+                "mid": "Medium Confidence - Monitor Carefully",
+                "low": "Low Confidence - Further Confirmation Needed"
+            },
+            "sparkline": {
+                "badge": "Visualization",
+                "meaning": "Displays recent 20 price data points as a mini chart. Identify trends at a glance.",
+                "descIntro": "Sparkline is displayed next to ticker name:",
+                "uptrend": "• Uptrend → Upward Curve",
+                "downtrend": "• Downtrend → Downward Curve",
+                "sideways": "• Sideways → Flat Curve"
+            }
+        }
+    },
+    "watchlistGuide": {
+        "subtitle": "Monitor key indicators of your interested tickers at a glance",
+        "cards": {
+            "alphaColumn": {
+                "badge": "Score",
+                "meaning": "Displays Alpha Score of each ticker numerically. Quickly grasp strength with grades (A/B/C/D/F).",
+                "desc": "Grades are distinguished by color next to the number. <green>Green</green> is Bullish, <red>Red</red> is Bearish."
+            },
+            "whaleIndex": {
+                "badge": "Whale Index",
+                "meaning": "Estimates institutional (whale) accumulation/distribution based on GEX and Put/Call Ratio.",
+                "high": "HIGH - Strong Accumulation Signal",
+                "mid": "MED - Moderate Interest",
+                "low": "LOW - Low Interest or Distribution"
+            },
+            "rsi": {
+                "badge": "Momentum",
+                "meaning": "14-day Relative Strength Index. Technical indicator to judge overbought/oversold conditions.",
+                "overbought": "Overbought - Potential Correction",
+                "neutral": "Neutral Zone",
+                "oversold": "Oversold - Potential Rebound"
+            },
+            "gammaFlip": {
+                "badge": "Gamma",
+                "meaning": "Displays Gamma Flip Level or current gamma state of the ticker.",
+                "flipDesc": "Gamma Flip Price + Current Gamma Zone",
+                "shortDesc": "All-Range Short Gamma (No Flip)",
+                "longDesc": "All-Range Long Gamma (No Flip)"
+            },
+            "maxPain": {
+                "badge": "Expiry",
+                "meaning": "Price that maximizes losses for option holders at expiry. Tendency to converge to this price as expiry approaches.",
+                "descIntro": "Distance(%) from current price to MaxPain is also displayed:",
+                "upside": "Upside Potential",
+                "downside": "Downside Pressure"
+            },
+            "gex": {
+                "badge": "Gamma Exposure",
+                "meaning": "Displays Net GEX in $M and long/short status with a badge.",
+                "longDesc": "Dealer Long Gamma → Volatility Suppression",
+                "shortDesc": "Dealer Short Gamma → Volatility Expansion"
+            }
+        }
+    },
+    "flowRadarGuide": {
+        "subtitle": "Tracks real-time large scale option trades and institutional flows",
+        "cards": {
+            "flowSniper": {
+                "badge": "Real-time",
+                "meaning": "Detects large option trades (Premium $50K+) in real-time to track institutional directional bets.",
+                "bullishDesc": "Call Buys or Put Sells Dominant - Bullish Bet",
+                "bearishDesc": "Put Buys or Call Sells Dominant - Bearish Bet",
+                "signals": {
+                    "bullish": "Bullish Flow Detected",
+                    "bearish": "Bearish Flow Detected",
+                    "neutral": "Direction Undetermined"
+                }
+            },
+            "netPremium": {
+                "badge": "Premium",
+                "meaning": "Displays net difference between Call and Put premiums. Positive means Calls dominant, negative means Puts dominant.",
+                "callDesc": "Call Premium Dominant (Bullish)",
+                "putDesc": "Put Premium Dominant (Bearish)"
+            },
+            "volumeStrength": {
+                "badge": "Volume",
+                "meaning": "Indicates how active current option volume is compared to average.",
+                "activeDesc": "Above Average Volume → High Institutional Participation",
+                "normalDesc": "Average Volume Level",
+                "lowDesc": "Below Average → Low Interest"
+            }
+        }
+    },
     "footer": {
         "privacy": "Privacy Policy",
         "terms": "Terms of Service",
