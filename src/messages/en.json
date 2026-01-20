@@ -427,6 +427,17 @@
         "watchlist": "WATCHLIST",
         "flowRadar": "Flow Radar"
     },
+    "howItWorks": {
+        "guideTitle": "SIGNUM HQ Guide",
+        "guideSubtitle": "Learn the meaning and usage of each indicator",
+        "heroTitle": "Options-Based Market Analysis Platform",
+        "heroDescription": "SIGNUM HQ analyzes options market data including Gamma Exposure (GEX), Max Pain, and Options Flow to provide support/resistance levels and volatility turning points.",
+        "guardianDesc": "GEX positioning and market phase analysis for the overall market",
+        "commandDesc": "Gamma levels, GEX engine, and tactical range analysis for individual stocks",
+        "intelDesc": "AI rumor analysis and real-time intelligence feed",
+        "portfolioDesc": "Portfolio management with Alpha Score and Signal Badge",
+        "watchlistDesc": "Watchlist monitoring metrics and column explanations"
+    },
     "footer": {
         "privacy": "Privacy Policy",
         "terms": "Terms of Service",

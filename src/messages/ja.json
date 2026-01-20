@@ -427,6 +427,17 @@
         "watchlist": "WATCHLIST",
         "flowRadar": "Flow Radar"
     },
+    "howItWorks": {
+        "guideTitle": "SIGNUM HQ ガイド",
+        "guideSubtitle": "各指標の意味と活用法を学びましょう",
+        "heroTitle": "オプションベースの市場分析プラットフォーム",
+        "heroDescription": "SIGNUM HQは、ガンマエクスポージャー(GEX)、マックスペイン、オプションフローなどのオプション市場データを分析し、サポート/レジスタンスレベルとボラティリティの転換点を提供します。",
+        "guardianDesc": "市場全体のGEXポジショニングとマーケットフェーズ分析",
+        "commandDesc": "個別銘柄のガンマレベル、GEXエンジン、戦術的レンジ分析",
+        "intelDesc": "AIルーマー分析とリアルタイムインテリジェンスフィード",
+        "portfolioDesc": "アルファスコアとシグナルバッジによるポートフォリオ管理",
+        "watchlistDesc": "ウォッチリストモニタリング指標とカラム説明"
+    },
     "footer": {
         "privacy": "プライバシーポリシー",
         "terms": "利用規約",
