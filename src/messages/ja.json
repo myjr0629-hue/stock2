@@ -438,37 +438,6 @@
         "portfolioDesc": "アルファスコアとシグナルバッジによるポートフォリオ管理",
         "watchlistDesc": "ウォッチリストモニタリング指標とカラム説明"
     },
-    "guardianGuide": {
-        "subtitle": "市場全体のGEXポジショニングとマクロ経済状況を分析します",
-        "valueDesc": "市場全体の方向性とボラティリティレジームを把握するための最上位レベルの分析ツール",
-        "gravityGaugeDesc": "市場全体の流動性強度を0-100スケールで測定します。価格モメンタムと資金フローを総合し、現在の市場が<weak>{weak}</weak>、<neutral>{neutral}</neutral>、<strong>{strong}</strong>のいずれの状態かを直感的に表示します。",
-        "interpretationTitle": "解釈基準",
-        "weak": "弱気 - 防衛的ポジション推奨",
-        "neutral": "中立 - 方向性待ち",
-        "strong": "強気 - 攻撃的ポジション可能",
-        "divergenceSub": "価格-資金フロー乖離分析",
-        "divergenceDesc": "価格変動(EXT)と実際の資金フロー(INT)の乖離を測定します。価格が上昇しているのに資金が流出していれば<correction>{correction}</correction>シグナル、逆に価格が下落しているのに資金が流入していれば<rebound>{rebound}</rebound>シグナルです。",
-        "rvolTitle": "指数別RVOL",
-        "rvolDesc": "NASDAQ/DOWの相対出来高(RVOL)を表示します。100%以上は平均より活発な取引、200%以上は<highlight>{highlight}</highlight>を意味します。",
-        "flowMapSub": "セクター別資金フロー可視化",
-        "flowMapDesc": "11セクターのリアルタイム資金フローをネットワーク形式で可視化します。円の大きさは時価総額、位置はセクター間の相関関係を表します。",
-        "visualLegend": "視覚要素の解釈",
-        "legendReturn": "円の枠色 = 収益率の方向",
-        "legendFlow": "接続線 = 資金移動経路",
-        "legendPulse": "パルス = リアルタイム流入",
-        "flowMapTip": "AI INFRA、ENERGYなどテーマセクターの資金フローを一目で把握できます。",
-        "verdictSub": "戦術的結論およびアクションガイド",
-        "verdictDesc": "全指標を総合して現在の市場に対する<finalVerdict>{finalVerdict}</finalVerdict>を提示します。MOMENTUM、TARGET LOCK、REGIMEを通じて即座の意思決定を支援します。",
-        "bullishAction": "ロングポジション維持または追加",
-        "bearishAction": "ショートポジションまたは現金保有",
-        "neutralAction": "方向性不在 - 観望推奨、既存ポジション維持",
-        "rlsiSub": "市場の本質分析",
-        "rlsiDesc": "現在の市場セッション状態と分析可能性をリアルタイムで表示します。プレマーケット、正規市場、アフターマーケット各セッションごとに異なる分析ロジックが適用されます。",
-        "alignmentState": "ALIGNMENT 状態",
-        "alignOk": "全指標正常受信中",
-        "alignPartial": "一部指標遅延",
-        "alignOffline": "時間外 - 分析中断"
-    },
     "commandGuide": {
         "subtitle": "個別銘柄のGamma構造とTactical Rangeを分析します",
         "cards": {
@@ -640,6 +609,88 @@
                 "activeDesc": "平均以上の取引量 → 機関投資家の参加活発",
                 "normalDesc": "平均レベルの取引量",
                 "lowDesc": "平均以下 → 関心度低い"
+            }
+        }
+    },
+    "guardianGuide": {
+        "subtitle": "市場全体のGEXポジショニングとマクロ状況を分析します",
+        "strategicValue": {
+            "title": "Strategic Value",
+            "desc": "市場全体の方向性とボラティリティレジームを把握する最高レベルの分析ツール"
+        },
+        "gravityGauge": {
+            "title": "GRAVITY GAUGE",
+            "subtitle": "Relative Liquid Strength Index",
+            "desc": "市場全体の流動性強度を0-100スケールで測定します。価格モメンタムと資金フローを総合し、現在の市場が<weak>Bearish</weak>、<neutral>Neutral</neutral>、<strong>Bullish</strong>のいずれであるか直感的に表示します。",
+            "interpretation": "解釈基準",
+            "weak": "Bearish - 防御的ポジション推奨",
+            "neutral": "Neutral - 方向性待ち",
+            "strong": "Bullish - 攻撃的ポジション可能"
+        },
+        "priceFlow": {
+            "title": "PRICE & FLOW DIVERGENCE",
+            "subtitle": "価格-資金フロー乖離分析",
+            "desc": "価格変動(EXT)と実際の資金フロー(INT)の乖離を測定します。価格上昇中に資金流出なら<warning>調整切迫</warning>シグナル、逆に価格下落中に資金流入なら<opportunity>反発準備</opportunity>シグナルです。",
+            "rvol": {
+                "title": "指数別 RVOL",
+                "desc": "NASDAQ/DOWの相対取引量(RVOL)を表示します。100%以上は平均より活発な取引、200%以上は<highlight>異例の関心</highlight>を意味します。"
+            }
+        },
+        "flowMap": {
+            "title": "FLOW TOPOGRAPHY MAP",
+            "subtitle": "セクター別資金フロー可視化",
+            "desc": "11セクターのリアルタイム資金フローをネットワーク形式で可視化します。円の大きさは時価総額、位置はセクター間の相関関係を表します。",
+            "legend": "視覚要素解釈",
+            "border": "円の枠色 = 収益率の方向",
+            "link": "連結線 = 資金移動経路",
+            "pulse": "Pulse = リアルタイム流入",
+            "tip": "AI INFRA、ENERGYなどテーマセクターの資金フローを一目で把握できます。"
+        },
+        "tactical": {
+            "title": "TACTICAL VERDICT",
+            "subtitle": "戦術的結論およびアクションガイド",
+            "desc": "全指標を総合して現在の市場に対する<highlight>最終判断</highlight>を提示します。MOMENTUM、TARGET LOCK、REGIMEを通じて即時の意思決定を支援します。",
+            "bullish": "Long Position 維持または追加",
+            "bearish": "Short Position または現金保有",
+            "neutral": "方向性不在 - 様子見推奨、既存ポジション維持"
+        },
+        "rlsi": {
+            "title": "MARKET ESSENCE (RLSI)",
+            "subtitle": "市場の本質分析",
+            "desc": "現在の市場セッション状態と分析可能可否をリアルタイムで表示します。Premarket、Regular、Aftermarket各セッション別に異なる分析ロジックが適用されます。",
+            "alignmentState": "ALIGNMENT 状態",
+            "alignOk": "全指標正常受信中",
+            "alignPartial": "一部指標遅延",
+            "alignOffline": "時間外 - 分析中断"
+        }
+    },
+    "landing": {
+        "hero": {
+            "insight": {
+                "title": "Insight",
+                "subtitle": "3-Day Deep Precision",
+                "desc": "推論を排除したAI深層分析により、今後72時間以内に発生する最適な核心(Core)洞察を導出します。"
+            },
+            "velocity": {
+                "title": "Velocity",
+                "subtitle": "Alpha Velocity 0.1",
+                "desc": "S1グレードのデータ精度と機械的速度で、今すぐ上昇する上位0.1%のアルファのみを狩猟します。"
+            }
+        },
+        "weeklyBriefing": {
+            "economy": {
+                "title": "週間経済日程 (US / KST)",
+                "subtitle": "Weekly Economic Calendar",
+                "headers": {
+                    "dateTime": "Date / Time (ET / KST)",
+                    "event": "Event",
+                    "forecast": "Forecast",
+                    "actual": "Actual"
+                }
+            },
+            "trump": {
+                "title": "トランプ大統領の日程",
+                "subtitle": "President Trump's Schedule"
             }
         }
     },

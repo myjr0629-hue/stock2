@@ -438,37 +438,6 @@
         "portfolioDesc": "Alpha Score, Signal Badge로 포트폴리오 관리",
         "watchlistDesc": "관심 종목 모니터링 지표 및 컬럼 설명"
     },
-    "guardianGuide": {
-        "subtitle": "시장 전체의 GEX 포지셔닝과 거시적 상황을 분석합니다",
-        "valueDesc": "시장 전체의 방향성과 변동성 레짐을 파악하는 가장 높은 레벨의 분석 도구",
-        "gravityGaugeDesc": "시장 전체의 유동성 강도를 0-100 스케일로 측정합니다. 가격 모멘텀과 자금 흐름을 종합하여 현재 시장이 <weak>{weak}</weak>, <neutral>{neutral}</neutral>, <strong>{strong}</strong> 중 어떤 상태인지 직관적으로 표시합니다.",
-        "interpretationTitle": "해석 기준",
-        "weak": "약세 - 방어적 포지션 권장",
-        "neutral": "중립 - 방향성 대기",
-        "strong": "강세 - 공격적 포지션 가능",
-        "divergenceSub": "가격-자금흐름 괴리 분석",
-        "divergenceDesc": "가격 변동(EXT)과 실제 자금 흐름(INT)의 괴리를 측정합니다. 가격이 상승하는데 자금이 유출되면 <correction>{correction}</correction> 신호, 반대로 가격이 하락하는데 자금이 유입되면 <rebound>{rebound}</rebound> 신호입니다.",
-        "rvolTitle": "지수별 RVOL",
-        "rvolDesc": "NASDAQ/DOW의 상대 거래량(RVOL)을 표시합니다. 100% 이상은 평균 대비 활발한 거래, 200% 이상은 <highlight>{highlight}</highlight>을 의미합니다.",
-        "flowMapSub": "섹터별 자금 흐름 시각화",
-        "flowMapDesc": "11개 섹터의 실시간 자금 흐름을 네트워크 형태로 시각화합니다. 원의 크기는 시가총액, 위치는 섹터 간 상관관계를 나타냅니다.",
-        "visualLegend": "시각 요소 해석",
-        "legendReturn": "원 테두리 색상 = 수익률 방향",
-        "legendFlow": "연결선 = 자금 이동 경로",
-        "legendPulse": "펄스 = 실시간 유입",
-        "flowMapTip": "AI INFRA, ENERGY 등 테마 섹터의 자금 흐름을 한눈에 파악할 수 있습니다.",
-        "verdictSub": "전술적 결론 및 액션 가이드",
-        "verdictDesc": "모든 지표를 종합하여 현재 시장에 대한 <finalVerdict>{finalVerdict}</finalVerdict>을 제시합니다. MOMENTUM(3일 속도), TARGET LOCK(방향성), REGIME(시장 레짐)을 통해 즉각적인 의사결정을 지원합니다.",
-        "bullishAction": "롱 포지션 유지 또는 추가",
-        "bearishAction": "숏 포지션 또는 현금 보유",
-        "neutralAction": "방향성 부재 - 관망 권장, 기존 포지션 유지",
-        "rlsiSub": "시장의 본질 분석",
-        "rlsiDesc": "현재 시장 세션 상태와 분석 가능 여부를 실시간으로 표시합니다. 프리마켓, 정규장, 애프터마켓 각 세션별로 다른 분석 로직이 적용됩니다.",
-        "alignmentState": "ALIGNMENT 상태",
-        "alignOk": "모든 지표 정상 수신",
-        "alignPartial": "일부 지표 지연",
-        "alignOffline": "장외 시간 - 분석 중단"
-    },
     "commandGuide": {
         "subtitle": "개별 종목의 감마 구조와 tactical range를 분석합니다",
         "cards": {
@@ -640,6 +609,88 @@
                 "activeDesc": "평균 이상 거래량 → 기관 참여 활발",
                 "normalDesc": "평균 수준 거래량",
                 "lowDesc": "평균 이하 → 관심도 낮음"
+            }
+        }
+    },
+    "guardianGuide": {
+        "subtitle": "시장 전체의 GEX 포지셔닝과 거시적 상황을 분석합니다",
+        "strategicValue": {
+            "title": "Strategic Value",
+            "desc": "시장 전체의 방향성과 변동성 레짐을 파악하는 가장 높은 레벨의 분석 도구"
+        },
+        "gravityGauge": {
+            "title": "GRAVITY GAUGE",
+            "subtitle": "Relative Liquid Strength Index",
+            "desc": "시장 전체의 유동성 강도를 0-100 스케일로 측정합니다. 가격 모멘텀과 자금 흐름을 종합하여 현재 시장이 <weak> 약세</weak>, <neutral> 중립</neutral>, <strong> 강세</strong> 중 어떤 상태인지 직관적으로 표시합니다.",
+            "interpretation": "해석 기준",
+            "weak": "약세 - 방어적 포지션 권장",
+            "neutral": "중립 - 방향성 대기",
+            "strong": "강세 - 공격적 포지션 가능"
+        },
+        "priceFlow": {
+            "title": "PRICE & FLOW DIVERGENCE",
+            "subtitle": "가격-자금흐름 괴리 분석",
+            "desc": "가격 변동(EXT)과 실제 자금 흐름(INT)의 괴리를 측정합니다. 가격이 상승하는데 자금이 유출되면 <warning>조정 임박</warning> 신호, 반대로 가격이 하락하는데 자금이 유입되면 <opportunity>반등 준비</opportunity> 신호입니다.",
+            "rvol": {
+                "title": "지수별 RVOL",
+                "desc": "NASDAQ/DOW의 상대 거래량(RVOL)을 표시합니다. 100% 이상은 평균 대비 활발한 거래, 200% 이상은 <highlight>이례적 관심</highlight>을 의미합니다."
+            }
+        },
+        "flowMap": {
+            "title": "FLOW TOPOGRAPHY MAP",
+            "subtitle": "섹터별 자금 흐름 시각화",
+            "desc": "11개 섹터의 실시간 자금 흐름을 네트워크 형태로 시각화합니다. 원의 크기는 시가총액, 위치는 섹터 간 상관관계를 나타냅니다.",
+            "legend": "시각 요소 해석",
+            "border": "원 테두리 색상 = 수익률 방향",
+            "link": "연결선 = 자금 이동 경로",
+            "pulse": "펄스 = 실시간 유입",
+            "tip": "AI INFRA, ENERGY 등 테마 섹터의 자금 흐름을 한눈에 파악할 수 있습니다."
+        },
+        "tactical": {
+            "title": "TACTICAL VERDICT",
+            "subtitle": "전술적 결론 및 액션 가이드",
+            "desc": "모든 지표를 종합하여 현재 시장에 대한 <highlight>최종 판단</highlight>을 제시합니다. MOMENTUM(3일 속도), TARGET LOCK(방향성), REGIME(시장 레짐)을 통해 즉각적인 의사결정을 지원합니다.",
+            "bullish": "롱 포지션 유지 또는 추가",
+            "bearish": "숏 포지션 또는 현금 보유",
+            "neutral": "방향성 부재 - 관망 권장, 기존 포지션 유지"
+        },
+        "rlsi": {
+            "title": "MARKET ESSENCE (RLSI)",
+            "subtitle": "시장의 본질 분석",
+            "desc": "현재 시장 세션 상태와 분석 가능 여부를 실시간으로 표시합니다. 프리마켓, 정규장, 애프터마켓 각 세션별로 다른 분석 로직이 적용됩니다.",
+            "alignmentState": "ALIGNMENT 상태",
+            "alignOk": "모든 지표 정상 수신",
+            "alignPartial": "일부 지표 지연",
+            "alignOffline": "장외 시간 - 분석 중단"
+        }
+    },
+    "landing": {
+        "hero": {
+            "insight": {
+                "title": "Insight",
+                "subtitle": "3-Day Deep Precision",
+                "desc": "추론을 배제한 AI 심층 분석으로 향후 72시간 내 발생할 최적의 핵심(Core) 통찰을 도출합니다."
+            },
+            "velocity": {
+                "title": "Velocity",
+                "subtitle": "Alpha Velocity 0.1",
+                "desc": "S1 등급의 데이터 정밀도와 기계적 속도로, 지금 당장 오르는 상위 0.1%의 알파만을 사냥합니다."
+            }
+        },
+        "weeklyBriefing": {
+            "economy": {
+                "title": "주간 경제 일정 (US / KST)",
+                "subtitle": "Weekly Economic Calendar",
+                "headers": {
+                    "dateTime": "Date / Time (ET / KST)",
+                    "event": "Event",
+                    "forecast": "Forecast",
+                    "actual": "Actual"
+                }
+            },
+            "trump": {
+                "title": "트럼프 대통령 일정",
+                "subtitle": "President Trump's Schedule"
             }
         }
     },

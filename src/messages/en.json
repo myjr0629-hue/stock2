@@ -438,37 +438,6 @@
         "portfolioDesc": "Portfolio management with Alpha Score and Signal Badge",
         "watchlistDesc": "Watchlist monitoring metrics and column explanations"
     },
-    "guardianGuide": {
-        "subtitle": "Analyzes GEX positioning and macroeconomic conditions of the overall market",
-        "valueDesc": "The highest-level analytical tool for identifying overall market direction and volatility regime",
-        "gravityGaugeDesc": "Measures overall market liquidity strength on a 0-100 scale. Combining price momentum and money flow, it intuitively displays whether the current market is <weak>{weak}</weak>, <neutral>{neutral}</neutral>, or <strong>{strong}</strong>.",
-        "interpretationTitle": "Interpretation Criteria",
-        "weak": "Weak - Defensive position recommended",
-        "neutral": "Neutral - Wait for direction",
-        "strong": "Strong - Aggressive position possible",
-        "divergenceSub": "Price-Flow Divergence Analysis",
-        "divergenceDesc": "Measures the divergence between price movement (EXT) and actual money flow (INT). If price rises but money flows out, it's a <correction>{correction}</correction> signal; conversely, if price falls but money flows in, it's a <rebound>{rebound}</rebound> signal.",
-        "rvolTitle": "RVOL by Index",
-        "rvolDesc": "Displays relative volume (RVOL) for NASDAQ/DOW. Over 100% indicates active trading, over 200% signifies <highlight>{highlight}</highlight>.",
-        "flowMapSub": "Sector Flow Visualization",
-        "flowMapDesc": "Visualizes real-time money flow of 11 sectors as a network. Circle size represents market cap, position represents inter-sector correlation.",
-        "visualLegend": "Visual Legend",
-        "legendReturn": "Circle Border Color = Return Direction",
-        "legendFlow": "Line = Money Flow Path",
-        "legendPulse": "Pulse = Real-time Inflow",
-        "flowMapTip": "View money flow of theme sectors like AI INFRA, ENERGY at a glance.",
-        "verdictSub": "Tactical Verdict & Action Guide",
-        "verdictDesc": "Synthesizes all indicators to present a <finalVerdict>{finalVerdict}</finalVerdict> for the current market. Supports immediate decision-making via MOMENTUM, TARGET LOCK, and REGIME.",
-        "bullishAction": "Maintain or add long positions",
-        "bearishAction": "Short positions or hold cash",
-        "neutralAction": "No direction - Wait recommended, maintain existing positions",
-        "rlsiSub": "Market Essence Analysis",
-        "rlsiDesc": "Displays current market session status and analysis availability in real-time. Different analysis logic applies to Pre-market, Regular, and After-market sessions.",
-        "alignmentState": "ALIGNMENT Status",
-        "alignOk": "All indicators receiving normally",
-        "alignPartial": "Some indicators delayed",
-        "alignOffline": "Off-hours - Analysis paused"
-    },
     "commandGuide": {
         "subtitle": "Analyzes gamma structure and tactical range of individual tickers",
         "cards": {
@@ -640,6 +609,88 @@
                 "activeDesc": "Above Average Volume → High Institutional Participation",
                 "normalDesc": "Average Volume Level",
                 "lowDesc": "Below Average → Low Interest"
+            }
+        }
+    },
+    "guardianGuide": {
+        "subtitle": "Analyzes market-wide GEX positioning and macro conditions",
+        "strategicValue": {
+            "title": "Strategic Value",
+            "desc": "Highest level analysis tool to identify market-wide direction and volatility regime"
+        },
+        "gravityGauge": {
+            "title": "GRAVITY GAUGE",
+            "subtitle": "Relative Liquid Strength Index",
+            "desc": "Measures market-wide liquidity strength on a 0-100 scale. Combines price momentum and fund flow to intuitively indicate if the market is <weak>Bearish</weak>, <neutral>Neutral</neutral>, or <strong>Bullish</strong>.",
+            "interpretation": "Interpretation Scale",
+            "weak": "Bearish - Defensive Position Recommended",
+            "neutral": "Neutral - Wait for Direction",
+            "strong": "Bullish - Aggressive Position Possible"
+        },
+        "priceFlow": {
+            "title": "PRICE & FLOW DIVERGENCE",
+            "subtitle": "Price-Flow Divergence Analysis",
+            "desc": "Measures divergence between price movement (EXT) and actual fund flow (INT). Price rising but outflow signals <warning>Correction Imminent</warning>, while price falling but inflow signals <opportunity>Ready to Rebound</opportunity>.",
+            "rvol": {
+                "title": "RVOL by Index",
+                "desc": "Displays Relative Volume (RVOL) for NASDAQ/DOW. Over 100% means active trading above average, over 200% means <highlight>Exceptional Interest</highlight>."
+            }
+        },
+        "flowMap": {
+            "title": "FLOW TOPOGRAPHY MAP",
+            "subtitle": "Sector Fund Flow Visualization",
+            "desc": "Visualizes real-time fund flow of 11 sectors as a network. Circle size represents market cap, position represents correlation between sectors.",
+            "legend": "Visual Element Interpretation",
+            "border": "Circle Border Color = Return Direction",
+            "link": "Connecting Line = Fund Flow Path",
+            "pulse": "Pulse = Real-time Inflow",
+            "tip": "Identify fund flows in theme sectors like AI INFRA, ENERGY at a glance."
+        },
+        "tactical": {
+            "title": "TACTICAL VERDICT",
+            "subtitle": "Tactical Conclusion & Action Guide",
+            "desc": "Synthesizes all indicators to present a <highlight>Final Verdict</highlight> on the current market. Supports immediate decision making via MOMENTUM, TARGET LOCK, and REGIME.",
+            "bullish": "Hold or Add Long Positions",
+            "bearish": "Short Positions or Hold Cash",
+            "neutral": "No Direction - Watch Recommended, Hold Existing"
+        },
+        "rlsi": {
+            "title": "MARKET ESSENCE (RLSI)",
+            "subtitle": "Market Essence Analysis",
+            "desc": "Displays current market session status and analysis availability in real-time. Different analysis logic applies for Premarket, Regular, and Aftermarket sessions.",
+            "alignmentState": "ALIGNMENT Status",
+            "alignOk": "All indicators receiving normally",
+            "alignPartial": "Some indicators delayed",
+            "alignOffline": "Off-hours - Analysis paused"
+        }
+    },
+    "landing": {
+        "hero": {
+            "insight": {
+                "title": "Insight",
+                "subtitle": "3-Day Deep Precision",
+                "desc": "AI deep analysis without speculation derives core insights for the next 72 hours."
+            },
+            "velocity": {
+                "title": "Velocity",
+                "subtitle": "Alpha Velocity 0.1",
+                "desc": "Hunts only the top 0.1% alpha rising right now with S1 grade data precision and mechanical speed."
+            }
+        },
+        "weeklyBriefing": {
+            "economy": {
+                "title": "Weekly Economic Calendar (US / KST)",
+                "subtitle": "Weekly Economic Calendar",
+                "headers": {
+                    "dateTime": "Date / Time (ET / KST)",
+                    "event": "Event",
+                    "forecast": "Forecast",
+                    "actual": "Actual"
+                }
+            },
+            "trump": {
+                "title": "President Trump's Schedule",
+                "subtitle": "President Trump's Schedule"
             }
         }
     },

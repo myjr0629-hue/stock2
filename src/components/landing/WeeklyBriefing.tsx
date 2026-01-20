@@ -4,7 +4,10 @@ import { Calendar, Flag, Clock } from "lucide-react";
 
 import { getEconomicEvents } from "@/services/stockApi";
 
+import { getTranslations } from 'next-intl/server';
+
 export async function WeeklyBriefing() {
+    const t = await getTranslations('landing.weeklyBriefing');
     // Live Data: US Economic Calendar (ForexFactory)
     const economicEvents = await getEconomicEvents();
 
@@ -24,8 +27,8 @@ export async function WeeklyBriefing() {
                 <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
                     <Calendar className="w-4 h-4 text-blue-600" />
                     <div>
-                        <h2 className="text-sm font-bold text-slate-800">주간 경제 일정 (US / KST)</h2>
-                        <p className="text-[10px] text-slate-400 font-medium tracking-wide">Weekly Economic Calendar</p>
+                        <h2 className="text-sm font-bold text-slate-800">{t('economy.title')}</h2>
+                        <p className="text-[10px] text-slate-400 font-medium tracking-wide">{t('economy.subtitle')}</p>
                     </div>
                 </div>
 
@@ -33,10 +36,10 @@ export async function WeeklyBriefing() {
                     <table className="w-full text-xs text-left">
                         <thead className="text-[10px] text-slate-500 uppercase bg-slate-50/50">
                             <tr>
-                                <th className="px-2 py-2 rounded-l-lg">Date / Time (ET / KST)</th>
-                                <th className="px-2 py-2">Event</th>
-                                <th className="px-2 py-2">Forecast</th>
-                                <th className="px-2 py-2 rounded-r-lg">Actual</th>
+                                <th className="px-2 py-2 rounded-l-lg">{t('economy.headers.dateTime')}</th>
+                                <th className="px-2 py-2">{t('economy.headers.event')}</th>
+                                <th className="px-2 py-2">{t('economy.headers.forecast')}</th>
+                                <th className="px-2 py-2 rounded-r-lg">{t('economy.headers.actual')}</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -79,8 +82,8 @@ export async function WeeklyBriefing() {
                 <div className="flex items-center gap-2 mb-3 pb-3 border-b border-slate-100">
                     <Flag className="w-4 h-4 text-rose-600" />
                     <div>
-                        <h2 className="text-sm font-bold text-slate-800">트럼프 대통령 일정</h2>
-                        <p className="text-[10px] text-slate-400 font-medium tracking-wide">President Trump's Schedule</p>
+                        <h2 className="text-sm font-bold text-slate-800">{t('trump.title')}</h2>
+                        <p className="text-[10px] text-slate-400 font-medium tracking-wide">{t('trump.subtitle')}</p>
                     </div>
                 </div>
 
