@@ -363,6 +363,25 @@
         "gammaSqueeze": "감마 스퀴즈 발동",
         "panicSelling": "패닉 셀링"
     },
+    "flowRadar": {
+        "volumePreMarket": "⚡ Volume(거래량): 장전(Pre) 대기중 - 본장 시작 시 활성화",
+        "volumeActive": "⚡ Volume(거래량): '단타/모멘텀' - 오늘 고래들이 싸우는 현장",
+        "oiSwing": "🏰 OI(누적매물): '스윙/추세' - MM이 설계한 진짜 지지/저항 성벽",
+        "putFlowDown": "Put Flow (하락)",
+        "callFlowUp": "Call Flow (상승)",
+        "hiddenPositionDesc": "이 차트는 일반 투자자들은 볼 수 없는 \"고래(Whale)와 마켓메이커(MM)\"의 숨겨진 포지션과 헷징 구조를 실시간 분석합니다.",
+        "currentPositionSuggestion": "현재 포지션 제안",
+        "probabilityAnalysis": "% 확률 분석 (Beta)",
+        "chartInterpretation": "차트 해석 비법",
+        "pulseExplanation": "깜빡이는 바 (Pulse)",
+        "pulseDetail": "지금 세력 자금이 몰리는 핫스팟입니다.",
+        "buyTactic": "전술 활용 (매수)",
+        "buyTacticDetail": "주가가 녹색 벽(저항)을 강하게 뚫으면 매수 기회입니다.",
+        "sellTactic": "전술 활용 (매도/방어)",
+        "sellTacticDetail": "주가가 붉은 벽(지지) 아래로 깨지면 손절/매도 타이밍입니다.",
+        "resistance": "저항",
+        "support": "지지"
+    },
     "performance": {
         "collectingData": "성과 데이터 수집 중...",
         "collectingDataDesc": "리포트 생성 후 D+3부터 측정됩니다.",

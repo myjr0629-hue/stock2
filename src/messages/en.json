@@ -363,6 +363,25 @@
         "gammaSqueeze": "Gamma Squeeze Activated",
         "panicSelling": "Panic Selling"
     },
+    "flowRadar": {
+        "volumePreMarket": "⚡ Volume: Pre-market wait - Activates at market open",
+        "volumeActive": "⚡ Volume: Day trading/Momentum - Where whales fight today",
+        "oiSwing": "🏰 OI (Open Interest): Swing/Trend - Real S/R walls built by MM",
+        "putFlowDown": "Put Flow (Bearish)",
+        "callFlowUp": "Call Flow (Bullish)",
+        "hiddenPositionDesc": "This chart analyzes hidden positions and hedging structures of Whales and Market Makers (MM) that regular investors cannot see.",
+        "currentPositionSuggestion": "Current Position Suggestion",
+        "probabilityAnalysis": "% Probability Analysis (Beta)",
+        "chartInterpretation": "Chart Interpretation Tips",
+        "pulseExplanation": "Pulsing Bar (Pulse)",
+        "pulseDetail": "This is where institutional money is flowing now.",
+        "buyTactic": "Tactical Use (Buy)",
+        "buyTacticDetail": "When price strongly breaks through the green wall (resistance), it's a buy opportunity.",
+        "sellTactic": "Tactical Use (Sell/Defend)",
+        "sellTacticDetail": "When price breaks below the red wall (support), it's time to cut losses/sell.",
+        "resistance": "Resistance",
+        "support": "Support"
+    },
     "performance": {
         "collectingData": "Collecting performance data...",
         "collectingDataDesc": "Measured from D+3 after report generation.",
