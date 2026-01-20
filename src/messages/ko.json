@@ -384,6 +384,15 @@
         "marketClosedNoTrigger": "장 마감 - 실시간 트리거 없음",
         "whaleAccumulationZone": "기관(Whale) 매집 시작 안전 구간"
     },
+    "gems": {
+        "holdReasonDefault": "안전 모드: 실시간 데이터 연결 재시도 중이나, 기존 포지션 유지가 유리함.(점수 격차 +0.00)",
+        "holdStrategyDefault": "NVDA 40%, MSTR 30%, PLTR 30% 비중 유지. 기관 이탈 징후 없음. (Failover Active)",
+        "reliabilityProtocol": "신뢰성 검증 프로토콜",
+        "strategicAllocation": "전략적 비중 제안",
+        "alphaScoreGap": "알파 점수 격차",
+        "swapApprovalThreshold": "교체 승인 기준점",
+        "safetyBufferLock": "안전 버퍼에 의해 현재 로직 잠금 유지."
+    },
     "language": {
         "ko": "한국어",
         "en": "English",

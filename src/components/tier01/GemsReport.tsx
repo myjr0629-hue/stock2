@@ -5,6 +5,7 @@ import { useState } from "react";
 import { Tier01Data, GemsTicker } from "@/services/stockApi";
 import { Activity, Shield, Zap, TrendingUp, AlertTriangle, Cpu, Globe, Database, ChevronDown, ChevronUp, Lock, CheckCircle2, Server, Eye, ArrowRightLeft, LockKeyhole } from "lucide-react";
 import { LandingHeader } from "@/components/landing/LandingHeader";
+import { useTranslations } from 'next-intl';
 
 interface Props {
     data: Tier01Data;
@@ -217,14 +218,15 @@ function GridRow({ ticker }: { ticker: GemsTicker }) {
 }
 
 export function GemsReport({ data }: Props) {
+    const t = useTranslations('gems');
     const top3 = data?.tickers ? data.tickers.slice(0, 3) : [];
 
     // NUCLEAR FALLBACK: Force a valid object if data is missing, matching the user's requested "Live Analysis" tone
     const signal = data?.swapSignal || {
         action: "HOLD",
-        reason: "안전 모드: 실시간 데이터 연결 재시도 중이나, 기존 포지션 유지가 유리함.(점수 격차 +0.00)",
+        reason: t('holdReasonDefault'),
         scoreDiff: 0.00,
-        strategy: "NVDA 40%, MSTR 30%, PLTR 30% 비중 유지. 기관 이탈 징후 없음. (Failover Active)"
+        strategy: t('holdStrategyDefault')
     };
 
     const isSwap = signal.action === "SWAP";
@@ -259,7 +261,7 @@ export function GemsReport({ data }: Props) {
                         <div className={`absolute top-0 left-0 w-2 h-full ${barColor}`} />
                         <div className="mb-4 pl-2">
                             <h3 className="text-slate-400 font-bold text-xs tracking-widest uppercase flex items-center gap-2 mb-1">
-                                <ArrowRightLeft className="w-4 h-4" /> 신뢰성 검증 프로토콜
+                                <ArrowRightLeft className="w-4 h-4" /> {t('reliabilityProtocol')}
                             </h3>
                             <h2 className={`text-3xl font-black ${statusColor} tracking-tighter`}>{signal.action} SIGNAL</h2>
                         </div>
@@ -267,20 +269,20 @@ export function GemsReport({ data }: Props) {
                             <p className="text-slate-200 text-xs font-medium leading-relaxed">{signal.reason}</p>
                         </div>
                         <div className="bg-[#0F172A]/80 p-3 rounded-lg border border-slate-700/50 mb-4 ml-2">
-                            <div className="flex items-center gap-2 mb-1"><Shield className="w-3 h-3 text-white" /><span className="text-[10px] font-bold text-white uppercase">전략적 비중 제안</span></div>
+                            <div className="flex items-center gap-2 mb-1"><Shield className="w-3 h-3 text-white" /><span className="text-[10px] font-bold text-white uppercase">{t('strategicAllocation')}</span></div>
                             <p className="text-slate-300 text-[11px] leading-snug">{signal.strategy}</p>
                         </div>
                         <div className="space-y-3 mt-auto pl-2">
                             <div className="flex justify-between items-center text-xs border-b border-slate-700/50 pb-2">
-                                <span className="text-slate-500 font-bold uppercase">알파 점수 격차</span>
+                                <span className="text-slate-500 font-bold uppercase">{t('alphaScoreGap')}</span>
                                 <span className={`font-mono font-bold text-sm ${signal.scoreDiff >= 5 ? 'text-emerald-400' : 'text-slate-400'}`}>+{signal.scoreDiff.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-500 font-bold uppercase">교체 승인 기준점</span>
+                                <span className="text-slate-500 font-bold uppercase">{t('swapApprovalThreshold')}</span>
                                 <span className="text-[#1E293B] font-mono font-bold text-[10px] bg-slate-400 px-1.5 py-0.5 rounded">+5.00 REQUIRED</span>
                             </div>
                             {signal.action === "HOLD" && (
-                                <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-2 bg-slate-900/50 p-2 rounded"><LockKeyhole className="w-3 h-3 text-emerald-500" /><span>안전 버퍼에 의해 현재 로직 잠금 유지.</span></div>
+                                <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-2 bg-slate-900/50 p-2 rounded"><LockKeyhole className="w-3 h-3 text-emerald-500" /><span>{t('safetyBufferLock')}</span></div>
                             )}
                         </div>
                     </div>

@@ -384,6 +384,15 @@
         "marketClosedNoTrigger": "Market closed - No real-time triggers",
         "whaleAccumulationZone": "Whale accumulation safe zone"
     },
+    "gems": {
+        "holdReasonDefault": "Safe mode: Reconnecting live data, but maintaining current positions is advantageous. (Score gap +0.00)",
+        "holdStrategyDefault": "Maintain NVDA 40%, MSTR 30%, PLTR 30% allocation. No institutional exit signals. (Failover Active)",
+        "reliabilityProtocol": "Reliability Protocol",
+        "strategicAllocation": "Strategic Allocation Proposal",
+        "alphaScoreGap": "Alpha Score Gap",
+        "swapApprovalThreshold": "Swap Approval Threshold",
+        "safetyBufferLock": "Current logic locked by safety buffer."
+    },
     "language": {
         "ko": "한국어",
         "en": "English",
