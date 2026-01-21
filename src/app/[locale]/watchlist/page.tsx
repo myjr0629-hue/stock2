@@ -104,9 +104,41 @@ export default function WatchlistPage() {
 
                         {/* Rows */}
                         {loading ? (
-                            <div className="px-4 py-16 text-center">
-                                <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-amber-500/50" />
-                                <p className="text-slate-500 text-sm">{t('loadingWatchlist')}</p>
+                            /* Skeleton UI - Shows animated placeholder rows */
+                            <div className="divide-y divide-white/5">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-4 items-center animate-pulse">
+                                        {/* Ticker */}
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-9 h-9 rounded-full bg-slate-700/50" />
+                                            <div className="space-y-1">
+                                                <div className="h-4 w-12 bg-slate-700/50 rounded" />
+                                                <div className="h-2 w-16 bg-slate-800/50 rounded" />
+                                            </div>
+                                        </div>
+                                        {/* Price */}
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="h-4 w-16 bg-slate-700/50 rounded" />
+                                            <div className="h-3 w-10 bg-slate-800/50 rounded" />
+                                        </div>
+                                        {/* Alpha */}
+                                        <div className="flex justify-center"><div className="w-8 h-8 rounded-full bg-slate-700/50" /></div>
+                                        {/* Signal */}
+                                        <div className="flex justify-center"><div className="h-6 w-16 bg-slate-700/50 rounded" /></div>
+                                        {/* Whale */}
+                                        <div className="flex justify-center"><div className="h-5 w-14 bg-slate-700/50 rounded" /></div>
+                                        {/* RSI */}
+                                        <div className="flex justify-center"><div className="h-4 w-10 bg-slate-700/50 rounded" /></div>
+                                        {/* Gamma */}
+                                        <div className="flex justify-center"><div className="h-5 w-12 bg-slate-700/50 rounded" /></div>
+                                        {/* 3D */}
+                                        <div className="flex justify-center"><div className="h-4 w-10 bg-slate-700/50 rounded" /></div>
+                                        {/* MaxPain */}
+                                        <div className="flex justify-center"><div className="h-4 w-12 bg-slate-700/50 rounded" /></div>
+                                        {/* GEX */}
+                                        <div className="flex justify-center"><div className="h-5 w-12 bg-slate-700/50 rounded" /></div>
+                                    </div>
+                                ))}
                             </div>
                         ) : items.length === 0 ? (
                             <div className="px-4 py-16 text-center">
@@ -286,8 +318,8 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
     if (score === undefined) {
         return (
             <div className="flex items-center gap-1.5">
-                <div className="w-8 h-8 rounded-full border-2 border-slate-700 flex items-center justify-center">
-                    <span className="text-[8px] text-slate-500">N/A</span>
+                <div className="w-8 h-8 rounded-full border-2 border-slate-700 flex items-center justify-center animate-pulse">
+                    <span className="text-[7px] text-slate-500">로딩중</span>
                 </div>
             </div>
         );
@@ -351,7 +383,7 @@ function SignalBadge({ action, confidence }: { action?: string; confidence?: num
 
 function WhaleIndicator({ index, confidence }: { index?: number; confidence?: string }) {
     if (index === undefined || index === null) {
-        return <span className="text-[10px] text-slate-600">N/A</span>;
+        return <span className="text-[9px] text-slate-500 animate-pulse">로딩중</span>;
     }
 
     const t = useTranslations('watchlist');
@@ -373,7 +405,7 @@ function WhaleIndicator({ index, confidence }: { index?: number; confidence?: st
 
 function RSIIndicator({ value }: { value?: number }) {
     if (value === undefined || value === null) {
-        return <span className="text-[10px] text-slate-600">—</span>;
+        return <span className="text-[9px] text-slate-500 animate-pulse">로딩중</span>;
     }
 
     const t = useTranslations('watchlist');
@@ -423,12 +455,12 @@ function GammaFlipIndicator({ value, price, gexM }: { value?: number; price?: nu
     }
 
     // Case 3: No data at all
-    return <span className="text-[10px] text-slate-600">—</span>;
+    return <span className="text-[9px] text-slate-500 animate-pulse">로딩중</span>;
 }
 
 function Return3DIndicator({ value }: { value?: number }) {
     if (value === undefined || value === null) {
-        return <span className="text-[10px] text-slate-600">—</span>;
+        return <span className="text-[9px] text-slate-500 animate-pulse">로딩중</span>;
     }
 
     const color = value > 0 ? 'text-emerald-400' : value < 0 ? 'text-rose-400' : 'text-white';
@@ -442,7 +474,7 @@ function Return3DIndicator({ value }: { value?: number }) {
 
 function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }) {
     if (dist === undefined || dist === null) {
-        return <span className="text-[10px] text-slate-600">—</span>;
+        return <span className="text-[9px] text-slate-500 animate-pulse">로딩중</span>;
     }
 
     const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white';
@@ -463,7 +495,7 @@ function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }
 
 function GexIndicator({ gexM }: { gexM?: number }) {
     if (gexM === undefined || gexM === null) {
-        return <span className="text-[10px] text-slate-600">—</span>;
+        return <span className="text-[9px] text-slate-500 animate-pulse">로딩중</span>;
     }
 
     const color = gexM > 0 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'

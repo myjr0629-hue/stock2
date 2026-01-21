@@ -51,22 +51,32 @@ export function useWatchlist() {
             const data = getWatchlist();
             const tickers = data.items.map(item => item.ticker);
 
-            // Fetch analysis for all tickers in parallel
-            const analyzePromises = tickers.map(async (ticker) => {
-                try {
-                    const res = await fetch(`/api/watchlist/analyze?ticker=${ticker}`);
-                    if (!res.ok) return null;
-                    return await res.json();
-                } catch {
-                    return null;
-                }
-            });
+            // [OPTIMIZATION] Use batch API for all tickers at once
+            if (tickers.length === 0) {
+                setItems([]);
+                setError(null);
+                return;
+            }
 
-            const results = await Promise.all(analyzePromises);
+            let apiResults: Record<string, any> = {};
+            try {
+                const res = await fetch(`/api/watchlist/batch?tickers=${tickers.join(',')}`);
+                if (res.ok) {
+                    const batchData = await res.json();
+                    // Convert array to map for easy lookup
+                    batchData.results?.forEach((result: any) => {
+                        if (result && !result.error) {
+                            apiResults[result.ticker] = result;
+                        }
+                    });
+                }
+            } catch {
+                console.error('Batch API failed, items will show loading state');
+            }
 
             // Enrich items with API data
-            const enriched: EnrichedWatchlistItem[] = data.items.map((item, index) => {
-                const apiData = results[index];
+            const enriched: EnrichedWatchlistItem[] = data.items.map((item) => {
+                const apiData = apiResults[item.ticker];
                 if (apiData && apiData.alphaSnapshot && apiData.realtime) {
                     return {
                         ...item,
