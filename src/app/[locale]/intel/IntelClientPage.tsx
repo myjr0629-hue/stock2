@@ -180,6 +180,21 @@ export interface TickerItem {
         whaleTargetLevel?: number; // [V3.7.3]
         dominantContract?: string; // [V3.7.3]
         whaleReasonKR?: string; // [V3.7.4] Narrative Engine
+        // [Phase 5] Tactical Conclusion SSOT
+        tacticalConclusion?: {
+            key: string;  // i18n key e.g. 'signal.shortGammaAboveMaxPain'
+            direction: 'BULLISH' | 'BEARISH' | 'CAUTION' | 'NEUTRAL';
+            priority: number;
+        };
+        // [Phase 6] Snapshot Data - Preserved at report generation time
+        snapshotData?: {
+            whaleIndex: number;
+            whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE';
+            offExPct: number;
+            netPremium: number;
+            dominantContract?: string;
+            capturedAt: string;  // ISO timestamp
+        };
     };
     entryBand?: { low: number; high: number };
     hardCut?: number;
@@ -708,16 +723,16 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                     <section>
                         {isDebug && <div className="text-right text-[9px] font-mono text-slate-600 mb-2">UPD: {ev.price.fetchedAtET}</div>}
 
-                        {/* [V3.7.3] Surgical UI Dashboard */}
+                        {/* [V3.7.3] Surgical UI Dashboard - [Phase 6] snapshotData fallback */}
                         <div className="grid grid-cols-2 gap-4 mb-4">
                             {/* Left: Execution Dial */}
                             <ExecutionDial
-                                whaleIndex={item.decisionSSOT?.whaleIndex || 0}
-                                whaleConfidence={item.decisionSSOT?.whaleConfidence || 'NONE'}
+                                whaleIndex={item.decisionSSOT?.whaleIndex ?? item.decisionSSOT?.snapshotData?.whaleIndex ?? 0}
+                                whaleConfidence={item.decisionSSOT?.whaleConfidence ?? item.decisionSSOT?.snapshotData?.whaleConfidence ?? 'NONE'}
                                 alphaScore={item.alphaScore || 0}
                                 whaleEntryLevel={item.decisionSSOT?.whaleEntryLevel}
                                 whaleTargetLevel={item.decisionSSOT?.whaleTargetLevel}
-                                dominantContract={item.decisionSSOT?.dominantContract}
+                                dominantContract={item.decisionSSOT?.dominantContract ?? item.decisionSSOT?.snapshotData?.dominantContract}
                             />
 
                             {/* Right: Gamma Void */}
@@ -842,30 +857,36 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                         <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <Layers className="w-3.5 h-3.5" /> Flow Dynamics
                         </h3>
-                        {/* [9.2] Dark Pool / Condition Codes */}
+                        {/* [9.2] Dark Pool / Condition Codes - [Phase 6] snapshotData fallback */}
                         <div className="bg-slate-900 border border-slate-800 rounded p-4 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Dark Pool (Off-Ex)</span>
                                     <div className="flex items-end gap-2">
-                                        {(ev.flow.offExPct > 0 || liveQuote?.volume) ? (
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-mono font-bold text-white">
-                                                    {ev.flow.offExPct > 0 ? `${ev.flow.offExPct.toFixed(1)}%` : `VOL: ${(liveQuote.volume / 1000).toFixed(0)}K`}
+                                        {(() => {
+                                            const displayOffExPct = ev.flow.offExPct > 0 ? ev.flow.offExPct : (item.decisionSSOT?.snapshotData?.offExPct ?? 0);
+                                            const isFromSnapshot = ev.flow.offExPct <= 0 && displayOffExPct > 0;
+                                            return (displayOffExPct > 0 || liveQuote?.volume) ? (
+                                                <div className="flex flex-col">
+                                                    <span className="text-sm font-mono font-bold text-white">
+                                                        {displayOffExPct > 0 ? `${displayOffExPct.toFixed(1)}%` : `VOL: ${(liveQuote.volume / 1000).toFixed(0)}K`}
+                                                    </span>
+                                                    <span className="text-[9px] text-slate-500 font-medium">
+                                                        {isFromSnapshot ? '보고서 생성 시점 데이터' : '기관 비공개 거래소 물량'}
+                                                    </span>
+                                                    {isLive && <span className="text-[9px] text-emerald-500 font-bold animate-pulse mt-0.5">● LIVE FLOW</span>}
+                                                </div>
+                                            ) : (
+                                                <span className="text-[10px] font-mono text-slate-500">
+                                                    Scanning...
                                                 </span>
-                                                <span className="text-[9px] text-slate-500 font-medium">기관 비공개 거래소 물량</span>
-                                                {isLive && <span className="text-[9px] text-emerald-500 font-bold animate-pulse mt-0.5">● LIVE FLOW</span>}
-                                            </div>
-                                        ) : (
-                                            <span className="text-[10px] font-mono text-slate-500">
-                                                Scanning...
-                                            </span>
-                                        )}
+                                            );
+                                        })()}
                                     </div>
                                     <div className="w-full bg-slate-800 h-1 mt-2 rounded-full overflow-hidden">
                                         <div
-                                            className={`h-full ${ev.flow.offExPct > 40 ? 'bg-amber-400' : 'bg-slate-600'}`}
-                                            style={{ width: `${Math.min(100, ev.flow.offExPct || 0)}%` }}
+                                            className={`h-full ${(ev.flow.offExPct || item.decisionSSOT?.snapshotData?.offExPct || 0) > 40 ? 'bg-amber-400' : 'bg-slate-600'}`}
+                                            style={{ width: `${Math.min(100, ev.flow.offExPct || item.decisionSSOT?.snapshotData?.offExPct || 0)}%` }}
                                         />
                                     </div>
                                 </div>
@@ -874,27 +895,37 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                         <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Net Whale Flow</span>
                                         <span className="text-[8px] bg-slate-800 text-slate-400 px-1 rounded">INSTITUTIONAL</span>
                                     </div>
-                                    {/* [Phase 40] Net Premium Calculation */}
+                                    {/* [Phase 6] Net Premium with snapshotData fallback */}
                                     <div className="flex flex-col">
-                                        <div className="flex items-end gap-1.5">
-                                            {(ev.flow.netPremium || 0) !== 0 ? (
-                                                <span className={`text-sm font-mono font-bold ${(ev.flow.netPremium || 0) > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                    ${((ev.flow.netPremium || 0) / 1_000_000).toFixed(1)}M
-                                                </span>
-                                            ) : (
-                                                <span className="text-sm font-mono text-slate-400">$0.0M</span>
-                                            )}
-                                            {ev.flow.vol > 0 && (ev.flow.netPremium || 0) !== 0 && (
-                                                <span className={`text-[10px] font-bold mb-0.5 ${(ev.flow.netPremium || 0) > 0 ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
-                                                    ({((Math.abs(ev.flow.netPremium || 0) / (ev.flow.vol * ev.price.last)) * 100).toFixed(2)}%)
-                                                </span>
-                                            )}
-                                        </div>
-                                        {(ev.flow.netPremium || 0) === 0 ? (
-                                            <span className="text-[9px] text-slate-500 font-medium italic">장 마감 - 기관 매수/매도 없음</span>
-                                        ) : (
-                                            <span className="text-[9px] text-slate-500 font-medium">실질적 매수 압력 강도</span>
-                                        )}
+                                        {(() => {
+                                            const displayNetPremium = (ev.flow.netPremium || 0) !== 0 ? (ev.flow.netPremium || 0) : (item.decisionSSOT?.snapshotData?.netPremium ?? 0);
+                                            const isFromSnapshot = (ev.flow.netPremium || 0) === 0 && displayNetPremium !== 0;
+                                            return (
+                                                <>
+                                                    <div className="flex items-end gap-1.5">
+                                                        {displayNetPremium !== 0 ? (
+                                                            <span className={`text-sm font-mono font-bold ${displayNetPremium > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                ${(displayNetPremium / 1_000_000).toFixed(1)}M
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-sm font-mono text-slate-400">$0.0M</span>
+                                                        )}
+                                                        {ev.flow.vol > 0 && displayNetPremium !== 0 && (
+                                                            <span className={`text-[10px] font-bold mb-0.5 ${displayNetPremium > 0 ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
+                                                                ({((Math.abs(displayNetPremium) / (ev.flow.vol * ev.price.last)) * 100).toFixed(2)}%)
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {displayNetPremium === 0 ? (
+                                                        <span className="text-[9px] text-slate-500 font-medium italic">장 마감 - 기관 매수/매도 없음</span>
+                                                    ) : isFromSnapshot ? (
+                                                        <span className="text-[9px] text-slate-500 font-medium">보고서 생성 시점 데이터</span>
+                                                    ) : (
+                                                        <span className="text-[9px] text-slate-500 font-medium">실질적 매수 압력 강도</span>
+                                                    )}
+                                                </>
+                                            );
+                                        })()}
                                     </div>
                                 </div>
                             </div>

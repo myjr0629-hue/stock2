@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { TypewriterText } from '@/components/guardian/TypewriterText';
 import { Bot, ArrowUpRight, ArrowDownRight, CircuitBoard } from 'lucide-react';
 import { TickerItem } from '@/types/intel';
+import { useTranslations } from 'next-intl';
 
 // ----------------------------------------------------------------------
 // 1. Briefing Bar (Mechanized Font)
@@ -30,6 +31,7 @@ export function PhysicalAIBriefingBar({ message }: { message: string }) {
 // 2. Tactical Deck (Clone of M7 Deck with Amber Theme)
 // ----------------------------------------------------------------------
 export function PhysicalAITacticalDeck({ items, selectedTicker, onSelect }: { items: TickerItem[], selectedTicker: TickerItem | null, onSelect: (item: TickerItem) => void }) {
+    const t = useTranslations('signal');
 
     // Sort by Alpha
     const sorted = useMemo(() => [...items].sort((a, b) => (b.alphaScore || 0) - (a.alphaScore || 0)), [items]);
@@ -45,6 +47,8 @@ export function PhysicalAITacticalDeck({ items, selectedTicker, onSelect }: { it
                     const isUp = change >= 0;
                     const isSelected = selectedTicker?.ticker === item.ticker;
                     const action = item.decisionSSOT?.action || "HOLD";
+                    const tacticalKey = item.decisionSSOT?.tacticalConclusion?.key;
+                    const tacticalDirection = item.decisionSSOT?.tacticalConclusion?.direction;
 
                     // [V4.4] Calculate displayScore from evidence when alphaScore is missing
                     // Uses price change as primary signal: +3% = 70, 0% = 50, -3% = 30
@@ -55,6 +59,10 @@ export function PhysicalAITacticalDeck({ items, selectedTicker, onSelect }: { it
                     const borderColor = isSelected ? "border-amber-500" : "border-slate-800 hover:border-amber-700/50";
                     const bgGlow = isSelected ? "bg-amber-900/20" : "bg-[#0a0f18]";
                     const scoreColor = clampedScore && clampedScore >= 60 ? "text-amber-400" : "text-slate-500";
+                    const tacticalColor = tacticalDirection === 'BULLISH' ? 'text-amber-400'
+                        : tacticalDirection === 'BEARISH' ? 'text-rose-500'
+                            : tacticalDirection === 'CAUTION' ? 'text-yellow-500'
+                                : 'text-slate-600';
 
                     return (
                         <div
@@ -102,6 +110,13 @@ export function PhysicalAITacticalDeck({ items, selectedTicker, onSelect }: { it
                                 <div className={`w-full py-1.5 rounded-sm text-[10px] font-black tracking-widest uppercase border ${action === 'BUY' ? 'bg-amber-500/20 border-amber-500/50 text-amber-400' : 'bg-slate-800 border-slate-700 text-slate-600'}`}>
                                     {action}
                                 </div>
+
+                                {/* [Phase 5] Tactical Conclusion - One-liner */}
+                                {tacticalKey && (
+                                    <div className={`w-full text-[9px] px-2 py-1 rounded-sm bg-amber-950/30 ${tacticalColor} truncate font-mono`} title={t(tacticalKey)}>
+                                        {t(tacticalKey)}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );

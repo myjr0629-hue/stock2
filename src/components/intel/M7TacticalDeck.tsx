@@ -5,8 +5,10 @@ import { useMemo } from 'react';
 import Image from 'next/image';
 import { TickerItem } from '@/types/intel';
 import { ArrowUpRight, ArrowDownRight, Minus, MousePointerClick } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 export function M7TacticalDeck({ items, selectedTicker, onSelect }: { items: TickerItem[], selectedTicker: TickerItem | null, onSelect: (item: TickerItem) => void }) {
+    const t = useTranslations('signal');
 
     // Sort by Alpha Score
     const sorted = useMemo(() => [...items].sort((a, b) => (b.alphaScore || 0) - (a.alphaScore || 0)), [items]);
@@ -24,11 +26,17 @@ export function M7TacticalDeck({ items, selectedTicker, onSelect }: { items: Tic
                     const isUp = change >= 0;
                     const isSelected = selectedTicker?.ticker === item.ticker;
                     const action = item.decisionSSOT?.action || "HOLD";
+                    const tacticalKey = item.decisionSSOT?.tacticalConclusion?.key;
+                    const tacticalDirection = item.decisionSSOT?.tacticalConclusion?.direction;
 
                     // Colors
                     const borderColor = isSelected ? "border-emerald-500" : "border-slate-800 hover:border-slate-600";
                     const bgGlow = isSelected ? "bg-emerald-900/10" : "bg-[#0a0f18]";
                     const scoreColor = item.alphaScore && item.alphaScore >= 80 ? "text-amber-400" : "text-slate-400";
+                    const tacticalColor = tacticalDirection === 'BULLISH' ? 'text-emerald-400'
+                        : tacticalDirection === 'BEARISH' ? 'text-rose-400'
+                            : tacticalDirection === 'CAUTION' ? 'text-amber-400'
+                                : 'text-slate-500';
 
                     return (
                         <div
@@ -73,6 +81,13 @@ export function M7TacticalDeck({ items, selectedTicker, onSelect }: { items: Tic
                                 <div className={`w-full py-1.5 rounded text-[10px] font-bold tracking-widest uppercase border ${action === 'BUY' ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-500'}`}>
                                     {action}
                                 </div>
+
+                                {/* [Phase 5] Tactical Conclusion - One-liner */}
+                                {tacticalKey && (
+                                    <div className={`w-full text-[9px] px-2 py-1 rounded bg-slate-900/50 ${tacticalColor} truncate`} title={t(tacticalKey)}>
+                                        {t(tacticalKey)}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Hover Hint */}
