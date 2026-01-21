@@ -714,6 +714,66 @@ async function generateReportFromItems(
                     item.decisionSSOT.triggersKR.push('WHALE_IN_SIGHT');
                 }
             }
+
+            // [Phase 6] Snapshot Data Preservation - Capture at report generation time
+            item.decisionSSOT.snapshotData = {
+                whaleIndex: forensicResult.whaleIndex,
+                whaleConfidence: forensicResult.whaleConfidence,
+                offExPct: item.evidence?.flow?.offExPct || 0,
+                netPremium: item.evidence?.flow?.netPremium || 0,
+                dominantContract: forensicResult.details.dominantContract,
+                capturedAt: new Date().toISOString()
+            };
+
+            // [Phase 5] Tactical Conclusion SSOT - Generate signal key
+            const gammaState = item.evidence?.options?.gammaRegime || '';
+            const maxPain = item.evidence?.options?.maxPain || 0;
+            const gex = item.evidence?.options?.gex || 0;
+            const isShortGamma = gammaState.toLowerCase().includes('short') || gex < 0;
+            const isLongGamma = gammaState.toLowerCase().includes('long') || gex > 0;
+            const aboveMaxPain = maxPain > 0 && currentPrice > maxPain;
+            const belowMaxPain = maxPain > 0 && currentPrice < maxPain;
+
+            let signalKey = 'neutralNoSignal';
+            let direction: 'BULLISH' | 'BEARISH' | 'CAUTION' | 'NEUTRAL' = 'NEUTRAL';
+            let priority = 0;
+
+            // Determine tactical signal based on gamma + maxPain positioning
+            if (isShortGamma && aboveMaxPain) {
+                signalKey = 'shortGammaAboveMaxPain';
+                direction = 'BEARISH';
+                priority = 3;
+            } else if (isLongGamma && belowMaxPain) {
+                signalKey = 'longGammaBelowMaxPain';
+                direction = 'BULLISH';
+                priority = 3;
+            } else if (callWall > 0 && currentPrice >= callWall * 0.99) {
+                signalKey = 'breakoutCallWall';
+                direction = 'BULLISH';
+                priority = 2;
+            } else if (putFloor > 0 && currentPrice <= putFloor * 1.01) {
+                signalKey = 'supportPutFloor';
+                direction = 'BULLISH';
+                priority = 2;
+            } else if ((item.evidence?.flow?.relVol || 0) > 2.0) {
+                signalKey = 'highRvolMomentum';
+                direction = 'CAUTION';
+                priority = 1;
+            } else if (isLongGamma) {
+                signalKey = 'longGammaEntry';
+                direction = 'BULLISH';
+                priority = 1;
+            } else if (isShortGamma) {
+                signalKey = 'shortGammaCaution';
+                direction = 'CAUTION';
+                priority = 1;
+            }
+
+            item.decisionSSOT.tacticalConclusion = {
+                key: signalKey,
+                direction,
+                priority
+            };
         })));
     } else {
         // empty
