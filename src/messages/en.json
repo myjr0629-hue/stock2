@@ -699,5 +699,27 @@
         "terms": "Terms of Service",
         "contact": "Contact",
         "copyright": "© 2026 Market Signal Command"
+    },
+    "signal": {
+        "shortGammaAboveMaxPain": "Short Gamma + Above Max Pain → Downside pressure, Hold",
+        "longGammaBelowMaxPain": "Long Gamma + Below Max Pain → Upside potential, Entry possible",
+        "breakoutCallWall": "Call Wall Breakout → Acceleration zone",
+        "supportPutFloor": "Put Floor Support → Safe entry zone",
+        "highRvolMomentum": "Volume Surge → Momentum caution",
+        "neutralNoSignal": "No significant signal → Hold",
+        "longGammaEntry": "Long Gamma Entry → Stable uptrend expected",
+        "shortGammaCaution": "Short Gamma Zone → Volatility expansion warning"
+    },
+    "mobile": {
+        "oneLiner": "One-Liner",
+        "expandDetails": "Show Details",
+        "collapseDetails": "Collapse",
+        "coreMetrics": "Core Metrics",
+        "quickActions": "Quick Actions"
+    },
+    "alpha": {
+        "signal": "Alpha Signal",
+        "enginePowered": "Powered by Alpha Engine",
+        "confidence": "Confidence"
     }
 }

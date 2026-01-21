@@ -103,6 +103,21 @@ export interface TickerItem {
         whaleTargetLevel?: number;
         dominantContract?: string;
         whaleReasonKR?: string;
+        // [Phase 5] Tactical Conclusion SSOT
+        tacticalConclusion?: {
+            key: string;  // i18n key e.g. 'signal.shortGammaAboveMaxPain'
+            direction: 'BULLISH' | 'BEARISH' | 'CAUTION' | 'NEUTRAL';
+            priority: number;
+        };
+        // [Phase 6] Snapshot Data - Preserved at report generation time
+        snapshotData?: {
+            whaleIndex: number;
+            whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE';
+            offExPct: number;
+            netPremium: number;
+            dominantContract?: string;
+            capturedAt: string;  // ISO timestamp
+        };
     };
     entryBand?: { low: number; high: number };
     hardCut?: number;

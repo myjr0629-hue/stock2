@@ -699,5 +699,27 @@
         "terms": "이용약관",
         "contact": "문의하기",
         "copyright": "© 2026 Market Signal Command"
+    },
+    "signal": {
+        "shortGammaAboveMaxPain": "숏감마 + Max Pain 상회 → 하방 압력, 관망",
+        "longGammaBelowMaxPain": "롱감마 + Max Pain 하회 → 상승 여력, 진입 가능",
+        "breakoutCallWall": "콜월 돌파 → 상승 가속 구간",
+        "supportPutFloor": "풋플로어 지지 → 안전 진입 구간",
+        "highRvolMomentum": "거래량 폭증 → 모멘텀 주의",
+        "neutralNoSignal": "특이 사항 없음 → 관망",
+        "longGammaEntry": "롱감마 진입 → 안정적 상승 기대",
+        "shortGammaCaution": "숏감마 구간 → 변동성 확대 주의"
+    },
+    "mobile": {
+        "oneLiner": "한줄 결론",
+        "expandDetails": "상세 보기",
+        "collapseDetails": "접기",
+        "coreMetrics": "핵심 지표",
+        "quickActions": "빠른 액션"
+    },
+    "alpha": {
+        "signal": "Alpha Signal",
+        "enginePowered": "Alpha Engine 기반",
+        "confidence": "신뢰도"
     }
 }
