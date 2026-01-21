@@ -128,8 +128,9 @@ export async function GET(request: Request) {
             whaleConfidence = 'NONE';
         }
 
-        // === GAMMA FLIP LEVEL (Prioritize structure API for consistency with Command page) ===
-        const gammaFlipLevel = structureRes?.gammaFlipLevel || opts?.gems?.gammaFlipLevel || opts?.gammaFlipLevel || null;
+        // === GAMMA FLIP LEVEL (Use structure API ONLY for consistency with Command page) ===
+        // [FIX] Removed fallback to stockApi's all-expiries aggregation - now matches Command exactly
+        const gammaFlipLevel = structureRes?.gammaFlipLevel ?? null;
 
         // === NET GEX from Structure API (for consistent gamma state display) ===
         const structureGexM = structureRes?.netGex ? Number((structureRes.netGex / 1000000).toFixed(2)) : null;

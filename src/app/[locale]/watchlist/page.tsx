@@ -395,8 +395,8 @@ function GammaFlipIndicator({ value, price, gexM }: { value?: number; price?: nu
     // Case 1: Value exists and is valid
     if (value !== undefined && value !== null && value > 0) {
         const isAbove = price ? price > value : false;
-        const color = isAbove ? 'text-rose-400' : 'text-emerald-400';
-        const label = isAbove ? tInd('shortGamma') : tInd('longGamma');
+        const color = isAbove ? 'text-emerald-400' : 'text-rose-400';
+        const label = isAbove ? tInd('longGamma') : tInd('shortGamma');
         return (
             <div className="flex items-center gap-1" title={`Gamma Flip Level: $${value}`}>
                 <span className={`text-xs font-bold font-num ${color}`}>${value.toFixed(0)}</span>

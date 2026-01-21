@@ -806,10 +806,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                         ${structure.gammaFlipLevel}
                                                     </div>
                                                     {displayPrice && (
-                                                        <div className={`text-[10px] font-bold ${displayPrice > structure.gammaFlipLevel ? "text-rose-400" : "text-emerald-400"}`}>
+                                                        <div className={`text-[10px] font-bold ${displayPrice > structure.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
                                                             {displayPrice > structure.gammaFlipLevel
-                                                                ? t('shortGammaZone')
-                                                                : t('longGammaZone')}
+                                                                ? t('longGammaZone')
+                                                                : t('shortGammaZone')}
                                                         </div>
                                                     )}
                                                 </div>
@@ -818,9 +818,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             {/* Position Bar with Labels */}
                                             <div className="relative z-10">
                                                 <div className="flex justify-between text-[9px] mb-0.5">
-                                                    <span className="text-emerald-400 font-bold">{t('longGammaLabel')}</span>
-                                                    <span className="text-white/50">← Flip →</span>
                                                     <span className="text-rose-400 font-bold">{t('shortGammaLabel')}</span>
+                                                    <span className="text-white/50">← Flip →</span>
+                                                    <span className="text-emerald-400 font-bold">{t('longGammaLabel')}</span>
                                                 </div>
                                                 <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
                                                     {(() => {
@@ -831,8 +831,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                         const pos = Math.min(100, Math.max(0, ((displayPrice - low) / range) * 100));
                                                         return (
                                                             <>
-                                                                <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-600/60 to-emerald-500/40" style={{ width: '50%' }} />
-                                                                <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-rose-600/60 to-rose-500/40" style={{ width: '50%' }} />
+                                                                <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-rose-600/60 to-rose-500/40" style={{ width: '50%' }} />
+                                                                <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-emerald-600/60 to-emerald-500/40" style={{ width: '50%' }} />
                                                                 <div
                                                                     className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)] border-2 border-slate-700"
                                                                     style={{ left: `${pos}%`, transform: 'translate(-50%, -50%)' }}
