@@ -127,9 +127,42 @@ export default function PortfolioPage() {
 
                         {/* Holdings Rows */}
                         {loading ? (
-                            <div className="px-4 py-16 text-center">
-                                <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-cyan-500/50" />
-                                <p className="text-slate-500 text-sm">{t('loadingPortfolio')}</p>
+                            /* Skeleton UI - Shows animated placeholder rows */
+                            <div className="divide-y divide-white/5">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_2fr_2fr] px-4 py-3 items-center animate-pulse">
+                                        {/* Ticker */}
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-8 h-8 rounded-lg bg-slate-700/50" />
+                                            <div className="space-y-1">
+                                                <div className="h-4 w-12 bg-slate-700/50 rounded" />
+                                                <div className="h-2 w-20 bg-slate-800/50 rounded" />
+                                            </div>
+                                        </div>
+                                        {/* Quantity */}
+                                        <div className="flex justify-center"><div className="h-4 w-8 bg-slate-700/50 rounded" /></div>
+                                        {/* Avg Price */}
+                                        <div className="flex justify-center"><div className="h-4 w-14 bg-slate-700/50 rounded" /></div>
+                                        {/* Current Price */}
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="h-4 w-16 bg-slate-700/50 rounded" />
+                                            <div className="h-3 w-10 bg-slate-800/50 rounded" />
+                                        </div>
+                                        {/* P&L */}
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="h-4 w-12 bg-slate-700/50 rounded" />
+                                            <div className="h-3 w-8 bg-slate-800/50 rounded" />
+                                        </div>
+                                        {/* Alpha */}
+                                        <div className="flex justify-center"><div className="w-10 h-10 rounded-full bg-slate-700/50" /></div>
+                                        {/* Signal */}
+                                        <div className="flex justify-center"><div className="h-6 w-16 bg-slate-700/50 rounded-lg" /></div>
+                                        {/* MaxPain */}
+                                        <div className="flex justify-center"><div className="h-5 w-12 bg-slate-700/50 rounded" /></div>
+                                        {/* GEX */}
+                                        <div className="flex justify-center"><div className="h-5 w-14 bg-slate-700/50 rounded" /></div>
+                                    </div>
+                                ))}
                             </div>
                         ) : holdings.length === 0 ? (
                             <div className="px-4 py-16 text-center">

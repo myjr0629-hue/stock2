@@ -72,68 +72,99 @@ export function usePortfolio() {
             }
 
             const data = getPortfolio();
-            // Keep empty portfolio as-is (no auto demo data)
-
-            // Fetch current prices for all tickers
             const tickers = data.holdings.map(h => h.ticker);
-            const priceMap = await fetchPrices(tickers);
 
-            // Enrich holdings with current prices
-            const enriched: EnrichedHolding[] = data.holdings.map(holding => {
-                const priceData = priceMap[holding.ticker] || { price: holding.avgPrice, change: 0, changePct: 0 };
-                const marketValue = holding.quantity * priceData.price;
-                const costBasis = holding.quantity * holding.avgPrice;
-                const gainLoss = marketValue - costBasis;
-                const gainLossPct = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
+            // [OPTIMIZATION] Use batch API for all tickers at once
+            if (tickers.length === 0) {
+                setHoldings([]);
+                setSummary({
+                    totalValue: 0,
+                    totalCost: 0,
+                    totalGainLoss: 0,
+                    totalGainLossPct: 0,
+                    holdingsCount: 0
+                });
+                setError(null);
+                return;
+            }
 
+            let apiResults: Record<string, any> = {};
+            try {
+                const res = await fetch(`/api/portfolio/batch?tickers=${tickers.join(',')}`);
+                if (res.ok) {
+                    const batchData = await res.json();
+                    // Convert array to map for easy lookup
+                    batchData.results?.forEach((result: any) => {
+                        if (result && !result.error) {
+                            apiResults[result.ticker] = result;
+                        }
+                    });
+                }
+            } catch {
+                console.error('Portfolio batch API failed, items will show loading state');
+            }
+
+            // Enrich holdings with API data
+            const enriched: EnrichedHolding[] = data.holdings.map((holding) => {
+                const apiData = apiResults[holding.ticker];
+
+                if (apiData && apiData.realtime) {
+                    const rt = apiData.realtime;
+                    const alpha = apiData.alphaSnapshot;
+
+                    // Calculate display price (extended hours aware)
+                    const isExtended = rt.isExtended;
+                    const displayPrice = isExtended && rt.extPrice ? rt.extPrice : rt.price;
+                    const displayChangePct = isExtended && rt.extChangePercent !== undefined
+                        ? rt.extChangePercent
+                        : rt.changePct;
+
+                    const marketValue = holding.quantity * displayPrice;
+                    const costBasis = holding.quantity * holding.avgPrice;
+                    const gainLoss = marketValue - costBasis;
+                    const gainLossPct = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
+
+                    return {
+                        ...holding,
+                        currentPrice: displayPrice,
+                        change: rt.change || 0,
+                        changePct: displayChangePct,
+                        session: rt.session,
+                        isExtended,
+                        marketValue,
+                        gainLoss,
+                        gainLossPct,
+                        // Alpha data
+                        alphaScore: alpha?.score,
+                        alphaGrade: alpha?.grade,
+                        action: alpha?.action,
+                        confidence: alpha?.confidence,
+                        triggers: alpha?.triggers,
+                        sparkline: rt.sparkline,
+                        threeDay: rt.threeDay,
+                        rsi: rt.rsi,
+                        rvol: rt.rvol,
+                        maxPainDist: rt.maxPainDist,
+                        gex: rt.gex,
+                        gexM: rt.gexM,
+                        tripleA: rt.tripleA
+                    };
+                }
+
+                // Fallback when no API data
+                const marketValue = holding.quantity * holding.avgPrice;
                 return {
                     ...holding,
-                    currentPrice: priceData.price,
-                    change: priceData.change,
-                    changePct: priceData.changePct,
-                    session: priceData.session,
-                    isExtended: priceData.isExtended,
+                    currentPrice: holding.avgPrice,
+                    change: 0,
+                    changePct: 0,
                     marketValue,
-                    gainLoss,
-                    gainLossPct,
-                    // Placeholder - will be enriched from Reports API
-                    alphaScore: undefined,
-                    alphaGrade: undefined,
-                    action: undefined,
-                    confidence: undefined,
-                    threeDay: undefined,
-                    rvol: undefined,
-                    maxPainDist: undefined,
-                    tripleA: undefined
+                    gainLoss: 0,
+                    gainLossPct: 0
                 };
             });
 
-            // Enrich with Alpha data from real-time API (always use fresh data)
-            const alphaMap = await fetchAlphaData(tickers);
-            const fullyEnriched = enriched.map(h => {
-                // Always use fresh API data for real-time analysis
-                const alphaData = alphaMap[h.ticker];
-                if (alphaData) {
-                    return {
-                        ...h,
-                        alphaScore: alphaData.score,
-                        alphaGrade: alphaData.grade,
-                        action: alphaData.action,
-                        confidence: alphaData.confidence,
-                        triggers: alphaData.triggers,
-                        sparkline: alphaData.sparkline,
-                        threeDay: alphaData.threeDay,
-                        rvol: alphaData.rvol,
-                        maxPainDist: alphaData.maxPainDist,
-                        gex: alphaData.gex,
-                        gexM: alphaData.gexM,
-                        tripleA: alphaData.tripleA
-                    };
-                }
-                return h;
-            });
-
-            setHoldings(fullyEnriched);
+            setHoldings(enriched);
 
             // Calculate summary
             const totalValue = enriched.reduce((sum, h) => sum + h.marketValue, 0);

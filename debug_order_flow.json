@@ -1,0 +1,191 @@
+[
+  {
+    "ticker": "NVDA",
+    "currentTime": "2026-01-26T13:16:28.117Z",
+    "stats": {
+      "noTrade": 22,
+      "within20h": 0,
+      "between20h48h": 0,
+      "between48h7d": 203,
+      "older7d": 25,
+      "premiumAbove50k": 5,
+      "premiumAbove10k": 30,
+      "expiryWithin14d": 228
+    },
+    "sampleTrades": [
+      {
+        "contract": "O:NVDA260130C00050000",
+        "strike": 50,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "26.1",
+        "tradeTime": "2026-01-20T16:33:42.093Z",
+        "ageHours": "140.7"
+      },
+      {
+        "contract": "O:NVDA260130C00055000",
+        "strike": 55,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "13.3",
+        "tradeTime": "2026-01-23T15:53:42.774Z",
+        "ageHours": "69.4"
+      },
+      {
+        "contract": "O:NVDA260130C00060000",
+        "strike": 60,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "12.5",
+        "tradeTime": "2026-01-22T20:51:41.015Z",
+        "ageHours": "88.4"
+      },
+      {
+        "contract": "O:NVDA260130C00065000",
+        "strike": 65,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "12.3",
+        "tradeTime": "2026-01-23T14:59:15.454Z",
+        "ageHours": "70.3"
+      },
+      {
+        "contract": "O:NVDA260130C00070000",
+        "strike": 70,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "11.8",
+        "tradeTime": "2026-01-23T17:04:36.653Z",
+        "ageHours": "68.2"
+      }
+    ],
+    "rootCause": "UNKNOWN: Check data manually",
+    "totalContracts": 250
+  },
+  {
+    "ticker": "TSLA",
+    "currentTime": "2026-01-26T13:16:28.975Z",
+    "stats": {
+      "noTrade": 4,
+      "within20h": 0,
+      "between20h48h": 0,
+      "between48h7d": 241,
+      "older7d": 5,
+      "premiumAbove50k": 13,
+      "premiumAbove10k": 53,
+      "expiryWithin14d": 246
+    },
+    "sampleTrades": [
+      {
+        "contract": "O:TSLA260130C00080000",
+        "strike": 80,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "36.6",
+        "tradeTime": "2026-01-22T20:00:14.113Z",
+        "ageHours": "89.3"
+      },
+      {
+        "contract": "O:TSLA260130C00090000",
+        "strike": 90,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "39.6",
+        "tradeTime": "2025-12-18T20:09:09.808Z",
+        "ageHours": "929.1"
+      },
+      {
+        "contract": "O:TSLA260130C00100000",
+        "strike": 100,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "35.0",
+        "tradeTime": "2025-12-31T20:51:31.750Z",
+        "ageHours": "616.4"
+      },
+      {
+        "contract": "O:TSLA260130C00120000",
+        "strike": 120,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "64.1",
+        "tradeTime": "2026-01-16T19:41:04.556Z",
+        "ageHours": "233.6"
+      },
+      {
+        "contract": "O:TSLA260130C00140000",
+        "strike": 140,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "141.2",
+        "tradeTime": "2026-01-21T14:44:26.871Z",
+        "ageHours": "118.5"
+      }
+    ],
+    "rootCause": "UNKNOWN: Check data manually",
+    "totalContracts": 250
+  },
+  {
+    "ticker": "AAPL",
+    "currentTime": "2026-01-26T13:16:29.204Z",
+    "stats": {
+      "noTrade": 57,
+      "within20h": 0,
+      "between20h48h": 0,
+      "between48h7d": 168,
+      "older7d": 25,
+      "premiumAbove50k": 8,
+      "premiumAbove10k": 35,
+      "expiryWithin14d": 193
+    },
+    "sampleTrades": [
+      {
+        "contract": "O:AAPL260130C00120000",
+        "strike": 120,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "13.0",
+        "tradeTime": "2026-01-22T16:57:40.307Z",
+        "ageHours": "92.3"
+      },
+      {
+        "contract": "O:AAPL260130C00125000",
+        "strike": 125,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "12.4",
+        "tradeTime": "2026-01-23T16:11:00.821Z",
+        "ageHours": "69.1"
+      },
+      {
+        "contract": "O:AAPL260130C00130000",
+        "strike": 130,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "11.8",
+        "tradeTime": "2026-01-23T18:24:44.444Z",
+        "ageHours": "66.9"
+      },
+      {
+        "contract": "O:AAPL260130C00135000",
+        "strike": 135,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "11.5",
+        "tradeTime": "2026-01-22T18:06:52.270Z",
+        "ageHours": "91.2"
+      },
+      {
+        "contract": "O:AAPL260130C00145000",
+        "strike": 145,
+        "type": "call",
+        "expiry": "2026-01-30",
+        "premiumK": "10.5",
+        "tradeTime": "2026-01-22T18:23:56.009Z",
+        "ageHours": "90.9"
+      }
+    ],
+    "rootCause": "UNKNOWN: Check data manually",
+    "totalContracts": 250
+  }
+]

@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
         // 3. Filter for 'Whale' criteria:
         //    - Expiry <= 14 days (Gamma Explosion Zone)
         //    - Premium >= $50k (Institutional Size)
-        //    - Trade Time: Today (Fresh flow)
+        //    - Trade Time: Recent (Dynamic based on market status)
 
         // Note: Snapshot returns the *latest* trade for each contract. 
         // This is the best proxy for "Live Flow" without a websocket.
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
         // For now, we assume the client fetches a decent chunk or the API returns all.
         // (Polygon Snapshot usually returns ALL in one go, usually heavily cached).
 
-        const { getOptionSnapshot } = await import('@/services/massiveClient');
+        const { getOptionSnapshot, fetchMarketStatus } = await import('@/services/massiveClient');
 
         const rawChain = await getOptionSnapshot(ticker);
 
@@ -41,12 +41,35 @@ export async function GET(req: NextRequest) {
 
         const now = new Date();
 
-        // [Fix] Timezone Handling:
-        // Server might be in KST (+09:00), Market is ET (-05:00).
-        // US Session (09:30 ET) = 23:30 KST (Previous Day) -> Crosses Midnight.
-        // Using 'startOfDay' (Local Midnight) filters out the first 30mins of session if server is KST.
-        // Solution: Use "Last 20 Hours" window (Covers full Pre-market + Market + After-hours)
-        const cutoffTime = new Date(now.getTime() - 20 * 60 * 60 * 1000);
+        // [V3 Fix] Dynamic Cutoff Based on Market Status
+        // - Market Open/Extended: Use 20 hours (current session)
+        // - Market Closed (Weekend/Holiday): Use 72 hours (last trading session)
+        let hoursBack = 20; // Default for open market
+        let marketStatus = 'unknown';
+
+        try {
+            const status = await fetchMarketStatus();
+            if (status) {
+                // Polygon API returns exchanges.nyse/nasdaq status, not a top-level 'market' field
+                const nyseStatus = (status as any).exchanges?.nyse || 'unknown';
+                const nasdaqStatus = (status as any).exchanges?.nasdaq || 'unknown';
+                marketStatus = nyseStatus;
+
+                // If NYSE/NASDAQ is closed, extend to 72 hours
+                if (nyseStatus === 'closed' || nasdaqStatus === 'closed') {
+                    hoursBack = 72;
+                }
+            }
+        } catch (e) {
+            // Fallback: Use day of week to detect weekend
+            const dayOfWeek = now.getUTCDay();
+            if (dayOfWeek === 0 || dayOfWeek === 6) {
+                hoursBack = 72;
+                marketStatus = 'closed (fallback)';
+            }
+        }
+
+        const cutoffTime = new Date(now.getTime() - hoursBack * 60 * 60 * 1000);
 
         // 14 Days logic (Forward looking)
         const fourteenDaysFromNow = new Date();
@@ -120,7 +143,9 @@ export async function GET(req: NextRequest) {
             debug: {
                 totalContractsScanned: rawChain.length,
                 filteredCount: whaleTrades.length,
-                criteria: "Premium >= $50k, Expiry <= 14d, Today"
+                marketStatus,
+                hoursBack,
+                criteria: `Premium >= $50k, Expiry <= 14d, Last ${hoursBack}h`
             }
         });
 
