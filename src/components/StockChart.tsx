@@ -37,15 +37,17 @@ const formatEtMinute = (etMinute: number): string => {
 
 export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d }: StockChartProps & { initialRange?: string }) {
     const [chartData, setChartData] = useState(data);
-    const [loading, setLoading] = useState(false);
+    // [FIX] Start with loading=true for 1d range since we always refetch complete data
+    const [loading, setLoading] = useState(initialRange === '1d');
     const [range, setRange] = useState(initialRange);
     const [baseDateET, setBaseDateET] = useState<string>("");
-    // [P0-2] Simplified: track data readiness instead of mount state
-    const [dataReady, setDataReady] = useState(data && data.length > 0);
+    // [FIX] For 1d range, don't mark ready from SSR data - wait for client fetch
+    const [dataReady, setDataReady] = useState(initialRange !== '1d' && data && data.length > 0);
 
     // [P0-2] Sync data and mark ready when valid data arrives
+    // [FIX] For 1d range, SSR data is incomplete - only sync for non-1d ranges
     useEffect(() => {
-        if (data && data.length > 0) {
+        if (data && data.length > 0 && range !== '1d') {
             setChartData(data);
             setDataReady(true);
         }
