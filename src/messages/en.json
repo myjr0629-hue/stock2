@@ -1,4 +1,18 @@
 {
+    "auth": {
+        "subtitle": "Alpha Engine-Powered Trading Intelligence",
+        "continueWithGoogle": "Continue with Google",
+        "orContinueWith": "OR",
+        "email": "Email",
+        "password": "Password",
+        "signIn": "Sign In",
+        "signUp": "Sign Up",
+        "noAccount": "Don't have an account?",
+        "hasAccount": "Already have an account?",
+        "checkEmail": "Please check your email to complete sign up.",
+        "backToHome": "Back to Home",
+        "authError": "Authentication error occurred. Please try again."
+    },
     "nav": {
         "home": "Home",
         "guardian": "GUARDIAN",
@@ -721,5 +735,44 @@
         "signal": "Alpha Signal",
         "enginePowered": "Powered by Alpha Engine",
         "confidence": "Confidence"
+    },
+    "legal": {
+        "disclaimer": "By continuing, you agree to our",
+        "termsLink": "Terms of Service",
+        "privacyLink": "Privacy Policy",
+        "and": "and",
+        "termsTitle": "Terms of Service",
+        "privacyTitle": "Privacy Policy",
+        "lastUpdated": "Last Updated",
+        "backToLogin": "Back to Login",
+        "checkboxAgree": "[Required] I agree to the Terms of Service and Privacy Policy.",
+        "terms": {
+            "intro": "Thank you for using SIGNUM HQ (the \"Service\"). These Terms of Service govern your rights and obligations in using the Service.",
+            "investmentTitle": "Investment Disclaimer",
+            "investmentContent": "All data, analysis, and information provided by SIGNUM HQ (including Gamma Exposure, Options Flow, Max Pain, etc.) are for statistical reference only and do not constitute investment advice or recommendations to buy or sell any securities. You are solely responsible for all investment decisions and their outcomes.",
+            "dataTitle": "Data Warranty Disclaimer",
+            "dataContent": "We do not guarantee the accuracy, completeness, or timeliness of the Service. We shall not be held liable for any damages arising from system errors, data delays, third-party API failures, or other technical issues.",
+            "refundTitle": "Refund Policy",
+            "refundContent": "Due to the nature of digital content services, refunds may be limited after information has been accessed or data has been viewed. Refund requests will only be considered within 7 days of payment and before substantial use of the Service.",
+            "ageTitle": "Age Restriction",
+            "ageContent": "This Service is available only to users aged 18 or older. By signing up and using the Service, you confirm that you are at least 18 years old. We are not responsible for any issues arising from use by minors.",
+            "changesTitle": "Changes to Terms",
+            "changesContent": "We may modify these Terms at any time and will notify you through the Service. If you do not agree to the modified Terms, you must discontinue use of the Service."
+        },
+        "privacy": {
+            "intro": "SIGNUM HQ (the \"Service\") values your privacy and complies with applicable laws and regulations.",
+            "collectTitle": "Information We Collect",
+            "collectContent": "We collect the following information to provide our Service: email address, profile name (when using OAuth providers), IP address, and device information.",
+            "purposeTitle": "Purpose of Use",
+            "purposeContent": "Collected information is used for: user identification and authentication, subscription management and payment processing, service quality improvement and optimization, and customer support.",
+            "retentionTitle": "Retention and Deletion",
+            "retentionContent": "Personal information is retained during your use of the Service and is deleted immediately upon account termination, except where retention is required by applicable law.",
+            "gdprTitle": "Your Rights (GDPR)",
+            "gdprContent": "You may request access to, correction, or deletion of your personal information at any time. You may also exercise your right to data portability to receive your data in a structured format. These rights can be exercised through Service settings or by contacting customer support.",
+            "securityTitle": "Security Measures",
+            "securityContent": "We implement industry-standard encryption and security measures to protect your personal information and prevent unauthorized access or disclosure.",
+            "contactTitle": "Contact",
+            "contactContent": "For privacy-related inquiries, please contact our customer support."
+        }
     }
 }

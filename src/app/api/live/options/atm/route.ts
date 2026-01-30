@@ -38,9 +38,18 @@ export async function GET(req: NextRequest) {
     const spotRes = await fetchMassiveWithRetry(spotUrl, 2);
 
     let underlyingPrice = 0;
+    let prevClose = 0;
+    let changePercent = 0;
+
     if (spotRes.success && spotRes.data?.ticker) {
         const T = spotRes.data.ticker;
         underlyingPrice = T.lastTrade?.p || T.min?.c || T.day?.c || T.prevDay?.c || 0;
+        prevClose = T.prevDay?.c || 0;
+
+        // Calculate change percent
+        if (prevClose > 0 && underlyingPrice > 0) {
+            changePercent = ((underlyingPrice - prevClose) / prevClose) * 100;
+        }
     }
 
     // 2. Fetch Options Chain (Massive v3 Snapshot)
@@ -163,6 +172,8 @@ export async function GET(req: NextRequest) {
         timestampET: et.displayString,
         session,
         underlyingPrice,
+        prevClose,
+        changePercent: Math.round(changePercent * 100) / 100, // Round to 2 decimal places
         atmSlice,
         optionsStatus,
         sourceGrade: "A",

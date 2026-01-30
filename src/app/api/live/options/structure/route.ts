@@ -26,9 +26,18 @@ export async function GET(req: NextRequest) {
     const spotRes = await fetchMassiveWithRetry(spotUrl, 2);
 
     let underlyingPrice = 0;
+    let prevClose = 0;
+    let changePercent = 0;
+
     if (spotRes.success && spotRes.data?.ticker) {
         const T = spotRes.data.ticker;
         underlyingPrice = T.lastTrade?.p || T.min?.c || T.day?.c || T.prevDay?.c || 0;
+        prevClose = T.prevDay?.c || 0;
+
+        // Calculate change percent
+        if (prevClose > 0 && underlyingPrice > 0) {
+            changePercent = Math.round(((underlyingPrice - prevClose) / prevClose) * 10000) / 100;
+        }
     }
 
     // 2. Fetch Options Chain (Pagination)
@@ -114,6 +123,8 @@ export async function GET(req: NextRequest) {
     const callsMap = new Map<number, number | null>();
     const putsMap = new Map<number, number | null>();
     const cleanContracts: any[] = [];
+    let totalCallOI = 0;
+    let totalPutOI = 0;
 
     relevantContracts.forEach((c: any) => {
         const k = c.details?.strike_price || c.strike_price || 0;
@@ -126,12 +137,18 @@ export async function GET(req: NextRequest) {
             nullOiCount++;
         } else {
             cleanContracts.push({ ...c, k, type, oi });
+            // Accumulate total OI for PCR calculation
+            if (type === 'call') totalCallOI += oi;
+            else totalPutOI += oi;
         }
 
         const val = (typeof oi === 'number') ? oi : null;
         if (type === 'call') callsMap.set(k, (callsMap.get(k) || 0) + (val || 0));
         else putsMap.set(k, (putsMap.get(k) || 0) + (val || 0));
     });
+
+    // Calculate PCR (Put/Call Ratio)
+    const pcr = totalCallOI > 0 ? Math.round((totalPutOI / totalCallOI) * 100) / 100 : null;
 
     const totalStatsContracts = relevantContracts.length;
     let options_status: "OK" | "PENDING" | "FAILED" = (totalStatsContracts > 0 && (nullOiCount / totalStatsContracts) < 0.20) ? "OK" : "PENDING";
@@ -265,16 +282,24 @@ export async function GET(req: NextRequest) {
             gexNotes = `netGex null: gammaCoverage (${(gammaCoverage * 100).toFixed(1)}%) < 80%`;
         }
 
+        // Gamma Squeeze Detection (PowerEngine logic)
+        const isGammaSqueeze = netGex !== null && netGex > 50000000 &&
+            callWall > 0 && underlyingPrice >= callWall * 0.98 &&
+            pcr !== null && pcr < 0.6;
+
         return NextResponse.json({
             ticker,
             expiration: targetExpiry,
             availableExpirations,
             underlyingPrice: underlyingPrice || null,
+            changePercent,
+            pcr,
+            isGammaSqueeze,
             options_status,
             structure: { strikes: sortedStrikes, callsOI, putsOI },
             maxPain,
             netGex,
-            gammaFlipLevel,  // NEW: Gamma Flip Level
+            gammaFlipLevel,
             levels: {
                 callWall: callWall || null,
                 putFloor: putFloor || null,
@@ -305,6 +330,9 @@ export async function GET(req: NextRequest) {
             expiration: targetExpiry,
             availableExpirations,
             underlyingPrice: underlyingPrice || null,
+            changePercent,
+            pcr,
+            isGammaSqueeze: false,
             options_status,
             structure: { strikes: sortedStrikes, callsOI, putsOI },
             maxPain: null,
