@@ -2,13 +2,23 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function updateSession(request: NextRequest) {
+    // Safety check for missing environment variables
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    // If Supabase is not configured, just pass through
+    if (!supabaseUrl || !supabaseAnonKey) {
+        console.warn('[Middleware] Supabase env vars missing, skipping session refresh')
+        return NextResponse.next({ request })
+    }
+
     let supabaseResponse = NextResponse.next({
         request,
     })
 
     const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        supabaseUrl,
+        supabaseAnonKey,
         {
             cookies: {
                 getAll() {
@@ -29,7 +39,11 @@ export async function updateSession(request: NextRequest) {
 
     // IMPORTANT: DO NOT REMOVE auth.getUser()
     // It refreshes the session if expired
-    await supabase.auth.getUser()
+    try {
+        await supabase.auth.getUser()
+    } catch (e) {
+        console.error('[Middleware] Auth error:', e)
+    }
 
     return supabaseResponse
 }
