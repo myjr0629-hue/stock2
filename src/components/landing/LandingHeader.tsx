@@ -52,6 +52,7 @@ export function LandingHeader() {
                         { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: true },
                         { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", hasLive: false },
                         { label: "COMMAND", href: "/ticker?ticker=NVDA", path: "/ticker", hasLive: false },
+                        { label: "INTEL", href: "/intel", path: "/intel", hasLive: false },
                         { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", hasLive: false },
                         { label: "WATCHLIST", href: "/watchlist", path: "/watchlist", hasLive: false }
                     ].map((item) => {
@@ -137,9 +138,10 @@ export function LandingHeader() {
                             </summary>
                             <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 p-2 space-y-1">
                                 {[
-                                    { label: "DASHBOARD", href: "/intel" },
+                                    { label: "DASHBOARD", href: "/dashboard" },
                                     { label: "GUARDIAN", href: "/intel-guardian" },
                                     { label: "COMMAND", href: "/ticker?ticker=NVDA" },
+                                    { label: "INTEL", href: "/intel" },
                                     { label: "PORTFOLIO", href: "/portfolio" },
                                     { label: "WATCHLIST", href: "/watchlist" }
                                 ].map((item) => (
