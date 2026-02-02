@@ -113,16 +113,16 @@ export default function PortfolioPage() {
                     {/* Table Content */}
                     <div className="relative">
                         {/* Table Header - Precise Grid (Total: 17 cols) */}
-                        <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_2fr_2fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
+                        <div className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1fr_1.2fr_2fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
                             <div>{t('ticker')}</div>
                             <div className="text-center">{t('quantity')}</div>
                             <div className="text-center">{t('avgPrice')}</div>
                             <div className="text-center">{t('currentPrice')}</div>
                             <div className="text-center">{t('profitLoss')}</div>
+                            <div className="text-center">비중%</div>
+                            <div className="text-center">보유일</div>
                             <div className="text-center">Alpha</div>
-                            <div className="text-center">Signal</div>
-                            <div className="text-center">MaxPain</div>
-                            <div className="text-center">GEX</div>
+                            <div className="text-center">Action</div>
                         </div>
 
                         {/* Holdings Rows */}
@@ -130,7 +130,7 @@ export default function PortfolioPage() {
                             /* Skeleton UI - Shows animated placeholder rows */
                             <div className="divide-y divide-white/5">
                                 {[1, 2, 3, 4].map((i) => (
-                                    <div key={i} className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_2fr_2fr] px-4 py-3 items-center animate-pulse">
+                                    <div key={i} className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1fr_1.2fr_2fr] px-4 py-3 items-center animate-pulse">
                                         {/* Ticker */}
                                         <div className="flex items-center gap-2">
                                             <div className="w-8 h-8 rounded-lg bg-slate-700/50" />
@@ -153,14 +153,14 @@ export default function PortfolioPage() {
                                             <div className="h-4 w-12 bg-slate-700/50 rounded" />
                                             <div className="h-3 w-8 bg-slate-800/50 rounded" />
                                         </div>
+                                        {/* Weight */}
+                                        <div className="flex justify-center"><div className="h-4 w-10 bg-slate-700/50 rounded" /></div>
+                                        {/* Days */}
+                                        <div className="flex justify-center"><div className="h-4 w-10 bg-slate-700/50 rounded" /></div>
                                         {/* Alpha */}
                                         <div className="flex justify-center"><div className="w-10 h-10 rounded-full bg-slate-700/50" /></div>
-                                        {/* Signal */}
-                                        <div className="flex justify-center"><div className="h-6 w-16 bg-slate-700/50 rounded-lg" /></div>
-                                        {/* MaxPain */}
-                                        <div className="flex justify-center"><div className="h-5 w-12 bg-slate-700/50 rounded" /></div>
-                                        {/* GEX */}
-                                        <div className="flex justify-center"><div className="h-5 w-14 bg-slate-700/50 rounded" /></div>
+                                        {/* Action */}
+                                        <div className="flex justify-center"><div className="h-8 w-20 bg-slate-700/50 rounded-full" /></div>
                                     </div>
                                 ))}
                             </div>
@@ -186,6 +186,7 @@ export default function PortfolioPage() {
                                         holding={holding}
                                         onRemove={() => removeHolding(holding.ticker)}
                                         onEdit={() => setEditingHolding(holding)}
+                                        totalValue={summary.totalValue}
                                     />
                                 ))}
                             </div>
@@ -306,13 +307,38 @@ function PortfolioScoreCard({ score, holdingsCount }: { score: number; holdingsC
 
 // === PREMIUM HOLDING ROW ===
 
-function PremiumHoldingRow({ holding, onRemove, onEdit }: { holding: EnrichedHolding; onRemove: () => void; onEdit: () => void }) {
+function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue }: {
+    holding: EnrichedHolding;
+    onRemove: () => void;
+    onEdit: () => void;
+    totalValue: number;
+}) {
     const isPositive = holding.gainLossPct >= 0;
+
+    // Calculate weight % of portfolio
+    const weight = totalValue > 0 ? (holding.marketValue / totalValue) * 100 : 0;
+
+    // Calculate days held
+    const daysHeld = holding.addedAt
+        ? Math.floor((Date.now() - new Date(holding.addedAt).getTime()) / (1000 * 60 * 60 * 24))
+        : 0;
+
+    // Determine Portfolio Action based on Alpha + P/L
+    const getPortfolioAction = () => {
+        const alpha = holding.alphaScore || 50;
+        const isProfitable = holding.gainLossPct > 0;
+
+        if (alpha >= 50 && isProfitable) return 'RUN';   // High alpha + profit = let it run
+        if (alpha >= 50 && !isProfitable) return 'HOLD'; // High alpha + loss = hold
+        if (alpha < 40 && isProfitable) return 'TAKE';   // Low alpha + profit = take profit  
+        if (alpha < 40 && !isProfitable) return 'EXIT';  // Low alpha + loss = exit
+        return 'HOLD'; // Default
+    };
 
     return (
         <Link
             href={`/ticker?ticker=${holding.ticker}`}
-            className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1.5fr_1.5fr_2fr_2fr] px-4 py-3 hover:bg-white/[0.02] transition-colors items-center group"
+            className="grid grid-cols-[2fr_1fr_1.5fr_1.5fr_1.5fr_1fr_1fr_1.2fr_2fr] px-4 py-3 hover:bg-white/[0.02] transition-colors items-center group"
         >
             {/* 종목 (2fr) - with sparkline */}
             <div className="flex items-center gap-2">
@@ -371,24 +397,30 @@ function PremiumHoldingRow({ holding, onRemove, onEdit }: { holding: EnrichedHol
                 </div>
             </div>
 
-            {/* Alpha (1.5fr) */}
+            {/* 비중% (1fr) */}
+            <div className="text-center">
+                <div className={`font-num text-sm font-bold ${weight > 30 ? 'text-amber-400' : 'text-slate-300'}`}
+                    title={weight > 30 ? '집중 리스크 주의' : '적정 비중'}>
+                    {weight.toFixed(1)}%
+                </div>
+            </div>
+
+            {/* 보유일 (1fr) */}
+            <div className="text-center">
+                <div className={`font-num text-sm ${daysHeld > 365 ? 'text-cyan-400' : 'text-slate-400'}`}
+                    title={daysHeld > 365 ? '장기 보유 (세금 유리)' : '단기 보유'}>
+                    D+{daysHeld}
+                </div>
+            </div>
+
+            {/* Alpha (1.2fr) */}
             <div className="flex justify-center">
                 <CircularAlphaGauge score={holding.alphaScore || 50} grade={holding.alphaGrade || 'C'} />
             </div>
 
-            {/* Signal (1.5fr) */}
-            <div className="flex justify-center">
-                <SignalBadge action={holding.action || 'HOLD'} confidence={holding.confidence || 50} triggers={holding.triggers} />
-            </div>
-
-            {/* MaxPain (2fr) - with price */}
-            <div className="flex justify-center">
-                <MaxPainIndicator dist={holding.maxPainDist} price={holding.maxPainDist !== undefined ? holding.currentPrice * (1 + holding.maxPainDist / 100) : undefined} />
-            </div>
-
-            {/* GEX (2fr) */}
+            {/* Action (2fr) - Portfolio Action Badge */}
             <div className="relative flex justify-center">
-                <GexIndicator gexM={holding.gexM} />
+                <PortfolioActionBadge action={getPortfolioAction()} />
                 <div className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
                     <button
                         onClick={(e) => { e.preventDefault(); onEdit(); }}
@@ -457,6 +489,58 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
                 </div>
             </div>
             <div className="text-sm font-bold font-num text-white">{score}</div>
+        </div>
+    );
+}
+
+// [S-76] Portfolio Action Badge - Infographic style decision indicator
+function PortfolioActionBadge({ action }: { action: 'RUN' | 'HOLD' | 'TAKE' | 'EXIT' }) {
+    const config: Record<string, {
+        bg: string;
+        border: string;
+        text: string;
+        icon: React.ReactNode;
+        tooltip: string;
+    }> = {
+        'RUN': {
+            bg: 'bg-gradient-to-r from-emerald-500/20 to-emerald-600/20',
+            border: 'border-emerald-500/50',
+            text: 'text-emerald-400',
+            icon: <TrendingUp className="w-4 h-4" />,
+            tooltip: '모멘텀 유지 - 계속 보유하세요'
+        },
+        'HOLD': {
+            bg: 'bg-gradient-to-r from-amber-500/20 to-yellow-600/20',
+            border: 'border-amber-500/50',
+            text: 'text-amber-400',
+            icon: <Activity className="w-4 h-4" />,
+            tooltip: '관망 - 추이를 지켜보세요'
+        },
+        'TAKE': {
+            bg: 'bg-gradient-to-r from-cyan-500/20 to-blue-600/20',
+            border: 'border-cyan-500/50',
+            text: 'text-cyan-400',
+            icon: <Target className="w-4 h-4" />,
+            tooltip: '익절 검토 - 수익 확정을 고려하세요'
+        },
+        'EXIT': {
+            bg: 'bg-gradient-to-r from-rose-500/20 to-red-600/20',
+            border: 'border-rose-500/50',
+            text: 'text-rose-400',
+            icon: <Zap className="w-4 h-4" />,
+            tooltip: '손절 검토 - 포지션 정리를 고려하세요'
+        }
+    };
+
+    const c = config[action] || config['HOLD'];
+
+    return (
+        <div
+            className={`flex items-center gap-2 px-3 py-1.5 rounded-full ${c.bg} border ${c.border} shadow-lg`}
+            title={c.tooltip}
+        >
+            <span className={c.text}>{c.icon}</span>
+            <span className={`text-sm font-black tracking-wide ${c.text}`}>{action}</span>
         </div>
     );
 }
