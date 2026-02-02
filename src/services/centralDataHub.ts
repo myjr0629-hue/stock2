@@ -244,9 +244,13 @@ export const CentralDataHub = {
             const todayStr = targetDate || new Date().toISOString().split('T')[0];
 
             // [S-72] Phase 1: Probe for available expirations
+            // [S-76] Fix: Sort by expiration_date to ensure we capture multiple expirations
+            // Without sort, API may return 100 contracts all from the same expiration date
             const probeParams: any = {
-                limit: '100',
-                'expiration_date.gte': todayStr
+                limit: '250',
+                'expiration_date.gte': todayStr,
+                'sort': 'expiration_date',
+                'order': 'asc'
             };
 
             const probeRes = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, probeParams, true);
@@ -256,6 +260,9 @@ export const CentralDataHub = {
             const expirations = Array.from(new Set(
                 probeResults.map((c: any) => c.details?.expiration_date)
             )).filter(Boolean).sort() as string[];
+
+            // [DEBUG] Log all available expirations
+            console.log(`[CentralDataHub] ${ticker} available expirations (${expirations.length}):`, JSON.stringify(expirations.slice(0, 10)));
 
             const weeklyExpiry = findWeeklyExpirationSync(expirations);
 

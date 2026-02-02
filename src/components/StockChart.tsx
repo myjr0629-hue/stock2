@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
     Line,
     LineChart,
@@ -45,12 +45,13 @@ const formatEtMinute = (etMinute: number): string => {
 export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels }: StockChartProps & { initialRange?: string }) {
     // [S-67] Fix: Use props data immediately if available
     const [chartData, setChartData] = useState(data);
-    // [S-67] Fix: Only show loading if no initial data provided
-    const [loading, setLoading] = useState(!data || data.length === 0);
+    // [S-76] Fix: 1D always needs client fetch for etMinute/session fields, so start loading=true
+    // Other ranges can use SSR data directly
+    const [loading, setLoading] = useState(initialRange === '1d' ? true : (!data || data.length === 0));
     const [range, setRange] = useState(initialRange);
     const [baseDateET, setBaseDateET] = useState<string>("");
-    // [S-67] Fix: Mark ready immediately if props data is valid
-    const [dataReady, setDataReady] = useState(data && data.length > 0);
+    // [S-67] Fix: Mark ready immediately if props data is valid (but not for 1D which needs client data)
+    const [dataReady, setDataReady] = useState(initialRange !== '1d' && data && data.length > 0);
 
     // [S-67] Fix: Sync props data for ALL ranges (including 1D)
     useEffect(() => {
@@ -62,15 +63,16 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         setRange(initialRange);
     }, [data, ticker, initialRange]);
 
-    // [S-67] Fix: Only fetch if no valid data from props AND range is 1D
+    // [S-76] Note: SSR data (props.data) only contains {date, close} but 1D chart requires
+    // etMinute and session fields for proper X-axis positioning. Client fetch is REQUIRED for 1D.
+    // This is intentional design, not a bug.
+
+    // [S-67] Fix: Only fetch if range is 1D (to get etMinute/session data from chart API)
     useEffect(() => {
         const fetchInitialData = async () => {
-            // Skip fetch if we already have valid data from props
-            if (chartData && chartData.length > 0 && dataReady) {
-                return;
-            }
-
+            // 1D always requires client fetch for session masking data
             if (range === '1d') {
+                console.log('[StockChart] Fetching 1D data - required for etMinute/session fields');
                 setLoading(true);
                 try {
                     const t = Date.now();
@@ -84,10 +86,18 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                             if (json.meta?.sessionMaskDebug?.baseDateET) {
                                 setBaseDateET(json.meta.sessionMaskDebug.baseDateET);
                             }
+                            console.log('[StockChart] 1D data loaded:', newData.length, 'points');
                         }
                     }
                 } catch (e) { console.error('[StockChart] Initial fetch error:', e); }
                 setLoading(false);
+            } else {
+                // Non-1D ranges can use SSR data directly
+                if (data && data.length > 0) {
+                    setChartData(data);
+                    setDataReady(true);
+                    setLoading(false);
+                }
             }
         };
         fetchInitialData();

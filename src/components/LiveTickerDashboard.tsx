@@ -13,7 +13,7 @@ import { MarketStatusBadge } from "@/components/common/MarketStatusBadge";
 import { GammaLevelsViz } from "@/components/GammaLevelsViz";
 import { FlowSniper } from "@/components/FlowSniper";
 import { FlowRadar } from "@/components/FlowRadar";
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -197,6 +197,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     // i18n translations
     const t = useTranslations('command');
+    const tIntel = useTranslations('intel');
+    const locale = useLocale();
 
     // [S-45] SSOT Integration
     const { status: marketStatus } = useMarketStatus();
@@ -1121,14 +1123,20 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 </span>
                                             </div>
                                             <div className="text-xs text-slate-300 font-medium leading-snug group-hover/item:text-white transition-colors line-clamp-2">
-                                                {n.summaryKR || n.title}
+                                                {/* [S-75] Locale-based display: ko=summaryKR, ja=summaryJP, en=original title */}
+                                                {locale === 'ko'
+                                                    ? (n.summaryKR || n.title)
+                                                    : locale === 'ja'
+                                                        ? (n.summaryJP || n.summaryKR || n.title)
+                                                        : n.title
+                                                }
                                             </div>
                                         </div>
                                     </a>
                                 ))}
                                 {krNews.length === 0 && (
-                                    <div className="h-full flex items-center justify-center text-slate-600 text-xs text-center p-4">
-                                        No recent intel detected<br />Scanning global channels...
+                                    <div className="h-full flex items-center justify-center text-amber-400/70 text-xs text-center p-4 italic">
+                                        {tIntel('translating')}
                                     </div>
                                 )}
                             </div>

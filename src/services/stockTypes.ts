@@ -233,8 +233,10 @@ export interface NewsItem {
     sentiment: 'positive' | 'negative' | 'neutral';
     type: "Official" | "News" | "Opinion";
     originalTitle?: string;
+    headline?: string;  // [S-75] Original English headline
     // [S-50.2] Added Enriched Fields (Gemini)
     summaryKR?: string;
+    summaryJP?: string;  // [S-75] Japanese translation for trilingual support
     isRumor?: boolean;
 }
 

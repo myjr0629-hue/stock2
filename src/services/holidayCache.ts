@@ -143,19 +143,34 @@ export function findWeeklyExpirationSync(expirations: string[]): string {
 
     const sorted = [...expirations].sort();
 
+    // [DEBUG] Check each expiration's day of week
+    sorted.slice(0, 5).forEach(exp => {
+        const date = new Date(exp + 'T12:00:00');
+        const dayOfWeek = date.getDay();
+        const dayName = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][dayOfWeek];
+        console.log(`[findWeeklyExpirationSync] ${exp} -> ${dayName} (${dayOfWeek})`);
+    });
+
     // Find first Friday
     const fridayExp = sorted.find(exp => {
         const date = new Date(exp + 'T12:00:00');
         return date.getDay() === 5;
     });
-    if (fridayExp) return fridayExp;
+    if (fridayExp) {
+        console.log(`[findWeeklyExpirationSync] Found Friday: ${fridayExp}`);
+        return fridayExp;
+    }
 
     // Find first Thursday
     const thursdayExp = sorted.find(exp => {
         const date = new Date(exp + 'T12:00:00');
         return date.getDay() === 4;
     });
-    if (thursdayExp) return thursdayExp;
+    if (thursdayExp) {
+        console.log(`[findWeeklyExpirationSync] Found Thursday: ${thursdayExp}`);
+        return thursdayExp;
+    }
 
+    console.log(`[findWeeklyExpirationSync] No Fri/Thu found, fallback to: ${sorted[0]}`);
     return sorted[0];
 }

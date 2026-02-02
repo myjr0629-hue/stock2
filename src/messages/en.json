@@ -311,7 +311,8 @@
         "aiRumor": "AI Rumor Analysis",
         "intelFeed": "Intelligence Feed",
         "source": "Source",
-        "timestamp": "Timestamp"
+        "timestamp": "Timestamp",
+        "translating": "Translating..."
     },
     "report": {
         "date": "Date",

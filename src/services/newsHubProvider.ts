@@ -10,6 +10,7 @@ export interface NewsItem {
     id: string;
     headline: string;
     summaryKR: string;       // Korean summary
+    summaryJP?: string;      // Japanese summary [S-75]
     source: string;
     link?: string;           // Article URL
     publishedAt: string;     // ISO datetime
@@ -88,6 +89,7 @@ const MODEL_NAME = "gemini-2.5-flash"; // [STABLE] Fast & Reliable
 interface AIAnalysisResult {
     id: string;
     summaryKR: string;
+    summaryJP: string;  // [S-75] Japanese translation
     isRumor: boolean;
 }
 
@@ -169,20 +171,22 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
                 text: `${item.title} - ${item.description || ""}`
             }));
 
+            // [S-75] Trilingual translation prompt (KO + JP)
             const prompt = `
-            You are a top-tier financial analyst for the Korean market (Yeouido style).
-            Translate the following news headlines/summaries into professional Korean.
+            You are a top-tier financial analyst serving Korean and Japanese markets.
+            Translate the following news headlines/summaries into professional Korean AND Japanese.
             Also, enable 'Rumor Detection': precise identification of unverified reports, leaks, or speculation vs confirmed news.
             
             Input Data (JSON):
             ${JSON.stringify(promptItems)}
 
             Task:
-            1. Translated 'summaryKR': concise, professional tone (e.g. "상승 마감" instead of "오르고 끝났다").
-            2. 'isRumor': boolean (true if sources are 'sources say', 'reportedly', 'leaks', 'rumor', 'speculation').
+            1. 'summaryKR': Korean professional tone (e.g. "상승 마감" instead of "오르고 끝났다").
+            2. 'summaryJP': Japanese professional tone (e.g. "上昇で引けた" instead of "上がって終わった").
+            3. 'isRumor': boolean (true if sources are 'sources say', 'reportedly', 'leaks', 'rumor', 'speculation').
 
             Output MUST be a valid JSON Array of objects:
-            [ { "id": "...", "summaryKR": "...", "isRumor": boolean } ]
+            [ { "id": "...", "summaryKR": "...", "summaryJP": "...", "isRumor": boolean } ]
             DO NOT output markdown code blocks. Just the raw JSON.
             `;
 
@@ -238,6 +242,7 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
                 fallbackResults.push({
                     id: item.id || `news-${Math.random().toString(36).substr(2, 9)}`,
                     summaryKR: translated,
+                    summaryJP: translated,  // [S-75] Use original as fallback
                     isRumor: false
                 });
                 continue;
@@ -280,6 +285,7 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
             fallbackResults.push({
                 id: item.id || `news-${Math.random().toString(36).substr(2, 9)}`,
                 summaryKR: translated,
+                summaryJP: translated,  // [S-75] Use Korean as fallback for JP
                 isRumor
             });
         }
@@ -356,12 +362,15 @@ export async function fetchStockNews(tickers: string[], limit: number = 10): Pro
             const aiMatch = aiResults.find(r => r.id === article.internalId);
             // If AI detects rumor, we can tag it. For now, we put it in text or logic?
             // Let's prepend [루머] if confirmed rumor
-            let finalSummary = article.description?.substring(0, 100) || article.title || "—";
+            let finalSummaryKR = article.description?.substring(0, 100) || article.title || "—";
+            let finalSummaryJP = article.title || "—";  // [S-75] Default to English
 
             if (aiMatch) {
-                finalSummary = aiMatch.summaryKR;
+                finalSummaryKR = aiMatch.summaryKR;
+                finalSummaryJP = aiMatch.summaryJP || article.title;  // [S-75]
                 if (aiMatch.isRumor) {
-                    finalSummary = `[루머/비확인] ${finalSummary}`;
+                    finalSummaryKR = `[루머/비확인] ${finalSummaryKR}`;
+                    finalSummaryJP = `[未確認] ${finalSummaryJP}`;  // [S-75]
                     // Maybe degrade sentiment or score? 
                     // For now, visual warning is enough.
                 }
@@ -370,7 +379,8 @@ export async function fetchStockNews(tickers: string[], limit: number = 10): Pro
             return {
                 id: article.internalId,
                 headline: article.title || "No Title",
-                summaryKR: finalSummary,
+                summaryKR: finalSummaryKR,
+                summaryJP: finalSummaryJP,  // [S-75] Japanese translation
                 source: article.publisher?.name || "Unknown",
                 link: article.article_url,
                 publishedAt,

@@ -65,33 +65,64 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. [S-71] Two-Phase Fetch: First get expirations, then fetch exact weekly expiration
-    // Phase 1: Quick fetch to get available expirations
+    // Phase 1: Get available expirations using reference API (more reliable than snapshot)
+    // [S-76] The snapshot API has limit issues - 250 contracts may all be from same expiration
     const todayStr = getNextTradingDayET();
-    const probeUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&limit=250`;
 
     let availableExpirations: string[] = [];
     let targetExpiry: string = '';
 
-    try {
-        const probeRes = await fetchMassiveWithRetry(probeUrl, 2);
-        if (probeRes.success && probeRes.data?.results) {
-            const exps = Array.from(new Set(
-                probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date)
-            )).filter(Boolean).sort() as string[];
-            availableExpirations = exps.slice(0, 10);
+    // Try reference API first (gives unique contracts per expiration)
+    // [S-76] Increase limit to 1000 - TSLA has 100+ contracts for single expiration
+    const refUrl = `/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date.gte=${todayStr}&order=asc&limit=1000`;
 
-            // Determine target expiration
-            if (requestedExp && exps.includes(requestedExp)) {
-                targetExpiry = requestedExp;
-            } else {
-                targetExpiry = await findWeeklyExpiration(exps);
+    try {
+        const refRes = await fetchMassiveWithRetry(refUrl, 2);
+        if (refRes.success && refRes.data?.results) {
+            const exps = Array.from(new Set(
+                refRes.data.results.map((c: any) => c.expiration_date)
+            )).filter(Boolean).sort() as string[];
+
+            console.log(`[OPTIONS] ${ticker} reference expirations:`, exps.slice(0, 8).join(', '));
+
+            if (exps.length > 0) {
+                availableExpirations = exps.slice(0, 10);
+
+                if (requestedExp && exps.includes(requestedExp)) {
+                    targetExpiry = requestedExp;
+                } else {
+                    targetExpiry = await findWeeklyExpiration(exps);
+                }
+                console.log(`[OPTIONS] ${ticker} target expiry: ${targetExpiry}`);
             }
         }
     } catch (e) {
-        console.error(`[OPTIONS] Probe failed for ${ticker}:`, e);
+        console.error(`[OPTIONS] Reference API failed for ${ticker}:`, e);
     }
 
-    // Fallback if probe failed
+    // Fallback to snapshot API if reference failed
+    if (!targetExpiry) {
+        const probeUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&limit=250&sort=expiration_date&order=asc`;
+        try {
+            const probeRes = await fetchMassiveWithRetry(probeUrl, 2);
+            if (probeRes.success && probeRes.data?.results) {
+                const exps = Array.from(new Set(
+                    probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date)
+                )).filter(Boolean).sort() as string[];
+                availableExpirations = exps.slice(0, 10);
+
+                if (requestedExp && exps.includes(requestedExp)) {
+                    targetExpiry = requestedExp;
+                } else {
+                    targetExpiry = await findWeeklyExpiration(exps);
+                }
+            }
+        } catch (e) {
+            console.error(`[OPTIONS] Snapshot probe failed for ${ticker}:`, e);
+        }
+    }
+
+    // Ultimate fallback if all probes failed
     if (!targetExpiry) {
         targetExpiry = requestedExp || todayStr;
     }

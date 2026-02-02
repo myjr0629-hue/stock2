@@ -311,7 +311,8 @@
         "aiRumor": "AI Rumor Analysis",
         "intelFeed": "Intelligence Feed",
         "source": "소스",
-        "timestamp": "시간"
+        "timestamp": "시간",
+        "translating": "번역 중..."
     },
     "report": {
         "date": "날짜",
