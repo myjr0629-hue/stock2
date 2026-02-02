@@ -119,10 +119,10 @@ export default function PortfolioPage() {
                             <div className="text-center">{t('avgPrice')}</div>
                             <div className="text-center">{t('currentPrice')}</div>
                             <div className="text-center">{t('profitLoss')}</div>
-                            <div className="text-center">비중%</div>
-                            <div className="text-center">보유일</div>
+                            <div className="text-center">{t('weight')}</div>
+                            <div className="text-center">{t('daysHeld')}</div>
                             <div className="text-center">Alpha</div>
-                            <div className="text-center">Action</div>
+                            <div className="text-center">{t('action')}</div>
                         </div>
 
                         {/* Holdings Rows */}
