@@ -388,10 +388,15 @@ export async function getTickerOverview(
         let chartSource: "INTRADAY" | "DAILY" | "NONE" = "NONE";
 
         // 4a. Try intraday first
+        // [S-68] Fetch 5 days for 1D range to ensure pre-market/weekend display has previous trading day data
         try {
             const multiplier = range === "1d" ? 5 : range === "5d" ? 30 : 1;
             const timespan = range === "1d" || range === "5d" ? "minute" : "day";
-            const fromDate = anchorDate;
+
+            // [S-68] For 1D range, fetch 5 days to cover weekends/pre-market (same as stockApi.ts)
+            const fiveDaysAgo = new Date();
+            fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+            const fromDate = range === "1d" ? toYYYYMMDD_ET(fiveDaysAgo) : anchorDate;
             const toDate = anchorDate;
 
             const aggs = await fetchMassive(
