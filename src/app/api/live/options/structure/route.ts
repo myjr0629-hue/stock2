@@ -187,12 +187,12 @@ export async function GET(req: NextRequest) {
     let contractsUsedForGex = 0;
     let gexNotes = "";
 
-    // [V7.1] Gamma Flip Level - Calculate independently of options_status
-    // This ensures Gamma Flip is always available when ANY gamma data exists
+    // [V7.1] [S-73] Gamma Flip Level - Find closest zero crossing to current price
+    // OLD: Found first crossing from lowest strike (returned edge cases like $95)
+    // NEW: Find ALL crossings, then pick the one closest to current price
     let gammaFlipLevel: number | null = null;
 
-    // Pre-calculate Gamma Flip regardless of options_status
-    if (cleanContracts.length > 0) {
+    if (cleanContracts.length > 0 && underlyingPrice > 0) {
         const gexByStrike = new Map<number, number>();
         let gammaDataCount = 0;
 
@@ -206,33 +206,34 @@ export async function GET(req: NextRequest) {
             }
         });
 
-        // Only calculate if we have SOME gamma data (relaxed from 50%)
         if (gammaDataCount > 0) {
             const strikesWithGex = Array.from(gexByStrike.entries())
                 .sort((a, b) => a[0] - b[0]);
 
+            // Collect ALL zero crossings
             let cumulativeGex = 0;
-            let prevCumulativeGex = 0;
+            const crossings: number[] = [];
 
             for (let i = 0; i < strikesWithGex.length; i++) {
                 const [strike, gexAtStrike] = strikesWithGex[i];
+                const prevGex = cumulativeGex;
                 cumulativeGex += gexAtStrike;
 
                 if (i > 0) {
-                    // Positive → Negative crossover
-                    if (prevCumulativeGex > 0 && cumulativeGex <= 0) {
-                        gammaFlipLevel = strike;
-                        break;
-                    }
-                    // Negative → Positive crossover
-                    if (prevCumulativeGex <= 0 && cumulativeGex > 0) {
-                        gammaFlipLevel = strike;
-                        break;
+                    // Detect any zero crossing
+                    if ((prevGex < 0 && cumulativeGex >= 0) || (prevGex > 0 && cumulativeGex <= 0)) {
+                        crossings.push(strike);
                     }
                 }
-                prevCumulativeGex = cumulativeGex;
             }
-            console.log(`[V7.1] ${ticker}: GammaFlip calculated = $${gammaFlipLevel} (from ${gammaDataCount} gamma points)`);
+
+            // [S-73] Pick the crossing CLOSEST to current price
+            if (crossings.length > 0) {
+                gammaFlipLevel = crossings.reduce((closest, strike) =>
+                    Math.abs(strike - underlyingPrice) < Math.abs(closest - underlyingPrice) ? strike : closest
+                );
+            }
+            console.log(`[S-73] ${ticker}: GammaFlip = $${gammaFlipLevel} (closest to $${underlyingPrice}) from ${crossings.length} crossings: [${crossings.join(', ')}]`);
         }
     }
 
