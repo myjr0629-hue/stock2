@@ -43,27 +43,33 @@ const formatEtMinute = (etMinute: number): string => {
 };
 
 export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels }: StockChartProps & { initialRange?: string }) {
+    // [S-67] Fix: Use props data immediately if available
     const [chartData, setChartData] = useState(data);
-    // [FIX] Start with loading=true for 1d range since we always refetch complete data
-    const [loading, setLoading] = useState(initialRange === '1d');
+    // [S-67] Fix: Only show loading if no initial data provided
+    const [loading, setLoading] = useState(!data || data.length === 0);
     const [range, setRange] = useState(initialRange);
     const [baseDateET, setBaseDateET] = useState<string>("");
-    // [FIX] For 1d range, don't mark ready from SSR data - wait for client fetch
-    const [dataReady, setDataReady] = useState(initialRange !== '1d' && data && data.length > 0);
+    // [S-67] Fix: Mark ready immediately if props data is valid
+    const [dataReady, setDataReady] = useState(data && data.length > 0);
 
-    // [P0-2] Sync data and mark ready when valid data arrives
-    // [FIX] For 1d range, SSR data is incomplete - only sync for non-1d ranges
+    // [S-67] Fix: Sync props data for ALL ranges (including 1D)
     useEffect(() => {
-        if (data && data.length > 0 && range !== '1d') {
+        if (data && data.length > 0) {
             setChartData(data);
             setDataReady(true);
+            setLoading(false);
         }
         setRange(initialRange);
     }, [data, ticker, initialRange]);
 
-    // [FIX V2] Fetch fresh data on mount AND when returning to 1D range
+    // [S-67] Fix: Only fetch if no valid data from props AND range is 1D
     useEffect(() => {
         const fetchInitialData = async () => {
+            // Skip fetch if we already have valid data from props
+            if (chartData && chartData.length > 0 && dataReady) {
+                return;
+            }
+
             if (range === '1d') {
                 setLoading(true);
                 try {
@@ -85,7 +91,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             }
         };
         fetchInitialData();
-    }, [ticker, range]); // [FIX] Added range to re-fetch when switching back to 1D
+    }, [ticker, range]);
 
     // [FIX V2] Real-time Chart Update: Update last data point with currentPrice
     // Added chartData.length to dependency to ensure this runs after new data loads
@@ -189,14 +195,11 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             return acc;
         }, []);
 
-    // [HOTFIX] Fix hydration mismatch / zero-width initial render
+    // [S-67] Fix: Remove unnecessary delay, mount immediately
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
-        // [S-55] Small delay to ensure layout is computed before Recharts initializes
-        const timer = setTimeout(() => {
-            setMounted(true);
-        }, 100);
-        return () => clearTimeout(timer);
+        // Immediate mount - delay was causing initial render issues
+        setMounted(true);
     }, []);
 
     // [S-65] Domain for 1D: FIXED 04:00-20:00 (240-1199) for consistent X-axis
