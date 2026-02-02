@@ -991,8 +991,9 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
 
   try {
     if (range === "1d") {
+      // [S-66] Fetch 5 calendar days to ensure we have data on weekends
       const fromDate = new Date();
-      fromDate.setDate(now.getDate() - 2);
+      fromDate.setDate(now.getDate() - 5);
       const from = fromDate.toISOString().split('T')[0];
 
       const data = await getAggregates(symbol, 1, 'minute', from, to);
@@ -1163,11 +1164,12 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       // [Pre-Market Fix] If today's data is too sparse (< 5 points), show previous trading day
       // This ensures sparkline charts have meaningful data during early pre-market
       const MIN_SPARKLINE_POINTS = 5;
-      if (todayData.length < MIN_SPARKLINE_POINTS && currentClassified.session === 'PRE') {
+      // [S-66] Also fallback during CLOSED session (weekends/after-hours)
+      if (todayData.length < MIN_SPARKLINE_POINTS && (currentClassified.session === 'PRE' || currentClassified.session === 'CLOSED')) {
         // Find previous trading day from available dates
         const previousDayET = uniqueDates.find(d => d < targetTradingDayET);
         if (previousDayET) {
-          console.log(`[1D Chart Pre-Market] Today has only ${todayData.length} points, showing previous day: ${previousDayET}`);
+          console.log(`[1D Chart ${currentClassified.session}] Today has only ${todayData.length} points, showing previous day: ${previousDayET}`);
           finalProcessed = processed.filter((p: any) => p.etDate === previousDayET);
         } else {
           finalProcessed = todayData; // No fallback available
@@ -1181,7 +1183,7 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       (finalProcessed as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
       (finalProcessed as any).sessionMaskDebug.todayDateET = todayDateET;
       (finalProcessed as any).sessionMaskDebug.currentSession = currentClassified.session;
-      (finalProcessed as any).sessionMaskDebug.usedFallbackDay = todayData.length < MIN_SPARKLINE_POINTS && currentClassified.session === 'PRE';
+      (finalProcessed as any).sessionMaskDebug.usedFallbackDay = todayData.length < MIN_SPARKLINE_POINTS && (currentClassified.session === 'PRE' || currentClassified.session === 'CLOSED');
 
       // Limit to max points for performance
       if (finalProcessed.length > 1200) return finalProcessed.slice(-1200);

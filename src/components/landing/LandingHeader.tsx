@@ -49,7 +49,7 @@ export function LandingHeader() {
                 {/* 2. NAVIGATION (DASHBOARD / GUARDIAN / COMMAND / INTEL / PORTFOLIO / WATCHLIST) */}
                 <nav className="hidden md:flex items-center gap-1">
                     {[
-                        { label: "DASHBOARD", href: "/intel", path: "/intel", hasLive: true },
+                        { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: true },
                         { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", hasLive: false },
                         { label: "COMMAND", href: "/ticker?ticker=NVDA", path: "/ticker", hasLive: false },
                         { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", hasLive: false },

@@ -18,6 +18,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, TrendingUp, AlertCircle } from "lucide-react";
 
+interface AlphaLevels {
+    callWall?: number;
+    putFloor?: number;
+    maxPain?: number;
+}
+
 interface StockChartProps {
     data: { date: string; close: number }[];
     color?: string;
@@ -26,6 +32,7 @@ interface StockChartProps {
     currentPrice?: number; // [New] Live Price for Ref Line
     rsi?: number;
     return3d?: number;
+    alphaLevels?: AlphaLevels; // [New] Optional Alpha Levels overlay
 }
 
 // [HOTFIX S-55] etMinute to HH:MM ET formatter
@@ -35,7 +42,7 @@ const formatEtMinute = (etMinute: number): string => {
     return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ET`;
 };
 
-export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d }: StockChartProps & { initialRange?: string }) {
+export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels }: StockChartProps & { initialRange?: string }) {
     const [chartData, setChartData] = useState(data);
     // [FIX] Start with loading=true for 1d range since we always refetch complete data
     const [loading, setLoading] = useState(initialRange === '1d');
@@ -473,6 +480,62 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 position="right"
                                                 fill="#10b981"
                                                 fontSize={11}
+                                                fontWeight="bold"
+                                                offset={5}
+                                            />
+                                        </ReferenceLine>
+                                    )}
+                                    {/* [Alpha Levels] Optional overlays - scale maintained with ifOverflow="hidden" */}
+                                    {alphaLevels?.callWall && (
+                                        <ReferenceLine
+                                            y={alphaLevels.callWall}
+                                            stroke="#22d3ee"
+                                            strokeDasharray="6 3"
+                                            strokeWidth={1}
+                                            strokeOpacity={0.7}
+                                            ifOverflow="hidden"
+                                        >
+                                            <Label
+                                                value={`CALL $${alphaLevels.callWall}`}
+                                                position="insideTopRight"
+                                                fill="#22d3ee"
+                                                fontSize={9}
+                                                fontWeight="bold"
+                                            />
+                                        </ReferenceLine>
+                                    )}
+                                    {alphaLevels?.putFloor && (
+                                        <ReferenceLine
+                                            y={alphaLevels.putFloor}
+                                            stroke="#f43f5e"
+                                            strokeDasharray="6 3"
+                                            strokeWidth={1}
+                                            strokeOpacity={0.7}
+                                            ifOverflow="hidden"
+                                        >
+                                            <Label
+                                                value={`PUT $${alphaLevels.putFloor}`}
+                                                position="insideBottomRight"
+                                                fill="#f43f5e"
+                                                fontSize={9}
+                                                fontWeight="bold"
+                                            />
+                                        </ReferenceLine>
+                                    )}
+                                    {alphaLevels?.maxPain && (
+                                        <ReferenceLine
+                                            y={alphaLevels.maxPain}
+                                            stroke="#a855f7"
+                                            strokeDasharray="6 3"
+                                            strokeWidth={1.5}
+                                            strokeOpacity={0.8}
+                                            ifOverflow="hidden"
+                                        >
+                                            <Label
+                                                value={`MAX PAIN $${alphaLevels.maxPain}`}
+                                                position="right"
+                                                fill="#a855f7"
+                                                fontSize={10}
                                                 fontWeight="bold"
                                                 offset={5}
                                             />
