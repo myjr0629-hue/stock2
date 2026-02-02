@@ -1,6 +1,7 @@
 
 import { fetchMassive, fetchMassiveAll, CACHE_POLICY } from './massiveClient';
 import { getMarketStatusSSOT } from './marketStatusProvider';
+import { findWeeklyExpirationSync } from './holidayCache';
 
 // [Phase 24.1] Central Data Hub Structure
 export interface UnifiedQuote {
@@ -240,25 +241,42 @@ export const CentralDataHub = {
             };
 
             const today = targetDate ? new Date(targetDate) : new Date();
-            const future = new Date(today);
-            future.setDate(today.getDate() + 14);
-            const dateStr = future.toISOString().split('T')[0];
-
-            console.log(`[CentralDataHub] Fetching ALL options for ${ticker} -> In-Memory Filter < ${dateStr}`);
-
             const todayStr = targetDate || new Date().toISOString().split('T')[0];
-            const maxExpiryDate = new Date(today);
-            maxExpiryDate.setDate(maxExpiryDate.getDate() + 14);
-            const maxExpiryStr = maxExpiryDate.toISOString().split('T')[0];
 
-            const params: any = {
-                limit: '250',
-                'expiration_date.gte': todayStr,
-                'expiration_date.lte': maxExpiryStr
+            // [S-72] Phase 1: Probe for available expirations
+            const probeParams: any = {
+                limit: '100',
+                'expiration_date.gte': todayStr
             };
 
-            const res = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, params, true);
-            const results = res.results || [];
+            const probeRes = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, probeParams, true);
+            const probeResults = probeRes.results || [];
+
+            // Find weekly expiration
+            const expirations = Array.from(new Set(
+                probeResults.map((c: any) => c.details?.expiration_date)
+            )).filter(Boolean).sort() as string[];
+
+            const weeklyExpiry = findWeeklyExpirationSync(expirations);
+
+            if (!weeklyExpiry) {
+                console.warn(`[CentralDataHub] No weekly expiration found for ${ticker}`);
+                return {
+                    netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0,
+                    optionsCount: 0, dataSource: 'NONE', isAfterHours: false
+                };
+            }
+
+            console.log(`[CentralDataHub] Fetching EXACT weekly expiration for ${ticker}: ${weeklyExpiry}`);
+
+            // [S-72] Phase 2: Fetch exact weekly expiration (full data for accurate Max Pain)
+            const exactParams: any = {
+                limit: '250',
+                'expiration_date': weeklyExpiry
+            };
+
+            const exactRes = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, exactParams, true);
+            const results = exactRes.results || [];
 
             let callPremium = 0;
             let putPremium = 0;
@@ -312,6 +330,7 @@ export const CentralDataHub = {
             if (usedFallback && contractsProcessed > 0) dataSource = 'CALCULATED';
             if (isAfterHours && results.length > 0) dataSource = 'CALCULATED';
 
+            // [S-72] Use full weekly expiration data for accurate Max Pain (no filter)
             return {
                 netPremium: callPremium - putPremium,
                 callPremium,
@@ -323,10 +342,11 @@ export const CentralDataHub = {
                 isAfterHours,
                 gamma: totalGamma,
                 rawChain: results,
-                callWall: calcMaxOI(filterNearestExpiry(results), 'call'),
-                putFloor: calcMaxOI(filterNearestExpiry(results), 'put'),
-                pinZone: calcMaxTotalOI(filterNearestExpiry(results)),
-                maxPain: calcMaxPain(filterNearestExpiry(results)),
+                weeklyExpiration: weeklyExpiry,
+                callWall: calcMaxOI(results, 'call'),
+                putFloor: calcMaxOI(results, 'put'),
+                pinZone: calcMaxTotalOI(results),
+                maxPain: calcMaxPain(results),
                 error: null
             };
 
