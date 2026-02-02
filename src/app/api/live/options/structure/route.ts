@@ -1,7 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
+import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
 
 export const revalidate = 0; // Force dynamic (User Request)
+
+// [S-69] Get next valid trading day for options expiration (skips weekends)
+function getNextTradingDayET(): string {
+    const nowET = getETNow();
+    const dow = getETDayOfWeek(nowET);
+
+    // If Saturday, next trading day is Monday (+2)
+    // If Sunday, next trading day is Monday (+1)
+    // Otherwise, today or next weekday
+    const result = new Date(nowET);
+
+    if (dow === 6) {
+        // Saturday -> Monday
+        result.setDate(result.getDate() + 2);
+    } else if (dow === 0) {
+        // Sunday -> Monday
+        result.setDate(result.getDate() + 1);
+    }
+    // Weekdays: use today (options can expire today or later)
+
+    return toYYYYMMDD_ET(result);
+}
 
 async function fetchMassiveWithRetry(url: string, attempts = 3): Promise<any> {
     const start = Date.now();
@@ -41,8 +64,8 @@ export async function GET(req: NextRequest) {
     }
 
     // 2. Fetch Options Chain (Pagination)
-    // Sort by expiration date to get nearest first
-    const todayStr = new Date().toISOString().split('T')[0];
+    // [S-69] Use ET-based date for options expiration filtering
+    const todayStr = getNextTradingDayET();
     let chainUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&sort=expiration_date&order=asc&limit=250`;
 
     let allContracts: any[] = [];
