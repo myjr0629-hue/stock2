@@ -339,6 +339,28 @@ export async function GET(req: NextRequest) {
             callWall > 0 && underlyingPrice >= callWall * 0.98 &&
             pcr !== null && pcr < 0.6;
 
+        // [S-76] ATM IV Calculation - Find option closest to current price
+        let atmIv: number | null = null;
+        if (underlyingPrice > 0 && cleanContracts.length > 0) {
+            // Find ATM strike (closest to current price)
+            const atmStrike = sortedStrikes.reduce((closest, strike) =>
+                Math.abs(strike - underlyingPrice) < Math.abs(closest - underlyingPrice) ? strike : closest
+            );
+
+            // Get ATM call's IV (prefer call over put for ATM)
+            const atmContract = cleanContracts.find(c => c.k === atmStrike && c.type === 'call')
+                || cleanContracts.find(c => c.k === atmStrike && c.type === 'put');
+
+            // Polygon IV can be in different places
+            const rawIv = atmContract?.greeks?.implied_volatility
+                || atmContract?.implied_volatility
+                || atmContract?.iv;
+
+            if (typeof rawIv === 'number' && rawIv > 0) {
+                atmIv = rawIv > 1 ? Math.round(rawIv) : Math.round(rawIv * 100);
+            }
+        }
+
         return NextResponse.json({
             ticker,
             expiration: targetExpiry,
@@ -352,6 +374,7 @@ export async function GET(req: NextRequest) {
             maxPain,
             netGex,
             gammaFlipLevel,
+            atmIv, // [S-76] ATM Implied Volatility
             levels: {
                 callWall: callWall || null,
                 putFloor: putFloor || null,

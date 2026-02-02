@@ -30,6 +30,7 @@ export interface EnrichedWatchlistItem extends WatchlistItem {
     sparkline?: number[];
     gammaFlipLevel?: number;  // [NEW] Gamma Flip Level
     iv?: number;              // [NEW] Implied Volatility
+    vwapDist?: number;        // [S-76] VWAP distance %
 }
 
 export function useWatchlist() {
@@ -97,7 +98,8 @@ export function useWatchlist() {
                         gexM: apiData.realtime.gexM,
                         sparkline: apiData.realtime.sparkline,
                         gammaFlipLevel: apiData.realtime.gammaFlipLevel,
-                        iv: apiData.realtime.iv
+                        iv: apiData.realtime.iv,
+                        vwapDist: apiData.realtime.vwapDist
                     };
                 }
                 return {

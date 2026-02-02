@@ -134,7 +134,8 @@ export async function GET(request: Request) {
             const gammaFlipLevel = structureRes?.gammaFlipLevel ?? null;
             const structureGexM = structureRes?.netGex ? Number((structureRes.netGex / 1000000).toFixed(2)) : null;
             const structureMaxPain = structureRes?.maxPain ?? null;
-            const iv = opts?.gems?.iv || opts?.iv || null;
+            // [S-76] ATM IV from structure API (primary) or fallback to getOptionsData
+            const iv = structureRes?.atmIv ?? opts?.gems?.iv ?? opts?.iv ?? null;
 
             // Use structure API first (same data source as Command page)
             const finalMaxPain = structureMaxPain ?? maxPain;
@@ -167,7 +168,12 @@ export async function GET(request: Request) {
                     whaleIndex: Math.round(whaleIndex),
                     whaleConfidence,
                     gammaFlipLevel,
-                    iv
+                    iv,
+                    // [S-76] VWAP for price column
+                    vwap: stockData.vwap || null,
+                    vwapDist: (stockData.vwap && stockData.price)
+                        ? Number(((stockData.price - stockData.vwap) / stockData.vwap * 100).toFixed(2))
+                        : null
                 }
             };
         } catch (error) {

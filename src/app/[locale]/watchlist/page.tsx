@@ -95,7 +95,7 @@ export default function WatchlistPage() {
                             <div className="flex items-center justify-center gap-1"><Zap className="w-3 h-3" />Alpha</div>
                             <div className="flex items-center justify-center gap-1"><Target className="w-3 h-3" />{t('signal')}</div>
                             <div className="flex items-center justify-center gap-1"><Fish className="w-3 h-3 text-cyan-400" />Whale</div>
-                            <div className="flex items-center justify-center gap-1"><BarChart3 className="w-3 h-3" />{t('rsiLabel')}</div>
+                            <div className="flex items-center justify-center gap-1"><Activity className="w-3 h-3" />IV</div>
                             <div className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3" />{t('gammaFlip')}</div>
                             <div className="flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" />{t('return3d')}</div>
                             <div className="flex items-center justify-center gap-1"><Crosshair className="w-3 h-3" />MaxPain</div>
@@ -127,7 +127,7 @@ export default function WatchlistPage() {
                                         <div className="flex justify-center"><div className="h-6 w-16 bg-slate-700/50 rounded" /></div>
                                         {/* Whale */}
                                         <div className="flex justify-center"><div className="h-5 w-14 bg-slate-700/50 rounded" /></div>
-                                        {/* RSI */}
+                                        {/* IV */}
                                         <div className="flex justify-center"><div className="h-4 w-10 bg-slate-700/50 rounded" /></div>
                                         {/* Gamma */}
                                         <div className="flex justify-center"><div className="h-5 w-12 bg-slate-700/50 rounded" /></div>
@@ -223,8 +223,16 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
                         </span>
                     )}
                 </div>
-                <div className={`text-[10px] font-num font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {isPositive ? '+' : ''}{item.changePct.toFixed(2)}%
+                {/* [S-76] Change% and VWAP side by side */}
+                <div className="flex items-center justify-center gap-2 text-[10px] font-num font-bold">
+                    <span className={isPositive ? 'text-emerald-400' : 'text-rose-400'}>
+                        {isPositive ? '+' : ''}{item.changePct.toFixed(1)}%
+                    </span>
+                    {item.vwapDist !== undefined && item.vwapDist !== null && (
+                        <span className={`${item.vwapDist > 0 ? 'text-amber-400' : 'text-cyan-400'}`} title="VWAP 대비 거리">
+                            V{item.vwapDist > 0 ? '+' : ''}{item.vwapDist.toFixed(1)}%
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -243,9 +251,9 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
                 <WhaleIndicator index={item.whaleIndex} confidence={item.whaleConfidence} />
             </div>
 
-            {/* RSI */}
+            {/* IV */}
             <div className="flex justify-center">
-                <RSIIndicator value={item.rsi} />
+                <IVIndicator value={item.iv} />
             </div>
 
             {/* Gamma Flip */}
@@ -403,19 +411,19 @@ function WhaleIndicator({ index, confidence }: { index?: number; confidence?: st
     );
 }
 
-function RSIIndicator({ value }: { value?: number }) {
+function IVIndicator({ value }: { value?: number }) {
     if (value === undefined || value === null) {
         return <span className="text-[9px] text-slate-500 animate-pulse">로딩중</span>;
     }
 
-    const t = useTranslations('watchlist');
-    const color = value >= 70 ? 'text-rose-400' : value <= 30 ? 'text-emerald-400' : 'text-white';
-    const label = value >= 70 ? t('overbought') : value <= 30 ? t('oversold') : t('neutral');
+    // IV color: high (>50%) = hot/red, low (<20%) = cool/green
+    const color = value >= 50 ? 'text-rose-400' : value <= 20 ? 'text-emerald-400' : 'text-amber-400';
+    const label = value >= 50 ? 'HIGH' : value <= 20 ? 'LOW' : '';
 
     return (
-        <div className="flex items-center gap-1" title={`RSI(14): ${value.toFixed(0)}`}>
-            <span className={`text-xs font-bold font-num ${color}`}>{value.toFixed(0)}</span>
-            <span className="text-[10px] text-white/80">{label}</span>
+        <div className="flex items-center gap-1" title={`내재변동성(IV): ${value.toFixed(0)}% - 옵션가격 과열도`}>
+            <span className={`text-xs font-bold font-num ${color}`}>{value.toFixed(0)}%</span>
+            {label && <span className="text-[9px] text-white/60">{label}</span>}
         </div>
     );
 }
@@ -502,10 +510,17 @@ function GexIndicator({ gexM }: { gexM?: number }) {
         : gexM < 0 ? 'text-rose-400 bg-rose-400/10 border-rose-400/30'
             : 'text-slate-400 bg-slate-400/10 border-slate-400/30';
 
+    const label = gexM > 0 ? 'LONG' : gexM < 0 ? 'SHORT' : 'N/A';
+    // [S-76] Show actual GEX value for credibility
+    const value = Math.abs(gexM) >= 1
+        ? `${gexM.toFixed(1)}M`
+        : `${Math.abs(gexM * 1000).toFixed(0)}K`;
+
     return (
         <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-bold ${color}`} title={`GEX: ${gexM}M - 감마 노출`}>
             {gexM > 0 ? <Shield className="w-3 h-3" /> : gexM < 0 ? <Zap className="w-3 h-3" /> : null}
-            <span>{gexM > 0 ? 'LONG' : gexM < 0 ? 'SHORT' : 'N/A'}</span>
+            <span>{label}</span>
+            <span className="font-num text-[10px] opacity-80">{value}</span>
         </div>
     );
 }
