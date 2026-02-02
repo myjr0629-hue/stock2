@@ -78,9 +78,18 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         }
     }, [rawChain]);
 
-    // Process Data: Group by Strike
+    // Process Data: Group by Strike with DTE filtering
+    // [S-77] Industry Standard: VOLUME = 0-7 DTE (short-term gamma), OI = 0-35 DTE (mid-term positioning)
     const { flowMap, totalVolume } = useMemo(() => {
         if (!rawChain || rawChain.length === 0) return { flowMap: [], totalVolume: 0 };
+
+        // DTE filtering based on view mode
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const maxDTE = (userViewMode || 'VOLUME') === 'VOLUME' ? 7 : 35;
+        const maxDate = new Date(today);
+        maxDate.setDate(today.getDate() + maxDTE);
 
         const strikeMap = new Map<number, { callVol: number; putVol: number; callOI: number; putOI: number }>();
         let totalVol = 0;
@@ -90,6 +99,17 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             const type = opt.details?.contract_type;
             const vol = opt.day?.volume || 0;
             const oi = opt.open_interest || 0;
+
+            // [S-77] Filter by expiry date
+            const expiryStr = opt.details?.expiration_date;
+            if (expiryStr) {
+                const parts = expiryStr.split('-');
+                if (parts.length === 3) {
+                    const expiry = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                    // Skip if expired or beyond DTE window
+                    if (expiry < today || expiry > maxDate) return;
+                }
+            }
 
             totalVol += vol;
 
@@ -122,7 +142,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             })),
             totalVolume: totalVol
         };
-    }, [rawChain, currentPrice]);
+    }, [rawChain, currentPrice, userViewMode]);
 
 
 
