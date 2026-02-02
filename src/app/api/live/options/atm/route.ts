@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getETNow } from '@/services/timezoneUtils';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
+import { findWeeklyExpiration } from "@/services/holidayCache";
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0; // No caching for live data
@@ -72,9 +73,9 @@ export async function GET(req: NextRequest) {
 
     const allContracts = chainRes.data.results;
 
-    // 3. Find Nearest Expiration
-    const expirations = Array.from(new Set(allContracts.map((c: any) => c.details?.expiration_date || c.expiration_date))).sort();
-    const nearestExpiry = expirations[0];
+    // 3. [S-70] Find Weekly Expiration (Friday, or Thursday if holiday)
+    const expirations = Array.from(new Set(allContracts.map((c: any) => c.details?.expiration_date || c.expiration_date))).sort() as string[];
+    const nearestExpiry = await findWeeklyExpiration(expirations);
 
     if (!nearestExpiry) {
         return NextResponse.json({

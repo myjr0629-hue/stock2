@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
+import { findWeeklyExpiration } from "@/services/holidayCache";
 
 export const revalidate = 0; // Force dynamic (User Request)
 
@@ -63,25 +64,49 @@ export async function GET(req: NextRequest) {
         }
     }
 
-    // 2. Fetch Options Chain (Pagination)
-    // [S-69] Use ET-based date for options expiration filtering
+    // 2. [S-71] Two-Phase Fetch: First get expirations, then fetch exact weekly expiration
+    // Phase 1: Quick fetch to get available expirations
     const todayStr = getNextTradingDayET();
-    let chainUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&sort=expiration_date&order=asc&limit=250`;
+    const probeUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&limit=250`;
+
+    let availableExpirations: string[] = [];
+    let targetExpiry: string = '';
+
+    try {
+        const probeRes = await fetchMassiveWithRetry(probeUrl, 2);
+        if (probeRes.success && probeRes.data?.results) {
+            const exps = Array.from(new Set(
+                probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date)
+            )).filter(Boolean).sort() as string[];
+            availableExpirations = exps.slice(0, 10);
+
+            // Determine target expiration
+            if (requestedExp && exps.includes(requestedExp)) {
+                targetExpiry = requestedExp;
+            } else {
+                targetExpiry = await findWeeklyExpiration(exps);
+            }
+        }
+    } catch (e) {
+        console.error(`[OPTIONS] Probe failed for ${ticker}:`, e);
+    }
+
+    // Fallback if probe failed
+    if (!targetExpiry) {
+        targetExpiry = requestedExp || todayStr;
+    }
+
+    // Phase 2: Fetch EXACT expiration (no filtering, full data for accurate Max Pain)
+    const exactUrl = `/v3/snapshot/options/${ticker}?expiration_date=${targetExpiry}&limit=250`;
 
     let allContracts: any[] = [];
     let pagesFetched = 0;
     let latencyTotal = 0;
     let attemptsTotal = 0;
-    const MAX_PAGES = 4; // Safety limit
-
-    // We only strictly NEED one expiration. 
-    // If we rely on sorting, the first page usually contains the nearest expiry contracts.
-    // However, if there are MANY strikes, they might span multiple pages? 
-    // Polygon v3 snapshot sorts by ticker usually if not specified.
-    // Specifying sort=expiration_date should clump them.
+    let chainUrl = exactUrl;
 
     try {
-        while (chainUrl && pagesFetched < MAX_PAGES) {
+        while (chainUrl && pagesFetched < 4) {
             const res = await fetchMassiveWithRetry(chainUrl, 3);
             attemptsTotal += res.attempts || 1;
             latencyTotal += res.latency || 0;
@@ -91,54 +116,26 @@ export async function GET(req: NextRequest) {
             allContracts = allContracts.concat(res.data.results);
             pagesFetched++;
 
-            // Check if we have enough contracts for the target expiry?
-            // If we have a requested expiry, check if we covered it? 
-            // Simplifying: Fetch a few pages to "widen" the net, but stop if we have plenty.
-            if (allContracts.length > 500) break;
-
+            // No 500 limit - fetch all contracts for the expiration
             chainUrl = res.data.next_url || '';
         }
     } catch (e) {
-        // partial data is better than none
+        console.log(`[OPTIONS] Fetch error for ${ticker}:`, e);
     }
 
     if (allContracts.length === 0) {
         return NextResponse.json({
-            ticker, expiration: "-", underlyingPrice, options_status: "PENDING",
+            ticker, expiration: targetExpiry, underlyingPrice, options_status: "PENDING",
             structure: { strikes: [], callsOI: [], putsOI: [] },
             maxPain: null, netGex: null, sourceGrade: "C",
+            availableExpirations,
             debug: { apiStatus: 404, pagesFetched, contractsFetched: 0 }
         });
     }
 
-    // 3. Select Expiration & Build Available List
-    const allExps = Array.from(new Set(allContracts.map((c: any) => c.details?.expiration_date || c.expiration_date))).sort();
-    const availableExpirations = allExps.slice(0, 10); // Top 10 earliest
-
-    // Nearest by default, or requested if valid
-    let targetExpiry = allExps[0];
-    let forcesRequested = false;
-    if (requestedExp && allExps.includes(requestedExp)) {
-        targetExpiry = requestedExp;
-        forcesRequested = true;
-    } else if (requestedExp) {
-        // requested but not found in the snapshot we have
-        targetExpiry = requestedExp;
-        forcesRequested = true;
-    }
-
-    // 4. Filter Contracts for Target Expiry
-    const contracts = allContracts.filter((c: any) =>
-        targetExpiry === (c.details?.expiration_date || c.expiration_date)
-    );
-
-    // Filter by strike range (approx ±25% to capture structures better)
-    const relevantContracts = underlyingPrice > 0
-        ? contracts.filter((c: any) => {
-            const k = c.details?.strike_price || c.strike_price || 0;
-            return k >= underlyingPrice * 0.75 && k <= underlyingPrice * 1.25;
-        })
-        : contracts;
+    // [S-71] Use ALL contracts for accurate Max Pain calculation (no ±25% filter)
+    const contracts = allContracts;
+    const relevantContracts = contracts; // No filter - use full data
 
     // 5. Structure & Integrity
     let nullOiCount = 0;

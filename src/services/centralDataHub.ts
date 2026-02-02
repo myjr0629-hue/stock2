@@ -390,7 +390,7 @@ function calcMaxTotalOI(chain: any[]): number | null {
     return maxStrike > 0 ? maxStrike : null;
 }
 
-// [Helper] Filter for Nearest Expiry (0DTE/1DTE)
+// [S-70] Filter for Weekly Expiry (Friday, or Thursday if holiday)
 function filterNearestExpiry(chain: any[]): any[] {
     if (!chain || chain.length === 0) return [];
 
@@ -402,11 +402,27 @@ function filterNearestExpiry(chain: any[]): any[] {
 
     if (expirations.length === 0) return chain; // Fallback
 
-    // 2. Pick the nearest (first) one
-    const nearestDate = expirations[0];
+    // 2. [S-70] Find weekly expiration (Friday first, then Thursday)
+    let targetDate = expirations[0]; // Default fallback
+
+    // Find first Friday
+    const fridayExp = expirations.find(exp => {
+        const date = new Date(exp + 'T12:00:00');
+        return date.getDay() === 5;
+    });
+    if (fridayExp) {
+        targetDate = fridayExp;
+    } else {
+        // Find first Thursday (holiday fallback)
+        const thursdayExp = expirations.find(exp => {
+            const date = new Date(exp + 'T12:00:00');
+            return date.getDay() === 4;
+        });
+        if (thursdayExp) targetDate = thursdayExp;
+    }
 
     // 3. Filter
-    return chain.filter(c => c.details?.expiration_date === nearestDate);
+    return chain.filter(c => c.details?.expiration_date === targetDate);
 }
 
 // [Helper] Real Max Pain Calculation (Total Loss Minimization)
