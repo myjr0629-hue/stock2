@@ -24,10 +24,8 @@ function convertToStockData(overview: TickerOverview): StockData {
         change: overview.price.changeAbs || 0,
         changePercent: overview.price.changePct || 0,
         currency: "USD",
-        history: (overview.history || []).map(h => ({
-            date: h.date,
-            close: h.close
-        })),
+        // [S-76] Preserve complete chart data including etMinute/session fields
+        history: overview.history || [],
         // Optional fields
         dayHigh: overview.price.high,
         dayLow: overview.price.low,

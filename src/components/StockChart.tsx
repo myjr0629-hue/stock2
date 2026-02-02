@@ -43,29 +43,43 @@ const formatEtMinute = (etMinute: number): string => {
 };
 
 export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels }: StockChartProps & { initialRange?: string }) {
+    // [S-76] Check if SSR data has complete fields (etMinute/session)
+    const ssrHasCompleteData = data && data.length > 0 && (data[0] as any)?.etMinute !== undefined;
+
     // [S-67] Fix: Use props data immediately if available
     const [chartData, setChartData] = useState(data);
-    // [S-76] Fix: 1D always needs client fetch for etMinute/session fields, so start loading=true
-    // Other ranges can use SSR data directly
-    const [loading, setLoading] = useState(initialRange === '1d' ? true : (!data || data.length === 0));
+    // [S-76] Fix: Only loading if SSR data is incomplete
+    // If SSR provides complete data (with etMinute), use it directly
+    const [loading, setLoading] = useState(
+        initialRange === '1d'
+            ? !ssrHasCompleteData  // 1D: loading only if SSR lacks etMinute
+            : (!data || data.length === 0)
+    );
     const [range, setRange] = useState(initialRange);
     const [baseDateET, setBaseDateET] = useState<string>("");
-    // [S-67] Fix: Mark ready immediately if props data is valid (but not for 1D which needs client data)
-    const [dataReady, setDataReady] = useState(initialRange !== '1d' && data && data.length > 0);
+    // [S-76] Mark ready immediately if SSR data is complete (including 1D with etMinute)
+    const [dataReady, setDataReady] = useState(
+        ssrHasCompleteData || (initialRange !== '1d' && data && data.length > 0)
+    );
 
-    // [S-67] Fix: Sync props data for ALL ranges (including 1D)
+    // [S-76] Sync props data - now works for ALL ranges including 1D with complete data
     useEffect(() => {
         if (data && data.length > 0) {
-            setChartData(data);
-            setDataReady(true);
-            setLoading(false);
+            const hasEtMinute = (data[0] as any)?.etMinute !== undefined;
+
+            // Use SSR data if: non-1D range, OR 1D with complete data
+            if (initialRange !== '1d' || hasEtMinute) {
+                setChartData(data);
+                setDataReady(true);
+                setLoading(false);
+            }
+            // For 1D without etMinute: keep loading=true (legacy SSR fallback)
         }
         setRange(initialRange);
     }, [data, ticker, initialRange]);
 
-    // [S-76] Note: SSR data (props.data) only contains {date, close} but 1D chart requires
-    // etMinute and session fields for proper X-axis positioning. Client fetch is REQUIRED for 1D.
-    // This is intentional design, not a bug.
+    // [S-76] Note: SSR now provides complete data with etMinute/session fields.
+    // Client fetch is only needed as fallback if SSR data is incomplete.
 
     // [S-67] Fix: Only fetch if range is 1D (to get etMinute/session data from chart API)
     useEffect(() => {

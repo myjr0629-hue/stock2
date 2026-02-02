@@ -15,6 +15,7 @@ import { getBuildId, getEnvType } from "./buildIdSSOT";
 
 import { CentralDataHub } from "./centralDataHub";
 import { fetchStockNews } from "./newsHubProvider";
+import { getStockChartData } from "./stockApi"; // [S-76] For complete chart data with etMinute/session
 
 // --- Types ---
 export interface TickerOverviewMeta {
@@ -387,55 +388,79 @@ export async function getTickerOverview(
         let dailyCloses: number[] = [];
         let chartSource: "INTRADAY" | "DAILY" | "NONE" = "NONE";
 
-        // 4a. Try intraday first
-        // [S-68] Fetch 5 days for 1D range to ensure pre-market/weekend display has previous trading day data
+        // 4a. For 1D range, use getStockChartData which includes etMinute/session fields
+        // This eliminates the need for client-side refetch
         try {
-            const multiplier = range === "1d" ? 5 : range === "5d" ? 30 : 1;
-            const timespan = range === "1d" || range === "5d" ? "minute" : "day";
+            if (range === "1d") {
+                // [S-76] Use getStockChartData for complete 1D data with session masking
+                const chartData = await getStockChartData(tickerUpper, "1d");
 
-            // [S-68] For 1D range, fetch 5 days to cover weekends/pre-market (same as stockApi.ts)
-            const fiveDaysAgo = new Date();
-            fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
-            const fromDate = range === "1d" ? toYYYYMMDD_ET(fiveDaysAgo) : anchorDate;
-            const toDate = anchorDate;
+                if (chartData && chartData.length > 0) {
+                    // chartData already has etMinute, session, dateET fields
+                    result.history = chartData;
+                    intradayCloses = chartData.map((r: any) => r.close);
+                    chartSource = "INTRADAY";
 
-            const aggs = await fetchMassive(
-                `/v2/aggs/ticker/${tickerUpper}/range/${multiplier}/${timespan}/${fromDate}/${toDate}`,
-                { adjusted: "true", sort: "asc", limit: "5000" },
-                true,
-                undefined,
-                { next: { revalidate: 60 } }
-            );
-
-            if (aggs?.results?.length > 0) {
-                result.history = aggs.results.map((r: any) => ({
-                    date: new Date(r.t).toISOString(),
-                    close: r.c
-                }));
-                intradayCloses = aggs.results.map((r: any) => r.c);
-                chartSource = "INTRADAY";
-
-                const history = result.history ?? [];
-                diagnostics.chart = {
-                    ok: history.length > 0,
-                    points: history.length,
-                    updatedAtISO: new Date().toISOString(),
-                    anchorDate,
-                    dataSource: "INTRADAY"
-                };
-                if (history.length === 0) {
-                    diagnostics.chart.ok = false;
-                    diagnostics.chart.reasonKR = "차트 데이터 없음 (길이 0)";
+                    diagnostics.chart = {
+                        ok: true,
+                        points: chartData.length,
+                        updatedAtISO: new Date().toISOString(),
+                        anchorDate,
+                        dataSource: "INTRADAY"
+                    };
+                } else {
+                    diagnostics.chart = {
+                        ok: false,
+                        code: "EMPTY_RESPONSE",
+                        reasonKR: `1D 차트 없음 (${anchorDate})`,
+                        points: 0,
+                        anchorDate,
+                        dataSource: "INTRADAY"
+                    };
                 }
             } else {
-                diagnostics.chart = {
-                    ok: false,
-                    code: "EMPTY_RESPONSE",
-                    reasonKR: `인트라데이 차트 없음 (${anchorDate}, 비거래일 가능)`,
-                    points: 0,
-                    anchorDate,
-                    dataSource: "INTRADAY"
-                };
+                // Non-1D ranges: use simple fetch (no etMinute needed)
+                const multiplier = range === "5d" ? 30 : 1;
+                const timespan = range === "5d" ? "minute" : "day";
+
+                const fiveDaysAgo = new Date();
+                fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+                const fromDate = range === "1d" ? toYYYYMMDD_ET(fiveDaysAgo) : anchorDate;
+                const toDate = anchorDate;
+
+                const aggs = await fetchMassive(
+                    `/v2/aggs/ticker/${tickerUpper}/range/${multiplier}/${timespan}/${fromDate}/${toDate}`,
+                    { adjusted: "true", sort: "asc", limit: "5000" },
+                    true,
+                    undefined,
+                    { next: { revalidate: 60 } }
+                );
+
+                if (aggs?.results?.length > 0) {
+                    result.history = aggs.results.map((r: any) => ({
+                        date: new Date(r.t).toISOString(),
+                        close: r.c
+                    }));
+                    intradayCloses = aggs.results.map((r: any) => r.c);
+                    chartSource = "INTRADAY";
+
+                    diagnostics.chart = {
+                        ok: true,
+                        points: result.history?.length || 0,
+                        updatedAtISO: new Date().toISOString(),
+                        anchorDate,
+                        dataSource: "INTRADAY"
+                    };
+                } else {
+                    diagnostics.chart = {
+                        ok: false,
+                        code: "EMPTY_RESPONSE",
+                        reasonKR: `차트 없음 (${anchorDate})`,
+                        points: 0,
+                        anchorDate,
+                        dataSource: "INTRADAY"
+                    };
+                }
             }
         } catch (e: any) {
             const errInfo = extractErrorInfo(e);
