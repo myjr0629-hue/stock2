@@ -4,6 +4,9 @@
 import { NextResponse } from 'next/server';
 import { getStockData, getOptionsData } from '@/services/stockApi';
 
+// [S-76] Edge cache for 30 seconds - faster repeat loads
+export const revalidate = 30;
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const tickersParam = searchParams.get('tickers');
@@ -126,10 +129,18 @@ export async function GET(request: Request) {
                 }
             }
 
-            // === GAMMA FLIP & OPTIONS ===
+            // === GAMMA FLIP & OPTIONS (Unified Pipeline from Structure API) ===
+            // [S-76] Use structure API as primary source for consistency with Command page
             const gammaFlipLevel = structureRes?.gammaFlipLevel ?? null;
             const structureGexM = structureRes?.netGex ? Number((structureRes.netGex / 1000000).toFixed(2)) : null;
+            const structureMaxPain = structureRes?.maxPain ?? null;
             const iv = opts?.gems?.iv || opts?.iv || null;
+
+            // Use structure API first (same data source as Command page)
+            const finalMaxPain = structureMaxPain ?? maxPain;
+            const finalMaxPainDist = (finalMaxPain && currentPrice)
+                ? Number(((finalMaxPain - currentPrice) / currentPrice * 100).toFixed(2))
+                : null;
 
             return {
                 ticker,
@@ -148,8 +159,8 @@ export async function GET(request: Request) {
                     rsi: stockData.rsi || null,
                     return3d: stockData.return3d || null,
                     sparkline: stockData.history?.slice(-20).map((h: any) => h.close) || [],
-                    maxPain,
-                    maxPainDist,
+                    maxPain: finalMaxPain,
+                    maxPainDist: finalMaxPainDist,
                     gex,
                     gexM: structureGexM ?? gexM,
                     pcr: opts?.putCallRatio || null,
