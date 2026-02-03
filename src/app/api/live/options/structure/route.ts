@@ -309,12 +309,18 @@ export async function GET(req: NextRequest) {
                 gammaCount++;
             }
 
-            // Track Walls
-            if (c.type === 'call' && c.oi > maxCallOi) {
+            // Track Walls - [FIX] Filter by current price for meaningful levels
+            // callWall = highest OI call ABOVE current price but within +20% (resistance)
+            // putFloor = highest OI put BELOW current price but within -20% (support)
+            // Strikes beyond ±20% are typically hedge/insurance positions, not tactical levels
+            const maxResist = underlyingPrice * 1.20;  // +20% ceiling
+            const minSupport = underlyingPrice * 0.80; // -20% floor
+
+            if (c.type === 'call' && c.k > underlyingPrice && c.k <= maxResist && c.oi > maxCallOi) {
                 maxCallOi = c.oi;
                 callWall = c.k;
             }
-            if (c.type === 'put' && c.oi > maxPutOi) {
+            if (c.type === 'put' && c.k < underlyingPrice && c.k >= minSupport && c.oi > maxPutOi) {
                 maxPutOi = c.oi;
                 putFloor = c.k;
             }
