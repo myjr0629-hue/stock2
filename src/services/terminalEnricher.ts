@@ -272,6 +272,7 @@ function buildFlowEvidence(data: any, forensicData?: any): UnifiedFlow {
         offExPct: offExPct, // [V4.0] From ForensicService dark pool analysis
         offExDeltaPct: 0,
         netFlow: netPrem,
+        netPremium: netPrem, // [FIX] Explicitly set netPremium for Intel page whaleNetM
         complete: (data.flow?.optionsCount || 0) > 0
     };
 }

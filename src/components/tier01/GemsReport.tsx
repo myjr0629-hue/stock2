@@ -6,6 +6,7 @@ import { Tier01Data, GemsTicker } from "@/services/stockApi";
 import { Activity, Shield, Zap, TrendingUp, AlertTriangle, Cpu, Globe, Database, ChevronDown, ChevronUp, Lock, CheckCircle2, Server, Eye, ArrowRightLeft, LockKeyhole } from "lucide-react";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { useTranslations } from 'next-intl';
+import { StockDetailExpanded } from "@/components/trade";
 
 interface Props {
     data: Tier01Data;
@@ -116,100 +117,7 @@ function GridRow({ ticker }: { ticker: GemsTicker }) {
             {expanded && (
                 <tr className="bg-[#0F172A] border-b border-slate-700/50 animate-in fade-in slide-in-from-top-1 duration-200">
                     <td colSpan={13} className="p-0">
-                        <div className="p-6 border-l-4 border-emerald-500 ml-4 mr-4 my-4 bg-[#1E293B]/60 rounded-r-xl shadow-inner backdrop-blur-md">
-                            {ticker.v71 ? (
-                                <div className="space-y-6">
-                                    {/* 1. Decision Box */}
-                                    <div className="bg-[#0F172A]/80 p-4 rounded-lg border border-slate-700">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-1">Gate Assessment</div>
-                                                <div className="flex items-center gap-2">
-                                                    <span className={`px-2 py-0.5 rounded text-[11px] font-black ${ticker.v71.gate === 'PASS' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                                                        {ticker.v71.gate}
-                                                    </span>
-                                                    <span className="text-xs text-slate-300 font-medium">{ticker.v71.gateReason}</span>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-1">Commander Action</div>
-                                                <div className="text-lg font-black text-emerald-400 tracking-tighter">{ticker.v71.action.toUpperCase()}</div>
-                                            </div>
-                                        </div>
-                                        <div className="pt-3 border-t border-slate-700/50 flex justify-between items-center">
-                                            <div>
-                                                <span className="text-[10px] text-slate-500 uppercase font-bold mr-2">Retest Rule:</span>
-                                                <span className="text-xs text-slate-300 font-mono">Entry Zone ${ticker.v71.entryZone[0].toFixed(2)} - ${ticker.v71.entryZone[1].toFixed(2)}</span>
-                                            </div>
-                                            <div className={`text-xs font-black ${ticker.v71.isInsideEntry ? 'text-emerald-400' : 'text-rose-500'}`}>
-                                                {ticker.v71.isInsideEntry ? 'INSIDE ZONE' : 'NO CHASE'}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* 2. Full Precision */}
-                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between text-xs border-b border-slate-700/30 pb-1">
-                                                <span className="text-slate-500 font-bold uppercase">S1 / R1</span>
-                                                <span className="text-slate-200 font-mono">{ticker.v71.support.toFixed(1)} / {ticker.v71.resistance.toFixed(1)}</span>
-                                            </div>
-                                            <div className="flex justify-between text-xs border-b border-slate-700/30 pb-1">
-                                                <span className="text-slate-500 font-bold uppercase">TP1 / TP2</span>
-                                                <span className="text-emerald-400 font-mono">{ticker.v71.tp1.toFixed(1)} / {ticker.v71.tp2.toFixed(1)}</span>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between text-xs border-b border-slate-700/30 pb-1">
-                                                <span className="text-slate-500 font-bold uppercase">Hard Cut</span>
-                                                <span className="text-rose-400 font-mono">${ticker.cutPrice.toFixed(1)}</span>
-                                            </div>
-                                            <div className="flex justify-between text-xs border-b border-slate-700/30 pb-1">
-                                                <span className="text-slate-500 font-bold uppercase">OI Profile</span>
-                                                {ticker.v71.options_status === 'OK' ? (
-                                                    <span className="text-indigo-400 font-mono">Pin:{ticker.v71.oiLevels.pin} ({ticker.v71.oiLevels.grade})</span>
-                                                ) : (
-                                                    <span className="text-amber-500 font-bold animate-pulse">PENDING...</span>
-                                                )}
-                                            </div>
-                                        </div>
-                                        <div className="space-y-3">
-                                            <div className="flex justify-between text-xs border-b border-slate-700/30 pb-1">
-                                                <span className="text-slate-500 font-bold uppercase">Time Stop</span>
-                                                <span className="text-slate-300 font-mono">{ticker.v71.timeStop}</span>
-                                            </div>
-                                            <div className="text-[11px] text-slate-200 font-medium italic border-l-2 border-emerald-500 pl-2 line-clamp-1">
-                                                {ticker.v71.options_status === 'OK' ? (
-                                                    `Pulse: ${ticker.v71.gate === 'PASS' ? 'Strong accumulation velocity confirmed.' : 'Caution: Weak momentum structure detected.'}`
-                                                ) : (
-                                                    `Options: Pending (${ticker.v71.options_reason || 'Loading official OI...'})`
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* 3. Data Details */}
-                                    <div className="pt-4 border-t border-slate-700/50">
-                                        {ticker.v71?.options_status === 'OK' ? (
-                                            <div className="grid grid-cols-2 md:grid-cols-5 gap-x-8 gap-y-2">
-                                                <div className="flex justify-between items-baseline"><span className="text-[10px] text-slate-500 font-bold uppercase">MaxPain Near</span><span className="text-xs text-slate-300 font-mono">{(ticker.v71?.maxPainNear ?? 0).toFixed(1)}</span></div>
-                                                <div className="flex justify-between items-baseline"><span className="text-[10px] text-slate-500 font-bold uppercase">PCR Near</span><span className="text-xs text-slate-300 font-mono">{(ticker.v71?.pcrNear ?? 0).toFixed(2)}</span></div>
-                                                <div className="flex justify-between items-baseline"><span className="text-[10px] text-slate-500 font-bold uppercase">NetGEX</span><span className="text-xs text-slate-300 font-mono">{((ticker.v71?.netGex ?? 0) / 1000).toFixed(1)}k</span></div>
-                                                <div className="flex justify-between items-baseline"><span className="text-[10px] text-slate-500 font-bold uppercase">VWAP Pos</span><span className={`text-xs font-mono font-bold ${ticker.v71?.vwapPos === 'Above' ? 'text-emerald-400' : 'text-rose-400'}`}>{ticker.v71?.vwapPos ?? 'N/A'}</span></div>
-                                                <div className="flex justify-between items-baseline"><span className="text-[10px] text-slate-500 font-bold uppercase">RSI14</span><span className="text-xs text-slate-300 font-mono">{ticker.v71?.rsi14 ?? 0}</span></div>
-                                            </div>
-                                        ) : (
-                                            <div className="flex items-center gap-3 py-2 px-4 bg-amber-500/5 border border-amber-500/20 rounded-lg">
-                                                <div className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                                                <span className="text-[10px] text-amber-400 font-bold uppercase tracking-widest">Pricing-Only Intelligence Active // Waiting for Options Flow Data</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            ) : (
-                                <div className="text-slate-500 text-xs italic">V7.1 Precision Data not available.</div>
-                            )}
-                        </div>
+                        <StockDetailExpanded ticker={ticker} />
                     </td>
                 </tr>
             )}

@@ -1,6 +1,19 @@
 // --- TYPES (Shared & Client-Safe) ---
 // [S-53.1] Import score utilities for precision calculation
 import { calculateCalcBreakdown, CalcBreakdown } from './scoreUtils';
+// [V2.0] Alpha Engine Enhanced Scoring Functions
+import {
+    calculateOIHeat,
+    getGammaFlipBonus,
+    getWallDistanceScore,
+    getWhaleBonus,
+    getOffExBonus,
+    calculateATRPct,
+    getBetaPenalty,
+    getVIXTermScore,
+    getSafeHavenScore,
+    AlphaV2Context
+} from './alphaEngineV2';
 
 export type Range = "1d" | "1w" | "1m" | "3m" | "6m" | "1y" | "ytd" | "max";
 
@@ -285,26 +298,48 @@ export function analyzeGemsTicker(t: any, regime: string, opts?: any, strict = f
     const volBonus = Math.min(5, Math.max(-3, (volRatio - 1) * 2));
     const momentumRaw = Math.min(20, Math.max(0, 10 + (changeP * 2) + volBonus));
 
-    // 2. Options/Flow (0-20): PCR + OI Heat
-    // [S-40] When PENDING, use price position relative to round numbers as proxy
-    const priceRoundness = (price % 10) / 10; // 0-1 scale, higher = less round
-    const optionsRaw = optStatus === "OK"
-        ? Math.min(20, (opts!.putCallRatio || 1) * 10)
-        : Math.min(15, Math.max(5, 10 + (priceRoundness * 5) - 2.5));
+    // 2. Options/Flow (0-20): [V2.0] Enhanced with OI Heat, Gamma Flip, Wall Distance
+    // PCR (40%) + OI Heat (20%) + Gamma Flip (25%) + Wall Distance (15%)
+    const priceRoundness = (price % 10) / 10;
+    let optionsRaw: number;
 
-    // 3. Structure (0-20): Net GEX + Spot relation to Walls
-    // [S-40] When PENDING, use volRatio as structural strength proxy
-    const structureRaw = (optStatus === "OK" && opts?.gems?.gex)
-        ? Math.min(20, Math.max(0, 10 + (opts.gems.gex / 1000000)))
-        : Math.min(15, Math.max(5, 8 + volRatio * 2));
+    if (optStatus === "OK") {
+        const pcrScore = Math.min(8, (opts!.putCallRatio || 1) * 4);
+        const oiHeatScore = calculateOIHeat(opts?.rawChain || []) * 0.8; // max 4
+        const gammaBonus = getGammaFlipBonus(price, opts?.gems?.gammaFlipLevel);
+        const wallScore = getWallDistanceScore(price, opts?.gems?.callWall || opts?.callWall || 0, opts?.gems?.putFloor || opts?.putFloor || 0);
+        optionsRaw = Math.min(20, pcrScore + oiHeatScore + gammaBonus + wallScore);
+    } else {
+        optionsRaw = Math.min(15, Math.max(5, 10 + (priceRoundness * 5) - 2.5));
+    }
 
-    // 4. Regime (0-20): Based on Macro Regime
-    const regimeRaw = regime === "Risk-On" ? 18 : regime === "Neutral" ? 12 : 5;
+    // 3. Structure (0-20): [V2.0] GEX + Whale Index + Off-Exchange
+    // GEX (60%) + Whale (25%) + Off-Ex (15%) - Whale injected via opts.whaleIndex post-forensic
+    let structureRaw: number;
+    if (optStatus === "OK" && opts?.gems?.gex) {
+        const gexScore = Math.min(12, Math.max(0, 10 + (opts.gems.gex / 1000000)));
+        const whaleBonus = getWhaleBonus(opts?.whaleIndex || 0);
+        const offExBonus = getOffExBonus(opts?.offExPct || 0);
+        structureRaw = Math.min(20, gexScore + whaleBonus + offExBonus);
+    } else {
+        structureRaw = Math.min(15, Math.max(5, 8 + volRatio * 2));
+    }
 
-    // 5. Risk (0-20): RSI + Vol Humidity
-    // [S-40] Use volRatio as volatility proxy for variance
+    // 4. Regime (0-20): [V2.0] Base + VIX Term + Safe Haven Flow
+    // Base (60%) + VIX Term (25%) + Safe Haven (15%) - Data injected via opts.vixChange, tltChange, gldChange
+    const baseRegime = regime === "Risk-On" ? 12 : regime === "Neutral" ? 8 : 3;
+    const vixTermScore = getVIXTermScore(opts?.vixChange || 0);
+    const safeHavenScore = getSafeHavenScore(opts?.tltChange || 0, opts?.gldChange || 0);
+    const regimeRaw = Math.min(20, baseRegime + vixTermScore + safeHavenScore);
+
+    // 5. Risk (0-20): [V2.0] RSI + Vol Humidity + ATR Penalty + Beta Penalty
+    // RSI deviation + Vol spike + ATR volatility + Beta market sensitivity
+    // [V2.1] RSI penalty reduced from /2.5 to /3.0 to avoid over-penalizing high-momentum stocks
     const volRiskPenalty = volRatio > 2 ? Math.min(5, (volRatio - 2) * 2) : 0;
-    const riskRaw = Math.min(20, Math.max(0, 20 - Math.abs(50 - (opts?.rsi14 || 50)) / 2.5 - volRiskPenalty));
+    const atrPct = calculateATRPct(opts?.priceHistory || []);
+    const atrPenalty = atrPct > 0.05 ? 3 : atrPct > 0.03 ? 1 : 0;
+    const betaPenalty = getBetaPenalty(opts?.beta || 1);
+    const riskRaw = Math.min(20, Math.max(0, 20 - Math.abs(50 - (opts?.rsi14 || 50)) / 3.0 - volRiskPenalty - atrPenalty - betaPenalty));
 
     const scoreDecomposition = {
         momentum: Number(momentumRaw.toFixed(1)),

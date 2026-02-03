@@ -1,0 +1,82 @@
+﻿
+========================================
+E2E STRESS TEST - FULL PIPELINE
+========================================
+
+Time: 2026-02-03T03:26:30.527Z
+
+[STEP 1] Building Universe (V4.0)...
+  Universe Size: 50
+
+[STEP 2] Checking Data Layers for Each Stock...
+
+  Processing 1/50...
+  Processing 10/50...
+  Processing 20/50...
+  Processing 30/50...
+  Processing 40/50...
+  Processing 50/50...
+
+========================================
+DATA GAP ANALYSIS
+========================================
+
+SUMMARY:
+  Total Tested: 50
+  Complete Data: 48 (96.0%)
+  With Gaps: 2 (4.0%)
+
+GAPS BY LAYER:
+  Snapshot Gaps: 0
+  Options Gaps: 2
+
+STOCKS WITH DATA GAPS:
+  Ticker | Gap Type    | Reason
+  -------|-------------|--------
+  PSLV   | OPTIONS     | NO_CONTRACTS
+  GLDM   | OPTIONS     | NO_CONTRACTS
+
+========================================
+CORE ELITE STATUS
+========================================
+
+  NVDA  : ??OK
+  AAPL  : ??OK
+  MSFT  : ??OK
+  AMZN  : ??OK
+  GOOGL : ??NOT IN TOP 50 (lower volume today)
+  META  : ??NOT IN TOP 50 (lower volume today)
+  TSLA  : ??OK
+  AMD   : ??OK
+  AVGO  : ??NOT IN TOP 50 (lower volume today)
+  INTC  : ??OK
+  MU    : ??OK
+  PLTR  : ??OK
+  SOFI  : ??OK
+  HOOD  : ??OK
+
+========================================
+API CALL STATISTICS
+========================================
+
+  Total Calls: 51
+  Successful: 51
+  Failed: 0
+  Retried: 0
+
+========================================
+CONCLUSION
+========================================
+
+  ?좑툘 DATA GAPS DETECTED
+  2 stocks have missing data.
+
+  RECOMMENDATION:
+  1. Options gaps are expected for some stocks (no options chain)
+  2. Snapshot gaps indicate real data issues
+  3. Add retry logic to massiveClient.ts
+
+========================================
+E2E STRESS TEST COMPLETE
+========================================
+

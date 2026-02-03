@@ -5,6 +5,8 @@
 export const MAGNIFICENT_7 = ['AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA'] as const;
 export const BIO_LEADERS_TOP5 = ['AMGN', 'GILD', 'REGN', 'VRTX', 'BIIB'] as const;
 export const DATACENTER_TOP5 = ['EQIX', 'DLR', 'AMT', 'CCI', 'SBAC'] as const;
+// [V4.1] Physical AI Leaders - Robotics, Autonomous Vehicles, Industrial Automation
+export const PHYSICAL_AI_TOP6 = ['ISRG', 'TER', 'ROK', 'MBLY', 'QCOM', 'PONY'] as const;
 
 // === MACRO SSOT ===
 export const MACRO_NASDAQ_TICKER = 'NQ=F';
@@ -39,6 +41,9 @@ const KNOWN_ETF_SYMBOLS = new Set([
     // 기타 테마 ETF
     'VNQ', 'REM', 'MORT', 'PFF', 'SCHD', 'DGRO', 'DVY', 'HDV', 'SPHD',
     'ICLN', 'TAN', 'QCLN', 'LIT', 'REMX', 'BATT', 'DRIV', 'IDRV',
+    // First Trust ETFs (V10.8.3)
+    'FIEE', 'FIDU', 'FTEC', 'FXR', 'FXH', 'FXG', 'FXD', 'FXL', 'FXO', 'FXN', 'FXU', 'FXZ',
+    'FTCS', 'FTSL', 'FTXN', 'FTXR', 'FTXD', 'FTXG', 'FTXH', 'FTXL', 'FTXO', 'FTXZ',
     // --- 추가 (S-56.2) ---
     'FCX_ETF_CHECK', // Placeholder - FCX는 주식임
 ]);
@@ -466,8 +471,9 @@ export function applyUniversePolicyWithBackfill(
     return { filtered, final, policy, stats };
 }
 
+
 // [V4.0] EXPANDED UNIVERSE POOL (Dynamic Stock Discovery)
-import { getTopMarketMovers, getTopVolumeStocks } from './massiveClient';
+import { fetchTopGainers, getTopVolumeStocks } from './massiveClient';
 
 export interface ExpandedUniverseResult {
     symbols: string[];
@@ -489,18 +495,26 @@ export interface ExpandedUniverseResult {
 export async function getExpandedUniversePool(): Promise<ExpandedUniverseResult> {
     console.log('[V4.0] Building Expanded Universe Pool...');
 
-    // 1. Fixed Leaders (always included)
+    // 1. Fixed Leaders (always included) - V4.1 with Physical AI
     const fixedLeaders = [
         ...MAGNIFICENT_7,
         ...BIO_LEADERS_TOP5,
-        ...DATACENTER_TOP5
+        ...DATACENTER_TOP5,
+        ...PHYSICAL_AI_TOP6
     ];
 
-    // 2. Top Gainers (momentum stocks)
+    // 2. Top Gainers (momentum stocks) with Quality Gate
     let topGainers: string[] = [];
     try {
-        const gainers = await getTopMarketMovers('gainers');
-        topGainers = gainers.map(g => g.ticker);
+        const gainersRaw = await fetchTopGainers();
+        // Quality Gate: $5+, Volume 100K+
+        topGainers = gainersRaw
+            .filter((g: any) => {
+                const price = g.day?.c || g.prevDay?.c || 0;
+                const volume = g.day?.v || g.prevDay?.v || 0;
+                return price >= 5 && price <= 2000 && volume >= 100000;
+            })
+            .map((g: any) => g.ticker);
     } catch (e) {
         console.warn('[V4.0] Failed to fetch top gainers:', e);
     }

@@ -1,0 +1,104 @@
+﻿
+========================================
+V4.0 FINAL STOCK LIST
+========================================
+
+[Fetching Polygon Snapshot...]
+Total: 310 stocks
+
+=== CORE ELITE (Always Included) ===
+M7: AAPL, MSFT, AMZN, NVDA, GOOGL, META, TSLA
+Bio: AMGN, GILD, REGN, VRTX, BIIB
+DC: EQIX, DLR, AMT, CCI, SBAC
+
+=== TOP 50 BY VOLUME ===
+ 1. NVDA  $ 185.61 Vol:165.7M
+ 2. INTC  $  48.81 Vol:101.4M
+ 3. ONDS  $  10.64 Vol:92.6M
+ 4. AAPL  $ 270.01 Vol:73.9M
+ 5. PLTR  $ 147.76 Vol:72.8M
+ 6. T     $  26.30 Vol:66.6M
+ 7. VZ    $  44.61 Vol:64.5M
+ 8. SOFI  $  22.08 Vol:64.1M
+ 9. HOOD  $  89.91 Vol:59.7M
+10. TSLA  $ 421.81 Vol:58.7M
+11. BMNR  $  22.80 Vol:54.6M
+12. SNAP  $   6.66 Vol:54.4M
+13. F     $  13.81 Vol:54.2M
+14. PFE   $  26.66 Vol:52.1M
+15. PSLV  $  25.80 Vol:51.2M
+16. AXL   $   7.98 Vol:49.3M
+17. USAR  $  22.11 Vol:48.6M
+18. MARA  $   9.12 Vol:48.4M
+19. NVD   $   7.14 Vol:48.3M
+20. HBAN  $  17.88 Vol:47.5M
+21. ORCL  $ 160.06 Vol:47.4M
+22. TSLG  $   8.01 Vol:45.3M
+23. AAL   $  13.69 Vol:45.0M
+24. EEM   $  59.28 Vol:44.4M
+25. PLTD  $   7.87 Vol:44.4M
+26. RKT   $  18.77 Vol:42.8M
+27. HYG   $  80.77 Vol:42.8M
+28. MSFT  $ 423.37 Vol:42.2M
+29. JOBY  $  10.56 Vol:41.4M
+30. NFLX  $  82.76 Vol:41.4M
+31. IREN  $  53.08 Vol:40.9M
+32. PBR   $  15.03 Vol:39.2M
+33. JBLU  $   5.27 Vol:39.1M
+34. NU    $  18.11 Vol:38.7M
+35. DIS   $ 104.45 Vol:37.8M
+36. MU    $ 437.80 Vol:37.7M
+37. AMZN  $ 242.96 Vol:37.5M
+38. ACHR  $   7.05 Vol:36.5M
+39. AMD   $ 246.27 Vol:36.3M
+40. GLL   $  21.49 Vol:35.7M
+41. FXI   $  39.17 Vol:35.6M
+42. LQD   $ 110.06 Vol:35.5M
+43. GDX   $  94.19 Vol:35.4M
+44. GLDM  $  91.99 Vol:34.7M
+45. BAC   $  54.03 Vol:34.6M
+46. UVIX  $   5.33 Vol:34.3M
+47. FNGD  $   5.72 Vol:32.3M
+48. GOOGL $ 343.69 Vol:32.0M
+49. AG    $  20.40 Vol:31.9M
+50. IAU   $  87.57 Vol:31.8M
+
+=== FULL LIST (ALL 312) ===
+AAPL   MSFT   AMZN   NVDA   GOOGL  META   TSLA   AMGN   GILD   REGN  
+VRTX   BIIB   EQIX   DLR    AMT    CCI    SBAC   INTC   ONDS   PLTR  
+T      VZ     SOFI   HOOD   BMNR   SNAP   F      PFE    PSLV   AXL   
+USAR   MARA   NVD    HBAN   ORCL   TSLG   AAL    EEM    PLTD   RKT   
+HYG    JOBY   NFLX   IREN   PBR    JBLU   NU     DIS    MU     ACHR  
+AMD    GLL    FXI    LQD    GDX    GLDM   BAC    UVIX   FNGD   AG    
+IAU    EWZ    CMCSA  WMT    SGOV   INDA   UWMC   CCL    VALE   HL    
+QID    CLSK   PATH   RDW    NOK    SNDK   QBTS   HPQ    CSCO   CTRA  
+XOM    PYPL   MSTR   SMCI   U      CMG    TSDD   CDE    WULF   KWEB  
+VWO    RGTI   OWL    AGNC   KVUE   BTCZ   IBRX   GME    PCG    CIFR  
+MSTU   SPDN   SOUN   IEMG   SCHD   APLD   PDBC   CATX   GOOG   FITB  
+CRML   DVN    EFA    IONQ   SMR    FCX    BIL    IRE    WBD    SGOL  
+NCLH   B      STLA   UGL    RWM    VEA    AGQ    CRWV   TEVA   KO    
+RIVN   NGD    IAUM   NOW    RITM   ADT    UBER   TE     RKLB   KRE   
+MRK    CVE    TSLZ   ET     DKNG   ARKB   AVGO   DOW    SCHX   BKLN  
+UUUU   ITUB   LUMN   UAMY   NVO    XPEV   SLB    MDLZ   EOSE   GDXD  
+HPE    EMB    MRNA   CPNG   WDC    RIOT   IEFA   KMI    PRIV   EQX   
+BITU   BITX   PHYS   KEY    BSX    EWY    AAAU   HAL    SILJ   PL    
+NVTS   CFLT   VICI   FIG    EXK    PEP    IJH    RSP    QS     OBDC  
+MRVL   CRCL   MSTZ   TTD    ETH    CVX    INFY   ETHU   WFC    SCHF  
+TSLQ   KGC    HIMS   HODL   PR     FNGU   COMP   LRCX   RF     NEM   
+AGG    LUV    ASTS   MO     FBTC   RBLX   IBN    VLY    LYFT   TFC   
+TSM    BULL   PTON   CLF    PSQ    COIN   SHOP   ARCC   OXY    UEC   
+GLW    KHC    C      PAAS   DOC    SCHG   QUBT   BP     CSX    CL    
+ABT    OKLO   CAG    SBET   FETH   TXN    PINS   IOT    SRLN   NKE   
+NXE    AAPD   VXUS   VCIT   LYG    CVS    CORZ   VG     TGT    PG    
+WY     UMC    SNXX   NBIS   USB    UAA    NLY    TEX    CCC    GLXY  
+SM     PKST   AES    INVH   IAG    AVTR   FAST   VTRS   SBSW   DAL   
+IYR    LYB    MP     AMDD   VFC    APH    TSCO   AMPX   SCHW   CPRT  
+VHUB   AA     HDB    JPM    MNST   CWAN   LVS    ASM    IGV    OS    
+VTEB   VZLA   GIS    BMY    NEE    GPK    XLRE   PTEN   KIM    WEN   
+
+========================================
+SUMMARY
+========================================
+Core Elite: 17
+Top Volume: 300
+Final Unique: 310

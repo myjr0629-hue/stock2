@@ -877,11 +877,45 @@ export function computePowerMeta(
 }
 
 // === [V3.0] FINAL LIST SELECTION (10 Best + 2 Discovery) ===
+// [V2.0] Enhanced with Multi-Factor Ranking
 export function selectFinalList(allScoredItems: any[]): any[] {
-    // 1. Sort by Score Descending
-    const sorted = [...allScoredItems].sort((a, b) => (b.powerScore || 0) - (a.powerScore || 0));
+    // [V2.0] MULTI-FACTOR RANKING FORMULA
+    // finalRank = Alpha(50%) + Whale(20%) + Momentum(20%) + Options Quality(10%)
+    const calculateFinalRank = (item: any): number => {
+        const alphaScore = item.powerScore || item.alphaScore || 0;
+        const whaleIndex = item.decisionSSOT?.whaleIndex || 0;
+        const relVol = item.evidence?.flow?.relVol || 1;
+        const changePct = Math.abs(item.evidence?.price?.changePct || 0);
 
-    // 2. Take Top 10 (Standard Elite)
+        // Options Quality: Based on coverage and completeness
+        const optionsComplete = item.evidence?.options?.complete ? 1 : 0;
+        const optionsCoverage = item.evidence?.options?.coveragePct || 0;
+        const optionsQuality = (optionsComplete * 50) + (optionsCoverage / 2);
+
+        // Momentum: Combine RelVol and Change%
+        const momentumScore = Math.min(100, (relVol * 20) + (changePct * 5));
+
+        // Final Rank (0-100 scale)
+        const finalRank = (
+            (alphaScore * 0.5) +
+            (whaleIndex * 0.2) +
+            (momentumScore * 0.2) +
+            (optionsQuality * 0.1)
+        );
+
+        return finalRank;
+    };
+
+    // 1. Calculate Multi-Factor Rank for all items
+    const itemsWithRank = allScoredItems.map(item => ({
+        ...item,
+        finalRank: calculateFinalRank(item)
+    }));
+
+    // 2. Sort by finalRank Descending
+    const sorted = [...itemsWithRank].sort((a, b) => (b.finalRank || 0) - (a.finalRank || 0));
+
+    // 3. Take Top 10 (Standard Elite)
     const top10 = sorted.slice(0, 10);
     const top10Ids = new Set(top10.map(i => i.ticker));
 

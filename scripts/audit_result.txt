@@ -1,0 +1,85 @@
+﻿
+========================================
+ALPHA ENGINE DATA INTEGRITY AUDIT
+========================================
+
+Timestamp: 2026-02-03T03:19:35.675Z
+
+[CHECK 1] Polygon Snapshot API...
+  Total Tickers: 12225
+  With Current Price: 11921/12225 (97.5%)
+  With Volume: 11867/12225 (97.1%)
+  With Prev Close: 12024/12225 (98.4%)
+  With Change %: 12225/12225 (100.0%)
+
+[CHECK 2] Top Gainers API...
+  Gainers Returned: 21
+  With Complete Data: 21/21
+
+[CHECK 3] Top 10 Candidate Data Completeness...
+
+  Ticker | Price    | Volume   | PrevClose | Change  | Data
+  -------|----------|----------|-----------|---------|------
+  SLV    | $  72.44 |  219.2M | $  75.44 |  -4.0% | ??OK
+  NVDA   | $ 185.61 |  165.7M | $ 191.13 |  -2.6% | ??OK
+  TZA    | $   6.23 |  114.2M | $   6.42 |  -3.0% | ??OK
+  IBIT   | $  44.22 |  106.5M | $  47.49 |  -5.6% | ??OK
+  INTC   | $  48.81 |  101.4M | $  46.47 | +  5.9% | ??OK
+  ETHA   | $  17.50 |   98.1M | $  20.17 | -11.8% | ??OK
+  ONDS   | $  10.64 |   92.6M | $  10.36 | +  5.1% | ??OK
+  DUST   | $   5.75 |   90.4M | $   5.75 | +  0.0% | ??OK
+  BITO   | $  10.79 |   80.2M | $  11.60 |  -7.0% | ??OK
+  SPY    | $ 695.41 |   78.9M | $ 691.97 | +  0.5% | ??OK
+  TSLL   | $  16.42 |   75.1M | $  17.11 |  -2.5% | ??OK
+  TQQQ   | $  55.10 |   74.7M | $  54.00 | +  3.2% | ??OK
+  AAPL   | $ 270.01 |   73.9M | $ 259.48 | +  3.6% | ??OK
+  PLTR   | $ 147.76 |   72.8M | $ 146.59 | +  7.8% | ??OK
+  SOXL   | $  65.20 |   66.6M | $  61.79 | +  5.5% | ??OK
+  T      | $  26.30 |   66.6M | $  26.21 |  -0.0% | ??OK
+  VZ     | $  44.61 |   64.5M | $  44.52 |  -0.2% | ??OK
+  SOFI   | $  22.08 |   64.1M | $  22.81 |  -2.9% | ??OK
+  TSLS   | $   5.38 |   61.9M | $   5.28 | +  1.2% | ??OK
+  XLE    | $  50.05 |   60.7M | $  51.05 |  -2.0% | ??OK
+
+[CHECK 4] Data Freshness...
+  Current Time: 2026-02-03T03:19:37.730Z
+  Market Status: CLOSED
+  Data Source: Polygon Real-time Snapshot
+
+[CHECK 5] Scoring Component Availability...
+
+  Component      | Source            | Status
+  ---------------|-------------------|--------
+  Price/Change   | Polygon Snapshot  | ??Available
+  Volume/RelVol  | Polygon Snapshot  | ??Available
+  PCR/OI         | Polygon Options*  | ?좑툘 Simulated
+  GEX/Gamma      | Polygon Options*  | ?좑툘 Simulated
+  Whale Index    | Forensic Service* | ?좑툘 Simulated
+  VIX/Regime     | External API*     | ?좑툘 Simulated
+
+  * = Not called in this test (requires full pipeline)
+
+========================================
+AUDIT SUMMARY
+========================================
+
+  Snapshot API: ??HEALTHY
+  Gainers API:  ??HEALTHY
+  Data Coverage: 97.5%
+  Errors: 0
+  Warnings: 0
+
+========================================
+CONCLUSION
+========================================
+
+  ??ALL DATA SOURCES HEALTHY
+  Rankings reflect current real-time market data.
+
+  NOTE: This test uses simplified Alpha Score calculation.
+  Full pipeline includes Options, Forensic, and Regime data.
+
+========================================
+AUDIT COMPLETE
+========================================
+

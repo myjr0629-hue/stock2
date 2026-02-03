@@ -18,11 +18,11 @@ import { getEventsFromRedis, filterUpcoming } from '@/lib/storage/eventStore'; /
 import { getPoliciesFromRedis, splitPolicyWindows } from '@/lib/storage/policyStore'; // [P1] Redis policy
 import { saveReport, purgeReportCaches, getYesterdayReport, appendPerformanceRecord, PerformanceRecord } from "@/lib/storage/reportStore";
 import { getETNow, determineSessionInfo } from "@/services/marketDaySSOT";
-import { fetchMassive, RunBudget, fetchTopGainers, fetchNewsForSentiment, fetchRelatedTickers } from "@/services/massiveClient";
+import { fetchMassive, RunBudget, fetchTopGainers, fetchTopActive, fetchNewsForSentiment, fetchRelatedTickers } from "@/services/massiveClient";
 import { enrichTop3Candidates, generateTop3WHY, getVelocitySymbol, EnrichedCandidate } from './top3Enrichment';
 import { generateContinuationReport, ContinuationReport } from './continuationEngine';
 import { generateReportDiff } from './reportDiff'; // [S-56.1] Decision Continuity
-import { applyUniversePolicy, applyUniversePolicyWithBackfill, buildLeadersTrack, getMacroSSOT, validateNoETFInItems, loadStockUniversePool } from './universePolicy'; // [S-56.2] + [S-56.3]
+import { applyUniversePolicy, applyUniversePolicyWithBackfill, buildLeadersTrack, getMacroSSOT, validateNoETFInItems, loadStockUniversePool, getExpandedUniversePool } from './universePolicy'; // [S-56.2] + [S-56.3] + [V4.0]
 import { applyQualityTiers, selectTop3, determineRegime, computePowerMeta, computeQualityTier, selectFinalList } from './powerEngine'; // [S-56.4]
 import { BUILD_PIPELINE_VERSION, orchestrateGemsEngine } from '../engine/reportOrchestrator'; // [S-56.4.5c]
 import { GuardianDataHub } from './guardian/unifiedDataStream'; // [Phase 4]
@@ -113,15 +113,19 @@ const REPORT_VERSION = "S-56.4.6e";
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
 const PHYSICAL_AI_TICKERS = ['PLTR', 'ISRG', 'SYM', 'TER', 'RKLB', 'SERV', 'PL'];
 
-// [P0] Schedule definitions (ET time) - 3 fixed reports
+// [P0] Schedule definitions (ET time) - [V2.0] Simplified 2-Stage System
+// Stage 1: Pre-Market +2h (06:00 ET) - Draft with pre-market data
+// Stage 2: Open -30m (09:00 ET) - Final locked report
 export const REPORT_SCHEDULES: Record<ReportType, { hour: number; minute: number; description: string; labelKR: string }> = {
-    'eod': { hour: 16, minute: 30, description: 'EOD Final Report', labelKR: '장마감 후 확정' },
-    'pre': { hour: 6, minute: 30, description: 'Premarket +2h', labelKR: '프리마켓 후 2시간' },
-    'open': { hour: 9, minute: 0, description: 'Open -30m', labelKR: '본장 30분 전' },
-    'morning': { hour: 8, minute: 0, description: 'Morning Brief', labelKR: '장전 브리핑 (레거시)' },
-    'draft': { hour: 16, minute: 10, description: 'Draft Report', labelKR: '초안 생성 (장마감)' },
-    'revised': { hour: 6, minute: 0, description: 'Audit Report', labelKR: '감사 및 수정 (프리장)' },
-    'final': { hour: 9, minute: 0, description: 'Final Order', labelKR: '최종 확정 (본장 전)' }
+    // [V2.0] PRIMARY SCHEDULES (Active)
+    'draft': { hour: 6, minute: 0, description: 'Pre+2h Draft', labelKR: '프리마켓 2시간 후 초안' },
+    'final': { hour: 9, minute: 0, description: 'Open-30m Final', labelKR: '본장 30분 전 최종' },
+    // LEGACY (Deprecated - kept for backward compatibility)
+    'eod': { hour: 16, minute: 30, description: '[LEGACY] EOD Report', labelKR: '장마감 후 (미사용)' },
+    'pre': { hour: 6, minute: 30, description: '[LEGACY] Premarket', labelKR: '프리마켓 (미사용)' },
+    'open': { hour: 9, minute: 0, description: '[LEGACY] Open', labelKR: '본장 전 (미사용)' },
+    'morning': { hour: 8, minute: 0, description: '[LEGACY] Morning Brief', labelKR: '장전 브리핑 (미사용)' },
+    'revised': { hour: 6, minute: 0, description: '[LEGACY] Audit', labelKR: '감사 (미사용)' }
 };
 
 // ============================================================================
@@ -346,9 +350,16 @@ export async function generateReport(type: ReportType, force: boolean = false, t
 
     } else {
         // STAGE 1: DRAFT (Standard Universe Selection)
-        // Convert string[] pool to objects for policy function
-        const universePoolStrings = await loadStockUniversePool();
-        candidateTickers = universePoolStrings;
+        // [V4.0] Use Dynamic Expanded Universe (300+ stocks via Polygon API)
+        try {
+            const expandedUniverse = await getExpandedUniversePool();
+            candidateTickers = expandedUniverse.symbols;
+            console.log(`[V4.0] ${expandedUniverse.noteKR}`);
+        } catch (e) {
+            console.warn('[V4.0] Expanded Universe failed, falling back to static pool:', e);
+            const universePoolStrings = await loadStockUniversePool();
+            candidateTickers = universePoolStrings;
+        }
 
         // [Continuity Protocol] Inject Previous Leaders
         // Ensure "King of the Hill" persistence
@@ -395,25 +406,44 @@ export async function generateReport(type: ReportType, force: boolean = false, t
         candidateTickers = universeResult.filtered.map(i => i.ticker);
 
         // [V3.7.2] Infinite Horizon: High Quality Hyper-Discovery
-        // "Quality over Quantity." - User Mandate
+        // [V2.0] Enhanced with Top Volume + Stricter Filters
         if (process.env.ENABLE_HYPER_DISCOVERY !== '0') {
-            const gainers = await fetchTopGainers();
+            // [V2.0] FILTER CONFIG - Stricter Quality Gates
+            const DISCOVERY_FILTER = {
+                minPrice: 5.0,
+                maxPrice: 500.0,      // Avoid extreme outliers
+                minVolume: 100000,    // Minimum daily volume
+            };
 
-            // [Policy Correction] Reverted Low Price Strategy.
-            // User Feedback: "Penny stocks have inherent defects."
-            // We strictly ignore anything below $5.0.
+            // --- TOP GAINERS ---
+            const gainers = await fetchTopGainers();
             const validGainers = gainers.filter((g: any) => {
                 const price = g.day?.c || g.min?.c || g.prevDay?.c || 0;
-                return price >= 5.0 && !candidateTickers.includes(g.ticker);
-            }).map((g: any) => g.ticker);
+                const volume = g.day?.v || g.prevDay?.v || 0;
+                return price >= DISCOVERY_FILTER.minPrice &&
+                    price <= DISCOVERY_FILTER.maxPrice &&
+                    volume >= DISCOVERY_FILTER.minVolume &&
+                    !candidateTickers.includes(g.ticker);
+            }).map((g: any) => g.ticker).slice(0, 15);
 
-            if (validGainers.length > 0) {
-                // [Optimization] Take Top 20 Gainers instead of all to save budget, but ensure we get the best.
-                const topGainers = validGainers.slice(0, 20);
-                console.log(`[ReportScheduler] Infinite Horizon: Injected ${topGainers.length} Gainers (e.g. ${topGainers.slice(0, 3).join(', ')})`);
+            // --- TOP VOLUME (Most Active) [V2.0 NEW] ---
+            const mostActive = await fetchTopActive();
+            const validActive = mostActive.filter((g: any) => {
+                const price = g.day?.c || g.min?.c || g.prevDay?.c || 0;
+                const volume = g.day?.v || g.prevDay?.v || 0;
+                return price >= DISCOVERY_FILTER.minPrice &&
+                    price <= DISCOVERY_FILTER.maxPrice &&
+                    volume >= DISCOVERY_FILTER.minVolume &&
+                    !candidateTickers.includes(g.ticker) &&
+                    !validGainers.includes(g.ticker); // No duplicates
+            }).map((g: any) => g.ticker).slice(0, 10);
 
-                discoveryTickers = topGainers; // [V3.7.2] Mark as Discovery
-                candidateTickers = [...candidateTickers, ...topGainers];
+            // --- MERGE DISCOVERIES ---
+            const allDiscovery = [...validGainers, ...validActive];
+            if (allDiscovery.length > 0) {
+                console.log(`[ReportScheduler] V2.0 Discovery: ${validGainers.length} Gainers + ${validActive.length} Active = ${allDiscovery.length} total`);
+                discoveryTickers = allDiscovery;
+                candidateTickers = [...candidateTickers, ...allDiscovery];
             }
         }
 
@@ -443,7 +473,29 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             return true;
         });
         console.log(`[Integrity] Qualified Items: ${enrichedItems.length}/${rawItems.length}`);
+
+        // [V10.8.3 OPTIONS GATE] Drop items without options data from main ranking
+        // Stocks without callWall/putFloor cannot be properly analyzed by Alpha Engine
+        const optionsQualified = enrichedItems.filter(item => {
+            const callWall = item.evidence?.options?.callWall || 0;
+            const putFloor = item.evidence?.options?.putFloor || 0;
+            const hasOptions = callWall > 0 || putFloor > 0;
+            if (!hasOptions) {
+                console.warn(`[OptionsGate] Demoting ${item.ticker}: No options data (callWall=${callWall}, putFloor=${putFloor})`);
+                // Don't filter out, but mark as incomplete for lower ranking
+                item.optionsIncomplete = true;
+            }
+            return true; // Keep all for now, but mark incomplete ones
+        });
+
+        // Sort to deprioritize items without options (they go to the end)
+        enrichedItems = optionsQualified.sort((a, b) => {
+            if (a.optionsIncomplete && !b.optionsIncomplete) return 1;
+            if (!a.optionsIncomplete && b.optionsIncomplete) return -1;
+            return 0;
+        });
     }
+
 
     // [Universal Analysis] Sector-Specific Enrichment (Parallel Processing)
     // This runs for ALL stages to ensure M7/PhysicalAI data is always fresh and available

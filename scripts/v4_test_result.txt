@@ -1,0 +1,50 @@
+﻿
+========================================
+V4.0 UNIVERSE LIVE TEST
+========================================
+
+[TIER 1] Core Elite: 17 stocks
+
+[TIER 2] Fetching Polygon Snapshot...
+  Total tickers in snapshot: 12225
+  After Quality Gate: 2879 stocks
+  Top 300 by volume captured
+
+  Top 10 by Volume:
+    1. NVDA Vol:165.7M $185.61
+    2. INTC Vol:101.4M $48.81
+    3. ONDS Vol:92.6M $10.64
+    4. TSLL Vol:75.1M $16.42
+    5. AAPL Vol:73.9M $270.01
+    6. PLTR Vol:72.8M $147.76
+    7. T Vol:66.6M $26.30
+    8. VZ Vol:64.5M $44.61
+    9. SOFI Vol:64.1M $22.08
+    10. TSLS Vol:61.9M $5.38
+
+[TIER 3] Fetching Top Gainers...
+  Gainers: 21 -> 2 (quality)
+
+========================================
+FINAL RESULT
+========================================
+Tier 1 (Core Elite):   17
+Tier 2 (Top Volume):   300
+Tier 3 (Gainers):      2
+Combined Raw:          319
+After Dedup + ETF:     312
+API Time:              1937ms
+
+========================================
+VALIDATION
+========================================
+M7 Included: 7/7 (AAPL, MSFT, AMZN, NVDA, GOOGL, META, TSLA)
+ETF Leakage: 0 (clean)
+
+??V4.0 UNIVERSE: SUCCESS
+   312 quality stocks ready for analysis
+
+========================================
+TEST COMPLETE
+========================================
+

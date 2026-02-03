@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Flame, Crosshair, Users, Activity, TrendingUp, AlertTriangle, ShieldAlert, Target, Zap, Lock, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { TradeScenarioPanel, ScoreXRayPanel } from '@/components/trade';
 
 interface StockItem {
     ticker: string;
@@ -24,6 +25,19 @@ interface StockItem {
         targetPrice?: number;
     };
     isDiscovery?: boolean;
+    // V2.0 Score Breakdown
+    scoreDecomposition?: {
+        momentum: number;
+        options: number;
+        structure: number;
+        regime: number;
+        risk: number;
+    };
+    // Options data
+    oiLevels?: {
+        callWall?: number;
+        putFloor?: number;
+    };
 }
 
 export function TacticalBoard({ items }: { items: StockItem[] }) {
@@ -181,6 +195,38 @@ function SniperCard({ item, isDiscovery = false }: { item: StockItem, isDiscover
                         className="overflow-hidden border-t border-white/5 bg-black/20"
                     >
                         <div className="p-5 space-y-4">
+                            {/* PREMIUM V2.0: Trade Scenario + Score X-Ray */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+                                {/* Score X-Ray Panel */}
+                                <ScoreXRayPanel
+                                    symbol={item.ticker}
+                                    scores={item.scoreDecomposition || {
+                                        momentum: Math.round(item.powerScore * 0.22),
+                                        options: Math.round(item.powerScore * 0.18),
+                                        structure: Math.round(item.powerScore * 0.20),
+                                        regime: Math.round(item.powerScore * 0.20),
+                                        risk: Math.round(item.powerScore * 0.20)
+                                    }}
+                                    metrics={{
+                                        changePct: item.changePct,
+                                        pcr: undefined,
+                                        vix: undefined
+                                    }}
+                                />
+
+                                {/* Trade Scenario Panel */}
+                                <TradeScenarioPanel
+                                    symbol={item.ticker}
+                                    currentPrice={item.price}
+                                    entryZone={ssot.entryBand || [item.price * 0.97, item.price * 1.02]}
+                                    targetPrice={ssot.whaleTargetLevel || ssot.targetPrice || item.price * 1.1}
+                                    riskLine={ssot.cutPrice || item.price * 0.95}
+                                    atmIv={0.35}
+                                    callWall={item.oiLevels?.callWall}
+                                    putFloor={item.oiLevels?.putFloor}
+                                />
+                            </div>
+
                             {/* 1. The Insider Thesis */}
                             <div>
                                 <h4 className="flex items-center gap-2 text-xs font-bold text-white/50 uppercase mb-2">

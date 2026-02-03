@@ -21,6 +21,7 @@ import { M7BriefingBar } from "@/components/intel/M7BriefingBar";
 import { M7TacticalDeck } from "@/components/intel/M7TacticalDeck";
 import { PhysicalAIOrbitalMap } from "@/components/intel/PhysicalAIOrbitalMap";
 import { PhysicalAIBriefingBar, PhysicalAITacticalDeck } from "@/components/intel/PhysicalAIComponents";
+import { FinalBattleSection, AlphaItem } from "@/components/intel/FinalBattleSection";
 
 
 
@@ -1236,6 +1237,32 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     const middle7 = sortedItems.slice(3, 10);
     const moonshot = sortedItems.slice(10, 12); // Ranks 11, 12
 
+    // [V6.0] Premium Card Data Mapper (TickerItem -> AlphaItem)
+    const alphaItems: AlphaItem[] = useMemo(() => {
+        return sortedItems.slice(0, 12).map((item, idx) => ({
+            ticker: item.ticker,
+            rank: idx + 1,
+            price: item.evidence?.price?.last || 0,
+            changePct: item.evidence?.price?.changePct || 0,
+            volume: item.evidence?.flow?.vol,
+            alphaScore: item.alphaScore || 70,
+            scoreBreakdown: (item as any).scoreDecomposition || undefined,
+            entryLow: item.entryBand?.low ?? item.decisionSSOT?.entryBand?.min,
+            entryHigh: item.entryBand?.high ?? item.decisionSSOT?.entryBand?.max,
+            targetPrice: item.decisionSSOT?.whaleTargetLevel,
+            cutPrice: item.decisionSSOT?.cutPrice,
+            whaleNetM: (() => {
+                // Fallback chain: netPremium -> netFlow -> largeTradesUsd (OI-based calculation for after-hours)
+                const flow = item.evidence?.flow;
+                const rawValue = flow?.netPremium ?? flow?.netFlow ?? flow?.largeTradesUsd ?? undefined;
+                return rawValue !== undefined && rawValue !== 0 ? rawValue / 1000000 : undefined;
+            })(),
+            callWall: item.evidence?.options?.callWall,
+            putFloor: item.evidence?.options?.putFloor,
+            isLive: item.evidence?.price?.priceSource === 'LIVE_SNAPSHOT'
+        }));
+    }, [sortedItems]);
+
     // [V4.7] M7 Filter (Extract M7 from available report items)
     // [V4.7] M7 Filter (Extract M7 from available report items OR Segregated Sector)
     const m7Items = useMemo(() => {
@@ -1600,238 +1627,253 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                             </div>
                         </section>
 
-                        {/* 2. MAIN CORPS (Top 3) */}
-                        <section>
-                            <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-                                <Zap className="w-5 h-5 text-emerald-500" />
-                                MAIN CORPS (주력군)
-                                <span className="text-[10px] text-slate-500 font-normal uppercase tracking-widest ml-2">Data Verified • High Probability</span>
-                            </h2>
-                            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                                {isLoading ? (
-                                    [1, 2, 3].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
-                                ) : (
-                                    top3.map((item, idx) => (
-                                        <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
-                                            <TacticalCard
-                                                ticker={item.ticker}
-                                                rank={idx + 1}
-                                                price={item.evidence.price.last}
-                                                // [Fix] Calculate implied absolute change from changePct if absolute change is missing
-                                                // changePct is e.g. 2.25. Last is 445.61.
-                                                // Prev = Last / (1 + Pct/100) -> 435.80
-                                                // Change = Last - Prev -> 9.81
-                                                change={
-                                                    (item.evidence.price.last && item.evidence.price.changePct
-                                                        ? item.evidence.price.last - (item.evidence.price.last / (1 + (item.evidence.price.changePct / 100)))
-                                                        : 0)
-                                                }
-                                                entryBand={
-                                                    item.entryBand
-                                                        ? { min: item.entryBand.low, max: item.entryBand.high }
-                                                        : (item.decisionSSOT?.entryBand || undefined)
-                                                }
-                                                cutPrice={item.decisionSSOT?.cutPrice}
-                                                isLocked={item.decisionSSOT?.isLocked}
-                                                name={item.symbol}
-                                                rsi={item.evidence.price.rsi14}
-                                                score={item.alphaScore}
-                                                isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
-                                                reasonKR={item.decisionSSOT?.whaleReasonKR || item.qualityReasonKR}
-                                                extendedPrice={item.evidence.price.extendedPrice}
-                                                extendedChange={item.evidence.price.extendedChangePct}
-                                                extendedLabel={item.evidence.price.extendedLabel}
-                                                // [V4.1] Sniper Data Injection
-                                                whaleTargetLevel={item.decisionSSOT?.whaleTargetLevel}
-                                                whaleConfidence={item.decisionSSOT?.whaleConfidence}
-                                                dominantContract={item.decisionSSOT?.dominantContract}
-                                                triggers={item.decisionSSOT?.triggersKR}
-                                                // [V4.2] Market Status Override
-                                                isClosed={report?.marketState?.session === 'CLOSED' || report?.marketState?.session === 'PRE'}
-                                            />
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </section>
+                        {/* [V6.0] PREMIUM ALPHA CARD GRID */}
+                        <FinalBattleSection
+                            items={alphaItems}
+                            isLoading={isLoading}
+                            onItemClick={(item) => {
+                                const tickerItem = sortedItems.find(t => t.ticker === item.ticker);
+                                if (tickerItem) setSelectedTicker(tickerItem);
+                            }}
+                        />
 
-                        {/* 3. ALPHA 12 SCAN TABLE (Places 4-10) */}
-                        <section>
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-                                    <Search className="w-5 h-5 text-slate-400" />
-                                    Live Scan (Core)
-                                </h2>
-                            </div>
+                        {/* NOTE: Legacy sections below can be removed once Premium Cards are validated */}
+                        {false && (
+                            <>
+                                {/* 2. MAIN CORPS (Top 3) */}
+                                <section>
+                                    <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
+                                        <Zap className="w-5 h-5 text-emerald-500" />
+                                        MAIN CORPS (주력군)
+                                        <span className="text-[10px] text-slate-500 font-normal uppercase tracking-widest ml-2">Data Verified • High Probability</span>
+                                    </h2>
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                        {isLoading ? (
+                                            [1, 2, 3].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
+                                        ) : (
+                                            top3.map((item, idx) => (
+                                                <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
+                                                    <TacticalCard
+                                                        ticker={item.ticker}
+                                                        rank={idx + 1}
+                                                        price={item.evidence.price.last}
+                                                        // [Fix] Calculate implied absolute change from changePct if absolute change is missing
+                                                        // changePct is e.g. 2.25. Last is 445.61.
+                                                        // Prev = Last / (1 + Pct/100) -> 435.80
+                                                        // Change = Last - Prev -> 9.81
+                                                        change={
+                                                            (item.evidence.price.last && item.evidence.price.changePct
+                                                                ? item.evidence.price.last - (item.evidence.price.last / (1 + (item.evidence.price.changePct / 100)))
+                                                                : 0)
+                                                        }
+                                                        entryBand={
+                                                            item.entryBand
+                                                                ? { min: item.entryBand.low, max: item.entryBand.high }
+                                                                : (item.decisionSSOT?.entryBand || undefined)
+                                                        }
+                                                        cutPrice={item.decisionSSOT?.cutPrice}
+                                                        isLocked={item.decisionSSOT?.isLocked}
+                                                        name={item.symbol}
+                                                        rsi={item.evidence.price.rsi14}
+                                                        score={item.alphaScore}
+                                                        isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
+                                                        reasonKR={item.decisionSSOT?.whaleReasonKR || item.qualityReasonKR}
+                                                        extendedPrice={item.evidence.price.extendedPrice}
+                                                        extendedChange={item.evidence.price.extendedChangePct}
+                                                        extendedLabel={item.evidence.price.extendedLabel}
+                                                        // [V4.1] Sniper Data Injection
+                                                        whaleTargetLevel={item.decisionSSOT?.whaleTargetLevel}
+                                                        whaleConfidence={item.decisionSSOT?.whaleConfidence}
+                                                        dominantContract={item.decisionSSOT?.dominantContract}
+                                                        triggers={item.decisionSSOT?.triggersKR}
+                                                        // [V4.2] Market Status Override
+                                                        isClosed={report?.marketState?.session === 'CLOSED' || report?.marketState?.session === 'PRE'}
+                                                    />
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </section>
 
-                            <div className="bg-white/5 backdrop-blur-[12px] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                                <div className="overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                                    <style jsx>{`
+                                {/* 3. ALPHA 12 SCAN TABLE (Places 4-10) */}
+                                <section>
+                                    <div className="flex justify-between items-center mb-4">
+                                        <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+                                            <Search className="w-5 h-5 text-slate-400" />
+                                            Live Scan (Core)
+                                        </h2>
+                                    </div>
+
+                                    <div className="bg-white/5 backdrop-blur-[12px] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                                        <div className="overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                                            <style jsx>{`
                                         div::-webkit-scrollbar {
                                             display: none;
                                         }
                                     `}</style>
-                                    <table className="w-full text-left border-collapse">
-                                        <thead>
-                                            <tr className="bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                <th className="p-4 w-[60px] text-center">Rank</th>
-                                                <th className="p-4 w-[120px]">Ticker</th>
-                                                <th className="p-4 text-right">Score</th>
-                                                <th className="p-4 text-right">Price</th>
-                                                <th className="p-4 text-right">Flow</th>
-                                                <th className="p-4 text-center">Options</th>
-                                                <th className="p-4 hidden md:table-cell">Triggers</th>
-                                                <th className="p-4 text-center">Action</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody className="divide-y-0">
-                                            {isLoading ? (
-                                                [1, 2, 3].map(i => (
-                                                    <tr key={i}><td colSpan={8} className="p-4"><Skeleton className="h-12 w-full bg-white/5" /></td></tr>
-                                                ))
-                                            ) : (
-                                                middle7.map((item, idx) => {
-                                                    const ev = item.evidence;
-                                                    if (!ev) return null;
-                                                    const optStatus = getOptionsStatus(ev.options?.status);
-                                                    const actStyle = getActionStyle(item.decisionSSOT?.action);
-                                                    const realRank = (item as any).rank || (idx + 4);
+                                            <table className="w-full text-left border-collapse">
+                                                <thead>
+                                                    <tr className="bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                        <th className="p-4 w-[60px] text-center">Rank</th>
+                                                        <th className="p-4 w-[120px]">Ticker</th>
+                                                        <th className="p-4 text-right">Score</th>
+                                                        <th className="p-4 text-right">Price</th>
+                                                        <th className="p-4 text-right">Flow</th>
+                                                        <th className="p-4 text-center">Options</th>
+                                                        <th className="p-4 hidden md:table-cell">Triggers</th>
+                                                        <th className="p-4 text-center">Action</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y-0">
+                                                    {isLoading ? (
+                                                        [1, 2, 3].map(i => (
+                                                            <tr key={i}><td colSpan={8} className="p-4"><Skeleton className="h-12 w-full bg-white/5" /></td></tr>
+                                                        ))
+                                                    ) : (
+                                                        middle7.map((item, idx) => {
+                                                            const ev = item.evidence;
+                                                            if (!ev) return null;
+                                                            const optStatus = getOptionsStatus(ev.options?.status);
+                                                            const actStyle = getActionStyle(item.decisionSSOT?.action);
+                                                            const realRank = (item as any).rank || (idx + 4);
 
-                                                    return (
-                                                        <tr key={item.ticker}
-                                                            onClick={() => setSelectedTicker(item)}
-                                                            className={`cursor-pointer transition-all duration-200 hover:bg-white/10 hover:backdrop-blur-md border-b border-white/5 last:border-0 group`}
-                                                        >
-                                                            <td className="p-4 text-center font-mono text-xs text-slate-400 font-bold group-hover:text-white transition-colors">
-                                                                {realRank}
-                                                            </td>
-                                                            <td className="p-4">
-                                                                <div className="flex items-center gap-3">
-                                                                    <div>
-                                                                        <span className="block text-sm font-black text-slate-100 group-hover:text-cyan-300 transition-colors tracking-tight">{item.ticker}</span>
-                                                                        <span className="block text-[10px] text-slate-400 group-hover:text-slate-300">{item.symbol || item.ticker}</span>
-                                                                    </div>
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 text-right">
-                                                                <div className="flex items-center justify-end gap-2">
-                                                                    <div className="w-16 bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
-                                                                        <div className="h-full bg-indigo-500" style={{ width: `${item.alphaScore || 0}%` }} />
-                                                                    </div>
-                                                                    <span className="font-mono font-bold text-sm text-white">{item.alphaScore?.toFixed(0) || "-"}</span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 text-right">
-                                                                <div className="flex flex-col items-end">
-                                                                    <span className="text-sm font-mono font-bold text-slate-200">${ev.price.last.toFixed(2)}</span>
-                                                                    <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                                        {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
-                                                                    </span>
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 text-right">
-                                                                <div className="flex flex-col items-end">
-                                                                    {ev.flow.complete ? (
-                                                                        <>
-                                                                            <span className={`text-xs font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-400"}`}>
-                                                                                {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1000000).toFixed(1)}M` : "-"}
+                                                            return (
+                                                                <tr key={item.ticker}
+                                                                    onClick={() => setSelectedTicker(item)}
+                                                                    className={`cursor-pointer transition-all duration-200 hover:bg-white/10 hover:backdrop-blur-md border-b border-white/5 last:border-0 group`}
+                                                                >
+                                                                    <td className="p-4 text-center font-mono text-xs text-slate-400 font-bold group-hover:text-white transition-colors">
+                                                                        {realRank}
+                                                                    </td>
+                                                                    <td className="p-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            <div>
+                                                                                <span className="block text-sm font-black text-slate-100 group-hover:text-cyan-300 transition-colors tracking-tight">{item.ticker}</span>
+                                                                                <span className="block text-[10px] text-slate-400 group-hover:text-slate-300">{item.symbol || item.ticker}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-4 text-right">
+                                                                        <div className="flex items-center justify-end gap-2">
+                                                                            <div className="w-16 bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
+                                                                                <div className="h-full bg-indigo-500" style={{ width: `${item.alphaScore || 0}%` }} />
+                                                                            </div>
+                                                                            <span className="font-mono font-bold text-sm text-white">{item.alphaScore?.toFixed(0) || "-"}</span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-4 text-right">
+                                                                        <div className="flex flex-col items-end">
+                                                                            <span className="text-sm font-mono font-bold text-slate-200">${ev.price.last.toFixed(2)}</span>
+                                                                            <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                                {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
                                                                             </span>
-                                                                        </>
-                                                                    ) : (
-                                                                        <span className="text-[10px] font-mono text-slate-500">
-                                                                            Waiting...
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 text-center">
-                                                                <span className={`inline-flex w-2.5 h-2.5 rounded-full ring-2 ring-white/10 ${optStatus.color}`} title={optStatus.label} />
-                                                            </td>
-                                                            <td className="p-4 hidden md:table-cell">
-                                                                <div className="flex flex-wrap gap-1 justify-end md:justify-start">
-                                                                    {(item.decisionSSOT?.triggersKR || []).length > 0 ? (
-                                                                        (item.decisionSSOT?.triggersKR || []).slice(0, 2).map((code, i) => {
-                                                                            return (
-                                                                                <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/5 border border-white/10 text-slate-300">
-                                                                                    {code}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-4 text-right">
+                                                                        <div className="flex flex-col items-end">
+                                                                            {ev.flow.complete ? (
+                                                                                <>
+                                                                                    <span className={`text-xs font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-400"}`}>
+                                                                                        {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1000000).toFixed(1)}M` : "-"}
+                                                                                    </span>
+                                                                                </>
+                                                                            ) : (
+                                                                                <span className="text-[10px] font-mono text-slate-500">
+                                                                                    Waiting...
                                                                                 </span>
-                                                                            );
-                                                                        })
-                                                                    ) : (
-                                                                        <span className="text-[9px] text-slate-500 italic">장 마감</span>
-                                                                    )}
-                                                                </div>
-                                                            </td>
-                                                            <td className="p-4 text-center">
-                                                                <span className={`px-2 py-1 rounded text-[10px] font-bold border border-opacity-30 backdrop-blur-sm ${actStyle}`}>
-                                                                    {item.decisionSSOT?.action || "WATCH"}
-                                                                </span>
-                                                            </td>
-                                                        </tr>
-                                                    );
-                                                })
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            </div>
-                        </section>
-
-                        {/* 4. MOONSHOT SECTION (10+2) */}
-                        {moonshot.length > 0 && (
-                            <section>
-                                <h2 className="text-lg font-bold text-rose-200 mb-4 flex items-center gap-2">
-                                    <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
-                                    Moonshot Zone (High Risk)
-                                </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    {moonshot.map((item, idx) => (
-                                        <div key={item.ticker}
-                                            onClick={() => setSelectedTicker(item)}
-                                            className="cursor-pointer bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-xl p-6 relative overflow-hidden group hover:border-rose-500/50 transition-colors">
-
-                                            <div className="absolute top-0 right-0 p-2 opacity-50">
-                                                <Activity className="w-12 h-12 text-rose-900/20" />
-                                            </div>
-
-                                            <div className="flex justify-between items-start mb-4">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full bg-rose-950 flex items-center justify-center border border-rose-900 text-rose-500 font-bold font-mono">
-                                                        {(item as any).rank || (idx + 11)}
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xl font-black text-white">{item.ticker}</div>
-                                                        <div className="text-[10px] text-rose-400/80 font-bold uppercase tracking-wider">Gamma Play</div>
-                                                    </div>
-                                                </div>
-                                                <div className="text-right">
-                                                    <div className="text-lg font-mono text-rose-200">${item.evidence.price.last.toFixed(2)}</div>
-                                                    <div className={`text-xs font-bold ${item.evidence.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                        {item.evidence.price.changePct > 0 ? "+" : ""}{item.evidence.price.changePct.toFixed(2)}%
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-2">
-                                                <div className="flex justify-between text-xs border-t border-rose-900/30 pt-2">
-                                                    <span className="text-slate-500">RSI (14)</span>
-                                                    <span className="text-slate-300 font-mono">
-                                                        {item.evidence.price.rsi14 && item.evidence.price.rsi14 !== 50
-                                                            ? item.evidence.price.rsi14.toFixed(0)
-                                                            : "--"}
-                                                    </span>
-                                                </div>
-                                                <div className="flex justify-between text-xs">
-                                                    <span className="text-slate-500">Target</span>
-                                                    <span className="text-rose-300 font-mono">${(item.evidence.price.last * 1.15).toFixed(2)}</span>
-                                                </div>
-                                            </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-4 text-center">
+                                                                        <span className={`inline-flex w-2.5 h-2.5 rounded-full ring-2 ring-white/10 ${optStatus.color}`} title={optStatus.label} />
+                                                                    </td>
+                                                                    <td className="p-4 hidden md:table-cell">
+                                                                        <div className="flex flex-wrap gap-1 justify-end md:justify-start">
+                                                                            {(item.decisionSSOT?.triggersKR || []).length > 0 ? (
+                                                                                (item.decisionSSOT?.triggersKR || []).slice(0, 2).map((code, i) => {
+                                                                                    return (
+                                                                                        <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/5 border border-white/10 text-slate-300">
+                                                                                            {code}
+                                                                                        </span>
+                                                                                    );
+                                                                                })
+                                                                            ) : (
+                                                                                <span className="text-[9px] text-slate-500 italic">장 마감</span>
+                                                                            )}
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-4 text-center">
+                                                                        <span className={`px-2 py-1 rounded text-[10px] font-bold border border-opacity-30 backdrop-blur-sm ${actStyle}`}>
+                                                                            {item.decisionSSOT?.action || "WATCH"}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })
+                                                    )}
+                                                </tbody>
+                                            </table>
                                         </div>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
+                                    </div>
+                                </section>
 
+                                {/* 4. MOONSHOT SECTION (10+2) */}
+                                {moonshot.length > 0 && (
+                                    <section>
+                                        <h2 className="text-lg font-bold text-rose-200 mb-4 flex items-center gap-2">
+                                            <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
+                                            Moonshot Zone (High Risk)
+                                        </h2>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {moonshot.map((item, idx) => (
+                                                <div key={item.ticker}
+                                                    onClick={() => setSelectedTicker(item)}
+                                                    className="cursor-pointer bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-xl p-6 relative overflow-hidden group hover:border-rose-500/50 transition-colors">
+
+                                                    <div className="absolute top-0 right-0 p-2 opacity-50">
+                                                        <Activity className="w-12 h-12 text-rose-900/20" />
+                                                    </div>
+
+                                                    <div className="flex justify-between items-start mb-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="w-8 h-8 rounded-full bg-rose-950 flex items-center justify-center border border-rose-900 text-rose-500 font-bold font-mono">
+                                                                {(item as any).rank || (idx + 11)}
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-xl font-black text-white">{item.ticker}</div>
+                                                                <div className="text-[10px] text-rose-400/80 font-bold uppercase tracking-wider">Gamma Play</div>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-lg font-mono text-rose-200">${item.evidence.price.last.toFixed(2)}</div>
+                                                            <div className={`text-xs font-bold ${item.evidence.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                {item.evidence.price.changePct > 0 ? "+" : ""}{item.evidence.price.changePct.toFixed(2)}%
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="space-y-2">
+                                                        <div className="flex justify-between text-xs border-t border-rose-900/30 pt-2">
+                                                            <span className="text-slate-500">RSI (14)</span>
+                                                            <span className="text-slate-300 font-mono">
+                                                                {item.evidence.price.rsi14 && item.evidence.price.rsi14 !== 50
+                                                                    ? item.evidence.price.rsi14.toFixed(0)
+                                                                    : "--"}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex justify-between text-xs">
+                                                            <span className="text-slate-500">Target</span>
+                                                            <span className="text-rose-300 font-mono">${(item.evidence.price.last * 1.15).toFixed(2)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </section>
+                                )}
+
+                            </>
+                        )}
 
 
                         {isDebug && report && (
