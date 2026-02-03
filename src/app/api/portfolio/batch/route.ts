@@ -1,8 +1,10 @@
 // Portfolio Batch API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
+// [One Pipe] Uses Full Engine (analyzeGemsTicker) for unified alpha calculation
 
 import { NextResponse } from 'next/server';
 import { getStockData, getOptionsData } from '@/services/stockApi';
+import { analyzeGemsTicker } from '@/services/stockTypes';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -41,57 +43,61 @@ export async function GET(request: Request) {
                 return { ticker, error: 'Stock data unavailable' };
             }
 
-            // === ALPHA SCORE CALCULATION ===
-            let score = 50;
+            // [One Pipe] Full Engine Alpha Score (5-factor: Momentum, Options, Structure, Regime, Risk)
+            const opts = optionsData as any;
             const changePct = stockData.changePercent || 0;
 
-            if (changePct > 2) score += 15;
-            else if (changePct > 0) score += changePct * 7;
-            else if (changePct < -2) score -= 15;
-            else score += changePct * 7;
+            // Prepare data for Full Engine
+            const rawTicker = {
+                ticker: ticker.toUpperCase(),
+                lastTrade: { p: stockData.price },
+                todaysChangePerc: changePct,
+                day: { v: stockData.volume },
+                prevDay: { c: stockData.prevClose, v: stockData.volume }
+            };
 
-            const opts = optionsData as any;
-            if (opts) {
-                const pcRatio = opts.putCallRatio || 1;
-                if (pcRatio < 0.7) score += 10;
-                else if (pcRatio > 1.3) score -= 10;
-            }
+            const optionsForEngine = opts ? {
+                currentPrice: stockData.price,
+                putCallRatio: opts.putCallRatio || 1,
+                gems: {
+                    gex: opts?.gems?.gex || opts?.gex || 0,
+                    gammaFlipLevel: opts?.gems?.gammaFlipLevel || null,
+                    gammaState: null,
+                    mmPos: '',
+                    edge: ''
+                },
+                maxPain: opts?.maxPain || null,
+                callWall: opts?.callWall || null,
+                putFloor: opts?.putFloor || null,
+                rsi14: 50,
+                options_status: 'OK' as const,
+                rawChain: opts?.rawChain || []
+            } : undefined;
 
-            if (opts?.gex !== undefined || opts?.gems?.gex !== undefined) {
-                const gex = opts?.gems?.gex || opts?.gex;
-                if (gex > 0) score += 5;
-                else score -= 5;
-            }
-
-            score = Math.max(0, Math.min(100, Math.round(score)));
-            const grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
-
-            // === ACTION & TRIGGERS ===
+            // Call Full Engine
+            let score = 50;
+            let grade: 'A' | 'B' | 'C' | 'D' | 'F' = 'C';
             let action: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH' = 'HOLD';
             let confidence = 50;
-            const triggers: string[] = [];
+            let triggers: string[] = [];
 
-            if (score >= 75) triggers.push(`Alpha ${score}점 (강세)`);
-            else if (score >= 50) triggers.push(`Alpha ${score}점 (중립)`);
-            else triggers.push(`Alpha ${score}점 (약세)`);
-
-            if (changePct > 2) triggers.push(`금일 +${changePct.toFixed(1)}% 상승`);
-            else if (changePct > 0) triggers.push(`금일 +${changePct.toFixed(1)}%`);
-            else if (changePct < -2) triggers.push(`금일 ${changePct.toFixed(1)}% 하락`);
-            else if (changePct < 0) triggers.push(`금일 ${changePct.toFixed(1)}%`);
-
-            if (score >= 75 && changePct > 0) {
-                action = 'ADD';
-                confidence = Math.min(90, 50 + score - 50);
-            } else if (score <= 35 || (changePct < -3 && score < 50)) {
-                action = 'TRIM';
-                confidence = Math.min(90, 50 + (50 - score));
-            } else if (score >= 50 && score < 75) {
-                action = 'HOLD';
-                confidence = 60 + (score - 50);
-            } else {
-                action = 'WATCH';
-                confidence = 50;
+            try {
+                const result = analyzeGemsTicker(rawTicker, 'Neutral', optionsForEngine, false);
+                score = result.alphaScore;
+                grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
+                action = result.v71?.action === 'Enter' ? 'ADD'
+                    : result.v71?.action === 'Hold' ? 'HOLD'
+                        : result.v71?.action === 'Reduce' ? 'TRIM'
+                            : 'WATCH';
+                confidence = result.decisionSSOT?.confidence || 50;
+                triggers = result.decisionSSOT?.triggersKR || [];
+            } catch (e) {
+                console.error(`[Portfolio Batch] Full Engine failed for ${ticker}:`, e);
+                // Fallback to simple calculation
+                score = 50 + Math.round(changePct * 5);
+                score = Math.max(0, Math.min(100, score));
+                grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
+                triggers = ['알파 계산 실패'];
             }
 
             // === OPTIONS INDICATORS ===
