@@ -154,7 +154,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
         rawChain.forEach(opt => {
             const delta = opt.greeks?.delta || 0;
-            const oi = opt.day?.open_interest || 0;
+            const oi = opt.open_interest || opt.day?.open_interest || 0;
             const type = opt.details?.contract_type;
 
             if (type === 'call' && delta > 0) {
