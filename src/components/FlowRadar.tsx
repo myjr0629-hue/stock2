@@ -15,7 +15,7 @@ interface FlowRadarProps {
 
 export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
-    const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
+    const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>('VOLUME'); // Default to VOLUME
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const currentPriceLineRef = useRef<HTMLDivElement>(null);
     const hasCenteredRef = useRef(false);
