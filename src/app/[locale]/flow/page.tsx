@@ -13,13 +13,13 @@ function FlowPageContent() {
     const searchParams = useSearchParams();
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'TSLA';
 
-    // State matching LiveTickerDashboard structure
+    // EXACT SAME state as LiveTickerDashboard
     const [liveQuote, setLiveQuote] = useState<any>(null);
-    const [rawChain, setRawChain] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [quoteLoading, setQuoteLoading] = useState(false);
 
     // Fetch ticker data (EXACT same API as COMMAND - L236)
+    // This API returns flow.rawChain which FlowRadar uses
     const fetchTicker = useCallback(async () => {
         setQuoteLoading(true);
         try {
@@ -27,43 +27,25 @@ function FlowPageContent() {
             if (res.ok) {
                 const data = await res.json();
                 setLiveQuote(data);
+                setLoading(false);
             }
         } catch (e) {
             console.error('[Flow] Ticker fetch error:', e);
+            setLoading(false);
         } finally {
             setQuoteLoading(false);
         }
     }, [ticker]);
 
-    // Fetch rawChain (SAME data as COMMAND SSR uses)
-    const fetchRawChain = useCallback(async () => {
-        try {
-            const res = await fetch(`/api/live/options/chain?t=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                setRawChain(data.rawChain || []);
-            }
-        } catch (e) {
-            console.error('[Flow] Chain fetch error:', e);
-        } finally {
-            setLoading(false);
-        }
-    }, [ticker]);
-
     useEffect(() => {
         setLoading(true);
-        setRawChain([]);
         setLiveQuote(null);
         fetchTicker();
-        fetchRawChain();
 
+        // Poll every 10s (same as COMMAND)
         const quoteInterval = setInterval(fetchTicker, 10000);
-        const chainInterval = setInterval(fetchRawChain, 60000); // Refresh chain every 60s
-        return () => {
-            clearInterval(quoteInterval);
-            clearInterval(chainInterval);
-        };
-    }, [ticker, fetchTicker, fetchRawChain]);
+        return () => clearInterval(quoteInterval);
+    }, [ticker, fetchTicker]);
 
     // =====================================================
     // PRICE DISPLAY LOGIC (EXACT COPY from LiveTickerDashboard L305-417)
@@ -123,6 +105,9 @@ function FlowPageContent() {
     }
 
     const isPositive = displayChangePct >= 0;
+
+    // EXACT SAME rawChain source as COMMAND (L1152)
+    const rawChain = liveQuote?.flow?.rawChain || [];
 
     return (
         <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
@@ -215,7 +200,7 @@ function FlowPageContent() {
                         </div>
                     </div>
 
-                    {/* Flow Radar Component (SAME rawChain as COMMAND) */}
+                    {/* Flow Radar Component (EXACT SAME rawChain as COMMAND L1152) */}
                     {loading ? (
                         <div className="flex items-center justify-center h-[600px]">
                             <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
