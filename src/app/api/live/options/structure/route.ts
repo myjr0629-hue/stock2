@@ -53,15 +53,23 @@ export async function GET(req: NextRequest) {
     let prevClose = 0;
     let changePercent = 0;
 
+    // [DEBUG] Log spot fetch result
+    console.log(`[STRUCTURE DEBUG] ${ticker}: spotRes.success=${spotRes.success}, hasData=${!!spotRes.data}, hasTicker=${!!spotRes.data?.ticker}`);
+
     if (spotRes.success && spotRes.data?.ticker) {
         const T = spotRes.data.ticker;
         underlyingPrice = T.lastTrade?.p || T.min?.c || T.day?.c || T.prevDay?.c || 0;
         prevClose = T.prevDay?.c || 0;
 
+        // [DEBUG] Log price extraction
+        console.log(`[STRUCTURE DEBUG] ${ticker}: underlyingPrice=${underlyingPrice}, lastTrade.p=${T.lastTrade?.p}, min.c=${T.min?.c}, day.c=${T.day?.c}, prevDay.c=${T.prevDay?.c}`);
+
         // Calculate change percent
         if (prevClose > 0 && underlyingPrice > 0) {
             changePercent = Math.round(((underlyingPrice - prevClose) / prevClose) * 10000) / 100;
         }
+    } else {
+        console.error(`[STRUCTURE DEBUG] ${ticker}: SPOT FETCH FAILED! Error: ${spotRes.error || 'unknown'}`);
     }
 
     // 2. [S-71] Two-Phase Fetch: First get expirations, then fetch exact weekly expiration
@@ -218,10 +226,18 @@ export async function GET(req: NextRequest) {
     let contractsUsedForGex = 0;
     let gexNotes = "";
 
-    // [V7.1] [S-73] Gamma Flip Level - Find closest zero crossing to current price
-    // OLD: Found first crossing from lowest strike (returned edge cases like $95)
-    // NEW: Find ALL crossings, then pick the one closest to current price
+    // [S-120] 3-Tier Gamma Flip Level Algorithm
+    // Tier 1: Exact zero crossing within ATM ±15%
+    // Tier 2: Near-zero (closest to 0) within ATM range  
+    // Tier 3: All Long/Short Gamma (no meaningful flip)
+
     let gammaFlipLevel: number | null = null;
+    let gammaFlipType: 'EXACT' | 'NEAR_ZERO' | 'ALL_LONG' | 'ALL_SHORT' | 'NO_DATA' = 'NO_DATA';
+    let gammaFlipCrossings: number[] = [];
+
+    const ATM_RANGE = 0.15;  // ±15% from current price
+    const atmMin = underlyingPrice * (1 - ATM_RANGE);
+    const atmMax = underlyingPrice * (1 + ATM_RANGE);
 
     if (cleanContracts.length > 0 && underlyingPrice > 0) {
         const gexByStrike = new Map<number, number>();
@@ -241,30 +257,55 @@ export async function GET(req: NextRequest) {
             const strikesWithGex = Array.from(gexByStrike.entries())
                 .sort((a, b) => a[0] - b[0]);
 
-            // Collect ALL zero crossings
+            // Phase 1: Collect all crossings and track cumulative GEX
             let cumulativeGex = 0;
-            const crossings: number[] = [];
+            const allCrossings: number[] = [];
+            const atmNearZero: { strike: number; absGex: number }[] = [];
+            let finalCumulativeGex = 0;
 
             for (let i = 0; i < strikesWithGex.length; i++) {
                 const [strike, gexAtStrike] = strikesWithGex[i];
                 const prevGex = cumulativeGex;
                 cumulativeGex += gexAtStrike;
+                finalCumulativeGex = cumulativeGex;
 
+                // Track zero crossings
                 if (i > 0) {
-                    // Detect any zero crossing
                     if ((prevGex < 0 && cumulativeGex >= 0) || (prevGex > 0 && cumulativeGex <= 0)) {
-                        crossings.push(strike);
+                        allCrossings.push(strike);
                     }
+                }
+
+                // Track near-zero within ATM range
+                if (strike >= atmMin && strike <= atmMax) {
+                    atmNearZero.push({ strike, absGex: Math.abs(cumulativeGex) });
                 }
             }
 
-            // [S-73] Pick the crossing CLOSEST to current price
-            if (crossings.length > 0) {
-                gammaFlipLevel = crossings.reduce((closest, strike) =>
+            gammaFlipCrossings = [...allCrossings];
+
+            // Tier 1: Exact crossing within ATM range
+            const atmCrossings = allCrossings.filter(s => s >= atmMin && s <= atmMax);
+            if (atmCrossings.length > 0) {
+                gammaFlipLevel = atmCrossings.reduce((closest, strike) =>
                     Math.abs(strike - underlyingPrice) < Math.abs(closest - underlyingPrice) ? strike : closest
                 );
+                gammaFlipType = 'EXACT';
+                console.log(`[S-120] ${ticker}: Tier 1 EXACT - GammaFlip = $${gammaFlipLevel} from ATM crossings [${atmCrossings.join(', ')}]`);
             }
-            console.log(`[S-73] ${ticker}: GammaFlip = $${gammaFlipLevel} (closest to $${underlyingPrice}) from ${crossings.length} crossings: [${crossings.join(', ')}]`);
+            // Tier 2: Near-zero within ATM range
+            else if (atmNearZero.length > 0) {
+                atmNearZero.sort((a, b) => a.absGex - b.absGex);
+                gammaFlipLevel = atmNearZero[0].strike;
+                gammaFlipType = 'NEAR_ZERO';
+                console.log(`[S-120] ${ticker}: Tier 2 NEAR_ZERO - GammaFlip = ~$${gammaFlipLevel} (absGex=${atmNearZero[0].absGex.toFixed(0)}) from ${atmNearZero.length} ATM strikes`);
+            }
+            // Tier 3: All positive or all negative (no flip in ATM range)
+            else {
+                gammaFlipLevel = null;
+                gammaFlipType = finalCumulativeGex > 0 ? 'ALL_LONG' : 'ALL_SHORT';
+                console.log(`[S-120] ${ticker}: Tier 3 ${gammaFlipType} - No meaningful flip, finalGEX=${finalCumulativeGex.toFixed(0)}`);
+            }
         }
     }
 
@@ -380,6 +421,7 @@ export async function GET(req: NextRequest) {
             maxPain,
             netGex,
             gammaFlipLevel,
+            gammaFlipType,  // [S-120] EXACT, NEAR_ZERO, ALL_LONG, ALL_SHORT, NO_DATA
             atmIv, // [S-76] ATM Implied Volatility
             levels: {
                 callWall: callWall || null,
@@ -398,7 +440,8 @@ export async function GET(req: NextRequest) {
                 multiplierUsed: 100,
                 netGexUnit: "shares",
                 gexFormula: "sum(call gamma*oi*mult) - sum(put gamma*oi*mult)",
-                notes: gexNotes
+                notes: gexNotes,
+                gammaFlipCrossings  // [DEBUG] All zero crossings found
             }
         });
     } else {
@@ -418,7 +461,8 @@ export async function GET(req: NextRequest) {
             structure: { strikes: sortedStrikes, callsOI, putsOI },
             maxPain: null,
             netGex: null,
-            gammaFlipLevel,  // [V7.1] Always include Gamma Flip
+            gammaFlipLevel,
+            gammaFlipType,  // [S-120] EXACT, NEAR_ZERO, ALL_LONG, ALL_SHORT, NO_DATA
             levels: { callWall: null, putFloor: null, pinZone: null },
             sourceGrade: "B",
             debug: {
