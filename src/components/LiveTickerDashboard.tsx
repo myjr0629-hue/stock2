@@ -276,8 +276,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [newsLoading, setNewsLoading] = useState(false);
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
-    const [newsScore, setNewsScore] = useState<{ score: number; label: string } | null>(null);
-    const [riskFactors, setRiskFactors] = useState<{ count: number; status: string } | null>(null);
+    const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
+    const [riskFactors, setRiskFactors] = useState<{ count: number; status: string; topCategory?: string } | null>(null);
     const [macdData, setMacdData] = useState<{ signal: string; label: string; histogram: number } | null>(null);
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(null);
 
@@ -370,16 +370,27 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             const res = await fetch(`/api/live/news?t=${ticker}`);
             if (res.ok) {
                 const data = await res.json();
-                const items = data.items || [];
-                // Calculate sentiment score
-                let score = 50; // neutral baseline
-                items.forEach((item: any) => {
-                    if (item.sentiment === 'positive') score += 5;
-                    else if (item.sentiment === 'negative') score -= 5;
-                });
-                score = Math.max(0, Math.min(100, score));
-                const label = score >= 70 ? '양호' : score >= 40 ? '중립' : '주의';
-                setNewsScore({ score, label });
+                // Use API-calculated sentiment if available
+                if (data.sentiment) {
+                    setNewsScore({
+                        score: data.sentiment.score || 50,
+                        label: data.sentiment.label || '중립',
+                        breakdown: data.sentiment.breakdown
+                    });
+                } else {
+                    // Fallback calculation
+                    const items = data.items || [];
+                    let score = 50;
+                    let positive = 0, negative = 0, neutral = 0;
+                    items.forEach((item: any) => {
+                        if (item.sentiment === 'positive') { score += 5; positive++; }
+                        else if (item.sentiment === 'negative') { score -= 5; negative++; }
+                        else neutral++;
+                    });
+                    score = Math.max(0, Math.min(100, score));
+                    const label = score >= 70 ? '양호' : score >= 40 ? '중립' : '주의';
+                    setNewsScore({ score, label, breakdown: { positive, negative, neutral } });
+                }
             }
         } catch (e) { console.warn('[NewsScore] Error:', e); }
     };
@@ -392,7 +403,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 const data = await res.json();
                 const count = data.riskCount || data.count || 0;
                 const status = data.riskLevel || (count >= 10 ? '주의' : count >= 5 ? '보통' : '양호');
-                setRiskFactors({ count, status });
+                const topCategory = data.topCategories?.[0]?.name || null;
+                setRiskFactors({ count, status, topCategory });
             }
         } catch (e) { console.warn('[RiskFactors] Error:', e); }
     };
@@ -709,6 +721,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             <text x="50" y="42" textAnchor="middle" className="fill-white text-lg font-black">{newsScore?.score || '--'}</text>
                         </svg>
                     </div>
+                    {newsScore?.breakdown && (
+                        <div className="text-[8px] text-center text-white/60 mt-1">
+                            <span className="text-emerald-400">긍{newsScore.breakdown.positive}</span>
+                            <span className="mx-1">/</span>
+                            <span className="text-rose-400">부{newsScore.breakdown.negative}</span>
+                            <span className="mx-1">/</span>
+                            <span className="text-slate-400">중{newsScore.breakdown.neutral}</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* SEC Risk Factors Gauge */}
