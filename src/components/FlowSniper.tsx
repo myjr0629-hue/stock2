@@ -47,12 +47,6 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                                 <span className="block text-[8px] text-indigo-400 font-bold normal-case opacity-90">{t('realtimeTracking')}</span>
                             )}
                         </div>
-                        <div
-                            className={`flex items-center gap-1 mt-1.5 p-1 rounded bg-sky-500/10 border border-sky-500/20 ${onClickFlowRadar ? "cursor-pointer hover:bg-sky-500/20 transition-colors" : ""}`}
-                            onClick={onClickFlowRadar}
-                        >
-                            <span className="text-[9px] text-sky-400 font-bold">{t('viewFlowRadar')}</span>
-                        </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
