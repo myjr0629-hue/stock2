@@ -11,7 +11,10 @@ import { FavoriteToggle } from '@/components/FavoriteToggle';
 
 function FlowPageContent() {
     const searchParams = useSearchParams();
-    const ticker = searchParams.get('ticker')?.toUpperCase() || 'TSLA';
+    // Support both ?ticker= and ?t= for cross-page compatibility
+    const ticker = searchParams.get('ticker')?.toUpperCase()
+        || searchParams.get('t')?.toUpperCase()
+        || 'TSLA';
 
     // EXACT SAME state as LiveTickerDashboard
     const [liveQuote, setLiveQuote] = useState<any>(null);
