@@ -698,7 +698,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             {/* [S-124.6] Quick Intel Gauges Bar - Clean/Bright Design */}
             <div className="grid grid-cols-5 gap-2 mt-4 mb-2">
                 {/* News Sentiment Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <Newspaper className="w-4 h-4 text-amber-400" />
@@ -722,18 +722,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </svg>
                     </div>
                     {newsScore?.breakdown && (
-                        <div className="text-[8px] text-center text-white/60 mt-1">
+                        <div className="text-[10px] text-center text-white mt-1">
                             <span className="text-emerald-400">긍{newsScore.breakdown.positive}</span>
-                            <span className="mx-1">/</span>
+                            <span className="mx-1 text-white">/</span>
                             <span className="text-rose-400">부{newsScore.breakdown.negative}</span>
-                            <span className="mx-1">/</span>
-                            <span className="text-slate-400">중{newsScore.breakdown.neutral}</span>
+                            <span className="mx-1 text-white">/</span>
+                            <span className="text-white">중{newsScore.breakdown.neutral}</span>
                         </div>
                     )}
                 </div>
 
                 {/* SEC Risk Factors Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <ShieldAlert className="w-4 h-4 text-rose-400" />
@@ -745,14 +745,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </div>
                     <div className="flex items-center justify-center">
                         <div className="text-center">
-                            <div className="text-2xl font-black text-white">{riskFactors?.count ?? '--'}<span className="text-sm text-white/60">건</span></div>
-                            <div className="text-[8px] text-white/50">10-K 위험요소</div>
+                            <div className="text-2xl font-black text-white">{riskFactors?.count ?? '--'}<span className="text-sm text-white">건</span></div>
+                            <div className="text-[10px] text-white">공시 위험요소</div>
                         </div>
                     </div>
                 </div>
 
                 {/* VWAP Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <Activity className="w-4 h-4 text-indigo-400" />
@@ -763,7 +763,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const price = displayPrice || 0;
                             const diff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
                             return (
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${diff > 0 ? 'bg-emerald-500/20 text-emerald-400' : diff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white/60'}`}>
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${diff > 0 ? 'bg-emerald-500/20 text-emerald-400' : diff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>
                                     {diff > 0 ? `+${diff.toFixed(1)}%` : `${diff.toFixed(1)}%`}
                                 </span>
                             );
@@ -779,7 +779,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className={`text-xl font-black font-mono ${diff > 0 ? 'text-emerald-400' : diff < 0 ? 'text-rose-400' : 'text-white'}`}>
                                         ${vwap.toFixed(2)}
                                     </div>
-                                    <div className="text-[8px] text-white/50">거래량 가중평균</div>
+                                    <div className="text-[10px] text-white">거래량 가중평균</div>
                                 </div>
                             </div>
                         );
@@ -787,28 +787,28 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
 
                 {/* MACD Signal Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <TrendingUp className="w-4 h-4 text-cyan-400" />
                             <span className="text-[10px] font-bold text-white uppercase tracking-wider">MACD</span>
                         </div>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${macdData?.signal === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : macdData?.signal === 'SELL' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white/60'}`}>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${macdData?.signal === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : macdData?.signal === 'SELL' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>
                             {macdData?.label || '...'}
                         </span>
                     </div>
                     <div className="flex items-center justify-center">
                         <div className="text-center">
-                            <div className={`text-xl font-black ${macdData?.signal === 'BUY' ? 'text-emerald-400' : macdData?.signal === 'SELL' ? 'text-rose-400' : 'text-white/60'}`}>
+                            <div className={`text-xl font-black ${macdData?.signal === 'BUY' ? 'text-emerald-400' : macdData?.signal === 'SELL' ? 'text-rose-400' : 'text-white'}`}>
                                 {macdData?.signal || '--'}
                             </div>
-                            <div className="text-[8px] text-white/50">히스토그램: {macdData?.histogram?.toFixed(2) || '--'}</div>
+                            <div className="text-[10px] text-white">히스토그램: {macdData?.histogram?.toFixed(2) || '--'}</div>
                         </div>
                     </div>
                 </div>
 
                 {/* Related Tickers Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
                     <div className="flex items-center gap-1.5 mb-2">
                         <Layers className="w-4 h-4 text-violet-400" />
                         <span className="text-[10px] font-bold text-white uppercase tracking-wider">연관</span>
