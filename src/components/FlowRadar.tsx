@@ -78,47 +78,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         }
     }, [rawChain]);
 
-    // [NEW] Premium Indicator States
-    const [newsSentiment, setNewsSentiment] = useState<{ score: number; label: string; color: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
-    const [treasury, setTreasury] = useState<{ yield10Y: number; change: number; status: string; color: string } | null>(null);
-    const [riskFactors, setRiskFactors] = useState<{ riskLevel: string; riskCount: number; color: string } | null>(null);
-
-    // Fetch Premium Indicators
-    useEffect(() => {
-        if (!ticker) return;
-
-        // News Sentiment
-        fetch(`/api/live/news?t=${ticker}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.sentiment) {
-                    setNewsSentiment(data.sentiment);
-                }
-            })
-            .catch(console.error);
-
-        // Treasury Divergence
-        fetch('/api/live/treasury')
-            .then(res => res.json())
-            .then(data => {
-                if (data.yield10Y !== null) {
-                    setTreasury(data);
-                }
-            })
-            .catch(console.error);
-
-        // Risk Factors
-        fetch(`/api/live/risk-factors?t=${ticker}`)
-            .then(res => res.json())
-            .then(data => {
-                if (data.riskLevel) {
-                    setRiskFactors(data);
-                }
-            })
-            .catch(console.error);
-
-    }, [ticker]);
-
+    // [REMOVED] News Sentiment, Treasury, Risk Factors - Now displayed in Command page gauges
 
     // Process Data: Group by Strike with DTE filtering
     // [S-77] Industry Standard: VOLUME = 0-7 DTE (short-term gamma), OI = 0-35 DTE (mid-term positioning)
@@ -842,13 +802,45 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                     {/* Metrics Grid - Glassmorphism Cards - Balanced 50/50 */}
                     <div className="flex flex-col lg:flex-row gap-2">
-                        {/* 1. Analysis Summary (50% width) */}
+                        {/* 1. Analysis Summary (50% width) - EXPANDED */}
                         <div className="lg:w-[50%] bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-inner">
                             <div className="flex items-center gap-2 mb-2">
                                 <Activity size={14} className="text-cyan-400" />
                                 <span className="text-[11px] text-white font-bold uppercase tracking-wider">분석</span>
+                                {analysis.compositeScore !== undefined && (
+                                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${analysis.compositeScore > 20 ? 'bg-emerald-500/20 text-emerald-400' : analysis.compositeScore < -20 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-slate-300'}`}>
+                                        종합 {analysis.compositeScore > 0 ? '+' : ''}{Math.round(analysis.compositeScore)}
+                                    </span>
+                                )}
                             </div>
-                            <p className="text-[12px] text-white leading-relaxed">{analysis.message}</p>
+                            <p className="text-[12px] text-white leading-relaxed mb-2">{analysis.message}</p>
+
+                            {/* Signal Tags */}
+                            {analysis.signals && analysis.signals.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-2">
+                                    {analysis.signals.map((sig: string, idx: number) => (
+                                        <span key={idx} className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                                            {sig}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* Key Levels */}
+                            <div className="flex items-center gap-3 pt-2 border-t border-white/10">
+                                <div className="flex items-center gap-1">
+                                    <span className="text-[9px] text-slate-400">지지</span>
+                                    <span className="text-[10px] text-emerald-400 font-bold">${putWall}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-[9px] text-slate-400">저항</span>
+                                    <span className="text-[10px] text-rose-400 font-bold">${callWall}</span>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <span className="text-[9px] text-slate-400">현재</span>
+                                    <span className="text-[10px] text-white font-bold">${currentPrice.toFixed(2)}</span>
+                                </div>
+                            </div>
                         </div>
 
                         {/* 2-5. 4 Metrics Row with Glow Effects (50% width) */}
@@ -1505,120 +1497,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     </div>
                                 </div>
 
-                                {/* News Sentiment - Always visible */}
-                                <div className="bg-gradient-to-br from-cyan-950/20 to-slate-900/40 border border-cyan-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
-                                    <div className="absolute inset-0 bg-cyan-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative z-10">
-                                        {/* Row 1: Label + Value */}
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">뉴스 감성</span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                {newsSentiment ? (
-                                                    <>
-                                                        <div className={`text-2xl font-black ${newsSentiment.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                            {newsSentiment.score}
-                                                        </div>
-                                                        <div className={`text-sm font-bold ${newsSentiment.color} px-2 py-0.5 bg-black/20 rounded`}>{newsSentiment.label}</div>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <div className="w-10 h-7 bg-slate-700/50 rounded animate-pulse" />
-                                                        <div className="w-12 h-5 bg-slate-700/50 rounded animate-pulse" />
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {/* Row 2: Rationale */}
-                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-cyan-500/30">
-                                            {newsSentiment ? (
-                                                <>📰 {newsSentiment.breakdown
-                                                    ? `긍정 ${newsSentiment.breakdown.positive}건 / 부정 ${newsSentiment.breakdown.negative}건 / 중립 ${newsSentiment.breakdown.neutral}건`
-                                                    : '뉴스 분석 중...'}</>
-                                            ) : (
-                                                <span className="text-slate-600">로딩 중...</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Treasury Divergence - Always visible */}
-                                <div className="bg-gradient-to-br from-amber-950/20 to-slate-900/40 border border-amber-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-amber-500/30 transition-all">
-                                    <div className="absolute inset-0 bg-amber-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative z-10">
-                                        {/* Row 1: Label + Value */}
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">10Y 국채</span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                {treasury ? (
-                                                    <>
-                                                        <div className={`text-xl font-black ${treasury.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                            {treasury.yield10Y?.toFixed(2)}%
-                                                        </div>
-                                                        <div className={`text-sm font-bold ${treasury.color} px-2 py-0.5 bg-black/20 rounded`}>
-                                                            {treasury.change > 0 ? '+' : ''}{treasury.change?.toFixed(2)} {treasury.status}
-                                                        </div>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <div className="w-14 h-6 bg-slate-700/50 rounded animate-pulse" />
-                                                        <div className="w-16 h-5 bg-slate-700/50 rounded animate-pulse" />
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {/* Row 2: Rationale */}
-                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-amber-500/30">
-                                            {treasury ? (
-                                                <>📈 금리 상승 = 위험 부담↑ / 금리 하락 = 안전자산 선호</>
-                                            ) : (
-                                                <span className="text-slate-600">로딩 중...</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Risk Factors - Always visible */}
-                                <div className="bg-gradient-to-br from-pink-950/20 to-slate-900/40 border border-pink-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-pink-500/30 transition-all">
-                                    <div className="absolute inset-0 bg-pink-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="relative z-10">
-                                        {/* Row 1: Label + Value */}
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">SEC 위험요소</span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                {riskFactors ? (
-                                                    <>
-                                                        <div className={`text-2xl font-black ${riskFactors.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                            {riskFactors.riskCount}건
-                                                        </div>
-                                                        <div className={`text-sm font-bold ${riskFactors.color} px-2 py-0.5 bg-black/20 rounded`}>{riskFactors.riskLevel}</div>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <div className="w-12 h-7 bg-slate-700/50 rounded animate-pulse" />
-                                                        <div className="w-10 h-5 bg-slate-700/50 rounded animate-pulse" />
-                                                    </>
-                                                )}
-                                            </div>
-                                        </div>
-                                        {/* Row 2: Rationale */}
-                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-pink-500/30">
-                                            {riskFactors ? (
-                                                <>⚠️ SEC 10-K 연간보고서 위험공시 기준</>
-                                            ) : (
-                                                <span className="text-slate-600">로딩 중...</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                                {/* [REMOVED] News Sentiment, Treasury, SEC Risk Factors - Now displayed in Command page gauges */}
                             </div>
                         </CardContent>
                     </Card>
