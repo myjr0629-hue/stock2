@@ -184,18 +184,29 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
         // Find ATM options (closest to current price)
         const atmOptions = rawChain
-            .filter(opt => opt.greeks?.implied_volatility && opt.details?.strike_price)
-            .sort((a, b) => Math.abs(a.details.strike_price - currentPrice) - Math.abs(b.details.strike_price - currentPrice))
+            .filter(opt => {
+                // Check multiple paths for IV (Polygon API variations)
+                const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv;
+                const strike = opt.details?.strike_price || opt.strike_price;
+                return iv && iv > 0 && strike;
+            })
+            .sort((a, b) => {
+                const strikeA = a.details?.strike_price || a.strike_price;
+                const strikeB = b.details?.strike_price || b.strike_price;
+                return Math.abs(strikeA - currentPrice) - Math.abs(strikeB - currentPrice);
+            })
             .slice(0, 4); // Get 4 closest strikes
 
-        if (atmOptions.length === 0) return { value: 0, label: '데이터 없음', color: 'text-slate-400' };
+        if (atmOptions.length === 0) return { value: 0, label: '데이터 없음', color: 'text-white' };
 
-        // Average ATM IV
-        const avgIV = atmOptions.reduce((sum, opt) => sum + (opt.greeks?.implied_volatility || 0), 0) / atmOptions.length;
+        // Average ATM IV (check multiple paths)
+        const avgIV = atmOptions.reduce((sum, opt) => {
+            const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0;
+            return sum + iv;
+        }, 0) / atmOptions.length;
         const ivPercent = Math.round(avgIV * 100);
 
         // Determine percentile rank (simplified: IV 20-80% typical range)
-        // Below 25% = Low, 25-50% = Normal, 50-75% = Elevated, Above 75% = High
         let label = '보통';
         let color = 'text-white';
         if (ivPercent >= 60) { label = '매우 높음'; color = 'text-rose-400'; }
