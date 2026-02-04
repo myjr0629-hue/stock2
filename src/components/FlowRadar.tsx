@@ -477,9 +477,9 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             {/* OPI - Glowing Circular Gauge */}
                             <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                 {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-20 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
+                                <div className={`absolute inset-0 opacity-10 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
 
-                                <span className="text-[9px] text-white/70 font-bold uppercase mb-2 relative z-10">OPI(시장 압력)</span>
+                                <span className="text-[10px] text-white font-bold uppercase mb-2 relative z-10">OPI(시장 압력)</span>
 
                                 {/* Circular Gauge with Glow */}
                                 <div className="relative w-14 h-14">
@@ -513,11 +513,11 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             {/* Probability - Glowing Card */}
                             <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                 {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-20 ${analysis.probability >= 70 ? 'bg-emerald-500' : analysis.probability >= 50 ? 'bg-amber-500' : 'bg-rose-500'} blur-xl`} />
+                                <div className={`absolute inset-0 opacity-10 ${analysis.probability >= 70 ? 'bg-emerald-500' : analysis.probability >= 50 ? 'bg-amber-500' : 'bg-rose-500'} blur-xl`} />
 
                                 <div className="flex items-center gap-1 mb-2 relative z-10">
                                     <Percent size={12} className="text-cyan-400" />
-                                    <span className="text-[9px] text-white/70 font-bold uppercase">신뢰도</span>
+                                    <span className="text-[10px] text-white font-bold uppercase">신뢰도</span>
                                 </div>
 
                                 <div className="text-2xl font-black text-white relative z-10" style={{ textShadow: '0 0 12px rgba(255,255,255,0.5)' }}>
@@ -528,25 +528,25 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                             {/* Position - Glowing Card */}
                             <div className={`flex-1 backdrop-blur-md rounded-xl p-3 border flex flex-col items-center justify-center relative overflow-hidden ${analysis.whaleBias?.includes('BULL')
-                                    ? 'bg-emerald-500/10 border-emerald-400/30'
-                                    : analysis.whaleBias?.includes('BEAR')
-                                        ? 'bg-rose-500/10 border-rose-400/30'
-                                        : 'bg-white/5 border-white/10'
+                                ? 'bg-emerald-500/10 border-emerald-400/30'
+                                : analysis.whaleBias?.includes('BEAR')
+                                    ? 'bg-rose-500/10 border-rose-400/30'
+                                    : 'bg-white/5 border-white/10'
                                 }`}>
                                 {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-30 ${analysis.whaleBias?.includes('BULL') ? 'bg-emerald-500'
-                                        : analysis.whaleBias?.includes('BEAR') ? 'bg-rose-500'
-                                            : 'bg-slate-500'
+                                <div className={`absolute inset-0 opacity-20 ${analysis.whaleBias?.includes('BULL') ? 'bg-emerald-500'
+                                    : analysis.whaleBias?.includes('BEAR') ? 'bg-rose-500'
+                                        : 'bg-slate-500'
                                     } blur-xl`} />
 
                                 <div className="flex items-center gap-1 mb-2 relative z-10">
-                                    <Zap size={12} className={analysis.whaleBias?.includes('BULL') ? 'text-emerald-400' : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400' : 'text-white/70'} />
-                                    <span className="text-[9px] text-white/70 font-bold uppercase">포지션</span>
+                                    <Zap size={12} className={analysis.whaleBias?.includes('BULL') ? 'text-emerald-400' : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400' : 'text-white'} />
+                                    <span className="text-[10px] text-white font-bold uppercase">포지션</span>
                                 </div>
 
                                 <div className={`text-2xl font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
-                                        : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
-                                            : 'text-white'
+                                    : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
+                                        : 'text-white'
                                     }`} style={{ textShadow: analysis.whaleBias?.includes('BULL') ? '0 0 15px rgba(52,211,153,0.8)' : analysis.whaleBias?.includes('BEAR') ? '0 0 15px rgba(248,113,113,0.8)' : 'none' }}>
                                     {analysis.whaleBias?.includes('BULL') ? 'LONG'
                                         : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
