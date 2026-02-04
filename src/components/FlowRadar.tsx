@@ -1032,7 +1032,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
 
                         <CardContent className="p-4 flex flex-col h-full relative z-10">
-                            {/* Compact 4-Metric Grid */}
+                            {/* CALL WALL + PUT FLOOR: 2-Column Grid */}
                             <div className="grid grid-cols-2 gap-2">
                                 {/* CALL WALL */}
                                 <div className="bg-gradient-to-br from-emerald-950/30 to-slate-900/50 border border-emerald-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-emerald-500/40 transition-all">
@@ -1059,34 +1059,41 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     </div>
                                     <div className="text-[9px] text-rose-500/70 mt-1 relative z-10">{t('support')}</div>
                                 </div>
+                            </div>
 
+                            {/* Other Indicators: 1-Column Full-Width */}
+                            <div className="flex flex-col gap-2 mt-2">
                                 {/* Smart Money Score */}
                                 <div className="bg-gradient-to-br from-indigo-950/30 to-slate-900/50 border border-indigo-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-indigo-500/40 transition-all">
                                     <div className="absolute inset-0 bg-indigo-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="flex items-center gap-1.5 mb-2 relative z-10">
-                                        <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" />
-                                        <span className="text-[9px] text-white font-bold uppercase tracking-wider">스마트머니</span>
-                                    </div>
-                                    <div className="flex items-end justify-between relative z-10">
-                                        <div className={`text-2xl font-black ${smartMoney.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                            {smartMoney.score}
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" />
+                                            <span className="text-[9px] text-white font-bold uppercase tracking-wider">스마트머니</span>
                                         </div>
-                                        <div className={`text-[10px] font-bold ${smartMoney.color}`}>{smartMoney.label}</div>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`text-2xl font-black ${smartMoney.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                {smartMoney.score}
+                                            </div>
+                                            <div className={`text-[11px] font-bold ${smartMoney.color} min-w-[50px] text-right`}>{smartMoney.label}</div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* IV Skew */}
                                 <div className="bg-gradient-to-br from-violet-950/30 to-slate-900/50 border border-violet-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-violet-500/40 transition-all">
                                     <div className="absolute inset-0 bg-violet-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="flex items-center gap-1.5 mb-2 relative z-10">
-                                        <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" />
-                                        <span className="text-[9px] text-white font-bold uppercase tracking-wider">IV 스큐</span>
-                                    </div>
-                                    <div className="flex items-end justify-between relative z-10">
-                                        <div className={`text-2xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                            {ivSkew.value > 0 ? '+' : ''}{ivSkew.value}%
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" />
+                                            <span className="text-[9px] text-white font-bold uppercase tracking-wider">IV 스큐</span>
                                         </div>
-                                        <div className={`text-[10px] font-bold ${ivSkew.color}`}>{ivSkew.label}</div>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`text-2xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                {ivSkew.value > 0 ? '+' : ''}{ivSkew.value}%
+                                            </div>
+                                            <div className={`text-[11px] font-bold ${ivSkew.color} min-w-[50px] text-right`}>{ivSkew.label}</div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -1094,15 +1101,17 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 {newsSentiment && (
                                     <div className="bg-gradient-to-br from-cyan-950/30 to-slate-900/50 border border-cyan-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-cyan-500/40 transition-all">
                                         <div className="absolute inset-0 bg-cyan-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <div className="flex items-center gap-1.5 mb-2 relative z-10">
-                                            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
-                                            <span className="text-[9px] text-white font-bold uppercase tracking-wider">뉴스</span>
-                                        </div>
-                                        <div className="flex items-end justify-between relative z-10">
-                                            <div className={`text-2xl font-black ${newsSentiment.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                {newsSentiment.score}
+                                        <div className="flex items-center justify-between relative z-10">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
+                                                <span className="text-[9px] text-white font-bold uppercase tracking-wider">뉴스 감성</span>
                                             </div>
-                                            <div className={`text-[10px] font-bold ${newsSentiment.color}`}>{newsSentiment.label}</div>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`text-2xl font-black ${newsSentiment.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                    {newsSentiment.score}
+                                                </div>
+                                                <div className={`text-[11px] font-bold ${newsSentiment.color} min-w-[50px] text-right`}>{newsSentiment.label}</div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
@@ -1111,16 +1120,18 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 {treasury && (
                                     <div className="bg-gradient-to-br from-amber-950/30 to-slate-900/50 border border-amber-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-amber-500/40 transition-all">
                                         <div className="absolute inset-0 bg-amber-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <div className="flex items-center gap-1.5 mb-2 relative z-10">
-                                            <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
-                                            <span className="text-[9px] text-white font-bold uppercase tracking-wider">10Y국채</span>
-                                        </div>
-                                        <div className="flex items-end justify-between relative z-10">
-                                            <div className={`text-lg font-black ${treasury.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                {treasury.yield10Y?.toFixed(2)}%
+                                        <div className="flex items-center justify-between relative z-10">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+                                                <span className="text-[9px] text-white font-bold uppercase tracking-wider">10Y 국채</span>
                                             </div>
-                                            <div className={`text-[10px] font-bold ${treasury.color}`}>
-                                                {treasury.change > 0 ? '+' : ''}{treasury.change?.toFixed(2)} {treasury.status}
+                                            <div className="flex items-center gap-3">
+                                                <div className={`text-xl font-black ${treasury.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                    {treasury.yield10Y?.toFixed(2)}%
+                                                </div>
+                                                <div className={`text-[11px] font-bold ${treasury.color} min-w-[70px] text-right`}>
+                                                    {treasury.change > 0 ? '+' : ''}{treasury.change?.toFixed(2)} {treasury.status}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -1130,15 +1141,17 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 {riskFactors && (
                                     <div className="bg-gradient-to-br from-pink-950/30 to-slate-900/50 border border-pink-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-pink-500/40 transition-all">
                                         <div className="absolute inset-0 bg-pink-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <div className="flex items-center gap-1.5 mb-2 relative z-10">
-                                            <div className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-pulse" />
-                                            <span className="text-[9px] text-white font-bold uppercase tracking-wider">SEC위험</span>
-                                        </div>
-                                        <div className="flex items-end justify-between relative z-10">
-                                            <div className={`text-2xl font-black ${riskFactors.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                {riskFactors.riskCount}
+                                        <div className="flex items-center justify-between relative z-10">
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-pulse" />
+                                                <span className="text-[9px] text-white font-bold uppercase tracking-wider">SEC 위험요소</span>
                                             </div>
-                                            <div className={`text-[10px] font-bold ${riskFactors.color}`}>{riskFactors.riskLevel}</div>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`text-2xl font-black ${riskFactors.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                    {riskFactors.riskCount}건
+                                                </div>
+                                                <div className={`text-[11px] font-bold ${riskFactors.color} min-w-[50px] text-right`}>{riskFactors.riskLevel}</div>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
