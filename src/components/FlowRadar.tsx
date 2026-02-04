@@ -939,73 +939,71 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                         {/* 2-5. 4 Metrics Row with Glow Effects (50% width) */}
                         <div className="flex gap-2 lg:w-[50%] shrink-0">
-                            {/* OPI - Glowing Circular Gauge */}
-                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-2 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                            {/* OPI - Glowing Circular Gauge - ENLARGED */}
+                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                 {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-10 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
+                                <div className={`absolute inset-0 opacity-15 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
 
-                                <span className="text-[10px] text-white font-bold uppercase mb-0.5 relative z-10">OPI(델타압력)</span>
-                                <span className="text-[7px] text-slate-400 relative z-10">콜-풋 포지션</span>
+                                <span className="text-[11px] text-white font-bold uppercase relative z-10">OPI(델타압력)</span>
+                                <span className="text-[9px] text-white/80 relative z-10 mt-0.5">콜-풋 포지션</span>
 
-                                {/* Circular Gauge with Glow */}
-                                <div className="relative w-10 h-10">
+                                {/* Circular Gauge with Glow - LARGER */}
+                                <div className="relative w-14 h-14 mt-1">
                                     {/* Outer glow ring */}
-                                    <div className={`absolute inset-0 rounded-full ${opi.value > 20 ? 'shadow-[0_0_15px_rgba(52,211,153,0.5)]' : opi.value < -20 ? 'shadow-[0_0_15px_rgba(248,113,113,0.5)]' : 'shadow-[0_0_10px_rgba(148,163,184,0.3)]'}`} />
+                                    <div className={`absolute inset-0 rounded-full ${opi.value > 20 ? 'shadow-[0_0_20px_rgba(52,211,153,0.6)]' : opi.value < -20 ? 'shadow-[0_0_20px_rgba(248,113,113,0.6)]' : 'shadow-[0_0_10px_rgba(148,163,184,0.3)]'}`} />
 
                                     <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                                         {/* Background circle */}
-                                        <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                                        <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2.5" />
                                         {/* Glow circle */}
                                         <circle cx="18" cy="18" r="15" fill="none"
                                             stroke={opi.value > 20 ? '#34d399' : opi.value < -20 ? '#f87171' : '#94a3b8'}
-                                            strokeWidth="2.5"
+                                            strokeWidth="3"
                                             strokeLinecap="round"
                                             strokeDasharray={`${Math.abs(opi.value) * 0.94} 94`}
-                                            style={{ filter: 'drop-shadow(0 0 4px currentColor)' }}
+                                            style={{ filter: 'drop-shadow(0 0 6px currentColor)' }}
                                         />
                                     </svg>
 
-                                    {/* Center text */}
+                                    {/* Center text - LARGER */}
                                     <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className={`text-sm font-black text-white ${opi.color}`} style={{ textShadow: '0 0 8px currentColor' }}>
+                                        <span className={`text-lg font-black ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: opi.value > 20 || opi.value < -20 ? '0 0 10px currentColor' : 'none' }}>
                                             {opi.value > 0 ? '+' : ''}{opi.value}
                                         </span>
                                     </div>
                                 </div>
 
-                                <div className={`text-[10px] font-bold ${opi.color} mt-1 relative z-10`}>{opi.label}</div>
+                                <div className={`text-[11px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{opi.label}</div>
                             </div>
 
-                            {/* IV% - Glowing Card */}
-                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-2 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                            {/* IVP - Larger Text with Position Suggestion */}
+                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                 {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-10 ${ivPercentile.value >= 50 ? 'bg-rose-500' : ivPercentile.value >= 30 ? 'bg-amber-500' : 'bg-cyan-500'} blur-xl`} />
+                                <div className={`absolute inset-0 opacity-15 ${ivPercentile.value >= 60 ? 'bg-rose-500' : ivPercentile.value <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
 
-                                <div className="flex items-center gap-1 mb-1 relative z-10">
-                                    <Activity size={10} className="text-cyan-400" />
-                                    <span className="text-[10px] text-white font-bold uppercase">IV%(변동성)</span>
-                                </div>
+                                <span className="text-[11px] text-white font-bold uppercase relative z-10">IVP(52주순위)</span>
 
-                                <div className={`text-xl font-black ${ivPercentile.color} relative z-10`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                <div className={`text-2xl font-black relative z-10 mt-1 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivPercentile.value >= 25 && ivPercentile.value < 60 ? 'none' : '0 0 10px currentColor' }}>
                                     {ivPercentile.value}%
                                 </div>
-                                <div className={`text-[10px] font-bold ${ivPercentile.color} relative z-10`}>{ivPercentile.label}</div>
+                                <div className={`text-[11px] font-bold relative z-10 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`}>
+                                    {ivPercentile.value >= 60 ? '매도유리' : ivPercentile.value <= 25 ? '매수유리' : '중립'}
+                                </div>
                             </div>
 
-                            {/* Probability - Glowing Card */}
-                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-2 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                            {/* Confluence - Signal Convergence */}
+                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                 {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-10 ${analysis.probability >= 70 ? 'bg-emerald-500' : analysis.probability >= 50 ? 'bg-amber-500' : 'bg-rose-500'} blur-xl`} />
+                                <div className={`absolute inset-0 opacity-15 ${analysis.probability >= 65 ? 'bg-emerald-500' : analysis.probability <= 35 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
 
-                                <div className="flex items-center gap-1 mb-1 relative z-10">
-                                    <Percent size={10} className="text-cyan-400" />
-                                    <span className="text-[11px] text-white font-bold uppercase">신뢰도</span>
-                                </div>
+                                <span className="text-[11px] text-white font-bold uppercase relative z-10">합류도(Confluence)</span>
 
-                                <div className={`text-xl font-black ${analysis.probColor} relative z-10`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                <div className={`text-2xl font-black relative z-10 mt-1 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: analysis.probability > 35 && analysis.probability < 65 ? 'none' : '0 0 10px currentColor' }}>
                                     {analysis.probability}%
                                 </div>
-                                <div className={`text-[10px] font-bold ${analysis.probColor} relative z-10`}>{analysis.probLabel}</div>
+                                <div className={`text-[11px] font-bold relative z-10 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`}>
+                                    {analysis.probability >= 65 ? '신호수렴' : analysis.probability <= 35 ? '신호혼재' : '관망'}
+                                </div>
                             </div>
 
                             {/* Position - Glowing Card */}
