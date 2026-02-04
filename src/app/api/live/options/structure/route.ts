@@ -232,7 +232,7 @@ export async function GET(req: NextRequest) {
     // Tier 3: All Long/Short Gamma (no meaningful flip)
 
     let gammaFlipLevel: number | null = null;
-    let gammaFlipType: 'EXACT' | 'NEAR_ZERO' | 'ALL_LONG' | 'ALL_SHORT' | 'NO_DATA' = 'NO_DATA';
+    let gammaFlipType: 'EXACT' | 'MULTI_EXP' | 'NEAR_ZERO' | 'ALL_LONG' | 'ALL_SHORT' | 'NO_DATA' = 'NO_DATA';
     let gammaFlipCrossings: number[] = [];
 
     const ATM_RANGE = 0.15;  // ±15% from current price
@@ -361,8 +361,8 @@ export async function GET(req: NextRequest) {
                         gammaFlipLevel = multiCrossings.reduce((closest, strike) =>
                             Math.abs(strike - underlyingPrice) < Math.abs(closest - underlyingPrice) ? strike : closest
                         );
-                        gammaFlipType = 'EXACT';  // Multi-exp gives accurate result
-                        console.log(`[S-120] ${ticker}: Multi-exp SUCCESS - GammaFlip = $${gammaFlipLevel} from crossings [${multiCrossings.join(', ')}]`);
+                        gammaFlipType = 'MULTI_EXP';  // Indicates 60-day aggregated data was used
+                        console.log(`[S-120] ${ticker}: Multi-exp SUCCESS - GammaFlip = $${gammaFlipLevel} (MULTI_EXP) from crossings [${multiCrossings.join(', ')}]`);
                     } else {
                         // Tier 3: Still no crossing - use near-zero or mark as all-long/short
                         gammaFlipLevel = null;

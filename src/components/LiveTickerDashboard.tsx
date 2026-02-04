@@ -804,8 +804,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 </div>
 
                                                 <div className="text-right">
-                                                    <div className="text-2xl font-black text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.6)]">
+                                                    <div className="text-2xl font-black text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.6)] flex items-center justify-end gap-1.5">
                                                         ${structure.gammaFlipLevel}
+                                                        {structure.gammaFlipType === 'MULTI_EXP' && (
+                                                            <span className="text-[8px] bg-purple-500/80 text-white px-1 py-0.5 rounded font-bold">60D</span>
+                                                        )}
                                                     </div>
                                                     {displayPrice && (
                                                         <div className={`text-[10px] font-bold ${displayPrice > structure.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
