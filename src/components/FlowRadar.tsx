@@ -446,9 +446,9 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
             {/* [PREMIUM] AI VERDICT - Flow Topography Map v3.0 Style */}
             {analysis && (
-                <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-4 backdrop-blur-xl shadow-2xl">
+                <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-2xl">
                     {/* Top Row: Title + Status with Dynamic Icon */}
-                    <div className="flex items-center gap-3 mb-4">
+                    <div className="flex items-center gap-3 mb-3">
                         <div className="relative">
                             <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
                                 <Target size={16} className="text-amber-400" />
@@ -474,9 +474,9 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                     </div>
 
                     {/* Metrics Grid - Glassmorphism Cards */}
-                    <div className="flex flex-col lg:flex-row gap-3">
+                    <div className="flex flex-col lg:flex-row gap-2">
                         {/* 1. Analysis Summary (55% width) */}
-                        <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10 shadow-inner">
+                        <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-inner">
                             <div className="flex items-center gap-2 mb-2">
                                 <Activity size={14} className="text-cyan-400" />
                                 <span className="text-[11px] text-white font-bold uppercase tracking-wider">분석</span>
@@ -485,7 +485,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                         </div>
 
                         {/* 2-4. Metrics Row with Glow Effects */}
-                        <div className="flex gap-3 lg:w-[45%] shrink-0">
+                        <div className="flex gap-2 lg:w-[45%] shrink-0">
                             {/* OPI - Glowing Circular Gauge */}
                             <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                 {/* Glow background */}
@@ -519,7 +519,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     </div>
                                 </div>
 
-                                <div className="text-[11px] font-bold text-white mt-1 relative z-10">{opi.label}</div>
+                                <div className={`text-[11px] font-bold ${opi.color} mt-1 relative z-10`}>{opi.label}</div>
                             </div>
 
                             {/* Probability - Glowing Card */}
@@ -532,10 +532,10 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     <span className="text-[12px] text-white font-bold uppercase">신뢰도</span>
                                 </div>
 
-                                <div className="text-2xl font-black text-white relative z-10" style={{ textShadow: '0 0 12px rgba(255,255,255,0.5)' }}>
+                                <div className={`text-2xl font-black ${analysis.probColor} relative z-10`} style={{ textShadow: '0 0 12px currentColor' }}>
                                     {analysis.probability}%
                                 </div>
-                                <div className="text-[12px] font-bold text-white relative z-10">{analysis.probLabel}</div>
+                                <div className={`text-[12px] font-bold ${analysis.probColor} relative z-10`}>{analysis.probLabel}</div>
                             </div>
 
                             {/* Position - Glowing Card */}
@@ -564,7 +564,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                         : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
                                             : 'WAIT'}
                                 </div>
-                                <div className="text-[12px] font-bold text-white relative z-10">
+                                <div className={`text-[12px] font-bold relative z-10 ${analysis.whaleBias?.includes('STRONG') ? 'text-amber-400' : 'text-white'}`}>
                                     {analysis.whaleBias?.includes('STRONG') ? '강력 추천' : '기본'}
                                 </div>
                             </div>
