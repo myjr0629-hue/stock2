@@ -169,7 +169,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         const normalized = Math.max(-100, Math.min(100, rawOpi / 10000));
 
         let label = '중립';
-        let color = 'text-slate-400';
+        let color = 'text-white';
         if (normalized > 50) { label = '강한 상승 압력'; color = 'text-emerald-400'; }
         else if (normalized > 20) { label = '상승 압력'; color = 'text-emerald-300'; }
         else if (normalized < -50) { label = '강한 하락 압력'; color = 'text-rose-400'; }
@@ -197,7 +197,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         // Determine percentile rank (simplified: IV 20-80% typical range)
         // Below 25% = Low, 25-50% = Normal, 50-75% = Elevated, Above 75% = High
         let label = '보통';
-        let color = 'text-slate-400';
+        let color = 'text-white';
         if (ivPercent >= 60) { label = '매우 높음'; color = 'text-rose-400'; }
         else if (ivPercent >= 45) { label = '높음'; color = 'text-amber-400'; }
         else if (ivPercent >= 30) { label = '보통'; color = 'text-white'; }
@@ -520,7 +520,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 {/* Glow background */}
                                 <div className={`absolute inset-0 opacity-10 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
 
-                                <span className="text-[11px] text-white font-bold uppercase mb-1 relative z-10">OPI</span>
+                                <span className="text-[10px] text-white font-bold uppercase mb-1 relative z-10">OPI(압력)</span>
 
                                 {/* Circular Gauge with Glow */}
                                 <div className="relative w-10 h-10">
@@ -558,7 +558,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                                 <div className="flex items-center gap-1 mb-1 relative z-10">
                                     <Activity size={10} className="text-cyan-400" />
-                                    <span className="text-[11px] text-white font-bold uppercase">IV%</span>
+                                    <span className="text-[10px] text-white font-bold uppercase">IV%(변동성)</span>
                                 </div>
 
                                 <div className={`text-xl font-black ${ivPercentile.color} relative z-10`} style={{ textShadow: '0 0 10px currentColor' }}>
