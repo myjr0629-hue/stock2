@@ -1077,7 +1077,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white/90 font-bold uppercase tracking-wider">스마트머니</span>
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">스마트머니</span>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className={`text-2xl font-black ${smartMoney.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -1101,7 +1101,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white/90 font-bold uppercase tracking-wider">IV 스큐</span>
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">IV 스큐</span>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className={`text-2xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -1126,7 +1126,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white/90 font-bold uppercase tracking-wider">뉴스 감성</span>
+                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">뉴스 감성</span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <div className={`text-2xl font-black ${newsSentiment.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -1154,7 +1154,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white/90 font-bold uppercase tracking-wider">10Y 국채</span>
+                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">10Y 국채</span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <div className={`text-xl font-black ${treasury.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -1182,7 +1182,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white/90 font-bold uppercase tracking-wider">SEC 위험요소</span>
+                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">SEC 위험요소</span>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <div className={`text-2xl font-black ${riskFactors.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -1200,37 +1200,68 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 )}
                             </div>
 
-                            {/* Current Price Position Visual */}
-                            <div className="mt-4 bg-slate-800/30 rounded-lg p-3 border border-white/5">
-                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-2 text-center">현재가 위치</div>
-                                <div className="relative h-8">
-                                    {/* Range bar background */}
-                                    <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-gradient-to-r from-rose-500/20 via-slate-700/30 to-emerald-500/20 rounded-full" />
+                            {/* Current Price Position - Semicircle Gauge */}
+                            <div className="mt-4 bg-slate-800/30 rounded-lg p-4 border border-white/5">
+                                <div className="text-[10px] text-white font-bold uppercase tracking-wider mb-3 text-center">현재가 위치</div>
+                                {(() => {
+                                    const totalRange = callWall - putWall;
+                                    const currentPos = currentPrice - putWall;
+                                    let pct = totalRange > 0 ? (currentPos / totalRange) * 100 : 50;
+                                    pct = Math.max(0, Math.min(100, pct));
 
-                                    {/* Support label */}
-                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 text-[8px] text-rose-400 font-mono">${putWall}</div>
+                                    // SVG semicircle gauge
+                                    const radius = 60;
+                                    const strokeWidth = 10;
+                                    const circumference = Math.PI * radius;
+                                    const progressOffset = circumference - (pct / 100) * circumference;
 
-                                    {/* Resistance label */}
-                                    <div className="absolute right-0 top-1/2 -translate-y-1/2 text-[8px] text-emerald-400 font-mono">${callWall}</div>
+                                    // Determine color based on position
+                                    let gaugeColor = '#6366f1'; // indigo (middle)
+                                    if (pct < 30) gaugeColor = '#f43f5e'; // rose (near support)
+                                    else if (pct > 70) gaugeColor = '#10b981'; // emerald (near resistance)
 
-                                    {/* Current price marker */}
-                                    {(() => {
-                                        const totalRange = callWall - putWall;
-                                        const currentPos = currentPrice - putWall;
-                                        let pct = totalRange > 0 ? (currentPos / totalRange) * 100 : 50;
-                                        pct = Math.max(15, Math.min(85, pct));
-                                        return (
-                                            <div
-                                                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 transition-all duration-1000"
-                                                style={{ left: `${pct}%` }}
-                                            >
-                                                <div className="bg-indigo-500 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-[0_0_10px_rgba(99,102,241,0.5)] whitespace-nowrap">
+                                    return (
+                                        <div className="flex flex-col items-center">
+                                            <svg width="140" height="80" viewBox="0 0 140 80" className="overflow-visible">
+                                                {/* Background arc */}
+                                                <path
+                                                    d="M 10 70 A 60 60 0 0 1 130 70"
+                                                    fill="none"
+                                                    stroke="rgba(255,255,255,0.1)"
+                                                    strokeWidth={strokeWidth}
+                                                    strokeLinecap="round"
+                                                />
+                                                {/* Progress arc */}
+                                                <path
+                                                    d="M 10 70 A 60 60 0 0 1 130 70"
+                                                    fill="none"
+                                                    stroke={gaugeColor}
+                                                    strokeWidth={strokeWidth}
+                                                    strokeLinecap="round"
+                                                    strokeDasharray={circumference}
+                                                    strokeDashoffset={progressOffset}
+                                                    style={{
+                                                        filter: `drop-shadow(0 0 6px ${gaugeColor})`,
+                                                        transition: 'stroke-dashoffset 1s ease-out, stroke 0.5s'
+                                                    }}
+                                                />
+                                                {/* Center current price */}
+                                                <text x="70" y="55" textAnchor="middle" className="fill-white text-lg font-black">
                                                     ${currentPrice.toFixed(2)}
-                                                </div>
+                                                </text>
+                                                {/* Percentage */}
+                                                <text x="70" y="72" textAnchor="middle" className="fill-slate-400 text-[10px]">
+                                                    {pct.toFixed(0)}%
+                                                </text>
+                                            </svg>
+                                            {/* Labels */}
+                                            <div className="flex justify-between w-full mt-1 px-1">
+                                                <div className="text-[10px] text-rose-400 font-mono">${putWall}</div>
+                                                <div className="text-[10px] text-emerald-400 font-mono">${callWall}</div>
                                             </div>
-                                        );
-                                    })()}
-                                </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </CardContent>
                     </Card>
