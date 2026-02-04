@@ -124,8 +124,8 @@ function FlowPageContent() {
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
                 </div>
 
-                {/* Content (same width as COMMAND: max-w-[1600px]) */}
-                <main className="relative z-10 mx-auto max-w-[1600px] w-full px-4 sm:px-6 pt-6 pb-12">
+                {/* Content */}
+                <main className="relative z-10 mx-auto max-w-[1400px] w-full px-4 sm:px-6 pt-6 pb-12">
 
                     {/* Ticker Header (EXACT COMMAND Style) */}
                     <div className="flex flex-col gap-4 pb-6 border-b border-white/10 mb-6">
