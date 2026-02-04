@@ -1,5 +1,5 @@
 // src/app/[locale]/flow/page.tsx
-// FLOW - Options Intelligence Page (Flow Radar moved from COMMAND)
+// FLOW - Options Intelligence Page (FlowRadar with SAME data as COMMAND)
 "use client";
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react';
@@ -8,48 +8,6 @@ import { LandingHeader } from '@/components/landing/LandingHeader';
 import { FlowRadar } from '@/components/FlowRadar';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
-
-interface StructureData {
-    underlyingPrice: number;
-    structure: {
-        strikes: number[];
-        callsOI: number[];
-        putsOI: number[];
-        callsVol?: number[];
-        putsVol?: number[];
-    };
-}
-
-// Convert structure data to rawChain format for FlowRadar
-function convertToRawChain(structure: StructureData): any[] {
-    if (!structure?.structure?.strikes) return [];
-
-    const { strikes, callsOI, putsOI, callsVol, putsVol } = structure.structure;
-    const rawChain: any[] = [];
-
-    strikes.forEach((strike, i) => {
-        rawChain.push({
-            details: {
-                strike_price: strike,
-                contract_type: 'call',
-                expiration_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-            },
-            open_interest: callsOI?.[i] || 0,
-            day: { volume: callsVol?.[i] || 0 }
-        });
-        rawChain.push({
-            details: {
-                strike_price: strike,
-                contract_type: 'put',
-                expiration_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
-            },
-            open_interest: putsOI?.[i] || 0,
-            day: { volume: putsVol?.[i] || 0 }
-        });
-    });
-
-    return rawChain;
-}
 
 function FlowPageContent() {
     const searchParams = useSearchParams();
@@ -77,17 +35,16 @@ function FlowPageContent() {
         }
     }, [ticker]);
 
-    // Fetch structure data for rawChain
-    const fetchStructure = useCallback(async () => {
+    // Fetch rawChain (SAME data as COMMAND SSR uses)
+    const fetchRawChain = useCallback(async () => {
         try {
-            const res = await fetch(`/api/live/options/structure?t=${ticker}`);
+            const res = await fetch(`/api/live/options/chain?t=${ticker}`);
             if (res.ok) {
                 const data = await res.json();
-                const chain = convertToRawChain(data);
-                setRawChain(chain);
+                setRawChain(data.rawChain || []);
             }
         } catch (e) {
-            console.error('[Flow] Structure fetch error:', e);
+            console.error('[Flow] Chain fetch error:', e);
         } finally {
             setLoading(false);
         }
@@ -98,15 +55,15 @@ function FlowPageContent() {
         setRawChain([]);
         setLiveQuote(null);
         fetchTicker();
-        fetchStructure();
+        fetchRawChain();
 
         const quoteInterval = setInterval(fetchTicker, 10000);
-        const structInterval = setInterval(fetchStructure, 30000);
+        const chainInterval = setInterval(fetchRawChain, 60000); // Refresh chain every 60s
         return () => {
             clearInterval(quoteInterval);
-            clearInterval(structInterval);
+            clearInterval(chainInterval);
         };
-    }, [ticker, fetchTicker, fetchStructure]);
+    }, [ticker, fetchTicker, fetchRawChain]);
 
     // =====================================================
     // PRICE DISPLAY LOGIC (EXACT COPY from LiveTickerDashboard L305-417)
@@ -258,7 +215,7 @@ function FlowPageContent() {
                         </div>
                     </div>
 
-                    {/* Flow Radar Component */}
+                    {/* Flow Radar Component (SAME rawChain as COMMAND) */}
                     {loading ? (
                         <div className="flex items-center justify-center h-[600px]">
                             <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
