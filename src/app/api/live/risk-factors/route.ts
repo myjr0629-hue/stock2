@@ -39,6 +39,12 @@ export async function GET(req: NextRequest) {
             .slice(0, 5)
             .map(([name, count]) => ({ name, count }));
 
+        // Extract top risk factor titles/descriptions
+        const topFactors = results.slice(0, 3).map((item: any) => ({
+            title: item.title || item.risk_factor || item.description || 'Risk Factor',
+            filedDate: item.filed_date || item.filing_date || null
+        }));
+
         // Calculate overall risk level
         const totalRisks = results.length;
         let riskLevel = '보통';
@@ -54,6 +60,7 @@ export async function GET(req: NextRequest) {
             riskCount: totalRisks,
             color,
             topCategories: sortedCategories,
+            topFactors,
             debug: {
                 latencyMs: Date.now() - startTime
             }

@@ -277,7 +277,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
     const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
-    const [riskFactors, setRiskFactors] = useState<{ count: number; status: string; topCategory?: string } | null>(null);
+    const [riskFactors, setRiskFactors] = useState<{ count: number; status: string; topCategory?: string; filedDate?: string } | null>(null);
     const [macdData, setMacdData] = useState<{ signal: string; label: string; histogram: number } | null>(null);
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(null);
 
@@ -404,7 +404,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 const count = data.riskCount || data.count || 0;
                 const status = data.riskLevel || (count >= 10 ? '주의' : count >= 5 ? '보통' : '양호');
                 const topCategory = data.topCategories?.[0]?.name || null;
-                setRiskFactors({ count, status, topCategory });
+                const filedDate = data.topFactors?.[0]?.filedDate || null;
+                setRiskFactors({ count, status, topCategory, filedDate });
             }
         } catch (e) { console.warn('[RiskFactors] Error:', e); }
     };
@@ -696,9 +697,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             </div>
 
             {/* [S-124.6] Quick Intel Gauges Bar - Clean/Bright Design */}
-            <div className="grid grid-cols-5 gap-2 mt-4 mb-2">
+            <div className="grid grid-cols-5 gap-2 mt-4 mb-4">
                 {/* News Sentiment Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <Newspaper className="w-4 h-4 text-amber-400" />
@@ -733,7 +734,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
 
                 {/* SEC Risk Factors Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <ShieldAlert className="w-4 h-4 text-rose-400" />
@@ -746,13 +747,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     <div className="flex items-center justify-center">
                         <div className="text-center">
                             <div className="text-2xl font-black text-white">{riskFactors?.count ?? '--'}<span className="text-sm text-white">건</span></div>
-                            <div className="text-[10px] text-white">공시 위험요소</div>
+                            <div className="text-[10px] text-white">10-K 위험요소</div>
+                            {riskFactors?.filedDate && (
+                                <div className="text-[9px] text-cyan-400 mt-0.5">{riskFactors.filedDate} 공시</div>
+                            )}
                         </div>
                     </div>
                 </div>
 
                 {/* VWAP Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <Activity className="w-4 h-4 text-indigo-400" />
@@ -787,7 +791,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
 
                 {/* MACD Signal Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <TrendingUp className="w-4 h-4 text-cyan-400" />
@@ -808,7 +812,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
 
                 {/* Related Tickers Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3 pb-4">
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
                     <div className="flex items-center gap-1.5 mb-2">
                         <Layers className="w-4 h-4 text-violet-400" />
                         <span className="text-[10px] font-bold text-white uppercase tracking-wider">연관</span>
