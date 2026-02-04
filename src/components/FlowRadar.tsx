@@ -444,52 +444,65 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                 </div>
             </div>
 
-            {/* [PREMIUM] AI VERDICT - Compact Summary */}
+            {/* [PREMIUM] AI VERDICT - Redesigned for Readability */}
             {analysis && (
-                <div className="bg-gradient-to-r from-slate-900/90 via-slate-800/50 to-slate-900/90 rounded-lg border border-white/10 p-3 backdrop-blur-md">
-                    <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
-                        {/* Left: Main Verdict */}
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Target size={14} className="text-amber-400" />
-                                <span className="text-[10px] font-black text-amber-400 tracking-widest">AI VERDICT</span>
-                                <span className={`text-xs font-black ${analysis.color}`}>{analysis.status}</span>
-                            </div>
-                            <p className="text-[11px] text-slate-300 line-clamp-2">{analysis.message}</p>
+                <div className="bg-gradient-to-r from-slate-900/90 via-slate-800/50 to-slate-900/90 rounded-lg border border-amber-500/20 p-4 backdrop-blur-md shadow-[0_0_20px_rgba(251,191,36,0.1)]">
+                    {/* Top Row: Title + Status */}
+                    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-white/10">
+                        <div className="h-8 w-8 bg-amber-500/10 rounded-lg flex items-center justify-center border border-amber-500/30">
+                            <Target size={16} className="text-amber-400" />
+                        </div>
+                        <div>
+                            <span className="text-[10px] font-black text-amber-400 tracking-widest">AI VERDICT</span>
+                            <span className={`text-sm font-black ml-2 ${analysis.color}`}>{analysis.status}</span>
+                        </div>
+                    </div>
+
+                    {/* Bottom: Metrics Grid (Evenly Distributed) */}
+                    <div className="grid grid-cols-4 gap-4">
+                        {/* 1. Analysis Summary */}
+                        <div className="col-span-4 md:col-span-1 bg-slate-800/30 rounded-lg p-2.5 border border-white/5">
+                            <div className="text-[9px] text-slate-500 font-bold mb-1">📊 분석</div>
+                            <p className="text-[10px] text-slate-300 line-clamp-2">{analysis.message}</p>
                         </div>
 
-                        {/* Right: Key Metrics */}
-                        <div className="flex items-center gap-4 shrink-0">
-                            {/* OPI Gauge */}
-                            <div className="text-center">
-                                <div className="text-[9px] text-slate-500 font-bold">OPI</div>
-                                <div className={`text-sm font-black ${opi.color}`}>
-                                    {opi.value > 0 ? '+' : ''}{opi.value}
-                                </div>
-                                <div className={`text-[8px] ${opi.color}`}>{opi.label}</div>
+                        {/* 2. OPI */}
+                        <div className="bg-slate-800/30 rounded-lg p-2.5 border border-white/5 text-center">
+                            <div className="text-[9px] text-slate-500 font-bold mb-1">📈 OPI</div>
+                            <div className={`text-lg font-black ${opi.color}`}>
+                                {opi.value > 0 ? '+' : ''}{opi.value}
                             </div>
+                            <div className={`text-[9px] ${opi.color}`}>{opi.label}</div>
+                        </div>
 
-                            {/* Probability */}
-                            <div className="text-center">
-                                <div className="text-[9px] text-slate-500 font-bold">신뢰도</div>
-                                <div className={`text-sm font-black ${analysis.probColor}`}>
-                                    {analysis.probability}%
-                                </div>
-                                <div className={`text-[8px] ${analysis.probColor}`}>{analysis.probLabel}</div>
+                        {/* 3. Probability */}
+                        <div className="bg-slate-800/30 rounded-lg p-2.5 border border-white/5 text-center">
+                            <div className="text-[9px] text-slate-500 font-bold mb-1">🎯 신뢰도</div>
+                            <div className={`text-lg font-black ${analysis.probColor}`}>
+                                {analysis.probability}%
                             </div>
+                            <div className={`text-[9px] ${analysis.probColor}`}>{analysis.probLabel}</div>
+                        </div>
 
-                            {/* Position Suggestion */}
-                            <div className="bg-slate-800/50 rounded-lg px-3 py-1.5 border border-white/5">
-                                <div className="text-[9px] text-slate-500 font-bold">포지션</div>
-                                <div className={`text-xs font-black ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
-                                        : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
-                                            : 'text-slate-400'
-                                    }`}>
-                                    {analysis.whaleBias?.includes('STRONG') ? '🔥 ' : ''}
-                                    {analysis.whaleBias?.includes('BULL') ? 'LONG'
-                                        : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
-                                            : 'NEUTRAL'}
-                                </div>
+                        {/* 4. Position */}
+                        <div className={`rounded-lg p-2.5 border text-center ${analysis.whaleBias?.includes('BULL')
+                            ? 'bg-emerald-950/30 border-emerald-500/30'
+                            : analysis.whaleBias?.includes('BEAR')
+                                ? 'bg-rose-950/30 border-rose-500/30'
+                                : 'bg-slate-800/30 border-white/5'
+                            }`}>
+                            <div className="text-[9px] text-slate-500 font-bold mb-1">🎲 포지션</div>
+                            <div className={`text-lg font-black ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
+                                : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
+                                    : 'text-slate-400'
+                                }`}>
+                                {analysis.whaleBias?.includes('STRONG') ? '🔥 ' : ''}
+                                {analysis.whaleBias?.includes('BULL') ? 'LONG'
+                                    : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
+                                        : 'WAIT'}
+                            </div>
+                            <div className="text-[9px] text-slate-400">
+                                {analysis.whaleBias?.includes('STRONG') ? '강력 추천' : '기본'}
                             </div>
                         </div>
                     </div>
@@ -642,6 +655,18 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                         })
                                     )}
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* Visual Separator between LEVEL 3 and Bar Chart */}
+                        <div className="relative my-4">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-white/10"></div>
+                            </div>
+                            <div className="relative flex justify-center">
+                                <span className="bg-slate-900 px-4 text-[9px] font-black text-slate-500 tracking-widest">
+                                    OPTIONS FLOW BATTLEFIELD
+                                </span>
                             </div>
                         </div>
 
