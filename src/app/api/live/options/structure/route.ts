@@ -469,12 +469,13 @@ export async function GET(req: NextRequest) {
         // [V7.1] gammaFlipLevel is now calculated BEFORE this block (lines 152-198)
         // Removed duplicate calculation here
 
-        if (gammaCoverage >= 0.80) {
+        // [FIX] Lowered threshold from 80% to 60% - 76% is valid data
+        if (gammaCoverage >= 0.60) {
             netGex = gexSum;
-            gexNotes = "Calculation successful";
+            gexNotes = `Calculation successful (coverage: ${(gammaCoverage * 100).toFixed(0)}%)`;
         } else {
             netGex = null;
-            gexNotes = `netGex null: gammaCoverage (${(gammaCoverage * 100).toFixed(1)}%) < 80%`;
+            gexNotes = `netGex null: gammaCoverage (${(gammaCoverage * 100).toFixed(1)}%) < 60%`;
         }
 
         // Gamma Squeeze Detection (PowerEngine logic)
