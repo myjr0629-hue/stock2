@@ -218,6 +218,77 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         return { value: ivPercent, label, color };
     }, [rawChain, currentPrice]);
 
+    // [PREMIUM] Smart Money Score - Institutional-level trade ratio
+    const smartMoney = useMemo(() => {
+        if (!whaleTrades || whaleTrades.length === 0) return { score: 0, label: '분석 중', color: 'text-white' };
+
+        // Calculate based on whale trade characteristics
+        const largeTrades = whaleTrades.filter((t: any) => (t.premium || t.size * 100) >= 50000);
+        const veryLargeTrades = whaleTrades.filter((t: any) => (t.premium || t.size * 100) >= 100000);
+
+        // Score calculation: weight by premium size
+        let score = 0;
+        if (whaleTrades.length > 0) {
+            const largeRatio = (largeTrades.length / whaleTrades.length) * 50;
+            const veryLargeRatio = (veryLargeTrades.length / whaleTrades.length) * 50;
+            score = Math.min(100, Math.round(largeRatio + veryLargeRatio));
+        }
+
+        let label = '보통';
+        let color = 'text-white';
+        if (score >= 80) { label = '매우 활발'; color = 'text-emerald-400'; }
+        else if (score >= 60) { label = '활발'; color = 'text-emerald-300'; }
+        else if (score >= 40) { label = '보통'; color = 'text-white'; }
+        else if (score >= 20) { label = '약함'; color = 'text-amber-400'; }
+        else { label = '매우 약함'; color = 'text-rose-400'; }
+
+        return { score, label, color };
+    }, [whaleTrades]);
+
+    // [PREMIUM] IV Skew - Put vs Call IV difference (fear gauge)
+    const ivSkew = useMemo(() => {
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-white' };
+
+        // Find OTM puts and calls near current price for skew calculation
+        const otmPuts = rawChain
+            .filter(opt => {
+                const strike = opt.details?.strike_price || opt.strike_price;
+                const type = opt.details?.contract_type;
+                const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv;
+                return type === 'put' && strike < currentPrice && iv && iv > 0;
+            })
+            .sort((a, b) => (b.details?.strike_price || b.strike_price) - (a.details?.strike_price || a.strike_price))
+            .slice(0, 3);
+
+        const otmCalls = rawChain
+            .filter(opt => {
+                const strike = opt.details?.strike_price || opt.strike_price;
+                const type = opt.details?.contract_type;
+                const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv;
+                return type === 'call' && strike > currentPrice && iv && iv > 0;
+            })
+            .sort((a, b) => (a.details?.strike_price || a.strike_price) - (b.details?.strike_price || b.strike_price))
+            .slice(0, 3);
+
+        if (otmPuts.length === 0 || otmCalls.length === 0) return { value: 0, label: '데이터 없음', color: 'text-white' };
+
+        const avgPutIV = otmPuts.reduce((sum, opt) => sum + (opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0), 0) / otmPuts.length;
+        const avgCallIV = otmCalls.reduce((sum, opt) => sum + (opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0), 0) / otmCalls.length;
+
+        // Skew = Put IV - Call IV (positive = fear, negative = greed)
+        const skewValue = Math.round((avgPutIV - avgCallIV) * 100 * 10) / 10; // in percentage points
+
+        let label = '중립';
+        let color = 'text-white';
+        if (skewValue >= 5) { label = '공포'; color = 'text-rose-400'; }
+        else if (skewValue >= 2) { label = '경계'; color = 'text-amber-400'; }
+        else if (skewValue >= -2) { label = '중립'; color = 'text-white'; }
+        else if (skewValue >= -5) { label = '낙관'; color = 'text-cyan-400'; }
+        else { label = '탐욕'; color = 'text-emerald-400'; }
+
+        return { value: skewValue, label, color };
+    }, [rawChain, currentPrice]);
+
     // Intelligent Default Mode
     const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
     const isMarketClosed = totalVolume === 0 && rawChain.length > 0;
@@ -1034,6 +1105,39 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                             <span className="text-rose-100/90 font-bold block leading-none mb-1 text-[10px] tracking-wide">{t('sellTactic')}</span>
                                             <p className="text-[11px] text-slate-400 leading-snug">{t('sellTacticDetail')}</p>
                                         </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Premium Intel - Smart Money & IV Skew */}
+                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                {/* Smart Money Score */}
+                                <div className="bg-gradient-to-br from-indigo-950/30 to-slate-900/50 border border-indigo-500/20 rounded-lg p-2.5 relative overflow-hidden group hover:border-indigo-500/40 transition-all">
+                                    <div className="absolute inset-0 bg-indigo-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
+                                        <div className="w-1 h-1 bg-indigo-400 rounded-full animate-pulse" />
+                                        <span className="text-[9px] text-white font-bold uppercase tracking-wider">스마트머니</span>
+                                    </div>
+                                    <div className="flex items-end justify-between relative z-10">
+                                        <div className={`text-xl font-black ${smartMoney.color}`} style={{ textShadow: '0 0 8px currentColor' }}>
+                                            {smartMoney.score}
+                                        </div>
+                                        <div className={`text-[10px] font-bold ${smartMoney.color}`}>{smartMoney.label}</div>
+                                    </div>
+                                </div>
+
+                                {/* IV Skew */}
+                                <div className="bg-gradient-to-br from-violet-950/30 to-slate-900/50 border border-violet-500/20 rounded-lg p-2.5 relative overflow-hidden group hover:border-violet-500/40 transition-all">
+                                    <div className="absolute inset-0 bg-violet-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
+                                        <div className="w-1 h-1 bg-violet-400 rounded-full animate-pulse" />
+                                        <span className="text-[9px] text-white font-bold uppercase tracking-wider">IV 스큐</span>
+                                    </div>
+                                    <div className="flex items-end justify-between relative z-10">
+                                        <div className={`text-xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 8px currentColor' }}>
+                                            {ivSkew.value > 0 ? '+' : ''}{ivSkew.value}%
+                                        </div>
+                                        <div className={`text-[10px] font-bold ${ivSkew.color}`}>{ivSkew.label}</div>
                                     </div>
                                 </div>
                             </div>
