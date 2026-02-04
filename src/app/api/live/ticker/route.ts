@@ -94,10 +94,14 @@ export async function GET(req: NextRequest) {
     // [S-52.2.3] Use proper date strings for agg API (not timestamps)
     const aggUrl = `${MASSIVE_BASE_URL}/v2/aggs/ticker/${ticker}/range/1/day/${twoWeeksAgoStr}/${yesterdayStr}?adjusted=true&sort=desc&limit=5&apiKey=${MASSIVE_API_KEY}`;
 
-    const [snapshotRes, aggRes] = await Promise.all([
+    const [snapshotRes, aggRes, detailsRes] = await Promise.all([
         fetchMassiveWithRetry(snapshotUrl),
-        fetchMassiveWithRetry(aggUrl)
+        fetchMassiveWithRetry(aggUrl),
+        fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v3/reference/tickers/${ticker}?apiKey=${MASSIVE_API_KEY}`)
     ]);
+
+    // Get company name from ticker details
+    const companyName = detailsRes.data?.results?.name || ticker;
 
     // [Fix] Determine Last Trading Day from Aggregates to safely fetch OC (Open-Close)
     // This ensures we get Friday's Pre/Post data even on a Sunday.
@@ -299,6 +303,7 @@ export async function GET(req: NextRequest) {
     // [S-52.2.1] Full response with explicit Frac/Pct/Abs
     const response = {
         ticker,
+        name: companyName,
         timestampET: etStr,
         session,
         tsServer: serverTs,
