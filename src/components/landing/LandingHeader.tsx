@@ -18,7 +18,13 @@ export function LandingHeader() {
     const handleSearch = (e: FormEvent) => {
         e.preventDefault();
         if (searchQuery.trim()) {
-            router.push(`/ticker?ticker=${searchQuery.toUpperCase()}&range=1d`);
+            const ticker = searchQuery.toUpperCase();
+            // If on FLOW page, stay on FLOW. Otherwise go to COMMAND (ticker page)
+            if (pathname?.startsWith('/flow')) {
+                router.push(`/flow?ticker=${ticker}`);
+            } else {
+                router.push(`/ticker?ticker=${ticker}&range=1d`);
+            }
         }
     };
 
@@ -52,6 +58,7 @@ export function LandingHeader() {
                         { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: true },
                         { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", hasLive: false },
                         { label: "COMMAND", href: "/ticker?ticker=NVDA", path: "/ticker", hasLive: false },
+                        { label: "FLOW", href: "/flow?ticker=NVDA", path: "/flow", hasLive: false },
                         { label: "INTEL", href: "/intel", path: "/intel", hasLive: false },
                         { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", hasLive: false },
                         { label: "WATCHLIST", href: "/watchlist", path: "/watchlist", hasLive: false }
@@ -141,6 +148,7 @@ export function LandingHeader() {
                                     { label: "DASHBOARD", href: "/dashboard" },
                                     { label: "GUARDIAN", href: "/intel-guardian" },
                                     { label: "COMMAND", href: "/ticker?ticker=NVDA" },
+                                    { label: "FLOW", href: "/flow?ticker=NVDA" },
                                     { label: "INTEL", href: "/intel" },
                                     { label: "PORTFOLIO", href: "/portfolio" },
                                     { label: "WATCHLIST", href: "/watchlist" }
