@@ -471,16 +471,32 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                         {/* 2-4. Metrics Row (45% width, 3 equal columns) */}
                         <div className="flex gap-2 md:w-[40%] shrink-0">
-                            {/* OPI */}
+                            {/* OPI - Circular Gauge */}
                             <div className="flex-1 bg-slate-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
-                                <div className="flex items-center gap-1 mb-1">
-                                    <TrendingUp size={10} className="text-slate-400" />
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">OPI</span>
+                                <span className="text-[8px] text-slate-400 font-bold uppercase mb-1">OPI(시장 압력)</span>
+                                {/* Circular Gauge */}
+                                <div className="relative w-12 h-12">
+                                    <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                                        {/* Background circle */}
+                                        <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
+                                        {/* Progress circle */}
+                                        <circle
+                                            cx="18" cy="18" r="14"
+                                            fill="none"
+                                            stroke={opi.value > 20 ? '#34d399' : opi.value < -20 ? '#f87171' : '#94a3b8'}
+                                            strokeWidth="3"
+                                            strokeLinecap="round"
+                                            strokeDasharray={`${Math.abs(opi.value) * 0.88} 88`}
+                                        />
+                                    </svg>
+                                    {/* Center text */}
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                        <span className={`text-sm font-black ${opi.color}`}>
+                                            {opi.value > 0 ? '+' : ''}{opi.value}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className={`text-lg font-black ${opi.color}`}>
-                                    {opi.value > 0 ? '+' : ''}{opi.value}
-                                </div>
-                                <div className={`text-[10px] font-medium ${opi.color}`}>{opi.label}</div>
+                                <div className={`text-[9px] font-medium ${opi.color} mt-0.5`}>{opi.label}</div>
                             </div>
 
                             {/* Probability */}
