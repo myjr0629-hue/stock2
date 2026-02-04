@@ -479,7 +479,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 {/* Glow background */}
                                 <div className={`absolute inset-0 opacity-10 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
 
-                                <span className="text-[10px] text-white font-bold uppercase mb-2 relative z-10">OPI(시장 압력)</span>
+                                <span className="text-[12px] text-white font-bold uppercase mb-2 relative z-10">OPI(시장 압력)</span>
 
                                 {/* Circular Gauge with Glow */}
                                 <div className="relative w-14 h-14">
@@ -507,7 +507,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     </div>
                                 </div>
 
-                                <div className={`text-[10px] font-bold ${opi.color} mt-1 relative z-10`}>{opi.label}</div>
+                                <div className="text-[11px] font-bold text-white mt-1 relative z-10">{opi.label}</div>
                             </div>
 
                             {/* Probability - Glowing Card */}
@@ -517,13 +517,13 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                                 <div className="flex items-center gap-1 mb-2 relative z-10">
                                     <Percent size={12} className="text-cyan-400" />
-                                    <span className="text-[10px] text-white font-bold uppercase">신뢰도</span>
+                                    <span className="text-[12px] text-white font-bold uppercase">신뢰도</span>
                                 </div>
 
                                 <div className="text-2xl font-black text-white relative z-10" style={{ textShadow: '0 0 12px rgba(255,255,255,0.5)' }}>
                                     {analysis.probability}%
                                 </div>
-                                <div className={`text-[11px] font-bold ${analysis.probColor} relative z-10`}>{analysis.probLabel}</div>
+                                <div className="text-[12px] font-bold text-white relative z-10">{analysis.probLabel}</div>
                             </div>
 
                             {/* Position - Glowing Card */}
@@ -541,7 +541,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                                 <div className="flex items-center gap-1 mb-2 relative z-10">
                                     <Zap size={12} className={analysis.whaleBias?.includes('BULL') ? 'text-emerald-400' : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400' : 'text-white'} />
-                                    <span className="text-[10px] text-white font-bold uppercase">포지션</span>
+                                    <span className="text-[12px] text-white font-bold uppercase">포지션</span>
                                 </div>
 
                                 <div className={`text-2xl font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
@@ -552,8 +552,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                         : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
                                             : 'WAIT'}
                                 </div>
-                                <div className={`text-[11px] font-bold relative z-10 ${analysis.whaleBias?.includes('STRONG') ? 'text-amber-400' : 'text-white/60'
-                                    }`}>
+                                <div className="text-[12px] font-bold text-white relative z-10">
                                     {analysis.whaleBias?.includes('STRONG') ? '강력 추천' : '기본'}
                                 </div>
                             </div>
