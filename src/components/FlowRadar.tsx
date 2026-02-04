@@ -144,7 +144,39 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         };
     }, [rawChain, currentPrice, userViewMode]);
 
+    // [PREMIUM] Options Pressure Index (OPI) - Unique to SIGNUM
+    // OPI = Σ(Call Delta × Call OI) - Σ(Put Delta × Put OI)
+    const opi = useMemo(() => {
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400' };
 
+        let callPressure = 0;
+        let putPressure = 0;
+
+        rawChain.forEach(opt => {
+            const delta = opt.greeks?.delta || 0;
+            const oi = opt.day?.open_interest || 0;
+            const type = opt.details?.contract_type;
+
+            if (type === 'call' && delta > 0) {
+                callPressure += delta * oi;
+            } else if (type === 'put' && delta < 0) {
+                putPressure += Math.abs(delta) * oi;
+            }
+        });
+
+        const rawOpi = callPressure - putPressure;
+        // Normalize to -100 ~ +100 scale (based on typical values)
+        const normalized = Math.max(-100, Math.min(100, rawOpi / 10000));
+
+        let label = '중립';
+        let color = 'text-slate-400';
+        if (normalized > 50) { label = '강한 상승 압력'; color = 'text-emerald-400'; }
+        else if (normalized > 20) { label = '상승 압력'; color = 'text-emerald-300'; }
+        else if (normalized < -50) { label = '강한 하락 압력'; color = 'text-rose-400'; }
+        else if (normalized < -20) { label = '하락 압력'; color = 'text-rose-300'; }
+
+        return { value: Math.round(normalized), label, color };
+    }, [rawChain]);
 
     // Intelligent Default Mode
     const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
@@ -411,6 +443,58 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                     </button>
                 </div>
             </div>
+
+            {/* [PREMIUM] AI VERDICT - Compact Summary */}
+            {analysis && (
+                <div className="bg-gradient-to-r from-slate-900/90 via-slate-800/50 to-slate-900/90 rounded-lg border border-white/10 p-3 backdrop-blur-md">
+                    <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+                        {/* Left: Main Verdict */}
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                                <Target size={14} className="text-amber-400" />
+                                <span className="text-[10px] font-black text-amber-400 tracking-widest">AI VERDICT</span>
+                                <span className={`text-xs font-black ${analysis.color}`}>{analysis.status}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-300 line-clamp-2">{analysis.message}</p>
+                        </div>
+
+                        {/* Right: Key Metrics */}
+                        <div className="flex items-center gap-4 shrink-0">
+                            {/* OPI Gauge */}
+                            <div className="text-center">
+                                <div className="text-[9px] text-slate-500 font-bold">OPI</div>
+                                <div className={`text-sm font-black ${opi.color}`}>
+                                    {opi.value > 0 ? '+' : ''}{opi.value}
+                                </div>
+                                <div className={`text-[8px] ${opi.color}`}>{opi.label}</div>
+                            </div>
+
+                            {/* Probability */}
+                            <div className="text-center">
+                                <div className="text-[9px] text-slate-500 font-bold">신뢰도</div>
+                                <div className={`text-sm font-black ${analysis.probColor}`}>
+                                    {analysis.probability}%
+                                </div>
+                                <div className={`text-[8px] ${analysis.probColor}`}>{analysis.probLabel}</div>
+                            </div>
+
+                            {/* Position Suggestion */}
+                            <div className="bg-slate-800/50 rounded-lg px-3 py-1.5 border border-white/5">
+                                <div className="text-[9px] text-slate-500 font-bold">포지션</div>
+                                <div className={`text-xs font-black ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
+                                        : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
+                                            : 'text-slate-400'
+                                    }`}>
+                                    {analysis.whaleBias?.includes('STRONG') ? '🔥 ' : ''}
+                                    {analysis.whaleBias?.includes('BULL') ? 'LONG'
+                                        : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
+                                            : 'NEUTRAL'}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Tactical Intel Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 h-[780px]">
