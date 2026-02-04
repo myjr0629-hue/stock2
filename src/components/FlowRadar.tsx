@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2 } from 'lucide-react';
+import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "./ui/progress";
 import { useTranslations } from 'next-intl';
@@ -278,14 +278,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         if (currentPrice > callWall) {
             // SCENARIO: Breakout (Above Resistance)
             if (whaleBias.includes('BULL')) {
-                status = "🚀 초강력 상승 (SUPER-CYCLE)";
+                status = "초강력 상승 (SUPER-CYCLE)";
                 message = `저항벽($${callWall})이 돌파되었습니다. ${alphaIntel} 고래들이 추격 매수에 나섰으므로(Net +$${(netWhalePremium / 1000).toFixed(0)}K), 단순 오버슈팅이 아닌 '시세 분출' 단계입니다.`;
                 probability = 95;
                 probLabel = "확신 (Conviction)";
                 probColor = "text-emerald-400";
                 color = "text-emerald-400";
             } else {
-                status = "⚠️ 돌파 후 숨고르기";
+                status = "돌파 후 숨고르기";
                 message = `저항($${callWall})을 뚫었으나 추가 수급이 부족합니다. ${alphaIntel} 고래들은 차익실현 중일 수 있습니다. $${callWall} 지지 여부를 확인하십시오.`;
                 probability = 60;
                 probLabel = "관망 (Wait)";
@@ -296,14 +296,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         else if (currentPrice < putWall) {
             // SCENARIO: Breakdown (Below Support)
             if (whaleBias.includes('BEAR')) {
-                status = "📉 지지선 붕괴 (COLLAPSE)";
+                status = "지지선 붕괴 (COLLAPSE)";
                 message = `최후 방어선($${putWall})이 뚫렸습니다. ${alphaIntel} 하방 베팅이 가속화되고 있어(Net -$${Math.abs(netWhalePremium / 1000).toFixed(0)}K), 투매가 이어질 수 있습니다.`;
                 probability = 15;
                 probLabel = "위험 (Danger)";
                 probColor = "text-rose-500";
                 color = "text-rose-500";
             } else {
-                status = "🪤 베어 트랩 (BEAR TRAP)";
+                status = "베어 트랩 (BEAR TRAP)";
                 message = `지지선($${putWall}) 이탈은 페이크일 가능성이 있습니다. ${alphaIntel} 고래들이 저점에서 물량을 받아먹고 있습니다. 반등 시 강한 숏커버링이 예상됩니다.`;
                 probability = 40;
                 probLabel = "주의 (Caution)";
@@ -318,14 +318,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
             if (isNearRes) {
                 if (whaleBias.includes('BULL')) {
-                    status = "⚡ 돌파 임박 (BREAKOUT READY)";
+                    status = "돌파 임박 (BREAKOUT READY)";
                     message = `주가가 저항($${callWall})을 두드리고 있습니다. 단순 터치가 아닙니다. ${alphaIntel} 벽을 뚫기 위한 에너지가 충전되었습니다. 탑승하십시오.`;
                     probability = 88;
                     probLabel = "강력 매수 (Strong Buy)";
                     probColor = "text-emerald-400";
                     color = "text-emerald-400";
                 } else {
-                    status = "⛔ 저항 확인 (RESISTANCE)";
+                    status = "저항 확인 (RESISTANCE)";
                     message = `저항벽($${callWall}) 도달 후 매수세가 약해졌습니다. ${alphaTrade && alphaTrade.type === 'PUT' ? `오히려 스마트머니는 풋옵션($${alphaTrade.strike})으로 하락 헷징 중입니다.` : "고래들은 관망하며 방향을 탐색 중입니다."} 돌파 실패 시 조정이 올 수 있습니다.`;
                     probability = 40;
                     probLabel = "매도 (Sell)";
@@ -334,14 +334,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                 }
             } else if (isNearSup) {
                 if (whaleBias.includes('BULL')) {
-                    status = "💎 바닥 매수 기회 (BUY THE DIP)";
+                    status = "바닥 매수 기회 (BUY THE DIP)";
                     message = `지지선($${putWall})에서 완벽한 저점 매수 기회입니다. ${alphaIntel} 스마트머니는 이곳을 '절대 바닥'으로 인식하고 쓸어담고 있습니다. 손익비 최상 구간.`;
                     probability = 80;
                     probLabel = "매수 (Buy)";
                     probColor = "text-emerald-400";
                     color = "text-emerald-400";
                 } else {
-                    status = "💀 추가 하락 주의 (WEAK)";
+                    status = "추가 하락 주의 (WEAK)";
                     message = `지지선($${putWall})이 위태롭습니다. ${alphaIntel ? alphaIntel : "고래들의 저점 매수세가 전혀 없습니다."} 지지가 깨질 확률이 높으니 칼날을 잡지 마십시오.`;
                     probability = 20;
                     probLabel = "관망/매도";
@@ -351,7 +351,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             } else {
                 // Mid-Range
                 if (whaleBias.includes('BULL')) {
-                    status = "📈 상승 모멘텀 (MOMENTUM)";
+                    status = "상승 모멘텀 (MOMENTUM)";
                     // Conflict Logic: Alpha Trade vs Aggregated Bias
                     if (alphaTrade && alphaTrade.type === 'PUT') {
                         message = `전반적인 고래 자금은 상방(Net +$${(netWhalePremium / 1000).toFixed(0)}K)이지만, 최대 큰손은 ${alphaIntel} 신중한 접근이 필요합니다.`;
@@ -363,14 +363,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                     probColor = "text-emerald-400";
                     color = "text-emerald-400";
                 } else if (whaleBias.includes('BEAR')) {
-                    status = "📉 하락 압력 (PRESSURE)";
+                    status = "하락 압력 (PRESSURE)";
                     message = `상승 탄력이 둔화되었습니다. ${alphaIntel} 고래들은 차트가 무너지기 전에 물량을 정리하거나 하방에 베팅 중입니다. 보수적으로 접근하십시오.`;
                     probability = 35;
                     probLabel = "매도 우위";
                     probColor = "text-rose-400";
                     color = "text-rose-400";
                 } else {
-                    status = "⚖️ 방향성 탐색 (NEUTRAL)";
+                    status = "방향성 탐색 (NEUTRAL)";
                     message = `현재 주가($${currentPrice})는 고래들의 '전장' 한복판입니다. ${alphaTrade ? `${alphaTrade.type}옵션에 일부 자금이 들어왔으나` : "뚜렷한 주도 세력이 없습니다."} 확실한 방향 결정 전까지는 휴식도 투자입니다.`;
                     probability = 50;
                     probLabel = "중립";
@@ -447,7 +447,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             {/* [PREMIUM] AI VERDICT - Flow Topography Map v3.0 Style */}
             {analysis && (
                 <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-4 backdrop-blur-xl shadow-2xl">
-                    {/* Top Row: Title + Status */}
+                    {/* Top Row: Title + Status with Dynamic Icon */}
                     <div className="flex items-center gap-3 mb-4">
                         <div className="relative">
                             <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
@@ -455,9 +455,21 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                             </div>
                             <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
                         </div>
-                        <div>
+                        <div className="flex items-center gap-2">
                             <span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span>
-                            <span className={`text-base font-black ml-3 ${analysis.color}`}>{analysis.status}</span>
+                            {/* Dynamic Status Icon */}
+                            {analysis.status?.includes('상승') || analysis.status?.includes('BULL') || analysis.status?.includes('매수') || analysis.status?.includes('BREAKOUT') || analysis.status?.includes('MOMENTUM') ? (
+                                <TrendingUp size={16} className="text-emerald-400" />
+                            ) : analysis.status?.includes('하락') || analysis.status?.includes('BEAR') || analysis.status?.includes('COLLAPSE') || analysis.status?.includes('PRESSURE') || analysis.status?.includes('WEAK') ? (
+                                <TrendingDown size={16} className="text-rose-400" />
+                            ) : analysis.status?.includes('저항') || analysis.status?.includes('RESISTANCE') ? (
+                                <AlertTriangle size={14} className="text-rose-400" />
+                            ) : analysis.status?.includes('돌파') ? (
+                                <Zap size={16} className="text-amber-400" />
+                            ) : (
+                                <Activity size={14} className="text-slate-400" />
+                            )}
+                            <span className={`text-base font-black ${analysis.color}`}>{analysis.status}</span>
                         </div>
                     </div>
 
