@@ -989,30 +989,44 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                         {/* Subtle Grid Background */}
                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
 
-                        <CardContent className="p-5 space-y-3 flex flex-col h-full relative z-10">
-                            <div className="flex items-center gap-2 mb-1 select-none shrink-0 border-b border-white/5 pb-3">
-                                <Lock size={12} className="text-amber-500" />
-                                <span className="text-[10px] font-black text-amber-500 uppercase tracking-[0.2em] flex-1">
-                                    LEVEL 3 INSTITUTIONAL DATA
-                                </span>
-                                <div className="flex gap-1">
-                                    <div className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
-                                    <div className="w-1 h-1 rounded-full bg-amber-500/50" />
-                                    <div className="w-1 h-1 rounded-full bg-amber-500/30" />
+                        <CardContent className="p-4 flex flex-col h-full relative z-10">
+                            {/* Compact 4-Metric Grid */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {/* CALL WALL */}
+                                <div className="bg-gradient-to-br from-emerald-950/30 to-slate-900/50 border border-emerald-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+                                    <div className="absolute inset-0 bg-emerald-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="flex items-center gap-1.5 mb-2 relative z-10">
+                                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-sm shadow-[0_0_5px_rgba(16,185,129,0.8)] animate-pulse" />
+                                        <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">CALL WALL</span>
+                                    </div>
+                                    <div className="text-2xl font-black text-emerald-400 font-mono relative z-10" style={{ textShadow: '0 0 10px rgba(52,211,153,0.5)' }}>
+                                        ${callWall}
+                                    </div>
+                                    <div className="text-[9px] text-emerald-500/70 mt-1 relative z-10">{t('resistance')}</div>
                                 </div>
-                            </div>
 
-                            {/* Premium Intel - Smart Money & IV Skew */}
-                            <div className="grid grid-cols-2 gap-2 mt-2">
+                                {/* PUT FLOOR */}
+                                <div className="bg-gradient-to-br from-rose-950/30 to-slate-900/50 border border-rose-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-rose-500/40 transition-all">
+                                    <div className="absolute inset-0 bg-rose-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="flex items-center gap-1.5 mb-2 relative z-10">
+                                        <div className="w-1.5 h-1.5 bg-rose-500 rounded-sm shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse" />
+                                        <span className="text-[9px] text-rose-400 font-bold uppercase tracking-wider">PUT FLOOR</span>
+                                    </div>
+                                    <div className="text-2xl font-black text-rose-400 font-mono relative z-10" style={{ textShadow: '0 0 10px rgba(251,113,133,0.5)' }}>
+                                        ${putWall}
+                                    </div>
+                                    <div className="text-[9px] text-rose-500/70 mt-1 relative z-10">{t('support')}</div>
+                                </div>
+
                                 {/* Smart Money Score */}
-                                <div className="bg-gradient-to-br from-indigo-950/30 to-slate-900/50 border border-indigo-500/20 rounded-lg p-2.5 relative overflow-hidden group hover:border-indigo-500/40 transition-all">
+                                <div className="bg-gradient-to-br from-indigo-950/30 to-slate-900/50 border border-indigo-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-indigo-500/40 transition-all">
                                     <div className="absolute inset-0 bg-indigo-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
-                                        <div className="w-1 h-1 bg-indigo-400 rounded-full animate-pulse" />
+                                    <div className="flex items-center gap-1.5 mb-2 relative z-10">
+                                        <div className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-pulse" />
                                         <span className="text-[9px] text-white font-bold uppercase tracking-wider">스마트머니</span>
                                     </div>
                                     <div className="flex items-end justify-between relative z-10">
-                                        <div className={`text-xl font-black ${smartMoney.color}`} style={{ textShadow: '0 0 8px currentColor' }}>
+                                        <div className={`text-2xl font-black ${smartMoney.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
                                             {smartMoney.score}
                                         </div>
                                         <div className={`text-[10px] font-bold ${smartMoney.color}`}>{smartMoney.label}</div>
@@ -1020,14 +1034,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
 
                                 {/* IV Skew */}
-                                <div className="bg-gradient-to-br from-violet-950/30 to-slate-900/50 border border-violet-500/20 rounded-lg p-2.5 relative overflow-hidden group hover:border-violet-500/40 transition-all">
+                                <div className="bg-gradient-to-br from-violet-950/30 to-slate-900/50 border border-violet-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-violet-500/40 transition-all">
                                     <div className="absolute inset-0 bg-violet-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="flex items-center gap-1.5 mb-1.5 relative z-10">
-                                        <div className="w-1 h-1 bg-violet-400 rounded-full animate-pulse" />
+                                    <div className="flex items-center gap-1.5 mb-2 relative z-10">
+                                        <div className="w-1.5 h-1.5 bg-violet-400 rounded-full animate-pulse" />
                                         <span className="text-[9px] text-white font-bold uppercase tracking-wider">IV 스큐</span>
                                     </div>
                                     <div className="flex items-end justify-between relative z-10">
-                                        <div className={`text-xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 8px currentColor' }}>
+                                        <div className={`text-2xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
                                             {ivSkew.value > 0 ? '+' : ''}{ivSkew.value}%
                                         </div>
                                         <div className={`text-[10px] font-bold ${ivSkew.color}`}>{ivSkew.label}</div>
@@ -1035,51 +1049,36 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 </div>
                             </div>
 
-                            {/* 5. Key Levels (Final Optimized Fit - Glass Style) */}
-                            <div className="mt-2 grid grid-cols-1 gap-1">
-                                {/* Top: Call Wall */}
-                                <div className="bg-gradient-to-r from-emerald-950/20 to-emerald-900/10 border border-emerald-500/20 p-3 h-[64px] rounded-sm flex items-center justify-between group relative overflow-hidden backdrop-blur-sm hover:border-emerald-500/40 transition-all">
-                                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent opacity-50" />
-                                    <div>
-                                        <div className="text-[10px] text-emerald-500 font-black uppercase tracking-wider flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-sm shadow-[0_0_5px_rgba(16,185,129,0.8)] animate-pulse" /> CALL WALL ({t('resistance')})
-                                        </div>
-                                    </div>
-                                    <div className="text-xl font-black text-emerald-400 font-mono tracking-tight shadow-emerald-500/20 drop-shadow-lg">${callWall}</div>
-                                </div>
+                            {/* Current Price Position Visual */}
+                            <div className="mt-4 bg-slate-800/30 rounded-lg p-3 border border-white/5">
+                                <div className="text-[9px] text-slate-500 font-bold uppercase tracking-wider mb-2 text-center">현재가 위치</div>
+                                <div className="relative h-8">
+                                    {/* Range bar background */}
+                                    <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-2 bg-gradient-to-r from-rose-500/20 via-slate-700/30 to-emerald-500/20 rounded-full" />
 
-                                {/* Middle: Ladder Visual (Clean Tech) */}
-                                <div className="relative h-6 flex flex-col justify-center items-center">
-                                    <div className="absolute top-0 bottom-0 w-[1px] bg-slate-700/50" />
+                                    {/* Support label */}
+                                    <div className="absolute left-0 top-1/2 -translate-y-1/2 text-[8px] text-rose-400 font-mono">${putWall}</div>
+
+                                    {/* Resistance label */}
+                                    <div className="absolute right-0 top-1/2 -translate-y-1/2 text-[8px] text-emerald-400 font-mono">${callWall}</div>
+
+                                    {/* Current price marker */}
                                     {(() => {
                                         const totalRange = callWall - putWall;
                                         const currentPos = currentPrice - putWall;
-                                        let pct = (currentPos / totalRange) * 100;
+                                        let pct = totalRange > 0 ? (currentPos / totalRange) * 100 : 50;
                                         pct = Math.max(15, Math.min(85, pct));
-                                        const topPct = 100 - pct;
-
                                         return (
                                             <div
-                                                className="absolute w-full flex items-center justify-center transition-all duration-1000 ease-out"
-                                                style={{ top: `${topPct}%`, transform: 'translateY(-50%)' }}
+                                                className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 transition-all duration-1000"
+                                                style={{ left: `${pct}%` }}
                                             >
-                                                <div className="bg-slate-900/90 border border-indigo-400/50 text-[11px] font-bold text-indigo-300 px-3 py-0.5 rounded-sm shadow-[0_0_15px_rgba(99,102,241,0.3)] z-10 flex items-center gap-1.5 backdrop-blur-md">
-                                                    <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full animate-ping" /> ${currentPrice.toFixed(2)}
+                                                <div className="bg-indigo-500 text-white text-[9px] font-bold px-2 py-0.5 rounded shadow-[0_0_10px_rgba(99,102,241,0.5)] whitespace-nowrap">
+                                                    ${currentPrice.toFixed(2)}
                                                 </div>
                                             </div>
                                         );
                                     })()}
-                                </div>
-
-                                {/* Bottom: Put Floor */}
-                                <div className="bg-gradient-to-r from-rose-950/20 to-rose-900/10 border border-rose-500/20 p-3 h-[64px] rounded-sm flex items-center justify-between group relative overflow-hidden backdrop-blur-sm hover:border-rose-500/40 transition-all">
-                                    <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-500/30 to-transparent opacity-50" />
-                                    <div>
-                                        <div className="text-[10px] text-rose-500 font-black uppercase tracking-wider flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 bg-rose-500 rounded-sm shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse" /> PUT FLOOR ({t('support')})
-                                        </div>
-                                    </div>
-                                    <div className="text-xl font-black text-rose-400 font-mono tracking-tight shadow-rose-500/20 drop-shadow-lg">${putWall}</div>
                                 </div>
                             </div>
                         </CardContent>
