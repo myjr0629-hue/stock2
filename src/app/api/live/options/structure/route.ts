@@ -293,19 +293,19 @@ export async function GET(req: NextRequest) {
                 gammaFlipType = 'EXACT';
                 console.log(`[S-120] ${ticker}: Tier 1 EXACT - GammaFlip = $${gammaFlipLevel} from ATM crossings [${atmCrossings.join(', ')}]`);
             }
-            // Tier 2: Multi-expiration fallback - fetch 30 days of data
+            // Tier 2: Multi-expiration fallback - fetch 60 days of data
             else {
                 console.log(`[S-120] ${ticker}: Tier 1 failed - fetching multi-expiration data for accuracy...`);
 
-                // Calculate 30-day range
+                // Calculate 60-day range
                 const today = new Date();
-                const thirtyDays = new Date(today);
-                thirtyDays.setDate(thirtyDays.getDate() + 30);
+                const sixtyDays = new Date(today);
+                sixtyDays.setDate(sixtyDays.getDate() + 60);
                 const todayStr = today.toISOString().split('T')[0];
-                const thirtyDaysStr = thirtyDays.toISOString().split('T')[0];
+                const sixtyDaysStr = sixtyDays.toISOString().split('T')[0];
 
                 // Fetch multi-expiration contracts
-                const multiExpUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&expiration_date.lte=${thirtyDaysStr}&limit=250`;
+                const multiExpUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&expiration_date.lte=${sixtyDaysStr}&limit=250`;
                 let multiContracts: any[] = [];
                 let multiNextUrl: string | null = multiExpUrl;
                 let multiPages = 0;
@@ -318,7 +318,7 @@ export async function GET(req: NextRequest) {
                         multiNextUrl = multiRes.data.next_url || null;
                         multiPages++;
                     }
-                    console.log(`[S-120] ${ticker}: Fetched ${multiContracts.length} contracts from ${multiPages} pages (30-day range)`);
+                    console.log(`[S-120] ${ticker}: Fetched ${multiContracts.length} contracts from ${multiPages} pages (60-day range)`);
                 } catch (e) {
                     console.log(`[S-120] ${ticker}: Multi-expiration fetch failed:`, e);
                 }
