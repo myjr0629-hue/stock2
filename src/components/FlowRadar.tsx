@@ -454,6 +454,82 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         };
     }, [rawChain, currentPrice, ivSkew, whaleTrades]);
 
+    // [NEW] DEX (Delta Exposure) - Dealer Delta Hedging Direction
+    const dex = useMemo(() => {
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', rationale: '' };
+
+        let totalDex = 0;
+        let callDex = 0;
+        let putDex = 0;
+
+        rawChain.forEach(opt => {
+            const delta = opt.greeks?.delta || 0;
+            const oi = opt.open_interest || opt.day?.open_interest || 0;
+            const type = opt.details?.contract_type;
+
+            // DEX = Σ(Delta × OI × 100) - from dealer perspective (short options)
+            const exposure = delta * oi * 100;
+
+            if (type === 'call') {
+                callDex += exposure;
+            } else if (type === 'put') {
+                putDex += exposure;
+            }
+            totalDex += exposure;
+        });
+
+        // Normalize to Millions
+        const dexMillions = totalDex / 1000000;
+        const callDexM = callDex / 1000000;
+        const putDexM = putDex / 1000000;
+
+        // Interpretation: Positive = Dealers need to sell on price rise (resistance)
+        //                 Negative = Dealers need to buy on price drop (support)
+        let label = '중립';
+        let color = 'text-white';
+        if (dexMillions > 5) { label = '강한 저항'; color = 'text-rose-400'; }
+        else if (dexMillions > 2) { label = '저항 압력'; color = 'text-amber-400'; }
+        else if (dexMillions < -5) { label = '강한 지지'; color = 'text-emerald-400'; }
+        else if (dexMillions < -2) { label = '지지 형성'; color = 'text-cyan-400'; }
+
+        const rationale = `콜Δ ${callDexM.toFixed(1)}M / 풋Δ ${putDexM.toFixed(1)}M`;
+
+        return { value: dexMillions, label, color, rationale };
+    }, [rawChain]);
+
+    // [NEW] UOA Score (Unusual Options Activity) - Abnormal Volume Detection
+    const uoa = useMemo(() => {
+        if (!rawChain || rawChain.length === 0) return { score: 0, label: '분석 중', color: 'text-slate-400', rationale: '' };
+
+        // Calculate today's total volume
+        let todayVolume = 0;
+        let avgOI = 0;
+        let optionCount = 0;
+
+        rawChain.forEach(opt => {
+            const vol = opt.day?.volume || 0;
+            const oi = opt.open_interest || 0;
+            todayVolume += vol;
+            avgOI += oi;
+            optionCount++;
+        });
+
+        // UOA Score = Today's Volume / Average OI (proxy for average daily volume)
+        // Higher = More unusual activity
+        const uoaScore = avgOI > 0 ? (todayVolume / avgOI) * 10 : 0; // Multiply by 10 for readability
+        const normalizedScore = Math.min(10, uoaScore); // Cap at 10x
+
+        let label = '정상';
+        let color = 'text-white';
+        if (normalizedScore >= 5) { label = '극심'; color = 'text-rose-400'; }
+        else if (normalizedScore >= 3) { label = '이상'; color = 'text-amber-400'; }
+        else if (normalizedScore >= 1.5) { label = '활발'; color = 'text-cyan-400'; }
+
+        const rationale = `거래량 ${(todayVolume / 1000).toFixed(0)}K / OI ${(avgOI / 1000).toFixed(0)}K`;
+
+        return { score: Math.round(normalizedScore * 10) / 10, label, color, rationale };
+    }, [rawChain]);
+
     // Intelligent Default Mode
     const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
     const isMarketClosed = totalVolume === 0 && rawChain.length > 0;
@@ -1497,7 +1573,53 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     </div>
                                 </div>
 
-                                {/* [REMOVED] News Sentiment, Treasury, SEC Risk Factors - Now displayed in Command page gauges */}
+                                {/* DEX (Delta Exposure) - Dealer Delta Hedging */}
+                                <div className="bg-gradient-to-br from-cyan-950/20 to-slate-900/40 border border-cyan-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
+                                    <div className="absolute inset-0 bg-cyan-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="relative z-10">
+                                        {/* Row 1: Label + Value */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">DEX (델타노출)</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`text-2xl font-black ${dex.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                    {dex.value > 0 ? '+' : ''}{dex.value.toFixed(1)}M
+                                                </div>
+                                                <div className={`text-sm font-bold ${dex.color} px-2 py-0.5 bg-black/20 rounded`}>{dex.label}</div>
+                                            </div>
+                                        </div>
+                                        {/* Row 2: Rationale */}
+                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-cyan-500/30">
+                                            📈 {dex.rationale || '델타 분석 중...'}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* UOA Score (Unusual Options Activity) */}
+                                <div className="bg-gradient-to-br from-amber-950/20 to-slate-900/40 border border-amber-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-amber-500/30 transition-all">
+                                    <div className="absolute inset-0 bg-amber-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="relative z-10">
+                                        {/* Row 1: Label + Value */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">UOA (이상거래)</span>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <div className={`text-2xl font-black ${uoa.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                    {uoa.score}x
+                                                </div>
+                                                <div className={`text-sm font-bold ${uoa.color} px-2 py-0.5 bg-black/20 rounded`}>{uoa.label}</div>
+                                            </div>
+                                        </div>
+                                        {/* Row 2: Rationale */}
+                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-amber-500/30">
+                                            🔥 {uoa.rationale || '거래량 분석 중...'}
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
