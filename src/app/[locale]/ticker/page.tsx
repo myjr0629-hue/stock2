@@ -173,7 +173,7 @@ export default async function TickerPage({ searchParams }: Props) {
         return (
             <div className="min-h-screen font-sans bg-slate-950 text-slate-200">
                 <LandingHeader />
-                <main className="mx-auto max-w-5xl px-6 pt-28 pb-12">
+                <main className="mx-auto max-w-5xl px-6 pb-12">
                     <Card className="border-slate-800 bg-slate-900/50">
                         <CardContent className="pt-6">
                             <div className="text-lg font-bold mb-2 text-white">Ticker required</div>
@@ -212,7 +212,7 @@ export default async function TickerPage({ searchParams }: Props) {
     }
 
     return (
-        <div className="min-h-screen selection:bg-emerald-500/30 selection:text-emerald-200 font-sans bg-slate-950 text-slate-200">
+        <div className="min-h-screen selection:bg-emerald-500/30 selection:text-emerald-200 font-sans bg-[#050a14] text-slate-200">
             <LandingHeader />
 
             {/* [S-56.4.6f] PRODUCTION DRIFT GUARD BANNER */}
@@ -222,10 +222,8 @@ export default async function TickerPage({ searchParams }: Props) {
                 </div>
             )}
 
-            {/* [S-56.4.5b] Parity Diagnostics Strip - Always visible */}
-            {overview && <ParityDiagnostics overview={overview} />}
 
-            <main className="mx-auto max-w-7xl px-6 lg:px-8 pt-8 pb-12 space-y-4">
+            <main className="mx-auto max-w-7xl px-6 lg:px-8 pb-32 space-y-4">
                 {/* [S-56.4.5b] Diagnostics Panel for failures (Only in Extended Mode) */}
                 {extended && overview && <DiagnosticsPanel diagnostics={overview.diagnostics} />}
 

@@ -129,10 +129,10 @@ function FlowPageContent() {
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
                 </div>
 
-                {/* Content */}
-                <main className="relative z-10 mx-auto max-w-[1400px] w-full px-4 sm:px-6 pt-6 pb-12">
+                {/* Content - pt adjusted for fixed header (nav 48px + ticker ~40px) */}
+                <main className="relative z-10 mx-auto max-w-[1400px] w-full px-4 sm:px-6 pb-24 min-h-screen">
 
-                    {/* Ticker Header (EXACT COMMAND Style) */}
+                    {/* Ticker Header */}
                     <div className="flex flex-col gap-4 pb-6 border-b border-white/10 mb-6">
                         <div className="flex items-end gap-x-6 flex-wrap">
                             {/* Identity Group */}

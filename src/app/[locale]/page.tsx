@@ -304,13 +304,8 @@ export default function Page() {
     <div className="min-h-screen bg-[#060a12] text-slate-200 font-sans">
       <LandingHeader />
 
-      {/* MACRO TICKER TAPE */}
-      <div className="fixed top-[48px] left-0 right-0 z-40">
-        <TradingViewTicker key="v7-subtle" />
-      </div>
-
       {/* HERO SECTION */}
-      <section className="relative pt-32 pb-16 px-6 overflow-hidden">
+      <section className="relative pt-20 pb-16 px-6 overflow-hidden">
         {/* Layer 1: Light Grid */}
         <div className="absolute inset-0 z-0 pointer-events-none opacity-[0.04]"
           style={{

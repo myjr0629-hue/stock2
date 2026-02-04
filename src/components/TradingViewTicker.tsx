@@ -84,7 +84,7 @@ export const TradingViewTicker = memo(() => {
     // Using CSS zoom instead of transform scale - zoom respects layout flow
     // This ensures the widget starts from x=0 and fills the full viewport width
     return (
-        <div className="w-full border-b border-slate-800 bg-slate-950 h-[30px] overflow-hidden relative z-40">
+        <div className="w-full bg-[#0a0f1a] h-[30px] overflow-hidden relative z-40">
             <div
                 className="tradingview-widget-container w-full"
                 ref={containerRef}

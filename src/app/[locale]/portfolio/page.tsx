@@ -50,9 +50,6 @@ export default function PortfolioPage() {
             {/* Global Header */}
             <LandingHeader />
 
-            {/* Live Ticker Bar */}
-            <TradingViewTicker />
-
             {/* Page Header - Minimal & Premium */}
             <div className="border-b border-white/5">
                 <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">

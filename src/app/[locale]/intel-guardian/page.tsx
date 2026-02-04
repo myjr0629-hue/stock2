@@ -151,17 +151,9 @@ export default function GuardianPage() {
         <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30">
             <LandingHeader />
 
-            {/* MACRO TICKER (Engine Data) */}
-            {/* VISUAL TRACK: TRADINGVIEW WIDGET (User Request) */}
-            <div className="fixed top-12 left-0 right-0 z-40 shadow-lg shadow-black/20">
-                <TradingViewTicker key="v4-debug-force" />
-            </div>
-            {/* Spacer to prevent content overlap */}
-            <div className="h-[28px]"></div>
+            {/* [Removed] MACRO TICKER - Now global in LandingHeader */}
 
-
-
-            {/* ORACLE HEADER (Sticky below Nav) */}
+            {/* ORACLE HEADER (Below fixed nav+ticker) */}
             <div>
                 <OracleHeader
                     nasdaq={data?.market?.nqChangePercent || 0}

@@ -8,6 +8,7 @@ import { clsx } from 'clsx';
 import { useFavorites } from "@/hooks/useFavorites";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslations } from 'next-intl';
+import { TradingViewTicker } from "@/components/TradingViewTicker";
 
 export function LandingHeader() {
     const t = useTranslations();
@@ -36,7 +37,8 @@ export function LandingHeader() {
     };
 
     return (
-        <header className="sticky top-0 z-50 w-full border-b border-white/5 bg-[#0a0f1a]/90 backdrop-blur-xl">
+        <header className="sticky top-0 z-50 w-full bg-[#0a0f1a]/95 backdrop-blur-xl">
+            {/* Navigation Row */}
             <div className="container flex h-12 items-center justify-between px-4 sm:px-6">
                 {/* 1. LOGO (SIGNUM HQ with Icon) */}
                 <Link href="/" className="flex items-center gap-2 group">
@@ -177,6 +179,8 @@ export function LandingHeader() {
                     </div>
                 </div>
             </div>
+            {/* Global Market Ticker - Fixed below nav */}
+            <TradingViewTicker />
         </header>
     );
 }
