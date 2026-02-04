@@ -462,49 +462,61 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                     <div className="flex flex-col md:flex-row gap-3">
                         {/* 1. Analysis Summary (55% width) */}
                         <div className="flex-1 bg-slate-800/30 rounded-lg p-3 border border-white/5">
-                            <div className="text-[9px] text-slate-500 font-bold mb-1.5">📊 분석</div>
-                            <p className="text-[11px] text-slate-300 leading-relaxed">{analysis.message}</p>
+                            <div className="flex items-center gap-1.5 mb-2">
+                                <Activity size={12} className="text-slate-400" />
+                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">분석</span>
+                            </div>
+                            <p className="text-[12px] text-white leading-relaxed">{analysis.message}</p>
                         </div>
 
                         {/* 2-4. Metrics Row (45% width, 3 equal columns) */}
-                        <div className="flex gap-2 md:w-[45%] shrink-0">
+                        <div className="flex gap-2 md:w-[40%] shrink-0">
                             {/* OPI */}
-                            <div className="flex-1 bg-slate-800/30 rounded-lg p-2 border border-white/5 text-center flex flex-col justify-center">
-                                <div className="text-[8px] text-slate-500 font-bold">📈 OPI</div>
-                                <div className={`text-xl font-black ${opi.color} leading-tight`}>
+                            <div className="flex-1 bg-slate-800/30 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
+                                <div className="flex items-center gap-1 mb-1">
+                                    <TrendingUp size={10} className="text-slate-400" />
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase">OPI</span>
+                                </div>
+                                <div className={`text-2xl font-black ${opi.color}`}>
                                     {opi.value > 0 ? '+' : ''}{opi.value}
                                 </div>
-                                <div className={`text-[8px] ${opi.color}`}>{opi.label}</div>
+                                <div className={`text-[10px] font-medium ${opi.color}`}>{opi.label}</div>
                             </div>
 
                             {/* Probability */}
-                            <div className="flex-1 bg-slate-800/30 rounded-lg p-2 border border-white/5 text-center flex flex-col justify-center">
-                                <div className="text-[8px] text-slate-500 font-bold">🎯 신뢰도</div>
-                                <div className={`text-xl font-black ${analysis.probColor} leading-tight`}>
+                            <div className="flex-1 bg-slate-800/30 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
+                                <div className="flex items-center gap-1 mb-1">
+                                    <Percent size={10} className="text-slate-400" />
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase">신뢰도</span>
+                                </div>
+                                <div className={`text-2xl font-black ${analysis.probColor}`}>
                                     {analysis.probability}%
                                 </div>
-                                <div className={`text-[8px] ${analysis.probColor}`}>{analysis.probLabel}</div>
+                                <div className={`text-[10px] font-medium ${analysis.probColor}`}>{analysis.probLabel}</div>
                             </div>
 
                             {/* Position */}
-                            <div className={`flex-1 rounded-lg p-2 border text-center flex flex-col justify-center ${analysis.whaleBias?.includes('BULL')
+                            <div className={`flex-1 rounded-lg p-3 border flex flex-col items-center justify-center ${analysis.whaleBias?.includes('BULL')
                                     ? 'bg-emerald-950/40 border-emerald-500/40'
                                     : analysis.whaleBias?.includes('BEAR')
                                         ? 'bg-rose-950/40 border-rose-500/40'
                                         : 'bg-slate-800/30 border-white/5'
                                 }`}>
-                                <div className="text-[8px] text-slate-500 font-bold">🎲 포지션</div>
-                                <div className={`text-xl font-black leading-tight ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
+                                <div className="flex items-center gap-1 mb-1">
+                                    <Zap size={10} className="text-slate-400" />
+                                    <span className="text-[9px] text-slate-400 font-bold uppercase">포지션</span>
+                                </div>
+                                <div className={`text-2xl font-black ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
                                         : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
-                                            : 'text-slate-400'
+                                            : 'text-white'
                                     }`}>
-                                    {analysis.whaleBias?.includes('STRONG') ? '🔥' : ''}
                                     {analysis.whaleBias?.includes('BULL') ? 'LONG'
                                         : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
                                             : 'WAIT'}
                                 </div>
-                                <div className="text-[8px] text-slate-400">
-                                    {analysis.whaleBias?.includes('STRONG') ? '강력' : '기본'}
+                                <div className={`text-[10px] font-medium ${analysis.whaleBias?.includes('STRONG') ? 'text-amber-400' : 'text-slate-400'
+                                    }`}>
+                                    {analysis.whaleBias?.includes('STRONG') ? '강력 추천' : '기본'}
                                 </div>
                             </div>
                         </div>
