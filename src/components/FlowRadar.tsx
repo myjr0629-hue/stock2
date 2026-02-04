@@ -1037,7 +1037,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                         {/* Subtle Grid Background */}
                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
 
-                        <CardContent className="p-4 flex flex-col h-full relative z-10">
+                        <CardContent className="p-4 pb-8 flex flex-col relative z-10">
                             {/* CALL WALL + PUT FLOOR: 2-Column Grid */}
                             <div className="grid grid-cols-2 gap-2">
                                 {/* CALL WALL */}
