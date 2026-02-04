@@ -1117,87 +1117,120 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     </div>
                                 </div>
 
-                                {/* News Sentiment */}
-                                {newsSentiment && (
-                                    <div className="bg-gradient-to-br from-cyan-950/20 to-slate-900/40 border border-cyan-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
-                                        <div className="absolute inset-0 bg-cyan-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <div className="relative z-10">
-                                            {/* Row 1: Label + Value */}
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">뉴스 감성</span>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`text-2xl font-black ${newsSentiment.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                        {newsSentiment.score}
-                                                    </div>
-                                                    <div className={`text-sm font-bold ${newsSentiment.color} px-2 py-0.5 bg-black/20 rounded`}>{newsSentiment.label}</div>
-                                                </div>
+                                {/* News Sentiment - Always visible */}
+                                <div className="bg-gradient-to-br from-cyan-950/20 to-slate-900/40 border border-cyan-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
+                                    <div className="absolute inset-0 bg-cyan-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="relative z-10">
+                                        {/* Row 1: Label + Value */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">뉴스 감성</span>
                                             </div>
-                                            {/* Row 2: Rationale */}
-                                            <div className="text-[10px] text-slate-400 pl-4 border-l border-cyan-500/30">
-                                                📰 {newsSentiment.breakdown
+                                            <div className="flex items-center gap-3">
+                                                {newsSentiment ? (
+                                                    <>
+                                                        <div className={`text-2xl font-black ${newsSentiment.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                            {newsSentiment.score}
+                                                        </div>
+                                                        <div className={`text-sm font-bold ${newsSentiment.color} px-2 py-0.5 bg-black/20 rounded`}>{newsSentiment.label}</div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="w-10 h-7 bg-slate-700/50 rounded animate-pulse" />
+                                                        <div className="w-12 h-5 bg-slate-700/50 rounded animate-pulse" />
+                                                    </>
+                                                )}
+                                            </div>
+                                        </div>
+                                        {/* Row 2: Rationale */}
+                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-cyan-500/30">
+                                            {newsSentiment ? (
+                                                <>📰 {newsSentiment.breakdown
                                                     ? `긍정 ${newsSentiment.breakdown.positive}건 / 부정 ${newsSentiment.breakdown.negative}건 / 중립 ${newsSentiment.breakdown.neutral}건`
-                                                    : '뉴스 분석 중...'}
-                                            </div>
+                                                    : '뉴스 분석 중...'}</>
+                                            ) : (
+                                                <span className="text-slate-600">로딩 중...</span>
+                                            )}
                                         </div>
                                     </div>
-                                )}
+                                </div>
 
-                                {/* Treasury Divergence */}
-                                {treasury && (
-                                    <div className="bg-gradient-to-br from-amber-950/20 to-slate-900/40 border border-amber-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-amber-500/30 transition-all">
-                                        <div className="absolute inset-0 bg-amber-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <div className="relative z-10">
-                                            {/* Row 1: Label + Value */}
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">10Y 국채</span>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`text-xl font-black ${treasury.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                        {treasury.yield10Y?.toFixed(2)}%
-                                                    </div>
-                                                    <div className={`text-sm font-bold ${treasury.color} px-2 py-0.5 bg-black/20 rounded`}>
-                                                        {treasury.change > 0 ? '+' : ''}{treasury.change?.toFixed(2)} {treasury.status}
-                                                    </div>
-                                                </div>
+                                {/* Treasury Divergence - Always visible */}
+                                <div className="bg-gradient-to-br from-amber-950/20 to-slate-900/40 border border-amber-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-amber-500/30 transition-all">
+                                    <div className="absolute inset-0 bg-amber-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="relative z-10">
+                                        {/* Row 1: Label + Value */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">10Y 국채</span>
                                             </div>
-                                            {/* Row 2: Rationale */}
-                                            <div className="text-[10px] text-slate-400 pl-4 border-l border-amber-500/30">
-                                                📈 금리 상승 = 위험 부담↑ / 금리 하락 = 안전자산 선호
+                                            <div className="flex items-center gap-3">
+                                                {treasury ? (
+                                                    <>
+                                                        <div className={`text-xl font-black ${treasury.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                            {treasury.yield10Y?.toFixed(2)}%
+                                                        </div>
+                                                        <div className={`text-sm font-bold ${treasury.color} px-2 py-0.5 bg-black/20 rounded`}>
+                                                            {treasury.change > 0 ? '+' : ''}{treasury.change?.toFixed(2)} {treasury.status}
+                                                        </div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="w-14 h-6 bg-slate-700/50 rounded animate-pulse" />
+                                                        <div className="w-16 h-5 bg-slate-700/50 rounded animate-pulse" />
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
+                                        {/* Row 2: Rationale */}
+                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-amber-500/30">
+                                            {treasury ? (
+                                                <>📈 금리 상승 = 위험 부담↑ / 금리 하락 = 안전자산 선호</>
+                                            ) : (
+                                                <span className="text-slate-600">로딩 중...</span>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
+                                </div>
 
-                                {/* Risk Factors */}
-                                {riskFactors && (
-                                    <div className="bg-gradient-to-br from-pink-950/20 to-slate-900/40 border border-pink-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-pink-500/30 transition-all">
-                                        <div className="absolute inset-0 bg-pink-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                        <div className="relative z-10">
-                                            {/* Row 1: Label + Value */}
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">SEC 위험요소</span>
-                                                </div>
-                                                <div className="flex items-center gap-3">
-                                                    <div className={`text-2xl font-black ${riskFactors.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                        {riskFactors.riskCount}건
-                                                    </div>
-                                                    <div className={`text-sm font-bold ${riskFactors.color} px-2 py-0.5 bg-black/20 rounded`}>{riskFactors.riskLevel}</div>
-                                                </div>
+                                {/* Risk Factors - Always visible */}
+                                <div className="bg-gradient-to-br from-pink-950/20 to-slate-900/40 border border-pink-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-pink-500/30 transition-all">
+                                    <div className="absolute inset-0 bg-pink-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="relative z-10">
+                                        {/* Row 1: Label + Value */}
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-2 h-2 bg-pink-400 rounded-full animate-pulse" />
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">SEC 위험요소</span>
                                             </div>
-                                            {/* Row 2: Rationale */}
-                                            <div className="text-[10px] text-slate-400 pl-4 border-l border-pink-500/30">
-                                                ⚠️ SEC 10-K 연간보고서 위험공시 기준
+                                            <div className="flex items-center gap-3">
+                                                {riskFactors ? (
+                                                    <>
+                                                        <div className={`text-2xl font-black ${riskFactors.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                            {riskFactors.riskCount}건
+                                                        </div>
+                                                        <div className={`text-sm font-bold ${riskFactors.color} px-2 py-0.5 bg-black/20 rounded`}>{riskFactors.riskLevel}</div>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="w-12 h-7 bg-slate-700/50 rounded animate-pulse" />
+                                                        <div className="w-10 h-5 bg-slate-700/50 rounded animate-pulse" />
+                                                    </>
+                                                )}
                                             </div>
                                         </div>
+                                        {/* Row 2: Rationale */}
+                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-pink-500/30">
+                                            {riskFactors ? (
+                                                <>⚠️ SEC 10-K 연간보고서 위험공시 기준</>
+                                            ) : (
+                                                <span className="text-slate-600">로딩 중...</span>
+                                            )}
+                                        </div>
                                     </div>
-                                )}
+                                </div>
                             </div>
 
                             {/* Current Price Position - Semicircle Gauge */}
