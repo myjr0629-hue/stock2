@@ -305,97 +305,22 @@ export async function GET(req: NextRequest) {
                     Math.abs(strike - underlyingPrice) < Math.abs(closest - underlyingPrice) ? strike : closest
                 );
                 gammaFlipType = 'EXACT';
-                console.log(`[S-120] ${ticker}: Tier 1 EXACT - GammaFlip = $${gammaFlipLevel} from ATM crossings [${atmCrossings.join(', ')}]`);
+                console.log(`[S-120] ${ticker}: EXACT - GammaFlip = $${gammaFlipLevel} from weekly expiry [${atmCrossings.join(', ')}]`);
             }
-            // Tier 2: Multi-expiration fallback - fetch 60 days of data
+            // [SIMPLIFIED] No 60-day fallback - use weekly expiration only for consistency
+            // If no crossing in weekly data, mark as ALL_LONG or ALL_SHORT
             else {
-                console.log(`[S-120] ${ticker}: Tier 1 failed - fetching multi-expiration data for accuracy...`);
-
-                // Calculate 60-day range
-                const today = new Date();
-                const sixtyDays = new Date(today);
-                sixtyDays.setDate(sixtyDays.getDate() + 60);
-                const todayStr = today.toISOString().split('T')[0];
-                const sixtyDaysStr = sixtyDays.toISOString().split('T')[0];
-
-                // Fetch multi-expiration contracts
-                const multiExpUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&expiration_date.lte=${sixtyDaysStr}&limit=250`;
-                let multiContracts: any[] = [];
-                let multiNextUrl: string | null = multiExpUrl;
-                let multiPages = 0;
-
-                try {
-                    while (multiNextUrl && multiPages < 8) {
-                        const multiRes = await fetchMassiveWithRetry(multiNextUrl, 2);
-                        if (!multiRes.success || !multiRes.data?.results) break;
-                        multiContracts = multiContracts.concat(multiRes.data.results);
-                        multiNextUrl = multiRes.data.next_url || null;
-                        multiPages++;
-                    }
-                    console.log(`[S-120] ${ticker}: Fetched ${multiContracts.length} contracts from ${multiPages} pages (60-day range)`);
-                } catch (e) {
-                    console.log(`[S-120] ${ticker}: Multi-expiration fetch failed:`, e);
-                }
-
-                // Recalculate GEX with multi-expiration data
-                if (multiContracts.length > 0) {
-                    const multiGexByStrike = new Map<number, number>();
-
-                    multiContracts.forEach((c: any) => {
-                        const strike = c.details?.strike_price;
-                        const gamma = c.greeks?.gamma;
-                        const oi = c.open_interest || 0;
-                        const type = c.details?.contract_type;
-
-                        if (strike && typeof gamma === 'number' && isFinite(gamma) && gamma !== 0 && oi > 0) {
-                            // [SPOTGAMMA STANDARD] Dealer Perspective: Call=-1, Put=+1
-                            const dir = type === 'call' ? -1 : 1;
-                            const gex = gamma * oi * 100 * dir;
-                            multiGexByStrike.set(strike, (multiGexByStrike.get(strike) || 0) + gex);
-                        }
-                    });
-
-                    const multiStrikesWithGex = Array.from(multiGexByStrike.entries()).sort((a, b) => a[0] - b[0]);
-                    let multiCumGex = 0;
-                    const multiCrossings: number[] = [];
-
-                    for (let i = 0; i < multiStrikesWithGex.length; i++) {
-                        const [strike, gex] = multiStrikesWithGex[i];
-                        const prevGex = multiCumGex;
-                        multiCumGex += gex;
-
-                        if (i > 0 && ((prevGex < 0 && multiCumGex >= 0) || (prevGex > 0 && multiCumGex <= 0))) {
-                            multiCrossings.push(strike);
-                        }
-                    }
-
-                    gammaFlipCrossings = [...multiCrossings];
-
-                    // Find closest crossing to current price (no ATM filter for multi-exp)
-                    if (multiCrossings.length > 0) {
-                        gammaFlipLevel = multiCrossings.reduce((closest, strike) =>
-                            Math.abs(strike - underlyingPrice) < Math.abs(closest - underlyingPrice) ? strike : closest
-                        );
-                        gammaFlipType = 'MULTI_EXP';  // Indicates 60-day aggregated data was used
-                        console.log(`[S-120] ${ticker}: Multi-exp SUCCESS - GammaFlip = $${gammaFlipLevel} (MULTI_EXP) from crossings [${multiCrossings.join(', ')}]`);
-                    } else {
-                        // Tier 3: Still no crossing - use near-zero or mark as all-long/short
-                        gammaFlipLevel = null;
-                        gammaFlipType = multiCumGex > 0 ? 'ALL_LONG' : 'ALL_SHORT';
-                        console.log(`[S-120] ${ticker}: Tier 3 ${gammaFlipType} - No crossing even with 30-day data`);
-                    }
+                // Check for near-zero within ATM range as Tier 2
+                if (atmNearZero.length > 0) {
+                    atmNearZero.sort((a, b) => a.absGex - b.absGex);
+                    gammaFlipLevel = atmNearZero[0].strike;
+                    gammaFlipType = 'NEAR_ZERO';
+                    console.log(`[S-120] ${ticker}: NEAR_ZERO - GammaFlip = ~$${gammaFlipLevel} (weekly expiry)`);
                 } else {
-                    // Fallback to original Tier 2/3 logic if multi-exp fetch failed
-                    if (atmNearZero.length > 0) {
-                        atmNearZero.sort((a, b) => a.absGex - b.absGex);
-                        gammaFlipLevel = atmNearZero[0].strike;
-                        gammaFlipType = 'NEAR_ZERO';
-                        console.log(`[S-120] ${ticker}: Tier 2 fallback NEAR_ZERO - GammaFlip = ~$${gammaFlipLevel}`);
-                    } else {
-                        gammaFlipLevel = null;
-                        gammaFlipType = finalCumulativeGex > 0 ? 'ALL_LONG' : 'ALL_SHORT';
-                        console.log(`[S-120] ${ticker}: Tier 3 ${gammaFlipType} - No meaningful flip`);
-                    }
+                    // Tier 3: No crossing in weekly data
+                    gammaFlipLevel = null;
+                    gammaFlipType = finalCumulativeGex > 0 ? 'ALL_LONG' : 'ALL_SHORT';
+                    console.log(`[S-120] ${ticker}: ${gammaFlipType} - No flip in weekly expiry (${targetExpiry})`);
                 }
             }
         }
