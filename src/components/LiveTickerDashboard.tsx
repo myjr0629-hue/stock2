@@ -1181,13 +1181,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             let badgeText = "N/A";
                                             let badgeColor = "bg-slate-700/80 text-slate-300";
 
+                                            // [FIX] Use gammaFlipType from API instead of inferring from netGex
+                                            const gammaFlipType = structure?.gammaFlipType;
+
                                             if (isLowLiquidity) {
                                                 message = t('lowOptionsLiquidity');
-                                            } else if (netGex !== null && netGex < 0) {
+                                            } else if (gammaFlipType === 'ALL_SHORT') {
                                                 message = t('allShortGammaNoFlip');
                                                 badgeText = "SHORT";
                                                 badgeColor = "bg-rose-600/80 text-white";
-                                            } else if (netGex !== null && netGex > 0) {
+                                            } else if (gammaFlipType === 'ALL_LONG') {
                                                 message = t('allLongGammaNoFlip');
                                                 badgeText = "LONG";
                                                 badgeColor = "bg-emerald-600/80 text-white";
