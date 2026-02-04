@@ -1033,7 +1033,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
                 <div className="order-1 lg:order-2 h-full">
                     {/* Consistent Glass Panel for Right Side */}
-                    <Card className="bg-slate-900/30 backdrop-blur-md border-white/10 flex flex-col rounded-xl h-full min-h-0 shadow-2xl relative overflow-hidden">
+                    <Card className="bg-slate-900/30 backdrop-blur-md border-white/10 flex flex-col rounded-xl h-full min-h-0 shadow-2xl relative overflow-y-auto">
                         {/* Subtle Grid Background */}
                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
 
