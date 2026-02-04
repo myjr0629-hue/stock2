@@ -1200,6 +1200,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 message = t('gammaDataUnavailable');
                                             }
 
+                                            // Trading interpretation for ALL_LONG / ALL_SHORT
+                                            const interpretation = gammaFlipType === 'ALL_LONG'
+                                                ? "→ 변동성 축소, 레인지 예상"
+                                                : gammaFlipType === 'ALL_SHORT'
+                                                    ? "→ 변동성 확대, 추세 가속 주의"
+                                                    : "";
+
                                             return (
                                                 <div className="relative p-3 rounded-xl bg-gradient-to-r from-slate-900/50 via-slate-800/30 to-slate-900/50 border border-slate-600/40 overflow-hidden">
                                                     <div className="flex items-center gap-3">
@@ -1214,6 +1221,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                                 <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${badgeColor}`}>{badgeText}</span>
                                                             </div>
                                                             <div className="text-[11px] text-white/50">{message}</div>
+                                                            {interpretation && (
+                                                                <div className={`text-[10px] font-bold mt-0.5 ${gammaFlipType === 'ALL_LONG' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                    {interpretation}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     </div>
                                                 </div>
