@@ -12,7 +12,7 @@ import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { MarketStatusBadge } from "@/components/common/MarketStatusBadge";
 import { GammaLevelsViz } from "@/components/GammaLevelsViz";
 import { FlowSniper } from "@/components/FlowSniper";
-import { FlowRadar } from "@/components/FlowRadar";
+import { CommandInsight } from "@/components/CommandInsight";
 import { useTranslations, useLocale } from 'next-intl';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
@@ -42,142 +42,226 @@ interface Props {
     chartDiagnostics?: ChartDiagnostics; // [S-56.4.7] No-Silence UX
 }
 
-const DecisionGate = ({ ticker, displayPrice, session, structure, krNews }: any) => {
+const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, macdData, newsScore, liveQuote }: any) => {
     const t = useTranslations('command');
-    let status: 'PASS' | 'WATCH' | 'FAIL' = 'WATCH';
-    const reasons: string[] = [];
-    let actionHint = "";
 
+    // === Data Completeness Check (only structure is required) ===
+    const hasStructure = structure && structure.options_status === 'OK';
+    const isLoading = !hasStructure;
+
+    // === Data Extraction ===
     const options_status = structure?.options_status;
-    const pinZone = structure?.levels?.pinZone;
-    const callWall = structure?.levels?.callWall;
-    const putFloor = structure?.levels?.putFloor;
-    const netGex = structure?.netGex;
-    const gammaCoverage = structure?.gammaCoverage;
+    const callWall = structure?.levels?.callWall || 0;
+    const putFloor = structure?.levels?.putFloor || 0;
+    const netGex = structure?.netGex || 0;
+    const maxPain = structure?.maxPain || 0;
+    const netPremium = liveQuote?.flow?.netPremium || 0;
+    const zeroDteRatio = structure?.gexZeroDteRatio || 0;
+    const hasRumor = krNews?.some((n: any) => n.isRumor && n.ageHours <= 24) || false;
+    const pcRatio = structure?.pcRatio || 0;
 
     const isFail = options_status !== 'OK';
-    const isRthOrPre = session === 'RTH' || session === 'PRE' || session === 'MARKET';
-    const inIdealPosition = (callWall && putFloor && displayPrice >= putFloor && displayPrice <= callWall) ||
-        (pinZone && Math.abs(displayPrice - pinZone) / displayPrice <= 0.02);
 
-    // 1. Base Status logic
-    if (isFail) {
-        status = 'FAIL';
-    } else if (isRthOrPre && inIdealPosition) {
-        status = 'PASS';
-    } else {
-        status = 'WATCH';
+    // === Loading State ===
+    if (isLoading) {
+        return (
+            <div className="flex flex-col h-full bg-transparent">
+                {/* Header - matching FLOW UNIT style */}
+                <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 shrink-0">
+                    <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
+                        <Zap size={10} />
+                        SIGNAL CORE
+                    </span>
+                    <span className="text-[9px] text-slate-500 font-medium uppercase tracking-wider">
+                        LOADING
+                    </span>
+                </div>
+                <div className="p-6 flex-1 flex flex-col items-center justify-center gap-3">
+                    <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                    <p className="text-xs text-slate-400">Collecting data...</p>
+                </div>
+            </div>
+        );
     }
 
-    // 2. Specific Conditions & Reasons
-    if (session === "CLOSED") {
-        reasons.push(t('marketClosed'));
-        if (status === 'PASS') status = 'WATCH';
+
+    // === Integrated Scoring ===
+    let bullScore = 0, bearScore = 0;
+    const insights: { text: string; type: 'bull' | 'bear' | 'neutral' }[] = [];
+
+    // 1. MACD
+    if (macdData?.signal === 'BUY') {
+        bullScore += 25;
+        insights.push({ text: 'MACD 매수신호', type: 'bull' });
+    } else if (macdData?.signal === 'SELL') {
+        bearScore += 25;
+        insights.push({ text: 'MACD 매도신호', type: 'bear' });
     }
 
-    if (isFail) {
-        reasons.push(t('optionsVerify'));
-        actionHint = t('optionsRecovery');
-    }
-
-    if (!isFail && netGex === null && (gammaCoverage !== undefined && gammaCoverage < 80)) {
-        status = 'WATCH';
-        reasons.push(t('gammaCoverageLow'));
-    }
-
-    if (pinZone && Math.abs(displayPrice - pinZone) / displayPrice <= 0.02) {
-        reasons.push(t('priceNearMagnet'));
-        if (netGex < 0) reasons.push(t('shortGammaVolUp'));
-        if (netGex > 0) reasons.push(t('longGammaVolDown'));
-    }
-
-    if (callWall && putFloor) {
-        if (displayPrice >= putFloor && displayPrice <= callWall) {
-            reasons.push(t('betweenLevels'));
-        } else if (displayPrice > callWall) {
-            reasons.push(t('aboveResistance'));
-            if (status === 'PASS') status = 'WATCH';
-        } else if (displayPrice < putFloor) {
-            reasons.push(t('belowSupport'));
-            if (status === 'PASS') status = 'WATCH';
+    // 2. Price vs Max Pain
+    if (maxPain > 0) {
+        const mpDist = ((displayPrice - maxPain) / maxPain) * 100;
+        if (mpDist > 3) {
+            bullScore += 15;
+            insights.push({ text: `Max Pain 상단`, type: 'bull' });
+        } else if (mpDist < -3) {
+            bearScore += 15;
+            insights.push({ text: `Max Pain 하단`, type: 'bear' });
+        } else {
+            insights.push({ text: `Max Pain 근접`, type: 'neutral' });
         }
     }
 
-
-    // 3. News safety downgrade
-    const hasMajorEvent = krNews.some((n: any) => {
-        return n.ageHours <= 24 && (n.tag === 'EARNINGS' || n.tag === 'REGULATION');
-    });
-    // [New] Rumor Check (Gemini AI)
-    const hasRumor = krNews.some((n: any) => n.isRumor && n.ageHours <= 24);
-
-    if (hasMajorEvent) {
-        reasons.push(t('majorEventNews'));
-        if (status === 'PASS') status = 'WATCH';
-        else if (status === 'WATCH') status = 'FAIL';
+    // 3. GEX
+    if (netGex > 0) {
+        bullScore += 10;
+        insights.push({ text: '롱감마 (안정)', type: 'bull' });
+    } else if (netGex < 0) {
+        bearScore += 5;
+        insights.push({ text: '숏감마 (변동성↑)', type: 'bear' });
     }
 
+    // 4. Flow
+    if (netPremium > 500000) {
+        bullScore += 15;
+        insights.push({ text: '콜 플로우 우세', type: 'bull' });
+    } else if (netPremium < -500000) {
+        bearScore += 15;
+        insights.push({ text: '풋 플로우 우세', type: 'bear' });
+    }
+
+    // 5. News
+    if (newsScore && newsScore.score >= 70) {
+        bullScore += 10;
+        insights.push({ text: '뉴스 긍정적', type: 'bull' });
+    } else if (newsScore && newsScore.score < 40) {
+        bearScore += 10;
+        insights.push({ text: '뉴스 부정적', type: 'bear' });
+    }
+
+    // 6. Rumor penalty
     if (hasRumor) {
-        reasons.push(t('rumorDetected'));
-        // Rumors are high risk, but could be opportunity. We flag it ensuring visibility.
-        // We force at least WATCH if currently PASS.
-        if (status === 'PASS') status = 'WATCH';
+        bearScore += 10;
+        insights.push({ text: '⚠️ 루머 감지', type: 'bear' });
     }
 
-    if (!actionHint) {
-        if (status === 'PASS') actionHint = t('structuralAdvantage');
-        else if (status === 'WATCH') actionHint = t('observeNeeded');
-        else actionHint = t('entryProhibited');
+    // 7. 0DTE
+    if (zeroDteRatio > 0.3) {
+        insights.push({ text: '0DTE 고비중', type: 'neutral' });
     }
+
+    // === Verdict ===
+    const diff = bullScore - bearScore;
+    let verdict: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'CAUTION' = 'NEUTRAL';
+    let verdictKR = '중립';
+    let briefing = '';
+    let subBriefing = '';
+
+    if (isFail) {
+        verdict = 'CAUTION';
+        verdictKR = '대기';
+        briefing = '옵션 데이터 검증 중입니다.';
+        subBriefing = '데이터 안정화 후 분석이 진행됩니다.';
+    } else if (session === 'CLOSED') {
+        verdict = 'NEUTRAL';
+        verdictKR = '마감';
+        briefing = '시장이 마감되었습니다.';
+        subBriefing = `${ticker}의 당일 분석이 종료되었습니다. 익일 개장 후 새로운 분석을 확인하세요.`;
+    } else if (diff >= 25) {
+        verdict = 'BULLISH';
+        verdictKR = '상승';
+        if (netGex > 0 && macdData?.signal === 'BUY') {
+            briefing = `${ticker}은 롱감마 환경에서 MACD 매수신호가 발생했습니다.`;
+            subBriefing = `딜러들의 감마 헷징으로 변동성이 억제되어 안정적인 상승 흐름이 예상됩니다. 저항선($${callWall})까지 상승 여력이 있으며, 지지선($${putFloor})이 하방을 방어합니다.`;
+        } else if (netPremium > 500000) {
+            briefing = `${ticker}에 콜 옵션 매수세가 우위를 보이고 있습니다.`;
+            subBriefing = `기관 플로우가 상승 방향으로 정렬되어 있으며, Max Pain($${maxPain}) 위에서 거래 중입니다. 저항선($${callWall}) 테스트 가능성이 높습니다.`;
+        } else {
+            briefing = `${ticker}은 복합 지표상 상승 우위입니다.`;
+            subBriefing = `MACD, 옵션 구조, 플로우 데이터가 전반적으로 상승 편향을 보이고 있습니다. 지지선($${putFloor})이 견고하며 추가 상승 여력이 있습니다.`;
+        }
+    } else if (diff <= -25) {
+        verdict = 'BEARISH';
+        verdictKR = '하락';
+        if (macdData?.signal === 'SELL' && netGex < 0) {
+            briefing = `${ticker}은 숏감마 환경에서 MACD 매도신호가 발생했습니다.`;
+            subBriefing = `딜러들의 역방향 헷징으로 가격 변동이 증폭될 수 있습니다. Max Pain($${maxPain})으로의 수렴 압력이 있으며, 지지선($${putFloor}) 이탈 시 하락 가속 가능성이 있습니다.`;
+        } else if (netPremium < -500000) {
+            briefing = `${ticker}에 풋 옵션 매수세가 우위를 보이고 있습니다.`;
+            subBriefing = `기관 플로우가 하락 방향으로 정렬되어 있습니다. 지지선($${putFloor}) 하단 이탈 시 추가 하락이 예상되며, Max Pain($${maxPain}) 수렴을 주시하세요.`;
+        } else {
+            briefing = `${ticker}은 복합 지표상 하락 우위입니다.`;
+            subBriefing = `MACD, 옵션 구조, 플로우 데이터가 전반적으로 하락 편향을 보이고 있습니다. 지지선($${putFloor}) 테스트 가능성이 있으며 신중한 접근이 필요합니다.`;
+        }
+    } else {
+        verdict = 'NEUTRAL';
+        verdictKR = '관망';
+        briefing = `${ticker}은 현재 방향성이 불명확합니다.`;
+        if (Math.abs(displayPrice - maxPain) / maxPain < 0.02) {
+            subBriefing = `현재가가 Max Pain($${maxPain}) 근처에서 거래 중이며 균형 상태입니다. 저항선($${callWall}) 또는 지지선($${putFloor}) 돌파 확인 후 방향 결정을 권장합니다.`;
+        } else {
+            subBriefing = `상승과 하락 요인이 혼재되어 있습니다. 주요 레벨(저항: $${callWall}, 지지: $${putFloor}) 돌파 시 추세 방향이 결정될 것으로 예상됩니다.`;
+        }
+    }
+
+    // === Styling ===
+    const verdictColors = {
+        BULLISH: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/40', glow: 'shadow-emerald-500/20' },
+        BEARISH: { bg: 'bg-rose-500/20', text: 'text-rose-400', border: 'border-rose-500/40', glow: 'shadow-rose-500/20' },
+        NEUTRAL: { bg: 'bg-slate-500/20', text: 'text-slate-400', border: 'border-slate-500/40', glow: '' },
+        CAUTION: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/40', glow: 'shadow-amber-500/20' },
+    };
+    const colors = verdictColors[verdict];
 
     return (
         <div className="flex flex-col h-full bg-transparent">
-            {/* Standard Header Strip */}
+            {/* Header - matching FLOW UNIT style */}
             <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 shrink-0">
                 <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
-                    <ShieldAlert size={10} />
-                    Risk Control
+                    <Zap size={10} />
+                    SIGNAL CORE
                 </span>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-black tracking-wider ${status === 'PASS' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                    status === 'WATCH' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                        'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                    }`}>
-                    {status}
+                <span className={`text-[9px] font-medium uppercase tracking-wider ${colors.text}`}>
+                    {verdict}
                 </span>
             </div>
 
-            {/* Content Area */}
-            <div className={`p-3 space-y-3 relative ${status === 'PASS' ? 'bg-emerald-950/5' : status === 'WATCH' ? 'bg-amber-950/5' : 'bg-rose-950/5'}`}>
-                {/* Side Border Indicator Replaced by Inner Tint or just clean */}
-                <div className={`absolute left-0 top-0 bottom-0 w-1 ${status === 'PASS' ? 'bg-emerald-500' : status === 'WATCH' ? 'bg-amber-500' : 'bg-rose-500'}`} />
+            {/* Main Content */}
+            <div className="p-4 space-y-3 flex-1">
+                {/* Briefing */}
+                <div className={`p-3 rounded-xl ${colors.bg} border ${colors.border}`}>
+                    <p className="text-sm text-white font-semibold leading-relaxed">
+                        {briefing}
+                    </p>
+                    <p className="text-xs text-white/70 leading-relaxed mt-2">
+                        {subBriefing}
+                    </p>
+                </div>
 
-                <div className="space-y-1.5 pl-2">
-                    {reasons.slice(0, 4).map((r, i) => (
-                        <div key={i} className="text-[11px] font-bold text-slate-400 flex items-start gap-2">
-                            <span className="mt-1 w-1 h-1 rounded-full bg-slate-600 shrink-0" />
-                            <span className="leading-tight">{r}</span>
-                        </div>
-                    ))}
-                    {reasons.length === 0 && <div className="text-[11px] text-slate-500 italic">{t('noIssues')}</div>}
+                {/* Key Insights Grid */}
+                <div className="space-y-2">
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">핵심 지표</div>
+                    <div className="flex flex-wrap gap-1.5">
+                        {insights.slice(0, 6).map((item, i) => (
+                            <span
+                                key={i}
+                                className={`text-[10px] font-bold px-2 py-1 rounded-lg ${item.type === 'bull' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                    item.type === 'bear' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
+                                        'bg-slate-700/50 text-slate-400 border border-slate-600/30'
+                                    }`}
+                            >
+                                {item.text}
+                            </span>
+                        ))}
+                    </div>
                 </div>
-                {/* Rumor Detection Status (Compact) */}
-                <div className="flex items-center justify-between text-[10px] py-1.5 px-2 rounded bg-slate-800/50 border border-white/5 ml-2">
-                    <span className="text-slate-500 font-bold uppercase tracking-wider">AI Rumor</span>
-                    {hasRumor ? (
-                        <span className="text-rose-400 font-black flex items-center gap-1">
-                            <AlertCircle size={10} /> {t('detected')}
-                        </span>
-                    ) : (
-                        <span className="text-emerald-400 font-black">✓ Clean</span>
-                    )}
-                </div>
-                <div className="text-[10px] font-medium text-slate-400 border-t border-white/5 pt-2 flex items-center gap-2 pl-2">
-                    <Zap size={10} className="text-amber-400 shrink-0" />
-                    <span className="truncate">{actionHint}</span>
-                </div>
+
+
             </div>
         </div>
     );
+
+
 };
 
 export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics }: Props) {
@@ -191,9 +275,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [quoteLoading, setQuoteLoading] = useState(false);
     const [newsLoading, setNewsLoading] = useState(false);
     const [selectedExp, setSelectedExp] = useState<string>("");
+    // [S-124.6] Quick Intel Gauges State
+    const [newsScore, setNewsScore] = useState<{ score: number; label: string } | null>(null);
+    const [riskFactors, setRiskFactors] = useState<{ count: number; status: string } | null>(null);
+    const [macdData, setMacdData] = useState<{ signal: string; label: string; histogram: number } | null>(null);
+    const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(null);
 
-    // [Phase 50] Tab Navigation
-    const [activeTab, setActiveTab] = useState<'COMMAND' | 'FLOW'>('COMMAND');
+
 
     // i18n translations
     const t = useTranslations('command');
@@ -276,10 +364,76 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         } finally { setOptionsLoading(false); }
     };
 
+    // [S-124.6] Fetch News Score
+    const fetchNewsScore = async () => {
+        try {
+            const res = await fetch(`/api/live/news?t=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                const items = data.items || [];
+                // Calculate sentiment score
+                let score = 50; // neutral baseline
+                items.forEach((item: any) => {
+                    if (item.sentiment === 'positive') score += 5;
+                    else if (item.sentiment === 'negative') score -= 5;
+                });
+                score = Math.max(0, Math.min(100, score));
+                const label = score >= 70 ? '양호' : score >= 40 ? '중립' : '주의';
+                setNewsScore({ score, label });
+            }
+        } catch (e) { console.warn('[NewsScore] Error:', e); }
+    };
+
+    // [S-124.6] Fetch SEC Risk Factors
+    const fetchRiskFactors = async () => {
+        try {
+            const res = await fetch(`/api/live/risk-factors?t=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                const count = data.count || 0;
+                const status = count >= 10 ? '주의' : count >= 5 ? '보통' : '양호';
+                setRiskFactors({ count, status });
+            }
+        } catch (e) { console.warn('[RiskFactors] Error:', e); }
+    };
+
+    // [S-124.6] Fetch MACD Signal
+    const fetchMacd = async () => {
+        try {
+            const res = await fetch(`/api/live/macd?t=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                setMacdData({
+                    signal: data.signal || 'NEUTRAL',
+                    label: data.label || '중립',
+                    histogram: data.histogram || 0
+                });
+            }
+        } catch (e) { console.warn('[MACD] Error:', e); }
+    };
+
+    // [S-124.6] Fetch Related Tickers
+    const fetchRelated = async () => {
+        try {
+            const res = await fetch(`/api/live/related?t=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                setRelatedData({
+                    count: data.count || 0,
+                    topRelated: data.topRelated || []
+                });
+            }
+        } catch (e) { console.warn('[Related] Error:', e); }
+    };
+
     // Initial Load & Polling
     useEffect(() => {
         fetchQuote();
         fetchKrNews();
+        fetchNewsScore();
+        fetchRiskFactors();
+        fetchMacd();
+        fetchRelated();
         const interval = setInterval(fetchQuote, 10000); // Poll quote every 10s
         return () => {
             clearInterval(interval);
@@ -433,8 +587,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     return (
         <div className="w-full max-w-[1600px] mx-auto space-y-6">
 
-            {/* 1. TOP HEADER (Consolidated Left Layout) */}
-            <div className="flex flex-col gap-4 pb-6 border-b border-white/10">
+            {/* 1. TOP HEADER (Consolidated Left Layout) - Sticky below main header */}
+            <div className="sticky top-[78px] z-30 bg-slate-950/90 backdrop-blur-md flex flex-col gap-4 pb-6 border-b border-white/10">
                 {/* Row 1: Identity & Price & Extended (Inline) */}
                 <div className="flex items-end gap-x-6 flex-wrap">
                     {/* Identity Group */}
@@ -529,27 +683,145 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
             </div>
 
-            {/* [Phase 50] Tab Navigation (Holographic) */}
-            <div className="flex items-center gap-1 bg-slate-900/40 w-fit p-1 rounded-lg border border-white/5 mb-6 backdrop-blur-sm shadow-lg">
-                <button
-                    onClick={() => setActiveTab('COMMAND')}
-                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] flex items-center gap-2 ${activeTab === 'COMMAND' ? 'bg-indigo-600/90 text-white shadow-[0_0_15px_rgba(79,70,229,0.4)] ring-1 ring-white/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                >
-                    <Layers size={12} />
-                    Command
-                </button>
-                <button
-                    onClick={() => setActiveTab('FLOW')}
-                    className={`px-6 py-2 text-[10px] font-black rounded-md transition-all uppercase tracking-[0.15em] flex items-center gap-2 ${activeTab === 'FLOW' ? 'bg-emerald-600/90 text-white shadow-[0_0_15px_rgba(16,185,129,0.4)] ring-1 ring-white/20' : 'bg-slate-800/40 border border-white/5 text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/20 hover:shadow-lg'}`}
-                >
-                    <Target size={12} className={activeTab === 'FLOW' ? "" : "text-sky-500/70"} />
-                    Flow Radar
-                </button>
+            {/* [S-124.6] Quick Intel Gauges Bar - Clean/Bright Design */}
+            <div className="grid grid-cols-5 gap-2 mt-4 mb-2">
+                {/* News Sentiment Gauge */}
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                            <Newspaper className="w-4 h-4 text-amber-400" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">뉴스</span>
+                        </div>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${newsScore && newsScore.score >= 70 ? 'bg-emerald-500/20 text-emerald-400' : newsScore && newsScore.score < 40 ? 'bg-rose-500/20 text-rose-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                            {newsScore?.label || '...'}
+                        </span>
+                    </div>
+                    <div className="flex items-center justify-center">
+                        <svg width="80" height="45" viewBox="0 0 100 55" className="overflow-visible">
+                            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" strokeLinecap="round" />
+                            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none"
+                                stroke={newsScore && newsScore.score >= 70 ? '#10b981' : newsScore && newsScore.score < 40 ? '#f43f5e' : '#f59e0b'}
+                                strokeWidth="8" strokeLinecap="round"
+                                strokeDasharray={Math.PI * 40}
+                                strokeDashoffset={Math.PI * 40 - (Math.PI * 40 * (newsScore?.score || 50) / 100)}
+                                style={{ transition: 'stroke-dashoffset 1s' }}
+                            />
+                            <text x="50" y="42" textAnchor="middle" className="fill-white text-lg font-black">{newsScore?.score || '--'}</text>
+                        </svg>
+                    </div>
+                </div>
+
+                {/* SEC Risk Factors Gauge */}
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                            <ShieldAlert className="w-4 h-4 text-rose-400" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">SEC</span>
+                        </div>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${riskFactors && riskFactors.count >= 10 ? 'bg-rose-500/20 text-rose-400' : riskFactors && riskFactors.count >= 5 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+                            {riskFactors?.status || '...'}
+                        </span>
+                    </div>
+                    <div className="flex items-center justify-center">
+                        <div className="text-center">
+                            <div className="text-2xl font-black text-white">{riskFactors?.count ?? '--'}<span className="text-sm text-white/60">건</span></div>
+                            <div className="text-[8px] text-white/50">10-K 위험요소</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* VWAP Gauge */}
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                            <Activity className="w-4 h-4 text-indigo-400" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">VWAP</span>
+                        </div>
+                        {(() => {
+                            const vwap = liveQuote?.prices?.vwap || initialStockData.vwap || 0;
+                            const price = displayPrice || 0;
+                            const diff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
+                            return (
+                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${diff > 0 ? 'bg-emerald-500/20 text-emerald-400' : diff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white/60'}`}>
+                                    {diff > 0 ? `+${diff.toFixed(1)}%` : `${diff.toFixed(1)}%`}
+                                </span>
+                            );
+                        })()}
+                    </div>
+                    {(() => {
+                        const vwap = liveQuote?.prices?.vwap || initialStockData.vwap || 0;
+                        const price = displayPrice || 0;
+                        const diff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
+                        return (
+                            <div className="flex items-center justify-center">
+                                <div className="text-center">
+                                    <div className={`text-xl font-black font-mono ${diff > 0 ? 'text-emerald-400' : diff < 0 ? 'text-rose-400' : 'text-white'}`}>
+                                        ${vwap.toFixed(2)}
+                                    </div>
+                                    <div className="text-[8px] text-white/50">거래량 가중평균</div>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* MACD Signal Gauge */}
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                            <TrendingUp className="w-4 h-4 text-cyan-400" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">MACD</span>
+                        </div>
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${macdData?.signal === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : macdData?.signal === 'SELL' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white/60'}`}>
+                            {macdData?.label || '...'}
+                        </span>
+                    </div>
+                    <div className="flex items-center justify-center">
+                        <div className="text-center">
+                            <div className={`text-xl font-black ${macdData?.signal === 'BUY' ? 'text-emerald-400' : macdData?.signal === 'SELL' ? 'text-rose-400' : 'text-white/60'}`}>
+                                {macdData?.signal || '--'}
+                            </div>
+                            <div className="text-[8px] text-white/50">히스토그램: {macdData?.histogram?.toFixed(2) || '--'}</div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Related Tickers Gauge */}
+                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                        <Layers className="w-4 h-4 text-violet-400" />
+                        <span className="text-[10px] font-bold text-white uppercase tracking-wider">연관</span>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                        {relatedData?.topRelated && relatedData.topRelated.length > 0 ? (
+                            relatedData.topRelated.slice(0, 2).map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between">
+                                    <div className="flex items-center gap-1.5">
+                                        <img
+                                            src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
+                                            alt={item.ticker}
+                                            className="w-4 h-4 rounded-sm bg-white/10"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                        <span className="text-xs font-bold text-white">{item.ticker}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-xs text-white font-mono">${item.price}</span>
+                                        <span className={`text-xs font-bold ${item.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {item.change >= 0 ? '+' : ''}{item.change}%
+                                        </span>
+                                    </div>
+                                </div>
+                            ))
+                        ) : (
+                            <div className="text-[9px] text-white/50 text-center">로딩중...</div>
+                        )}
+                    </div>
+                </div>
             </div>
 
-            {/* 2. COMMAND GRID (12 Cols) */}
-            {/* 2. COMMAND GRID (2 Columns: Main vs Sidebar) */}
-            {activeTab === 'COMMAND' ? (
+            {/* COMMAND GRID (2 Columns: Main vs Sidebar) */}
+            {(
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[800px]">
 
                     {/* MAIN COLUMN (8 Cols) - Flex Structure */}
@@ -1088,6 +1360,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 session={effectiveSession}
                                 structure={structure}
                                 krNews={krNews}
+                                macdData={macdData}
+                                newsScore={newsScore}
+                                liveQuote={liveQuote}
                             />
                         </div>
 
@@ -1106,7 +1381,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     callPremium={liveQuote?.flow?.callPremium || 0}
                                     putPremium={liveQuote?.flow?.putPremium || 0}
                                     optionsCount={liveQuote?.flow?.optionsCount || 0}
-                                    onClickFlowRadar={() => setActiveTab('FLOW')}
                                 />
                             </div>
                         </div>
@@ -1165,16 +1439,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </div>
 
                 </div>
-            ) : (
-                <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <FlowRadar
-                        ticker={ticker}
-                        rawChain={liveQuote?.flow?.rawChain || initialStockData?.flow?.rawChain || []}
-                        currentPrice={displayPrice}
-                    />
-                </div>
-            )
-            }
+            )}
         </div >
     );
 }

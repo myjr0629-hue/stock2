@@ -121,7 +121,7 @@ function FlowPageContent() {
 
             {/* Main Content Container */}
             <div className="flex-1 relative">
-                {/* Background Effects (EXACT copy from login/page.tsx L87-92) */}
+                {/* Background Effects */}
                 <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
                     <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-600/30 rounded-full blur-[150px]" />
                     <div className="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-cyan-600/25 rounded-full blur-[150px]" />
@@ -130,10 +130,10 @@ function FlowPageContent() {
                 </div>
 
                 {/* Content - pt adjusted for fixed header (nav 48px + ticker ~40px) */}
-                <main className="relative z-10 mx-auto max-w-[1400px] w-full px-4 sm:px-6 pb-24 min-h-screen">
+                <main className="relative z-10 mx-auto max-w-[1400px] w-full px-4 sm:px-6 pb-48 min-h-screen">
 
-                    {/* Ticker Header */}
-                    <div className="flex flex-col gap-4 pb-6 border-b border-white/10 mb-6">
+                    {/* Ticker Header - Sticky below main header */}
+                    <div className="sticky top-[78px] z-30 bg-[#0a0f1a]/90 backdrop-blur-md flex flex-col gap-4 pb-6 border-b border-white/10 mb-6">
                         <div className="flex items-end gap-x-6 flex-wrap">
                             {/* Identity Group */}
                             <div className="flex items-center gap-3">

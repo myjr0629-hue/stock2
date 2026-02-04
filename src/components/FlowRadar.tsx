@@ -339,6 +339,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
     // [PREMIUM] Gamma Squeeze Probability - SpotGamma-Style Model
     // Reference: GEX normalization, ATM Gamma concentration, Dealer hedging pressure
+    // [S-124.5] Updated to use 0-7 DTE only for consistency with Options Battlefield
     const squeezeProbability = useMemo(() => {
         // Loading state - 데이터가 완전히 준비될 때까지 로딩 표시
         const isLoading = !rawChain || rawChain.length === 0 || currentPrice === 0;
@@ -347,18 +348,38 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             return { value: 0, label: '분석 중', color: 'text-slate-400', factors: [], debug: {}, isLoading: true };
         }
 
+        // [S-124.5] Filter for 0-7 DTE options only (Weekly expiry)
+        const squeezeDateBase = new Date();
+        squeezeDateBase.setHours(0, 0, 0, 0);
+        const weeklyExpiry = new Date(squeezeDateBase);
+        weeklyExpiry.setDate(squeezeDateBase.getDate() + 7);
+
+        const weeklyOptions = rawChain.filter(opt => {
+            const expiryStr = opt.details?.expiration_date;
+            if (!expiryStr) return false;
+            const parts = expiryStr.split('-');
+            if (parts.length !== 3) return false;
+            const expiry = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            return expiry >= squeezeDateBase && expiry <= weeklyExpiry;
+        });
+
+        // If no weekly options, fall back to showing loading state
+        if (weeklyOptions.length === 0) {
+            return { value: 0, label: '주간 데이터 없음', color: 'text-slate-400', factors: [], debug: { weeklyCount: 0 }, isLoading: false };
+        }
+
         const factors: { name: string; contribution: number; active: boolean }[] = [];
         let score = 0;
 
         // ============================================
         // 1. GEX INTENSITY (0-35 points) - Core Metric
         // ============================================
-        // Calculate Net Gamma Exposure across all strikes
+        // Calculate Net Gamma Exposure across weekly strikes only
         let totalGex = 0;
         let totalOI = 0;
         let atmGex = 0; // ATM = within 2% of current price
 
-        rawChain.forEach(opt => {
+        weeklyOptions.forEach(opt => {
             const gamma = opt.greeks?.gamma || 0;
             const oi = opt.open_interest || opt.day?.open_interest || 0;
             const strike = opt.details?.strike_price || 0;
@@ -377,6 +398,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                 atmGex += Math.abs(dealerGex);
             }
         });
+
 
         // Normalize GEX by market cap proxy (price * OI as rough proxy)
         const marketProxy = currentPrice * (totalOI || 1);
@@ -1173,32 +1195,106 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
 
                         <CardContent className="p-4 pb-8 flex flex-col relative z-10">
-                            {/* CALL WALL + PUT FLOOR: 2-Column Grid */}
-                            <div className="grid grid-cols-2 gap-2">
-                                {/* CALL WALL */}
-                                <div className="bg-gradient-to-br from-emerald-950/30 to-slate-900/50 border border-emerald-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-emerald-500/40 transition-all">
-                                    <div className="absolute inset-0 bg-emerald-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="flex items-center gap-1.5 mb-2 relative z-10">
-                                        <div className="w-1.5 h-1.5 bg-emerald-500 rounded-sm shadow-[0_0_5px_rgba(16,185,129,0.8)] animate-pulse" />
-                                        <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">CALL WALL</span>
-                                    </div>
-                                    <div className="text-2xl font-black text-emerald-400 font-mono relative z-10" style={{ textShadow: '0 0 10px rgba(52,211,153,0.5)' }}>
-                                        ${callWall}
-                                    </div>
-                                    <div className="text-[9px] text-emerald-500/70 mt-1 relative z-10">{t('resistance')}</div>
-                                </div>
+                            {/* Current Price Position - Semicircle Gauge (Moved to Top) */}
+                            <div className="mb-4 bg-slate-800/30 rounded-lg p-4 border border-white/5">
+                                <div className="text-[10px] text-white font-bold uppercase tracking-wider mb-3 text-center">현재가 위치</div>
+                                {(() => {
+                                    const totalRange = callWall - putWall;
+                                    const currentPos = currentPrice - putWall;
+                                    let pct = totalRange > 0 ? (currentPos / totalRange) * 100 : 50;
+                                    pct = Math.max(0, Math.min(100, pct));
 
-                                {/* PUT FLOOR */}
+                                    // SVG semicircle gauge
+                                    const radius = 60;
+                                    const strokeWidth = 10;
+                                    const circumference = Math.PI * radius;
+                                    const progressOffset = circumference - (pct / 100) * circumference;
+
+                                    // Determine color based on position
+                                    let gaugeColor = '#6366f1'; // indigo (middle)
+                                    if (pct < 30) gaugeColor = '#f43f5e'; // rose (near support)
+                                    else if (pct > 70) gaugeColor = '#10b981'; // emerald (near resistance)
+
+                                    return (
+                                        <div className="flex flex-col items-center">
+                                            <svg width="140" height="80" viewBox="0 0 140 80" className="overflow-visible">
+                                                {/* Background arc */}
+                                                <path
+                                                    d="M 10 70 A 60 60 0 0 1 130 70"
+                                                    fill="none"
+                                                    stroke="rgba(255,255,255,0.1)"
+                                                    strokeWidth={strokeWidth}
+                                                    strokeLinecap="round"
+                                                />
+                                                {/* Progress arc */}
+                                                <path
+                                                    d="M 10 70 A 60 60 0 0 1 130 70"
+                                                    fill="none"
+                                                    stroke={gaugeColor}
+                                                    strokeWidth={strokeWidth}
+                                                    strokeLinecap="round"
+                                                    strokeDasharray={circumference}
+                                                    strokeDashoffset={progressOffset}
+                                                    style={{
+                                                        filter: `drop-shadow(0 0 6px ${gaugeColor})`,
+                                                        transition: 'stroke-dashoffset 1s ease-out, stroke 0.5s'
+                                                    }}
+                                                />
+                                                {/* Center current price */}
+                                                <text x="70" y="55" textAnchor="middle" className="fill-white text-lg font-black">
+                                                    ${currentPrice.toFixed(2)}
+                                                </text>
+                                                {/* Percentage */}
+                                                <text x="70" y="72" textAnchor="middle" className="fill-slate-400 text-[10px]">
+                                                    {pct.toFixed(0)}%
+                                                </text>
+                                            </svg>
+                                            {/* Labels */}
+                                            <div className="flex justify-between w-full mt-1 px-1">
+                                                <div className="text-[10px] text-rose-400 font-mono">${putWall}</div>
+                                                <div className="text-[10px] text-emerald-400 font-mono">${callWall}</div>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
+                            </div>
+
+                            {/* PUT FLOOR + CALL WALL: 2-Column Grid (Swapped Order) */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {/* PUT FLOOR (Left - Support) */}
                                 <div className="bg-gradient-to-br from-rose-950/30 to-slate-900/50 border border-rose-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-rose-500/40 transition-all">
                                     <div className="absolute inset-0 bg-rose-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="flex items-center gap-1.5 mb-2 relative z-10">
-                                        <div className="w-1.5 h-1.5 bg-rose-500 rounded-sm shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse" />
-                                        <span className="text-[9px] text-rose-400 font-bold uppercase tracking-wider">PUT FLOOR</span>
+                                    <div className="flex items-center justify-between mb-2 relative z-10">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 bg-rose-500 rounded-sm shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse" />
+                                            <span className="text-[9px] text-rose-400 font-bold uppercase tracking-wider">PUT FLOOR</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-rose-400">
+                                            {currentPrice > 0 && putWall > 0 ? `${(((currentPrice - putWall) / currentPrice) * 100).toFixed(1)}%↑` : '-'}
+                                        </span>
                                     </div>
                                     <div className="text-2xl font-black text-rose-400 font-mono relative z-10" style={{ textShadow: '0 0 10px rgba(251,113,133,0.5)' }}>
                                         ${putWall}
                                     </div>
                                     <div className="text-[9px] text-rose-500/70 mt-1 relative z-10">{t('support')}</div>
+                                </div>
+
+                                {/* CALL WALL (Right - Resistance) */}
+                                <div className="bg-gradient-to-br from-emerald-950/30 to-slate-900/50 border border-emerald-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-emerald-500/40 transition-all">
+                                    <div className="absolute inset-0 bg-emerald-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    <div className="flex items-center justify-between mb-2 relative z-10">
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-sm shadow-[0_0_5px_rgba(16,185,129,0.8)] animate-pulse" />
+                                            <span className="text-[9px] text-emerald-400 font-bold uppercase tracking-wider">CALL WALL</span>
+                                        </div>
+                                        <span className="text-[10px] font-bold text-emerald-400">
+                                            {currentPrice > 0 && callWall > 0 ? `${(((callWall - currentPrice) / currentPrice) * 100).toFixed(1)}%↓` : '-'}
+                                        </span>
+                                    </div>
+                                    <div className="text-2xl font-black text-emerald-400 font-mono relative z-10" style={{ textShadow: '0 0 10px rgba(52,211,153,0.5)' }}>
+                                        ${callWall}
+                                    </div>
+                                    <div className="text-[9px] text-emerald-500/70 mt-1 relative z-10">{t('resistance')}</div>
                                 </div>
                             </div>
 
@@ -1471,70 +1567,6 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            {/* Current Price Position - Semicircle Gauge */}
-                            <div className="mt-4 bg-slate-800/30 rounded-lg p-4 border border-white/5">
-                                <div className="text-[10px] text-white font-bold uppercase tracking-wider mb-3 text-center">현재가 위치</div>
-                                {(() => {
-                                    const totalRange = callWall - putWall;
-                                    const currentPos = currentPrice - putWall;
-                                    let pct = totalRange > 0 ? (currentPos / totalRange) * 100 : 50;
-                                    pct = Math.max(0, Math.min(100, pct));
-
-                                    // SVG semicircle gauge
-                                    const radius = 60;
-                                    const strokeWidth = 10;
-                                    const circumference = Math.PI * radius;
-                                    const progressOffset = circumference - (pct / 100) * circumference;
-
-                                    // Determine color based on position
-                                    let gaugeColor = '#6366f1'; // indigo (middle)
-                                    if (pct < 30) gaugeColor = '#f43f5e'; // rose (near support)
-                                    else if (pct > 70) gaugeColor = '#10b981'; // emerald (near resistance)
-
-                                    return (
-                                        <div className="flex flex-col items-center">
-                                            <svg width="140" height="80" viewBox="0 0 140 80" className="overflow-visible">
-                                                {/* Background arc */}
-                                                <path
-                                                    d="M 10 70 A 60 60 0 0 1 130 70"
-                                                    fill="none"
-                                                    stroke="rgba(255,255,255,0.1)"
-                                                    strokeWidth={strokeWidth}
-                                                    strokeLinecap="round"
-                                                />
-                                                {/* Progress arc */}
-                                                <path
-                                                    d="M 10 70 A 60 60 0 0 1 130 70"
-                                                    fill="none"
-                                                    stroke={gaugeColor}
-                                                    strokeWidth={strokeWidth}
-                                                    strokeLinecap="round"
-                                                    strokeDasharray={circumference}
-                                                    strokeDashoffset={progressOffset}
-                                                    style={{
-                                                        filter: `drop-shadow(0 0 6px ${gaugeColor})`,
-                                                        transition: 'stroke-dashoffset 1s ease-out, stroke 0.5s'
-                                                    }}
-                                                />
-                                                {/* Center current price */}
-                                                <text x="70" y="55" textAnchor="middle" className="fill-white text-lg font-black">
-                                                    ${currentPrice.toFixed(2)}
-                                                </text>
-                                                {/* Percentage */}
-                                                <text x="70" y="72" textAnchor="middle" className="fill-slate-400 text-[10px]">
-                                                    {pct.toFixed(0)}%
-                                                </text>
-                                            </svg>
-                                            {/* Labels */}
-                                            <div className="flex justify-between w-full mt-1 px-1">
-                                                <div className="text-[10px] text-rose-400 font-mono">${putWall}</div>
-                                                <div className="text-[10px] text-emerald-400 font-mono">${callWall}</div>
-                                            </div>
-                                        </div>
-                                    );
-                                })()}
                             </div>
                         </CardContent>
                     </Card>
