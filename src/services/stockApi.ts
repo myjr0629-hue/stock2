@@ -432,7 +432,8 @@ function calculateGemsGreeks(contracts: any[], spot: number, targetDate?: string
     const gamma = c.greeks?.gamma || 0;
     const OI = Number(c.open_interest) || 0;
     const val = (gamma * OI * 100);
-    const flow = c.contract_type === 'call' ? val : -val;
+    // [SPOTGAMMA STANDARD] Dealer Perspective: Call=-1, Put=+1
+    const flow = c.contract_type === 'call' ? -val : val;
     const strike = Number(c.strike_price) || 0;
 
     totalGex += flow;

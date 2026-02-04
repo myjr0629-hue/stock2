@@ -27,14 +27,24 @@ function getNextTradingDayET(): string {
     return toYYYYMMDD_ET(result);
 }
 
-async function fetchMassiveWithRetry(url: string, attempts = 3): Promise<any> {
+async function fetchMassiveWithRetry(url: string, maxAttempts = 3): Promise<any> {
     const start = Date.now();
-    try {
-        const data = await fetchMassive(url, {}, false, undefined, CACHE_POLICY.LIVE);
-        return { data, latency: Date.now() - start, success: true, attempts: 1 };
-    } catch (e: any) {
-        return { success: false, error: e.message, attempts: attempts };
+    let lastError: string = '';
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        try {
+            const data = await fetchMassive(url, {}, false, undefined, CACHE_POLICY.LIVE);
+            return { data, latency: Date.now() - start, success: true, attempts: attempt };
+        } catch (e: any) {
+            lastError = e.message;
+            console.log(`[RETRY] Attempt ${attempt}/${maxAttempts} failed for ${url.slice(0, 60)}...: ${e.message}`);
+            if (attempt < maxAttempts) {
+                // Exponential backoff: 200ms, 400ms, 800ms...
+                await new Promise(resolve => setTimeout(resolve, 200 * Math.pow(2, attempt - 1)));
+            }
+        }
     }
+    return { success: false, error: lastError, attempts: maxAttempts };
 }
 
 export async function GET(req: NextRequest) {
@@ -246,7 +256,11 @@ export async function GET(req: NextRequest) {
         cleanContracts.forEach(c => {
             const g = c.greeks?.gamma;
             if (typeof g === 'number' && isFinite(g) && g !== 0) {
-                const dir = c.type === 'call' ? 1 : -1;
+                // [SPOTGAMMA STANDARD] Dealer Perspective:
+                // Dealer sells options = short gamma on calls, long gamma on puts
+                // Call: dir = -1 (dealer hedges by buying when price rises)
+                // Put: dir = +1 (dealer hedges by selling when price falls)
+                const dir = c.type === 'call' ? -1 : 1;
                 const gex = g * c.oi * 100 * dir;
                 gexByStrike.set(c.k, (gexByStrike.get(c.k) || 0) + gex);
                 gammaDataCount++;
@@ -334,7 +348,8 @@ export async function GET(req: NextRequest) {
                         const type = c.details?.contract_type;
 
                         if (strike && typeof gamma === 'number' && isFinite(gamma) && gamma !== 0 && oi > 0) {
-                            const dir = type === 'call' ? 1 : -1;
+                            // [SPOTGAMMA STANDARD] Dealer Perspective: Call=-1, Put=+1
+                            const dir = type === 'call' ? -1 : 1;
                             const gex = gamma * oi * 100 * dir;
                             multiGexByStrike.set(strike, (multiGexByStrike.get(strike) || 0) + gex);
                         }
