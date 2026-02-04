@@ -2,11 +2,11 @@
 // FLOW - Options Intelligence Page (Flow Radar moved from COMMAND)
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { FlowRadar } from '@/components/FlowRadar';
-import { Heart, TrendingUp, TrendingDown, Loader2 } from 'lucide-react';
+import { TrendingUp, TrendingDown, Loader2, RefreshCw } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
 
 interface QuoteData {
@@ -14,21 +14,65 @@ interface QuoteData {
     changePercent: number;
     prevClose: number;
     name?: string;
-    flow?: {
-        rawChain: any[];
+}
+
+interface StructureData {
+    underlyingPrice: number;
+    structure: {
+        strikes: number[];
+        callsOI: number[];
+        putsOI: number[];
+        callsVol?: number[];
+        putsVol?: number[];
     };
 }
 
-export default function FlowPage() {
+// Convert structure data to rawChain format for FlowRadar
+function convertToRawChain(structure: StructureData): any[] {
+    if (!structure?.structure?.strikes) return [];
+
+    const { strikes, callsOI, putsOI, callsVol, putsVol } = structure.structure;
+    const rawChain: any[] = [];
+
+    strikes.forEach((strike, i) => {
+        // Add call contract
+        rawChain.push({
+            details: {
+                strike_price: strike,
+                contract_type: 'call',
+                expiration_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] // Assume 7 DTE
+            },
+            open_interest: callsOI?.[i] || 0,
+            day: { volume: callsVol?.[i] || 0 }
+        });
+        // Add put contract
+        rawChain.push({
+            details: {
+                strike_price: strike,
+                contract_type: 'put',
+                expiration_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+            },
+            open_interest: putsOI?.[i] || 0,
+            day: { volume: putsVol?.[i] || 0 }
+        });
+    });
+
+    return rawChain;
+}
+
+function FlowPageContent() {
     const searchParams = useSearchParams();
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'TSLA';
 
     const [quote, setQuote] = useState<QuoteData | null>(null);
-    const [loading, setLoading] = useState(true);
     const [rawChain, setRawChain] = useState<any[]>([]);
+    const [currentPrice, setCurrentPrice] = useState(0);
+    const [loading, setLoading] = useState(true);
+    const [quoteLoading, setQuoteLoading] = useState(false);
 
     // Fetch quote data
     const fetchQuote = useCallback(async () => {
+        setQuoteLoading(true);
         try {
             const res = await fetch(`/api/live/quote?t=${ticker}`);
             if (res.ok) {
@@ -36,25 +80,32 @@ export default function FlowPage() {
                 setQuote({
                     price: data.display?.price || data.price || 0,
                     changePercent: data.display?.changePctPct || data.changePercent || 0,
-                    prevClose: data.prevClose || 0,
+                    prevClose: data.prevClose || data.prices?.prevRegularClose || 0,
                     name: data.name || ticker,
                 });
+                setCurrentPrice(data.display?.price || data.price || 0);
             }
         } catch (e) {
             console.error('[Flow] Quote fetch error:', e);
+        } finally {
+            setQuoteLoading(false);
         }
     }, [ticker]);
 
-    // Fetch flow/rawChain data
-    const fetchFlow = useCallback(async () => {
+    // Fetch structure data and convert to rawChain
+    const fetchStructure = useCallback(async () => {
         try {
-            const res = await fetch(`/api/live/options/atm?t=${ticker}`);
+            const res = await fetch(`/api/live/options/structure?t=${ticker}`);
             if (res.ok) {
                 const data = await res.json();
-                setRawChain(data.rawChain || []);
+                if (data.underlyingPrice) {
+                    setCurrentPrice(data.underlyingPrice);
+                }
+                const chain = convertToRawChain(data);
+                setRawChain(chain);
             }
         } catch (e) {
-            console.error('[Flow] ATM fetch error:', e);
+            console.error('[Flow] Structure fetch error:', e);
         } finally {
             setLoading(false);
         }
@@ -62,15 +113,20 @@ export default function FlowPage() {
 
     useEffect(() => {
         setLoading(true);
+        setRawChain([]);
         fetchQuote();
-        fetchFlow();
+        fetchStructure();
 
         // Polling for live updates
-        const interval = setInterval(fetchQuote, 10000);
-        return () => clearInterval(interval);
-    }, [ticker, fetchQuote, fetchFlow]);
+        const quoteInterval = setInterval(fetchQuote, 10000);
+        const structInterval = setInterval(fetchStructure, 30000);
+        return () => {
+            clearInterval(quoteInterval);
+            clearInterval(structInterval);
+        };
+    }, [ticker, fetchQuote, fetchStructure]);
 
-    const displayPrice = quote?.price || 0;
+    const displayPrice = quote?.price || currentPrice || 0;
     const changePct = quote?.changePercent || 0;
     const isPositive = changePct >= 0;
 
@@ -90,45 +146,73 @@ export default function FlowPage() {
             {/* Main Content */}
             <main className="relative z-10 mx-auto max-w-7xl w-full px-6 lg:px-8 pt-20 pb-12">
 
-                {/* Ticker Header (same style as COMMAND) */}
-                <div className="flex items-center gap-6 mb-8">
-                    {/* Logo */}
-                    <div className="w-14 h-14 rounded-xl bg-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden">
-                        <img
-                            src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
-                            alt={ticker}
-                            className="w-10 h-10 object-contain"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                        />
+                {/* Ticker Header (COMMAND Style Match) */}
+                <div className="flex flex-col gap-4 pb-6 border-b border-white/10 mb-6">
+                    {/* Row 1: Identity & Price (Inline) */}
+                    <div className="flex items-end gap-x-6 flex-wrap">
+                        {/* Identity Group */}
+                        <div className="flex items-center gap-3">
+                            <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
+                                <img
+                                    src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                                    alt={`${ticker} logo`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                />
+                            </div>
+                            <div>
+                                <div className="flex items-center gap-3">
+                                    <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter">{ticker}</h1>
+                                    <FavoriteToggle ticker={ticker} />
+                                    {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={14} />}
+                                </div>
+                                <p className="text-sm text-slate-500 font-bold tracking-tight uppercase">{quote?.name || 'Loading...'}</p>
+                            </div>
+                        </div>
+
+                        {/* Main Price Group */}
+                        <div className="hidden sm:block pb-1">
+                            <div className="flex items-baseline gap-3">
+                                <div className="text-2xl lg:text-3xl font-black text-white tracking-tighter tabular-nums">
+                                    ${displayPrice?.toFixed(2) || '—'}
+                                </div>
+                                <div className={`text-lg font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
+                                    {isPositive ? "+" : ""}{changePct?.toFixed(2)}%
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* POST/PRE Session Badge */}
+                        {quote?.prevClose && quote.prevClose > 0 && (
+                            <div className="hidden sm:block pb-1.5">
+                                <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                        PREV CLOSE
+                                    </span>
+                                    <span className="text-xs font-bold text-slate-200 tabular-nums">
+                                        ${quote.prevClose.toFixed(2)}
+                                    </span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Ticker Info */}
-                    <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                            <h1 className="text-3xl font-black text-white tracking-tight">{ticker}</h1>
-                            <FavoriteToggle ticker={ticker} />
-                            <span className="text-xs text-slate-500 uppercase tracking-wider">
-                                {quote?.name || 'Loading...'}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-4 mt-1">
-                            <span className="text-2xl font-mono font-bold text-white">
-                                ${displayPrice.toFixed(2)}
-                            </span>
-                            <span className={`flex items-center gap-1 text-sm font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {isPositive ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                                {isPositive ? '+' : ''}{changePct.toFixed(2)}%
-                            </span>
-                            {quote?.prevClose && (
-                                <span className="text-xs text-slate-500">
-                                    PRE CLOSE ${quote.prevClose.toFixed(2)}
-                                </span>
-                            )}
+                    {/* Mobile Only: Price Row */}
+                    <div className="flex flex-col gap-2 sm:hidden">
+                        <div className="flex items-baseline gap-3">
+                            <div className="text-4xl font-black text-white tracking-tighter tabular-nums">
+                                ${displayPrice?.toFixed(2) || '—'}
+                            </div>
+                            <div className={`text-xl font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
+                                {isPositive ? "+" : ""}{changePct?.toFixed(2)}%
+                            </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Flow Radar Component (unchanged) */}
+                {/* Flow Radar Component */}
                 {loading ? (
                     <div className="flex items-center justify-center h-[600px]">
                         <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
@@ -144,5 +228,17 @@ export default function FlowPage() {
                 )}
             </main>
         </div>
+    );
+}
+
+export default function FlowPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-[#0a0f1a] flex items-center justify-center">
+                <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+            </div>
+        }>
+            <FlowPageContent />
+        </Suspense>
     );
 }
