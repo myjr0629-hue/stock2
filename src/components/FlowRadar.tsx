@@ -524,16 +524,16 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
     }, [flowMap, effectiveViewMode]);
 
     // [LEVEL 3] INSTITUTIONAL ANALYSIS ENGINE (Narrative Generation)
+    // V2.0: Integrates OPI, IV Skew, Squeeze, Smart Money, IV Percentile
     const analysis = useMemo(() => {
         if (!flowMap || flowMap.length === 0) return null;
 
         const distToCall = ((callWall - currentPrice) / currentPrice) * 100;
-        const distToPut = ((currentPrice - putWall) / currentPrice) * 100; // Negative value usually
+        const distToPut = ((currentPrice - putWall) / currentPrice) * 100;
 
         // [Fix] Filter for Today's Session only if Market is Active
         let activeTrades = whaleTrades;
         if (!isMarketClosed) {
-            // Market is open. Filter for trades from active session (Last 16h to cover pre-market)
             const cutoff = Date.now() - (16 * 60 * 60 * 1000);
             activeTrades = whaleTrades.filter(t => new Date(t.tradeDate).getTime() > cutoff);
         }
@@ -541,7 +541,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         // 1. Whale Flow Decomposition
         let netWhalePremium = 0;
         let maxPremium = 0;
-        let alphaTrade: any = null; // The "Lead Steer" trade
+        let alphaTrade: any = null;
 
         activeTrades.forEach(t => {
             if (t.type === 'CALL') netWhalePremium += t.premium;
@@ -559,136 +559,185 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                     : netWhalePremium < -100000 ? 'BEARISH'
                         : 'NEUTRAL';
 
-        // 2. Alpha Trade Forensics (The Storyteller)
-        let alphaIntel = "";
-        let alphaBEP = 0;
-        if (alphaTrade) {
-            const unitCost = alphaTrade.premium / (alphaTrade.size * 100);
-            alphaBEP = alphaTrade.type === 'CALL' ? alphaTrade.strike + unitCost : alphaTrade.strike - unitCost;
+        // =====================================
+        // V2.0: COMPREHENSIVE INDICATOR SCORING
+        // =====================================
+        // Score Range: -100 (极Bearish) ~ +100 (极Bullish)
+        let compositeScore = 0;
+        const signals: string[] = [];
 
-            // [Fix] Narrative Logic: Distinguish Targeting vs Protecting
-            if (alphaTrade.type === 'CALL') {
-                if (alphaBEP < currentPrice) {
-                    alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K (Deep ITM)를 매수하여 상승 추세를 굳히고 있습니다.`;
-                } else {
-                    alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K를 베팅해 목표가 $${alphaBEP.toFixed(2)}를 조준하고 있습니다.`;
-                }
-            } else {
-                if (alphaBEP > currentPrice) {
-                    alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K 규모의 풋옵션(ITM)으로 하락 헷징을 강화했습니다.`;
-                } else {
-                    alphaIntel = `메이저 고래가 $${(alphaTrade.premium / 1000).toFixed(0)}K 규모의 풋옵션으로 $${alphaBEP.toFixed(2)} 깨짐을 대비하고 있습니다.`;
-                }
-            }
+        // (1) OPI Score (Weight: 25%) - Delta-weighted positioning
+        const opiScore = opi.value * 0.25; // Already -100~+100
+        compositeScore += opiScore;
+        if (opi.value > 30) signals.push(`OPI +${opi.value}(상승압력)`);
+        else if (opi.value < -30) signals.push(`OPI ${opi.value}(하락압력)`);
+
+        // (2) Whale Premium Score (Weight: 25%)
+        let whaleScore = 0;
+        if (netWhalePremium > 500000) whaleScore = 25;
+        else if (netWhalePremium > 100000) whaleScore = 15;
+        else if (netWhalePremium < -500000) whaleScore = -25;
+        else if (netWhalePremium < -100000) whaleScore = -15;
+        compositeScore += whaleScore;
+        if (Math.abs(netWhalePremium) > 100000) {
+            signals.push(`고래 ${netWhalePremium > 0 ? '+' : ''}$${(netWhalePremium / 1000).toFixed(0)}K`);
         }
 
-        // 3. Situational Synthesis (Context + Flow)
+        // (3) Squeeze Probability Score (Weight: 15%) - Volatility explosion risk
+        let squeezeScore = 0;
+        if (!squeezeProbability.isLoading) {
+            // High squeeze = potential explosive move, affects direction confidence
+            if (squeezeProbability.value >= 70) squeezeScore = 15; // Extreme - could go either way but big move
+            else if (squeezeProbability.value >= 45) squeezeScore = 8;
+            else squeezeScore = 0;
+            // Direction bias: If OPI is positive, squeeze amplifies upside; if negative, downside
+            squeezeScore = opi.value > 0 ? squeezeScore : -squeezeScore;
+            compositeScore += squeezeScore;
+            if (squeezeProbability.value >= 45) signals.push(`스퀴즈 ${squeezeProbability.value}%`);
+        }
+
+        // (4) IV Skew Score (Weight: 15%) - Fear/Greed gauge
+        let skewScore = 0;
+        if (ivSkew.value !== 0) {
+            // Positive skew (fear) = bearish bias, Negative skew (greed) = bullish bias
+            skewScore = -ivSkew.value * 1.5; // Invert: high put skew = bearish
+            skewScore = Math.max(-15, Math.min(15, skewScore));
+            compositeScore += skewScore;
+            if (Math.abs(ivSkew.value) >= 3) signals.push(`IV스큐 ${ivSkew.label}`);
+        }
+
+        // (5) Smart Money Score (Weight: 10%) - Institutional activity level
+        let smartScore = 0;
+        if (smartMoney.score >= 60) smartScore = 10;
+        else if (smartMoney.score >= 40) smartScore = 5;
+        else if (smartMoney.score < 20) smartScore = -5;
+        // Apply direction based on whale bias
+        if (whaleBias.includes('BEAR')) smartScore = -Math.abs(smartScore);
+        compositeScore += smartScore;
+        if (smartMoney.score >= 60) signals.push(`스마트머니 ${smartMoney.label}`);
+
+        // (6) IV Percentile Score (Weight: 10%) - Volatility environment
+        let ivScore = 0;
+        if (ivPercentile.value >= 60) ivScore = -5; // High IV = uncertainty, slight bearish
+        else if (ivPercentile.value <= 25) ivScore = 5; // Low IV = calm, slight bullish
+        compositeScore += ivScore;
+
+        // Clamp final score
+        compositeScore = Math.max(-100, Math.min(100, compositeScore));
+
+        // =====================================
+        // GENERATE NARRATIVE FROM COMPOSITE SCORE
+        // =====================================
         let status = "판단 보류 (SCANNING)";
         let message = "세력들의 움직임을 정밀 분석 중입니다...";
         let color = "text-slate-400";
         let probability = 50;
-        let probLabel = "중립 (Neutral)";
-        let probColor = "text-slate-400";
+        let probLabel = "중립";
+        let probColor = "text-slate-500";
 
-        // Logic Branching
+        // Build signal summary string
+        const signalSummary = signals.length > 0 ? `[${signals.join(' / ')}]` : '';
+
+        // Alpha Trade Intel
+        let alphaIntel = "";
+        if (alphaTrade) {
+            const unitCost = alphaTrade.premium / (alphaTrade.size * 100);
+            const alphaBEP = alphaTrade.type === 'CALL' ? alphaTrade.strike + unitCost : alphaTrade.strike - unitCost;
+            alphaIntel = `최대거래: ${alphaTrade.type} $${alphaTrade.strike} ($${(alphaTrade.premium / 1000).toFixed(0)}K)`;
+        }
+
+        // Position-based logic with composite score integration
         if (currentPrice > callWall) {
-            // SCENARIO: Breakout (Above Resistance)
-            if (whaleBias.includes('BULL')) {
+            // BREAKOUT ZONE
+            if (compositeScore > 30) {
                 status = "초강력 상승 (SUPER-CYCLE)";
-                message = `저항벽($${callWall})이 돌파되었습니다. ${alphaIntel} 고래들이 추격 매수에 나섰으므로(Net +$${(netWhalePremium / 1000).toFixed(0)}K), 단순 오버슈팅이 아닌 '시세 분출' 단계입니다.`;
-                probability = 95;
-                probLabel = "확신 (Conviction)";
+                message = `저항벽($${callWall}) 돌파! ${signalSummary} 모든 지표가 상방을 지지합니다. ${alphaIntel}`;
+                probability = Math.min(98, 75 + compositeScore * 0.23);
+                probLabel = "확신";
                 probColor = "text-emerald-400";
                 color = "text-emerald-400";
             } else {
                 status = "돌파 후 숨고르기";
-                message = `저항($${callWall})을 뚫었으나 추가 수급이 부족합니다. ${alphaIntel} 고래들은 차익실현 중일 수 있습니다. $${callWall} 지지 여부를 확인하십시오.`;
-                probability = 60;
-                probLabel = "관망 (Wait)";
+                message = `저항($${callWall}) 돌파했으나 추가 수급 불확실. ${signalSummary} 지지 전환 확인 필요.`;
+                probability = 55 + compositeScore * 0.1;
+                probLabel = "관망";
                 probColor = "text-amber-400";
                 color = "text-amber-400";
             }
-        }
-        else if (currentPrice < putWall) {
-            // SCENARIO: Breakdown (Below Support)
-            if (whaleBias.includes('BEAR')) {
+        } else if (currentPrice < putWall) {
+            // BREAKDOWN ZONE
+            if (compositeScore < -30) {
                 status = "지지선 붕괴 (COLLAPSE)";
-                message = `최후 방어선($${putWall})이 뚫렸습니다. ${alphaIntel} 하방 베팅이 가속화되고 있어(Net -$${Math.abs(netWhalePremium / 1000).toFixed(0)}K), 투매가 이어질 수 있습니다.`;
-                probability = 15;
-                probLabel = "위험 (Danger)";
+                message = `최후 방어선($${putWall}) 이탈! ${signalSummary} 하방 압력이 극심합니다. ${alphaIntel}`;
+                probability = Math.max(5, 25 + compositeScore * 0.2);
+                probLabel = "위험";
                 probColor = "text-rose-500";
                 color = "text-rose-500";
             } else {
-                status = "베어 트랩 (BEAR TRAP)";
-                message = `지지선($${putWall}) 이탈은 페이크일 가능성이 있습니다. ${alphaIntel} 고래들이 저점에서 물량을 받아먹고 있습니다. 반등 시 강한 숏커버링이 예상됩니다.`;
-                probability = 40;
-                probLabel = "주의 (Caution)";
+                status = "베어 트랩 가능성";
+                message = `지지선($${putWall}) 이탈은 페이크일 수 있습니다. ${signalSummary} 반등 시 숏커버링 예상.`;
+                probability = 40 + compositeScore * 0.1;
+                probLabel = "주의";
                 probColor = "text-amber-500";
                 color = "text-amber-500";
             }
-        }
-        else {
-            // SCENARIO: Inside Range
+        } else {
+            // INSIDE RANGE
             const isNearRes = distToCall < 1.0;
             const isNearSup = Math.abs(distToPut) < 1.0;
 
             if (isNearRes) {
-                if (whaleBias.includes('BULL')) {
+                if (compositeScore > 25) {
                     status = "돌파 임박 (BREAKOUT READY)";
-                    message = `주가가 저항($${callWall})을 두드리고 있습니다. 단순 터치가 아닙니다. ${alphaIntel} 벽을 뚫기 위한 에너지가 충전되었습니다. 탑승하십시오.`;
-                    probability = 88;
-                    probLabel = "강력 매수 (Strong Buy)";
+                    message = `저항($${callWall}) 근접! ${signalSummary} 에너지 충전 완료. 탑승 권고.`;
+                    probability = 75 + compositeScore * 0.2;
+                    probLabel = "강력 매수";
                     probColor = "text-emerald-400";
                     color = "text-emerald-400";
                 } else {
                     status = "저항 확인 (RESISTANCE)";
-                    message = `저항벽($${callWall}) 도달 후 매수세가 약해졌습니다. ${alphaTrade && alphaTrade.type === 'PUT' ? `오히려 스마트머니는 풋옵션($${alphaTrade.strike})으로 하락 헷징 중입니다.` : "고래들은 관망하며 방향을 탐색 중입니다."} 돌파 실패 시 조정이 올 수 있습니다.`;
-                    probability = 40;
-                    probLabel = "매도 (Sell)";
-                    probColor = "text-rose-400";
-                    color = "text-rose-400";
+                    message = `저항벽($${callWall}) 도달. ${signalSummary} 돌파 실패 시 조정 가능.`;
+                    probability = 45 + compositeScore * 0.1;
+                    probLabel = "주의";
+                    probColor = "text-amber-400";
+                    color = "text-amber-400";
                 }
             } else if (isNearSup) {
-                if (whaleBias.includes('BULL')) {
+                if (compositeScore > 15) {
                     status = "바닥 매수 기회 (BUY THE DIP)";
-                    message = `지지선($${putWall})에서 완벽한 저점 매수 기회입니다. ${alphaIntel} 스마트머니는 이곳을 '절대 바닥'으로 인식하고 쓸어담고 있습니다. 손익비 최상 구간.`;
-                    probability = 80;
-                    probLabel = "매수 (Buy)";
+                    message = `지지선($${putWall}) 터치! ${signalSummary} 스마트머니 저점 매집 중. 손익비 최상.`;
+                    probability = 70 + compositeScore * 0.2;
+                    probLabel = "매수";
                     probColor = "text-emerald-400";
                     color = "text-emerald-400";
                 } else {
                     status = "추가 하락 주의 (WEAK)";
-                    message = `지지선($${putWall})이 위태롭습니다. ${alphaIntel ? alphaIntel : "고래들의 저점 매수세가 전혀 없습니다."} 지지가 깨질 확률이 높으니 칼날을 잡지 마십시오.`;
-                    probability = 20;
+                    message = `지지선($${putWall})이 위태롭습니다. ${signalSummary} 지지 이탈 시 손절 권고.`;
+                    probability = 30 + compositeScore * 0.15;
                     probLabel = "관망/매도";
                     probColor = "text-rose-500";
                     color = "text-rose-500";
                 }
             } else {
-                // Mid-Range
-                if (whaleBias.includes('BULL')) {
+                // MID-RANGE
+                if (compositeScore > 35) {
                     status = "상승 모멘텀 (MOMENTUM)";
-                    // Conflict Logic: Alpha Trade vs Aggregated Bias
-                    if (alphaTrade && alphaTrade.type === 'PUT') {
-                        message = `전반적인 고래 자금은 상방(Net +$${(netWhalePremium / 1000).toFixed(0)}K)이지만, 최대 큰손은 ${alphaIntel} 신중한 접근이 필요합니다.`;
-                    } else {
-                        message = `박스권($${putWall} ~ $${callWall}) 흐름이지만, ${alphaIntel} 고래 자금은 상방을 가리키고 있습니다. 눌림목 매수가 유효합니다.`;
-                    }
-                    probability = 65;
+                    message = `박스권 중간이지만 ${signalSummary} 상방 우위 확실. 눌림목 매수 유효.`;
+                    probability = 65 + compositeScore * 0.2;
                     probLabel = "매수 우위";
                     probColor = "text-emerald-400";
                     color = "text-emerald-400";
-                } else if (whaleBias.includes('BEAR')) {
+                } else if (compositeScore < -35) {
                     status = "하락 압력 (PRESSURE)";
-                    message = `상승 탄력이 둔화되었습니다. ${alphaIntel} 고래들은 차트가 무너지기 전에 물량을 정리하거나 하방에 베팅 중입니다. 보수적으로 접근하십시오.`;
-                    probability = 35;
+                    message = `${signalSummary} 하방 압력 우세. 보수적 접근 권고.`;
+                    probability = 35 + compositeScore * 0.15;
                     probLabel = "매도 우위";
                     probColor = "text-rose-400";
                     color = "text-rose-400";
                 } else {
                     status = "방향성 탐색 (NEUTRAL)";
-                    message = `현재 주가($${currentPrice})는 고래들의 '전장' 한복판입니다. ${alphaTrade ? `${alphaTrade.type}옵션에 일부 자금이 들어왔으나` : "뚜렷한 주도 세력이 없습니다."} 확실한 방향 결정 전까지는 휴식도 투자입니다.`;
-                    probability = 50;
+                    message = `박스권($${putWall}~$${callWall}) 중간. ${signalSummary} 확실한 방향 결정 전까지 관망.`;
+                    probability = 50 + compositeScore * 0.1;
                     probLabel = "중립";
                     probColor = "text-slate-500";
                     color = "text-slate-500";
@@ -696,8 +745,10 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             }
         }
 
-        return { status, message, color, probability, probLabel, probColor, whaleBias };
-    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed]);
+        probability = Math.round(Math.max(5, Math.min(95, probability)));
+
+        return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals };
+    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile]);
 
     if (!rawChain || rawChain.length === 0) {
         return (
@@ -807,7 +858,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 {/* Glow background */}
                                 <div className={`absolute inset-0 opacity-10 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
 
-                                <span className="text-[10px] text-white font-bold uppercase mb-1 relative z-10">OPI(압력)</span>
+                                <span className="text-[10px] text-white font-bold uppercase mb-0.5 relative z-10">OPI(델타압력)</span>
+                                <span className="text-[7px] text-slate-400 relative z-10">콜-풋 포지션</span>
 
                                 {/* Circular Gauge with Glow */}
                                 <div className="relative w-10 h-10">
