@@ -118,7 +118,7 @@ function FlowPageContent() {
             <LandingHeader />
 
             {/* Main Content Container */}
-            <div className="flex-1 relative overflow-hidden">
+            <div className="flex-1 relative">
                 {/* Background Effects (EXACT copy from login/page.tsx L87-92) */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
                     <div className="absolute top-1/4 left-1/4 w-[500px] h-[500px] bg-indigo-600/30 rounded-full blur-[150px]" />
