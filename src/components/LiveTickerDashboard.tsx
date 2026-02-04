@@ -390,8 +390,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             const res = await fetch(`/api/live/risk-factors?t=${ticker}`);
             if (res.ok) {
                 const data = await res.json();
-                const count = data.count || 0;
-                const status = count >= 10 ? '주의' : count >= 5 ? '보통' : '양호';
+                const count = data.riskCount || data.count || 0;
+                const status = data.riskLevel || (count >= 10 ? '주의' : count >= 5 ? '보통' : '양호');
                 setRiskFactors({ count, status });
             }
         } catch (e) { console.warn('[RiskFactors] Error:', e); }
