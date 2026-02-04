@@ -114,6 +114,8 @@ function FlowPageContent() {
 
     return (
         <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
+            {/* Fixed dark background to cover body gradient */}
+            <div className="fixed inset-0 bg-[#0a0f1a] -z-50" />
             {/* Header Navigation */}
             <LandingHeader />
 
