@@ -404,7 +404,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                     </div>
                     <div>
                         <h3 className="text-xs font-black text-white tracking-wide flex items-center gap-2">
-                            FLOW RADAR <span className="text-amber-400 text-[9px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1"><Shield size={8} /> GEMS INSTITUTIONAL v2.1</span>
+                            FLOW RADAR <span className="text-amber-400 text-[9px] bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 flex items-center gap-1"><Lock size={8} /> LEVEL 3 CLEARANCE</span>
                         </h3>
                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest flex items-center gap-1">
                             {isMarketClosed ?
