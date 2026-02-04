@@ -940,9 +940,26 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <span className="text-[9px] text-white/80 font-bold uppercase">Squeeze Risk</span>
                                             </div>
                                             {(() => {
-                                                const risk = structure?.netGex < 0 && structure?.gexZeroDteRatio > 0.3 ? "HIGH"
-                                                    : structure?.netGex < 0 ? "MED" : "LOW";
-                                                const color = risk === "HIGH" ? "text-rose-400" : risk === "MED" ? "text-amber-400" : "text-emerald-400";
+                                                // [SYNC] FlowRadar와 동일한 기준 적용
+                                                // 주의: stockApi는 시장 관점 (콜+, 풋-), FlowRadar는 딜러 관점 (콜-, 풋+)
+                                                // stockApi에서 netGex > 0 = 콜 우세 = 딜러 숏콜 = 숏감마
+                                                const zeroDte = structure?.gexZeroDteRatio || 0;
+                                                const isShortGamma = (structure?.netGex || 0) > 0; // ← 부호 반전!
+
+                                                // 점수 계산 (FlowRadar 모델 간소화)
+                                                let score = 0;
+                                                if (isShortGamma) score += 35; // 숏감마
+                                                else score += 5; // 롱감마
+                                                if (zeroDte > 0.3) score += 20; // 0DTE 높음
+                                                else if (zeroDte > 0.1) score += 10; // 0DTE 중간
+
+                                                // FlowRadar와 동일한 threshold
+                                                const risk = score >= 70 ? "EXTREME"
+                                                    : score >= 45 ? "HIGH"
+                                                        : score >= 20 ? "MODERATE" : "LOW";
+                                                const color = risk === "EXTREME" ? "text-rose-400"
+                                                    : risk === "HIGH" ? "text-amber-400"
+                                                        : risk === "MODERATE" ? "text-yellow-400" : "text-emerald-400";
                                                 return <div className={`text-lg font-black ${color}`}>{risk}</div>;
                                             })()}
                                         </div>

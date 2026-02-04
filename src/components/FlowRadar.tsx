@@ -337,6 +337,141 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         return { value: skewValue, label, color, rationale };
     }, [rawChain, currentPrice]);
 
+    // [PREMIUM] Gamma Squeeze Probability - SpotGamma-Style Model
+    // Reference: GEX normalization, ATM Gamma concentration, Dealer hedging pressure
+    const squeezeProbability = useMemo(() => {
+        // Loading state - 데이터가 완전히 준비될 때까지 로딩 표시
+        const isLoading = !rawChain || rawChain.length === 0 || currentPrice === 0;
+
+        if (isLoading) {
+            return { value: 0, label: '분석 중', color: 'text-slate-400', factors: [], debug: {}, isLoading: true };
+        }
+
+        const factors: { name: string; contribution: number; active: boolean }[] = [];
+        let score = 0;
+
+        // ============================================
+        // 1. GEX INTENSITY (0-35 points) - Core Metric
+        // ============================================
+        // Calculate Net Gamma Exposure across all strikes
+        let totalGex = 0;
+        let totalOI = 0;
+        let atmGex = 0; // ATM = within 2% of current price
+
+        rawChain.forEach(opt => {
+            const gamma = opt.greeks?.gamma || 0;
+            const oi = opt.open_interest || opt.day?.open_interest || 0;
+            const strike = opt.details?.strike_price || 0;
+            const type = opt.details?.contract_type;
+
+            // Dealer perspective: Short calls = negative gamma, Short puts = positive gamma
+            const dealerGex = type === 'call'
+                ? -gamma * oi * 100 * currentPrice  // Call gamma (dealer short)
+                : gamma * oi * 100 * currentPrice;   // Put gamma (dealer short)
+
+            totalGex += dealerGex;
+            totalOI += oi;
+
+            // ATM concentration
+            if (Math.abs(strike - currentPrice) / currentPrice < 0.02) {
+                atmGex += Math.abs(dealerGex);
+            }
+        });
+
+        // Normalize GEX by market cap proxy (price * OI as rough proxy)
+        const marketProxy = currentPrice * (totalOI || 1);
+        const gexIntensity = Math.abs(totalGex) / marketProxy * 10000;
+        const isShortGamma = totalGex < 0;
+
+        // Short Gamma = Higher squeeze risk (dealers must chase price)
+        if (isShortGamma) {
+            const gexScore = Math.min(35, Math.round(gexIntensity * 5));
+            score += gexScore;
+            factors.push({ name: `숏감마 ${(totalGex / 1e6).toFixed(1)}M`, contribution: gexScore, active: true });
+        } else {
+            // Long Gamma = Stability (dealers sell into rallies, buy dips)
+            const stabilityPenalty = Math.min(10, Math.round(gexIntensity * 2));
+            score += stabilityPenalty;
+            factors.push({ name: `롱감마 (억제)`, contribution: stabilityPenalty, active: true });
+        }
+
+        // ============================================
+        // 2. ATM GAMMA CONCENTRATION (0-20 points)
+        // ============================================
+        // High ATM gamma = Pin risk OR explosive move potential
+        const atmRatio = totalGex !== 0 ? atmGex / Math.abs(totalGex) : 0;
+        if (atmRatio > 0.3) {
+            const atmScore = Math.min(20, Math.round(atmRatio * 30));
+            score += atmScore;
+            factors.push({ name: `ATM 집중 ${Math.round(atmRatio * 100)}%`, contribution: atmScore, active: true });
+        }
+
+        // ============================================
+        // 3. 0DTE VOLATILITY AMPLIFIER (0-20 points)
+        // ============================================
+        const today = new Date().toISOString().split('T')[0];
+        const zeroDte = rawChain.filter(opt => opt.details?.expiration_date === today);
+        const zeroDteGamma = zeroDte.reduce((sum, opt) => {
+            const gamma = opt.greeks?.gamma || 0;
+            const oi = opt.open_interest || 0;
+            return sum + gamma * oi * 100;
+        }, 0);
+        const zeroDteImpact = totalOI > 0 ? zeroDte.length / rawChain.length : 0;
+
+        if (zeroDteImpact > 0.1) {
+            const zeroScore = Math.min(20, Math.round(zeroDteImpact * 50));
+            score += zeroScore;
+            factors.push({ name: `0DTE ${Math.round(zeroDteImpact * 100)}%`, contribution: zeroScore, active: true });
+        }
+
+        // ============================================
+        // 4. VOLATILITY SKEW SIGNAL (0-15 points)
+        // ============================================
+        // High put skew = Fear, potential for violent moves
+        // Note: IV Skew는 이미 별도 표시되므로 요인 태그에서 제외
+        const skewAbs = Math.abs(ivSkew.value);
+        if (skewAbs > 3) {
+            const skewScore = Math.min(15, Math.round(skewAbs * 2));
+            score += skewScore;
+            // factors.push 제거 - 중복 표시 방지
+        }
+
+        // ============================================
+        // 5. INSTITUTIONAL FLOW SIGNAL (0-10 points)
+        // ============================================
+        // Large directional bets near ATM = Smart money positioning
+        const bigBets = whaleTrades.filter(t => t.premium >= 100000);
+        const nearAtmBets = bigBets.filter(t =>
+            t.strike && Math.abs(t.strike - currentPrice) / currentPrice < 0.05
+        );
+
+        if (nearAtmBets.length >= 1) {
+            const flowScore = Math.min(10, nearAtmBets.length * 3);
+            score += flowScore;
+            factors.push({ name: `$100K+ ATM ${nearAtmBets.length}건`, contribution: flowScore, active: true });
+        }
+
+        // ============================================
+        // FINAL SCORE & CLASSIFICATION
+        // ============================================
+        const probability = Math.min(100, Math.max(0, score));
+
+        let label = 'LOW';
+        let color = 'text-emerald-400';
+        if (probability >= 70) { label = 'EXTREME'; color = 'text-rose-400'; }
+        else if (probability >= 45) { label = 'HIGH'; color = 'text-amber-400'; }
+        else if (probability >= 20) { label = 'MODERATE'; color = 'text-yellow-400'; }
+
+        return {
+            value: probability,
+            label,
+            color,
+            factors: factors.filter(f => f.active),
+            debug: { totalGex, gexIntensity, atmRatio, zeroDteImpact, isShortGamma },
+            isLoading: false
+        };
+    }, [rawChain, currentPrice, ivSkew, whaleTrades]);
+
     // Intelligent Default Mode
     const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
     const isMarketClosed = totalVolume === 0 && rawChain.length > 0;
@@ -1090,6 +1225,111 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                         <div className="text-[10px] text-slate-400 pl-4 border-l border-indigo-500/30">
                                             💰 대형거래: {smartMoney.rationale || '분석 중...'}
                                         </div>
+                                    </div>
+                                </div>
+
+                                {/* Squeeze Probability - Semicircle Gauge */}
+                                <div className="relative p-4 rounded-xl bg-gradient-to-r from-amber-950/50 via-amber-900/30 to-amber-950/50 border border-amber-500/40 overflow-hidden">
+                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.15),transparent_70%)]" />
+
+                                    <div className="relative z-10">
+                                        {/* Header */}
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/30 to-amber-600/20 flex items-center justify-center border border-amber-500/40">
+                                                    <Zap size={14} className="text-amber-400" />
+                                                </div>
+                                                <div>
+                                                    <div className="text-xs text-amber-400 font-black uppercase tracking-wider">SQUEEZE PROBABILITY</div>
+                                                    <div className="text-[10px] text-white/60">감마 스퀴즈 확률</div>
+                                                </div>
+                                            </div>
+                                            {squeezeProbability.isLoading ? (
+                                                <div className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-600/80 text-white animate-pulse">
+                                                    분석 중...
+                                                </div>
+                                            ) : (
+                                                <div className={`text-[10px] font-bold px-2 py-0.5 rounded ${squeezeProbability.label === 'EXTREME' ? 'bg-rose-500/80 text-white' : squeezeProbability.label === 'HIGH' ? 'bg-amber-500/80 text-white' : squeezeProbability.label === 'MODERATE' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80 text-white'}`}>
+                                                    {squeezeProbability.label}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Semicircle Gauge */}
+                                        <div className="flex justify-center mb-3">
+                                            <div className="relative w-32 h-16 overflow-hidden">
+                                                {/* Gauge Background */}
+                                                <svg className="absolute inset-0 w-32 h-32" viewBox="0 0 128 64" style={{ top: 0 }}>
+                                                    {/* Background Arc */}
+                                                    <path
+                                                        d="M 10 60 A 54 54 0 0 1 118 60"
+                                                        fill="none"
+                                                        stroke="rgba(71,85,105,0.5)"
+                                                        strokeWidth="8"
+                                                        strokeLinecap="round"
+                                                    />
+                                                    {/* Colored Gradient Arc (0-100%) */}
+                                                    <defs>
+                                                        <linearGradient id="squeezeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                            <stop offset="0%" stopColor="#10b981" />
+                                                            <stop offset="33%" stopColor="#eab308" />
+                                                            <stop offset="66%" stopColor="#f59e0b" />
+                                                            <stop offset="100%" stopColor="#ef4444" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <path
+                                                        d="M 10 60 A 54 54 0 0 1 118 60"
+                                                        fill="none"
+                                                        stroke="url(#squeezeGradient)"
+                                                        strokeWidth="8"
+                                                        strokeLinecap="round"
+                                                        strokeDasharray={`${(squeezeProbability.value / 100) * 169.6} 169.6`}
+                                                    />
+                                                </svg>
+
+                                                {/* Needle/Indicator */}
+                                                <div
+                                                    className="absolute bottom-0 left-1/2 w-1 h-12 origin-bottom transition-transform duration-700"
+                                                    style={{
+                                                        transform: `translateX(-50%) rotate(${-90 + (squeezeProbability.value / 100) * 180}deg)`,
+                                                    }}
+                                                >
+                                                    <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)] -translate-x-0.5" />
+                                                </div>
+
+                                                {/* Center Value */}
+                                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 text-center">
+                                                    {squeezeProbability.isLoading ? (
+                                                        <div className="text-lg font-black text-slate-400 animate-pulse">--</div>
+                                                    ) : (
+                                                        <div className={`text-2xl font-black ${squeezeProbability.color}`} style={{ textShadow: '0 0 15px currentColor' }}>
+                                                            {squeezeProbability.value}%
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Scale Labels */}
+                                        <div className="flex justify-between text-[9px] px-2 mb-2">
+                                            <span className="text-emerald-400 font-bold">0%</span>
+                                            <span className="text-amber-400 font-bold">50%</span>
+                                            <span className="text-rose-400 font-bold">100%</span>
+                                        </div>
+
+                                        {/* Contributing Factors */}
+                                        {squeezeProbability.factors.length > 0 && (
+                                            <div className="border-t border-amber-500/30 pt-2 mt-2">
+                                                <div className="text-[9px] text-white/50 mb-1">요인 분석:</div>
+                                                <div className="flex flex-wrap gap-1">
+                                                    {squeezeProbability.factors.map((factor, i) => (
+                                                        <span key={i} className="text-[9px] px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">
+                                                            {factor.name} +{factor.contribution}%
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 

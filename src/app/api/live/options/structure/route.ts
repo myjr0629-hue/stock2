@@ -422,8 +422,12 @@ export async function GET(req: NextRequest) {
         cleanContracts.forEach(c => {
             const g = c.greeks?.gamma;
             if (typeof g === 'number' && isFinite(g)) {
-                const dir = c.type === 'call' ? 1 : -1;
-                gexSum += (g * c.oi * 100 * dir);
+                // [S-121] DEALER PERSPECTIVE (SpotGamma Standard)
+                // Call: Dealer is short call → negative gamma exposure
+                // Put: Dealer is short put → positive gamma exposure
+                // Multiply by price for dollar-weighted GEX
+                const dir = c.type === 'call' ? -1 : 1;
+                gexSum += (g * c.oi * 100 * dir * underlyingPrice);
                 gammaCount++;
             }
 
