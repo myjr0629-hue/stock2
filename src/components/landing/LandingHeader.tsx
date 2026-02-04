@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search } from "lucide-react";
 import { Link, useRouter, usePathname } from "@/i18n/routing";
 import { clsx } from 'clsx';
@@ -12,8 +13,14 @@ export function LandingHeader() {
     const t = useTranslations();
     const router = useRouter();
     const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { favorites } = useFavorites();
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Get current ticker from URL params for cross-page sync
+    const currentTicker = searchParams.get('ticker')?.toUpperCase()
+        || searchParams.get('t')?.toUpperCase()
+        || 'NVDA';
 
     const handleSearch = (e: FormEvent) => {
         e.preventDefault();
@@ -57,8 +64,8 @@ export function LandingHeader() {
                     {[
                         { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: true },
                         { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", hasLive: false },
-                        { label: "COMMAND", href: "/ticker?ticker=NVDA", path: "/ticker", hasLive: false },
-                        { label: "FLOW", href: "/flow?ticker=NVDA", path: "/flow", hasLive: false },
+                        { label: "COMMAND", href: `/ticker?ticker=${currentTicker}`, path: "/ticker", hasLive: false },
+                        { label: "FLOW", href: `/flow?ticker=${currentTicker}`, path: "/flow", hasLive: false },
                         { label: "INTEL", href: "/intel", path: "/intel", hasLive: false },
                         { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", hasLive: false },
                         { label: "WATCHLIST", href: "/watchlist", path: "/watchlist", hasLive: false }
@@ -147,8 +154,8 @@ export function LandingHeader() {
                                 {[
                                     { label: "DASHBOARD", href: "/dashboard" },
                                     { label: "GUARDIAN", href: "/intel-guardian" },
-                                    { label: "COMMAND", href: "/ticker?ticker=NVDA" },
-                                    { label: "FLOW", href: "/flow?ticker=NVDA" },
+                                    { label: "COMMAND", href: `/ticker?ticker=${currentTicker}` },
+                                    { label: "FLOW", href: `/flow?ticker=${currentTicker}` },
                                     { label: "INTEL", href: "/intel" },
                                     { label: "PORTFOLIO", href: "/portfolio" },
                                     { label: "WATCHLIST", href: "/watchlist" }
