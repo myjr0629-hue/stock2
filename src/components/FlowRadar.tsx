@@ -444,93 +444,115 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                 </div>
             </div>
 
-            {/* [PREMIUM] AI VERDICT - Redesigned for Readability */}
+            {/* [PREMIUM] AI VERDICT - Flow Topography Map v3.0 Style */}
             {analysis && (
-                <div className="bg-gradient-to-r from-slate-900/90 via-slate-800/50 to-slate-900/90 rounded-lg border border-amber-500/20 p-3 backdrop-blur-md shadow-[0_0_20px_rgba(251,191,36,0.1)]">
+                <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-4 backdrop-blur-xl shadow-2xl">
                     {/* Top Row: Title + Status */}
-                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
-                        <div className="h-6 w-6 bg-amber-500/10 rounded flex items-center justify-center border border-amber-500/30">
-                            <Target size={12} className="text-amber-400" />
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="relative">
+                            <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
+                                <Target size={16} className="text-amber-400" />
+                            </div>
+                            <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
                         </div>
                         <div>
-                            <span className="text-[10px] font-black text-amber-400 tracking-widest">AI VERDICT</span>
-                            <span className={`text-sm font-black ml-2 ${analysis.color}`}>{analysis.status}</span>
+                            <span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span>
+                            <span className={`text-base font-black ml-3 ${analysis.color}`}>{analysis.status}</span>
                         </div>
                     </div>
 
-                    {/* Bottom: Metrics Grid (Balanced Layout) */}
-                    <div className="flex flex-col md:flex-row gap-2">
+                    {/* Metrics Grid - Glassmorphism Cards */}
+                    <div className="flex flex-col lg:flex-row gap-3">
                         {/* 1. Analysis Summary (55% width) */}
-                        <div className="flex-1 bg-slate-800/30 rounded-lg p-2 border border-white/5">
-                            <div className="flex items-center gap-1 mb-1">
-                                <Activity size={12} className="text-slate-400" />
-                                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">분석</span>
+                        <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-4 border border-white/10 shadow-inner">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Activity size={14} className="text-cyan-400" />
+                                <span className="text-[11px] text-white font-bold uppercase tracking-wider">분석</span>
                             </div>
-                            <p className="text-[11px] text-white leading-snug">{analysis.message}</p>
+                            <p className="text-[13px] text-white/90 leading-relaxed">{analysis.message}</p>
                         </div>
 
-                        {/* 2-4. Metrics Row (45% width, 3 equal columns) */}
-                        <div className="flex gap-2 md:w-[40%] shrink-0">
-                            {/* OPI - Circular Gauge */}
-                            <div className="flex-1 bg-slate-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
-                                <span className="text-[8px] text-slate-400 font-bold uppercase mb-1">OPI(시장 압력)</span>
-                                {/* Circular Gauge */}
-                                <div className="relative w-12 h-12">
+                        {/* 2-4. Metrics Row with Glow Effects */}
+                        <div className="flex gap-3 lg:w-[45%] shrink-0">
+                            {/* OPI - Glowing Circular Gauge */}
+                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                                {/* Glow background */}
+                                <div className={`absolute inset-0 opacity-20 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
+
+                                <span className="text-[9px] text-white/70 font-bold uppercase mb-2 relative z-10">OPI(시장 압력)</span>
+
+                                {/* Circular Gauge with Glow */}
+                                <div className="relative w-14 h-14">
+                                    {/* Outer glow ring */}
+                                    <div className={`absolute inset-0 rounded-full ${opi.value > 20 ? 'shadow-[0_0_20px_rgba(52,211,153,0.5)]' : opi.value < -20 ? 'shadow-[0_0_20px_rgba(248,113,113,0.5)]' : 'shadow-[0_0_15px_rgba(148,163,184,0.3)]'}`} />
+
                                     <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
                                         {/* Background circle */}
-                                        <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="3" />
-                                        {/* Progress circle */}
-                                        <circle
-                                            cx="18" cy="18" r="14"
-                                            fill="none"
+                                        <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+                                        {/* Glow circle */}
+                                        <circle cx="18" cy="18" r="15" fill="none"
                                             stroke={opi.value > 20 ? '#34d399' : opi.value < -20 ? '#f87171' : '#94a3b8'}
-                                            strokeWidth="3"
+                                            strokeWidth="2.5"
                                             strokeLinecap="round"
-                                            strokeDasharray={`${Math.abs(opi.value) * 0.88} 88`}
+                                            strokeDasharray={`${Math.abs(opi.value) * 0.94} 94`}
+                                            style={{ filter: 'drop-shadow(0 0 6px currentColor)' }}
                                         />
                                     </svg>
+
                                     {/* Center text */}
                                     <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className={`text-sm font-black ${opi.color}`}>
+                                        <span className={`text-lg font-black text-white ${opi.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
                                             {opi.value > 0 ? '+' : ''}{opi.value}
                                         </span>
                                     </div>
                                 </div>
-                                <div className={`text-[9px] font-medium ${opi.color} mt-0.5`}>{opi.label}</div>
+
+                                <div className={`text-[10px] font-bold ${opi.color} mt-1 relative z-10`}>{opi.label}</div>
                             </div>
 
-                            {/* Probability */}
-                            <div className="flex-1 bg-slate-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
-                                <div className="flex items-center gap-1 mb-1">
-                                    <Percent size={10} className="text-slate-400" />
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">신뢰도</span>
+                            {/* Probability - Glowing Card */}
+                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                                {/* Glow background */}
+                                <div className={`absolute inset-0 opacity-20 ${analysis.probability >= 70 ? 'bg-emerald-500' : analysis.probability >= 50 ? 'bg-amber-500' : 'bg-rose-500'} blur-xl`} />
+
+                                <div className="flex items-center gap-1 mb-2 relative z-10">
+                                    <Percent size={12} className="text-cyan-400" />
+                                    <span className="text-[9px] text-white/70 font-bold uppercase">신뢰도</span>
                                 </div>
-                                <div className={`text-lg font-black ${analysis.probColor}`}>
+
+                                <div className="text-2xl font-black text-white relative z-10" style={{ textShadow: '0 0 12px rgba(255,255,255,0.5)' }}>
                                     {analysis.probability}%
                                 </div>
-                                <div className={`text-[10px] font-medium ${analysis.probColor}`}>{analysis.probLabel}</div>
+                                <div className={`text-[11px] font-bold ${analysis.probColor} relative z-10`}>{analysis.probLabel}</div>
                             </div>
 
-                            {/* Position */}
-                            <div className={`flex-1 rounded-lg p-2 border flex flex-col items-center justify-center ${analysis.whaleBias?.includes('BULL')
-                                ? 'bg-emerald-950/40 border-emerald-500/40'
-                                : analysis.whaleBias?.includes('BEAR')
-                                    ? 'bg-rose-950/40 border-rose-500/40'
-                                    : 'bg-slate-800/30 border-white/5'
+                            {/* Position - Glowing Card */}
+                            <div className={`flex-1 backdrop-blur-md rounded-xl p-3 border flex flex-col items-center justify-center relative overflow-hidden ${analysis.whaleBias?.includes('BULL')
+                                    ? 'bg-emerald-500/10 border-emerald-400/30'
+                                    : analysis.whaleBias?.includes('BEAR')
+                                        ? 'bg-rose-500/10 border-rose-400/30'
+                                        : 'bg-white/5 border-white/10'
                                 }`}>
-                                <div className="flex items-center gap-1 mb-1">
-                                    <Zap size={10} className="text-slate-400" />
-                                    <span className="text-[9px] text-slate-400 font-bold uppercase">포지션</span>
+                                {/* Glow background */}
+                                <div className={`absolute inset-0 opacity-30 ${analysis.whaleBias?.includes('BULL') ? 'bg-emerald-500'
+                                        : analysis.whaleBias?.includes('BEAR') ? 'bg-rose-500'
+                                            : 'bg-slate-500'
+                                    } blur-xl`} />
+
+                                <div className="flex items-center gap-1 mb-2 relative z-10">
+                                    <Zap size={12} className={analysis.whaleBias?.includes('BULL') ? 'text-emerald-400' : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400' : 'text-white/70'} />
+                                    <span className="text-[9px] text-white/70 font-bold uppercase">포지션</span>
                                 </div>
-                                <div className={`text-lg font-black ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
-                                    : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
-                                        : 'text-white'
-                                    }`}>
+
+                                <div className={`text-2xl font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
+                                        : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
+                                            : 'text-white'
+                                    }`} style={{ textShadow: analysis.whaleBias?.includes('BULL') ? '0 0 15px rgba(52,211,153,0.8)' : analysis.whaleBias?.includes('BEAR') ? '0 0 15px rgba(248,113,113,0.8)' : 'none' }}>
                                     {analysis.whaleBias?.includes('BULL') ? 'LONG'
                                         : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
                                             : 'WAIT'}
                                 </div>
-                                <div className={`text-[10px] font-medium ${analysis.whaleBias?.includes('STRONG') ? 'text-amber-400' : 'text-slate-400'
+                                <div className={`text-[11px] font-bold relative z-10 ${analysis.whaleBias?.includes('STRONG') ? 'text-amber-400' : 'text-white/60'
                                     }`}>
                                     {analysis.whaleBias?.includes('STRONG') ? '강력 추천' : '기본'}
                                 </div>
