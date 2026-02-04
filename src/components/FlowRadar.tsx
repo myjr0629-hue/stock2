@@ -446,11 +446,11 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
             {/* [PREMIUM] AI VERDICT - Redesigned for Readability */}
             {analysis && (
-                <div className="bg-gradient-to-r from-slate-900/90 via-slate-800/50 to-slate-900/90 rounded-lg border border-amber-500/20 p-4 backdrop-blur-md shadow-[0_0_20px_rgba(251,191,36,0.1)]">
+                <div className="bg-gradient-to-r from-slate-900/90 via-slate-800/50 to-slate-900/90 rounded-lg border border-amber-500/20 p-3 backdrop-blur-md shadow-[0_0_20px_rgba(251,191,36,0.1)]">
                     {/* Top Row: Title + Status */}
-                    <div className="flex items-center gap-3 mb-3 pb-3 border-b border-white/10">
-                        <div className="h-8 w-8 bg-amber-500/10 rounded-lg flex items-center justify-center border border-amber-500/30">
-                            <Target size={16} className="text-amber-400" />
+                    <div className="flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
+                        <div className="h-6 w-6 bg-amber-500/10 rounded flex items-center justify-center border border-amber-500/30">
+                            <Target size={12} className="text-amber-400" />
                         </div>
                         <div>
                             <span className="text-[10px] font-black text-amber-400 tracking-widest">AI VERDICT</span>
@@ -459,56 +459,56 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                     </div>
 
                     {/* Bottom: Metrics Grid (Balanced Layout) */}
-                    <div className="flex flex-col md:flex-row gap-3">
+                    <div className="flex flex-col md:flex-row gap-2">
                         {/* 1. Analysis Summary (55% width) */}
-                        <div className="flex-1 bg-slate-800/30 rounded-lg p-3 border border-white/5">
-                            <div className="flex items-center gap-1.5 mb-2">
+                        <div className="flex-1 bg-slate-800/30 rounded-lg p-2 border border-white/5">
+                            <div className="flex items-center gap-1 mb-1">
                                 <Activity size={12} className="text-slate-400" />
                                 <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">분석</span>
                             </div>
-                            <p className="text-[12px] text-white leading-relaxed">{analysis.message}</p>
+                            <p className="text-[11px] text-white leading-snug">{analysis.message}</p>
                         </div>
 
                         {/* 2-4. Metrics Row (45% width, 3 equal columns) */}
                         <div className="flex gap-2 md:w-[40%] shrink-0">
                             {/* OPI */}
-                            <div className="flex-1 bg-slate-800/30 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
+                            <div className="flex-1 bg-slate-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
                                 <div className="flex items-center gap-1 mb-1">
                                     <TrendingUp size={10} className="text-slate-400" />
                                     <span className="text-[9px] text-slate-400 font-bold uppercase">OPI</span>
                                 </div>
-                                <div className={`text-2xl font-black ${opi.color}`}>
+                                <div className={`text-lg font-black ${opi.color}`}>
                                     {opi.value > 0 ? '+' : ''}{opi.value}
                                 </div>
                                 <div className={`text-[10px] font-medium ${opi.color}`}>{opi.label}</div>
                             </div>
 
                             {/* Probability */}
-                            <div className="flex-1 bg-slate-800/30 rounded-lg p-3 border border-white/5 flex flex-col items-center justify-center">
+                            <div className="flex-1 bg-slate-800/30 rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
                                 <div className="flex items-center gap-1 mb-1">
                                     <Percent size={10} className="text-slate-400" />
                                     <span className="text-[9px] text-slate-400 font-bold uppercase">신뢰도</span>
                                 </div>
-                                <div className={`text-2xl font-black ${analysis.probColor}`}>
+                                <div className={`text-lg font-black ${analysis.probColor}`}>
                                     {analysis.probability}%
                                 </div>
                                 <div className={`text-[10px] font-medium ${analysis.probColor}`}>{analysis.probLabel}</div>
                             </div>
 
                             {/* Position */}
-                            <div className={`flex-1 rounded-lg p-3 border flex flex-col items-center justify-center ${analysis.whaleBias?.includes('BULL')
-                                    ? 'bg-emerald-950/40 border-emerald-500/40'
-                                    : analysis.whaleBias?.includes('BEAR')
-                                        ? 'bg-rose-950/40 border-rose-500/40'
-                                        : 'bg-slate-800/30 border-white/5'
+                            <div className={`flex-1 rounded-lg p-2 border flex flex-col items-center justify-center ${analysis.whaleBias?.includes('BULL')
+                                ? 'bg-emerald-950/40 border-emerald-500/40'
+                                : analysis.whaleBias?.includes('BEAR')
+                                    ? 'bg-rose-950/40 border-rose-500/40'
+                                    : 'bg-slate-800/30 border-white/5'
                                 }`}>
                                 <div className="flex items-center gap-1 mb-1">
                                     <Zap size={10} className="text-slate-400" />
                                     <span className="text-[9px] text-slate-400 font-bold uppercase">포지션</span>
                                 </div>
-                                <div className={`text-2xl font-black ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
-                                        : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
-                                            : 'text-white'
+                                <div className={`text-lg font-black ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
+                                    : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
+                                        : 'text-white'
                                     }`}>
                                     {analysis.whaleBias?.includes('BULL') ? 'LONG'
                                         : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
