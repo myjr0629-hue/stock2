@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
-const RISK_FACTORS_URL = 'https://api.polygon.io/stocks/filings/vX/risk-factors';
+import { fetchMassive } from '@/services/massiveClient';
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -14,27 +12,16 @@ export async function GET(req: NextRequest) {
     const startTime = Date.now();
 
     try {
-        const url = `${RISK_FACTORS_URL}?ticker=${ticker}&limit=10&apiKey=${MASSIVE_API_KEY}`;
-        const res = await fetch(url, { next: { revalidate: 86400 } }); // Cache 24 hours (SEC filings don't change often)
-
-        if (!res.ok) {
-            console.error('Risk Factors API Error:', res.status);
-            return NextResponse.json({
-                ticker,
-                riskLevel: null,
-                categories: [],
-                status: 'unavailable'
-            });
-        }
-
-        const data = await res.json();
+        // Fetch Risk Factors using massiveClient
+        const data = await fetchMassive('/stocks/filings/vX/risk-factors', { ticker, limit: '10' }, true);
         const results = data.results || [];
 
         if (results.length === 0) {
             return NextResponse.json({
                 ticker,
-                riskLevel: null,
-                categories: [],
+                riskLevel: '없음',
+                riskCount: 0,
+                color: 'text-emerald-400',
                 status: 'no_data'
             });
         }
@@ -76,8 +63,9 @@ export async function GET(req: NextRequest) {
         console.error('Risk Factors API Error:', e);
         return NextResponse.json({
             ticker,
-            riskLevel: null,
-            categories: [],
+            riskLevel: '오류',
+            riskCount: 0,
+            color: 'text-slate-400',
             status: 'error',
             error: String(e)
         });

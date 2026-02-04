@@ -1,46 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
-const TREASURY_URL = 'https://api.polygon.io/fed/v1/treasury-yields';
+import { fetchMassive } from '@/services/massiveClient';
 
 export async function GET(req: NextRequest) {
     const startTime = Date.now();
 
     try {
-        // Fetch 10Y Treasury Yield (latest)
-        const url = `${TREASURY_URL}?maturity=10y&limit=2&apiKey=${MASSIVE_API_KEY}`;
-        const res = await fetch(url, { next: { revalidate: 3600 } }); // Cache 1 hour
+        // Fetch Treasury Yields - all maturities in one response
+        // sort=date.desc to get latest first
+        const data = await fetchMassive('/fed/v1/treasury-yields', {
+            limit: '2',
+            sort: 'date.desc'  // Latest first
+        }, true);
 
-        if (!res.ok) {
-            console.error('Treasury API Error:', res.status, await res.text());
-            return NextResponse.json({
-                yield10Y: null,
-                change: null,
-                status: 'unavailable',
-                error: 'API unavailable'
-            });
-        }
-
-        const data = await res.json();
         const results = data.results || [];
 
         if (results.length < 2) {
+            const latest = results[0];
             return NextResponse.json({
-                yield10Y: results[0]?.value || null,
-                change: null,
-                status: 'partial',
-                debug: { count: results.length }
+                yield10Y: latest?.yield_10_year || null,
+                change: 0,
+                status: results.length > 0 ? '데이터' : 'N/A',
+                color: 'text-white',
+                date: latest?.date,
+                debug: { count: results.length, latencyMs: Date.now() - startTime }
             });
         }
 
         const latest = results[0];
         const previous = results[1];
-        const change = latest.value - previous.value;
-        const changePercent = ((change / previous.value) * 100).toFixed(2);
+        const change = (latest.yield_10_year || 0) - (previous.yield_10_year || 0);
 
         // Divergence interpretation
-        // Rising yields typically mean: money flowing OUT of bonds -> INTO stocks (risk-on)
-        // Falling yields typically mean: money flowing INTO bonds -> OUT of stocks (risk-off)
+        // Rising yields = risk-on (money OUT of bonds)
+        // Falling yields = risk-off (money INTO bonds)
         let status = '중립';
         let color = 'text-white';
         if (change > 0.05) { status = '위험↑'; color = 'text-rose-400'; }
@@ -49,10 +41,11 @@ export async function GET(req: NextRequest) {
         else if (change < -0.02) { status = '안정'; color = 'text-cyan-400'; }
 
         return NextResponse.json({
-            yield10Y: latest.value,
-            previousYield: previous.value,
+            yield10Y: latest.yield_10_year,
+            yield2Y: latest.yield_2_year,
+            yield30Y: latest.yield_30_year,
+            previousYield: previous.yield_10_year,
             change: Number(change.toFixed(3)),
-            changePercent: Number(changePercent),
             status,
             color,
             date: latest.date,
@@ -61,13 +54,17 @@ export async function GET(req: NextRequest) {
             }
         });
 
-    } catch (e) {
-        console.error('Treasury API Error:', e);
+    } catch (e: any) {
+        const errMsg = e?.reasonKR || e?.message || String(e);
+        console.error('Treasury API Error:', errMsg);
+
         return NextResponse.json({
             yield10Y: null,
             change: null,
-            status: 'error',
-            error: String(e)
+            status: 'N/A',
+            color: 'text-slate-400',
+            error: errMsg,
+            debug: { latencyMs: Date.now() - startTime }
         });
     }
 }
