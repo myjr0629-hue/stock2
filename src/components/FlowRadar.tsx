@@ -652,11 +652,29 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         compositeScore += smartScore;
         if (smartMoney.score >= 60) signals.push(`스마트머니 ${smartMoney.label}`);
 
-        // (6) IV Percentile Score (Weight: 10%) - Volatility environment
+        // (6) IV Percentile Score (Weight: 5%) - Volatility environment
         let ivScore = 0;
-        if (ivPercentile.value >= 60) ivScore = -5; // High IV = uncertainty, slight bearish
-        else if (ivPercentile.value <= 25) ivScore = 5; // Low IV = calm, slight bullish
+        if (ivPercentile.value >= 60) ivScore = -3; // High IV = uncertainty, slight bearish
+        else if (ivPercentile.value <= 25) ivScore = 3; // Low IV = calm, slight bullish
         compositeScore += ivScore;
+
+        // (7) DEX Score (Weight: 10%) - Dealer Delta Hedging Direction
+        let dexScore = 0;
+        if (dex.value > 5) dexScore = -10; // Strong resistance from dealer hedging
+        else if (dex.value > 2) dexScore = -5;
+        else if (dex.value < -5) dexScore = 10; // Strong support from dealer hedging
+        else if (dex.value < -2) dexScore = 5;
+        compositeScore += dexScore;
+        if (Math.abs(dex.value) > 2) signals.push(`DEX ${dex.value > 0 ? '+' : ''}${dex.value.toFixed(1)}M(${dex.label})`);
+
+        // (8) UOA Score (Weight: 5%) - Unusual Options Activity (confirmation signal)
+        let uoaScore = 0;
+        if (uoa.score >= 5) uoaScore = 5; // Extreme activity - confirms direction
+        else if (uoa.score >= 3) uoaScore = 3;
+        // Apply direction based on overall bias
+        if (compositeScore < 0) uoaScore = -Math.abs(uoaScore);
+        compositeScore += uoaScore;
+        if (uoa.score >= 3) signals.push(`UOA ${uoa.score}x(${uoa.label})`);
 
         // Clamp final score
         compositeScore = Math.max(-100, Math.min(100, compositeScore));
@@ -784,7 +802,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         probability = Math.round(Math.max(5, Math.min(95, probability)));
 
         return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals };
-    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile]);
+    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa]);
 
     if (!rawChain || rawChain.length === 0) {
         return (
