@@ -78,6 +78,48 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
         }
     }, [rawChain]);
 
+    // [NEW] Premium Indicator States
+    const [newsSentiment, setNewsSentiment] = useState<{ score: number; label: string; color: string } | null>(null);
+    const [treasury, setTreasury] = useState<{ yield10Y: number; change: number; status: string; color: string } | null>(null);
+    const [riskFactors, setRiskFactors] = useState<{ riskLevel: string; riskCount: number; color: string } | null>(null);
+
+    // Fetch Premium Indicators
+    useEffect(() => {
+        if (!ticker) return;
+
+        // News Sentiment
+        fetch(`/api/live/news?t=${ticker}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.sentiment) {
+                    setNewsSentiment(data.sentiment);
+                }
+            })
+            .catch(console.error);
+
+        // Treasury Divergence
+        fetch('/api/live/treasury')
+            .then(res => res.json())
+            .then(data => {
+                if (data.yield10Y !== null) {
+                    setTreasury(data);
+                }
+            })
+            .catch(console.error);
+
+        // Risk Factors
+        fetch(`/api/live/risk-factors?t=${ticker}`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.riskLevel) {
+                    setRiskFactors(data);
+                }
+            })
+            .catch(console.error);
+
+    }, [ticker]);
+
+
     // Process Data: Group by Strike with DTE filtering
     // [S-77] Industry Standard: VOLUME = 0-7 DTE (short-term gamma), OI = 0-35 DTE (mid-term positioning)
     const { flowMap, totalVolume } = useMemo(() => {
@@ -1047,6 +1089,59 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                         <div className={`text-[10px] font-bold ${ivSkew.color}`}>{ivSkew.label}</div>
                                     </div>
                                 </div>
+
+                                {/* News Sentiment */}
+                                {newsSentiment && (
+                                    <div className="bg-gradient-to-br from-cyan-950/30 to-slate-900/50 border border-cyan-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-cyan-500/40 transition-all">
+                                        <div className="absolute inset-0 bg-cyan-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <div className="flex items-center gap-1.5 mb-2 relative z-10">
+                                            <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
+                                            <span className="text-[9px] text-white font-bold uppercase tracking-wider">뉴스</span>
+                                        </div>
+                                        <div className="flex items-end justify-between relative z-10">
+                                            <div className={`text-2xl font-black ${newsSentiment.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                {newsSentiment.score}
+                                            </div>
+                                            <div className={`text-[10px] font-bold ${newsSentiment.color}`}>{newsSentiment.label}</div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Treasury Divergence */}
+                                {treasury && (
+                                    <div className="bg-gradient-to-br from-amber-950/30 to-slate-900/50 border border-amber-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-amber-500/40 transition-all">
+                                        <div className="absolute inset-0 bg-amber-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <div className="flex items-center gap-1.5 mb-2 relative z-10">
+                                            <div className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-pulse" />
+                                            <span className="text-[9px] text-white font-bold uppercase tracking-wider">10Y국채</span>
+                                        </div>
+                                        <div className="flex items-end justify-between relative z-10">
+                                            <div className={`text-lg font-black ${treasury.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                {treasury.yield10Y?.toFixed(2)}%
+                                            </div>
+                                            <div className={`text-[10px] font-bold ${treasury.color}`}>
+                                                {treasury.change > 0 ? '+' : ''}{treasury.change?.toFixed(2)} {treasury.status}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Risk Factors */}
+                                {riskFactors && (
+                                    <div className="bg-gradient-to-br from-pink-950/30 to-slate-900/50 border border-pink-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-pink-500/40 transition-all">
+                                        <div className="absolute inset-0 bg-pink-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                        <div className="flex items-center gap-1.5 mb-2 relative z-10">
+                                            <div className="w-1.5 h-1.5 bg-pink-400 rounded-full animate-pulse" />
+                                            <span className="text-[9px] text-white font-bold uppercase tracking-wider">SEC위험</span>
+                                        </div>
+                                        <div className="flex items-end justify-between relative z-10">
+                                            <div className={`text-2xl font-black ${riskFactors.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                {riskFactors.riskCount}
+                                            </div>
+                                            <div className={`text-[10px] font-bold ${riskFactors.color}`}>{riskFactors.riskLevel}</div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
 
                             {/* Current Price Position Visual */}
