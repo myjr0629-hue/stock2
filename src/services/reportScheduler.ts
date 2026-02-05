@@ -1163,7 +1163,8 @@ export async function getLatestReport(type: ReportType): Promise<PremiumReport |
 // [S-56.5.1] Global Latest Report Resolver
 // Solves priority issue where an old "Morning" report shadows a new "EOD" report.
 export async function getGlobalLatestReport(): Promise<PremiumReport | null> {
-    const TYPES: ReportType[] = ['morning', 'pre', 'open', 'draft', 'final', 'eod', 'revised'];
+    // [Performance] Removed legacy types ('morning', 'pre', 'open', 'eod') to reduce blocking I/O
+    const TYPES: ReportType[] = ['draft', 'final', 'revised'];
     let candidates: PremiumReport[] = [];
 
     // Parallel fetch for speed

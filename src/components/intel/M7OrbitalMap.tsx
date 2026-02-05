@@ -19,10 +19,10 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
     }, []);
 
     // Skeleton for loading
-    if (!isMounted) return <div className="w-full h-[500px] bg-[#050914] rounded-2xl animate-pulse border border-slate-800" />;
+    if (!isMounted) return <div className="w-full h-[320px] bg-[#050914] rounded-xl animate-pulse border border-slate-800" />;
 
     if (!sun) return (
-        <div className="w-full h-[500px] flex items-center justify-center bg-[#050914] rounded-2xl border border-slate-800 text-slate-500">
+        <div className="w-full h-[320px] flex items-center justify-center bg-[#050914] rounded-xl border border-slate-800 text-slate-500">
             Waiting for Orbital Data...
         </div>
     );
@@ -47,46 +47,44 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
     const sunHalo = getHaloColor(sunChange);
 
     return (
-        <div className="relative w-full h-[500px] bg-[#050914] rounded-2xl overflow-hidden border border-slate-800/50 shadow-2xl flex flex-col items-center justify-center">
+        <div className="relative w-full h-[320px] bg-[#050914] rounded-xl overflow-hidden border border-slate-800/50 shadow-lg flex flex-col items-center justify-center">
             {/* HUD Frame */}
-            <div className="absolute inset-0 pointer-events-none border-[0.5px] border-slate-800/30 rounded-2xl">
-                <div className="absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 border-emerald-500/30 rounded-tl-xl" />
-                <div className="absolute top-0 right-0 w-8 h-8 border-t-2 border-r-2 border-emerald-500/30 rounded-tr-xl" />
-                <div className="absolute bottom-0 left-0 w-8 h-8 border-b-2 border-l-2 border-emerald-500/30 rounded-bl-xl" />
-                <div className="absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 border-emerald-500/30 rounded-br-xl" />
+            <div className="absolute inset-0 pointer-events-none border-[0.5px] border-slate-800/30 rounded-xl">
+                <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-emerald-500/30 rounded-tl-lg" />
+                <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-emerald-500/30 rounded-tr-lg" />
+                <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-emerald-500/30 rounded-bl-lg" />
+                <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-emerald-500/30 rounded-br-lg" />
             </div>
 
             {/* Background Cosmos */}
             <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20 pointer-events-none" />
-            <div className={`absolute w-[400px] h-[400px] blur-[120px] rounded-full opacity-20 pointer-events-none ${sunChange >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+            <div className={`absolute w-[280px] h-[280px] blur-[100px] rounded-full opacity-15 pointer-events-none ${sunChange >= 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} />
 
             {/* Header Tag */}
-            <div className="absolute top-6 left-6 z-20">
-                <span className="flex items-center gap-2 px-3 py-1.5 bg-slate-900/80 backdrop-blur border border-slate-700/50 rounded-full text-[11px] font-bold text-slate-300 tracking-widest uppercase shadow-lg">
+            <div className="absolute top-4 left-4 z-20">
+                <span className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 backdrop-blur border border-slate-700/50 rounded-full text-[10px] font-bold text-slate-300 tracking-widest uppercase shadow-md">
                     {sunChange >= 0 ? "🚀 MARKET STANCE: RISK ON" : "🛡️ MARKET STANCE: DEFENSIVE"}
                 </span>
             </div>
 
             {/* =================================================================================
-               SAFE ZONE CONTAINER: 340px Diameter 
-               This ensures absolutely NO overflow on any screen.
-               Sun: 120px | Radius: 140px | Planet: 56px | Padding: Safe
+               COMPACT ZONE: 240px Diameter 
                ================================================================================= */}
-            <div className="relative w-[340px] h-[340px]">
+            <div className="relative w-[240px] h-[240px]">
 
                 {/* Orbit Rings (Decorative) */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[280px] h-[280px] border border-slate-800/60 rounded-full" />
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[340px] h-[340px] border border-slate-800/30 rounded-full animate-[spin_120s_linear_infinite]" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] border border-slate-800/60 rounded-full" />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[240px] h-[240px] border border-slate-800/30 rounded-full animate-[spin_120s_linear_infinite]" />
 
-                {/* THE SUN (Central Alpha) - 120px */}
+                {/* THE SUN (Central Alpha) - 80px */}
                 <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-20">
                     <motion.div
                         animate={{ scale: [1, 1.03, 1] }}
                         transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                        className={`relative w-[120px] h-[120px] rounded-full bg-[#0a0f1e] flex flex-col items-center justify-center border-4 ${sunHalo}`}
+                        className={`relative w-[80px] h-[80px] rounded-full bg-[#0a0f1e] flex flex-col items-center justify-center border-3 ${sunHalo}`}
                     >
                         {/* Sun Icon */}
-                        <div className="relative w-16 h-16 rounded-full overflow-hidden bg-white/5">
+                        <div className="relative w-11 h-11 rounded-full overflow-hidden bg-white/5">
                             <img
                                 src={getLogoUrl(sun.ticker)}
                                 alt={sun.ticker}
@@ -94,42 +92,41 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
                             />
                         </div>
                         {/* Sun Ticker */}
-                        <span className="absolute -bottom-8 text-xl font-black text-white drop-shadow-md tracking-tighter z-30">{sun.ticker}</span>
+                        <span className="absolute -bottom-6 text-base font-black text-white drop-shadow-md tracking-tighter z-30">{sun.ticker}</span>
 
                         {/* Sun Score Badge */}
-                        <div className={`absolute -right-2 bottom-0 w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white border-2 border-[#050914] shadow-lg z-30 ${sunChange >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}>
+                        <div className={`absolute -right-1 bottom-0 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold text-white border-2 border-[#050914] shadow-lg z-30 ${sunChange >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}>
                             {sun.alphaScore}
                         </div>
                     </motion.div>
                 </div>
 
-                {/* ORBITING PLANETS - 56px Nodes / 140px Radius */}
+                {/* ORBITING PLANETS - 44px Nodes / 100px Radius */}
                 {planets.map((item, i) => {
-                    // Distribute in circle
-                    const angle = (i / planets.length) * 2 * Math.PI - (Math.PI / 2); // Start from top (-90deg basic or adjust)
-                    const radius = 140;
+                    const angle = (i / planets.length) * 2 * Math.PI - (Math.PI / 2);
+                    const radius = 100;
                     const x = Math.cos(angle) * radius;
                     const y = Math.sin(angle) * radius;
 
                     const change = item.evidence?.price?.changePct || 0;
-                    const halo = change > 0 ? "border-emerald-500/60 shadow-[0_0_15px_rgba(16,185,129,0.3)]" : change < 0 ? "border-rose-500/60 shadow-[0_0_15px_rgba(244,63,94,0.3)]" : "border-slate-500/60";
+                    const halo = change > 0 ? "border-emerald-500/60 shadow-[0_0_12px_rgba(16,185,129,0.3)]" : change < 0 ? "border-rose-500/60 shadow-[0_0_12px_rgba(244,63,94,0.3)]" : "border-slate-500/60";
 
                     return (
                         <motion.div
                             key={item.ticker}
-                            className={`absolute top-1/2 left-1/2 z-10 w-14 h-14 rounded-full bg-[#0f172a] flex items-center justify-center border-2 ${halo} cursor-pointer hover:scale-110 hover:z-30 transition-all duration-300`}
+                            className={`absolute top-1/2 left-1/2 z-10 w-11 h-11 rounded-full bg-[#0f172a] flex items-center justify-center border-2 ${halo} cursor-pointer hover:scale-110 hover:z-30 transition-all duration-300`}
                             style={{
                                 x,
                                 y,
-                                marginLeft: '-28px', // Center offset (half of width)
-                                marginTop: '-28px'   // Center offset
+                                marginLeft: '-22px',
+                                marginTop: '-22px'
                             }}
                             initial={{ opacity: 0, scale: 0 }}
                             animate={{ opacity: 1, scale: 1 }}
-                            transition={{ delay: i * 0.1 }}
+                            transition={{ delay: i * 0.08 }}
                         >
                             {/* Planet Icon */}
-                            <div className="relative w-9 h-9 rounded-full overflow-hidden bg-white/5">
+                            <div className="relative w-7 h-7 rounded-full overflow-hidden bg-white/5">
                                 <img
                                     src={getLogoUrl(item.ticker)}
                                     alt={item.ticker}
@@ -138,7 +135,7 @@ export function M7OrbitalMap({ items }: { items: TickerItem[] }) {
                             </div>
 
                             {/* Planet Score Badge */}
-                            <div className={`absolute -right-2 -bottom-1 w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold text-white border border-[#050914] shadow z-20 ${change >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}>
+                            <div className={`absolute -right-1 -bottom-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold text-white border border-[#050914] shadow z-20 ${change >= 0 ? "bg-emerald-600" : "bg-rose-600"}`}>
                                 {item.alphaScore}
                             </div>
                         </motion.div>

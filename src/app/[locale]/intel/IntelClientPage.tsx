@@ -16,12 +16,21 @@ import { TacticalCard } from "@/components/TacticalCard";
 import { TacticalSidebar } from "@/components/TacticalSidebar"; // [NEW]
 import { PremiumBlur } from "@/components/PremiumBlur";
 import { TacticalBoard } from "@/components/intel/TacticalBoard"; // [NEW]
-import { M7OrbitalMap } from "@/components/intel/M7OrbitalMap";
 import { M7BriefingBar } from "@/components/intel/M7BriefingBar";
 import { M7TacticalDeck } from "@/components/intel/M7TacticalDeck";
+import { M7SessionSummary } from "@/components/intel/M7SessionSummary";
+import { M7OptionsPulse } from "@/components/intel/M7OptionsPulse";
 import { PhysicalAIOrbitalMap } from "@/components/intel/PhysicalAIOrbitalMap";
-import { PhysicalAIBriefingBar, PhysicalAITacticalDeck } from "@/components/intel/PhysicalAIComponents";
+import { PhysicalAIBriefingBar, PhysicalAITacticalDeck as PhysicalAITacticalDeckOld } from "@/components/intel/PhysicalAIComponents";
+import { PhysicalAISessionSummary } from "@/components/intel/PhysicalAISessionSummary";
+import { PhysicalAITacticalDeck } from "@/components/intel/PhysicalAITacticalDeck";
+import { PhysicalAIAnalystConsensus } from "@/components/intel/PhysicalAIAnalystConsensus";
+import { PhysicalAIEarningsCalendar } from "@/components/intel/PhysicalAIEarningsCalendar";
+import { PhysicalAIOptionsPulse } from "@/components/intel/PhysicalAIOptionsPulse";
 import { FinalBattleSection, AlphaItem } from "@/components/intel/FinalBattleSection";
+import { M7EarningsCalendar } from "@/components/intel/M7EarningsCalendar";
+import { M7AnalystConsensus } from "@/components/intel/M7AnalystConsensus";
+import { EarningsEvent, RecommendationTrend } from "@/services/finnhubClient";
 
 
 
@@ -1057,10 +1066,12 @@ const formatDateKey = (d: Date) => {
     return d.toISOString().split('T')[0];
 };
 
-function IntelContent({ initialReport }: { initialReport: any }) {
+function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, locale?: string }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
+
+    // [RESTORED] Components now fetch data independently (same as Flow/Command pages)
 
     // State
     const [report, setReport] = useState<any>(initialReport || null);
@@ -1072,6 +1083,12 @@ function IntelContent({ initialReport }: { initialReport: any }) {
 
     // [13.1] Timeline State (Time Machine)
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
+
+    // [M7 Calendar] Finnhub Earnings & Analyst Data
+    const [m7CalendarData, setM7CalendarData] = useState<{
+        earnings: EarningsEvent[];
+        recommendations: Record<string, RecommendationTrend>;
+    } | null>(null);
 
     // Fetch Data
     useEffect(() => {
@@ -1155,6 +1172,8 @@ function IntelContent({ initialReport }: { initialReport: any }) {
         loadData();
 
         // Auto-refresh only if viewing today
+        // [DISABLED] User Request: Stops the page from resetting tabs (Final Battle) on refresh
+        /*
         if (formatDateKey(currentDate) === formatDateKey(new Date())) {
             const interval = setInterval(() => loadData(true), 60 * 1000);
             return () => {
@@ -1162,37 +1181,129 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                 clearInterval(interval);
             };
         }
+        */
 
         return () => { isMounted = false; };
     }, [currentDate]);
 
-    // [Live Overlay] Poll for real-time prices every 15s
+    // [V4.6] Live Overlay - Use /api/live/ticker (SAME as Flow/Command pages)
     useEffect(() => {
         if (!report?.items) return;
 
-        const fetchQuotes = async () => {
+        const fetchAllTickers = async () => {
             try {
                 // Combine Report Items + M7 + Physical AI (Unique)
                 const reportTickers = report.items.map((i: any) => i.ticker);
                 const allTickers = Array.from(new Set([...reportTickers, ...M7_TICKERS, ...PHYSICAL_AI_TICKERS]));
-                const symbols = allTickers.join(',');
 
-                if (!symbols) return;
+                // Fetch each ticker using /api/live/ticker (EXACT SAME as Flow page)
+                const results = await Promise.all(
+                    allTickers.map(async (ticker) => {
+                        try {
+                            const res = await fetch(`/api/live/ticker?t=${ticker}`, { cache: 'no-store' });
+                            if (!res.ok) return { ticker, data: null };
+                            const data = await res.json();
+                            return { ticker, data };
+                        } catch {
+                            return { ticker, data: null };
+                        }
+                    })
+                );
 
-                const res = await fetch(`/api/live/quotes?symbols=${symbols}`, { cache: 'no-store' });
-                if (res.ok) {
-                    const json = await res.json();
-                    if (json.data) {
-                        setLiveQuotes(prev => ({ ...prev, ...json.data }));
+                // Process results with Flow page's EXACT session-aware logic
+                const newQuotes: Record<string, any> = {};
+
+                results.forEach(({ ticker, data }) => {
+                    if (!data) return;
+
+                    const session = data.session || 'CLOSED';
+
+                    // Main Display Price (EXACT COPY from Flow page L59-78)
+                    let displayPrice = data.display?.price || data.prices?.prevRegularClose || data.prevClose || 0;
+                    let displayChangePct = data.display?.changePctPct || 0;
+
+                    // POST/CLOSED Override (Flow L65-78)
+                    if (session === 'POST' || session === 'CLOSED') {
+                        const regularClose = data.prices?.regularCloseToday;
+                        const prevClose = data.prices?.prevRegularClose || data.prevClose;
+
+                        if (regularClose && regularClose > 0) {
+                            displayPrice = regularClose;
+                            const isNewTradingDay = prevClose && Math.abs(regularClose - prevClose) > 0.001;
+
+                            if (isNewTradingDay && prevClose > 0) {
+                                displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
+                            } else {
+                                displayChangePct = data.prices?.prevChangePct || data.display?.changePctPct || 0;
+                            }
+                        }
                     }
-                }
-            } catch (e) { console.error("Live quote poll failed", e); }
+
+                    // PRE Session Override (Flow L82-88)
+                    if (session === 'PRE') {
+                        const staticClose = data.prices?.prevRegularClose || data.prevClose;
+                        if (staticClose) {
+                            displayPrice = staticClose;
+                            displayChangePct = data.prices?.prevChangePct ?? 0;
+                        }
+                    }
+
+                    // Extended Session Data (Flow L91-108)
+                    let extendedPrice = 0;
+                    let extendedChangePct = 0;
+                    let extendedLabel = '';
+
+                    if (session === 'PRE') {
+                        extendedPrice = data.extended?.prePrice || data.prices?.prePrice || 0;
+                        extendedLabel = 'PRE';
+                        extendedChangePct = data.extended?.preChangePct ? data.extended.preChangePct * 100 : 0;
+                    } else if (session === 'POST' || session === 'CLOSED') {
+                        extendedPrice = data.extended?.postPrice || data.prices?.postPrice || 0;
+                        extendedLabel = session === 'CLOSED' ? 'POST' : 'POST';
+                        if (extendedPrice > 0 && displayPrice > 0) {
+                            extendedChangePct = ((extendedPrice - displayPrice) / displayPrice) * 100;
+                        }
+                    }
+
+                    newQuotes[ticker] = {
+                        price: displayPrice,
+                        changePercent: displayChangePct,
+                        prevClose: data.prices?.prevRegularClose || data.prevClose || 0,
+                        volume: data.day?.v || 0,
+                        extendedPrice,
+                        extendedChangePct,
+                        extendedLabel,
+                        session,
+                        relVol: data.relVol || 1,
+                        // Include history for sparklines
+                        history3d: data.history3d || []
+                    };
+                });
+
+                setLiveQuotes(prev => ({ ...prev, ...newQuotes }));
+            } catch (e) { console.error("Live ticker poll failed", e); }
         };
 
-        fetchQuotes(); // Initial
-        const interval = setInterval(fetchQuotes, 15000);
+        fetchAllTickers(); // Initial
+        const interval = setInterval(fetchAllTickers, 15000);
         return () => clearInterval(interval);
     }, [report]);
+
+    // [M7 Calendar] Fetch Finnhub Earnings & Analyst Data
+    useEffect(() => {
+        async function fetchM7Calendar() {
+            try {
+                const res = await fetch('/api/intel/m7-calendar', { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    setM7CalendarData(data);
+                }
+            } catch (e) {
+                console.error('[M7 Calendar] Fetch failed:', e);
+            }
+        }
+        fetchM7Calendar();
+    }, []);
 
     // Derived Lists with Live Overlay
     const rawItems: TickerItem[] = report?.items || [];
@@ -1203,7 +1314,9 @@ function IntelContent({ initialReport }: { initialReport: any }) {
             const live = liveQuotes[item.ticker];
             if (!live) return item;
 
-            // Override price/change evidence
+            // [V4.3] Session-Aware Price Merge
+            // live.price = Regular Session Close (main display)
+            // live.extendedPrice = After-Hours Price (if different)
             return {
                 ...item,
                 evidence: {
@@ -1211,19 +1324,16 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                     price: {
                         ...item.evidence?.price,
                         last: live.price || item.evidence?.price?.last,
-                        changePct: live.changePercent || item.evidence?.price?.changePct,
-                        // Mark as live updated
-                        extendedPrice: live.price,
-                        extendedChangePct: live.changePercent,
-                        extendedLabel: 'LIVE'
+                        prevClose: live.prevClose || item.evidence?.price?.prevClose,
+                        changePct: live.changePercent ?? item.evidence?.price?.changePct,
+                        // Extended Hours Data (from API's separate fields)
+                        extendedPrice: live.extendedPrice || 0,
+                        extendedChangePct: live.extendedChangePercent || 0,
+                        extendedLabel: live.extendedPrice > 0 ? 'POST' : undefined
                     },
                     flow: {
                         ...item.evidence?.flow,
-                        // Update volume if available
                         vol: live.volume || item.evidence?.flow?.vol,
-                        // Rough approximation of updated "Net Flow" visual if needed
-                        // For now we keep the sophisticated "Net Flow" static as it requires deep analysis
-                        // but we rely on the Price/Vol update to show liveliness.
                     }
                 }
             };
@@ -1277,14 +1387,18 @@ function IntelContent({ initialReport }: { initialReport: any }) {
 
             // Priority 3: Live Quote Fallback (Monitoring)
             const live = liveQuotes[ticker];
+            const currentPrice = live?.price || 0;
+            const prevClose = live?.previousClose || live?.prevClose || 0;
+            const changePct = live?.changePercent || (currentPrice && prevClose ? ((currentPrice - prevClose) / prevClose * 100) : 0);
             return {
                 ticker,
                 rank: 99,
                 alphaScore: 0,
                 evidence: {
                     price: {
-                        last: live?.price || 0,
-                        changePct: live?.changePercent || 0,
+                        last: currentPrice,
+                        prevClose: prevClose,
+                        changePct: changePct,
                         extendedLabel: live ? 'LIVE' : undefined
                     },
                     flow: { vol: live?.volume || 0 },
@@ -1497,58 +1611,95 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                         </div>
                     </div>
 
-                    {/* PHYSICAL AI CONTENT (The Iron Legion) */}
-                    <div className={activeTab === 'PHYSICAL_AI' ? "space-y-6" : "hidden"}>
+                    {/* PHYSICAL AI CONTENT (The Iron Legion) - Same Layout as M7 */}
+                    <div className={activeTab === 'PHYSICAL_AI' ? "space-y-4" : "hidden"}>
 
-                        {/* Zone A: Orbital Map */}
+                        {/* Zone A: Session Summary */}
                         <section>
-                            <PhysicalAIOrbitalMap items={physicalAiItems} />
+                            <PhysicalAISessionSummary />
                         </section>
 
-                        {/* Zone B: Briefing Bar */}
+                        {/* Zone B: Consensus + Options Pulse | Earnings Calendar (Same as M7) */}
+                        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* Left Column: Analyst Consensus + Options Pulse */}
+                            <div className="space-y-3">
+                                <PhysicalAIAnalystConsensus />
+                                <PhysicalAIOptionsPulse />
+                            </div>
+
+                            {/* Right: Earnings Calendar */}
+                            <PhysicalAIEarningsCalendar />
+                        </section>
+
+                        {/* Zone D: Briefing Bar */}
                         <section>
                             <div className="mb-2 px-2 flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-amber-600/70 tracking-widest uppercase">
+                                <span className="text-[10px] font-bold text-orange-600/70 tracking-widest uppercase">
                                     POST-MARKET FINAL ANALYSIS (장마감 정밀보고)
                                 </span>
-                                <span className="text-[10px] font-bold text-amber-600/70 tracking-widest uppercase">
+                                <span className="text-[10px] font-bold text-orange-600/70 tracking-widest uppercase">
                                     COMPLETED AT 21:00 EST
                                 </span>
                             </div>
                             <PhysicalAIBriefingBar
-                                message={
-                                    physicalAiItems.length > 0
-                                        ? `DETECTING HEAVY CAPITAL DEPLOYMENT IN ${physicalAiItems[0].ticker}. SECTOR MOMENTUM: ${physicalAiItems[0].evidence?.price?.changePct && physicalAiItems[0].evidence.price.changePct > 0 ? "ACCELERATING" : "STABILIZING"}.`
-                                        : "ESTABLISHING UPLINK TO INDUSTRIAL GRID..."
-                                }
+                                message={(() => {
+                                    if (physicalAiItems.length > 0) {
+                                        const ticker = physicalAiItems[0].ticker;
+                                        const isUp = physicalAiItems[0].evidence?.price?.changePct && physicalAiItems[0].evidence.price.changePct > 0;
+                                        if (locale === 'ko') {
+                                            return `${ticker}에서 대규모 자본 투입 감지. 섹터 모멘텀: ${isUp ? "가속 중" : "안정화 중"}.`;
+                                        } else if (locale === 'ja') {
+                                            return `${ticker}で大規模資本投入を検出。セクターモメンタム: ${isUp ? "加速中" : "安定化中"}。`;
+                                        } else {
+                                            return `DETECTING HEAVY CAPITAL DEPLOYMENT IN ${ticker}. SECTOR MOMENTUM: ${isUp ? "ACCELERATING" : "STABILIZING"}.`;
+                                        }
+                                    } else {
+                                        if (locale === 'ko') {
+                                            return "산업 그리드 연결 중...";
+                                        } else if (locale === 'ja') {
+                                            return "インダストリアルグリッドに接続中...";
+                                        } else {
+                                            return "ESTABLISHING UPLINK TO INDUSTRIAL GRID...";
+                                        }
+                                    }
+                                })()}
                             />
                         </section>
 
-                        {/* Zone C: Tactical Deck */}
+                        {/* Zone E: Tactical Deck */}
                         <section>
-                            <h2 className="text-sm font-bold text-amber-700/50 mb-4 px-2 flex items-center gap-2">
-                                <Bot className="w-4 h-4 text-amber-500" />
-                                TACTICAL DECK <span className="text-[10px] text-amber-800 uppercase tracking-wider">Sorted by Alpha Priority</span>
+                            <h2 className="text-sm font-bold text-orange-400 mb-4 px-2 flex items-center gap-2">
+                                <Bot className="w-4 h-4 text-orange-500" />
+                                TACTICAL DECK <span className="text-[10px] text-orange-600 uppercase tracking-wider">Sorted by Alpha Priority</span>
                             </h2>
-                            <PhysicalAITacticalDeck
-                                items={physicalAiItems}
-                                selectedTicker={selectedTicker}
-                                onSelect={setSelectedTicker}
-                            />
+                            <PhysicalAITacticalDeck />
                         </section>
 
                     </div>
 
 
-                    {/* M7 REPORT CONTENT (ORBITAL COMMAND) */}
-                    <div className={activeTab === 'M7' ? "space-y-6" : "hidden"}>
 
-                        {/* Zone A: Orbital Map */}
+                    {/* M7 REPORT CONTENT - V3 Clean Layout (No Orbital) */}
+                    <div className={activeTab === 'M7' ? "space-y-4" : "hidden"}>
+
+                        {/* Zone A: Session Summary (Full Width at Top) */}
                         <section>
-                            <M7OrbitalMap items={m7Items} />
+                            <M7SessionSummary />
                         </section>
 
-                        {/* Zone B: Briefing Bar */}
+                        {/* Zone B: Consensus + Options Pulse | Earnings Calendar */}
+                        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            {/* Left Column: Analyst Consensus + Options Pulse */}
+                            <div className="space-y-3">
+                                <M7AnalystConsensus recommendations={m7CalendarData?.recommendations || {}} />
+                                <M7OptionsPulse items={m7Items} />
+                            </div>
+
+                            {/* Right: Earnings Calendar */}
+                            <M7EarningsCalendar earnings={m7CalendarData?.earnings || []} />
+                        </section>
+
+                        {/* Zone C: Briefing Bar */}
                         <section>
                             <div className="mb-2 px-2 flex items-center justify-between">
                                 <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">
@@ -1559,26 +1710,38 @@ function IntelContent({ initialReport }: { initialReport: any }) {
                                 </span>
                             </div>
                             <M7BriefingBar
-                                message={
-                                    // Simple logic for briefing: Top 1 vs Top 2 comparison
-                                    m7Items.length > 1
-                                        ? `Today's capital flow is concentrating on ${m7Items.sort((a, b) => (b.alphaScore || 0) - (a.alphaScore || 0))[0].ticker}, while ${m7Items.sort((a, b) => (b.alphaScore || 0) - (a.alphaScore || 0))[1].ticker} shows defensive posturing.`
-                                        : "M7 Sector Analysis: Waiting for Market Data..."
-                                }
+                                message={(() => {
+                                    if (m7Items.length > 1) {
+                                        const sortedItems = m7Items.sort((a, b) => (b.alphaScore || 0) - (a.alphaScore || 0));
+                                        const ticker1 = sortedItems[0].ticker;
+                                        const ticker2 = sortedItems[1].ticker;
+                                        if (locale === 'ko') {
+                                            return `오늘의 자금 흐름은 ${ticker1}에 집중되고 있으며, ${ticker2}은(는) 방어적 포지셔닝을 보이고 있습니다.`;
+                                        } else if (locale === 'ja') {
+                                            return `本日の資金フローは${ticker1}に集中しており、${ticker2}はディフェンシブなポジショニングを示しています。`;
+                                        } else {
+                                            return `Today's capital flow is concentrating on ${ticker1}, while ${ticker2} shows defensive posturing.`;
+                                        }
+                                    } else {
+                                        if (locale === 'ko') {
+                                            return "M7 섹터 분석: 시장 데이터 대기 중...";
+                                        } else if (locale === 'ja') {
+                                            return "M7セクター分析: マーケットデータ待機中...";
+                                        } else {
+                                            return "M7 Sector Analysis: Waiting for Market Data...";
+                                        }
+                                    }
+                                })()}
                             />
                         </section>
 
-                        {/* Zone C: Tactical Deck */}
+                        {/* Zone D: Tactical Deck */}
                         <section>
-                            <h2 className="text-sm font-bold text-slate-400 mb-4 px-2 flex items-center gap-2">
+                            <h2 className="text-sm font-bold text-slate-400 mb-3 px-2 flex items-center gap-2">
                                 <Layers className="w-4 h-4 text-emerald-500" />
                                 TACTICAL DECK <span className="text-[10px] text-slate-600 uppercase tracking-wider">Sorted by Alpha Priority</span>
                             </h2>
-                            <M7TacticalDeck
-                                items={m7Items}
-                                selectedTicker={selectedTicker}
-                                onSelect={setSelectedTicker}
-                            />
+                            <M7TacticalDeck />
                         </section>
 
                     </div>
@@ -1923,7 +2086,7 @@ function IntelContent({ initialReport }: { initialReport: any }) {
     );
 }
 
-export default function IntelClientPage({ initialReport }: { initialReport: any }) {
+export default function IntelClientPage({ initialReport, locale = 'en' }: { initialReport: any, locale?: string }) {
     return (
         <React.Suspense fallback={
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -1933,7 +2096,7 @@ export default function IntelClientPage({ initialReport }: { initialReport: any 
                 </div>
             </div>
         }>
-            <IntelContent initialReport={initialReport} />
+            <IntelContent initialReport={initialReport} locale={locale} />
         </React.Suspense>
     );
 }

@@ -248,6 +248,7 @@ function buildPriceEvidence(data: any): UnifiedPrice {
         rsi14: data.rsi || 50, // [Phase 41.2] Real RSI 14
         return3D: 0,
         structureState: 'CONSOLIDATION',
+        history3d: data.history3d || [], // [Phase 36] Sparkline data from CentralDataHub
         complete: last > 0
     };
 }

@@ -249,7 +249,7 @@ function AlphaScoreBadge({ score, size = 'large' }: { score: number; size?: 'lar
                     className={cn("font-black tabular-nums", isLarge ? "text-xl" : "text-sm")}
                     style={{ color: colors.main }}
                 >
-                    {score}
+                    {Number(score).toFixed(1)}
                 </span>
                 {isLarge && (
                     <span

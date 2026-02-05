@@ -323,7 +323,11 @@
         "intelFeed": "Intelligence Feed",
         "source": "Source",
         "timestamp": "Timestamp",
-        "translating": "Translating..."
+        "translating": "Translating...",
+        "m7Briefing": {
+            "capitalFlowConcentrating": "Today's capital flow is concentrating on {ticker1}, while {ticker2} shows defensive posturing.",
+            "waitingForData": "M7 Sector Analysis: Waiting for Market Data..."
+        }
     },
     "report": {
         "date": "Date",

@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server';
 import { getStockData, getOptionsData } from '@/services/stockApi';
 import { analyzeGemsTicker } from '@/services/stockTypes';
+import { getStructureData } from '@/services/structureService';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
@@ -37,9 +38,7 @@ export async function GET(request: Request) {
             const [stockData, optionsData, structureRes] = await Promise.all([
                 getStockData(ticker, '1d').catch(() => null),
                 getOptionsData(ticker).catch(() => null),
-                fetch(`${baseUrl}/api/live/options/structure?t=${ticker}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .catch(() => null)
+                getStructureData(ticker).catch(() => null)
             ]);
 
             if (!stockData) {

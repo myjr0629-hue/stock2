@@ -323,7 +323,11 @@
         "intelFeed": "Intelligence Feed",
         "source": "ソース",
         "timestamp": "タイムスタンプ",
-        "translating": "翻訳中..."
+        "translating": "翻訳中...",
+        "m7Briefing": {
+            "capitalFlowConcentrating": "本日の資金フローは{ticker1}に集中しており、{ticker2}はディフェンシブなポジショニングを示しています。",
+            "waitingForData": "M7セクター分析: マーケットデータ待機中..."
+        }
     },
     "report": {
         "date": "日付",

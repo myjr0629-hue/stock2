@@ -393,7 +393,10 @@ export async function loadLatest(type: string): Promise<any | null> {
             .sort()
             .reverse();
 
-        for (const date of dates) {
+        // [Performance] Limit scan to last 7 days to prevent full history scan
+        const scanDates = dates.slice(0, 7);
+
+        for (const date of scanDates) {
             const filePath = path.join(REPORTS_DIR, date, `${type}.json`);
             if (fs.existsSync(filePath)) {
                 console.log(`[ReportStore] loadLatest found (NEW FS): ${filePath}`);

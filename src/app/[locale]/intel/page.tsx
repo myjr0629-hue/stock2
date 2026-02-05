@@ -6,7 +6,12 @@ import IntelClientPage from './IntelClientPage';
 
 export const dynamic = 'force-dynamic';
 
-export default async function IntelPage() {
+interface PageProps {
+    params: Promise<{ locale: string }>;
+}
+
+export default async function IntelPage({ params }: PageProps) {
+    const { locale } = await params;
     // 1. Fetch Latest Report (Server Side for Speed/SEO/Reliability)
     // [VNext] Use global resolver to find the strictly latest report by timestamp
     const report = await getGlobalLatestReport();
@@ -19,7 +24,7 @@ export default async function IntelPage() {
             {/* 2. TACTICAL CLIENT CONTENT (Sidebar + Dashboard) */}
             {/* We pass the initial report to hydrate the client state immediately */}
             <div className="flex-1 relative">
-                <IntelClientPage initialReport={report} />
+                <IntelClientPage initialReport={report} locale={locale} />
             </div>
         </div>
     );

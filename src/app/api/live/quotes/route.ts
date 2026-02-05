@@ -1,6 +1,6 @@
 
 import { NextResponse } from 'next/server';
-import { fetchMassive } from '@/services/massiveClient';
+import { CentralDataHub } from '@/services/centralDataHub';
 
 export const dynamic = 'force-dynamic'; // No caching allowed
 
@@ -13,49 +13,87 @@ export async function GET(request: Request) {
     }
 
     try {
-        // [S-56] Massive Batch Snapshot
-        // Uses Polygon /v2/snapshot/locale/us/markets/stocks/tickers?tickers=...
-        const snapRes = await fetchMassive(
-            '/v2/snapshot/locale/us/markets/stocks/tickers',
-            { tickers: symbolsParam },
-            false // No cache (Live)
-        );
+        const tickers = symbolsParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
 
-        if (!snapRes || !snapRes.tickers) {
-            return NextResponse.json({ data: {} });
-        }
+        // [V4.4] Use CentralDataHub for session-aware pricing
+        // This matches /api/live/ticker logic exactly
+        const marketStatus = await CentralDataHub.getMarketStatus();
+        const session = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
+
+        const results = await Promise.all(
+            tickers.map(async ticker => {
+                try {
+                    const quote = await CentralDataHub.getUnifiedData(ticker, false);
+                    return { ticker, quote, error: null };
+                } catch (e: any) {
+                    return { ticker, quote: null, error: e.message };
+                }
+            })
+        );
 
         const data: Record<string, any> = {};
 
-        snapRes.tickers.forEach((t: any) => {
-            const sym = t.ticker;
+        results.forEach(({ ticker, quote, error }) => {
+            if (!quote || error) {
+                data[ticker] = { price: 0, changePercent: 0, error };
+                return;
+            }
 
-            // Standard Price Logic (similar to stockApi.ts)
-            const prevClose = t.prevDay?.c || 0;
-            const dayClose = t.day?.c || prevClose;
-            const currentPrice = t.lastTrade?.p || t.min?.c || dayClose;
+            // [V4.4] Session-Aware Pricing from CentralDataHub
+            // Main Display = Regular Session Close (for changePct calculation)
+            // Extended = After-Hours or Pre-Market
+            const mainPrice = quote.price || 0;
+            const prevClose = quote.prevClose || 0;
+            let changePct = quote.finalChangePercent ?? quote.changePct ??
+                (mainPrice && prevClose ? ((mainPrice - prevClose) / prevClose) * 100 : 0);
 
-            // Calculate change vs Prev Close (Standard)
-            const change = currentPrice - prevClose;
-            const changePercent = prevClose !== 0 ? (change / prevClose) * 100 : 0;
+            // [V4.5] Rollover Fix: Show PREVIOUS session's change when current is 0%
+            // This happens during PRE session or when date rolled over
+            const history3d = quote.history3d || [];
+            if ((changePct === 0 || quote.isRollover) && history3d.length >= 2) {
+                const lastClose = history3d[0]?.c || 0;
+                const prevLastClose = history3d[1]?.c || 0;
+                if (lastClose > 0 && prevLastClose > 0) {
+                    changePct = ((lastClose - prevLastClose) / prevLastClose) * 100;
+                }
+            }
 
-            // [Phase 23] Extended Hours Logic (Basic)
-            // We need volume to approximate Flow activity
-            const volume = t.day?.v || 0;
-            const prevVolume = t.prevDay?.v || 0;
-            const dollarVolume = currentPrice * volume; // Approx Flow
+            // Extended Price (separate from main price)
+            const extendedPrice = quote.extendedPrice || 0;
+            const extendedChangePct = (extendedPrice > 0 && mainPrice > 0)
+                ? ((extendedPrice - mainPrice) / mainPrice) * 100
+                : 0;
 
-            data[sym] = {
-                price: currentPrice,
-                change: change,
-                changePercent: changePercent,
-                volume: volume,
-                flowApprox: dollarVolume,
-                lastUpdate: t.lastTrade?.t || Date.now() * 1000000
+            data[ticker] = {
+                // Main Price (Regular Session Close)
+                price: mainPrice,
+                previousClose: prevClose,
+                prevClose: prevClose,
+                change: mainPrice - prevClose,
+                changePercent: changePct,
+                // Extended Session (if different)
+                extendedPrice: extendedPrice > 0 && extendedPrice !== mainPrice ? extendedPrice : 0,
+                extendedChange: extendedPrice > 0 ? extendedPrice - mainPrice : 0,
+                extendedChangePercent: extendedChangePct,
+                extendedLabel: quote.extendedLabel,
+                // Flow Data
+                volume: quote.volume || 0,
+                relVol: quote.relVol || 1,
+                // Session info
+                session: session,
+                priceSource: quote.priceSource,
+                // History for sparklines
+                history3d: quote.history3d || [],
+                // Timestamp
+                lastUpdate: Date.now()
             };
         });
 
-        return NextResponse.json({ data }, {
+        return NextResponse.json({
+            data,
+            session,
+            timestamp: Date.now()
+        }, {
             headers: {
                 'Cache-Control': 'no-store, max-age=0',
             }
