@@ -34,12 +34,6 @@ export default function WatchlistPage() {
     const t = useTranslations('watchlist');
     const tCommon = useTranslations('common');
     const locale = useLocale();
-    const hydrateDashboardTickers = useDashboardStore((s) => s.hydrateDashboardTickers);
-
-    // Hydrate dashboard tickers from localStorage on mount
-    useEffect(() => {
-        hydrateDashboardTickers();
-    }, [hydrateDashboardTickers]);
 
     return (
         <div className="min-h-screen bg-[#0c1118] text-slate-100">

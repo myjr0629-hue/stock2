@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 
 interface TickerData {
     underlyingPrice: number | null;
@@ -77,7 +78,6 @@ interface DashboardState {
     // Dashboard ticker management
     toggleDashboardTicker: (ticker: string) => void;
     isDashboardTicker: (ticker: string) => boolean;
-    hydrateDashboardTickers: () => void;
 
     // Fetch all data
     fetchDashboardData: (tickerList?: string[]) => Promise<void>;
@@ -85,99 +85,75 @@ interface DashboardState {
 
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
 
-export const useDashboardStore = create<DashboardState>((set, get) => {
-    // Load dashboardTickers from localStorage
-    const loadDashboardTickers = (): string[] => {
-        if (typeof window === 'undefined') return [];
-        try {
-            const saved = localStorage.getItem('dashboardTickers');
-            return saved ? JSON.parse(saved) : [];
-        } catch {
-            return [];
-        }
-    };
+export const useDashboardStore = create<DashboardState>()(
+    persist(
+        (set, get) => ({
+            selectedTicker: 'NVDA',
+            tickers: {},
+            market: null,
+            signals: [],
+            isLoading: false,
+            lastUpdated: null,
+            dashboardTickers: [],
 
-    return {
-        selectedTicker: 'NVDA',
-        tickers: {},
-        market: null,
-        signals: [],
-        isLoading: false,
-        lastUpdated: null,
-        dashboardTickers: loadDashboardTickers(),
+            setSelectedTicker: (ticker) => {
+                set({ selectedTicker: ticker });
+                // Update URL without reload
+                if (typeof window !== 'undefined') {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('t', ticker);
+                    window.history.replaceState({}, '', url.toString());
+                }
+            },
 
-        setSelectedTicker: (ticker) => {
-            set({ selectedTicker: ticker });
-            // Update URL without reload
-            if (typeof window !== 'undefined') {
-                const url = new URL(window.location.href);
-                url.searchParams.set('t', ticker);
-                window.history.replaceState({}, '', url.toString());
-            }
-        },
+            setTickers: (tickers) => set({ tickers }),
+            setMarket: (market) => set({ market }),
+            setSignals: (signals) => set({ signals }),
+            setLoading: (loading) => set({ isLoading: loading }),
 
-        setTickers: (tickers) => set({ tickers }),
-        setMarket: (market) => set({ market }),
-        setSignals: (signals) => set({ signals }),
-        setLoading: (loading) => set({ isLoading: loading }),
+            toggleDashboardTicker: (ticker) => {
+                const current = get().dashboardTickers;
+                const isIn = current.includes(ticker);
+                const newList = isIn
+                    ? current.filter(t => t !== ticker)
+                    : [...current, ticker].slice(0, 10); // Max 10 tickers
+                set({ dashboardTickers: newList });
+            },
 
-        toggleDashboardTicker: (ticker) => {
-            const current = get().dashboardTickers;
-            const isIn = current.includes(ticker);
-            const newList = isIn
-                ? current.filter(t => t !== ticker)
-                : [...current, ticker].slice(0, 10); // Max 10 tickers
+            isDashboardTicker: (ticker) => get().dashboardTickers.includes(ticker),
 
-            set({ dashboardTickers: newList });
+            fetchDashboardData: async (tickerList = DEFAULT_TICKERS) => {
+                set({ isLoading: true });
 
-            // Persist to localStorage
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('dashboardTickers', JSON.stringify(newList));
-            }
-        },
-
-        hydrateDashboardTickers: () => {
-            if (typeof window !== 'undefined') {
                 try {
-                    const saved = localStorage.getItem('dashboardTickers');
-                    if (saved) {
-                        set({ dashboardTickers: JSON.parse(saved) });
+                    const tickersParam = tickerList.slice(0, 5).join(','); // Max 5 for prefetch
+                    const res = await fetch(`/api/dashboard/unified?tickers=${tickersParam}`);
+
+                    if (!res.ok) {
+                        throw new Error('Failed to fetch dashboard data');
                     }
-                } catch {
-                    // ignore
+
+                    const data = await res.json();
+
+                    set({
+                        tickers: data.tickers || {},
+                        market: data.market || null,
+                        signals: data.signals || [],
+                        lastUpdated: new Date(),
+                        isLoading: false
+                    });
+                } catch (error) {
+                    console.error('Dashboard fetch error:', error);
+                    set({ isLoading: false });
                 }
             }
-        },
-
-        isDashboardTicker: (ticker) => get().dashboardTickers.includes(ticker),
-
-        fetchDashboardData: async (tickerList = DEFAULT_TICKERS) => {
-            set({ isLoading: true });
-
-            try {
-                const tickersParam = tickerList.slice(0, 5).join(','); // Max 5 for prefetch
-                const res = await fetch(`/api/dashboard/unified?tickers=${tickersParam}`);
-
-                if (!res.ok) {
-                    throw new Error('Failed to fetch dashboard data');
-                }
-
-                const data = await res.json();
-
-                set({
-                    tickers: data.tickers || {},
-                    market: data.market || null,
-                    signals: data.signals || [],
-                    lastUpdated: new Date(),
-                    isLoading: false
-                });
-            } catch (error) {
-                console.error('Dashboard fetch error:', error);
-                set({ isLoading: false });
-            }
+        }),
+        {
+            name: 'dashboard-storage',
+            partialize: (state) => ({ dashboardTickers: state.dashboardTickers }),
         }
-    };
-});
+    )
+);
 
 // Hook to sync URL params with store
 export function useUrlSync() {
