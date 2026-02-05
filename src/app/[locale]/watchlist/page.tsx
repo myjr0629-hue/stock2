@@ -88,17 +88,20 @@ export default function WatchlistPage() {
                     {/* Table Content */}
                     <div className="relative">
                         {/* Table Header */}
-                        <div className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
-                            <div className="flex items-center gap-6"><span className="text-[10px] text-slate-500">BOARD</span><span>{t('symbol')}</span></div>
-                            <div className="text-center">{t('price')}</div>
-                            <div className="flex items-center justify-center gap-1"><Zap className="w-3 h-3" />Alpha</div>
-                            <div className="flex items-center justify-center gap-1"><Target className="w-3 h-3" />{t('signal')}</div>
-                            <div className="flex items-center justify-center gap-1"><Fish className="w-3 h-3 text-cyan-400" />Whale</div>
-                            <div className="flex items-center justify-center gap-1"><Activity className="w-3 h-3" />IV</div>
-                            <div className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3" />{t('gammaFlip')}</div>
-                            <div className="flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" />{t('return3d')}</div>
-                            <div className="flex items-center justify-center gap-1"><Crosshair className="w-3 h-3" />MaxPain</div>
-                            <div className="flex items-center justify-center gap-1"><Shield className="w-3 h-3" />{t('gex')}</div>
+                        <div className="flex items-center bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
+                            <div className="px-2 py-3 text-[10px]">BOARD</div>
+                            <div className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] flex-1 px-4 py-3">
+                                <div>{t('symbol')}</div>
+                                <div className="text-center">{t('price')}</div>
+                                <div className="flex items-center justify-center gap-1"><Zap className="w-3 h-3" />Alpha</div>
+                                <div className="flex items-center justify-center gap-1"><Target className="w-3 h-3" />{t('signal')}</div>
+                                <div className="flex items-center justify-center gap-1"><Fish className="w-3 h-3 text-cyan-400" />Whale</div>
+                                <div className="flex items-center justify-center gap-1"><Activity className="w-3 h-3" />IV</div>
+                                <div className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3" />{t('gammaFlip')}</div>
+                                <div className="flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" />{t('return3d')}</div>
+                                <div className="flex items-center justify-center gap-1"><Crosshair className="w-3 h-3" />MaxPain</div>
+                                <div className="flex items-center justify-center gap-1"><Shield className="w-3 h-3" />{t('gex')}</div>
+                            </div>
                         </div>
 
                         {/* Rows */}
@@ -187,8 +190,6 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
     const tCommon = useTranslations('common');
     const toggleDashboardTicker = useDashboardStore((s) => s.toggleDashboardTicker);
     const dashboardTickers = useDashboardStore((s) => s.dashboardTickers);
-
-    // Hydration-safe: use local state that updates after mount
     const [isInDashboard, setIsInDashboard] = useState(false);
 
     useEffect(() => {
@@ -196,113 +197,114 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
     }, [dashboardTickers, item.ticker]);
 
     return (
-        <Link
-            href={`/ticker?ticker=${item.ticker}`}
-            className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
-        >
-            {/* 종목 with Sparkline */}
-            <div className="flex items-center gap-4">
-                {/* BOARD Toggle - 가장 앞쪽 */}
-                <button
-                    onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        toggleDashboardTicker(item.ticker);
-                    }}
-                    className={`p-1 rounded transition-colors ${isInDashboard ? 'bg-cyan-500/30 text-cyan-400' : 'hover:bg-cyan-500/20 text-slate-500 hover:text-cyan-400'}`}
-                    title={isInDashboard ? 'Dashboard에서 제거' : 'Dashboard에 추가'}
-                >
-                    <LayoutDashboard className="w-3.5 h-3.5" />
-                </button>
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
-                    <img
-                        src={`https://financialmodelingprep.com/image-stock/${item.ticker}.png`}
-                        alt={item.ticker}
-                        className="w-5 h-5 object-contain"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
-                    <span className="text-[9px] font-bold text-slate-500 absolute">{item.ticker.slice(0, 2)}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                    <div className="font-bold text-sm text-white">{item.ticker}</div>
-                    <div className="text-[10px] text-slate-500 truncate">{item.name}</div>
-                </div>
-                {item.sparkline && item.sparkline.length > 2 && (
-                    <Sparkline data={item.sparkline} isPositive={isPositive} />
-                )}
-            </div>
-
-            {/* 현재가 */}
-            <div className="text-center">
-                <div className="flex items-center justify-center gap-1">
-                    <span className="font-bold font-num text-sm text-white">${item.currentPrice.toFixed(2)}</span>
-                    {item.session && item.session !== 'reg' && (
-                        <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${item.session === 'pre' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-amber-500/20 text-amber-400'
-                            }`}>
-                            {item.session === 'pre' ? 'PRE' : 'POST'}
-                        </span>
+        <div className="flex items-center hover:bg-amber-900/5 transition-colors group">
+            {/* BOARD Toggle - Link 밖에 배치 */}
+            <button
+                type="button"
+                onClick={() => {
+                    toggleDashboardTicker(item.ticker);
+                }}
+                className={`px-2 py-3 transition-colors ${isInDashboard ? 'text-cyan-400' : 'text-slate-600 hover:text-cyan-400'}`}
+                title={isInDashboard ? 'Dashboard에서 제거' : 'Dashboard에 추가'}
+            >
+                <LayoutDashboard className="w-4 h-4" />
+            </button>
+            <Link
+                href={`/ticker?ticker=${item.ticker}`}
+                className="flex-1 grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 items-center"
+            >
+                {/* 종목 with Sparkline */}
+                <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <img
+                            src={`https://financialmodelingprep.com/image-stock/${item.ticker}.png`}
+                            alt={item.ticker}
+                            className="w-5 h-5 object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <span className="text-[9px] font-bold text-slate-500 absolute">{item.ticker.slice(0, 2)}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="font-bold text-sm text-white">{item.ticker}</div>
+                        <div className="text-[10px] text-slate-500 truncate">{item.name}</div>
+                    </div>
+                    {item.sparkline && item.sparkline.length > 2 && (
+                        <Sparkline data={item.sparkline} isPositive={isPositive} />
                     )}
                 </div>
-                {/* [S-76] Change% and VWAP side by side */}
-                <div className="flex items-center justify-center gap-2 text-[10px] font-num font-bold">
-                    <span className={isPositive ? 'text-emerald-400' : 'text-rose-400'}>
-                        {isPositive ? '+' : ''}{item.changePct.toFixed(1)}%
-                    </span>
-                    {item.vwapDist !== undefined && item.vwapDist !== null && (
-                        <span className={`${item.vwapDist > 0 ? 'text-amber-400' : 'text-cyan-400'}`} title="VWAP 대비 거리">
-                            V{item.vwapDist > 0 ? '+' : ''}{item.vwapDist.toFixed(1)}%
+
+                {/* 현재가 */}
+                <div className="text-center">
+                    <div className="flex items-center justify-center gap-1">
+                        <span className="font-bold font-num text-sm text-white">${item.currentPrice.toFixed(2)}</span>
+                        {item.session && item.session !== 'reg' && (
+                            <span className={`text-[8px] font-bold px-1 py-0.5 rounded ${item.session === 'pre' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-amber-500/20 text-amber-400'
+                                }`}>
+                                {item.session === 'pre' ? 'PRE' : 'POST'}
+                            </span>
+                        )}
+                    </div>
+                    {/* [S-76] Change% and VWAP side by side */}
+                    <div className="flex items-center justify-center gap-2 text-[10px] font-num font-bold">
+                        <span className={isPositive ? 'text-emerald-400' : 'text-rose-400'}>
+                            {isPositive ? '+' : ''}{item.changePct.toFixed(1)}%
                         </span>
-                    )}
+                        {item.vwapDist !== undefined && item.vwapDist !== null && (
+                            <span className={`${item.vwapDist > 0 ? 'text-amber-400' : 'text-cyan-400'}`} title="VWAP 대비 거리">
+                                V{item.vwapDist > 0 ? '+' : ''}{item.vwapDist.toFixed(1)}%
+                            </span>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* Alpha Score */}
-            <div className="flex justify-center">
-                <CircularAlphaGauge score={item.alphaScore} grade={item.alphaGrade} />
-            </div>
+                {/* Alpha Score */}
+                <div className="flex justify-center">
+                    <CircularAlphaGauge score={item.alphaScore} grade={item.alphaGrade} />
+                </div>
 
-            {/* Signal */}
-            <div className="flex justify-center">
-                <SignalBadge action={item.action} confidence={item.confidence} />
-            </div>
+                {/* Signal */}
+                <div className="flex justify-center">
+                    <SignalBadge action={item.action} confidence={item.confidence} />
+                </div>
 
-            {/* Whale Index */}
-            <div className="flex justify-center">
-                <WhaleIndicator index={item.whaleIndex} confidence={item.whaleConfidence} />
-            </div>
+                {/* Whale Index */}
+                <div className="flex justify-center">
+                    <WhaleIndicator index={item.whaleIndex} confidence={item.whaleConfidence} />
+                </div>
 
-            {/* IV */}
-            <div className="flex justify-center">
-                <IVIndicator value={item.iv} />
-            </div>
+                {/* IV */}
+                <div className="flex justify-center">
+                    <IVIndicator value={item.iv} />
+                </div>
 
-            {/* Gamma Flip */}
-            <div className="flex justify-center">
-                <GammaFlipIndicator value={item.gammaFlipLevel} price={item.currentPrice} gexM={item.gexM} />
-            </div>
+                {/* Gamma Flip */}
+                <div className="flex justify-center">
+                    <GammaFlipIndicator value={item.gammaFlipLevel} price={item.currentPrice} gexM={item.gexM} />
+                </div>
 
-            {/* 3D Return */}
-            <div className="flex justify-center">
-                <Return3DIndicator value={item.return3d} />
-            </div>
+                {/* 3D Return */}
+                <div className="flex justify-center">
+                    <Return3DIndicator value={item.return3d} />
+                </div>
 
-            {/* MaxPain */}
-            <div className="flex justify-center">
-                <MaxPainIndicator maxPain={item.maxPain} dist={item.maxPainDist} />
-            </div>
+                {/* MaxPain */}
+                <div className="flex justify-center">
+                    <MaxPainIndicator maxPain={item.maxPain} dist={item.maxPainDist} />
+                </div>
 
-            {/* GEX + Delete */}
-            <div className="relative flex justify-center">
-                <GexIndicator gexM={item.gexM} />
-                <button
-                    onClick={(e) => { e.preventDefault(); onRemove(); }}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
-                    title={tCommon('delete')}
-                >
-                    <Trash2 className="w-3.5 h-3.5" />
-                </button>
-            </div>
-        </Link>
+                {/* GEX + Delete */}
+                <div className="relative flex justify-center">
+                    <GexIndicator gexM={item.gexM} />
+                    <button
+                        onClick={(e) => { e.preventDefault(); onRemove(); }}
+                        className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
+                        title={tCommon('delete')}
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            </Link>
+        </div >
     );
 }
 

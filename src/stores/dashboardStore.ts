@@ -112,11 +112,14 @@ export const useDashboardStore = create<DashboardState>()(
             setLoading: (loading) => set({ isLoading: loading }),
 
             toggleDashboardTicker: (ticker) => {
+                console.log('[BOARD] toggleDashboardTicker called:', ticker);
                 const current = get().dashboardTickers;
+                console.log('[BOARD] current dashboardTickers:', current);
                 const isIn = current.includes(ticker);
                 const newList = isIn
                     ? current.filter(t => t !== ticker)
                     : [...current, ticker].slice(0, 10); // Max 10 tickers
+                console.log('[BOARD] newList:', newList);
                 set({ dashboardTickers: newList });
             },
 
