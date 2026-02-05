@@ -467,15 +467,17 @@ function MainChartPanel() {
 
             {/* Premium Metrics Row 2 */}
             <div className="grid grid-cols-4 gap-4 px-4">
-                {/* IV (ATM) */}
                 <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="w-4 h-4 text-purple-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">ATM IV</span>
                     </div>
-                    <span className="text-xl font-mono font-bold text-white">
-                        {data?.atmIv ? `${data.atmIv}%` : "—"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl font-mono font-bold text-white">
+                            {data?.atmIv ? `${data.atmIv}%` : "—"}
+                        </span>
+                        <span className="text-[9px] text-white">{(data?.atmIv || 0) > 50 ? "고변동" : "저변동"}</span>
+                    </div>
                 </div>
 
                 {/* Gamma Flip */}
@@ -496,30 +498,32 @@ function MainChartPanel() {
                     </div>
                 </div>
 
-                {/* Flow $ (Net Premium) */}
                 <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="w-4 h-4 text-amber-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Net GEX Flow</span>
                     </div>
-                    <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {data?.netGex ? `${data.netGex > 0 ? '+' : ''}${(data.netGex / 1e6).toFixed(1)}M` : "—"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                            {data?.netGex ? `${data.netGex > 0 ? '+' : ''}${(data.netGex / 1e6).toFixed(1)}M` : "—"}
+                        </span>
+                        <span className="text-[9px] text-white">{(data?.netGex || 0) > 0 ? "매수세" : "매도세"}</span>
+                    </div>
                 </div>
 
-                {/* Squeeze Status */}
                 <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         <Zap className="w-4 h-4 text-indigo-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Squeeze</span>
                     </div>
-                    {data?.isGammaSqueeze ? (
-                        <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2">
+                        {data?.isGammaSqueeze ? (
                             <span className="text-xl font-bold text-indigo-400 animate-pulse">🔥 ON</span>
-                        </div>
-                    ) : (
-                        <span className="text-xl font-mono font-bold text-slate-500">OFF</span>
-                    )}
+                        ) : (
+                            <span className="text-xl font-mono font-bold text-slate-500">OFF</span>
+                        )}
+                        <span className="text-[9px] text-white">{data?.isGammaSqueeze ? "급등 가능" : "정상"}</span>
+                    </div>
                 </div>
             </div>
 
