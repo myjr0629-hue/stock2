@@ -191,13 +191,14 @@ export default async function TickerPage({ searchParams }: Props) {
     let error: string | null = null;
 
     try {
-        // [S-56.4.5b] SSOT: Single data source via tickerOverview service
+        // [S-78] Hybrid Loading: SSR for price only, CSR for chart (Fast FCP)
+        // Chart data will be fetched client-side by LiveTickerDashboard
         overview = await getTickerOverview(ticker, {
             range,
             extended,
-            includeHistory: true,
-            includeNews: false,    // [S-56.4.5b] Defer to Client (Fast FCP)
-            includeOptions: false  // [S-56.4.5b] Defer to Client (Fast FCP)
+            includeHistory: false,  // [S-78] Defer chart to Client for ~10x faster FCP
+            includeNews: false,     // [S-56.4.5b] Defer to Client (Fast FCP)
+            includeOptions: false   // [S-56.4.5b] Defer to Client (Fast FCP)
         });
 
         // Convert to formats expected by LiveTickerDashboard

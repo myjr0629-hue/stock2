@@ -2,9 +2,8 @@ import { NextResponse } from 'next/server';
 import { getStockChartData, Range } from '@/services/stockApi';
 import { getBuildId } from '@/services/buildIdSSOT'; // [S-56.4.6e]
 
-// [S-52.2.3] Force dynamic rendering - no static optimization
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+// [S-78] Edge cache for 30 seconds - faster chart load while maintaining accuracy
+export const revalidate = 30;
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -44,7 +43,8 @@ export async function GET(request: Request) {
             status: 200,
             headers: {
                 'Content-Type': 'application/json; charset=utf-8',
-                'Cache-Control': 'no-store, max-age=0, must-revalidate'
+                // [S-78] Allow edge cache (CDN cache) but prevent browser cache
+                'Cache-Control': 's-maxage=30, stale-while-revalidate=10'
             }
         });
     } catch (error) {
