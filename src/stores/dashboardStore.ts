@@ -77,6 +77,7 @@ interface DashboardState {
     // Dashboard ticker management
     toggleDashboardTicker: (ticker: string) => void;
     isDashboardTicker: (ticker: string) => boolean;
+    hydrateDashboardTickers: () => void;
 
     // Fetch all data
     fetchDashboardData: (tickerList?: string[]) => Promise<void>;
@@ -125,13 +126,26 @@ export const useDashboardStore = create<DashboardState>((set, get) => {
             const isIn = current.includes(ticker);
             const newList = isIn
                 ? current.filter(t => t !== ticker)
-                : [...current, ticker].slice(0, 6); // Max 6 tickers
+                : [...current, ticker].slice(0, 10); // Max 10 tickers
 
             set({ dashboardTickers: newList });
 
             // Persist to localStorage
             if (typeof window !== 'undefined') {
                 localStorage.setItem('dashboardTickers', JSON.stringify(newList));
+            }
+        },
+
+        hydrateDashboardTickers: () => {
+            if (typeof window !== 'undefined') {
+                try {
+                    const saved = localStorage.getItem('dashboardTickers');
+                    if (saved) {
+                        set({ dashboardTickers: JSON.parse(saved) });
+                    }
+                } catch {
+                    // ignore
+                }
             }
         },
 
