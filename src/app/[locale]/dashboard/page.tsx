@@ -183,7 +183,7 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                 </div>
 
                 {/* Right: Price (Command style - horizontal layout) */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 pr-6">
                     {/* Main Price + Change */}
                     <div className="flex items-center gap-1.5">
                         <span className="font-mono text-sm text-white">
