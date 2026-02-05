@@ -187,7 +187,13 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
     const tCommon = useTranslations('common');
     const toggleDashboardTicker = useDashboardStore((s) => s.toggleDashboardTicker);
     const dashboardTickers = useDashboardStore((s) => s.dashboardTickers);
-    const isInDashboard = dashboardTickers.includes(item.ticker);
+
+    // Hydration-safe: use local state that updates after mount
+    const [isInDashboard, setIsInDashboard] = useState(false);
+
+    useEffect(() => {
+        setIsInDashboard(dashboardTickers.includes(item.ticker));
+    }, [dashboardTickers, item.ticker]);
 
     return (
         <Link
