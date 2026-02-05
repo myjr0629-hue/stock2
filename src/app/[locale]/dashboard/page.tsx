@@ -409,7 +409,7 @@ function MainChartPanel() {
                         <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
                             {gexDisplay}
                         </span>
-                        <span className="text-[9px] text-slate-500">{(data?.netGex || 0) > 0 ? "안정적" : "변동성 ↑"}</span>
+                        <span className="text-[9px] text-white">{(data?.netGex || 0) > 0 ? "안정적" : "변동성 ↑"}</span>
                     </div>
                 </div>
 
@@ -443,7 +443,7 @@ function MainChartPanel() {
                         <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" : (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"}`}>
                             {data?.pcr?.toFixed(2) || "—"}
                         </span>
-                        <span className="text-[9px] text-slate-500">
+                        <span className="text-[9px] text-white">
                             {(data?.pcr || 1) < 0.7 ? "콜 우위" : (data?.pcr || 1) > 1.3 ? "풋 우위" : "중립"}
                         </span>
                     </div>
