@@ -194,7 +194,7 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                 {extPrice > 0 && (
                     <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700">
                         <span className={`text-[8px] font-bold uppercase ${extColor}`}>{extLabel}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">${extPrice.toFixed(2)}</span>
+                        <span className="text-xs text-slate-400 font-mono">${extPrice.toFixed(2)}</span>
                         <span className={`text-[9px] font-mono ${extPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                             {extPct > 0 ? "+" : ""}{extPct.toFixed(2)}%
                         </span>
