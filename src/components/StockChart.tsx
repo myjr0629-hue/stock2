@@ -494,7 +494,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             />
                                         </ReferenceLine>
                                     )}
-                                    {/* [S-78] Live Price Reference - enhanced visibility */}
+                                    {/* [S-78] Live Price Reference with pill badge - always visible */}
                                     {currentPrice !== undefined && (
                                         <ReferenceLine
                                             y={currentPrice}
@@ -503,12 +503,35 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             ifOverflow="extendDomain"
                                         >
                                             <Label
-                                                value={currentPrice.toFixed(2)}
                                                 position="right"
-                                                fill="#10b981"
-                                                fontSize={12}
-                                                fontWeight="800"
-                                                offset={8}
+                                                offset={5}
+                                                content={({ viewBox }: any) => {
+                                                    const { x, y } = viewBox || {};
+                                                    if (x === undefined || y === undefined) return null;
+                                                    const text = currentPrice.toFixed(2);
+                                                    return (
+                                                        <g>
+                                                            <rect
+                                                                x={x + 5}
+                                                                y={y - 10}
+                                                                width={54}
+                                                                height={20}
+                                                                rx={4}
+                                                                fill="#10b981"
+                                                            />
+                                                            <text
+                                                                x={x + 32}
+                                                                y={y + 4}
+                                                                textAnchor="middle"
+                                                                fill="#ffffff"
+                                                                fontSize={11}
+                                                                fontWeight="bold"
+                                                            >
+                                                                {text}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                }}
                                             />
                                         </ReferenceLine>
                                     )}
