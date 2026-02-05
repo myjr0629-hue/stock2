@@ -494,48 +494,23 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             />
                                         </ReferenceLine>
                                     )}
-                                    {/* [S-78] Live Price Reference with pill badge for better visibility */}
+                                    {/* [S-78] Live Price Reference - enhanced visibility */}
                                     {currentPrice !== undefined && (
                                         <ReferenceLine
                                             y={currentPrice}
                                             stroke="#10b981"
-                                            strokeDasharray="3 3"
-                                            strokeWidth={1.5}
+                                            strokeWidth={2}
                                             ifOverflow="extendDomain"
-                                        />
-                                    )}
-                                    {/* [S-78] Current Price Pill Badge - always visible with background */}
-                                    {currentPrice !== undefined && (
-                                        <Customized
-                                            component={({ yAxisMap }: any) => {
-                                                const yAxis = yAxisMap?.[0];
-                                                if (!yAxis) return null;
-                                                const y = yAxis.scale(currentPrice);
-                                                const chartWidth = yAxis.x + yAxis.width;
-                                                return (
-                                                    <g>
-                                                        <rect
-                                                            x={chartWidth + 2}
-                                                            y={y - 10}
-                                                            width={52}
-                                                            height={20}
-                                                            rx={4}
-                                                            fill="#10b981"
-                                                        />
-                                                        <text
-                                                            x={chartWidth + 28}
-                                                            y={y + 4}
-                                                            textAnchor="middle"
-                                                            fill="#ffffff"
-                                                            fontSize={11}
-                                                            fontWeight="bold"
-                                                        >
-                                                            {currentPrice.toFixed(2)}
-                                                        </text>
-                                                    </g>
-                                                );
-                                            }}
-                                        />
+                                        >
+                                            <Label
+                                                value={currentPrice.toFixed(2)}
+                                                position="right"
+                                                fill="#10b981"
+                                                fontSize={12}
+                                                fontWeight="800"
+                                                offset={8}
+                                            />
+                                        </ReferenceLine>
                                     )}
                                     {/* [Alpha Levels] Optional overlays - scale maintained with ifOverflow="hidden" */}
                                     {alphaLevels?.callWall && (
