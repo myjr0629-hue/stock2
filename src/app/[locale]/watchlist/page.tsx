@@ -88,15 +88,16 @@ export default function WatchlistPage() {
                     {/* Table Content */}
                     <div className="relative">
                         {/* Table Header */}
-                        <div className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
+                        <div className="grid grid-cols-[0.5fr_2fr_1.5fr_1fr_1fr_1fr_0.8fr_0.8fr_0.8fr_1fr_1fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
+                            <div className="flex justify-center"><LayoutDashboard className="w-3 h-3" /></div>
                             <div>{t('symbol')}</div>
                             <div className="text-center">{t('price')}</div>
                             <div className="flex items-center justify-center gap-1"><Zap className="w-3 h-3" />Alpha</div>
                             <div className="flex items-center justify-center gap-1"><Target className="w-3 h-3" />{t('signal')}</div>
                             <div className="flex items-center justify-center gap-1"><Fish className="w-3 h-3 text-cyan-400" />Whale</div>
                             <div className="flex items-center justify-center gap-1"><Activity className="w-3 h-3" />IV</div>
-                            <div className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3" />{t('gammaFlip')}</div>
-                            <div className="flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" />{t('return3d')}</div>
+                            <div className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3" />Flip</div>
+                            <div className="flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" />3D</div>
                             <div className="flex items-center justify-center gap-1"><Crosshair className="w-3 h-3" />MaxPain</div>
                             <div className="flex items-center justify-center gap-1"><Shield className="w-3 h-3" />{t('gex')}</div>
                         </div>
@@ -189,8 +190,13 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
     return (
         <Link
             href={`/ticker?ticker=${item.ticker}`}
-            className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
+            className="grid grid-cols-[0.5fr_2fr_1.5fr_1fr_1fr_1fr_0.8fr_0.8fr_0.8fr_1fr_1fr] px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
         >
+            {/* Dashboard Toggle - First Column */}
+            <div className="flex justify-center">
+                <DashboardToggle ticker={item.ticker} />
+            </div>
+
             {/* 종목 with Sparkline */}
             <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -270,10 +276,9 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
                 <MaxPainIndicator maxPain={item.maxPain} dist={item.maxPainDist} />
             </div>
 
-            {/* GEX + Actions */}
-            <div className="relative flex justify-center items-center gap-1">
+            {/* GEX + Delete */}
+            <div className="flex justify-center items-center gap-1">
                 <GexIndicator gexM={item.gexM} />
-                <DashboardToggle ticker={item.ticker} />
                 <button
                     onClick={(e) => { e.preventDefault(); onRemove(); }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
@@ -307,8 +312,8 @@ function DashboardToggle({ ticker }: { ticker: string }) {
             <button
                 onClick={handleClick}
                 className={`p-1 rounded transition-all ${isInDashboard
-                        ? 'text-cyan-400 bg-cyan-500/20'
-                        : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    ? 'text-cyan-400 bg-cyan-500/20'
+                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
                     }`}
                 title={isInDashboard ? 'Dashboard에서 제거' : 'Dashboard에 추가'}
             >
