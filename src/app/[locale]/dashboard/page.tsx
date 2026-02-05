@@ -563,31 +563,31 @@ function MainChartPanel() {
                                         <th className="px-3 py-2 text-left font-medium">Date</th>
                                         <th className="px-3 py-2 text-right font-medium">Close</th>
                                         <th className="px-3 py-2 text-right font-medium">Change</th>
-                                        <th className="px-3 py-2 text-right font-medium">High</th>
-                                        <th className="px-3 py-2 text-right font-medium">Low</th>
-                                        <th className="px-3 py-2 text-right font-medium">Net GEX</th>
-                                        <th className="px-3 py-2 text-right font-medium">Max Pain</th>
-                                        <th className="px-3 py-2 text-right font-medium">IV</th>
+                                        <th className="px-3 py-2 text-right font-medium">Volume</th>
+                                        <th className="px-3 py-2 text-right font-medium">VWAP</th>
+                                        <th className="px-3 py-2 text-right font-medium">Gap</th>
+                                        <th className="px-3 py-2 text-right font-medium">Range</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {dailyHistory.map((day, idx) => (
+                                    {dailyHistory.map((day: any, idx: number) => (
                                         <tr key={idx} className="border-b border-white/5 last:border-0 hover:bg-white/5">
                                             <td className="px-3 py-2 text-white font-mono">{day.date}</td>
                                             <td className="px-3 py-2 text-right text-white font-mono">${day.close?.toFixed(2)}</td>
                                             <td className={`px-3 py-2 text-right font-mono ${(day.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                {day.changePct ? `${day.changePct > 0 ? '+' : ''}${day.changePct.toFixed(2)}%` : '—'}
+                                                {day.changePct != null ? `${day.changePct > 0 ? '+' : ''}${day.changePct.toFixed(2)}%` : '—'}
                                             </td>
-                                            <td className="px-3 py-2 text-right text-white font-mono">${day.high?.toFixed(2)}</td>
-                                            <td className="px-3 py-2 text-right text-white font-mono">${day.low?.toFixed(2)}</td>
-                                            <td className="px-3 py-2 text-right text-slate-500 font-mono">
-                                                {idx === 0 && data?.netGex ? `${(data.netGex / 1e6).toFixed(1)}M` : '—'}
+                                            <td className="px-3 py-2 text-right text-white font-mono">
+                                                {day.volume ? `${(day.volume / 1e6).toFixed(1)}M` : '—'}
                                             </td>
-                                            <td className="px-3 py-2 text-right text-slate-500 font-mono">
-                                                {idx === 0 && data?.maxPain ? `$${data.maxPain}` : '—'}
+                                            <td className="px-3 py-2 text-right text-white font-mono">
+                                                ${day.vwap?.toFixed(2) || '—'}
                                             </td>
-                                            <td className="px-3 py-2 text-right text-slate-500 font-mono">
-                                                {idx === 0 && data?.atmIv ? `${data.atmIv}%` : '—'}
+                                            <td className={`px-3 py-2 text-right font-mono ${(day.gapPct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {day.gapPct != null ? `${day.gapPct > 0 ? '+' : ''}${day.gapPct.toFixed(2)}%` : '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-right text-amber-400 font-mono">
+                                                {day.rangePct != null ? `${day.rangePct.toFixed(2)}%` : '—'}
                                             </td>
                                         </tr>
                                     ))}
