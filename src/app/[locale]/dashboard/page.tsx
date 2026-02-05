@@ -337,8 +337,14 @@ function MainChartPanel() {
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/5">
                 <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-white/10 flex items-center justify-center">
-                        <span className="text-xs font-bold text-cyan-400">{selectedTicker?.charAt(0)}</span>
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden relative">
+                        <img
+                            src={`https://financialmodelingprep.com/image-stock/${selectedTicker}.png`}
+                            alt={selectedTicker}
+                            className="w-5 h-5 object-contain"
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                        <span className="text-[9px] font-bold text-slate-500 absolute">{selectedTicker?.slice(0, 2)}</span>
                     </div>
                     <h2 className="text-2xl font-bold text-white">{selectedTicker}</h2>
                     {/* Main Price + Change */}
