@@ -573,13 +573,13 @@ function MainChartPanel() {
                                 <tbody>
                                     {dailyHistory.map((day, idx) => (
                                         <tr key={idx} className="border-b border-white/5 last:border-0 hover:bg-white/5">
-                                            <td className="px-3 py-2 text-slate-300 font-mono">{day.date}</td>
+                                            <td className="px-3 py-2 text-white font-mono">{day.date}</td>
                                             <td className="px-3 py-2 text-right text-white font-mono">${day.close?.toFixed(2)}</td>
                                             <td className={`px-3 py-2 text-right font-mono ${(day.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                 {day.changePct ? `${day.changePct > 0 ? '+' : ''}${day.changePct.toFixed(2)}%` : '—'}
                                             </td>
-                                            <td className="px-3 py-2 text-right text-slate-400 font-mono">${day.high?.toFixed(2)}</td>
-                                            <td className="px-3 py-2 text-right text-slate-400 font-mono">${day.low?.toFixed(2)}</td>
+                                            <td className="px-3 py-2 text-right text-white font-mono">${day.high?.toFixed(2)}</td>
+                                            <td className="px-3 py-2 text-right text-white font-mono">${day.low?.toFixed(2)}</td>
                                             <td className="px-3 py-2 text-right text-slate-500 font-mono">
                                                 {idx === 0 && data?.netGex ? `${(data.netGex / 1e6).toFixed(1)}M` : '—'}
                                             </td>
