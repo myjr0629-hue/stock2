@@ -3,6 +3,15 @@ import { create } from 'zustand';
 interface TickerData {
     underlyingPrice: number | null;
     changePercent: number | null;
+    prevClose: number | null;
+    // [S-78] Extended session data for Command-style display
+    extended: {
+        postPrice?: number;
+        postChangePct?: number;
+        prePrice?: number;
+        preChangePct?: number;
+    } | null;
+    session: 'PRE' | 'REG' | 'POST' | 'CLOSED';
     netGex: number | null;
     maxPain: number | null;
     pcr: number | null;

@@ -110,7 +110,7 @@ function AlphaStatusBar() {
     );
 }
 
-// Watchlist Item Component
+// Watchlist Item Component (Command-style price display)
 function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boolean }) {
     const { tickers, setSelectedTicker } = useDashboardStore();
     const data = tickers[ticker];
@@ -118,6 +118,30 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
     const isPositive = (data?.changePercent || 0) >= 0;
     const hasGammaSqueeze = data?.isGammaSqueeze;
     const hasWhale = data?.netGex && Math.abs(data.netGex) > 500000000;
+
+    // [S-78] Extended session logic (Command style)
+    const session = data?.session || 'CLOSED';
+    const extended = data?.extended;
+    let extPrice = 0;
+    let extPct = 0;
+    let extLabel = '';
+    let extColor = '';
+
+    if (session === 'POST' || session === 'CLOSED') {
+        if (extended?.postPrice && extended.postPrice > 0) {
+            extPrice = extended.postPrice;
+            extPct = (extended.postChangePct || 0) * 100;
+            extLabel = session === 'CLOSED' ? 'POST' : 'POST';
+            extColor = 'text-indigo-400';
+        }
+    } else if (session === 'PRE') {
+        if (extended?.prePrice && extended.prePrice > 0) {
+            extPrice = extended.prePrice;
+            extPct = (extended.preChangePct || 0) * 100;
+            extLabel = 'PRE';
+            extColor = 'text-amber-400';
+        }
+    }
 
     return (
         <button
@@ -155,15 +179,27 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                 </div>
             </div>
 
-            {/* Right: Price + Change */}
-            <div className="flex items-center gap-2">
-                <span className="font-mono text-xs text-slate-300">
-                    ${data?.underlyingPrice?.toFixed(2) || "—"}
-                </span>
-                <span className={`text-[10px] font-medium min-w-[50px] text-right ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                    {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
-                </span>
-                <ChevronRight className={`w-3 h-3 ${isSelected ? "text-cyan-400" : "text-slate-600"}`} />
+            {/* Right: Price (Command style) */}
+            <div className="flex flex-col items-end gap-0.5">
+                {/* Main Price + Change */}
+                <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-slate-300">
+                        ${data?.underlyingPrice?.toFixed(2) || "—"}
+                    </span>
+                    <span className={`text-[10px] font-medium min-w-[44px] text-right ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                        {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
+                    </span>
+                </div>
+                {/* Extended Session (POST/PRE) */}
+                {extPrice > 0 && (
+                    <div className="flex items-center gap-1.5">
+                        <span className={`text-[8px] font-bold uppercase ${extColor}`}>{extLabel}</span>
+                        <span className="text-[10px] text-slate-400 font-mono">${extPrice.toFixed(2)}</span>
+                        <span className={`text-[9px] font-mono ${extPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                            {extPct > 0 ? "+" : ""}{extPct.toFixed(2)}%
+                        </span>
+                    </div>
+                )}
             </div>
         </button>
     );

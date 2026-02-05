@@ -54,6 +54,10 @@ export async function GET(request: NextRequest) {
                 tickersData[ticker] = {
                     underlyingPrice: data.underlyingPrice,
                     changePercent: data.changePercent,
+                    prevClose: data.prevClose,
+                    // [S-78] Extended session data for Watchlist (Command style)
+                    extended: data.extended || null,
+                    session: data.session || 'CLOSED',
                     netGex: data.netGex,
                     maxPain: data.maxPain,
                     pcr: data.pcr,

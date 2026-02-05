@@ -76,6 +76,9 @@ export async function GET(req: NextRequest) {
     let underlyingPrice = 0;
     let prevClose = 0;
     let changePercent = 0;
+    // [S-78] Extended session data for Command-style display
+    let extended: { postPrice?: number; postChangePct?: number; prePrice?: number; preChangePct?: number } | null = null;
+    let session: 'PRE' | 'REG' | 'POST' | 'CLOSED' = 'CLOSED';
 
     // [DEBUG] Log spot fetch result
     console.log(`[STRUCTURE DEBUG] ${ticker}: spotRes.success=${spotRes.success}, hasData=${!!spotRes.data}, hasTicker=${!!spotRes.data?.ticker}`);
@@ -91,6 +94,53 @@ export async function GET(req: NextRequest) {
         // Calculate change percent
         if (prevClose > 0 && underlyingPrice > 0) {
             changePercent = Math.round(((underlyingPrice - prevClose) / prevClose) * 10000) / 100;
+        }
+
+        // [S-78] Session detection and extended price extraction
+        const etNow = getETNow();
+        const etHour = etNow.getHours();
+        const etMinute = etNow.getMinutes();
+        const etTime = etHour * 60 + etMinute;
+        const dayOfWeek = getETDayOfWeek();
+
+        // Weekend = CLOSED
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            session = 'CLOSED';
+        } else if (etTime >= 240 && etTime < 570) {
+            session = 'PRE';
+        } else if (etTime >= 570 && etTime < 960) {
+            session = 'REG';
+        } else if (etTime >= 960 && etTime < 1200) {
+            session = 'POST';
+        } else {
+            session = 'CLOSED';
+        }
+
+        // Extract extended hours prices from Polygon snapshot
+        // Post-market: After regular close, show post price
+        // Pre-market: Before regular open, show pre price
+        const dayClose = T.day?.c || 0; // Regular session close
+        const lastTradePrice = T.lastTrade?.p || 0;
+
+        // If we have a trade after regular hours, that's extended
+        if (session === 'POST' || session === 'CLOSED') {
+            // Post-market: lastTrade might be post-close price
+            if (lastTradePrice > 0 && dayClose > 0 && lastTradePrice !== dayClose) {
+                const postChangePct = (lastTradePrice - dayClose) / dayClose;
+                extended = {
+                    postPrice: lastTradePrice,
+                    postChangePct: postChangePct
+                };
+            }
+        } else if (session === 'PRE') {
+            // Pre-market: lastTrade is pre-open price
+            if (lastTradePrice > 0 && prevClose > 0) {
+                const preChangePct = (lastTradePrice - prevClose) / prevClose;
+                extended = {
+                    prePrice: lastTradePrice,
+                    preChangePct: preChangePct
+                };
+            }
         }
     } else {
         console.error(`[STRUCTURE DEBUG] ${ticker}: SPOT FETCH FAILED! Error: ${spotRes.error || 'unknown'}`);
@@ -450,7 +500,10 @@ export async function GET(req: NextRequest) {
             expiration: targetExpiry,
             availableExpirations,
             underlyingPrice: underlyingPrice || null,
+            prevClose: prevClose || null,
             changePercent,
+            extended,
+            session,
             pcr,
             isGammaSqueeze,
             options_status,
@@ -497,7 +550,10 @@ export async function GET(req: NextRequest) {
             expiration: targetExpiry,
             availableExpirations,
             underlyingPrice: underlyingPrice || null,
+            prevClose: prevClose || null,
             changePercent,
+            extended,
+            session,
             pcr,
             isGammaSqueeze: false,
             options_status,
