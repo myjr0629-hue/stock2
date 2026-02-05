@@ -183,7 +183,7 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
             <div className="flex items-center gap-3">
                 {/* Main Price + Change */}
                 <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-xs text-slate-300">
+                    <span className="font-mono text-sm text-slate-300">
                         ${data?.underlyingPrice?.toFixed(2) || "—"}
                     </span>
                     <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
