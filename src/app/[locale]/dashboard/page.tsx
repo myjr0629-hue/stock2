@@ -756,7 +756,7 @@ function MobileTabBar({ activeTab, setActiveTab }: { activeTab: string; setActiv
 // Main Dashboard Page
 export default function DashboardPage() {
     const searchParams = useSearchParams();
-    const { setSelectedTicker, fetchDashboardData, isLoading } = useDashboardStore();
+    const { setSelectedTicker, fetchDashboardData, isLoading, dashboardTickers } = useDashboardStore();
     const [initialized, setInitialized] = useState(false);
     const [mobileTab, setMobileTab] = useState('chart');
 
@@ -773,14 +773,17 @@ export default function DashboardPage() {
     useEffect(() => {
         if (!initialized) return;
 
-        fetchDashboardData();
+        // Use dashboardTickers if available, otherwise use default
+        const tickersToFetch = dashboardTickers.length > 0 ? dashboardTickers : undefined;
+        fetchDashboardData(tickersToFetch);
 
         const interval = setInterval(() => {
-            fetchDashboardData();
+            const currentTickers = dashboardTickers.length > 0 ? dashboardTickers : undefined;
+            fetchDashboardData(currentTickers);
         }, 30000); // Refresh every 30 seconds
 
         return () => clearInterval(interval);
-    }, [initialized, fetchDashboardData]);
+    }, [initialized, fetchDashboardData, dashboardTickers]);
 
     return (
         <div className="min-h-screen bg-[#050a14] text-white flex flex-col">

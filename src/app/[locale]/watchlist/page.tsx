@@ -89,9 +89,9 @@ export default function WatchlistPage() {
                     <div className="relative">
                         {/* Table Header */}
                         <div className="flex items-center bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
-                            <div className="px-2 py-3 text-[10px]">BOARD</div>
+                            <div className="w-12 flex-shrink-0 py-3 text-center text-[10px]">BOARD</div>
                             <div className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] flex-1 px-4 py-3">
-                                <div>{t('symbol')}</div>
+                                <div className="pl-10">{t('symbol')}</div>
                                 <div className="text-center">{t('price')}</div>
                                 <div className="flex items-center justify-center gap-1"><Zap className="w-3 h-3" />Alpha</div>
                                 <div className="flex items-center justify-center gap-1"><Target className="w-3 h-3" />{t('signal')}</div>
@@ -202,9 +202,10 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
             <button
                 type="button"
                 onClick={() => {
+                    console.log('[BOARD BUTTON CLICKED]', item.ticker);
                     toggleDashboardTicker(item.ticker);
                 }}
-                className={`px-2 py-3 transition-colors ${isInDashboard ? 'text-cyan-400' : 'text-slate-600 hover:text-cyan-400'}`}
+                className={`relative z-10 w-12 flex-shrink-0 py-3 flex justify-center transition-colors cursor-pointer ${isInDashboard ? 'text-cyan-400' : 'text-slate-600 hover:text-cyan-400'}`}
                 title={isInDashboard ? 'Dashboard에서 제거' : 'Dashboard에 추가'}
             >
                 <LayoutDashboard className="w-4 h-4" />
