@@ -1024,7 +1024,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
 
                                 <div className="flex items-center gap-1 mb-1 relative z-10">
                                     <span className="text-sm">🐋</span>
-                                    <span className="text-[11px] text-white font-bold uppercase">고래 포지션</span>
+                                    <span className="text-[11px] text-white font-bold uppercase">WHALE POSITION</span>
                                 </div>
 
                                 <div className={`text-xl font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
