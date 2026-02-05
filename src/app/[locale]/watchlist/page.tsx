@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
+import { useDashboardStore } from '@/stores/dashboardStore';
 
 export default function WatchlistPage() {
     const { items, loading, isRefreshing, refresh, addItem, removeItem } = useWatchlist();
@@ -88,7 +89,7 @@ export default function WatchlistPage() {
                     <div className="relative">
                         {/* Table Header */}
                         <div className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
-                            <div className="flex items-center gap-2"><LayoutDashboard className="w-3 h-3 text-slate-500" />{t('symbol')}</div>
+                            <div className="flex items-center gap-6"><span className="text-[10px] text-slate-500">BOARD</span><span>{t('symbol')}</span></div>
                             <div className="text-center">{t('price')}</div>
                             <div className="flex items-center justify-center gap-1"><Zap className="w-3 h-3" />Alpha</div>
                             <div className="flex items-center justify-center gap-1"><Target className="w-3 h-3" />{t('signal')}</div>
@@ -184,6 +185,9 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
     const isPositive = item.changePct >= 0;
     const t = useTranslations('watchlist');
     const tCommon = useTranslations('common');
+    const toggleDashboardTicker = useDashboardStore((s) => s.toggleDashboardTicker);
+    const dashboardTickers = useDashboardStore((s) => s.dashboardTickers);
+    const isInDashboard = dashboardTickers.includes(item.ticker);
 
     return (
         <Link
@@ -191,16 +195,16 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
             className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
         >
             {/* 종목 with Sparkline */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
                 {/* BOARD Toggle - 가장 앞쪽 */}
                 <button
                     onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
-                        // TODO: Connect to dashboard store
+                        toggleDashboardTicker(item.ticker);
                     }}
-                    className="p-1 rounded hover:bg-cyan-500/20 transition-colors text-slate-500 hover:text-cyan-400"
-                    title="Dashboard에 추가"
+                    className={`p-1 rounded transition-colors ${isInDashboard ? 'bg-cyan-500/30 text-cyan-400' : 'hover:bg-cyan-500/20 text-slate-500 hover:text-cyan-400'}`}
+                    title={isInDashboard ? 'Dashboard에서 제거' : 'Dashboard에 추가'}
                 >
                     <LayoutDashboard className="w-3.5 h-3.5" />
                 </button>
