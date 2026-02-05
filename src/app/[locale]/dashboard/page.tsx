@@ -579,7 +579,12 @@ function MainChartPanel() {
                                             <td className={`px-3 py-2 text-right font-mono ${(day.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                 {day.changePct != null ? `${day.changePct > 0 ? '+' : ''}${day.changePct.toFixed(2)}%` : '—'}
                                             </td>
-                                            <td className="px-3 py-2 text-right text-white font-mono">
+                                            <td className={`px-3 py-2 text-right font-mono ${(() => {
+                                                    const prevVolume = dailyHistory[idx + 1]?.volume;
+                                                    if (!prevVolume || !day.volume) return 'text-white';
+                                                    return day.volume > prevVolume ? 'text-emerald-400' : 'text-rose-400';
+                                                })()
+                                                }`}>
                                                 {day.volume ? `${(day.volume / 1e6).toFixed(1)}M` : '—'}
                                             </td>
                                             <td className="px-3 py-2 text-right text-white font-mono">
