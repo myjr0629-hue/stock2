@@ -224,15 +224,30 @@ function MainChartPanel() {
     }, [selectedTicker]);
 
     // Fetch chart data for StockChart
+    // [S-78] Silent refresh: Only show loading on first load or ticker change, background updates thereafter
+    const lastTickerRef = React.useRef<string | null>(null);
+
     useEffect(() => {
-        const fetchChartData = async () => {
+        const isTickerChange = lastTickerRef.current !== selectedTicker;
+        lastTickerRef.current = selectedTicker;
+
+        const fetchChartData = async (showLoading: boolean = false) => {
             if (!selectedTicker) return;
-            setChartLoading(true);
+
+            // Show loading only on ticker change, not on periodic refresh
+            if (showLoading) {
+                setChartLoading(true);
+            }
+
             try {
                 const res = await fetch(`/api/chart?symbol=${selectedTicker}&range=1d`);
                 if (res.ok) {
                     const json = await res.json();
-                    setChartHistory(json.data || []);
+                    const newData = json.data || [];
+                    // Only update if data actually changed (prevents unnecessary re-render)
+                    if (newData.length > 0) {
+                        setChartHistory(newData);
+                    }
                 }
             } catch (e) {
                 console.error('[Dashboard] Chart fetch error:', e);
@@ -240,9 +255,11 @@ function MainChartPanel() {
             setChartLoading(false);
         };
 
-        fetchChartData();
-        // Refresh every 60s
-        const interval = setInterval(fetchChartData, 60000);
+        // Show loading on ticker change or first load
+        fetchChartData(isTickerChange || chartHistory.length === 0);
+
+        // Silent background refresh every 30s (leverages API cache)
+        const interval = setInterval(() => fetchChartData(false), 30000);
         return () => clearInterval(interval);
     }, [selectedTicker]);
 
