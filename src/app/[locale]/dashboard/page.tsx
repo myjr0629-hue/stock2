@@ -633,49 +633,38 @@ function MainChartPanel() {
     );
 }
 
-// Signal Feed Item with Glassmorphism
+// Signal Feed Item - Minimal Modern Design
 function SignalItem({ signal }: { signal: { time: string; ticker: string; type: string; message: string } }) {
-    // Glassmorphism styles by type
-    const glassStyles: Record<string, { card: string; bar: string; badge: string }> = {
-        BUY: {
-            card: 'bg-emerald-500/15 backdrop-blur-md border-emerald-400/40 shadow-[0_0_20px_rgba(52,211,153,0.25)]',
-            bar: 'from-emerald-400 to-emerald-500',
-            badge: 'bg-emerald-500/30 text-emerald-400 border-emerald-400/50'
-        },
-        SELL: {
-            card: 'bg-rose-500/15 backdrop-blur-md border-rose-400/40 shadow-[0_0_20px_rgba(251,113,133,0.25)]',
-            bar: 'from-rose-400 to-rose-500',
-            badge: 'bg-rose-500/30 text-rose-400 border-rose-400/50'
-        },
-        WHALE: {
-            card: 'bg-amber-500/15 backdrop-blur-md border-amber-400/40 shadow-[0_0_20px_rgba(251,191,36,0.25)]',
-            bar: 'from-amber-400 to-amber-500',
-            badge: 'bg-amber-500/30 text-amber-400 border-amber-400/50'
-        },
-        ALERT: {
-            card: 'bg-purple-500/15 backdrop-blur-md border-purple-400/40 shadow-[0_0_20px_rgba(168,85,247,0.25)]',
-            bar: 'from-purple-400 to-purple-500',
-            badge: 'bg-purple-500/30 text-purple-400 border-purple-400/50'
-        }
+    const typeColor: Record<string, string> = {
+        BUY: 'text-emerald-400',
+        SELL: 'text-rose-400',
+        WHALE: 'text-amber-400',
+        ALERT: 'text-purple-400'
     };
 
-    const style = glassStyles[signal.type] || glassStyles.ALERT;
+    const barColor: Record<string, string> = {
+        BUY: 'bg-emerald-400',
+        SELL: 'bg-rose-400',
+        WHALE: 'bg-amber-400',
+        ALERT: 'bg-purple-400'
+    };
 
     return (
-        <div className={`relative p-3 rounded-lg border overflow-hidden transition-all hover:scale-[1.02] ${style.card}`}>
-            {/* Left accent bar */}
-            <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${style.bar}`} />
+        <div className="relative pl-3 py-2 group hover:bg-white/[0.02] transition-colors">
+            {/* Subtle left indicator */}
+            <div className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-full ${barColor[signal.type] || barColor.ALERT}`} />
 
-            <div className="flex items-center justify-between mb-1 pl-2">
-                <div className="flex items-center gap-2">
-                    <span className="font-bold text-xs text-white">{signal.ticker}</span>
-                    <span className={`px-1.5 py-0.5 text-[8px] font-bold uppercase rounded border ${style.badge}`}>
-                        {signal.type}
-                    </span>
-                </div>
-                <span className="text-[10px] text-slate-400">{signal.time}</span>
+            {/* Header: Ticker + Type + Time */}
+            <div className="flex items-center gap-2 mb-0.5">
+                <span className="font-semibold text-xs text-white">{signal.ticker}</span>
+                <span className={`text-[9px] font-medium ${typeColor[signal.type] || typeColor.ALERT}`}>
+                    {signal.type}
+                </span>
+                <span className="text-[9px] text-slate-500 ml-auto">{signal.time}</span>
             </div>
-            <p className="text-xs text-white/90 pl-2">{signal.message}</p>
+
+            {/* Message */}
+            <p className="text-[11px] text-slate-400 leading-relaxed">{signal.message}</p>
         </div>
     );
 }
