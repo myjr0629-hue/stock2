@@ -51,9 +51,6 @@ interface DashboardState {
     // Selected ticker for main view
     selectedTicker: string;
 
-    // Dashboard ticker list (max 10, persisted to localStorage)
-    dashboardTickers: string[];
-
     // All fetched ticker data
     tickers: Record<string, TickerData>;
 
@@ -73,32 +70,15 @@ interface DashboardState {
     setMarket: (market: MarketData) => void;
     setSignals: (signals: Signal[]) => void;
     setLoading: (loading: boolean) => void;
-    toggleDashboardTicker: (ticker: string) => boolean; // returns false if limit reached
 
     // Fetch all data
     fetchDashboardData: (tickerList?: string[]) => Promise<void>;
 }
 
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
-const MAX_DASHBOARD_TICKERS = 10;
-const STORAGE_KEY = 'dashboard_tickers';
-
-// Load from localStorage
-function loadDashboardTickers(): string[] {
-    if (typeof window === 'undefined') return DEFAULT_TICKERS;
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            const parsed = JSON.parse(stored);
-            if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-        }
-    } catch { }
-    return DEFAULT_TICKERS;
-}
 
 export const useDashboardStore = create<DashboardState>((set, get) => ({
     selectedTicker: 'NVDA',
-    dashboardTickers: loadDashboardTickers(),
     tickers: {},
     market: null,
     signals: [],
@@ -119,32 +99,6 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
     setMarket: (market) => set({ market }),
     setSignals: (signals) => set({ signals }),
     setLoading: (loading) => set({ isLoading: loading }),
-
-    toggleDashboardTicker: (ticker) => {
-        const current = get().dashboardTickers;
-        const exists = current.includes(ticker);
-
-        if (exists) {
-            // Remove
-            const updated = current.filter(t => t !== ticker);
-            set({ dashboardTickers: updated });
-            if (typeof window !== 'undefined') {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-            }
-            return true;
-        } else {
-            // Add - check limit
-            if (current.length >= MAX_DASHBOARD_TICKERS) {
-                return false; // Limit reached
-            }
-            const updated = [...current, ticker];
-            set({ dashboardTickers: updated });
-            if (typeof window !== 'undefined') {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-            }
-            return true;
-        }
-    },
 
     fetchDashboardData: async (tickerList = DEFAULT_TICKERS) => {
         set({ isLoading: true });

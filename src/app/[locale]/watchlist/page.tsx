@@ -21,10 +21,8 @@ import {
     BarChart3,
     Shield,
     RefreshCcw,
-    Crosshair,
-    LayoutDashboard
+    Crosshair
 } from 'lucide-react';
-import { useDashboardStore } from '@/stores/dashboardStore';
 import { Link } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
 
@@ -88,16 +86,15 @@ export default function WatchlistPage() {
                     {/* Table Content */}
                     <div className="relative">
                         {/* Table Header */}
-                        <div className="grid grid-cols-[32px_1.8fr_1.2fr_0.9fr_0.9fr_0.9fr_0.7fr_0.7fr_0.7fr_0.9fr_0.9fr] gap-2 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
-                            <div className="flex justify-center"><LayoutDashboard className="w-3 h-3" /></div>
+                        <div className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
                             <div>{t('symbol')}</div>
                             <div className="text-center">{t('price')}</div>
                             <div className="flex items-center justify-center gap-1"><Zap className="w-3 h-3" />Alpha</div>
                             <div className="flex items-center justify-center gap-1"><Target className="w-3 h-3" />{t('signal')}</div>
                             <div className="flex items-center justify-center gap-1"><Fish className="w-3 h-3 text-cyan-400" />Whale</div>
                             <div className="flex items-center justify-center gap-1"><Activity className="w-3 h-3" />IV</div>
-                            <div className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3" />Flip</div>
-                            <div className="flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" />3D</div>
+                            <div className="flex items-center justify-center gap-1"><RefreshCcw className="w-3 h-3" />{t('gammaFlip')}</div>
+                            <div className="flex items-center justify-center gap-1"><TrendingUp className="w-3 h-3" />{t('return3d')}</div>
                             <div className="flex items-center justify-center gap-1"><Crosshair className="w-3 h-3" />MaxPain</div>
                             <div className="flex items-center justify-center gap-1"><Shield className="w-3 h-3" />{t('gex')}</div>
                         </div>
@@ -190,26 +187,22 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
     return (
         <Link
             href={`/ticker?ticker=${item.ticker}`}
-            className="grid grid-cols-[32px_1.8fr_1.2fr_0.9fr_0.9fr_0.9fr_0.7fr_0.7fr_0.7fr_0.9fr_0.9fr] gap-2 px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
+            className="grid grid-cols-[2fr_1.5fr_1.2fr_1.2fr_1.2fr_1fr_1fr_1fr_1.2fr_1.2fr] px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
         >
-            {/* Dashboard Toggle - First Column */}
-            <div className="flex justify-center">
-                <DashboardToggle ticker={item.ticker} />
-            </div>
-
             {/* 종목 with Sparkline */}
-            <div className="flex items-center gap-1.5">
-                <div className="w-7 h-7 rounded bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
                     <img
                         src={`https://financialmodelingprep.com/image-stock/${item.ticker}.png`}
                         alt={item.ticker}
-                        className="w-4 h-4 object-contain"
+                        className="w-5 h-5 object-contain"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
+                    <span className="text-[9px] font-bold text-slate-500 absolute">{item.ticker.slice(0, 2)}</span>
                 </div>
-                <div className="min-w-0">
-                    <div className="font-bold text-xs text-white">{item.ticker}</div>
-                    <div className="text-[9px] text-slate-500 truncate max-w-[60px]">{item.name}</div>
+                <div className="flex-1 min-w-0">
+                    <div className="font-bold text-sm text-white">{item.ticker}</div>
+                    <div className="text-[10px] text-slate-500 truncate">{item.name}</div>
                 </div>
                 {item.sparkline && item.sparkline.length > 2 && (
                     <Sparkline data={item.sparkline} isPositive={isPositive} />
@@ -276,54 +269,17 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
             </div>
 
             {/* GEX + Delete */}
-            <div className="flex justify-center items-center gap-1">
+            <div className="relative flex justify-center">
                 <GexIndicator gexM={item.gexM} />
                 <button
                     onClick={(e) => { e.preventDefault(); onRemove(); }}
-                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
                     title={tCommon('delete')}
                 >
                     <Trash2 className="w-3.5 h-3.5" />
                 </button>
             </div>
         </Link>
-    );
-}
-
-// === DASHBOARD TOGGLE ===
-function DashboardToggle({ ticker }: { ticker: string }) {
-    const { dashboardTickers, toggleDashboardTicker } = useDashboardStore();
-    const isInDashboard = dashboardTickers.includes(ticker);
-    const [showToast, setShowToast] = useState(false);
-
-    const handleClick = (e: React.MouseEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const success = toggleDashboardTicker(ticker);
-        if (!success) {
-            setShowToast(true);
-            setTimeout(() => setShowToast(false), 2000);
-        }
-    };
-
-    return (
-        <div className="relative">
-            <button
-                onClick={handleClick}
-                className={`p-1 rounded transition-all ${isInDashboard
-                    ? 'text-cyan-400 bg-cyan-500/20'
-                    : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
-                    }`}
-                title={isInDashboard ? 'Dashboard에서 제거' : 'Dashboard에 추가'}
-            >
-                <LayoutDashboard className="w-3.5 h-3.5" />
-            </button>
-            {showToast && (
-                <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-rose-500/90 text-white text-[10px] rounded whitespace-nowrap z-50">
-                    최대 10개까지 추가 가능
-                </div>
-            )}
-        </div>
     );
 }
 
