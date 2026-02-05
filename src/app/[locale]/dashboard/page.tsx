@@ -243,9 +243,11 @@ function MainChartPanel() {
     const [dailyHistory, setDailyHistory] = useState<{
         date: string;
         close: number;
-        high: number;
-        low: number;
         changePct?: number;
+        volume?: number;
+        vwap?: number;
+        gapPct?: number;
+        rangePct?: number;
     }[]>([]);
 
     // Fetch prevClose from ticker API
@@ -559,14 +561,14 @@ function MainChartPanel() {
                         <div className="overflow-x-auto">
                             <table className="w-full text-xs">
                                 <thead>
-                                    <tr className="border-b border-white/5 text-slate-500">
-                                        <th className="px-3 py-2 text-left font-medium">Date</th>
-                                        <th className="px-3 py-2 text-right font-medium">Close</th>
-                                        <th className="px-3 py-2 text-right font-medium">Change</th>
-                                        <th className="px-3 py-2 text-right font-medium">Volume</th>
-                                        <th className="px-3 py-2 text-right font-medium">VWAP</th>
-                                        <th className="px-3 py-2 text-right font-medium">Gap</th>
-                                        <th className="px-3 py-2 text-right font-medium">Range</th>
+                                    <tr className="bg-white/5 border-b border-white/10 text-white">
+                                        <th className="px-3 py-2 text-left font-semibold">Date</th>
+                                        <th className="px-3 py-2 text-right font-semibold">Close</th>
+                                        <th className="px-3 py-2 text-right font-semibold">Change</th>
+                                        <th className="px-3 py-2 text-right font-semibold">Volume</th>
+                                        <th className="px-3 py-2 text-right font-semibold">VWAP</th>
+                                        <th className="px-3 py-2 text-right font-semibold">Gap</th>
+                                        <th className="px-3 py-2 text-right font-semibold">Range</th>
                                     </tr>
                                 </thead>
                                 <tbody>
