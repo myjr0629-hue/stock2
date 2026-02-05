@@ -406,7 +406,7 @@ function MainChartPanel() {
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-4 gap-4 p-4">
-                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${(data?.netGex || 0) < 0 ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.2)]' : 'border-white/5'}`}>
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="w-4 h-4 text-amber-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Net GEX</span>
@@ -434,7 +434,7 @@ function MainChartPanel() {
                     </div>
                 </div>
 
-                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${(data?.pcr || 1) < 0.7 ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : (data?.pcr || 1) > 1.3 ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.2)]' : 'border-white/5'}`}>
                     <div className="flex items-center gap-2 mb-2">
                         {(data?.pcr || 1) < 0.7 ? (
                             <TrendingUp className="w-4 h-4 text-emerald-400" />
@@ -473,7 +473,7 @@ function MainChartPanel() {
 
             {/* Premium Metrics Row 2 */}
             <div className="grid grid-cols-4 gap-4 px-4">
-                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${(data?.atmIv || 0) > 50 ? 'border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'border-white/5'}`}>
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="w-4 h-4 text-purple-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">ATM IV</span>
@@ -487,7 +487,7 @@ function MainChartPanel() {
                 </div>
 
                 {/* Gamma Flip */}
-                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.2)]' : 'border-white/5'}`}>
                     <div className="flex items-center gap-2 mb-2">
                         <Radio className="w-4 h-4 text-cyan-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Gamma Flip</span>
@@ -517,7 +517,7 @@ function MainChartPanel() {
                     </div>
                 </div>
 
-                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${data?.isGammaSqueeze ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse' : 'border-white/5'}`}>
                     <div className="flex items-center gap-2 mb-2">
                         <Zap className="w-4 h-4 text-indigo-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Squeeze</span>
