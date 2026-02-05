@@ -169,8 +169,9 @@ export async function GET(request: Request) {
                     sparkline: stockData.history?.slice(-20).map((h: any) => h.close) || [],
                     maxPain: finalMaxPain,
                     maxPainDist: finalMaxPainDist,
-                    gex,
-                    gexM: structureGexM ?? gexM,
+                    // [S-77] Use Structure API only for GEX consistency across pages
+                    gex: structureRes?.netGex ?? null,
+                    gexM: structureGexM,
                     pcr: opts?.putCallRatio || null,
                     whaleIndex: Math.round(whaleIndex),
                     whaleConfidence,

@@ -499,8 +499,13 @@ function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }
 }
 
 function GexIndicator({ gexM }: { gexM?: number }) {
+    // [S-77] Show FLAT when Structure API returns null (low options liquidity)
     if (gexM === undefined || gexM === null) {
-        return <span className="text-[9px] text-slate-500 animate-pulse">로딩중</span>;
+        return (
+            <div className="flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-bold text-slate-400 bg-slate-500/10 border-slate-600/30" title="딜러 감마 영향 미미">
+                <span>FLAT</span>
+            </div>
+        );
     }
 
     const color = gexM > 0 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
