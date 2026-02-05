@@ -21,8 +21,10 @@ import {
     BarChart3,
     Shield,
     RefreshCcw,
-    Crosshair
+    Crosshair,
+    LayoutDashboard
 } from 'lucide-react';
+import { useDashboardStore } from '@/stores/dashboardStore';
 import { Link } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
 
@@ -268,18 +270,56 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
                 <MaxPainIndicator maxPain={item.maxPain} dist={item.maxPainDist} />
             </div>
 
-            {/* GEX + Delete */}
-            <div className="relative flex justify-center">
+            {/* GEX + Actions */}
+            <div className="relative flex justify-center items-center gap-1">
                 <GexIndicator gexM={item.gexM} />
+                <DashboardToggle ticker={item.ticker} />
                 <button
                     onClick={(e) => { e.preventDefault(); onRemove(); }}
-                    className="absolute right-0 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
                     title={tCommon('delete')}
                 >
                     <Trash2 className="w-3.5 h-3.5" />
                 </button>
             </div>
         </Link>
+    );
+}
+
+// === DASHBOARD TOGGLE ===
+function DashboardToggle({ ticker }: { ticker: string }) {
+    const { dashboardTickers, toggleDashboardTicker } = useDashboardStore();
+    const isInDashboard = dashboardTickers.includes(ticker);
+    const [showToast, setShowToast] = useState(false);
+
+    const handleClick = (e: React.MouseEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const success = toggleDashboardTicker(ticker);
+        if (!success) {
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 2000);
+        }
+    };
+
+    return (
+        <div className="relative">
+            <button
+                onClick={handleClick}
+                className={`p-1 rounded transition-all ${isInDashboard
+                        ? 'text-cyan-400 bg-cyan-500/20'
+                        : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'
+                    }`}
+                title={isInDashboard ? 'Dashboard에서 제거' : 'Dashboard에 추가'}
+            >
+                <LayoutDashboard className="w-3.5 h-3.5" />
+            </button>
+            {showToast && (
+                <div className="absolute bottom-full right-0 mb-2 px-2 py-1 bg-rose-500/90 text-white text-[10px] rounded whitespace-nowrap z-50">
+                    최대 10개까지 추가 가능
+                </div>
+            )}
+        </div>
     );
 }
 
