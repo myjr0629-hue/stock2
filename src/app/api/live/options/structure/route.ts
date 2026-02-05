@@ -47,6 +47,14 @@ async function fetchMassiveWithRetry(url: string, maxAttempts = 3): Promise<any>
     return { success: false, error: lastError, attempts: maxAttempts };
 }
 
+// [DATA CONSISTENCY] Cache for 60 seconds to ensure stable values
+interface CachedResult {
+    data: any;
+    timestamp: number;
+}
+const structureCache = new Map<string, CachedResult>();
+const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
     const requestedExp = req.nextUrl.searchParams.get('exp');
@@ -54,8 +62,14 @@ export async function GET(req: NextRequest) {
     if (!t) return NextResponse.json({ error: "Missing ticker" }, { status: 400 });
 
     const ticker = t.toUpperCase();
+    const cacheKey = `${ticker}:${requestedExp || 'auto'}`;
 
-    // 1. Get Underlying Price
+    // [DATA CONSISTENCY] Check cache first
+    const cached = structureCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL_MS) {
+        console.log(`[CACHE HIT] ${ticker}: returning cached data (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
+        return NextResponse.json({ ...cached.data, cached: true });
+    }
     const spotUrl = `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`;
     const spotRes = await fetchMassiveWithRetry(spotUrl, 2);
 
@@ -155,7 +169,8 @@ export async function GET(req: NextRequest) {
     let chainUrl = exactUrl;
 
     try {
-        while (chainUrl && pagesFetched < 4) {
+        // [DATA INTEGRITY] Fetch up to 10 pages to ensure complete options chain
+        while (chainUrl && pagesFetched < 10) {
             const res = await fetchMassiveWithRetry(chainUrl, 3);
             attemptsTotal += res.attempts || 1;
             latencyTotal += res.latency || 0;
@@ -394,13 +409,13 @@ export async function GET(req: NextRequest) {
         // [V7.1] gammaFlipLevel is now calculated BEFORE this block (lines 152-198)
         // Removed duplicate calculation here
 
-        // [FIX] Lowered threshold from 80% to 60% - 76% is valid data
-        if (gammaCoverage >= 0.60) {
+        // [DATA INTEGRITY] Require 80% coverage for accurate Net GEX display
+        if (gammaCoverage >= 0.80) {
             netGex = gexSum;
             gexNotes = `Calculation successful (coverage: ${(gammaCoverage * 100).toFixed(0)}%)`;
         } else {
             netGex = null;
-            gexNotes = `netGex null: gammaCoverage (${(gammaCoverage * 100).toFixed(1)}%) < 60%`;
+            gexNotes = `Insufficient data (coverage: ${(gammaCoverage * 100).toFixed(0)}% < 80%)`;
         }
 
         // Gamma Squeeze Detection (PowerEngine logic)
@@ -430,7 +445,7 @@ export async function GET(req: NextRequest) {
             }
         }
 
-        return NextResponse.json({
+        const successResponse = {
             ticker,
             expiration: targetExpiry,
             availableExpirations,
@@ -459,13 +474,19 @@ export async function GET(req: NextRequest) {
                 latencyMs: latencyTotal,
                 gammaCoverage,
                 contractsUsedForGex,
+                rawGexSum: gexSum, // [DEBUG] Raw value before coverage filter
                 multiplierUsed: 100,
                 netGexUnit: "shares",
                 gexFormula: "sum(call gamma*oi*mult) - sum(put gamma*oi*mult)",
                 notes: gexNotes,
                 gammaFlipCrossings  // [DEBUG] All zero crossings found
             }
-        });
+        };
+
+        // [DATA CONSISTENCY] Cache the result
+        structureCache.set(cacheKey, { data: successResponse, timestamp: Date.now() });
+
+        return NextResponse.json(successResponse);
     } else {
         gexNotes = totalStatsContracts === 0
             ? `netGex null: target expiration ${targetExpiry} not found or no contracts`
