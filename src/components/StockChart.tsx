@@ -475,13 +475,14 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         itemStyle={{ color: '#f8fafc' }}
                                         formatter={(value: any) => [`${(Number(value) || 0).toFixed(2)}`, "Close"]}
                                     />
+                                    {/* [S-78] prevClose Reference - hidden to prevent Y-axis expansion */}
                                     {isIntraday && prevClose !== undefined && (
                                         <ReferenceLine
                                             y={prevClose}
                                             stroke="#ffffff"
                                             strokeDasharray="4 2"
                                             strokeWidth={1}
-                                            ifOverflow="extendDomain"
+                                            ifOverflow="hidden"
                                         >
                                             <Label
                                                 value={prevClose.toFixed(2)}
