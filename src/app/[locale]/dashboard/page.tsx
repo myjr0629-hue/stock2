@@ -368,17 +368,19 @@ function MainChartPanel() {
                                 <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
                             </div>
                         ) : chartHistory.length > 0 ? (
-                            <StockChart
-                                data={chartHistory}
-                                ticker={selectedTicker}
-                                currentPrice={data?.underlyingPrice ?? undefined}
-                                prevClose={prevClose}
-                                alphaLevels={{
-                                    callWall: data?.levels?.callWall ?? undefined,
-                                    putFloor: data?.levels?.putFloor ?? undefined,
-                                    maxPain: data?.maxPain ?? undefined
-                                }}
-                            />
+                            <div className="animate-fade-in">
+                                <StockChart
+                                    data={chartHistory}
+                                    ticker={selectedTicker}
+                                    currentPrice={data?.underlyingPrice ?? undefined}
+                                    prevClose={prevClose}
+                                    alphaLevels={{
+                                        callWall: data?.levels?.callWall ?? undefined,
+                                        putFloor: data?.levels?.putFloor ?? undefined,
+                                        maxPain: data?.maxPain ?? undefined
+                                    }}
+                                />
+                            </div>
                         ) : (
                             <div className="h-full flex items-center justify-center text-slate-500 text-sm">
                                 차트 데이터 없음
