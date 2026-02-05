@@ -494,47 +494,68 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             />
                                         </ReferenceLine>
                                     )}
-                                    {/* [S-78] Live Price Reference with pill badge - always visible */}
-                                    {currentPrice !== undefined && (
-                                        <ReferenceLine
-                                            y={currentPrice}
-                                            stroke="#10b981"
-                                            strokeWidth={2}
-                                            ifOverflow="extendDomain"
-                                        >
-                                            <Label
-                                                position="right"
-                                                offset={5}
-                                                content={({ viewBox }: any) => {
-                                                    const { x, y } = viewBox || {};
-                                                    if (x === undefined || y === undefined) return null;
-                                                    const text = currentPrice.toFixed(2);
-                                                    return (
-                                                        <g>
-                                                            <rect
-                                                                x={x + 5}
-                                                                y={y - 10}
-                                                                width={54}
-                                                                height={20}
-                                                                rx={4}
-                                                                fill="#10b981"
-                                                            />
-                                                            <text
-                                                                x={x + 32}
-                                                                y={y + 4}
-                                                                textAnchor="middle"
-                                                                fill="#ffffff"
-                                                                fontSize={11}
-                                                                fontWeight="bold"
-                                                            >
-                                                                {text}
-                                                            </text>
-                                                        </g>
-                                                    );
-                                                }}
-                                            />
-                                        </ReferenceLine>
-                                    )}
+                                    {/* [S-78] Live Price Reference with session-aware label (Command style) */}
+                                    {currentPrice !== undefined && (() => {
+                                        // Determine session from last data point
+                                        const lastPoint = processedData[processedData.length - 1];
+                                        const lastSession = lastPoint?.session || 'REG';
+                                        const lastEtMinute = lastPoint?.xValue || 0;
+
+                                        // Session detection
+                                        let sessionLabel = 'INTRADAY';
+                                        let sessionColor = '#e2e8f0'; // White for regular
+                                        let bgColor = '#334155'; // Slate background
+
+                                        if (lastSession === 'POST' || lastEtMinute >= 960) {
+                                            sessionLabel = 'POST';
+                                            sessionColor = '#60a5fa'; // Blue
+                                            bgColor = '#1e3a5f'; // Blue background
+                                        } else if (lastSession === 'PRE' || lastEtMinute < 570) {
+                                            sessionLabel = 'PRE';
+                                            sessionColor = '#fbbf24'; // Amber
+                                            bgColor = '#3f3f00'; // Amber background
+                                        }
+
+                                        return (
+                                            <ReferenceLine
+                                                y={currentPrice}
+                                                stroke={sessionColor}
+                                                strokeWidth={2}
+                                                ifOverflow="extendDomain"
+                                            >
+                                                <Label
+                                                    position="right"
+                                                    offset={5}
+                                                    content={({ viewBox }: any) => {
+                                                        const { x, y } = viewBox || {};
+                                                        if (x === undefined || y === undefined) return null;
+                                                        return (
+                                                            <g>
+                                                                <rect
+                                                                    x={x + 5}
+                                                                    y={y - 10}
+                                                                    width={54}
+                                                                    height={20}
+                                                                    rx={4}
+                                                                    fill={bgColor}
+                                                                />
+                                                                <text
+                                                                    x={x + 32}
+                                                                    y={y + 4}
+                                                                    textAnchor="middle"
+                                                                    fill={sessionColor}
+                                                                    fontSize={11}
+                                                                    fontWeight="bold"
+                                                                >
+                                                                    {currentPrice.toFixed(2)}
+                                                                </text>
+                                                            </g>
+                                                        );
+                                                    }}
+                                                />
+                                            </ReferenceLine>
+                                        );
+                                    })()}
                                     {/* [Alpha Levels] Optional overlays - scale maintained with ifOverflow="hidden" */}
                                     {alphaLevels?.callWall && (
                                         <ReferenceLine
