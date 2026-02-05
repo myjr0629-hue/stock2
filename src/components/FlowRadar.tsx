@@ -1023,8 +1023,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                     } blur-xl`} />
 
                                 <div className="flex items-center gap-1 mb-1 relative z-10">
-                                    <Zap size={10} className={analysis.whaleBias?.includes('BULL') ? 'text-emerald-400' : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400' : 'text-white'} />
-                                    <span className="text-[11px] text-white font-bold uppercase">포지션</span>
+                                    <span className="text-sm">🐋</span>
+                                    <span className="text-[11px] text-white font-bold uppercase">고래 포지션</span>
                                 </div>
 
                                 <div className={`text-xl font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
