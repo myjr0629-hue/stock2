@@ -406,7 +406,8 @@ function MainChartPanel() {
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-4 gap-4 p-4">
-                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${(data?.netGex || 0) < 0 ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.2)]' : 'border-white/5'}`}>
+                <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                    {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="w-4 h-4 text-amber-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Net GEX</span>
@@ -434,7 +435,9 @@ function MainChartPanel() {
                     </div>
                 </div>
 
-                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${(data?.pcr || 1) < 0.7 ? 'border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : (data?.pcr || 1) > 1.3 ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.2)]' : 'border-white/5'}`}>
+                <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.pcr || 1) < 0.7 ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : (data?.pcr || 1) > 1.3 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                    {(data?.pcr || 1) < 0.7 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-emerald-500" />}
+                    {(data?.pcr || 1) > 1.3 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         {(data?.pcr || 1) < 0.7 ? (
                             <TrendingUp className="w-4 h-4 text-emerald-400" />
@@ -473,7 +476,8 @@ function MainChartPanel() {
 
             {/* Premium Metrics Row 2 */}
             <div className="grid grid-cols-4 gap-4 px-4">
-                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${(data?.atmIv || 0) > 50 ? 'border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'border-white/5'}`}>
+                <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                    {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="w-4 h-4 text-purple-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">ATM IV</span>
@@ -487,7 +491,8 @@ function MainChartPanel() {
                 </div>
 
                 {/* Gamma Flip */}
-                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'border-rose-500/50 shadow-[0_0_15px_rgba(244,63,94,0.2)]' : 'border-white/5'}`}>
+                <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                    {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         <Radio className="w-4 h-4 text-cyan-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Gamma Flip</span>
@@ -517,7 +522,8 @@ function MainChartPanel() {
                     </div>
                 </div>
 
-                <div className={`p-4 bg-[#0d1829]/80 rounded-xl border ${data?.isGammaSqueeze ? 'border-indigo-500/50 shadow-[0_0_15px_rgba(99,102,241,0.3)] animate-pulse' : 'border-white/5'}`}>
+                <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.isGammaSqueeze ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                    {data?.isGammaSqueeze && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
                     <div className="flex items-center gap-2 mb-2">
                         <Zap className="w-4 h-4 text-indigo-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Squeeze</span>
