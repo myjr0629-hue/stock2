@@ -976,18 +976,21 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
                                 <div className={`text-[11px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{opi.label}</div>
                             </div>
 
-                            {/* IVP - Larger Text with Position Suggestion */}
+                            {/* ATM IV - Larger Text with Position Suggestion */}
                             <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                 {/* Glow background */}
                                 <div className={`absolute inset-0 opacity-15 ${ivPercentile.value >= 60 ? 'bg-rose-500' : ivPercentile.value <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
 
-                                <span className="text-[11px] text-white font-bold uppercase relative z-10">IVP(52주순위)</span>
+                                <span className="text-[11px] text-white font-bold uppercase relative z-10">ATM IV</span>
 
                                 <div className={`text-2xl font-black relative z-10 mt-1 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivPercentile.value >= 25 && ivPercentile.value < 60 ? 'none' : '0 0 10px currentColor' }}>
                                     {ivPercentile.value}%
                                 </div>
                                 <div className={`text-[11px] font-bold relative z-10 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`}>
                                     {ivPercentile.value >= 60 ? '매도유리' : ivPercentile.value <= 25 ? '매수유리' : '중립'}
+                                </div>
+                                <div className="text-[9px] text-white/50 relative z-10 mt-0.5">
+                                    {ivPercentile.value >= 60 ? '프리미엄 비쌈' : ivPercentile.value <= 25 ? '프리미엄 저렴' : '프리미엄 보통'}
                                 </div>
                             </div>
 
