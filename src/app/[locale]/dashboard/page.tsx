@@ -633,30 +633,53 @@ function MainChartPanel() {
     );
 }
 
-// Signal Feed Item
+// Signal Feed Item with Glassmorphism
 function SignalItem({ signal }: { signal: { time: string; ticker: string; type: string; message: string } }) {
-    const typeStyles: Record<string, string> = {
-        SQUEEZE: "bg-indigo-500/20 text-indigo-400 border-indigo-500/30",
-        WHALE: "bg-amber-500/20 text-amber-400 border-amber-500/30",
-        HOT: "bg-rose-500/20 text-rose-400 border-rose-500/30",
-        ALERT: "bg-cyan-500/20 text-cyan-400 border-cyan-500/30"
+    // Glassmorphism styles by type
+    const glassStyles: Record<string, { card: string; bar: string; badge: string }> = {
+        BUY: {
+            card: 'bg-emerald-500/15 backdrop-blur-md border-emerald-400/40 shadow-[0_0_20px_rgba(52,211,153,0.25)]',
+            bar: 'from-emerald-400 to-emerald-500',
+            badge: 'bg-emerald-500/30 text-emerald-400 border-emerald-400/50'
+        },
+        SELL: {
+            card: 'bg-rose-500/15 backdrop-blur-md border-rose-400/40 shadow-[0_0_20px_rgba(251,113,133,0.25)]',
+            bar: 'from-rose-400 to-rose-500',
+            badge: 'bg-rose-500/30 text-rose-400 border-rose-400/50'
+        },
+        WHALE: {
+            card: 'bg-amber-500/15 backdrop-blur-md border-amber-400/40 shadow-[0_0_20px_rgba(251,191,36,0.25)]',
+            bar: 'from-amber-400 to-amber-500',
+            badge: 'bg-amber-500/30 text-amber-400 border-amber-400/50'
+        },
+        ALERT: {
+            card: 'bg-purple-500/15 backdrop-blur-md border-purple-400/40 shadow-[0_0_20px_rgba(168,85,247,0.25)]',
+            bar: 'from-purple-400 to-purple-500',
+            badge: 'bg-purple-500/30 text-purple-400 border-purple-400/50'
+        }
     };
 
+    const style = glassStyles[signal.type] || glassStyles.ALERT;
+
     return (
-        <div className="p-3 bg-[#0d1829]/60 rounded-lg border border-white/5 hover:border-white/10 transition-colors animate-signal-enter">
-            <div className="flex items-center justify-between mb-1">
+        <div className={`relative p-3 rounded-lg border overflow-hidden transition-all hover:scale-[1.02] ${style.card}`}>
+            {/* Left accent bar */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${style.bar}`} />
+
+            <div className="flex items-center justify-between mb-1 pl-2">
                 <div className="flex items-center gap-2">
                     <span className="font-bold text-xs text-white">{signal.ticker}</span>
-                    <span className={`px-1.5 py-0.5 text-[8px] font-bold uppercase rounded border ${typeStyles[signal.type] || typeStyles.ALERT}`}>
+                    <span className={`px-1.5 py-0.5 text-[8px] font-bold uppercase rounded border ${style.badge}`}>
                         {signal.type}
                     </span>
                 </div>
-                <span className="text-[10px] text-slate-500">{signal.time}</span>
+                <span className="text-[10px] text-slate-400">{signal.time}</span>
             </div>
-            <p className="text-xs text-slate-400">{signal.message}</p>
+            <p className="text-xs text-white/90 pl-2">{signal.message}</p>
         </div>
     );
 }
+
 
 // Signal Feed Panel
 function SignalFeedPanel() {
