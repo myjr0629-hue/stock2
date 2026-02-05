@@ -678,11 +678,11 @@ function SignalItem({ signal }: { signal: { time: string; ticker: string; type: 
                 </div>
                 <span className="font-semibold text-xs text-white">{signal.ticker}</span>
                 <span className={`text-[9px] font-medium ${style.text}`}>{signal.type}</span>
-                <span className="text-[9px] text-slate-500 ml-auto">{signal.time}</span>
+                <span className="text-[9px] text-white/70 ml-auto">{signal.time}</span>
             </div>
 
             {/* Message */}
-            <p className="text-[11px] text-slate-300 leading-relaxed pl-2">{signal.message}</p>
+            <p className="text-[11px] text-white leading-relaxed pl-2">{signal.message}</p>
         </div>
     );
 }
