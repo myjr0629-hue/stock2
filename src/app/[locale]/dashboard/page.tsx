@@ -633,38 +633,56 @@ function MainChartPanel() {
     );
 }
 
-// Signal Feed Item - Minimal Modern Design
+// Signal Feed Item - Glassmorphism with Logo
 function SignalItem({ signal }: { signal: { time: string; ticker: string; type: string; message: string } }) {
-    const typeColor: Record<string, string> = {
-        BUY: 'text-emerald-400',
-        SELL: 'text-rose-400',
-        WHALE: 'text-amber-400',
-        ALERT: 'text-purple-400'
+    const styles: Record<string, { card: string; bar: string; text: string }> = {
+        BUY: {
+            card: 'bg-emerald-500/10 border-emerald-500/30',
+            bar: 'bg-emerald-400',
+            text: 'text-emerald-400'
+        },
+        SELL: {
+            card: 'bg-rose-500/10 border-rose-500/30',
+            bar: 'bg-rose-400',
+            text: 'text-rose-400'
+        },
+        WHALE: {
+            card: 'bg-amber-500/10 border-amber-500/30',
+            bar: 'bg-amber-400',
+            text: 'text-amber-400'
+        },
+        ALERT: {
+            card: 'bg-purple-500/10 border-purple-500/30',
+            bar: 'bg-purple-400',
+            text: 'text-purple-400'
+        }
     };
 
-    const barColor: Record<string, string> = {
-        BUY: 'bg-emerald-400',
-        SELL: 'bg-rose-400',
-        WHALE: 'bg-amber-400',
-        ALERT: 'bg-purple-400'
-    };
+    const style = styles[signal.type] || styles.ALERT;
 
     return (
-        <div className="relative pl-3 py-2 group hover:bg-white/[0.02] transition-colors">
-            {/* Subtle left indicator */}
-            <div className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-full ${barColor[signal.type] || barColor.ALERT}`} />
+        <div className={`relative p-2.5 rounded-lg border backdrop-blur-sm ${style.card}`}>
+            {/* Left accent bar */}
+            <div className={`absolute left-0 top-2 bottom-2 w-0.5 rounded-full ${style.bar}`} />
 
-            {/* Header: Ticker + Type + Time */}
-            <div className="flex items-center gap-2 mb-0.5">
+            {/* Header */}
+            <div className="flex items-center gap-2 pl-2 mb-1">
+                {/* Ticker Logo */}
+                <div className="w-5 h-5 rounded bg-slate-800/50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <img
+                        src={`https://financialmodelingprep.com/image-stock/${signal.ticker}.png`}
+                        alt=""
+                        className="w-3.5 h-3.5 object-contain"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                </div>
                 <span className="font-semibold text-xs text-white">{signal.ticker}</span>
-                <span className={`text-[9px] font-medium ${typeColor[signal.type] || typeColor.ALERT}`}>
-                    {signal.type}
-                </span>
+                <span className={`text-[9px] font-medium ${style.text}`}>{signal.type}</span>
                 <span className="text-[9px] text-slate-500 ml-auto">{signal.time}</span>
             </div>
 
             {/* Message */}
-            <p className="text-[11px] text-slate-400 leading-relaxed">{signal.message}</p>
+            <p className="text-[11px] text-slate-300 leading-relaxed pl-2">{signal.message}</p>
         </div>
     );
 }
