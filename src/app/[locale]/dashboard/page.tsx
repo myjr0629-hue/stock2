@@ -22,7 +22,9 @@ import {
     ChevronRight,
     BarChart3,
     List,
-    Loader2
+    Loader2,
+    X,
+    Plus
 } from "lucide-react";
 
 // Market status badge colors
@@ -112,7 +114,7 @@ function AlphaStatusBar() {
 
 // Watchlist Item Component (Command-style price display)
 function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boolean }) {
-    const { tickers, setSelectedTicker } = useDashboardStore();
+    const { tickers, setSelectedTicker, toggleDashboardTicker } = useDashboardStore();
     const data = tickers[ticker];
 
     const isPositive = (data?.changePercent || 0) >= 0;
@@ -144,77 +146,120 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
     }
 
     return (
-        <button
-            onClick={() => setSelectedTicker(ticker)}
-            className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200
-                ${isSelected
-                    ? "bg-cyan-500/10 border border-cyan-500/30"
-                    : "bg-[#0d1829]/60 border border-white/5 hover:border-white/10"
-                }
-                ${hasGammaSqueeze ? "animate-squeeze-glow" : ""}
-                ${hasWhale && !hasGammaSqueeze ? "animate-whale-glow" : ""}
-            `}
-        >
-            {/* Left: Logo + Ticker */}
-            <div className="flex items-center gap-2">
-                <img
-                    src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
-                    alt={ticker}
-                    className="w-6 h-6 rounded bg-[#1a2535] object-contain"
-                    onError={(e) => {
-                        (e.target as HTMLImageElement).src = '';
-                        (e.target as HTMLImageElement).className = 'w-6 h-6 rounded bg-slate-700 hidden';
-                    }}
-                />
-                <div className="flex items-center gap-1.5">
-                    <span className={`font-bold text-xs ${isSelected ? "text-cyan-400" : "text-white"}`}>
-                        {ticker}
-                    </span>
-                    {hasGammaSqueeze && (
-                        <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-indigo-500/20 text-indigo-400 rounded">SQ</span>
-                    )}
-                    {hasWhale && !hasGammaSqueeze && (
-                        <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-amber-500/20 text-amber-400 rounded">WH</span>
-                    )}
+        <div className="group relative">
+            <button
+                onClick={() => setSelectedTicker(ticker)}
+                className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200
+                    ${isSelected
+                        ? "bg-cyan-500/10 border border-cyan-500/30"
+                        : "bg-[#0d1829]/60 border border-white/5 hover:border-white/10"
+                    }
+                    ${hasGammaSqueeze ? "animate-squeeze-glow" : ""}
+                    ${hasWhale && !hasGammaSqueeze ? "animate-whale-glow" : ""}
+                `}
+            >
+                {/* Left: Logo + Ticker */}
+                <div className="flex items-center gap-2">
+                    <img
+                        src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
+                        alt={ticker}
+                        className="w-6 h-6 rounded bg-[#1a2535] object-contain"
+                        onError={(e) => {
+                            (e.target as HTMLImageElement).src = '';
+                            (e.target as HTMLImageElement).className = 'w-6 h-6 rounded bg-slate-700 hidden';
+                        }}
+                    />
+                    <div className="flex items-center gap-1.5">
+                        <span className={`font-bold text-xs ${isSelected ? "text-cyan-400" : "text-white"}`}>
+                            {ticker}
+                        </span>
+                        {hasGammaSqueeze && (
+                            <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-indigo-500/20 text-indigo-400 rounded">SQ</span>
+                        )}
+                        {hasWhale && !hasGammaSqueeze && (
+                            <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-amber-500/20 text-amber-400 rounded">WH</span>
+                        )}
+                    </div>
                 </div>
-            </div>
 
-            {/* Right: Price (Command style - horizontal layout) */}
-            <div className="flex items-center gap-3">
-                {/* Main Price + Change */}
-                <div className="flex items-center gap-1.5">
-                    <span className="font-mono text-sm text-white">
-                        ${data?.underlyingPrice?.toFixed(2) || "—"}
-                    </span>
-                    <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                        {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
-                    </span>
-                </div>
-                {/* Separator + Extended Session (POST/PRE) */}
-                {extPrice > 0 && (
-                    <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700">
-                        <span className={`text-[8px] font-bold uppercase ${extColor}`}>{extLabel}</span>
-                        <span className="text-xs text-white font-mono">${extPrice.toFixed(2)}</span>
-                        <span className={`text-[9px] font-mono ${extPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                            {extPct > 0 ? "+" : ""}{extPct.toFixed(2)}%
+                {/* Right: Price (Command style - horizontal layout) */}
+                <div className="flex items-center gap-3">
+                    {/* Main Price + Change */}
+                    <div className="flex items-center gap-1.5">
+                        <span className="font-mono text-sm text-white">
+                            ${data?.underlyingPrice?.toFixed(2) || "—"}
+                        </span>
+                        <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                            {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
                         </span>
                     </div>
-                )}
-            </div>
-        </button>
+                    {/* Separator + Extended Session (POST/PRE) */}
+                    {extPrice > 0 && (
+                        <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700">
+                            <span className={`text-[8px] font-bold uppercase ${extColor}`}>{extLabel}</span>
+                            <span className="text-xs text-white font-mono">${extPrice.toFixed(2)}</span>
+                            <span className={`text-[9px] font-mono ${extPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                {extPct > 0 ? "+" : ""}{extPct.toFixed(2)}%
+                            </span>
+                        </div>
+                    )}
+                </div>
+            </button>
+            {/* Remove Button - appears on hover */}
+            <button
+                onClick={(e) => {
+                    e.stopPropagation();
+                    toggleDashboardTicker(ticker);
+                }}
+                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
+                title="대시보드에서 제거"
+            >
+                <X className="w-3 h-3" />
+            </button>
+        </div>
     );
 }
 
 // Watchlist Panel
 function WatchlistPanel() {
-    const { tickers, selectedTicker } = useDashboardStore();
+    const { tickers, selectedTicker, toggleDashboardTicker, dashboardTickers } = useDashboardStore();
     const tickerList = Object.keys(tickers);
+    const [newTicker, setNewTicker] = useState('');
+
+    const handleAddTicker = () => {
+        const ticker = newTicker.trim().toUpperCase();
+        if (ticker && !dashboardTickers.includes(ticker)) {
+            toggleDashboardTicker(ticker);
+            setNewTicker('');
+        }
+    };
 
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-white/5">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Watchlist</h2>
                 <span className="text-[10px] text-slate-500">{tickerList.length} 종목</span>
+            </div>
+            {/* Add Ticker Input */}
+            <div className="p-2 border-b border-white/5">
+                <div className="flex gap-1">
+                    <input
+                        type="text"
+                        value={newTicker}
+                        onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => e.key === 'Enter' && handleAddTicker()}
+                        placeholder="티커 추가..."
+                        className="flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border border-white/10 rounded text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+                        maxLength={6}
+                    />
+                    <button
+                        onClick={handleAddTicker}
+                        className="px-2 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded transition-colors"
+                        title="티커 추가"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {tickerList.map(ticker => (
