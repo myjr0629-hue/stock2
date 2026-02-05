@@ -337,6 +337,9 @@ function MainChartPanel() {
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/5">
                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 border border-white/10 flex items-center justify-center">
+                        <span className="text-xs font-bold text-cyan-400">{selectedTicker?.charAt(0)}</span>
+                    </div>
                     <h2 className="text-2xl font-bold text-white">{selectedTicker}</h2>
                     {/* Main Price + Change */}
                     <span className="font-mono text-xl text-white">
@@ -397,29 +400,34 @@ function MainChartPanel() {
 
             {/* Metrics Grid */}
             <div className="grid grid-cols-4 gap-4 p-4">
-                {/* GEX */}
                 <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="w-4 h-4 text-amber-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Net GEX</span>
                     </div>
-                    <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                        {gexDisplay}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                            {gexDisplay}
+                        </span>
+                        <span className="text-[9px] text-slate-500">{(data?.netGex || 0) > 0 ? "안정적" : "변동성 ↑"}</span>
+                    </div>
                 </div>
 
-                {/* Max Pain */}
                 <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         <Target className="w-4 h-4 text-cyan-400" />
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Max Pain</span>
                     </div>
-                    <span className="text-xl font-mono font-bold text-white">
-                        ${data?.maxPain || "—"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl font-mono font-bold text-white">${data?.maxPain || "—"}</span>
+                        {data?.maxPain && data?.underlyingPrice && (
+                            <span className={`text-xs font-mono ${data.underlyingPrice > data.maxPain ? "text-emerald-400" : "text-rose-400"}`}>
+                                {((data.underlyingPrice - data.maxPain) / data.maxPain * 100).toFixed(1)}%
+                            </span>
+                        )}
+                    </div>
                 </div>
 
-                {/* PCR */}
                 <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         {(data?.pcr || 1) < 0.7 ? (
@@ -431,27 +439,28 @@ function MainChartPanel() {
                         )}
                         <span className="text-[10px] uppercase tracking-wider text-slate-400">Put/Call Ratio</span>
                     </div>
-                    <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" :
-                        (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"
-                        }`}>
-                        {data?.pcr?.toFixed(2) || "—"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" : (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"}`}>
+                            {data?.pcr?.toFixed(2) || "—"}
+                        </span>
+                        <span className="text-[9px] text-slate-500">
+                            {(data?.pcr || 1) < 0.7 ? "콜 우위" : (data?.pcr || 1) > 1.3 ? "풋 우위" : "중립"}
+                        </span>
+                    </div>
                 </div>
 
-                {/* Call Wall / Put Floor */}
                 <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="w-4 h-4 text-emerald-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Call Wall / Put Floor</span>
+                        <div className="flex flex-col leading-tight">
+                            <span className="text-[10px] uppercase tracking-wider text-slate-400">Call Wall</span>
+                            <span className="text-[10px] uppercase tracking-wider text-slate-400">Put Floor</span>
+                        </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="text-lg font-mono font-bold text-emerald-400">
-                            ${data?.levels?.callWall || "—"}
-                        </span>
+                        <span className="text-lg font-mono font-bold text-emerald-400">${data?.levels?.callWall || "—"}</span>
                         <span className="text-slate-500">/</span>
-                        <span className="text-lg font-mono font-bold text-rose-400">
-                            ${data?.levels?.putFloor || "—"}
-                        </span>
+                        <span className="text-lg font-mono font-bold text-rose-400">${data?.levels?.putFloor || "—"}</span>
                     </div>
                 </div>
             </div>
@@ -580,10 +589,10 @@ function MainChartPanel() {
                                                 {day.changePct != null ? `${day.changePct > 0 ? '+' : ''}${day.changePct.toFixed(2)}%` : '—'}
                                             </td>
                                             <td className={`px-3 py-2 text-right font-mono ${(() => {
-                                                    const prevVolume = dailyHistory[idx + 1]?.volume;
-                                                    if (!prevVolume || !day.volume) return 'text-white';
-                                                    return day.volume > prevVolume ? 'text-emerald-400' : 'text-rose-400';
-                                                })()
+                                                const prevVolume = dailyHistory[idx + 1]?.volume;
+                                                if (!prevVolume || !day.volume) return 'text-white';
+                                                return day.volume > prevVolume ? 'text-emerald-400' : 'text-rose-400';
+                                            })()
                                                 }`}>
                                                 {day.volume ? `${(day.volume / 1e6).toFixed(1)}M` : '—'}
                                             </td>
