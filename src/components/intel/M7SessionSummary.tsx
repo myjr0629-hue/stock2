@@ -217,9 +217,15 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
                                     }`}>
                                     {idx + 1}.
                                 </span>
-                                <span className="text-[10px] font-bold text-cyan-400/90 tracking-tight drop-shadow-sm">
-                                    {q.alphaScore > 0 ? q.alphaScore.toFixed(1) : '-'}
-                                </span>
+                                <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md shadow-sm transition-all duration-300 ${q.alphaScore >= 75 ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]' :
+                                        q.alphaScore >= 50 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
+                                            'bg-slate-700/30 border-slate-600/30 text-slate-400'
+                                    }`}>
+                                    <span className="text-[9px] font-bold opacity-70">ALPHA</span>
+                                    <span className="text-xs font-black tracking-tight">
+                                        {q.alphaScore > 0 ? q.alphaScore.toFixed(1) : '-'}
+                                    </span>
+                                </div>
                             </div>
 
                             {/* Row 2: Logo - Glass Circle */}
@@ -254,6 +260,20 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
                                     ${q.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </div>
                             </div>
+
+
+                            {/* Row 4.5: Extended Price (Pre/Post) - User Request */}
+                            {
+                                hasExt && (
+                                    <div className="flex items-center justify-center gap-1.5 mb-1 animate-in fade-in slide-in-from-bottom-1">
+                                        <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{q.extendedLabel}</span>
+                                        <span className="text-xs font-mono font-bold text-slate-300">${q.extendedPrice.toFixed(2)}</span>
+                                        <span className={`text-[9px] font-bold ${q.extendedChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {q.extendedChangePct >= 0 ? '+' : ''}{q.extendedChangePct.toFixed(2)}%
+                                        </span>
+                                    </div>
+                                )
+                            }
 
                             {/* Row 5: Change % */}
                             <div className={`flex items-center justify-center gap-0.5 text-[11px] font-bold tracking-tight ${isUp ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]' : 'text-rose-400 drop-shadow-[0_0_8px_rgba(251,113,133,0.3)]'
@@ -295,6 +315,6 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
                     )}
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
