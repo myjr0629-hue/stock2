@@ -88,7 +88,7 @@ export default function WatchlistPage() {
                     {/* Table Content */}
                     <div className="relative">
                         {/* Table Header */}
-                        <div className="grid grid-cols-[0.5fr_2fr_1.5fr_1fr_1fr_1fr_0.8fr_0.8fr_0.8fr_1fr_1fr] px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
+                        <div className="grid grid-cols-[32px_1.8fr_1.2fr_0.9fr_0.9fr_0.9fr_0.7fr_0.7fr_0.7fr_0.9fr_0.9fr] gap-2 px-4 py-3 bg-gradient-to-r from-slate-900/80 to-slate-800/50 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-white/5">
                             <div className="flex justify-center"><LayoutDashboard className="w-3 h-3" /></div>
                             <div>{t('symbol')}</div>
                             <div className="text-center">{t('price')}</div>
@@ -190,7 +190,7 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
     return (
         <Link
             href={`/ticker?ticker=${item.ticker}`}
-            className="grid grid-cols-[0.5fr_2fr_1.5fr_1fr_1fr_1fr_0.8fr_0.8fr_0.8fr_1fr_1fr] px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
+            className="grid grid-cols-[32px_1.8fr_1.2fr_0.9fr_0.9fr_0.9fr_0.7fr_0.7fr_0.7fr_0.9fr_0.9fr] gap-2 px-4 py-3 hover:bg-amber-900/5 transition-colors items-center group"
         >
             {/* Dashboard Toggle - First Column */}
             <div className="flex justify-center">
@@ -198,19 +198,18 @@ function WatchlistRow({ item, onRemove, locale }: { item: EnrichedWatchlistItem;
             </div>
 
             {/* 종목 with Sparkline */}
-            <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="flex items-center gap-1.5">
+                <div className="w-7 h-7 rounded bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden flex-shrink-0">
                     <img
                         src={`https://financialmodelingprep.com/image-stock/${item.ticker}.png`}
                         alt={item.ticker}
-                        className="w-5 h-5 object-contain"
+                        className="w-4 h-4 object-contain"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
-                    <span className="text-[9px] font-bold text-slate-500 absolute">{item.ticker.slice(0, 2)}</span>
                 </div>
-                <div className="flex-1 min-w-0">
-                    <div className="font-bold text-sm text-white">{item.ticker}</div>
-                    <div className="text-[10px] text-slate-500 truncate">{item.name}</div>
+                <div className="min-w-0">
+                    <div className="font-bold text-xs text-white">{item.ticker}</div>
+                    <div className="text-[9px] text-slate-500 truncate max-w-[60px]">{item.name}</div>
                 </div>
                 {item.sparkline && item.sparkline.length > 2 && (
                     <Sparkline data={item.sparkline} isPositive={isPositive} />
