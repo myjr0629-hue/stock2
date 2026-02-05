@@ -194,16 +194,31 @@ async function fetchMarketData() {
     }
 }
 
-// Fetch individual ticker data using structure API
+// Fetch individual ticker data using structure + ticker API for extended prices
 async function fetchTickerData(ticker: string, request: NextRequest) {
     const baseUrl = new URL(request.url).origin;
-    const res = await fetch(`${baseUrl}/api/live/options/structure?t=${ticker}`);
 
-    if (!res.ok) {
-        throw new Error(`Failed to fetch ${ticker}: ${res.status}`);
+    // [S-78] Parallel fetch: structure (for options data) + ticker (for extended prices)
+    const [structureRes, tickerRes] = await Promise.all([
+        fetch(`${baseUrl}/api/live/options/structure?t=${ticker}`),
+        fetch(`${baseUrl}/api/live/ticker?t=${ticker}`)
+    ]);
+
+    if (!structureRes.ok) {
+        throw new Error(`Failed to fetch ${ticker}: ${structureRes.status}`);
     }
 
-    return res.json();
+    const structureData = await structureRes.json();
+
+    // Merge extended session data from ticker API (Command style)
+    if (tickerRes.ok) {
+        const tickerData = await tickerRes.json();
+        structureData.extended = tickerData.extended || null;
+        structureData.session = tickerData.session || 'CLOSED';
+        structureData.prevClose = tickerData.prices?.prevRegularClose || structureData.prevClose;
+    }
+
+    return structureData;
 }
 
 // Determine current market status
