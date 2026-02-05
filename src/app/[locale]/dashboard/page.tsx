@@ -239,6 +239,15 @@ function MainChartPanel() {
     const [chartLoading, setChartLoading] = useState(true);
     const [prevClose, setPrevClose] = useState<number | undefined>(undefined);
 
+    // [S-78] Daily history for premium table (5 days)
+    const [dailyHistory, setDailyHistory] = useState<{
+        date: string;
+        close: number;
+        high: number;
+        low: number;
+        changePct?: number;
+    }[]>([]);
+
     // Fetch prevClose from ticker API
     useEffect(() => {
         const fetchPrevClose = async () => {
@@ -257,6 +266,23 @@ function MainChartPanel() {
         fetchPrevClose();
         const interval = setInterval(fetchPrevClose, 60000);
         return () => clearInterval(interval);
+    }, [selectedTicker]);
+
+    // [S-78] Fetch daily history for premium table
+    useEffect(() => {
+        const fetchDailyHistory = async () => {
+            if (!selectedTicker) return;
+            try {
+                const res = await fetch(`/api/dashboard/daily-history?t=${selectedTicker}&days=5`);
+                if (res.ok) {
+                    const json = await res.json();
+                    setDailyHistory(json.data || []);
+                }
+            } catch (e) {
+                console.error('[Dashboard] Daily history fetch error:', e);
+            }
+        };
+        fetchDailyHistory();
     }, [selectedTicker]);
 
     // Fetch chart data for StockChart
@@ -310,12 +336,44 @@ function MainChartPanel() {
             <div className="flex items-center justify-between p-4 border-b border-white/5">
                 <div className="flex items-center gap-3">
                     <h2 className="text-2xl font-bold text-white">{selectedTicker}</h2>
+                    {/* Main Price + Change */}
                     <span className="font-mono text-xl text-white">
                         ${data?.underlyingPrice?.toFixed(2) || "—"}
                     </span>
                     <span className={`text-lg font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
                         {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
                     </span>
+                    {/* POST/PRE Extended Price */}
+                    {(() => {
+                        const session = data?.session || 'CLOSED';
+                        const extended = data?.extended;
+                        let extPrice = 0;
+                        let extPct = 0;
+                        let extLabel = '';
+                        let extColor = '';
+
+                        if (extended?.postPrice && extended.postPrice > 0) {
+                            extPrice = extended.postPrice;
+                            extPct = (extended.postChangePct || 0) * 100;
+                            extLabel = 'POST';
+                            extColor = 'text-indigo-400';
+                        } else if (extended?.prePrice && extended.prePrice > 0) {
+                            extPrice = extended.prePrice;
+                            extPct = (extended.preChangePct || 0) * 100;
+                            extLabel = 'PRE';
+                            extColor = 'text-amber-400';
+                        }
+
+                        return extPrice > 0 ? (
+                            <div className="flex items-center gap-2 pl-3 border-l border-slate-700">
+                                <span className={`text-xs font-bold uppercase ${extColor}`}>{extLabel}</span>
+                                <span className="text-base text-white font-mono">${extPrice.toFixed(2)}</span>
+                                <span className={`text-sm font-mono ${extPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                    {extPct > 0 ? "+" : ""}{extPct.toFixed(2)}%
+                                </span>
+                            </div>
+                        ) : null;
+                    })()}
                 </div>
 
                 {/* Status Badges */}
@@ -369,7 +427,7 @@ function MainChartPanel() {
                         ) : (
                             <Activity className="w-4 h-4 text-slate-400" />
                         )}
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">PCR</span>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Put/Call Ratio</span>
                     </div>
                     <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" :
                         (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"
@@ -378,15 +436,79 @@ function MainChartPanel() {
                     </span>
                 </div>
 
-                {/* Call Wall */}
+                {/* Call Wall / Put Floor */}
                 <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="w-4 h-4 text-emerald-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Call Wall</span>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Call Wall / Put Floor</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-lg font-mono font-bold text-emerald-400">
+                            ${data?.levels?.callWall || "—"}
+                        </span>
+                        <span className="text-slate-500">/</span>
+                        <span className="text-lg font-mono font-bold text-rose-400">
+                            ${data?.levels?.putFloor || "—"}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Premium Metrics Row 2 */}
+            <div className="grid grid-cols-4 gap-4 px-4">
+                {/* IV (ATM) */}
+                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Activity className="w-4 h-4 text-purple-400" />
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400">ATM IV</span>
                     </div>
                     <span className="text-xl font-mono font-bold text-white">
-                        ${data?.levels?.callWall || "—"}
+                        {data?.atmIv ? `${data.atmIv}%` : "—"}
                     </span>
+                </div>
+
+                {/* Gamma Flip */}
+                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Radio className="w-4 h-4 text-cyan-400" />
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Gamma Flip</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-xl font-mono font-bold text-white">
+                            ${data?.gammaFlipLevel?.toFixed(0) || "—"}
+                        </span>
+                        {data?.gammaFlipLevel && data?.underlyingPrice && (
+                            <span className={`text-xs font-medium ${data.underlyingPrice > data.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
+                                {data.underlyingPrice > data.gammaFlipLevel ? "LONG" : "SHORT"}
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Flow $ (Net Premium) */}
+                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <TrendingUp className="w-4 h-4 text-amber-400" />
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Net GEX Flow</span>
+                    </div>
+                    <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        {data?.netGex ? `${data.netGex > 0 ? '+' : ''}${(data.netGex / 1e6).toFixed(1)}M` : "—"}
+                    </span>
+                </div>
+
+                {/* Squeeze Status */}
+                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                    <div className="flex items-center gap-2 mb-2">
+                        <Zap className="w-4 h-4 text-indigo-400" />
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Squeeze</span>
+                    </div>
+                    {data?.isGammaSqueeze ? (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-indigo-400 animate-pulse">🔥 ON</span>
+                        </div>
+                    ) : (
+                        <span className="text-xl font-mono font-bold text-slate-500">OFF</span>
+                    )}
                 </div>
             </div>
 
@@ -425,6 +547,56 @@ function MainChartPanel() {
                     </div>
                 </div>
             </div>
+
+            {/* [S-78] 5-Day Daily Price Table */}
+            {dailyHistory.length > 0 && (
+                <div className="px-4 pb-4">
+                    <div className="bg-[#0d1829]/60 rounded-xl border border-white/5 overflow-hidden">
+                        <div className="flex items-center gap-2 p-3 border-b border-white/5">
+                            <List className="w-3.5 h-3.5 text-cyan-400" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">5-Day History</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-xs">
+                                <thead>
+                                    <tr className="border-b border-white/5 text-slate-500">
+                                        <th className="px-3 py-2 text-left font-medium">Date</th>
+                                        <th className="px-3 py-2 text-right font-medium">Close</th>
+                                        <th className="px-3 py-2 text-right font-medium">Change</th>
+                                        <th className="px-3 py-2 text-right font-medium">High</th>
+                                        <th className="px-3 py-2 text-right font-medium">Low</th>
+                                        <th className="px-3 py-2 text-right font-medium">Net GEX</th>
+                                        <th className="px-3 py-2 text-right font-medium">Max Pain</th>
+                                        <th className="px-3 py-2 text-right font-medium">IV</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {dailyHistory.map((day, idx) => (
+                                        <tr key={idx} className="border-b border-white/5 last:border-0 hover:bg-white/5">
+                                            <td className="px-3 py-2 text-slate-300 font-mono">{day.date}</td>
+                                            <td className="px-3 py-2 text-right text-white font-mono">${day.close?.toFixed(2)}</td>
+                                            <td className={`px-3 py-2 text-right font-mono ${(day.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {day.changePct ? `${day.changePct > 0 ? '+' : ''}${day.changePct.toFixed(2)}%` : '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-right text-slate-400 font-mono">${day.high?.toFixed(2)}</td>
+                                            <td className="px-3 py-2 text-right text-slate-400 font-mono">${day.low?.toFixed(2)}</td>
+                                            <td className="px-3 py-2 text-right text-slate-500 font-mono">
+                                                {idx === 0 && data?.netGex ? `${(data.netGex / 1e6).toFixed(1)}M` : '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-right text-slate-500 font-mono">
+                                                {idx === 0 && data?.maxPain ? `$${data.maxPain}` : '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-right text-slate-500 font-mono">
+                                                {idx === 0 && data?.atmIv ? `${data.atmIv}%` : '—'}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

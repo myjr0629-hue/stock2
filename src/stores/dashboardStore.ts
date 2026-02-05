@@ -17,6 +17,7 @@ interface TickerData {
     pcr: number | null;
     isGammaSqueeze: boolean;
     gammaFlipLevel: number | null;
+    atmIv: number | null;  // [S-78] ATM Implied Volatility for premium cards
     levels: {
         callWall: number | null;
         putFloor: number | null;

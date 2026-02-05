@@ -63,6 +63,7 @@ export async function GET(request: NextRequest) {
                     pcr: data.pcr,
                     isGammaSqueeze: data.isGammaSqueeze,
                     gammaFlipLevel: data.gammaFlipLevel,
+                    atmIv: data.atmIv || null,  // [S-78] ATM IV for premium cards
                     levels: data.levels,
                     expiration: data.expiration,
                     options_status: data.options_status
