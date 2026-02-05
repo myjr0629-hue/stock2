@@ -179,20 +179,20 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                 </div>
             </div>
 
-            {/* Right: Price (Command style) */}
-            <div className="flex flex-col items-end gap-0.5">
+            {/* Right: Price (Command style - horizontal layout) */}
+            <div className="flex items-center gap-3">
                 {/* Main Price + Change */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5">
                     <span className="font-mono text-xs text-slate-300">
                         ${data?.underlyingPrice?.toFixed(2) || "—"}
                     </span>
-                    <span className={`text-[10px] font-medium min-w-[44px] text-right ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                    <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
                         {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
                     </span>
                 </div>
-                {/* Extended Session (POST/PRE) */}
+                {/* Separator + Extended Session (POST/PRE) */}
                 {extPrice > 0 && (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700">
                         <span className={`text-[8px] font-bold uppercase ${extColor}`}>{extLabel}</span>
                         <span className="text-[10px] text-slate-400 font-mono">${extPrice.toFixed(2)}</span>
                         <span className={`text-[9px] font-mono ${extPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
