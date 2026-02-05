@@ -886,6 +886,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
                             <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                                {/* Loading Overlay */}
+                                {structLoading && (
+                                    <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+                                            <span className="text-[10px] text-cyan-400/80 font-bold uppercase tracking-wider">Loading...</span>
+                                        </div>
+                                    </div>
+                                )}
                                 {/* Header */}
                                 <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
                                     <div className="flex items-center gap-2">
@@ -1012,6 +1021,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* 2. NET GAMMA ENGINE (Infographic Style) */}
                             <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                                {/* Loading Overlay */}
+                                {structLoading && (
+                                    <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+                                            <span className="text-[10px] text-cyan-400/80 font-bold uppercase tracking-wider">Loading...</span>
+                                        </div>
+                                    </div>
+                                )}
                                 {/* Header */}
                                 <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
                                     <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
