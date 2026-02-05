@@ -52,6 +52,89 @@ interface CachedResult {
 const structureCache = new Map<string, CachedResult>();
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
+// [DATA VALIDATION] Ensure calculated values are within valid ranges
+interface DataValidation {
+    isValid: boolean;
+    confidence: "HIGH" | "MEDIUM" | "LOW";
+    checks: {
+        pcr: boolean;
+        maxPain: boolean;
+        putFloor: boolean;
+        callWall: boolean;
+        gammaCoverage: boolean;
+    };
+    failures: string[];
+}
+
+function validateCalculations(
+    pcr: number | null,
+    maxPain: number | null,
+    putFloor: number | null,
+    callWall: number | null,
+    underlyingPrice: number,
+    gammaCoverage: number
+): DataValidation {
+    const failures: string[] = [];
+    const checks = {
+        pcr: false,
+        maxPain: false,
+        putFloor: false,
+        callWall: false,
+        gammaCoverage: false
+    };
+
+    // 1. P/C Ratio: should be between 0.1 and 5.0
+    if (pcr !== null && pcr > 0.05 && pcr < 10) {
+        checks.pcr = true;
+    } else if (pcr !== null) {
+        failures.push("pcr");
+    }
+
+    // 2. Max Pain: should be within ±30% of current price
+    if (maxPain !== null && underlyingPrice > 0) {
+        const deviation = Math.abs(maxPain - underlyingPrice) / underlyingPrice;
+        if (deviation < 0.30) {
+            checks.maxPain = true;
+        } else {
+            failures.push("maxPain");
+        }
+    }
+
+    // 3. Put Floor: should be less than current price
+    if (putFloor !== null && underlyingPrice > 0) {
+        if (putFloor < underlyingPrice) {
+            checks.putFloor = true;
+        } else {
+            failures.push("putFloor");
+        }
+    }
+
+    // 4. Call Wall: should be greater than current price
+    if (callWall !== null && underlyingPrice > 0) {
+        if (callWall > underlyingPrice) {
+            checks.callWall = true;
+        } else {
+            failures.push("callWall");
+        }
+    }
+
+    // 5. Gamma Coverage: should be >= 50% for valid GEX
+    if (gammaCoverage >= 0.50) {
+        checks.gammaCoverage = true;
+    } else {
+        failures.push("gammaCoverage");
+    }
+
+    // Determine overall confidence
+    const isValid = failures.length === 0;
+    const confidence: "HIGH" | "MEDIUM" | "LOW" =
+        failures.length === 0 ? "HIGH" :
+            failures.length <= 1 ? "MEDIUM" : "LOW";
+
+    return { isValid, confidence, checks, failures };
+}
+
+
 export async function getStructureData(ticker: string, requestedExp?: string | null) {
     const cacheKey = `${ticker}:${requestedExp || 'auto'}`;
 
@@ -422,6 +505,16 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             }
         }
 
+        // [DATA VALIDATION] Validate all calculated values before returning
+        const validation = validateCalculations(
+            pcr,
+            maxPain,
+            putFloor || null,
+            callWall || null,
+            underlyingPrice,
+            gammaCoverage
+        );
+
         const successResponse = {
             ticker,
             expiration: targetExpiry,
@@ -445,6 +538,7 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
                 putFloor: putFloor || null,
                 pinZone: maxPain
             },
+            validation, // [DATA VALIDATION] Include validation result
             sourceGrade: totalStatsContracts > 0 ? "A" : "B",
             debug: {
                 apiStatus: 200,
@@ -488,6 +582,12 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             gammaFlipLevel,
             gammaFlipType,
             levels: { callWall: null, putFloor: null, pinZone: null },
+            validation: { // [DATA VALIDATION] LOW confidence for incomplete data
+                isValid: false,
+                confidence: "LOW" as const,
+                checks: { pcr: false, maxPain: false, putFloor: false, callWall: false, gammaCoverage: false },
+                failures: ["incomplete_data"]
+            },
             sourceGrade: "B",
             debug: {
                 apiStatus: 200,

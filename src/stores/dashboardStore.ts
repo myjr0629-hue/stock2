@@ -129,7 +129,7 @@ export const useDashboardStore = create<DashboardState>()(
                 set({ isLoading: true });
 
                 try {
-                    const tickersParam = tickerList.slice(0, 5).join(','); // Max 5 for prefetch
+                    const tickersParam = tickerList.slice(0, 10).join(','); // Max 10 for prefetch (matches toggle limit)
                     const res = await fetch(`/api/dashboard/unified?tickers=${tickersParam}`);
 
                     if (!res.ok) {

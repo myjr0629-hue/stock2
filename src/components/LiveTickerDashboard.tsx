@@ -47,6 +47,9 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, macdDa
 
     // === Data Completeness Check (only structure is required) ===
     const hasStructure = structure && structure.options_status === 'OK';
+    // [DATA VALIDATION] Also check validation confidence
+    const validation = structure?.validation;
+    const hasValidData = hasStructure && validation?.confidence !== 'LOW';
     const isLoading = !hasStructure;
 
     // === Data Extraction ===
@@ -60,7 +63,8 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, macdDa
     const hasRumor = krNews?.some((n: any) => n.isRumor && n.ageHours <= 24) || false;
     const pcRatio = structure?.pcRatio || 0;
 
-    const isFail = options_status !== 'OK';
+    // [DATA VALIDATION] Consider LOW confidence as fail state
+    const isFail = options_status !== 'OK' || validation?.confidence === 'LOW';
 
     // === Loading State ===
     if (isLoading) {
@@ -332,20 +336,45 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         } finally { setQuoteLoading(false); }
     };
 
-    const fetchStructure = async (exp?: string) => {
+    const fetchStructure = async (exp?: string, maxRetries: number = 3) => {
         setStructLoading(true);
-        try {
-            const url = `/api/live/options/structure?t=${ticker}${exp ? `&exp=${exp}` : ""}`;
-            const res = await fetch(url);
-            if (res.ok) {
+        let retryCount = 0;
+
+        const attemptFetch = async (): Promise<any> => {
+            try {
+                const url = `/api/live/options/structure?t=${ticker}${exp ? `&exp=${exp}` : ""}`;
+                const res = await fetch(url);
+                if (!res.ok) return null;
+
                 const data = await res.json();
-                setStructure(data);
-                if (!exp && data.expiration) setSelectedExp(data.expiration);
+
+                // [DATA VALIDATION] Auto-retry if confidence is LOW
+                if (data.validation?.confidence === 'LOW' && retryCount < maxRetries) {
+                    retryCount++;
+                    console.log(`[Structure] Validation LOW, retry ${retryCount}/${maxRetries}...`);
+                    await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+                    return attemptFetch();
+                }
+
+                return data;
+            } catch (e: any) {
+                if (e?.message?.includes("Failed to fetch") && retryCount < maxRetries) {
+                    retryCount++;
+                    console.warn(`[Structure] Network error, retry ${retryCount}/${maxRetries}...`);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    return attemptFetch();
+                }
+                console.error(e);
+                return null;
             }
-        } catch (e: any) {
-            if (e?.message?.includes("Failed to fetch")) console.warn("[Structure] Network retry...");
-            else console.error(e);
-        } finally { setStructLoading(false); }
+        };
+
+        const data = await attemptFetch();
+        if (data) {
+            setStructure(data);
+            if (!exp && data.expiration) setSelectedExp(data.expiration);
+        }
+        setStructLoading(false);
     };
 
     const fetchOptions = async () => {

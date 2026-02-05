@@ -233,30 +233,44 @@ async function fetchMarketData() {
 }
 
 // Fetch individual ticker data using structure + ticker API for extended prices
-async function fetchTickerData(ticker: string, request: NextRequest) {
+// [DATA VALIDATION] Auto-retry when validation.confidence is LOW
+async function fetchTickerData(ticker: string, request: NextRequest, maxRetries: number = 3): Promise<any> {
     const baseUrl = new URL(request.url).origin;
+    let retryCount = 0;
 
-    // [S-78] Parallel fetch: structure (for options data) + ticker (for extended prices)
-    const [structureRes, tickerRes] = await Promise.all([
-        fetch(`${baseUrl}/api/live/options/structure?t=${ticker}`),
-        fetch(`${baseUrl}/api/live/ticker?t=${ticker}`)
-    ]);
+    const attemptFetch = async (): Promise<any> => {
+        // [S-78] Parallel fetch: structure (for options data) + ticker (for extended prices)
+        const [structureRes, tickerRes] = await Promise.all([
+            fetch(`${baseUrl}/api/live/options/structure?t=${ticker}`),
+            fetch(`${baseUrl}/api/live/ticker?t=${ticker}`)
+        ]);
 
-    if (!structureRes.ok) {
-        throw new Error(`Failed to fetch ${ticker}: ${structureRes.status}`);
-    }
+        if (!structureRes.ok) {
+            throw new Error(`Failed to fetch ${ticker}: ${structureRes.status}`);
+        }
 
-    const structureData = await structureRes.json();
+        const structureData = await structureRes.json();
 
-    // Merge extended session data from ticker API (Command style)
-    if (tickerRes.ok) {
-        const tickerData = await tickerRes.json();
-        structureData.extended = tickerData.extended || null;
-        structureData.session = tickerData.session || 'CLOSED';
-        structureData.prevClose = tickerData.prices?.prevRegularClose || structureData.prevClose;
-    }
+        // [DATA VALIDATION] Auto-retry if confidence is LOW
+        if (structureData.validation?.confidence === 'LOW' && retryCount < maxRetries) {
+            retryCount++;
+            console.log(`[Dashboard] ${ticker} validation LOW, retry ${retryCount}/${maxRetries}...`);
+            await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay for speed
+            return attemptFetch();
+        }
 
-    return structureData;
+        // Merge extended session data from ticker API (Command style)
+        if (tickerRes.ok) {
+            const tickerData = await tickerRes.json();
+            structureData.extended = tickerData.extended || null;
+            structureData.session = tickerData.session || 'CLOSED';
+            structureData.prevClose = tickerData.prices?.prevRegularClose || structureData.prevClose;
+        }
+
+        return structureData;
+    };
+
+    return attemptFetch();
 }
 
 // Determine current market status
