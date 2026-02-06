@@ -1065,45 +1065,61 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
             )}
 
             {/* 🆕 NEW METRICS ROW - Dark Pool / Short Volume / Bid-Ask / Block Trade */}
-            <div className="grid grid-cols-4 gap-2 mb-1">
+            <div className="grid grid-cols-4 gap-3 mb-1">
                 {/* Dark Pool % */}
-                <div className="bg-slate-900/60 backdrop-blur-md rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
-                    <div className="flex items-center gap-1 mb-0.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
-                        <span className="text-[9px] text-slate-400 uppercase font-bold">Dark Pool %</span>
+                <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
+                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
+                    <div className="relative z-10 flex flex-col items-center justify-center">
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
+                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">Dark Pool %</span>
+                        </div>
+                        <span className="text-2xl font-black text-purple-400" style={{ textShadow: '0 0 20px rgba(168,85,247,0.7)' }}>38%</span>
+                        <span className="text-[9px] text-white font-medium">기관 비중</span>
                     </div>
-                    <span className="text-lg font-black text-purple-400" style={{ textShadow: '0 0 10px rgba(168,85,247,0.5)' }}>38%</span>
-                    <span className="text-[8px] text-slate-500">기관 비중</span>
                 </div>
 
                 {/* Short Volume % */}
-                <div className="bg-slate-900/60 backdrop-blur-md rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
-                    <div className="flex items-center gap-1 mb-0.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                        <span className="text-[9px] text-slate-400 uppercase font-bold">Short Vol %</span>
+                <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
+                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/50 to-transparent" />
+                    <div className="relative z-10 flex flex-col items-center justify-center">
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">Short Vol %</span>
+                        </div>
+                        <span className="text-2xl font-black text-rose-400" style={{ textShadow: '0 0 20px rgba(244,63,94,0.7)' }}>24%</span>
+                        <span className="text-[9px] text-white font-medium">일일 공매도</span>
                     </div>
-                    <span className="text-lg font-black text-rose-400">24%</span>
-                    <span className="text-[8px] text-slate-500">일일 공매도</span>
                 </div>
 
                 {/* Bid-Ask Spread */}
-                <div className="bg-slate-900/60 backdrop-blur-md rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
-                    <div className="flex items-center gap-1 mb-0.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
-                        <span className="text-[9px] text-slate-400 uppercase font-bold">Bid-Ask</span>
+                <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-cyan-500/50 transition-all duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
+                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
+                    <div className="relative z-10 flex flex-col items-center justify-center">
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
+                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">Bid-Ask</span>
+                        </div>
+                        <span className="text-2xl font-black text-cyan-400" style={{ textShadow: '0 0 20px rgba(34,211,238,0.7)' }}>$0.02</span>
+                        <span className="text-[9px] text-emerald-400 font-bold">타이트</span>
                     </div>
-                    <span className="text-lg font-black text-cyan-400">$0.02</span>
-                    <span className="text-[8px] text-emerald-400">타이트</span>
                 </div>
 
                 {/* Block Trade */}
-                <div className="bg-slate-900/60 backdrop-blur-md rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
-                    <div className="flex items-center gap-1 mb-0.5">
-                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                        <span className="text-[9px] text-slate-400 uppercase font-bold">Block Trade</span>
+                <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-amber-500/50 transition-all duration-300">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
+                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+                    <div className="relative z-10 flex flex-col items-center justify-center">
+                        <div className="flex items-center gap-1.5 mb-1">
+                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">Block Trade</span>
+                        </div>
+                        <span className="text-2xl font-black text-amber-400" style={{ textShadow: '0 0 20px rgba(245,158,11,0.7)' }}>12</span>
+                        <span className="text-[9px] text-white font-medium">10K+ 거래</span>
                     </div>
-                    <span className="text-lg font-black text-amber-400">12</span>
-                    <span className="text-[8px] text-slate-500">10K+ 거래</span>
                 </div>
             </div>
 
