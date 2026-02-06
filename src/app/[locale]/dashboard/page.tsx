@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useCallback, useState } from "react";
+import { useLocale } from "next-intl";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
@@ -679,7 +680,8 @@ function MainChartPanel() {
 }
 
 // Signal Feed Item - Glassmorphism with Logo
-function SignalItem({ signal }: { signal: { time: string; ticker: string; type: string; message: string } }) {
+// [LOCALIZATION] Format time based on user's locale
+function SignalItem({ signal, locale }: { signal: { time: string; ticker: string; type: string; message: string }, locale: string }) {
     const styles: Record<string, { card: string; bar: string; text: string }> = {
         BUY: {
             card: 'bg-emerald-500/10 border-emerald-500/30',
@@ -705,6 +707,13 @@ function SignalItem({ signal }: { signal: { time: string; ticker: string; type: 
 
     const style = styles[signal.type] || styles.ALERT;
 
+    // Format time based on locale
+    const localeMap: Record<string, string> = { ko: 'ko-KR', ja: 'ja-JP', en: 'en-US' };
+    const formattedTime = new Date(signal.time).toLocaleTimeString(localeMap[locale] || 'en-US', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
     return (
         <div className={`relative p-2.5 rounded-lg border backdrop-blur-sm ${style.card}`}>
             {/* Left accent bar */}
@@ -723,7 +732,7 @@ function SignalItem({ signal }: { signal: { time: string; ticker: string; type: 
                 </div>
                 <span className="font-semibold text-xs text-white">{signal.ticker}</span>
                 <span className={`text-[9px] font-medium ${style.text}`}>{signal.type}</span>
-                <span className="text-[9px] text-white/70 ml-auto">{signal.time}</span>
+                <span className="text-[9px] text-white/70 ml-auto">{formattedTime}</span>
             </div>
 
             {/* Message */}
@@ -734,8 +743,15 @@ function SignalItem({ signal }: { signal: { time: string; ticker: string; type: 
 
 
 // Signal Feed Panel
+// [LOCALIZATION] Uses locale for time formatting, [SORTING] Newest signals first
 function SignalFeedPanel() {
     const { signals } = useDashboardStore();
+    const locale = useLocale();
+
+    // Sort signals by time - newest first
+    const sortedSignals = [...signals].sort((a, b) =>
+        new Date(b.time).getTime() - new Date(a.time).getTime()
+    );
 
     return (
         <div className="flex flex-col h-full">
@@ -747,9 +763,9 @@ function SignalFeedPanel() {
                 <span className="text-[10px] text-slate-500">{signals.length}</span>
             </div>
             <div className="flex-1 overflow-y-auto p-2 space-y-2">
-                {signals.length > 0 ? (
-                    signals.map((signal, i) => (
-                        <SignalItem key={i} signal={signal} />
+                {sortedSignals.length > 0 ? (
+                    sortedSignals.map((signal, i) => (
+                        <SignalItem key={i} signal={signal} locale={locale} />
                     ))
                 ) : (
                     <div className="flex items-center justify-center h-full">

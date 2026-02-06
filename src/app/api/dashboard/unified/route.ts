@@ -71,7 +71,8 @@ export async function GET(request: NextRequest) {
                 };
 
                 // Generate actionable trading signals
-                const timestamp = new Date().toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+                // [LOCALIZATION] Use ISO timestamp - client will format based on locale
+                const timestamp = new Date().toISOString();
                 const price = data.underlyingPrice;
                 const callWall = data.levels?.callWall;
                 const putFloor = data.levels?.putFloor;
