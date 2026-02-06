@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { fetchSIPercent } from '@/services/massiveClient';
 
 // [PERFORMANCE] Stale-While-Revalidate Cache
 interface CacheEntry {
@@ -450,6 +451,20 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             structureData.regularCloseToday = tickerData.prices?.regularCloseToday || null;
             // [INTRADAY FIX] Add intraday-only change (excludes post-market)
             structureData.intradayChangePct = tickerData.prices?.prevChangePct || null;
+        }
+
+        // [SI%] Fetch Short Interest data (non-blocking, best-effort)
+        try {
+            const siData = await fetchSIPercent(ticker);
+            if (siData) {
+                structureData.siPercent = siData.siPercent;
+                structureData.siPercentChange = siData.siPercentChange;
+                structureData.daysToCover = siData.daysToCover;
+                console.log(`[SI%] ${ticker}: ${siData.siPercent?.toFixed(1)}%`);
+            }
+        } catch (siErr) {
+            console.warn(`[SI%] Failed for ${ticker}:`, siErr);
+            // Continue without SI% data
         }
 
         return structureData;
