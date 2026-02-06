@@ -442,7 +442,7 @@ function MainChartPanel() {
                     {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="w-4 h-4 text-amber-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Net GEX</span>
+                        <span className="text-[10px] uppercase tracking-wider text-white">Net GEX</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
@@ -455,7 +455,7 @@ function MainChartPanel() {
                 <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                     <div className="flex items-center gap-2 mb-2">
                         <Target className="w-4 h-4 text-cyan-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Max Pain</span>
+                        <span className="text-[10px] uppercase tracking-wider text-white">Max Pain</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-xl font-mono font-bold text-white">${data?.maxPain || "—"}</span>
@@ -478,7 +478,7 @@ function MainChartPanel() {
                         ) : (
                             <Activity className="w-4 h-4 text-slate-400" />
                         )}
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Put/Call Ratio</span>
+                        <span className="text-[10px] uppercase tracking-wider text-white">Put/Call Ratio</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" : (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"}`}>
@@ -494,8 +494,8 @@ function MainChartPanel() {
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingUp className="w-4 h-4 text-emerald-400" />
                         <div className="flex flex-col leading-tight">
-                            <span className="text-[10px] uppercase tracking-wider text-slate-400">Call Wall</span>
-                            <span className="text-[10px] uppercase tracking-wider text-slate-400">Put Floor</span>
+                            <span className="text-[10px] uppercase tracking-wider text-white">Call Wall</span>
+                            <span className="text-[10px] uppercase tracking-wider text-white">Put Floor</span>
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -512,7 +512,7 @@ function MainChartPanel() {
                     {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         <Activity className="w-4 h-4 text-purple-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">ATM IV</span>
+                        <span className="text-[10px] uppercase tracking-wider text-white">ATM IV</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-xl font-mono font-bold text-white">
@@ -527,7 +527,7 @@ function MainChartPanel() {
                     {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         <Radio className="w-4 h-4 text-cyan-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Gamma Flip</span>
+                        <span className="text-[10px] uppercase tracking-wider text-white">Gamma Flip</span>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-xl font-mono font-bold text-white">
@@ -547,7 +547,7 @@ function MainChartPanel() {
                     {(data?.siPercent || 0) >= 10 && (data?.siPercent || 0) < 20 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingDown className="w-4 h-4 text-purple-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">공매도 비율</span>
+                        <span className="text-[10px] uppercase tracking-wider text-white">SI%</span>
                         {(data?.siPercent || 0) >= 20 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
                     </div>
                     <div className="flex items-center gap-2">
