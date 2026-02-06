@@ -77,8 +77,10 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
 
         case 'REG':
             // REG: Main = live price (underlyingPrice)
-            // Badge = PRE CLOSE (pre-market closing price) if available
+            // [FIX] Use changePercent (prevClose-based) to match Command page exactly
             mainPrice = underlyingPrice || 0;
+            mainChangePct = changePercent ?? 0;  // Command uses display.changePctPct which equals changePercent
+            // Badge = PRE CLOSE (pre-market closing price) if available
             if (extended?.preClose && extended.preClose > 0) {
                 extPrice = extended.preClose;
                 // Calculate PRE CLOSE change from prevClose
@@ -93,6 +95,7 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
                 extLabel = 'PRE CLOSE';
             }
             break;
+
 
         case 'POST':
             // POST: Main = live price (underlyingPrice)
