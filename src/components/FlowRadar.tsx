@@ -1136,9 +1136,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                     <div className="relative z-10 flex flex-col items-center justify-center">
                         <div className="flex items-center gap-1.5 mb-1">
                             <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">Bid-Ask</span>
+                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">Bid-Ask <span className="text-white/60 font-normal">호가</span></span>
                         </div>
-                        <span className="text-[8px] text-white/60 -mt-0.5 mb-0.5">호가 스프레드</span>
                         <span className="text-2xl font-black text-cyan-400" style={{ textShadow: '0 0 20px rgba(34,211,238,0.7)' }}>
                             {realtimeMetrics.bidAsk ? `$${realtimeMetrics.bidAsk.spread.toFixed(2)}` : '--'}
                         </span>
@@ -1589,21 +1588,16 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                     </div>
                                 </div>
 
-                                {/* Squeeze Probability - Semicircle Gauge */}
+                                {/* Squeeze Probability - Clean Semicircle Gauge (like 현재가 위치) */}
                                 <div className="relative p-4 rounded-xl bg-gradient-to-r from-amber-950/50 via-amber-900/30 to-amber-950/50 border border-amber-500/40 overflow-hidden">
                                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.15),transparent_70%)]" />
 
                                     <div className="relative z-10">
                                         {/* Header */}
-                                        <div className="flex items-center justify-between mb-3">
+                                        <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/30 to-amber-600/20 flex items-center justify-center border border-amber-500/40">
-                                                    <Zap size={14} className="text-amber-400" />
-                                                </div>
-                                                <div>
-                                                    <div className="text-xs text-amber-400 font-black uppercase tracking-wider">SQUEEZE PROBABILITY</div>
-                                                    <div className="text-[10px] text-white/60">감마 스퀴즈 확률</div>
-                                                </div>
+                                                <Zap size={14} className="text-amber-400" />
+                                                <span className="text-[10px] text-white font-bold uppercase tracking-wide">SQUEEZE PROBABILITY <span className="text-white/60 font-normal">감마</span></span>
                                             </div>
                                             {squeezeProbability.isLoading ? (
                                                 <div className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-600/80 text-white animate-pulse">
@@ -1616,81 +1610,81 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                             )}
                                         </div>
 
-                                        {/* Semicircle Gauge */}
-                                        <div className="flex justify-center mb-3">
-                                            <div className="relative w-32 h-16 overflow-hidden">
-                                                {/* Gauge Background */}
-                                                <svg className="absolute inset-0 w-32 h-32" viewBox="0 0 128 64" style={{ top: 0 }}>
-                                                    {/* Background Arc */}
-                                                    <path
-                                                        d="M 10 60 A 54 54 0 0 1 118 60"
-                                                        fill="none"
-                                                        stroke="rgba(71,85,105,0.5)"
-                                                        strokeWidth="8"
-                                                        strokeLinecap="round"
-                                                    />
-                                                    {/* Colored Gradient Arc (0-100%) */}
-                                                    <defs>
-                                                        <linearGradient id="squeezeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                                                            <stop offset="0%" stopColor="#10b981" />
-                                                            <stop offset="33%" stopColor="#eab308" />
-                                                            <stop offset="66%" stopColor="#f59e0b" />
-                                                            <stop offset="100%" stopColor="#ef4444" />
-                                                        </linearGradient>
-                                                    </defs>
-                                                    <path
-                                                        d="M 10 60 A 54 54 0 0 1 118 60"
-                                                        fill="none"
-                                                        stroke="url(#squeezeGradient)"
-                                                        strokeWidth="8"
-                                                        strokeLinecap="round"
-                                                        strokeDasharray={`${(squeezeProbability.value / 100) * 169.6} 169.6`}
-                                                    />
-                                                </svg>
+                                        {/* Clean Semicircle Gauge */}
+                                        <div className="flex flex-col items-center">
+                                            {(() => {
+                                                const pct = squeezeProbability.value;
+                                                const strokeWidth = 8;
+                                                const circumference = Math.PI * 60; // half circle
+                                                const progressOffset = circumference * (1 - pct / 100);
 
-                                                {/* Needle/Indicator */}
-                                                <div
-                                                    className="absolute bottom-0 left-1/2 w-1 h-12 origin-bottom transition-transform duration-700"
-                                                    style={{
-                                                        transform: `translateX(-50%) rotate(${-90 + (squeezeProbability.value / 100) * 180}deg)`,
-                                                    }}
-                                                >
-                                                    <div className="w-2 h-2 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)] -translate-x-0.5" />
-                                                </div>
+                                                // Color based on squeeze risk
+                                                let gaugeColor = '#10b981'; // low (emerald)
+                                                if (pct > 70) gaugeColor = '#ef4444'; // high (rose)
+                                                else if (pct > 40) gaugeColor = '#f59e0b'; // medium (amber)
 
-                                                {/* Center Value */}
-                                                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1 text-center">
-                                                    {squeezeProbability.isLoading ? (
-                                                        <div className="text-lg font-black text-slate-400 animate-pulse">--</div>
-                                                    ) : (
-                                                        <div className={`text-2xl font-black ${squeezeProbability.color}`} style={{ textShadow: '0 0 15px currentColor' }}>
-                                                            {squeezeProbability.value}%
+                                                return (
+                                                    <>
+                                                        <svg width="140" height="80" viewBox="0 0 140 80" className="overflow-visible">
+                                                            {/* Background arc */}
+                                                            <path
+                                                                d="M 10 70 A 60 60 0 0 1 130 70"
+                                                                fill="none"
+                                                                stroke="rgba(255,255,255,0.1)"
+                                                                strokeWidth={strokeWidth}
+                                                                strokeLinecap="round"
+                                                            />
+                                                            {/* Progress arc */}
+                                                            <path
+                                                                d="M 10 70 A 60 60 0 0 1 130 70"
+                                                                fill="none"
+                                                                stroke={gaugeColor}
+                                                                strokeWidth={strokeWidth}
+                                                                strokeLinecap="round"
+                                                                strokeDasharray={circumference}
+                                                                strokeDashoffset={progressOffset}
+                                                                style={{
+                                                                    filter: `drop-shadow(0 0 6px ${gaugeColor})`,
+                                                                    transition: 'stroke-dashoffset 1s ease-out, stroke 0.5s'
+                                                                }}
+                                                            />
+                                                            {/* Needle dot at the progress position */}
+                                                            {(() => {
+                                                                const angle = Math.PI - (pct / 100) * Math.PI;
+                                                                const cx = 70 + 60 * Math.cos(angle);
+                                                                const cy = 70 - 60 * Math.sin(angle);
+                                                                return (
+                                                                    <circle
+                                                                        cx={cx}
+                                                                        cy={cy}
+                                                                        r="5"
+                                                                        fill="white"
+                                                                        style={{
+                                                                            filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.9))',
+                                                                            transition: 'cx 1s ease-out, cy 1s ease-out'
+                                                                        }}
+                                                                    />
+                                                                );
+                                                            })()}
+                                                            {/* Center value */}
+                                                            <text x="70" y="55" textAnchor="middle" className="fill-white text-lg font-black">
+                                                                {squeezeProbability.isLoading ? '--' : `${pct}%`}
+                                                            </text>
+                                                            {/* Interpretation */}
+                                                            <text x="70" y="72" textAnchor="middle" className="fill-slate-400 text-[10px]">
+                                                                {pct > 70 ? '스퀴즈 임박' : pct > 40 ? '주의 필요' : '안정'}
+                                                            </text>
+                                                        </svg>
+                                                        {/* Scale Labels */}
+                                                        <div className="flex justify-between w-full mt-1 px-2">
+                                                            <span className="text-[9px] text-emerald-400 font-bold">0%</span>
+                                                            <span className="text-[9px] text-amber-400 font-bold">50%</span>
+                                                            <span className="text-[9px] text-rose-400 font-bold">100%</span>
                                                         </div>
-                                                    )}
-                                                </div>
-                                            </div>
+                                                    </>
+                                                );
+                                            })()}
                                         </div>
-
-                                        {/* Scale Labels */}
-                                        <div className="flex justify-between text-[9px] px-2 mb-2">
-                                            <span className="text-emerald-400 font-bold">0%</span>
-                                            <span className="text-amber-400 font-bold">50%</span>
-                                            <span className="text-rose-400 font-bold">100%</span>
-                                        </div>
-
-                                        {/* Contributing Factors */}
-                                        {squeezeProbability.factors.length > 0 && (
-                                            <div className="border-t border-amber-500/30 pt-2 mt-2">
-                                                <div className="text-[9px] text-white/50 mb-1">요인 분석:</div>
-                                                <div className="flex flex-wrap gap-1">
-                                                    {squeezeProbability.factors.map((factor, i) => (
-                                                        <span key={i} className="text-[9px] px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">
-                                                            {factor.name} +{factor.contribution}%
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
 
