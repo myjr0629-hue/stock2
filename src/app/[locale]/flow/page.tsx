@@ -133,7 +133,7 @@ function FlowPageContent() {
                 <main className="relative z-10 mx-auto max-w-[1400px] w-full px-4 sm:px-6 pb-48 min-h-screen">
 
                     {/* Ticker Header - Sticky below main header */}
-                    <div className="sticky top-[78px] z-30 bg-[#0a0f1a]/90 backdrop-blur-md flex flex-col gap-4 pb-3 border-b border-white/10 mb-3">
+                    <div className="sticky top-[78px] z-30 bg-[#0a0f1a]/90 backdrop-blur-md flex flex-col gap-4 pb-1 border-b border-white/10">
                         <div className="flex items-end gap-x-6 flex-wrap">
                             {/* Identity Group */}
                             <div className="flex items-center gap-3">
