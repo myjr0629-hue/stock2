@@ -1,15 +1,147 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-// In-memory cache with 30-second TTL
+// [PERFORMANCE] Stale-While-Revalidate Cache
 interface CacheEntry {
     data: any;
     timestamp: number;
+    isRevalidating?: boolean;
 }
 const cache: Map<string, CacheEntry> = new Map();
-const CACHE_TTL_MS = 30000; // 30 seconds
+const CACHE_TTL_MS = 60000; // 60 seconds (fresh)
+const STALE_TTL_MS = 300000; // 5 minutes (stale but usable)
 
 // Default tickers for dashboard
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
+
+// [PERFORMANCE] Build response object from fetched results
+function buildResponseFromResults(
+    tickerResults: { ticker: string; data: any; error: string | null }[],
+    marketData: any
+) {
+    const tickersData: Record<string, any> = {};
+    const signals: any[] = [];
+
+    tickerResults.forEach(({ ticker, data, error }) => {
+        if (data) {
+            tickersData[ticker] = {
+                underlyingPrice: data.underlyingPrice,
+                changePercent: data.changePercent,
+                prevClose: data.prevClose,
+                extended: data.extended || null,
+                session: data.session || 'CLOSED',
+                netGex: data.netGex,
+                maxPain: data.maxPain,
+                pcr: data.pcr,
+                isGammaSqueeze: data.isGammaSqueeze,
+                gammaFlipLevel: data.gammaFlipLevel,
+                atmIv: data.atmIv || null,
+                levels: data.levels,
+                expiration: data.expiration,
+                options_status: data.options_status
+            };
+
+            // Generate signals
+            const timestamp = new Date().toISOString();
+            const price = data.underlyingPrice;
+            const callWall = data.levels?.callWall;
+            const putFloor = data.levels?.putFloor;
+            const gammaFlip = data.gammaFlipLevel;
+            const isLong = gammaFlip && price ? price > gammaFlip : null;
+
+            // BUY signals
+            if (putFloor && price && data.netGex && price <= putFloor * 1.02 && data.netGex > 0) {
+                signals.push({ time: timestamp, ticker, type: 'BUY', message: `지지선 매수 기회 (Put Floor $${putFloor})` });
+            }
+            if (isLong === true && data.netGex && data.netGex > 0) {
+                signals.push({ time: timestamp, ticker, type: 'BUY', message: `Gamma LONG - 반등 구간 진입` });
+            }
+            if (data.pcr && data.pcr < 0.7) {
+                signals.push({ time: timestamp, ticker, type: 'BUY', message: `콜 강세 (PCR ${data.pcr.toFixed(2)}) - 상승 추세` });
+            }
+
+            // SELL signals
+            if (callWall && price && data.netGex && price >= callWall * 0.98 && data.netGex < 0) {
+                signals.push({ time: timestamp, ticker, type: 'SELL', message: `저항선 도달 - 익절 고려 (Call Wall $${callWall})` });
+            }
+            if (isLong === false) {
+                signals.push({ time: timestamp, ticker, type: 'SELL', message: `Gamma SHORT - 하락 변동성 주의` });
+            }
+            if (data.pcr && data.pcr > 1.3) {
+                signals.push({ time: timestamp, ticker, type: 'SELL', message: `풋 헤징 증가 (PCR ${data.pcr.toFixed(2)}) - 하락 주의` });
+            }
+
+            // WHALE signals
+            if (data.netGex && Math.abs(data.netGex) > 100000000) {
+                const size = Math.abs(data.netGex) > 500000000 ? '🐋🐋 초대형' : '🐋';
+                signals.push({ time: timestamp, ticker, type: 'WHALE', message: `${size} 고래 GEX ($${(data.netGex / 1e6).toFixed(0)}M)` });
+            }
+
+            // ALERT signals
+            if (data.isGammaSqueeze) {
+                signals.push({ time: timestamp, ticker, type: 'ALERT', message: `🔥 감마 스퀴즈 - 급등 임박!` });
+            }
+            if (data.atmIv && data.atmIv > 60) {
+                signals.push({ time: timestamp, ticker, type: 'ALERT', message: `📈 고변동성 (IV ${data.atmIv}%) - 큰 움직임 예상` });
+            }
+            if (data.netGex && data.netGex < 0) {
+                signals.push({ time: timestamp, ticker, type: 'ALERT', message: `⚠️ GEX 음수 - 변동성 확대` });
+            }
+            if (callWall && price && price > callWall) {
+                signals.push({ time: timestamp, ticker, type: 'ALERT', message: `🚀 Call Wall 돌파 ($${callWall}) - 신규 고점` });
+            }
+            if (putFloor && price && price < putFloor) {
+                signals.push({ time: timestamp, ticker, type: 'ALERT', message: `💥 Put Floor 이탈 ($${putFloor}) - 손절 고려` });
+            }
+        } else {
+            tickersData[ticker] = { error };
+        }
+    });
+
+    return {
+        timestamp: new Date().toISOString(),
+        market: marketData,
+        tickers: tickersData,
+        signals: signals.slice(0, 20),
+        meta: {
+            tickerCount: Object.keys(tickersData).length,
+            cacheTTL: CACHE_TTL_MS / 1000
+        }
+    };
+}
+
+// Background revalidation function
+async function revalidateCache(cacheKey: string, tickers: string[], request: NextRequest) {
+    const cached = cache.get(cacheKey);
+    if (cached?.isRevalidating) return; // Already revalidating
+
+    // Mark as revalidating
+    if (cached) {
+        cache.set(cacheKey, { ...cached, isRevalidating: true });
+    }
+
+    try {
+        const marketData = await fetchMarketData();
+        const tickerResults = await Promise.all(
+            tickers.map(async (ticker) => {
+                try {
+                    const data = await fetchTickerData(ticker, request);
+                    return { ticker, data, error: null };
+                } catch (e: any) {
+                    return { ticker, data: null, error: e.message };
+                }
+            })
+        );
+
+        const response = buildResponseFromResults(tickerResults, marketData);
+        cache.set(cacheKey, { data: response, timestamp: Date.now() });
+        console.log(`[SWR] Background revalidation complete for: ${cacheKey}`);
+    } catch (error) {
+        console.error('[SWR] Background revalidation failed:', error);
+        if (cached) {
+            cache.set(cacheKey, { ...cached, isRevalidating: false });
+        }
+    }
+}
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
@@ -18,16 +150,34 @@ export async function GET(request: NextRequest) {
         ? tickersParam.split(',').slice(0, 10) // Max 10 tickers
         : DEFAULT_TICKERS;
 
-    // Check cache
     const cacheKey = tickers.sort().join(',');
     const cached = cache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+    const now = Date.now();
+
+    // [SWR] Fresh cache - return immediately
+    if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
         return NextResponse.json({
             ...cached.data,
             _cached: true,
-            _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
+            _cacheAge: Math.round((now - cached.timestamp) / 1000),
+            _status: 'fresh'
         });
     }
+
+    // [SWR] Stale cache - return immediately, revalidate in background
+    if (cached && (now - cached.timestamp) < STALE_TTL_MS) {
+        // Trigger background revalidation (non-blocking)
+        revalidateCache(cacheKey, tickers, request);
+
+        return NextResponse.json({
+            ...cached.data,
+            _cached: true,
+            _cacheAge: Math.round((now - cached.timestamp) / 1000),
+            _status: 'stale-while-revalidate'
+        });
+    }
+
+    // [SWR] No cache or expired - must fetch synchronously
 
     try {
         // Fetch market data (VIX, SPY)

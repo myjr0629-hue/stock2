@@ -185,15 +185,22 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
 
                 {/* Right: Price (Command style - horizontal layout) */}
                 <div className="flex items-center gap-3 pr-6">
-                    {/* Main Price + Change */}
-                    <div className="flex items-center gap-1.5">
-                        <span className="font-mono text-sm text-white">
-                            ${data?.underlyingPrice?.toFixed(2) || "—"}
-                        </span>
-                        <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                            {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
-                        </span>
-                    </div>
+                    {/* Main Price + Change - Skeleton when loading */}
+                    {data?.underlyingPrice ? (
+                        <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-sm text-white">
+                                ${data.underlyingPrice.toFixed(2)}
+                            </span>
+                            <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                                {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5 animate-pulse">
+                            <div className="h-4 w-16 bg-slate-700 rounded" />
+                            <div className="h-3 w-10 bg-slate-700 rounded" />
+                        </div>
+                    )}
                     {/* Separator + Extended Session (POST/PRE) */}
                     {extPrice > 0 && (
                         <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700">
