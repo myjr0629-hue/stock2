@@ -25,8 +25,8 @@ export interface PriceDisplayProps {
     extendedPrice?: number;
     /** Extended session change percentage */
     extendedChangePct?: number;
-    /** Extended session label: 'POST' | 'PRE' | '' */
-    extendedLabel?: 'POST' | 'PRE' | '';
+    /** Extended session label: 'POST' | 'PRE' | 'PRE CLOSE' | '' */
+    extendedLabel?: string;
 
     /** Display size variant */
     size?: 'sm' | 'md' | 'lg';
@@ -74,9 +74,10 @@ const SIZE_CONFIG = {
     },
 };
 
-const EXT_LABEL_COLORS = {
+const EXT_LABEL_COLORS: Record<string, string> = {
     POST: 'text-indigo-400',
     PRE: 'text-amber-400',
+    'PRE CLOSE': 'text-amber-400',
     '': 'text-slate-400',
 };
 
