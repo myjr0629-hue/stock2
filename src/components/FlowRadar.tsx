@@ -1064,6 +1064,49 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                 </div>
             )}
 
+            {/* 🆕 NEW METRICS ROW - Dark Pool / Short Volume / Bid-Ask / Block Trade */}
+            <div className="grid grid-cols-4 gap-2 mb-1">
+                {/* Dark Pool % */}
+                <div className="bg-slate-900/60 backdrop-blur-md rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
+                    <div className="flex items-center gap-1 mb-0.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse" />
+                        <span className="text-[9px] text-slate-400 uppercase font-bold">Dark Pool %</span>
+                    </div>
+                    <span className="text-lg font-black text-purple-400" style={{ textShadow: '0 0 10px rgba(168,85,247,0.5)' }}>38%</span>
+                    <span className="text-[8px] text-slate-500">기관 비중</span>
+                </div>
+
+                {/* Short Volume % */}
+                <div className="bg-slate-900/60 backdrop-blur-md rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
+                    <div className="flex items-center gap-1 mb-0.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        <span className="text-[9px] text-slate-400 uppercase font-bold">Short Vol %</span>
+                    </div>
+                    <span className="text-lg font-black text-rose-400">24%</span>
+                    <span className="text-[8px] text-slate-500">일일 공매도</span>
+                </div>
+
+                {/* Bid-Ask Spread */}
+                <div className="bg-slate-900/60 backdrop-blur-md rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
+                    <div className="flex items-center gap-1 mb-0.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-500" />
+                        <span className="text-[9px] text-slate-400 uppercase font-bold">Bid-Ask</span>
+                    </div>
+                    <span className="text-lg font-black text-cyan-400">$0.02</span>
+                    <span className="text-[8px] text-emerald-400">타이트</span>
+                </div>
+
+                {/* Block Trade */}
+                <div className="bg-slate-900/60 backdrop-blur-md rounded-lg p-2 border border-white/5 flex flex-col items-center justify-center">
+                    <div className="flex items-center gap-1 mb-0.5">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                        <span className="text-[9px] text-slate-400 uppercase font-bold">Block Trade</span>
+                    </div>
+                    <span className="text-lg font-black text-amber-400">12</span>
+                    <span className="text-[8px] text-slate-500">10K+ 거래</span>
+                </div>
+            </div>
+
             {/* Tactical Intel Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 h-[780px]">
 
