@@ -151,32 +151,31 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                     ${hasWhale && !hasGammaSqueeze ? "animate-whale-glow" : ""}
                 `}
             >
-                {/* Left: Logo + Ticker */}
-                <div className="flex items-center gap-2">
+                {/* Left: Logo + Ticker (fixed width) */}
+                <div className="flex items-center gap-2 w-16 flex-shrink-0">
                     <img
                         src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
                         alt={ticker}
-                        className="w-6 h-6 rounded bg-[#1a2535] object-contain"
+                        className="w-5 h-5 rounded bg-[#1a2535] object-contain"
                         onError={(e) => {
                             (e.target as HTMLImageElement).src = '';
-                            (e.target as HTMLImageElement).className = 'w-6 h-6 rounded bg-slate-700 hidden';
+                            (e.target as HTMLImageElement).className = 'w-5 h-5 rounded bg-slate-700 hidden';
                         }}
                     />
-                    <div className="flex items-center gap-1.5">
-                        <span className={`font-bold text-xs ${isSelected ? "text-cyan-400" : "text-white"}`}>
-                            {ticker}
-                        </span>
-                        {hasGammaSqueeze && (
-                            <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-indigo-500/20 text-indigo-400 rounded">SQ</span>
-                        )}
-                        {hasWhale && !hasGammaSqueeze && (
-                            <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-amber-500/20 text-amber-400 rounded">WH</span>
-                        )}
-                    </div>
+                    <span className={`font-bold text-xs ${isSelected ? "text-cyan-400" : "text-white"}`}>
+                        {ticker}
+                    </span>
+                    {hasGammaSqueeze && (
+                        <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-indigo-500/20 text-indigo-400 rounded">SQ</span>
+                    )}
+                    {hasWhale && !hasGammaSqueeze && (
+                        <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-amber-500/20 text-amber-400 rounded">WH</span>
+                    )}
                 </div>
 
-                {/* Right: Price (Command style - horizontal layout) */}
-                <div className="flex items-center gap-3 pr-6">
+                {/* Right: Price (aligned to right edge) */}
+                <div className="flex-1 flex items-center justify-end gap-2 pr-6">
+
                     {/* Main Price + Change - Skeleton when loading */}
                     {mainPrice > 0 ? (
                         <div className="flex items-center gap-1.5">
