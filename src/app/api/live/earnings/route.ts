@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchMassive } from '@/services/massiveClient';
+import { getEarningsCalendar, EarningsEvent } from '@/services/finnhubClient';
 
-// [V45.15] Earnings API - Replaces SEC Risk Factors panel
+// [V45.15] Earnings API - Uses Finnhub earnings calendar
 // Shows: Next earnings date, days remaining, expected EPS
 
 export async function GET(req: NextRequest) {
@@ -16,104 +16,85 @@ export async function GET(req: NextRequest) {
     const tickerUpper = ticker.toUpperCase();
 
     try {
-        // Approach 1: Try Polygon ticker details for next_earnings_date (free tier)
-        const tickerDetails = await fetchMassive(
-            `/v3/reference/tickers/${tickerUpper}`,
-            {},
-            true,
-            undefined,
-            { next: { revalidate: 3600 } } // Cache 1 hour
-        ).catch(() => null);
+        // Fetch earnings calendar from Finnhub (next 6 months)
+        const earnings = await getEarningsCalendar(tickerUpper);
 
-        // Approach 2: Try Polygon financials for EPS data
-        const financials = await fetchMassive(
-            `/vX/reference/financials`,
-            {
+        if (!earnings || earnings.length === 0) {
+            return NextResponse.json({
                 ticker: tickerUpper,
-                limit: '4',
-                timeframe: 'quarterly',
-                order: 'desc'
-            },
-            true,
-            undefined,
-            { next: { revalidate: 86400 } } // Cache 24 hours
-        ).catch(() => ({ results: [] }));
-
-        // Extract data
-        const results = financials?.results || [];
-        const latestReport = results[0];
-
-        // Next earnings estimate from ticker details
-        // Note: Polygon free tier may not have this, but we try
-        let nextEarningsDate: string | null = null;
-        let daysUntilEarnings: number | null = null;
-
-        // Try to find earnings date from various sources
-        if (tickerDetails?.results?.next_earnings_date) {
-            nextEarningsDate = tickerDetails.results.next_earnings_date;
+                nextEarningsDate: null,
+                daysUntilEarnings: null,
+                daysLabel: 'TBD',
+                epsEstimate: null,
+                quarter: null,
+                year: null,
+                color: 'text-slate-400',
+                hasData: false,
+                debug: { latencyMs: Date.now() - startTime, eventsFound: 0 }
+            });
         }
+
+        // Find next upcoming earnings (first event with date >= today)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const upcomingEarnings = earnings.find((e: EarningsEvent) => {
+            const earningsDate = new Date(e.date);
+            earningsDate.setHours(0, 0, 0, 0);
+            return earningsDate >= today;
+        });
+
+        // If no upcoming, use the most recent past one for reference
+        const targetEarnings = upcomingEarnings || earnings[earnings.length - 1];
 
         // Calculate days until earnings
-        if (nextEarningsDate) {
-            const earningsDate = new Date(nextEarningsDate);
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+        let nextEarningsDate: string | null = null;
+        let daysUntilEarnings: number | null = null;
+        let daysLabel = 'TBD';
+
+        if (targetEarnings) {
+            nextEarningsDate = targetEarnings.date;
+            const earningsDate = new Date(targetEarnings.date);
             earningsDate.setHours(0, 0, 0, 0);
             daysUntilEarnings = Math.ceil((earningsDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+            if (daysUntilEarnings < 0) {
+                daysLabel = `D+${Math.abs(daysUntilEarnings)}`;
+            } else if (daysUntilEarnings === 0) {
+                daysLabel = '오늘';
+            } else {
+                daysLabel = `D-${daysUntilEarnings}`;
+            }
         }
 
-        // Extract EPS from latest financials
-        let lastEPS: number | null = null;
-        let lastRevenue: number | null = null;
-        let fiscalPeriod: string | null = null;
-        let filingDate: string | null = null;
-
-        if (latestReport) {
-            const income = latestReport.financials?.income_statement;
-            lastEPS = income?.basic_earnings_per_share?.value ||
-                income?.diluted_earnings_per_share?.value || null;
-
-            const revenues = latestReport.financials?.income_statement?.revenues;
-            lastRevenue = revenues?.value ? revenues.value / 1e9 : null; // Convert to billions
-
-            fiscalPeriod = latestReport.fiscal_period; // e.g., "Q3"
-            filingDate = latestReport.filing_date;
-        }
-
-        // Generate display label for days
-        let daysLabel: string;
-        if (daysUntilEarnings === null) {
-            daysLabel = 'TBD';
-        } else if (daysUntilEarnings < 0) {
-            daysLabel = `D+${Math.abs(daysUntilEarnings)}`; // Already passed
-        } else if (daysUntilEarnings === 0) {
-            daysLabel = '오늘';
-        } else {
-            daysLabel = `D-${daysUntilEarnings}`;
-        }
-
-        // Color coding
+        // Color coding based on urgency
         let color = 'text-slate-400';
         if (daysUntilEarnings !== null) {
-            if (daysUntilEarnings <= 7) color = 'text-amber-400'; // Upcoming soon
-            if (daysUntilEarnings <= 3) color = 'text-rose-400'; // Very soon
-            if (daysUntilEarnings < 0) color = 'text-slate-500'; // Passed
+            if (daysUntilEarnings <= 7 && daysUntilEarnings >= 0) color = 'text-amber-400';
+            if (daysUntilEarnings <= 3 && daysUntilEarnings >= 0) color = 'text-rose-400';
+            if (daysUntilEarnings < 0) color = 'text-slate-500';
         }
+
+        // Time of day (bmo = before market, amc = after market close)
+        const hourLabel = targetEarnings?.hour === 'bmo' ? '시장 전' :
+            targetEarnings?.hour === 'amc' ? '마감 후' :
+                targetEarnings?.hour === 'dmh' ? '장중' : '';
 
         return NextResponse.json({
             ticker: tickerUpper,
             nextEarningsDate,
             daysUntilEarnings,
             daysLabel,
-            lastEPS,
-            lastRevenue,
-            fiscalPeriod,
-            filingDate,
+            epsEstimate: targetEarnings?.epsEstimate || null,
+            epsActual: targetEarnings?.epsActual || null,
+            quarter: targetEarnings?.quarter || null,
+            year: targetEarnings?.year || null,
+            hourLabel,
             color,
-            hasData: nextEarningsDate !== null || lastEPS !== null,
+            hasData: true,
             debug: {
                 latencyMs: Date.now() - startTime,
-                reportsFound: results.length
+                eventsFound: earnings.length
             }
         });
 
@@ -124,7 +105,7 @@ export async function GET(req: NextRequest) {
             nextEarningsDate: null,
             daysUntilEarnings: null,
             daysLabel: 'N/A',
-            lastEPS: null,
+            epsEstimate: null,
             color: 'text-slate-400',
             hasData: false,
             error: e.message
