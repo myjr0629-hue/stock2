@@ -136,7 +136,9 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
 
     const { mainPrice, mainChangePct, extPrice, extChangePct, extLabel } = priceInfo;
     const isPositive = mainChangePct >= 0;
-    const extColor = extLabel === 'PRE' ? 'text-amber-400' : 'text-indigo-400';
+    const extColor = extLabel === 'PRE' ? 'text-amber-400' : extLabel === 'POST' ? 'text-purple-400' : 'text-indigo-400';
+    // Simplify labels: PRE CLOSE -> PRE
+    const displayExtLabel = extLabel === 'PRE CLOSE' ? 'PRE' : extLabel;
 
     return (
         <div className="group relative">
@@ -174,7 +176,7 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                 </div>
 
                 {/* Right: Price (aligned to right edge) */}
-                <div className="flex-1 flex items-center justify-end gap-2 pr-6">
+                <div className="flex-1 flex items-center justify-end gap-2">
 
                     {/* Main Price + Change - Skeleton when loading */}
                     {mainPrice > 0 ? (
@@ -195,7 +197,7 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                     {/* Separator + Extended Session (POST/PRE) */}
                     {extPrice > 0 && (
                         <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700">
-                            <span className={`text-[8px] font-bold uppercase ${extColor}`}>{extLabel}</span>
+                            <span className={`text-[8px] font-bold uppercase ${extColor}`}>{displayExtLabel}</span>
                             <span className="text-xs text-white font-mono">${extPrice.toFixed(2)}</span>
                             <span className={`text-[9px] font-mono ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                 {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
