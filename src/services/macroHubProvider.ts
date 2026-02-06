@@ -1,19 +1,20 @@
 // [S-48.4] MacroHub Provider (Massive API Native V2 + Synthetic Calibration)
-// Pure Massive Implementation: QQQ(Trend), VIXY(Panic), US10Y(Fed API)
-// removed Yahoo Finance entirely due to instability (429 Rate Limits).
+// Pure Massive Implementation: QQQ(Trend), US10Y(Fed API)
+// [V45.9] VIX and NQ from Yahoo Finance with rate limiting (1 call/min)
 // Synthetic Multipliers applied to mimic Index Levels.
 
 import { fetchMassive, CACHE_POLICY } from './massiveClient';
 import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider";
 import { getUpcomingEvents } from './eventHubProvider';
 import { getTreasuryYields } from './fedApiClient';
+import { getYahooDataSSOT, YahooQuote } from './yahooFinanceHub';
 
 export interface MacroFactor {
     level: number | null;
     chgPct?: number | null;
     chgAbs?: number | null;
     label: string;
-    source: "MASSIVE" | "FAIL"; // No more YAHOO
+    source: "MASSIVE" | "FRED" | "FAIL"; // Added FRED source
     status: "OK" | "UNAVAILABLE";
     symbolUsed: string;
 }
@@ -55,23 +56,13 @@ let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = {
 
 const SYMBOLS = {
     NDX_PROXY: "QQQ", // Massive uses QQQ for Trend Logic
-    VIX_PROXY: "VIXY", // Massive uses VIXY for Panic Logic
     DXY_PROXY: "UUP"   // UUP (Bullish Dollar ETF) as proxy for DXY
 };
 
-// Synthetic Multipliers (Re-Calibrated 2026-01-13)
-// Methodology: Real Index / ETF Proxy Price
-// QQQ -> NDX: x41.45
-// VIXY -> VIX: Real VIX(15.12) / VIXY(25.03) = x0.604
-// UUP -> DXY: Real DXY(99.01) / UUP(27.28) = x3.63
-// 
-// [TODO] FRED API Auto-Calibration:
-// - Fetch real VIX from FRED (series: VIXCLS) daily
-// - Recalculate multiplier: realVIX / vixyPrice
-// - This ensures <1% error vs current ~7% error
+// Synthetic Multipliers
+// [V45.7] VIX now comes from getVixSSOT() directly (Yahoo real-time)
 const MULTIPLIERS = {
     NDX: 41.45,
-    VIX: 0.604,  // [2026-01-13] Re-calibrated: 15.12 / 25.03 = 0.604
     DXY: 3.63    // [2026-01-13] Re-calibrated: 99.01 / 27.28 = 3.63
 };
 
@@ -256,12 +247,37 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const fetchedAtET = new Date().toISOString();
 
     // Parallel Fetch with Multipliers + [V45.0] Advanced Indicators
-    const [qqq, vixy, us10y, yieldCurve] = await Promise.all([
-        fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX, marketStatus),
-        fetchIndexSnapshot(SYMBOLS.VIX_PROXY, "VIX", MULTIPLIERS.VIX, marketStatus),
+    // [V45.9] VIX and NQ from Yahoo (rate-limited: 1 call/min)
+    const [yahooData, qqqFallback, us10y, yieldCurve] = await Promise.all([
+        getYahooDataSSOT(), // Yahoo -> Cache -> Redis -> Default (rate-limited)
+        fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX, marketStatus), // QQQ fallback
         fetchFedYield(),
         fetchYieldCurveData()
     ]);
+
+    // [V45.9] Use NQ=F from Yahoo, fallback to QQQ proxy
+    const nqData = yahooData.nq;
+    const qqq: MacroFactor = nqData.source !== "DEFAULT" ? {
+        level: nqData.price,
+        chgPct: nqData.changePct,
+        chgAbs: nqData.change,
+        label: "NASDAQ 100",
+        source: nqData.source === "YAHOO" ? "MASSIVE" : "FAIL",
+        status: "OK",
+        symbolUsed: "NQ=F"
+    } : qqqFallback; // Fallback to QQQ proxy if Yahoo fails completely
+
+    // [V45.9] Convert VIX Yahoo data to MacroFactor format
+    const vixData = yahooData.vix;
+    const vixy: MacroFactor = {
+        level: vixData.price,
+        chgPct: vixData.changePct,
+        chgAbs: vixData.change,
+        label: "VIX",
+        source: vixData.source === "YAHOO" ? "MASSIVE" : vixData.source === "REDIS" ? "FRED" : "FAIL",
+        status: vixData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
+        symbolUsed: vixData.source === "YAHOO" ? "^VIX" : vixData.source
+    };
 
     // DXY Proxy: UUP (Bullish Dollar ETF) -> Calibrated to ~98.23 (x3.6315)
     const dxy = await fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY, marketStatus);

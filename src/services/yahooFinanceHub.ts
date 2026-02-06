@@ -1,0 +1,198 @@
+// [V45.9] Yahoo Finance Real-time Data Hub
+// Rate-limited fetcher for VIX and NQ with Redis caching
+// Fetches from Yahoo max once per minute, serves from cache otherwise
+
+import { getFromCache, setInCache, CACHE_KEYS } from './redisClient';
+
+// ============================================================
+// Types
+// ============================================================
+
+export interface YahooQuote {
+    symbol: string;
+    price: number;
+    prevClose: number;
+    change: number;
+    changePct: number;
+    updatedAt: string;
+    source: "YAHOO" | "CACHE" | "REDIS" | "DEFAULT";
+    isStale: boolean;
+}
+
+// Extend cache keys for new data
+export const YAHOO_CACHE_KEYS = {
+    VIX: 'yahoo:vix',
+    NQ: 'yahoo:nq',
+    LAST_FETCH: 'yahoo:last_fetch'
+};
+
+// Rate limit: 1 minute between Yahoo calls
+const RATE_LIMIT_MS = 60 * 1000;
+
+// In-memory cache for fast access
+let memoryCache: {
+    vix: YahooQuote | null;
+    nq: YahooQuote | null;
+    lastFetch: number;
+} = {
+    vix: null,
+    nq: null,
+    lastFetch: 0
+};
+
+// ============================================================
+// Yahoo Finance Fetcher (Single Call for Both VIX + NQ)
+// ============================================================
+
+/**
+ * Fetch multiple quotes from Yahoo Finance in single call
+ */
+async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuote>> {
+    const results = new Map<string, YahooQuote>();
+    const now = new Date().toISOString();
+
+    for (const symbol of symbols) {
+        try {
+            const encodedSymbol = encodeURIComponent(symbol);
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1m&range=1d`;
+
+            const res = await fetch(url, {
+                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+                signal: AbortSignal.timeout(5000)
+            });
+
+            if (!res.ok) {
+                console.warn(`[Yahoo] ${symbol} returned ${res.status}`);
+                continue;
+            }
+
+            const data = await res.json();
+            const meta = data?.chart?.result?.[0]?.meta;
+
+            if (!meta?.regularMarketPrice) {
+                console.warn(`[Yahoo] ${symbol} missing market price`);
+                continue;
+            }
+
+            const price = meta.regularMarketPrice;
+            const prevClose = meta.previousClose || price;
+            const change = price - prevClose;
+            const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+            results.set(symbol, {
+                symbol,
+                price,
+                prevClose,
+                change,
+                changePct,
+                updatedAt: now,
+                source: "YAHOO",
+                isStale: false
+            });
+
+            console.log(`[Yahoo] ${symbol}: ${price.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`);
+        } catch (e) {
+            console.warn(`[Yahoo] ${symbol} fetch failed:`, e);
+        }
+    }
+
+    return results;
+}
+
+/**
+ * Get Yahoo data with rate limiting and Redis persistence
+ * Returns both VIX and NQ in single call
+ */
+export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQuote }> {
+    const now = Date.now();
+    const timeSinceLastFetch = now - memoryCache.lastFetch;
+
+    // 1. Check if we should fetch from Yahoo (rate limit: 1 min)
+    if (timeSinceLastFetch >= RATE_LIMIT_MS) {
+        console.log(`[Yahoo] Fetching fresh data (${Math.floor(timeSinceLastFetch / 1000)}s since last fetch)`);
+
+        const quotes = await fetchYahooQuotes(['^VIX', 'NQ=F']);
+
+        const vixQuote = quotes.get('^VIX');
+        const nqQuote = quotes.get('NQ=F');
+
+        if (vixQuote) {
+            memoryCache.vix = vixQuote;
+            setInCache(YAHOO_CACHE_KEYS.VIX, vixQuote).catch(() => { });
+        }
+
+        if (nqQuote) {
+            memoryCache.nq = nqQuote;
+            setInCache(YAHOO_CACHE_KEYS.NQ, nqQuote).catch(() => { });
+        }
+
+        if (vixQuote || nqQuote) {
+            memoryCache.lastFetch = now;
+        }
+    } else {
+        console.log(`[Yahoo] Using cached data (${Math.floor(timeSinceLastFetch / 1000)}s old, next fetch in ${Math.ceil((RATE_LIMIT_MS - timeSinceLastFetch) / 1000)}s)`);
+    }
+
+    // 2. Return from memory cache if available
+    if (memoryCache.vix && memoryCache.nq) {
+        return {
+            vix: { ...memoryCache.vix, source: memoryCache.vix.source === "YAHOO" ? "YAHOO" : "CACHE", isStale: memoryCache.vix.source !== "YAHOO" },
+            nq: { ...memoryCache.nq, source: memoryCache.nq.source === "YAHOO" ? "YAHOO" : "CACHE", isStale: memoryCache.nq.source !== "YAHOO" }
+        };
+    }
+
+    // 3. Try Redis cache (survives server restarts)
+    console.log('[Yahoo] Memory cache empty, trying Redis...');
+
+    const [redisVix, redisNq] = await Promise.all([
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX),
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.NQ)
+    ]);
+
+    if (redisVix) {
+        memoryCache.vix = redisVix;
+        console.log(`[Yahoo] VIX from Redis: ${redisVix.price}`);
+    }
+
+    if (redisNq) {
+        memoryCache.nq = redisNq;
+        console.log(`[Yahoo] NQ from Redis: ${redisNq.price}`);
+    }
+
+    // 4. Return what we have (with defaults for missing)
+    return {
+        vix: memoryCache.vix || getDefaultQuote('^VIX', 15),
+        nq: memoryCache.nq || getDefaultQuote('NQ=F', 21000)
+    };
+}
+
+/**
+ * Get default quote when all sources fail
+ */
+function getDefaultQuote(symbol: string, defaultPrice: number): YahooQuote {
+    console.warn(`[Yahoo] ${symbol} using default value: ${defaultPrice}`);
+    return {
+        symbol,
+        price: defaultPrice,
+        prevClose: defaultPrice,
+        change: 0,
+        changePct: 0,
+        updatedAt: new Date().toISOString(),
+        source: "DEFAULT",
+        isStale: true
+    };
+}
+
+// ============================================================
+// Individual Getters (for backward compatibility)
+// ============================================================
+
+export async function getVixFromYahoo(): Promise<YahooQuote> {
+    const data = await getYahooDataSSOT();
+    return data.vix;
+}
+
+export async function getNqFromYahoo(): Promise<YahooQuote> {
+    const data = await getYahooDataSSOT();
+    return data.nq;
+}

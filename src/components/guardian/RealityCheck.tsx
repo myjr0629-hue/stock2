@@ -77,6 +77,26 @@ export function RealityCheck({
         return '중립 환경';
     };
 
+    // VIX and DXY from macro snapshot
+    const vixFactor = snapshot?.factors?.vix;
+    const vix = vixFactor?.level ?? 0;
+    const dxyFactor = snapshot?.factors?.dxy;
+    const dxy = dxyFactor?.level ?? 0;
+
+    // VIX color: green if <20, amber if 20-30, red if >30
+    const getVixColor = (v: number) => {
+        if (v > 30) return 'text-rose-400';
+        if (v > 20) return 'text-amber-400';
+        return 'text-emerald-400';
+    };
+
+    // DXY color: green if strengthening (>100), amber if neutral, otherwise slate
+    const getDxyColor = (d: number) => {
+        if (d > 105) return 'text-rose-400';
+        if (d > 100) return 'text-amber-400';
+        return 'text-emerald-400';
+    };
+
     return (
         <div className="h-full flex flex-col p-2">
             {/* HEADER */}
@@ -87,7 +107,31 @@ export function RealityCheck({
                         REALITY CHECK
                     </h3>
                 </div>
-                <span className="text-[10px] font-mono text-white opacity-70">MKT_SYNC::ACTIVE</span>
+                {/* VIX / DXY Indicators with Change % */}
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-white/60 font-medium">VIX</span>
+                        <span className={`text-sm font-bold tabular-nums ${getVixColor(vix)}`}>
+                            {vix > 0 ? vix.toFixed(1) : '—'}
+                        </span>
+                        {vixFactor?.chgPct != null && (
+                            <span className={`text-xs font-medium ${(vixFactor.chgPct ?? 0) >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                {(vixFactor.chgPct ?? 0) >= 0 ? '+' : ''}{(vixFactor.chgPct ?? 0).toFixed(1)}%
+                            </span>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[11px] text-white/60 font-medium">DXY</span>
+                        <span className={`text-sm font-bold tabular-nums ${getDxyColor(dxy)}`}>
+                            {dxy > 0 ? dxy.toFixed(1) : '—'}
+                        </span>
+                        {dxyFactor?.chgPct != null && (
+                            <span className={`text-xs font-medium ${(dxyFactor.chgPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {(dxyFactor.chgPct ?? 0) >= 0 ? '+' : ''}{(dxyFactor.chgPct ?? 0).toFixed(1)}%
+                            </span>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* MAIN CONTENT */}
