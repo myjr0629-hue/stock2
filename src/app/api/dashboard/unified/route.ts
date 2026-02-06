@@ -182,10 +182,7 @@ export async function GET(request: NextRequest) {
     // [SWR] No cache or expired - must fetch synchronously
 
     try {
-        // Fetch market data (VIX, SPY)
-        const marketData = await fetchMarketData();
-
-        // Fetch all ticker data in parallel
+        // [PERF] Parallel fetch: market data AND all ticker data together
         const tickerPromises = tickers.map(async (ticker) => {
             try {
                 const data = await fetchTickerData(ticker, request);
@@ -195,7 +192,11 @@ export async function GET(request: NextRequest) {
             }
         });
 
-        const tickerResults = await Promise.all(tickerPromises);
+        // Wait for both market and tickers in parallel
+        const [marketData, ...tickerResults] = await Promise.all([
+            fetchMarketData(),
+            ...tickerPromises
+        ]);
 
         // Build unified response
         const tickersData: Record<string, any> = {};
@@ -353,37 +354,43 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// Fetch market overview data
+// Fetch market overview data - uses macro cache for NQ data (faster, no separate fetch)
 async function fetchMarketData() {
     try {
-        // Use our existing API for SPY
-        const spyRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/live/options/structure?t=SPY`);
-        const spy = await spyRes.json();
+        // [PERF] Use macro API which has Redis cache - no need for separate SPY fetch
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+        const macroRes = await fetch(`${baseUrl}/api/market/macro`);
+        const macro = await macroRes.json();
 
-        // Determine market phase based on SPY metrics
+        const nqChange = macro?.nqChangePercent || 0;
+        const nqPrice = macro?.nq || null;
+        const vix = macro?.vix || null;
+
+        // Determine market phase based on NQ metrics
         let phase = 'NEUTRAL';
-        if (spy.changePercent > 0.5 && spy.netGex && spy.netGex > 0) {
+        if (nqChange > 0.5) {
             phase = 'BULLISH_EXPANSION';
-        } else if (spy.changePercent < -0.5 && spy.netGex && spy.netGex < 0) {
+        } else if (nqChange < -0.5) {
             phase = 'BEARISH_DECLINE';
-        } else if (spy.changePercent > 0) {
+        } else if (nqChange > 0) {
             phase = 'BULLISH';
-        } else if (spy.changePercent < 0) {
+        } else if (nqChange < 0) {
             phase = 'BEARISH';
         }
 
         return {
-            spy: {
-                price: spy.underlyingPrice || null,
-                change: spy.changePercent || 0
+            // [V45.13] Changed from SPY to NQ (NASDAQ 100)
+            nq: {
+                price: nqPrice,
+                change: nqChange
             },
-            vix: null, // VIX requires separate data source
+            vix,
             phase,
             marketStatus: getMarketStatus()
         };
     } catch {
         return {
-            spy: { price: null, change: 0 },
+            nq: { price: null, change: 0 },
             vix: null,
             phase: 'UNKNOWN',
             marketStatus: getMarketStatus()

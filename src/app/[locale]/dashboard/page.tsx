@@ -59,13 +59,13 @@ function AlphaStatusBar() {
             {/* Left: Market Status */}
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-wider text-slate-500">SPY</span>
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500">NQ 100</span>
                     <span className="font-mono text-sm text-white">
-                        ${market?.spy?.price?.toFixed(2) || "—"}
+                        {market?.nq?.price ? market.nq.price.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}
                     </span>
-                    {market?.spy?.change !== undefined && (
-                        <span className={`text-xs font-medium ${market.spy.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                            {market.spy.change >= 0 ? "+" : ""}{market.spy.change.toFixed(2)}%
+                    {market?.nq?.change !== undefined && (
+                        <span className={`text-xs font-medium ${market.nq.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                            {market.nq.change >= 0 ? "+" : ""}{market.nq.change.toFixed(2)}%
                         </span>
                     )}
                 </div>

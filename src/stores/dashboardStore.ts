@@ -37,7 +37,7 @@ interface TickerData {
 }
 
 interface MarketData {
-    spy: { price: number | null; change: number };
+    nq: { price: number | null; change: number };
     vix: number | null;
     phase: string;
     marketStatus: 'PRE' | 'OPEN' | 'AFTER' | 'CLOSED';
