@@ -207,8 +207,45 @@ function FlowPageContent() {
 
                     {/* Flow Radar Component (EXACT SAME rawChain as COMMAND L1152) */}
                     {loading ? (
-                        <div className="flex items-center justify-center h-[600px]">
-                            <Loader2 className="w-8 h-8 animate-spin text-cyan-500" />
+                        <div className="space-y-6 animate-pulse">
+                            {/* AI VERDICT Skeleton */}
+                            <div className="p-6 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 rounded-full bg-slate-700" />
+                                    <div className="flex-1">
+                                        <div className="h-4 w-32 bg-slate-700 rounded mb-2" />
+                                        <div className="h-3 w-48 bg-slate-700/50 rounded" />
+                                    </div>
+                                    <div className="h-8 w-24 bg-cyan-500/20 rounded-lg" />
+                                </div>
+                                <div className="h-12 bg-slate-700/50 rounded-lg mb-3" />
+                                <div className="h-4 bg-slate-700/30 rounded w-3/4" />
+                            </div>
+
+                            {/* Options Grid Skeleton */}
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                {[1, 2, 3, 4].map((i) => (
+                                    <div key={i} className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                                        <div className="h-3 w-20 bg-slate-700 rounded mb-3" />
+                                        <div className="h-6 w-16 bg-slate-700/70 rounded mb-2" />
+                                        <div className="h-3 w-24 bg-slate-700/30 rounded" />
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Chart Skeleton */}
+                            <div className="p-6 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                                <div className="flex items-center justify-between mb-4">
+                                    <div className="h-4 w-40 bg-slate-700 rounded" />
+                                    <div className="flex gap-2">
+                                        <div className="h-6 w-16 bg-slate-700/50 rounded" />
+                                        <div className="h-6 w-16 bg-slate-700/50 rounded" />
+                                    </div>
+                                </div>
+                                <div className="h-[300px] bg-gradient-to-b from-slate-800/50 to-slate-800/20 rounded-lg flex items-center justify-center">
+                                    <Loader2 className="w-8 h-8 animate-spin text-cyan-500/50" />
+                                </div>
+                            </div>
                         </div>
                     ) : (
                         <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
