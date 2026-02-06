@@ -449,7 +449,7 @@ function MainChartPanel() {
                         <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
                             {gexDisplay}
                         </span>
-                        <span className="text-[9px] text-white">{(data?.netGex || 0) > 0 ? "안정적" : "변동성 ↑"}</span>
+                        <span className="text-xs text-white">{(data?.netGex || 0) > 0 ? "안정적" : "변동성 ↑"}</span>
                     </div>
                 </div>
 
@@ -485,7 +485,7 @@ function MainChartPanel() {
                         <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" : (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"}`}>
                             {data?.pcr?.toFixed(2) || "—"}
                         </span>
-                        <span className="text-[9px] text-white">
+                        <span className="text-xs text-white">
                             {(data?.pcr || 1) < 0.7 ? "콜 우위" : (data?.pcr || 1) > 1.3 ? "풋 우위" : "중립"}
                         </span>
                     </div>
@@ -519,7 +519,7 @@ function MainChartPanel() {
                         <span className="text-xl font-mono font-bold text-white">
                             {data?.atmIv ? `${data.atmIv}%` : "—"}
                         </span>
-                        <span className="text-[9px] text-white">{(data?.atmIv || 0) > 50 ? "고변동" : "저변동"}</span>
+                        <span className="text-xs text-white">{(data?.atmIv || 0) > 50 ? "고변동" : "저변동"}</span>
                     </div>
                 </div>
 
