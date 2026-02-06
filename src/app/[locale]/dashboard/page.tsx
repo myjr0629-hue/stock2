@@ -6,6 +6,7 @@ import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
 import { LandingHeader } from "@/components/landing/LandingHeader";
+import { PriceDisplay } from "@/components/ui/PriceDisplay";
 
 // Dynamic import for StockChart (no SSR for chart component)
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -400,70 +401,53 @@ function MainChartPanel() {
                         <span className="text-[9px] font-bold text-slate-500 absolute">{selectedTicker?.slice(0, 2)}</span>
                     </div>
                     <h2 className="text-2xl font-bold text-white">{selectedTicker}</h2>
-                    {/* [INTRADAY FIX] Main Price = Intraday Close (Command style) */}
+                    {/* [CENTRALIZED] Main Price Display (Command style) */}
                     {(() => {
                         const session = data?.session || 'CLOSED';
-                        // Use regularCloseToday for POST/CLOSED, prevClose for PRE, else real-time
-                        let intradayPrice = data?.underlyingPrice;
+                        // Calculate intraday price based on session
+                        let intradayPrice = data?.underlyingPrice || 0;
                         let intradayChangePct = data?.changePercent || 0;
 
                         // POST/CLOSED: Use today's regular close (intraday)
                         if ((session === 'POST' || session === 'CLOSED') && data?.regularCloseToday) {
                             intradayPrice = data.regularCloseToday;
-                            // Recalculate change from prevClose
                             if (data.prevClose && data.prevClose > 0) {
                                 intradayChangePct = ((intradayPrice - data.prevClose) / data.prevClose) * 100;
                             }
                         }
-                        // PRE: Use prevClose as static intraday (market not open yet)
+                        // PRE: Use prevClose as static intraday
                         else if (session === 'PRE' && data?.prevClose) {
                             intradayPrice = data.prevClose;
-                            intradayChangePct = 0; // No change yet for today
+                            intradayChangePct = 0;
                         }
 
-                        const isPricePositive = intradayChangePct >= 0;
-
-                        return (
-                            <>
-                                <span className="font-mono text-xl text-white">
-                                    ${intradayPrice?.toFixed(2) || "—"}
-                                </span>
-                                <span className={`text-lg font-medium ${isPricePositive ? "text-emerald-400" : "text-rose-400"}`}>
-                                    {isPricePositive ? "+" : ""}{intradayChangePct.toFixed(2)}%
-                                </span>
-                            </>
-                        );
-                    })()}
-                    {/* POST/PRE Extended Price */}
-                    {(() => {
-                        const session = data?.session || 'CLOSED';
+                        // Calculate extended price
                         const extended = data?.extended;
                         let extPrice = 0;
                         let extPct = 0;
-                        let extLabel = '';
-                        let extColor = '';
+                        let extLabel: 'POST' | 'PRE' | '' = '';
 
                         if (extended?.postPrice && extended.postPrice > 0) {
                             extPrice = extended.postPrice;
                             extPct = (extended.postChangePct || 0) * 100;
                             extLabel = 'POST';
-                            extColor = 'text-indigo-400';
                         } else if (extended?.prePrice && extended.prePrice > 0) {
                             extPrice = extended.prePrice;
                             extPct = (extended.preChangePct || 0) * 100;
                             extLabel = 'PRE';
-                            extColor = 'text-amber-400';
                         }
 
-                        return extPrice > 0 ? (
-                            <div className="flex items-center gap-2 pl-3 border-l border-slate-700">
-                                <span className={`text-xs font-bold uppercase ${extColor}`}>{extLabel}</span>
-                                <span className="text-base text-white font-mono">${extPrice.toFixed(2)}</span>
-                                <span className={`text-sm font-mono ${extPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                    {extPct > 0 ? "+" : ""}{extPct.toFixed(2)}%
-                                </span>
-                            </div>
-                        ) : null;
+                        return (
+                            <PriceDisplay
+                                intradayPrice={intradayPrice}
+                                intradayChangePct={intradayChangePct}
+                                extendedPrice={extPrice}
+                                extendedChangePct={extPct}
+                                extendedLabel={extLabel}
+                                size="md"
+                                showExtended={extPrice > 0}
+                            />
+                        );
                     })()}
                 </div>
 
