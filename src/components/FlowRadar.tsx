@@ -46,10 +46,19 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
     const [tradesLoading, setTradesLoading] = useState(false);
     const [isSystemReady, setIsSystemReady] = useState(false); // [Fix] Initial Load State
 
+    // [NEW] Realtime Metrics State (Dark Pool, Short Vol, Bid-Ask, Block Trade)
+    const [realtimeMetrics, setRealtimeMetrics] = useState<{
+        darkPool: { percent: number; volume: number } | null;
+        shortVolume: { percent: number } | null;
+        bidAsk: { spread: number; label: string } | null;
+        blockTrade: { count: number; volume: number } | null;
+    }>({ darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null });
+
     // [Fix] Reset State on Ticker Change (Prevent Stale Data)
     useEffect(() => {
         setWhaleTrades([]);
         setIsSystemReady(false);
+        setRealtimeMetrics({ darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null });
     }, [ticker]);
 
     // Fetch Whale Trades
@@ -72,14 +81,36 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         }
     };
 
-    // Poll for trades
+    // [NEW] Fetch Realtime Metrics (Dark Pool, Short Vol, Bid-Ask, Block Trade)
+    const fetchRealtimeMetrics = async () => {
+        try {
+            const res = await fetch(`/api/flow/realtime-metrics?ticker=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                setRealtimeMetrics({
+                    darkPool: data.darkPool,
+                    shortVolume: data.shortVolume,
+                    bidAsk: data.bidAsk,
+                    blockTrade: data.blockTrade,
+                });
+            }
+        } catch (e) {
+            console.error('[FlowRadar] Realtime metrics fetch error:', e);
+        }
+    };
+
+    // Poll for trades and realtime metrics
     useEffect(() => {
         if (rawChain.length > 0) {
             fetchWhaleTrades();
-            const interval = setInterval(fetchWhaleTrades, 15000); // Every 15s
+            fetchRealtimeMetrics();
+            const interval = setInterval(() => {
+                fetchWhaleTrades();
+                fetchRealtimeMetrics();
+            }, 15000); // Every 15s
             return () => clearInterval(interval);
         }
-    }, [rawChain]);
+    }, [rawChain, ticker]);
 
     // [REMOVED] News Sentiment, Treasury, Risk Factors - Now displayed in Command page gauges
 
@@ -1072,10 +1103,12 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
                     <div className="relative z-10 flex flex-col items-center justify-center">
                         <div className="flex items-center gap-1.5 mb-1">
-                            <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse shadow-[0_0_8px_rgba(168,85,247,0.8)]" />
+                            <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">Dark Pool %</span>
                         </div>
-                        <span className="text-2xl font-black text-purple-400" style={{ textShadow: '0 0 20px rgba(168,85,247,0.7)' }}>38%</span>
+                        <span className="text-2xl font-black text-purple-400" style={{ textShadow: '0 0 20px rgba(168,85,247,0.7)' }}>
+                            {realtimeMetrics.darkPool ? `${realtimeMetrics.darkPool.percent}%` : '--'}
+                        </span>
                         <span className="text-[9px] text-white font-medium">기관 비중</span>
                     </div>
                 </div>
@@ -1089,7 +1122,9 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                             <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">Short Vol %</span>
                         </div>
-                        <span className="text-2xl font-black text-rose-400" style={{ textShadow: '0 0 20px rgba(244,63,94,0.7)' }}>24%</span>
+                        <span className="text-2xl font-black text-rose-400" style={{ textShadow: '0 0 20px rgba(244,63,94,0.7)' }}>
+                            {realtimeMetrics.shortVolume ? `${realtimeMetrics.shortVolume.percent}%` : '--'}
+                        </span>
                         <span className="text-[9px] text-white font-medium">일일 공매도</span>
                     </div>
                 </div>
@@ -1103,8 +1138,12 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                             <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">Bid-Ask</span>
                         </div>
-                        <span className="text-2xl font-black text-cyan-400" style={{ textShadow: '0 0 20px rgba(34,211,238,0.7)' }}>$0.02</span>
-                        <span className="text-[9px] text-emerald-400 font-bold">타이트</span>
+                        <span className="text-2xl font-black text-cyan-400" style={{ textShadow: '0 0 20px rgba(34,211,238,0.7)' }}>
+                            {realtimeMetrics.bidAsk ? `$${realtimeMetrics.bidAsk.spread.toFixed(2)}` : '--'}
+                        </span>
+                        <span className={`text-[9px] font-bold ${realtimeMetrics.bidAsk?.label === '타이트' || realtimeMetrics.bidAsk?.label === '매우 타이트' ? 'text-emerald-400' : 'text-white'}`}>
+                            {realtimeMetrics.bidAsk?.label || '대기'}
+                        </span>
                     </div>
                 </div>
 
@@ -1114,10 +1153,12 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
                     <div className="relative z-10 flex flex-col items-center justify-center">
                         <div className="flex items-center gap-1.5 mb-1">
-                            <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
+                            <div className={`w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)] ${realtimeMetrics.blockTrade && realtimeMetrics.blockTrade.count > 0 ? 'animate-pulse' : ''}`} />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">Block Trade</span>
                         </div>
-                        <span className="text-2xl font-black text-amber-400" style={{ textShadow: '0 0 20px rgba(245,158,11,0.7)' }}>12</span>
+                        <span className="text-2xl font-black text-amber-400" style={{ textShadow: '0 0 20px rgba(245,158,11,0.7)' }}>
+                            {realtimeMetrics.blockTrade ? realtimeMetrics.blockTrade.count : '--'}
+                        </span>
                         <span className="text-[9px] text-white font-medium">10K+ 거래</span>
                     </div>
                 </div>
