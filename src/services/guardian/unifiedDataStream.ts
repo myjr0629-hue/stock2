@@ -327,31 +327,26 @@ export class GuardianDataHub {
                 };
 
                 try {
-                    // [PART 1] Rotation Insight (Sidebar)
-                    const rotationText = await IntelligenceNode.generateRotationInsight({
-                        rlsiScore: rlsi.score,
-                        nasdaqChange: macro?.nqChangePercent || 0,
-                        vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
-                        rvol: rvolNdx.rvol,
-                        vix: macro?.vix || 0,
-                        locale
-                    });
-
-                    // [PART 2] Reality Insight (Center) - Call Sequentially with Macro Data
-                    const realityText = await IntelligenceNode.generateRealityInsight({
+                    // [PERFORMANCE] Parallel AI Generation - saves ~1s
+                    const aiContext = {
                         rlsiScore: rlsi.score,
                         nasdaqChange: macro?.nqChangePercent || 0,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
                         rvol: rvolNdx.rvol,
                         vix: macro?.vix || 0,
                         locale,
-                        // Macro indicators (convert null to undefined)
+                        // Macro indicators
                         us10y: macro?.yieldCurve?.us10y ?? undefined,
                         us10yChange: macro?.factors?.us10y?.chgPct ?? undefined,
                         spread2s10s: macro?.yieldCurve?.spread2s10s ?? undefined,
                         realYield: macro?.realYield?.realYield ?? undefined,
                         realYieldStance: macro?.realYield?.stance ?? undefined
-                    });
+                    };
+
+                    const [rotationText, realityText] = await Promise.all([
+                        IntelligenceNode.generateRotationInsight(aiContext),
+                        IntelligenceNode.generateRealityInsight(aiContext)
+                    ]);
 
                     // [PART 3] Construct Verdict
                     if (rotationText.includes("NO KEY")) {
