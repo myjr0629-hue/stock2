@@ -337,14 +337,20 @@ export class GuardianDataHub {
                         locale
                     });
 
-                    // [PART 2] Reality Insight (Center) - Call Sequentially
+                    // [PART 2] Reality Insight (Center) - Call Sequentially with Macro Data
                     const realityText = await IntelligenceNode.generateRealityInsight({
                         rlsiScore: rlsi.score,
                         nasdaqChange: macro?.nqChangePercent || 0,
                         vectors: vectors?.map(v => ({ source: v.sourceId, target: v.targetId, strength: v.strength })) || [],
                         rvol: rvolNdx.rvol,
                         vix: macro?.vix || 0,
-                        locale
+                        locale,
+                        // Macro indicators (convert null to undefined)
+                        us10y: macro?.yieldCurve?.us10y ?? undefined,
+                        us10yChange: macro?.factors?.us10y?.chgPct ?? undefined,
+                        spread2s10s: macro?.yieldCurve?.spread2s10s ?? undefined,
+                        realYield: macro?.realYield?.realYield ?? undefined,
+                        realYieldStance: macro?.realYield?.stance ?? undefined
                     });
 
                     // [PART 3] Construct Verdict

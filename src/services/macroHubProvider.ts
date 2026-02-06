@@ -6,6 +6,7 @@
 import { fetchMassive, CACHE_POLICY } from './massiveClient';
 import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider";
 import { getUpcomingEvents } from './eventHubProvider';
+import { getTreasuryYields } from './fedApiClient';
 
 export interface MacroFactor {
     level: number | null;
@@ -28,11 +29,25 @@ export interface MacroSnapshot {
         us10y: MacroFactor;
         dxy: MacroFactor;
     };
+    // Legacy fields
     nq?: number;
     nqChangePercent?: number;
     vix?: number;
     us10y?: number;
     dxy?: number;
+    // [V45.0] Advanced Macro Indicators
+    yieldCurve?: {
+        us2y: number;      // 2-Year Yield
+        us10y: number;     // 10-Year Yield
+        spread2s10s: number; // 10Y - 2Y (negative = inversion warning)
+        trend: 'STEEPENING' | 'FLATTENING' | 'INVERTED' | 'NORMAL';
+    };
+    realYield?: {
+        us10y: number;          // 10Y Nominal
+        inflationExpectation: number; // Breakeven or TIPS-based
+        realYield: number;       // 10Y - Inflation Expectation
+        stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE';
+    };
 }
 
 const CACHE_TTL_MS = 120000; // 2 min cache
@@ -151,6 +166,64 @@ async function fetchFedYield(): Promise<MacroFactor> {
     return createFailFactor("US10Y", "FED");
 }
 
+// [V45.0] Yield Curve Data (2Y, 10Y for 2s10s Spread)
+interface YieldCurveData {
+    us2y: number;
+    us10y: number;
+    spread2s10s: number;
+    trend: 'STEEPENING' | 'FLATTENING' | 'INVERTED' | 'NORMAL';
+}
+
+async function fetchYieldCurveData(): Promise<YieldCurveData | null> {
+    try {
+        // [V45.0] Use getTreasuryYields() from fedApiClient (FRED -> Massive fallback)
+        const treasury = await getTreasuryYields();
+
+        if (treasury.us2y !== null && treasury.us10y !== null) {
+            const spread2s10s = treasury.spread2s10s ?? (treasury.us10y - treasury.us2y);
+
+            // Determine trend based on spread level
+            let trend: 'STEEPENING' | 'FLATTENING' | 'INVERTED' | 'NORMAL' = 'NORMAL';
+            if (spread2s10s < 0) {
+                trend = 'INVERTED';
+            } else if (spread2s10s < 0.25) {
+                trend = 'FLATTENING';
+            } else if (spread2s10s > 1.0) {
+                trend = 'STEEPENING';
+            }
+
+            console.log(`[MacroHub] YieldCurve: 2Y=${treasury.us2y.toFixed(2)}%, 10Y=${treasury.us10y.toFixed(2)}%, Spread=${spread2s10s.toFixed(2)}% (${trend})`);
+            return { us2y: treasury.us2y, us10y: treasury.us10y, spread2s10s, trend };
+        }
+    } catch (e) {
+        console.error("[MacroHub] Yield Curve Fetch Failed", e);
+    }
+    return null;
+}
+
+// [V45.0] Inflation Expectations (for Real Yield calculation)
+interface RealYieldData {
+    us10y: number;
+    inflationExpectation: number;
+    realYield: number;
+    stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE';
+}
+
+async function fetchRealYieldData(us10y: number): Promise<RealYieldData | null> {
+    // [V45.0] Use reasonable default for inflation expectation based on Fed target
+    // Long-term inflation expectation is typically around 2.0-2.5%
+    const inflationExpectation = 2.3; // Fed's long-run expectation
+    const realYield = us10y - inflationExpectation;
+
+    // Determine stance
+    let stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE' = 'NEUTRAL';
+    if (realYield > 1.5) stance = 'TIGHT';
+    else if (realYield < 0) stance = 'LOOSE';
+
+    console.log(`[MacroHub] RealYield: 10Y=${us10y.toFixed(2)}% - Exp=${inflationExpectation}% = ${realYield.toFixed(2)}% (${stance})`);
+    return { us10y, inflationExpectation, realYield, stance };
+}
+
 /**
  * [Phase 23] Macro SSOT
  * Aggregates Indices (QQQ) + VIX (VIXY) + Bond Yields (Fed) to determine Market Regime
@@ -182,15 +255,19 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const marketStatus = await getMarketStatusSSOT();
     const fetchedAtET = new Date().toISOString();
 
-    // Parallel Fetch with Multipliers
-    const [qqq, vixy, us10y] = await Promise.all([
+    // Parallel Fetch with Multipliers + [V45.0] Advanced Indicators
+    const [qqq, vixy, us10y, yieldCurve] = await Promise.all([
         fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX, marketStatus),
         fetchIndexSnapshot(SYMBOLS.VIX_PROXY, "VIX", MULTIPLIERS.VIX, marketStatus),
-        fetchFedYield()
+        fetchFedYield(),
+        fetchYieldCurveData()
     ]);
 
     // DXY Proxy: UUP (Bullish Dollar ETF) -> Calibrated to ~98.23 (x3.6315)
     const dxy = await fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY, marketStatus);
+
+    // [V45.0] Real Yield (depends on 10Y yield)
+    const realYield = yieldCurve ? await fetchRealYieldData(yieldCurve.us10y) : null;
 
     // Regime Logic: QQQ Price > SMA20
     // We need to fetch SMA20 for QQQ
@@ -227,11 +304,15 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         ageSeconds: 0,
         marketStatus,
         factors: { nasdaq100: qqq, vix: vixy, us10y, dxy },
+        // Legacy fields
         nq: qqq.level ?? 0,
         nqChangePercent: qqq.chgPct ?? 0,
         vix: vixy.level ?? 0,
         us10y: us10y.level ?? 0,
-        dxy: dxy.level ?? 0
+        dxy: dxy.level ?? 0,
+        // [V45.0] Advanced Macro Indicators
+        yieldCurve: yieldCurve ?? undefined,
+        realYield: realYield ?? undefined
     };
 
     cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };

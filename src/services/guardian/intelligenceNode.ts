@@ -89,6 +89,12 @@ interface IntelligenceContext {
     rvol: number;
     vix: number;
     locale?: Locale;
+    // Macro indicators
+    us10y?: number;         // Current 10Y yield (e.g., 4.29)
+    us10yChange?: number;   // Daily change % (e.g., +0.05)
+    spread2s10s?: number;   // 2s10s spread (e.g., 0.72)
+    realYield?: number;     // Real yield (e.g., 1.99)
+    realYieldStance?: string; // TIGHT, LOOSE, NEUTRAL
 }
 
 // === TIME-BASED GATING ===
@@ -186,27 +192,37 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
 };
 
 const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
-    ko: (ctx) => `
-        당신은 시장 분석가입니다. 가격과 내부 지표를 비교하여 시장의 본질을 분석합니다.
+    ko: (ctx) => {
+        const macroSection = ctx.us10y !== undefined ? `
+        **매크로 환경:**
+        - US10Y: ${ctx.us10y?.toFixed(2)}% (변동 ${ctx.us10yChange !== undefined ? (ctx.us10yChange >= 0 ? '+' : '') + ctx.us10yChange.toFixed(2) : '?'}%)
+        - 2s10s 스프레드: ${ctx.spread2s10s?.toFixed(2)}% (${ctx.spread2s10s !== undefined ? (ctx.spread2s10s < 0 ? '역전-침체경고' : ctx.spread2s10s < 0.25 ? '평탄화-둔화' : '정상') : '?'})
+        - 실질금리: ${ctx.realYield?.toFixed(2)}% (${ctx.realYieldStance || '?'})
+` : '';
+        return `
+        당신은 시장 분석가입니다. 가격, 내부 지표, 매크로 환경을 종합하여 시장의 본질을 분석합니다.
 
         **현재 데이터:**
         - RLSI (내부 지표): ${ctx.rlsiScore.toFixed(0)}점
         - NASDAQ 변동: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
         - RVOL: ${ctx.rvol.toFixed(2)}x
-
+${macroSection}
         **분석 기준:**
         - RLSI 높은데 가격 하락 → 매집 구간 (저가 매수 기회)
         - RLSI 낮은데 가격 상승 → 과열/의심 (추격 매수 위험)
-        - 둘 다 정렬 → 추세 유효
+        - 금리 상승 + 스프레드 축소 → 긴축 환경 (위험자산 주의)
+        - 금리 하락 + 스프레드 확대 → 완화 환경 (성장주 유리)
 
         **출력 형식:**
         [진단] 현재 상태 1줄 (가격과 RLSI 비교)
+        [매크로] 금리/스프레드 상황 1줄
         [결론] 시장 본질 1줄 (진실인지 허구인지)
 
         **규칙:**
         - 한국어, 명확하고 간결하게
-        - 2줄 이내
-    `,
+        - 3줄 이내
+    `;
+    },
     en: (ctx) => `
         You are a market analyst. Compare price and internal indicators to analyze market essence.
 

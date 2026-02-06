@@ -6,9 +6,24 @@ export interface MacroFactor {
     chgPct?: number | null;
     chgAbs?: number | null;
     label: string;
-    source: string; // "YAHOO" | "FAIL"
+    source: string; // "MASSIVE" | "FAIL"
     status: "OK" | "UNAVAILABLE";
     symbolUsed: string;
+}
+
+// [V45.0] Advanced Macro Indicators
+export interface YieldCurveData {
+    us2y: number;
+    us10y: number;
+    spread2s10s: number;
+    trend: 'STEEPENING' | 'FLATTENING' | 'INVERTED' | 'NORMAL';
+}
+
+export interface RealYieldData {
+    us10y: number;
+    inflationExpectation: number;
+    realYield: number;
+    stance: 'TIGHT' | 'NEUTRAL' | 'LOOSE';
 }
 
 export interface MacroSnapshot {
@@ -20,6 +35,9 @@ export interface MacroSnapshot {
         us10y: MacroFactor;
         dxy: MacroFactor;
     };
+    // [V45.0] Advanced Macro Indicators
+    yieldCurve?: YieldCurveData;
+    realYield?: RealYieldData;
 }
 
 // Initial state with "safe" defaults

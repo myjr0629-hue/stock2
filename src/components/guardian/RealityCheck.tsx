@@ -1,10 +1,10 @@
 "use client";
 
 import React from 'react';
-import { Activity, MessageSquare, TrendingUp, DollarSign } from "lucide-react";
-import { TypewriterText } from "./TypewriterText";
+import { Activity, MessageSquare } from "lucide-react";
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { useTranslations } from 'next-intl';
+import { MiniGauge, DualGauge } from "./MiniGauge";
 
 interface RealityCheckProps {
     nasdaqChange: number;
@@ -19,6 +19,9 @@ interface RealityCheckProps {
     };
 }
 
+/**
+ * RealityCheck V45.4 - Fixed sizing and labels
+ */
 export function RealityCheck({
     nasdaqChange,
     guardianScore,
@@ -28,184 +31,164 @@ export function RealityCheck({
     verdict
 }: RealityCheckProps) {
     const t = useTranslations('guardian');
-    // 1. Determine Alignment Status
     const isDivergent = divergenceCase === 'A' || divergenceCase === 'B';
     const statusText = isDivergent ? "DIVERGENCE" : "ALIGNMENT OK";
     const statusColor = isDivergent ? "text-rose-400" : "text-emerald-400";
 
-    // Get macro data for VIX/DXY
     const { snapshot } = useMacroSnapshot();
-    const vix = snapshot?.factors?.vix;
-    const dxy = snapshot?.factors?.dxy;
+    const yieldCurve = snapshot?.yieldCurve;
+    const realYield = snapshot?.realYield;
+    const us10yFactor = snapshot?.factors?.us10y;
 
-    // VIX color based on level
-    const getVixColor = (level: number) => {
-        if (level >= 30) return 'text-rose-400';
-        if (level >= 20) return 'text-amber-400';
+    // 10Y 일일 변동률 (% change)
+    const us10yChangePct = us10yFactor?.chgPct ?? 0;
+
+    // Color helpers
+    const getRvolColor = (val: number) => val > 1.0 ? 'text-cyan-400' : 'text-slate-400';
+    const get10YColor = (change: number) => change >= 0 ? 'text-rose-400' : 'text-emerald-400';
+    const getSpreadColor = (val: number) => {
+        if (val < 0) return 'text-rose-400';
+        if (val < 0.25) return 'text-amber-400';
         return 'text-emerald-400';
+    };
+    const getRealColor = (stance: string) => {
+        if (stance === 'TIGHT') return 'text-rose-400';
+        if (stance === 'LOOSE') return 'text-emerald-400';
+        return 'text-sky-400';
+    };
+
+    // Interpretation helpers
+    const get10YInterpretation = (change: number) => {
+        if (change > 2) return '급등 · 긴축';
+        if (change > 0) return '상승 · 부담↑';
+        if (change < -2) return '급락 · 완화';
+        return '하락 · 부담↓';
+    };
+
+    const getSpreadInterpretation = (val: number) => {
+        if (val < 0) return '⚠️ 침체 경고';
+        if (val < 0.25) return '경기 둔화';
+        return '정상 · 성장';
+    };
+
+    const getRealInterpretation = (stance: string) => {
+        if (stance === 'TIGHT') return '자금 긴축';
+        if (stance === 'LOOSE') return '자금 완화';
+        return '중립 환경';
     };
 
     return (
-        <div className="h-full flex flex-col p-1">
+        <div className="h-full flex flex-col p-2">
             {/* HEADER */}
-            <div className="flex justify-between items-center mb-4 border-b border-slate-800 pb-2 flex-none">
+            <div className="flex justify-between items-center mb-2 border-b border-slate-800 pb-2 flex-none">
                 <div className="flex items-center gap-2">
-                    <Activity className="w-3 h-3 text-cyan-400" />
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400">
+                    <Activity className="w-4 h-4 text-cyan-400" />
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-cyan-400">
                         REALITY CHECK
                     </h3>
                 </div>
-
-                {/* RIGHT SIDE: VIX/DXY + Status */}
-                <div className="flex items-center gap-3">
-                    {/* VIX */}
-                    <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/50 border border-slate-700/50">
-                        <TrendingUp size={10} className={vix?.level ? getVixColor(vix.level) : 'text-slate-500'} />
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">VIX</span>
-                        <span className={`text-[10px] font-black tabular-nums ${vix?.level ? getVixColor(vix.level) : 'text-white'}`}>
-                            {vix?.level?.toFixed(2) || '—'}
-                        </span>
-                        {vix?.chgPct !== undefined && vix.chgPct !== null && (
-                            <span className={`text-[8px] font-bold ${vix.chgPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {vix.chgPct >= 0 ? '+' : ''}{vix.chgPct.toFixed(1)}%
-                            </span>
-                        )}
-                    </div>
-                    {/* DXY */}
-                    <div className="flex items-center gap-1 px-2 py-0.5 rounded bg-slate-800/50 border border-slate-700/50">
-                        <DollarSign size={10} className="text-sky-400" />
-                        <span className="text-[9px] font-bold text-slate-400 uppercase">DXY</span>
-                        <span className="text-[10px] font-black text-sky-300 tabular-nums">
-                            {dxy?.level?.toFixed(2) || '—'}
-                        </span>
-                        {dxy?.chgPct !== undefined && dxy.chgPct !== null && (
-                            <span className={`text-[8px] font-bold ${dxy.chgPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {dxy.chgPct >= 0 ? '+' : ''}{dxy.chgPct.toFixed(1)}%
-                            </span>
-                        )}
-                    </div>
-                    {/* Status */}
-                    <span className="text-[9px] font-mono text-white opacity-60">MKT_SYNC::ACTIVE</span>
-                </div>
+                <span className="text-[10px] font-mono text-white opacity-70">MKT_SYNC::ACTIVE</span>
             </div>
 
-            {/* SPLIT CONTENT AREA */}
-            <div className="flex-1 flex gap-4 min-h-0">
-                {/* LEFT: VISUALS (50%) */}
-                <div className="w-1/2 flex flex-col gap-4">
-                    {/* 1. Price vs Flow */}
-                    <div className="bg-slate-900/50 rounded p-2 border border-slate-800 relative flex flex-col justify-center gap-3 h-[45%]">
-                        <div className="flex justify-between text-[11px] font-bold text-white uppercase tracking-wide z-10">
-                            <span>Price (Ext)</span>
-                            <span>Flow (Int)</span>
-                        </div>
+            {/* MAIN CONTENT */}
+            <div className="flex-1 flex gap-3 min-h-0">
 
-                        {/* Center Axis Line */}
-                        <div className="absolute left-1/2 top-8 bottom-2 w-px bg-slate-700/50 z-0"></div>
+                {/* LEFT: Combined PRICE/FLOW + RVOL Gauges */}
+                <div className="w-[45%] flex flex-col items-center justify-center gap-3">
+                    {/* Dual Gauge: PRICE vs FLOW - Size controlled */}
+                    <DualGauge
+                        priceValue={nasdaqChange}
+                        flowValue={guardianScore}
+                        size="xl"
+                    />
 
-                        <div className="space-y-3 relative z-10">
-                            {/* Price Bar */}
-                            <div className="flex items-center gap-2">
-                                <div className="w-10 text-[12px] font-mono text-right text-slate-200">PRICE</div>
-                                <div className="flex-1 h-1.5 bg-slate-800 rounded-full relative overflow-hidden">
-                                    <div
-                                        className={`absolute h-full rounded-full transition-all duration-1000 ${nasdaqChange >= 0 ? "bg-emerald-400 right-1/2 origin-left" : "bg-rose-400 left-1/2 origin-right"}`}
-                                        style={{ width: `${Math.min(Math.abs(nasdaqChange) * 20, 50)}%`, left: nasdaqChange >= 0 ? '50%' : undefined, right: nasdaqChange < 0 ? '50%' : undefined }}
-                                    ></div>
-                                </div>
-                                <div className={`w-12 text-[12px] font-mono text-right ${nasdaqChange >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                    {nasdaqChange > 0 ? "+" : ""}{nasdaqChange.toFixed(2)}%
-                                </div>
-                            </div>
-                            {/* Flow Bar */}
-                            <div className="flex items-center gap-2">
-                                <div className="w-10 text-[12px] font-mono text-right text-slate-200">FLOW</div>
-                                <div className="flex-1 h-1.5 bg-slate-800 rounded-full relative overflow-hidden">
-                                    <div
-                                        className={`absolute h-full rounded-full transition-all duration-1000 ${guardianScore >= 50 ? "bg-cyan-400 right-1/2 origin-left" : "bg-orange-400 left-1/2 origin-right"}`}
-                                        style={{ width: `${Math.min(Math.abs(guardianScore - 50), 50)}%`, left: guardianScore >= 50 ? '50%' : undefined, right: guardianScore < 50 ? '50%' : undefined }}
-                                    ></div>
-                                </div>
-                                <div className="w-12 text-[12px] font-mono text-cyan-400 text-right">
-                                    {guardianScore.toFixed(0)}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 2. Volume Analysis */}
-                    <div className="bg-slate-900/50 rounded p-2 border border-slate-800 relative flex flex-col justify-center gap-3">
-                        <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full bg-slate-700 animate-pulse"></div>
-                        {/* NDX */}
-                        <div>
-                            <div className="flex justify-between items-end mb-1">
-                                <div className="flex items-baseline gap-1.5">
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-tighter">NASDAQ 20d</span>
-                                    <span className="text-[9px] text-slate-400 font-medium tracking-tight">(RVOL)</span>
-                                </div>
-                                <span className={`text-[12px] font-mono font-bold ${rvolNdx > 1.0 ? "text-cyan-300" : "text-slate-400"}`}>
-                                    {Math.round(rvolNdx * 100)}%
-                                </span>
-                            </div>
-                            <div className="w-full h-1.5 bg-slate-800 rounded-full relative overflow-hidden">
-                                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-500 z-10 opacity-50"></div>
-                                <div className={`h-full relative z-0 transition-all duration-1000 ${rvolNdx > 1.0 ? "bg-cyan-500" : "bg-slate-600"}`} style={{ width: `${Math.min(rvolNdx * 50, 100)}%` }}></div>
-                            </div>
-                        </div>
-                        {/* DOW */}
-                        <div>
-                            <div className="flex justify-between items-end mb-1">
-                                <div className="flex items-baseline gap-1.5">
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-tighter">DOW 20d</span>
-                                    <span className="text-[9px] text-slate-400 font-medium tracking-tight">(RVOL)</span>
-                                </div>
-                                <span className={`text-[12px] font-mono font-bold ${rvolDow > 1.0 ? "text-cyan-300" : "text-slate-400"}`}>
-                                    {Math.round(rvolDow * 100)}%
-                                </span>
-                            </div>
-                            <div className="w-full h-1.5 bg-slate-800 rounded-full relative overflow-hidden">
-                                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-500 z-10 opacity-50"></div>
-                                <div className={`h-full relative z-0 transition-all duration-1000 ${rvolDow > 1.0 ? "bg-orange-500" : "bg-slate-600"}`} style={{ width: `${Math.min(rvolDow * 50, 100)}%` }}></div>
-                            </div>
-                        </div>
+                    {/* RVOL Gauges Row - Proper labels */}
+                    <div className="flex gap-8 items-start">
+                        <MiniGauge
+                            label="NDX 20D"
+                            value={`${Math.round(rvolNdx * 100)}%`}
+                            description="평균거래량 대비"
+                            subLabel={rvolNdx > 1.5 ? '활발' : rvolNdx > 1.0 ? '보통' : '저조'}
+                            colorClass={getRvolColor(rvolNdx)}
+                            size="lg"
+                            fillPercent={Math.min(rvolNdx * 50, 100)}
+                        />
+                        <MiniGauge
+                            label="DOW 20D"
+                            value={`${Math.round(rvolDow * 100)}%`}
+                            description="평균거래량 대비"
+                            subLabel={rvolDow > 1.5 ? '활발' : rvolDow > 1.0 ? '보통' : '저조'}
+                            colorClass={rvolDow > 1.0 ? 'text-orange-400' : 'text-slate-400'}
+                            size="lg"
+                            fillPercent={Math.min(rvolDow * 50, 100)}
+                        />
                     </div>
                 </div>
 
-                {/* RIGHT: ANALYSIS PANEL (50%) */}
-                <div className="w-1/2 flex flex-col bg-[#0f141c] border border-slate-800 rounded relative overflow-hidden">
-                    {/* Analysis Header */}
-                    <div className="flex justify-between items-center px-3 py-2 border-b border-slate-800/50 bg-slate-900/30">
-                        <div className="flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4 text-emerald-500" />
-                            <span className="text-[11px] font-black text-slate-200 uppercase tracking-widest leading-none">{t('rlsi')}</span>
-                        </div>
-                        <div className={`text-[9px] font-black uppercase ${statusColor} border border-current px-1.5 py-0.5 rounded`}>
-                            {statusText}
-                        </div>
-                    </div>
+                {/* RIGHT: RLSI Panel + Macro Gauges */}
+                <div className="flex-1 flex flex-col gap-2 min-w-0">
 
-                    {/* Analysis Body */}
-                    <div className="flex-1 p-3 overflow-y-auto custom-scrollbar relative">
-                        {/* Scan Line Decoration */}
-                        <div className="absolute top-0 left-0 w-full h-px bg-emerald-500/20 animate-scanline pointer-events-none"></div>
+                    {/* RLSI Glass Panel */}
+                    <div className="rounded-xl backdrop-blur-xl bg-slate-900/60 border border-white/20 p-2.5">
+                        <div className="flex justify-between items-center mb-1.5">
+                            <div className="flex items-center gap-2">
+                                <MessageSquare className="w-3 h-3 text-emerald-400" />
+                                <span className="text-[10px] font-black text-white uppercase tracking-widest">{t('rlsi')}</span>
+                            </div>
+                            <div className={`text-[9px] font-black uppercase ${statusColor} border border-current px-1.5 py-0.5 rounded`}>
+                                {statusText}
+                            </div>
+                        </div>
 
-                        {verdict ? (
-                            <>
-                                <div className={`text-xs font-bold mb-2 uppercase tracking-wide leading-tight ${verdict.sentiment === 'BULLISH' ? 'text-emerald-300' :
-                                    verdict.sentiment === 'BEARISH' ? 'text-rose-300' :
-                                        'text-slate-200'
+                        {verdict && (
+                            <div>
+                                <div className={`text-[10px] font-bold mb-0.5 uppercase tracking-wide ${verdict.sentiment === 'BULLISH' ? 'text-emerald-300' :
+                                    verdict.sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
                                     }`}>
                                     {verdict.title}
                                 </div>
-                                <div className="text-[11px] text-slate-300 font-mono leading-relaxed opacity-90 font-medium">
-                                    <TypewriterText text={verdict.desc} speed={2} />
+                                <div className="text-[10px] text-white/90 leading-snug line-clamp-2" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    {verdict.desc}
                                 </div>
-                            </>
-                        ) : (
-                            <div className="h-full flex items-center justify-center">
-                                <span className="text-[9px] text-slate-600 font-mono animate-pulse">ESTABLISHING UPLINK...</span>
                             </div>
                         )}
+                    </div>
+
+                    {/* Macro Gauges - Free floating without frame */}
+                    <div className="flex-1 flex items-center justify-around">
+                        {/* US10Y - Show current rate, change below */}
+                        <MiniGauge
+                            label="US10Y"
+                            value={yieldCurve ? `${yieldCurve.us10y.toFixed(2)}%` : '—'}
+                            description="10년물 금리"
+                            secondaryValue={`${us10yChangePct >= 0 ? '+' : ''}${us10yChangePct.toFixed(2)}%`}
+                            subLabel={us10yChangePct !== 0 ? get10YInterpretation(us10yChangePct) : '보합'}
+                            colorClass={get10YColor(us10yChangePct)}
+                            size="lg"
+                            fillPercent={50 + us10yChangePct * 10}
+                        />
+
+                        {/* 2s10s Spread */}
+                        <MiniGauge
+                            label="2s10s"
+                            value={yieldCurve ? `${yieldCurve.spread2s10s > 0 ? '+' : ''}${yieldCurve.spread2s10s.toFixed(2)}%` : '—'}
+                            description="장단기 금리차"
+                            subLabel={yieldCurve ? getSpreadInterpretation(yieldCurve.spread2s10s) : '—'}
+                            colorClass={yieldCurve ? getSpreadColor(yieldCurve.spread2s10s) : 'text-slate-400'}
+                            size="lg"
+                            fillPercent={yieldCurve ? Math.min((yieldCurve.spread2s10s + 1) * 50, 100) : 50}
+                        />
+
+                        {/* Real Yield */}
+                        <MiniGauge
+                            label="REAL"
+                            value={realYield ? `${realYield.realYield > 0 ? '+' : ''}${realYield.realYield.toFixed(2)}%` : '—'}
+                            description="실질 금리"
+                            subLabel={realYield ? getRealInterpretation(realYield.stance) : '—'}
+                            colorClass={realYield ? getRealColor(realYield.stance) : 'text-slate-400'}
+                            size="lg"
+                            fillPercent={realYield ? Math.min((realYield.realYield + 2) * 25, 100) : 50}
+                        />
                     </div>
                 </div>
             </div>
