@@ -233,97 +233,101 @@ export async function GET(request: NextRequest) {
                 const gammaFlip = data.gammaFlipLevel;
                 const isLong = gammaFlip && price ? price > gammaFlip : null;
 
-                // === BUY SIGNALS ===
-                // Put Floor support + positive GEX
-                if (putFloor && price && data.netGex && price <= putFloor * 1.02 && data.netGex > 0) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'BUY',
-                        message: `지지선 매수 기회 (Put Floor $${putFloor})`
-                    });
-                }
-                // Gamma LONG transition
-                if (isLong === true && data.netGex && data.netGex > 0) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'BUY',
-                        message: `Gamma LONG - 반등 구간 진입`
-                    });
-                }
-                // Strong call dominance (bullish)
-                if (data.pcr && data.pcr < 0.7) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'BUY',
-                        message: `콜 강세 (PCR ${data.pcr.toFixed(2)}) - 상승 추세`
-                    });
-                }
+                // [REG SESSION ONLY] Generate options signals only during regular market hours
+                const isRegularSession = marketData?.marketStatus === 'OPEN';
 
-                // === SELL SIGNALS ===
-                // Call Wall resistance + negative GEX
-                if (callWall && price && data.netGex && price >= callWall * 0.98 && data.netGex < 0) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'SELL',
-                        message: `저항선 도달 - 익절 고려 (Call Wall $${callWall})`
-                    });
-                }
-                // Gamma SHORT - high volatility zone
-                if (isLong === false) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'SELL',
-                        message: `Gamma SHORT - 하락 변동성 주의`
-                    });
-                }
-                // Strong put dominance (bearish)
-                if (data.pcr && data.pcr > 1.3) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'SELL',
-                        message: `풋 헤징 증가 (PCR ${data.pcr.toFixed(2)}) - 하락 주의`
-                    });
-                }
+                if (isRegularSession) {
+                    // === BUY SIGNALS ===
+                    // Put Floor support + positive GEX
+                    if (putFloor && price && data.netGex && price <= putFloor * 1.02 && data.netGex > 0) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'BUY',
+                            message: `지지선 매수 기회 (Put Floor $${putFloor})`
+                        });
+                    }
+                    // Gamma LONG transition
+                    if (isLong === true && data.netGex && data.netGex > 0) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'BUY',
+                            message: `Gamma LONG - 반등 구간 진입`
+                        });
+                    }
+                    // Strong call dominance (bullish)
+                    if (data.pcr && data.pcr < 0.7) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'BUY',
+                            message: `콜 강세 (PCR ${data.pcr.toFixed(2)}) - 상승 추세`
+                        });
+                    }
 
-                // === WHALE SIGNALS ===
-                if (data.netGex && Math.abs(data.netGex) > 100000000) {
-                    const size = Math.abs(data.netGex) > 500000000 ? '🐋🐋 초대형' : '🐋';
-                    signals.push({
-                        time: timestamp, ticker, type: 'WHALE',
-                        message: `${size} 고래 GEX ($${(data.netGex / 1e6).toFixed(0)}M)`
-                    });
-                }
+                    // === SELL SIGNALS ===
+                    // Call Wall resistance + negative GEX
+                    if (callWall && price && data.netGex && price >= callWall * 0.98 && data.netGex < 0) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'SELL',
+                            message: `저항선 도달 - 익절 고려 (Call Wall $${callWall})`
+                        });
+                    }
+                    // Gamma SHORT - high volatility zone
+                    if (isLong === false) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'SELL',
+                            message: `Gamma SHORT - 하락 변동성 주의`
+                        });
+                    }
+                    // Strong put dominance (bearish)
+                    if (data.pcr && data.pcr > 1.3) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'SELL',
+                            message: `풋 헤징 증가 (PCR ${data.pcr.toFixed(2)}) - 하락 주의`
+                        });
+                    }
 
-                // === ALERT SIGNALS ===
-                // Gamma Squeeze
-                if (data.isGammaSqueeze) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'ALERT',
-                        message: `🔥 감마 스퀴즈 - 급등 임박!`
-                    });
-                }
-                // High IV
-                if (data.atmIv && data.atmIv > 60) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'ALERT',
-                        message: `📈 고변동성 (IV ${data.atmIv}%) - 큰 움직임 예상`
-                    });
-                }
-                // GEX negative flip
-                if (data.netGex && data.netGex < 0) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'ALERT',
-                        message: `⚠️ GEX 음수 - 변동성 확대`
-                    });
-                }
-                // Call Wall breakout
-                if (callWall && price && price > callWall) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'ALERT',
-                        message: `🚀 Call Wall 돌파 ($${callWall}) - 신규 고점`
-                    });
-                }
-                // Put Floor breakdown
-                if (putFloor && price && price < putFloor) {
-                    signals.push({
-                        time: timestamp, ticker, type: 'ALERT',
-                        message: `💥 Put Floor 이탈 ($${putFloor}) - 손절 고려`
-                    });
-                }
+                    // === WHALE SIGNALS ===
+                    if (data.netGex && Math.abs(data.netGex) > 100000000) {
+                        const size = Math.abs(data.netGex) > 500000000 ? '🐋🐋 초대형' : '🐋';
+                        signals.push({
+                            time: timestamp, ticker, type: 'WHALE',
+                            message: `${size} 고래 GEX ($${(data.netGex / 1e6).toFixed(0)}M)`
+                        });
+                    }
+
+                    // === ALERT SIGNALS ===
+                    // Gamma Squeeze
+                    if (data.isGammaSqueeze) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'ALERT',
+                            message: `🔥 감마 스퀴즈 - 급등 임박!`
+                        });
+                    }
+                    // High IV
+                    if (data.atmIv && data.atmIv > 60) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'ALERT',
+                            message: `📈 고변동성 (IV ${data.atmIv}%) - 큰 움직임 예상`
+                        });
+                    }
+                    // GEX negative flip
+                    if (data.netGex && data.netGex < 0) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'ALERT',
+                            message: `⚠️ GEX 음수 - 변동성 확대`
+                        });
+                    }
+                    // Call Wall breakout
+                    if (callWall && price && price > callWall) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'ALERT',
+                            message: `🚀 Call Wall 돌파 ($${callWall}) - 신규 고점`
+                        });
+                    }
+                    if (putFloor && price && price < putFloor) {
+                        signals.push({
+                            time: timestamp, ticker, type: 'ALERT',
+                            message: `💥 Put Floor 이탈 ($${putFloor}) - 손절 고려`
+                        });
+                    }
+                } // End of isRegularSession check
             } else {
                 tickersData[ticker] = { error };
             }
@@ -333,7 +337,7 @@ export async function GET(request: NextRequest) {
             timestamp: new Date().toISOString(),
             market: marketData,
             tickers: tickersData,
-            signals: signals.slice(0, 20), // Max 20 signals
+            signals: signals.slice(0, 15), // Max 15 signals (reduced from 20)
             meta: {
                 tickerCount: Object.keys(tickersData).length,
                 cacheTTL: CACHE_TTL_MS / 1000
