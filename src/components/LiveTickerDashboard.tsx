@@ -490,6 +490,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         // [FIX] Reset structure state when ticker changes to prevent stale data
         setStructure(null);
         fetchOptions();
+        // [V45.16] Poll options data every 30s for real-time Flow updates
+        const optionsInterval = setInterval(fetchOptions, 30000);
+        return () => {
+            clearInterval(optionsInterval);
+        };
     }, [ticker]);
 
     if (!initialStockData) return <div>Data Unavailable</div>;
