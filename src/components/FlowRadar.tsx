@@ -835,7 +835,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
     }
 
     return (
-        <div className="space-y-4 animate-in fade-in zoom-in duration-500">
+        <div className="space-y-2 animate-in fade-in zoom-in duration-500">
             {/* Header / Control Bar */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/50 p-2 px-4 rounded-md border border-white/5 backdrop-blur-md">
                 {/* 1. Left: Branding with Prestige */}
