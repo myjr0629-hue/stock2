@@ -922,7 +922,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                 <Activity size={14} className="text-cyan-400" />
                                 <span className="text-[11px] text-white font-bold uppercase tracking-wider">분석</span>
                                 {analysis.compositeScore !== undefined && (
-                                    <span className={`text-[9px] px-1.5 py-0.5 rounded ${analysis.compositeScore > 20 ? 'bg-emerald-500/20 text-emerald-400' : analysis.compositeScore < -20 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-slate-300'}`}>
+                                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${analysis.compositeScore > 20 ? 'bg-emerald-500/20 text-emerald-400' : analysis.compositeScore < -20 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-slate-300'}`}>
                                         종합 {analysis.compositeScore > 0 ? '+' : ''}{Math.round(analysis.compositeScore)}
                                     </span>
                                 )}
