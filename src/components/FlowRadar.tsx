@@ -1138,11 +1138,17 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                             <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">Bid-Ask</span>
                         </div>
+                        <span className="text-[8px] text-white/60 -mt-0.5 mb-0.5">호가 스프레드</span>
                         <span className="text-2xl font-black text-cyan-400" style={{ textShadow: '0 0 20px rgba(34,211,238,0.7)' }}>
                             {realtimeMetrics.bidAsk ? `$${realtimeMetrics.bidAsk.spread.toFixed(2)}` : '--'}
                         </span>
-                        <span className={`text-[9px] font-bold ${realtimeMetrics.bidAsk?.label === '타이트' || realtimeMetrics.bidAsk?.label === '매우 타이트' ? 'text-emerald-400' : 'text-white'}`}>
-                            {realtimeMetrics.bidAsk?.label || '대기'}
+                        <span className={`text-[9px] font-bold ${realtimeMetrics.bidAsk?.label === '타이트' || realtimeMetrics.bidAsk?.label === '매우 타이트' ? 'text-emerald-400' : realtimeMetrics.bidAsk?.label === '넓음' ? 'text-rose-400' : 'text-white'}`}>
+                            {realtimeMetrics.bidAsk ? (
+                                realtimeMetrics.bidAsk.label === '매우 타이트' ? '유동성 풍부' :
+                                    realtimeMetrics.bidAsk.label === '타이트' ? '진입 용이' :
+                                        realtimeMetrics.bidAsk.label === '넓음' ? '슬리피지 주의' :
+                                            '정상 거래' // 보통
+                            ) : '대기'}
                         </span>
                     </div>
                 </div>
