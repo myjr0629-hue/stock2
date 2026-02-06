@@ -5,6 +5,8 @@ interface TickerData {
     underlyingPrice: number | null;
     changePercent: number | null;
     prevClose: number | null;
+    // [INTRADAY FIX] Today's regular session close for proper intraday display
+    regularCloseToday: number | null;
     // [S-78] Extended session data for Command-style display
     extended: {
         postPrice?: number;

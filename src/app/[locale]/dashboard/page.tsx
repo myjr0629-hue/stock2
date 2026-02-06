@@ -400,23 +400,40 @@ function MainChartPanel() {
                         <span className="text-[9px] font-bold text-slate-500 absolute">{selectedTicker?.slice(0, 2)}</span>
                     </div>
                     <h2 className="text-2xl font-bold text-white">{selectedTicker}</h2>
-                    {/* Session Label + Main Price + Change */}
+                    {/* [INTRADAY FIX] Main Price = Intraday Close (Command style) */}
                     {(() => {
                         const session = data?.session || 'CLOSED';
-                        const sessionLabel = session === 'REG' ? '' : session; // Only show POST/PRE labels
-                        const sessionColor = session === 'POST' ? 'text-indigo-400' : session === 'PRE' ? 'text-amber-400' : 'text-emerald-400';
-                        return sessionLabel ? (
-                            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${session === 'POST' ? 'bg-indigo-500/20' : 'bg-amber-500/20'} ${sessionColor}`}>
-                                {sessionLabel}
-                            </span>
-                        ) : null;
+                        // Use regularCloseToday for POST/CLOSED, prevClose for PRE, else real-time
+                        let intradayPrice = data?.underlyingPrice;
+                        let intradayChangePct = data?.changePercent || 0;
+
+                        // POST/CLOSED: Use today's regular close (intraday)
+                        if ((session === 'POST' || session === 'CLOSED') && data?.regularCloseToday) {
+                            intradayPrice = data.regularCloseToday;
+                            // Recalculate change from prevClose
+                            if (data.prevClose && data.prevClose > 0) {
+                                intradayChangePct = ((intradayPrice - data.prevClose) / data.prevClose) * 100;
+                            }
+                        }
+                        // PRE: Use prevClose as static intraday (market not open yet)
+                        else if (session === 'PRE' && data?.prevClose) {
+                            intradayPrice = data.prevClose;
+                            intradayChangePct = 0; // No change yet for today
+                        }
+
+                        const isPricePositive = intradayChangePct >= 0;
+
+                        return (
+                            <>
+                                <span className="font-mono text-xl text-white">
+                                    ${intradayPrice?.toFixed(2) || "—"}
+                                </span>
+                                <span className={`text-lg font-medium ${isPricePositive ? "text-emerald-400" : "text-rose-400"}`}>
+                                    {isPricePositive ? "+" : ""}{intradayChangePct.toFixed(2)}%
+                                </span>
+                            </>
+                        );
                     })()}
-                    <span className="font-mono text-xl text-white">
-                        ${data?.underlyingPrice?.toFixed(2) || "—"}
-                    </span>
-                    <span className={`text-lg font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                        {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
-                    </span>
                     {/* POST/PRE Extended Price */}
                     {(() => {
                         const session = data?.session || 'CLOSED';
