@@ -89,8 +89,9 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         if (!rawChain || rawChain.length === 0) return { flowMap: [], totalVolume: 0 };
 
         // DTE filtering based on view mode
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        // [FIX] Use ET (US Eastern Time) for market-accurate date calculation
+        const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const today = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate());
 
         const maxDTE = (userViewMode || 'VOLUME') === 'VOLUME' ? 7 : 35;
         const maxDate = new Date(today);
@@ -326,10 +327,12 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         }
 
         // [S-124.5] Filter for 0-7 DTE options only (Weekly expiry)
-        const squeezeDateBase = new Date();
-        squeezeDateBase.setHours(0, 0, 0, 0);
+        // [FIX] Use ET (US Eastern Time) for market-accurate date calculation
+        const etSqueezeNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const squeezeDateBase = new Date(etSqueezeNow.getFullYear(), etSqueezeNow.getMonth(), etSqueezeNow.getDate());
         const weeklyExpiry = new Date(squeezeDateBase);
         weeklyExpiry.setDate(squeezeDateBase.getDate() + 7);
+
 
         const weeklyOptions = rawChain.filter(opt => {
             const expiryStr = opt.details?.expiration_date;
