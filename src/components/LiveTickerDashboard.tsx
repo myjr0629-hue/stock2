@@ -281,7 +281,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
     const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
-    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; color: string } | null>(null);
+    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string } | null>(null);
     const [macdData, setMacdData] = useState<{ signal: string; label: string; histogram: number } | null>(null);
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(null);
 
@@ -436,6 +436,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     epsEstimate: data.epsEstimate || null,
                     quarter: data.quarter || null,
                     year: data.year || null,
+                    hourLabel: data.hourLabel || '',
                     color: data.color || 'text-slate-400'
                 });
             }
@@ -779,7 +780,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     <div className="flex items-center justify-center">
                         <div className="text-center">
                             <div className="text-lg font-black text-white">{earningsData?.nextDate ? new Date(earningsData.nextDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}</div>
-                            <div className="text-[10px] text-white">다음 실적발표</div>
+                            <div className="text-[10px] text-white">다음 실적발표 {earningsData?.hourLabel && <span className="text-amber-400">({earningsData.hourLabel})</span>}</div>
                             {earningsData && earningsData.epsEstimate !== null && (
                                 <div className="text-[9px] text-cyan-400 mt-0.5">Q{earningsData.quarter} '{String(earningsData.year).slice(-2)} 예상 EPS: ${earningsData.epsEstimate.toFixed(2)}</div>
                             )}

@@ -17,7 +17,12 @@ export async function GET(req: NextRequest) {
 
     try {
         // Fetch earnings calendar from Finnhub (next 6 months)
-        const earnings = await getEarningsCalendar(tickerUpper);
+        const rawEarnings = await getEarningsCalendar(tickerUpper);
+
+        // Sort by date (nearest first) - like M7 calendar does
+        const earnings = [...rawEarnings].sort((a, b) =>
+            new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
 
         if (!earnings || earnings.length === 0) {
             return NextResponse.json({
