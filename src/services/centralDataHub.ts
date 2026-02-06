@@ -55,14 +55,48 @@ export interface UnifiedQuote {
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 500;
 
+// [V45.14] In-memory TTL cache for SSR performance
+const CACHE_TTL_MS = 10_000; // 10 seconds
+const quoteCache = new Map<string, { data: UnifiedQuote; timestamp: number }>();
+
+function getCachedQuote(ticker: string): UnifiedQuote | null {
+    const cached = quoteCache.get(ticker.toUpperCase());
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        console.log(`[CentralDataHub] Cache HIT for ${ticker} (${Math.round((Date.now() - cached.timestamp) / 1000)}s old)`);
+        return cached.data;
+    }
+    return null;
+}
+
+function setCachedQuote(ticker: string, data: UnifiedQuote): void {
+    quoteCache.set(ticker.toUpperCase(), { data, timestamp: Date.now() });
+    // Cleanup old entries (max 100 tickers)
+    if (quoteCache.size > 100) {
+        const oldest = Array.from(quoteCache.entries())
+            .sort((a, b) => a[1].timestamp - b[1].timestamp)[0];
+        if (oldest) quoteCache.delete(oldest[0]);
+    }
+}
+
 export const CentralDataHub = {
     getUnifiedData: async (ticker: string, forceRefresh = false, targetDate?: string): Promise<UnifiedQuote> => {
+        // [V45.14] Check cache first (unless forceRefresh)
+        if (!forceRefresh && !targetDate) {
+            const cached = getCachedQuote(ticker);
+            if (cached) return cached;
+        }
+
         let attempts = 0;
         let lastError = null;
 
         while (attempts <= MAX_RETRIES) {
             try {
-                return await CentralDataHub._fetchInternal(ticker, targetDate, forceRefresh);
+                const result = await CentralDataHub._fetchInternal(ticker, targetDate, forceRefresh);
+                // Cache successful result (only for current date)
+                if (!targetDate && result.price > 0) {
+                    setCachedQuote(ticker, result);
+                }
+                return result;
             } catch (e: any) {
                 lastError = e;
                 attempts++;
