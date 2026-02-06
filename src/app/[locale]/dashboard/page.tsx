@@ -400,7 +400,17 @@ function MainChartPanel() {
                         <span className="text-[9px] font-bold text-slate-500 absolute">{selectedTicker?.slice(0, 2)}</span>
                     </div>
                     <h2 className="text-2xl font-bold text-white">{selectedTicker}</h2>
-                    {/* Main Price + Change */}
+                    {/* Session Label + Main Price + Change */}
+                    {(() => {
+                        const session = data?.session || 'CLOSED';
+                        const sessionLabel = session === 'REG' ? '' : session; // Only show POST/PRE labels
+                        const sessionColor = session === 'POST' ? 'text-indigo-400' : session === 'PRE' ? 'text-amber-400' : 'text-emerald-400';
+                        return sessionLabel ? (
+                            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${session === 'POST' ? 'bg-indigo-500/20' : 'bg-amber-500/20'} ${sessionColor}`}>
+                                {sessionLabel}
+                            </span>
+                        ) : null;
+                    })()}
                     <span className="font-mono text-xl text-white">
                         ${data?.underlyingPrice?.toFixed(2) || "—"}
                     </span>
