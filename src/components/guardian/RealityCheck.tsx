@@ -200,12 +200,12 @@ export function RealityCheck({
 
                         {verdict && (
                             <div>
-                                <div className={`text-[10px] font-bold mb-0.5 uppercase tracking-wide ${verdict.sentiment === 'BULLISH' ? 'text-emerald-300' :
+                                <div className={`text-xs font-bold mb-0.5 uppercase tracking-wide ${verdict.sentiment === 'BULLISH' ? 'text-emerald-300' :
                                     verdict.sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
                                     }`}>
                                     {verdict.title}
                                 </div>
-                                <div className="text-[10px] text-white/90 leading-snug line-clamp-2" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                <div className="text-xs text-white/90 leading-relaxed line-clamp-2" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                                     {verdict.desc}
                                 </div>
                             </div>
