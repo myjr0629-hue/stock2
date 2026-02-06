@@ -705,18 +705,31 @@ export interface ShortInterestData {
 export async function fetchShortInterest(ticker: string): Promise<ShortInterestData[] | null> {
     const endpoint = `/stocks/v1/short-interest`;
     try {
-        const data = await fetchMassive(endpoint, { ticker, limit: '5' }, true);
+        // [FIX] Filter by date to get 2024+ data (API returns oldest first by default)
+        const data = await fetchMassive(endpoint, {
+            ticker,
+            limit: '50',  // Get enough to find latest
+            'settlement_date.gte': '2024-01-01'  // Only recent data
+        }, true);
         const results = data.results || [];
         console.log(`[SI%] Short Interest for ${ticker}: ${results.length} records`);
-        return results.map((r: any) => ({
-            ticker: r.ticker || ticker,
-            settlement_date: r.settlement_date,
-            short_interest: r.short_interest,
-            short_interest_change: r.short_interest_change || 0,
-            short_interest_change_percent: r.short_interest_change_percent || 0,
-            days_to_cover: r.days_to_cover || 0,
-            avg_daily_volume: r.avg_daily_volume || 0
-        }));
+
+        // Sort by settlement_date descending (latest first)
+        const sorted = results
+            .map((r: any) => ({
+                ticker: r.ticker || ticker,
+                settlement_date: r.settlement_date,
+                short_interest: r.short_interest,
+                short_interest_change: r.short_interest_change || 0,
+                short_interest_change_percent: r.short_interest_change_percent || 0,
+                days_to_cover: r.days_to_cover || 0,
+                avg_daily_volume: r.avg_daily_volume || 0
+            }))
+            .sort((a: ShortInterestData, b: ShortInterestData) =>
+                b.settlement_date.localeCompare(a.settlement_date)
+            );
+
+        return sorted;
     } catch (e) {
         console.warn(`[SI%] Short Interest fetch failed for ${ticker}:`, e);
         return null;
