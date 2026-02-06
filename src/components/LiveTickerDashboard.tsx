@@ -281,7 +281,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
     const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
-    const [riskFactors, setRiskFactors] = useState<{ count: number; status: string; topCategory?: string; filedDate?: string } | null>(null);
+    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; lastEPS: number | null; fiscalPeriod: string | null; color: string } | null>(null);
     const [macdData, setMacdData] = useState<{ signal: string; label: string; histogram: number } | null>(null);
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(null);
 
@@ -424,19 +424,21 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         } catch (e) { console.warn('[NewsScore] Error:', e); }
     };
 
-    // [S-124.6] Fetch SEC Risk Factors
-    const fetchRiskFactors = async () => {
+    // [V45.15] Fetch Earnings Schedule
+    const fetchEarnings = async () => {
         try {
-            const res = await fetch(`/api/live/risk-factors?t=${ticker}`);
+            const res = await fetch(`/api/live/earnings?t=${ticker}`);
             if (res.ok) {
                 const data = await res.json();
-                const count = data.riskCount || data.count || 0;
-                const status = data.riskLevel || (count >= 10 ? '주의' : count >= 5 ? '보통' : '양호');
-                const topCategory = data.topCategories?.[0]?.name || null;
-                const filedDate = data.topFactors?.[0]?.filedDate || null;
-                setRiskFactors({ count, status, topCategory, filedDate });
+                setEarningsData({
+                    nextDate: data.nextEarningsDate || null,
+                    daysLabel: data.daysLabel || 'TBD',
+                    lastEPS: data.lastEPS || null,
+                    fiscalPeriod: data.fiscalPeriod || null,
+                    color: data.color || 'text-slate-400'
+                });
             }
-        } catch (e) { console.warn('[RiskFactors] Error:', e); }
+        } catch (e) { console.warn('[Earnings] Error:', e); }
     };
 
     // [S-124.6] Fetch MACD Signal
@@ -473,7 +475,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         fetchQuote();
         fetchKrNews();
         fetchNewsScore();
-        fetchRiskFactors();
+        fetchEarnings();
         fetchMacd();
         fetchRelated();
         const interval = setInterval(fetchQuote, 10000); // Poll quote every 10s
@@ -764,21 +766,21 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                 {/* SEC Risk Factors Gauge */}
                 <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5">
-                            <ShieldAlert className="w-4 h-4 text-rose-400" />
-                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">SEC</span>
+                            <Activity className="w-4 h-4 text-cyan-400" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">실적</span>
                         </div>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${riskFactors && riskFactors.count >= 10 ? 'bg-rose-500/20 text-rose-400' : riskFactors && riskFactors.count >= 5 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-                            {riskFactors?.status || '...'}
+                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${earningsData?.color?.includes('rose') ? 'bg-rose-500/20 text-rose-400' : earningsData?.color?.includes('amber') ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-500/20 text-slate-400'}`}>
+                            {earningsData?.daysLabel || '...'}
                         </span>
                     </div>
                     <div className="flex items-center justify-center">
                         <div className="text-center">
-                            <div className="text-2xl font-black text-white">{riskFactors?.count ?? '--'}<span className="text-sm text-white">건</span></div>
-                            <div className="text-[10px] text-white">10-K 위험요소</div>
-                            {riskFactors?.filedDate && (
-                                <div className="text-[9px] text-cyan-400 mt-0.5">{riskFactors.filedDate} 공시</div>
+                            <div className="text-lg font-black text-white">{earningsData?.nextDate ? new Date(earningsData.nextDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}</div>
+                            <div className="text-[10px] text-white">다음 실적발표</div>
+                            {earningsData && earningsData.lastEPS !== null && (
+                                <div className="text-[9px] text-cyan-400 mt-0.5">{earningsData.fiscalPeriod} EPS: ${earningsData.lastEPS.toFixed(2)}</div>
                             )}
                         </div>
                     </div>
