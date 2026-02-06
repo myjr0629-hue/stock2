@@ -872,20 +872,20 @@ export default function DashboardPage() {
             {/* Alpha Status Bar */}
             <AlphaStatusBar />
 
-            {/* Desktop: 25:50:25 Bento Grid */}
-            <div className="hidden lg:grid flex-1 grid-cols-[1fr_2fr_1fr] gap-0.5 bg-white/5 p-0.5">
+            {/* Desktop: 25:50:25 Bento Grid - Fixed Height */}
+            <div className="hidden lg:grid flex-1 grid-cols-[1fr_2fr_1fr] gap-0.5 bg-white/5 p-0.5 h-[calc(100vh-120px)] overflow-hidden">
                 {/* Left Panel - Watchlist (25%) */}
-                <div className="bg-[#0a0f1a] rounded-l-lg overflow-hidden">
+                <div className="bg-[#0a0f1a] rounded-l-lg overflow-y-auto">
                     <WatchlistPanel />
                 </div>
 
                 {/* Center Panel - Main Chart (50%) */}
-                <div className="bg-[#0a0f1a] overflow-hidden">
+                <div className="bg-[#0a0f1a] overflow-hidden flex flex-col">
                     <MainChartPanel />
                 </div>
 
                 {/* Right Panel - Signal Feed (25%) */}
-                <div className="bg-[#0a0f1a] rounded-r-lg overflow-hidden">
+                <div className="bg-[#0a0f1a] rounded-r-lg overflow-y-auto">
                     <SignalFeedPanel />
                 </div>
             </div>
