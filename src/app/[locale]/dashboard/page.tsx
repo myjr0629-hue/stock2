@@ -547,7 +547,7 @@ function MainChartPanel() {
                     {(data?.siPercent || 0) >= 10 && (data?.siPercent || 0) < 20 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingDown className="w-4 h-4 text-purple-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">SI%</span>
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400">공매도 비율</span>
                         {(data?.siPercent || 0) >= 20 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
                     </div>
                     <div className="flex items-center gap-2">
@@ -555,11 +555,11 @@ function MainChartPanel() {
                             {data?.siPercent ? `${data.siPercent.toFixed(1)}%` : "—"}
                         </span>
                         {data?.siPercentChange != null && data.siPercentChange !== 0 && (
-                            <span className={`text-[10px] font-mono ${data.siPercentChange > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                            <span className={`text-sm font-mono font-bold ${data.siPercentChange > 0 ? "text-rose-400" : "text-emerald-400"}`}>
                                 {data.siPercentChange > 0 ? "↑" : "↓"}{Math.abs(data.siPercentChange).toFixed(1)}%
                             </span>
                         )}
-                        <span className="text-[9px] text-slate-400">
+                        <span className="text-[10px] text-white font-medium">
                             {data?.daysToCover ? `${data.daysToCover.toFixed(1)}일` : ""}
                         </span>
                     </div>
