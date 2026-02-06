@@ -29,6 +29,8 @@ function buildResponseFromResults(
                 prevClose: data.prevClose,
                 // [INTRADAY FIX] Today's regular session close
                 regularCloseToday: data.regularCloseToday || null,
+                // [INTRADAY FIX] Intraday-only change (regularCloseToday vs prevClose)
+                intradayChangePct: data.intradayChangePct || data.prevChangePct || null,
                 extended: data.extended || null,
                 session: data.session || 'CLOSED',
                 netGex: data.netGex,
@@ -210,6 +212,8 @@ export async function GET(request: NextRequest) {
                     prevClose: data.prevClose,
                     // [INTRADAY FIX] Today's regular session close for proper intraday display
                     regularCloseToday: data.regularCloseToday || null,
+                    // [INTRADAY FIX] Intraday-only change (regularCloseToday vs prevClose)
+                    intradayChangePct: data.intradayChangePct || data.prevChangePct || null,
                     // [S-78] Extended session data for Watchlist (Command style)
                     extended: data.extended || null,
                     session: data.session || 'CLOSED',
@@ -432,6 +436,8 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             structureData.prevClose = tickerData.prices?.prevRegularClose || structureData.prevClose;
             // [INTRADAY FIX] Add today's regular close for proper intraday display
             structureData.regularCloseToday = tickerData.prices?.regularCloseToday || null;
+            // [INTRADAY FIX] Add intraday-only change (excludes post-market)
+            structureData.intradayChangePct = tickerData.prices?.prevChangePct || null;
         }
 
         return structureData;

@@ -7,6 +7,8 @@ interface TickerData {
     prevClose: number | null;
     // [INTRADAY FIX] Today's regular session close for proper intraday display
     regularCloseToday: number | null;
+    // [INTRADAY FIX] Intraday-only change (excludes post-market)
+    intradayChangePct: number | null;
     // [S-78] Extended session data for Command-style display
     extended: {
         postPrice?: number;

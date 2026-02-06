@@ -119,12 +119,18 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
     const { tickers, setSelectedTicker, toggleDashboardTicker } = useDashboardStore();
     const data = tickers[ticker];
 
-    const isPositive = (data?.changePercent || 0) >= 0;
+    // [INTRADAY FIX] Use intradayChangePct for intraday-only display (matches header)
+    const intradayChange = data?.intradayChangePct ?? data?.changePercent ?? 0;
+    const isPositive = intradayChange >= 0;
     const hasGammaSqueeze = data?.isGammaSqueeze;
     const hasWhale = data?.netGex && Math.abs(data.netGex) > 500000000;
 
-    // [S-78] Extended session logic (Command style)
+    // [INTRADAY FIX] Use regularCloseToday for display price in CLOSED/POST session
     const session = data?.session || 'CLOSED';
+    let displayPrice = data?.underlyingPrice || 0;
+    if ((session === 'POST' || session === 'CLOSED') && data?.regularCloseToday) {
+        displayPrice = data.regularCloseToday;
+    }
     const extended = data?.extended;
     let extPrice = 0;
     let extPct = 0;
@@ -187,13 +193,13 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                 {/* Right: Price (Command style - horizontal layout) */}
                 <div className="flex items-center gap-3 pr-6">
                     {/* Main Price + Change - Skeleton when loading */}
-                    {data?.underlyingPrice ? (
+                    {displayPrice > 0 ? (
                         <div className="flex items-center gap-1.5">
                             <span className="font-mono text-sm text-white">
-                                ${data.underlyingPrice.toFixed(2)}
+                                ${displayPrice.toFixed(2)}
                             </span>
                             <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                                {isPositive ? "+" : ""}{data?.changePercent?.toFixed(2) || "0.00"}%
+                                {isPositive ? "+" : ""}{intradayChange.toFixed(2)}%
                             </span>
                         </div>
                     ) : (
@@ -404,16 +410,15 @@ function MainChartPanel() {
                     {/* [CENTRALIZED] Main Price Display (Command style) */}
                     {(() => {
                         const session = data?.session || 'CLOSED';
-                        // Calculate intraday price based on session
+                        // [FIX] Use intradayChangePct (intraday-only) instead of changePercent (includes post-market)
                         let intradayPrice = data?.underlyingPrice || 0;
-                        let intradayChangePct = data?.changePercent || 0;
+                        // Prioritize intradayChangePct (intraday-only), fallback to changePercent
+                        let intradayChangePct = data?.intradayChangePct ?? data?.changePercent ?? 0;
 
-                        // POST/CLOSED: Use today's regular close (intraday)
+                        // POST/CLOSED: Use today's regular close as display price
                         if ((session === 'POST' || session === 'CLOSED') && data?.regularCloseToday) {
                             intradayPrice = data.regularCloseToday;
-                            if (data.prevClose && data.prevClose > 0) {
-                                intradayChangePct = ((intradayPrice - data.prevClose) / data.prevClose) * 100;
-                            }
+                            // intradayChangePct already set from API (intraday-only change)
                         }
                         // PRE: Use prevClose as static intraday
                         else if (session === 'PRE' && data?.prevClose) {
@@ -444,6 +449,7 @@ function MainChartPanel() {
                                 extendedPrice={extPrice}
                                 extendedChangePct={extPct}
                                 extendedLabel={extLabel}
+                                sessionStatus={session === 'CLOSED' ? 'CLOSED' : ''}
                                 size="md"
                                 showExtended={extPrice > 0}
                             />

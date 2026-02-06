@@ -34,6 +34,8 @@ export interface PriceDisplayProps {
     layout?: 'horizontal' | 'vertical';
     /** Whether to show extended price section */
     showExtended?: boolean;
+    /** Session status to show after label: 'CLOSED' | 'TRADING' | '' */
+    sessionStatus?: 'CLOSED' | 'TRADING' | '';
     /** Show arrow icons */
     showArrows?: boolean;
 }
@@ -91,6 +93,7 @@ export function PriceDisplay({
     size = 'md',
     layout = 'horizontal',
     showExtended = true,
+    sessionStatus = 'CLOSED',
     showArrows = false,
 }: PriceDisplayProps) {
     const config = SIZE_CONFIG[size];
@@ -130,11 +133,15 @@ export function PriceDisplay({
 
             {/* ===== Extended (POST/PRE) Price ===== */}
             {hasExtended && (
-                <div className={`flex items-center ${config.gap} pl-3 border-l border-slate-700`}>
+                <div className={`flex items-center ${config.gap} ml-3`}>
+                    {/* Dot separator */}
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500 mr-2" />
+                    {/* Label with status */}
                     <span className={`font-bold uppercase ${config.extLabel} ${EXT_LABEL_COLORS[extendedLabel]}`}>
                         {extendedLabel}
+                        {sessionStatus && <span className="text-slate-500 ml-1">({sessionStatus})</span>}
                     </span>
-                    <span className={`font-mono text-white ${config.extPrice}`}>
+                    <span className={`font-mono text-slate-300 ${config.extPrice}`}>
                         ${extendedPrice.toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2
@@ -217,8 +224,8 @@ export function PriceDisplayCard({
 
             {/* Change Percentage */}
             <div className={`flex items-center justify-center gap-0.5 text-[11px] font-bold tracking-tight ${intradayColor} ${isIntradayUp
-                    ? 'drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]'
-                    : 'drop-shadow-[0_0_8px_rgba(251,113,133,0.3)]'
+                ? 'drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]'
+                : 'drop-shadow-[0_0_8px_rgba(251,113,133,0.3)]'
                 }`}>
                 {showArrows && (
                     isIntradayUp
