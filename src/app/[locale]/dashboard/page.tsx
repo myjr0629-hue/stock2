@@ -541,16 +541,27 @@ function MainChartPanel() {
                     </div>
                 </div>
 
-                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                {/* SI% (Short Interest) Card */}
+                <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.siPercent || 0) >= 20 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : (data?.siPercent || 0) >= 10 ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.2)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                    {(data?.siPercent || 0) >= 20 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
+                    {(data?.siPercent || 0) >= 10 && (data?.siPercent || 0) < 20 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />}
                     <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp className="w-4 h-4 text-amber-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Net GEX Flow</span>
+                        <TrendingDown className="w-4 h-4 text-purple-400" />
+                        <span className="text-[10px] uppercase tracking-wider text-slate-400">SI%</span>
+                        {(data?.siPercent || 0) >= 20 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                            {data?.netGex ? `${data.netGex > 0 ? '+' : ''}${(data.netGex / 1e6).toFixed(1)}M` : "—"}
+                        <span className={`text-xl font-mono font-bold ${(data?.siPercent || 0) >= 20 ? "text-rose-400" : (data?.siPercent || 0) >= 10 ? "text-amber-400" : "text-white"}`}>
+                            {data?.siPercent ? `${data.siPercent.toFixed(1)}%` : "—"}
                         </span>
-                        <span className="text-[9px] text-white">{(data?.netGex || 0) > 0 ? "매수세" : "매도세"}</span>
+                        {data?.siPercentChange != null && data.siPercentChange !== 0 && (
+                            <span className={`text-[10px] font-mono ${data.siPercentChange > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                                {data.siPercentChange > 0 ? "↑" : "↓"}{Math.abs(data.siPercentChange).toFixed(1)}%
+                            </span>
+                        )}
+                        <span className="text-[9px] text-slate-400">
+                            {data?.daysToCover ? `${data.daysToCover.toFixed(1)}일` : ""}
+                        </span>
                     </div>
                 </div>
 

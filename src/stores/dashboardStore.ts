@@ -25,6 +25,10 @@ interface TickerData {
     atmIv: number | null;  // [S-78] ATM Implied Volatility for premium cards
     squeezeScore: number | null;       // [SQUEEZE FIX] 0-100 score from structureService
     squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;  // [SQUEEZE FIX] Risk label
+    // [SI%] Short Interest fields
+    siPercent: number | null;          // SI% = Short Interest / Float
+    siPercentChange: number | null;    // Change from previous reporting period
+    daysToCover: number | null;        // Days to cover based on average volume
     levels: {
         callWall: number | null;
         putFloor: number | null;

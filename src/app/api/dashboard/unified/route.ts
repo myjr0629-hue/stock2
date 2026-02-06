@@ -41,6 +41,10 @@ function buildResponseFromResults(
                 atmIv: data.atmIv || null,
                 squeezeScore: data.squeezeScore ?? null,     // [SQUEEZE FIX] 0-100 score from structureService
                 squeezeRisk: data.squeezeRisk ?? null,       // [SQUEEZE FIX] LOW/MEDIUM/HIGH/EXTREME
+                // [SI%] Short Interest data
+                siPercent: data.siPercent ?? null,
+                siPercentChange: data.siPercentChange ?? null,
+                daysToCover: data.daysToCover ?? null,
                 levels: data.levels,
                 expiration: data.expiration,
                 options_status: data.options_status
@@ -227,6 +231,10 @@ export async function GET(request: NextRequest) {
                     atmIv: data.atmIv || null,  // [S-78] ATM IV for premium cards
                     squeezeScore: data.squeezeScore ?? null,   // [SQUEEZE FIX] 0-100 score from structureService
                     squeezeRisk: data.squeezeRisk ?? null,     // [SQUEEZE FIX] LOW/MEDIUM/HIGH/EXTREME
+                    // [SI%] Short Interest data
+                    siPercent: data.siPercent ?? null,
+                    siPercentChange: data.siPercentChange ?? null,
+                    daysToCover: data.daysToCover ?? null,
                     levels: data.levels,
                     expiration: data.expiration,
                     options_status: data.options_status

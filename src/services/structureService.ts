@@ -678,6 +678,10 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             gammaConcentrationLabel, // [V45.17] STICKY / NORMAL / LOOSE
             squeezeRisk,   // [V45.17] LOW/MEDIUM/HIGH/EXTREME
             squeezeScore,  // [V45.17] Raw score (0-100) for debugging
+            // [SI%] Short Interest - populated by separate API in fetchTickerData
+            siPercent: null as number | null,
+            siPercentChange: null as number | null,
+            daysToCover: null as number | null,
             levels: {
                 callWall: callWall || null,
                 putFloor: putFloor || null,
@@ -735,6 +739,10 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             zeroDteImpact: 0,      // [V45.17] Default for failed response
             squeezeRisk: 'LOW' as const, // [V45.17]
             squeezeScore: 0,       // [V45.17]
+            // [SI%] Short Interest defaults
+            siPercent: null as number | null,
+            siPercentChange: null as number | null,
+            daysToCover: null as number | null,
             levels: { callWall: null, putFloor: null, pinZone: null },
             validation: { // [DATA VALIDATION] LOW confidence for incomplete data
                 isValid: false,

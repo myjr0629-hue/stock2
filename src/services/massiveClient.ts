@@ -690,3 +690,123 @@ export async function getTopVolumeStocks(topN: number = 200, budget?: RunBudget)
     }
 }
 
+// [SI%] Short Interest API - 공매도 잔고 데이터
+// FINRA 보고 데이터, 격월 업데이트
+export interface ShortInterestData {
+    ticker: string;
+    settlement_date: string;  // 결제일
+    short_interest: number;   // 공매도 잔고 주식 수
+    short_interest_change: number; // 이전 대비 변화
+    short_interest_change_percent: number; // 변화율 %
+    days_to_cover: number;    // 커버에 필요한 일수
+    avg_daily_volume: number; // 평균 일일 거래량
+}
+
+export async function fetchShortInterest(ticker: string): Promise<ShortInterestData[] | null> {
+    const endpoint = `/stocks/v1/short-interest`;
+    try {
+        const data = await fetchMassive(endpoint, { ticker, limit: '5' }, true);
+        const results = data.results || [];
+        console.log(`[SI%] Short Interest for ${ticker}: ${results.length} records`);
+        return results.map((r: any) => ({
+            ticker: r.ticker || ticker,
+            settlement_date: r.settlement_date,
+            short_interest: r.short_interest,
+            short_interest_change: r.short_interest_change || 0,
+            short_interest_change_percent: r.short_interest_change_percent || 0,
+            days_to_cover: r.days_to_cover || 0,
+            avg_daily_volume: r.avg_daily_volume || 0
+        }));
+    } catch (e) {
+        console.warn(`[SI%] Short Interest fetch failed for ${ticker}:`, e);
+        return null;
+    }
+}
+
+// [SI%] Float API - 유동주식수 데이터
+// SI% = Short Interest / Float * 100
+export interface FloatData {
+    ticker: string;
+    shares_outstanding: number;  // 총 발행주식
+    float_shares: number;        // 유동주식수
+    percent_held_by_insiders: number;  // 내부자 보유 %
+    percent_held_by_institutions: number; // 기관 보유 %
+}
+
+export async function fetchFloat(ticker: string): Promise<FloatData | null> {
+    const endpoint = `/stocks/vX/float`;
+    try {
+        const data = await fetchMassive(endpoint, { ticker }, true);
+        const result = data.results?.[0] || data;
+        if (!result) return null;
+
+        console.log(`[SI%] Float for ${ticker}: ${result.float_shares?.toLocaleString()} shares`);
+        return {
+            ticker: result.ticker || ticker,
+            shares_outstanding: result.shares_outstanding || 0,
+            float_shares: result.float_shares || 0,
+            percent_held_by_insiders: result.percent_held_by_insiders || 0,
+            percent_held_by_institutions: result.percent_held_by_institutions || 0
+        };
+    } catch (e) {
+        console.warn(`[SI%] Float fetch failed for ${ticker}:`, e);
+        return null;
+    }
+}
+
+// [SI%] Combined SI% Calculator
+// Returns Short Interest as percentage of Float with change info
+export interface SIPercentData {
+    siPercent: number;       // SI% = (Short Interest / Float) * 100
+    siPercentPrev: number;   // Previous SI%
+    siPercentChange: number; // Change in SI% (current - previous)
+    shortInterest: number;   // Raw short interest shares
+    floatShares: number;     // Float shares
+    daysToCover: number;     // Days to cover
+    settlementDate: string;  // Last update date
+    status: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME'; // Risk level
+}
+
+export async function fetchSIPercent(ticker: string): Promise<SIPercentData | null> {
+    try {
+        // Parallel fetch for efficiency
+        const [siData, floatData] = await Promise.all([
+            fetchShortInterest(ticker),
+            fetchFloat(ticker)
+        ]);
+
+        if (!siData || siData.length === 0 || !floatData || !floatData.float_shares) {
+            console.warn(`[SI%] Insufficient data for ${ticker}`);
+            return null;
+        }
+
+        const latest = siData[0];
+        const previous = siData[1] || latest; // Use current if no previous
+
+        const siPercent = (latest.short_interest / floatData.float_shares) * 100;
+        const siPercentPrev = (previous.short_interest / floatData.float_shares) * 100;
+        const siPercentChange = siPercent - siPercentPrev;
+
+        // Determine status based on SI%
+        let status: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' = 'LOW';
+        if (siPercent >= 30) status = 'EXTREME';
+        else if (siPercent >= 20) status = 'HIGH';
+        else if (siPercent >= 10) status = 'MEDIUM';
+
+        console.log(`[SI%] ${ticker}: ${siPercent.toFixed(1)}% (${status}), Change: ${siPercentChange > 0 ? '+' : ''}${siPercentChange.toFixed(1)}%`);
+
+        return {
+            siPercent,
+            siPercentPrev,
+            siPercentChange,
+            shortInterest: latest.short_interest,
+            floatShares: floatData.float_shares,
+            daysToCover: latest.days_to_cover,
+            settlementDate: latest.settlement_date,
+            status
+        };
+    } catch (e) {
+        console.error(`[SI%] fetchSIPercent failed for ${ticker}:`, e);
+        return null;
+    }
+}
