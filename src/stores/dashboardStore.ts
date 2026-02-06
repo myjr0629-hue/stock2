@@ -23,6 +23,8 @@ interface TickerData {
     isGammaSqueeze: boolean;
     gammaFlipLevel: number | null;
     atmIv: number | null;  // [S-78] ATM Implied Volatility for premium cards
+    squeezeScore: number | null;       // [SQUEEZE FIX] 0-100 score from structureService
+    squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;  // [SQUEEZE FIX] Risk label
     levels: {
         callWall: number | null;
         putFloor: number | null;

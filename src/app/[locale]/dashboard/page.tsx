@@ -7,6 +7,7 @@ import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { PriceDisplay } from "@/components/ui/PriceDisplay";
+import { getDisplayPrices } from "@/utils/priceDisplay";
 
 // Dynamic import for StockChart (no SSR for chart component)
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -119,39 +120,23 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
     const { tickers, setSelectedTicker, toggleDashboardTicker } = useDashboardStore();
     const data = tickers[ticker];
 
-    // [INTRADAY FIX] Use intradayChangePct for intraday-only display (matches header)
-    const intradayChange = data?.intradayChangePct ?? data?.changePercent ?? 0;
-    const isPositive = intradayChange >= 0;
     const hasGammaSqueeze = data?.isGammaSqueeze;
     const hasWhale = data?.netGex && Math.abs(data.netGex) > 500000000;
 
-    // [INTRADAY FIX] Use regularCloseToday for display price in CLOSED/POST session
-    const session = data?.session || 'CLOSED';
-    let displayPrice = data?.underlyingPrice || 0;
-    if ((session === 'POST' || session === 'CLOSED') && data?.regularCloseToday) {
-        displayPrice = data.regularCloseToday;
-    }
-    const extended = data?.extended;
-    let extPrice = 0;
-    let extPct = 0;
-    let extLabel = '';
-    let extColor = '';
+    // [CENTRALIZED] Use shared price display utility
+    const priceInfo = getDisplayPrices({
+        underlyingPrice: data?.underlyingPrice || null,
+        prevClose: data?.prevClose || null,
+        regularCloseToday: data?.regularCloseToday || null,
+        intradayChangePct: data?.intradayChangePct || null,
+        changePercent: data?.changePercent || null,
+        session: data?.session || 'CLOSED',
+        extended: data?.extended
+    });
 
-    if (session === 'POST' || session === 'CLOSED') {
-        if (extended?.postPrice && extended.postPrice > 0) {
-            extPrice = extended.postPrice;
-            extPct = (extended.postChangePct || 0) * 100;
-            extLabel = session === 'CLOSED' ? 'POST' : 'POST';
-            extColor = 'text-indigo-400';
-        }
-    } else if (session === 'PRE') {
-        if (extended?.prePrice && extended.prePrice > 0) {
-            extPrice = extended.prePrice;
-            extPct = (extended.preChangePct || 0) * 100;
-            extLabel = 'PRE';
-            extColor = 'text-amber-400';
-        }
-    }
+    const { mainPrice, mainChangePct, extPrice, extChangePct, extLabel } = priceInfo;
+    const isPositive = mainChangePct >= 0;
+    const extColor = extLabel === 'PRE' ? 'text-amber-400' : 'text-indigo-400';
 
     return (
         <div className="group relative">
@@ -193,13 +178,13 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                 {/* Right: Price (Command style - horizontal layout) */}
                 <div className="flex items-center gap-3 pr-6">
                     {/* Main Price + Change - Skeleton when loading */}
-                    {displayPrice > 0 ? (
+                    {mainPrice > 0 ? (
                         <div className="flex items-center gap-1.5">
                             <span className="font-mono text-sm text-white">
-                                ${displayPrice.toFixed(2)}
+                                ${mainPrice.toFixed(2)}
                             </span>
                             <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                                {isPositive ? "+" : ""}{intradayChange.toFixed(2)}%
+                                {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
                             </span>
                         </div>
                     ) : (
@@ -213,8 +198,8 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                         <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700">
                             <span className={`text-[8px] font-bold uppercase ${extColor}`}>{extLabel}</span>
                             <span className="text-xs text-white font-mono">${extPrice.toFixed(2)}</span>
-                            <span className={`text-[9px] font-mono ${extPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                {extPct > 0 ? "+" : ""}{extPct.toFixed(2)}%
+                            <span className={`text-[9px] font-mono ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
                             </span>
                         </div>
                     )}
@@ -409,49 +394,26 @@ function MainChartPanel() {
                     <h2 className="text-2xl font-bold text-white">{selectedTicker}</h2>
                     {/* [CENTRALIZED] Main Price Display (Command style) */}
                     {(() => {
-                        const session = data?.session || 'CLOSED';
-                        // [FIX] Use intradayChangePct (intraday-only) instead of changePercent (includes post-market)
-                        let intradayPrice = data?.underlyingPrice || 0;
-                        // Prioritize intradayChangePct (intraday-only), fallback to changePercent
-                        let intradayChangePct = data?.intradayChangePct ?? data?.changePercent ?? 0;
-
-                        // POST/CLOSED: Use today's regular close as display price
-                        if ((session === 'POST' || session === 'CLOSED') && data?.regularCloseToday) {
-                            intradayPrice = data.regularCloseToday;
-                            // intradayChangePct already set from API (intraday-only change)
-                        }
-                        // PRE: Use prevClose as static intraday
-                        else if (session === 'PRE' && data?.prevClose) {
-                            intradayPrice = data.prevClose;
-                            intradayChangePct = 0;
-                        }
-
-                        // Calculate extended price
-                        const extended = data?.extended;
-                        let extPrice = 0;
-                        let extPct = 0;
-                        let extLabel: 'POST' | 'PRE' | '' = '';
-
-                        if (extended?.postPrice && extended.postPrice > 0) {
-                            extPrice = extended.postPrice;
-                            extPct = (extended.postChangePct || 0) * 100;
-                            extLabel = 'POST';
-                        } else if (extended?.prePrice && extended.prePrice > 0) {
-                            extPrice = extended.prePrice;
-                            extPct = (extended.preChangePct || 0) * 100;
-                            extLabel = 'PRE';
-                        }
+                        const priceInfo = getDisplayPrices({
+                            underlyingPrice: data?.underlyingPrice || null,
+                            prevClose: data?.prevClose || null,
+                            regularCloseToday: data?.regularCloseToday || null,
+                            intradayChangePct: data?.intradayChangePct || null,
+                            changePercent: data?.changePercent || null,
+                            session: data?.session || 'CLOSED',
+                            extended: data?.extended
+                        });
 
                         return (
                             <PriceDisplay
-                                intradayPrice={intradayPrice}
-                                intradayChangePct={intradayChangePct}
-                                extendedPrice={extPrice}
-                                extendedChangePct={extPct}
-                                extendedLabel={extLabel}
-                                sessionStatus={session === 'CLOSED' ? 'CLOSED' : ''}
+                                intradayPrice={priceInfo.mainPrice}
+                                intradayChangePct={priceInfo.mainChangePct}
+                                extendedPrice={priceInfo.extPrice}
+                                extendedChangePct={priceInfo.extChangePct}
+                                extendedLabel={priceInfo.extLabel}
+                                sessionStatus={data?.session === 'CLOSED' ? 'CLOSED' : ''}
                                 size="md"
-                                showExtended={extPrice > 0}
+                                showExtended={priceInfo.showExtended}
                             />
                         );
                     })()}
@@ -592,20 +554,32 @@ function MainChartPanel() {
                     </div>
                 </div>
 
-                <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.isGammaSqueeze ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                    {data?.isGammaSqueeze && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
-                    <div className="flex items-center gap-2 mb-2">
-                        <Zap className="w-4 h-4 text-indigo-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400">Squeeze</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {data?.isGammaSqueeze ? (
-                            <span className="text-xl font-bold text-indigo-400 animate-pulse">🔥 ON</span>
-                        ) : (
-                            <span className="text-xl font-mono font-bold text-slate-500">OFF</span>
-                        )}
-                        <span className="text-[9px] text-white">{data?.isGammaSqueeze ? "급등 가능" : "정상"}</span>
-                    </div>
+                <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                    {(data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH') && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
+                    {(() => {
+                        // Use API values directly (same as Flow page)
+                        const score = data?.squeezeScore ?? 0;
+                        const risk = data?.squeezeRisk ?? 'LOW';
+                        const color = risk === 'EXTREME' ? 'text-rose-400' : risk === 'HIGH' ? 'text-amber-400' : risk === 'MEDIUM' ? 'text-yellow-400' : 'text-emerald-400';
+                        const bgColor = risk === 'EXTREME' ? 'bg-rose-500/80' : risk === 'HIGH' ? 'bg-amber-500/80' : risk === 'MEDIUM' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80';
+                        return (
+                            <>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Zap className="w-4 h-4 text-indigo-400" />
+                                    <span className="text-[10px] uppercase tracking-wider text-slate-400">Squeeze</span>
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${bgColor} text-white`}>
+                                        {risk}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${color}`}>{score}%</span>
+                                    <span className="text-[9px] text-slate-400">
+                                        {score >= 70 ? '급등/급락 가능' : score >= 50 ? '변동성 주의' : score >= 30 ? '보통' : '안정'}
+                                    </span>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </div>
             </div>
 
@@ -772,10 +746,10 @@ function SignalFeedPanel() {
     const { signals } = useDashboardStore();
     const locale = useLocale();
 
-    // Sort signals by time - newest first
-    const sortedSignals = [...signals].sort((a, b) =>
-        new Date(b.time).getTime() - new Date(a.time).getTime()
-    );
+    // Sort signals by time - newest first, limit to 15
+    const sortedSignals = [...signals]
+        .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+        .slice(0, 15);
 
     return (
         <div className="flex flex-col h-full">
@@ -786,7 +760,7 @@ function SignalFeedPanel() {
                 </div>
                 <span className="text-[10px] text-slate-500">{signals.length}</span>
             </div>
-            <div className="flex-1 overflow-y-auto p-2 space-y-2">
+            <div className="overflow-y-auto p-2 space-y-2 max-h-[calc(100vh-200px)]">
                 {sortedSignals.length > 0 ? (
                     sortedSignals.map((signal, i) => (
                         <SignalItem key={i} signal={signal} locale={locale} />

@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 import { getBuildMeta } from '@/services/buildMeta';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { CentralDataHub } from "@/services/centralDataHub";
+import { getStructureData } from "@/services/structureService"; // [SQUEEZE FIX]
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
@@ -182,7 +183,19 @@ export async function GET(req: NextRequest) {
         rawChain: [],
         error: err.message
     }));
-    const flowData = flowRes; // Defines flowData for use in response
+
+    // [SQUEEZE FIX] Get squeezeScore from structureService for unified display
+    let squeezeScore: number | null = null;
+    let squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null = null;
+    try {
+        const structureData = await getStructureData(ticker);
+        squeezeScore = structureData.squeezeScore ?? null;
+        squeezeRisk = structureData.squeezeRisk ?? null;
+    } catch (e) {
+        // Ignore - squeeze data is optional
+    }
+
+    const flowData = { ...flowRes, squeezeScore, squeezeRisk }; // Include squeezeScore in flow
 
     const warnings: string[] = [];
 

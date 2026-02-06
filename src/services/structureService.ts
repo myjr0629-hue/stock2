@@ -565,31 +565,67 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
         const gammaConcentrationLabel = gammaConcentration >= 70 ? 'STICKY'
             : gammaConcentration >= 40 ? 'NORMAL' : 'LOOSE';
 
-
-        // [V45.17] Squeeze Risk: Composite score based on multiple factors
+        // [V46.50] Squeeze Score: SpotGamma-Style Model (matches Flow page calculation)
+        // Same logic as FlowRadar.tsx squeezeProbability for consistent values
         let squeezeScore = 0;
 
-        // Factor 1: Short Gamma (netGex > 0 means dealers are short gamma)
-        if (netGex !== null && netGex > 0) squeezeScore += 35;
-
-        // Factor 2: 0DTE Impact (high 0DTE = more intraday volatility)
-        if (zeroDteImpact > 20) squeezeScore += 25;
-        else if (zeroDteImpact > 10) squeezeScore += 15;
-
-        // Factor 3: P/C Ratio extremes
-        if (pcr !== null && pcr > 1.5) squeezeScore += 20; // Put heavy
-        if (pcr !== null && pcr < 0.5) squeezeScore += 20; // Call heavy
-
-        // Factor 4: Price near Gamma Flip Level
-        if (gammaFlipLevel && underlyingPrice > 0) {
-            const distance = Math.abs(underlyingPrice - gammaFlipLevel) / underlyingPrice;
-            if (distance < 0.02) squeezeScore += 20; // Within 2%
+        // 1. GEX Intensity (0-35 points) - Short Gamma = High squeeze risk
+        // netGex < 0 means dealers are short gamma (must chase price)
+        const isShortGamma = netGex !== null && netGex < 0;
+        if (isShortGamma) {
+            const gexMillions = Math.abs(netGex) / 1_000_000;
+            const gexIntensity = Math.min(35, Math.round(gexMillions / 10)); // 10M per point
+            squeezeScore += gexIntensity;
+        } else if (netGex !== null && netGex > 0) {
+            // Long gamma = stability (lower squeeze risk)
+            squeezeScore += Math.min(10, Math.round(Math.abs(netGex) / 100_000_000));
         }
+
+        // 2. ATM Gamma Concentration (0-20 points)
+        // High ATM gamma = Pin risk OR explosive move potential
+        if (gammaConcentration >= 70) squeezeScore += 20;
+        else if (gammaConcentration >= 50) squeezeScore += 15;
+        else if (gammaConcentration >= 30) squeezeScore += 8;
+
+        // 3. 0DTE Volatility Amplifier (0-20 points)
+        // DTE = 0 or 1 = maximum gamma impact
+        if (zeroDteImpact === 0) squeezeScore += 20;
+        else if (zeroDteImpact === 1) squeezeScore += 15;
+        else if (zeroDteImpact <= 3) squeezeScore += 10;
+        else if (zeroDteImpact <= 5) squeezeScore += 5;
+
+        // 4. ATM IV (0-15 points) - High IV = market expects big move
+        let atmIvForSqueeze: number | null = null;
+        if (underlyingPrice > 0 && cleanContracts.length > 0) {
+            const atmStrike = sortedStrikes.reduce((closest, strike) =>
+                Math.abs(strike - underlyingPrice) < Math.abs(closest - underlyingPrice) ? strike : closest
+            );
+            const atmContract = cleanContracts.find(c => c.k === atmStrike && c.type === 'call')
+                || cleanContracts.find(c => c.k === atmStrike && c.type === 'put');
+            const rawIv = atmContract?.greeks?.implied_volatility || atmContract?.implied_volatility || atmContract?.iv;
+            if (typeof rawIv === 'number' && rawIv > 0) {
+                atmIvForSqueeze = rawIv > 1 ? rawIv : rawIv * 100;
+            }
+        }
+        if (atmIvForSqueeze !== null) {
+            if (atmIvForSqueeze >= 60) squeezeScore += 15;
+            else if (atmIvForSqueeze >= 45) squeezeScore += 10;
+            else if (atmIvForSqueeze >= 30) squeezeScore += 5;
+        }
+
+        // 5. P/C Ratio Extremes (0-10 points) - Extreme positioning
+        if (pcr !== null) {
+            if (pcr <= 0.4 || pcr >= 1.8) squeezeScore += 10;
+            else if (pcr <= 0.6 || pcr >= 1.5) squeezeScore += 5;
+        }
+
+        // Clamp to 0-100
+        squeezeScore = Math.min(100, Math.max(0, squeezeScore));
 
         const squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' =
             squeezeScore >= 70 ? 'EXTREME' :
-                squeezeScore >= 50 ? 'HIGH' :
-                    squeezeScore >= 30 ? 'MEDIUM' : 'LOW';
+                squeezeScore >= 45 ? 'HIGH' :
+                    squeezeScore >= 20 ? 'MEDIUM' : 'LOW';
 
         // Legacy: keep isGammaSqueeze for backward compatibility
         const isGammaSqueeze = netGex !== null && netGex > 50000000 &&

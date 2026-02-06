@@ -11,9 +11,12 @@ interface FlowRadarProps {
     ticker: string;
     rawChain: any[];
     currentPrice: number;
+    // [SQUEEZE FIX] API squeezeScore for unified display with Dashboard
+    squeezeScore?: number | null;
+    squeezeRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;
 }
 
-export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -300,7 +303,21 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
     // [PREMIUM] Gamma Squeeze Probability - SpotGamma-Style Model
     // Reference: GEX normalization, ATM Gamma concentration, Dealer hedging pressure
     // [S-124.5] Updated to use 0-7 DTE only for consistency with Options Battlefield
+    // [SQUEEZE FIX] Use API squeezeScore when available for unified display with Dashboard
     const squeezeProbability = useMemo(() => {
+        // [SQUEEZE FIX] Use API value if available (same as Dashboard)
+        if (apiSqueezeScore !== undefined && apiSqueezeScore !== null) {
+            const color = apiSqueezeRisk === 'EXTREME' ? 'text-rose-400' : apiSqueezeRisk === 'HIGH' ? 'text-amber-400' : apiSqueezeRisk === 'MEDIUM' ? 'text-yellow-400' : 'text-emerald-400';
+            return {
+                value: apiSqueezeScore,
+                label: apiSqueezeRisk || 'LOW',
+                color,
+                factors: [],
+                debug: { source: 'API' },
+                isLoading: false
+            };
+        }
+
         // Loading state - 데이터가 완전히 준비될 때까지 로딩 표시
         const isLoading = !rawChain || rawChain.length === 0 || currentPrice === 0;
 
@@ -452,7 +469,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice }: FlowRadarProps) {
             debug: { totalGex, gexIntensity, atmRatio, zeroDteImpact, isShortGamma },
             isLoading: false
         };
-    }, [rawChain, currentPrice, ivSkew, whaleTrades]);
+    }, [rawChain, currentPrice, ivSkew, whaleTrades, apiSqueezeScore, apiSqueezeRisk]);
 
     // [NEW] DEX (Delta Exposure) - Dealer Delta Hedging Direction
     const dex = useMemo(() => {

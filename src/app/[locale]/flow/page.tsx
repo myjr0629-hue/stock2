@@ -216,6 +216,8 @@ function FlowPageContent() {
                                 ticker={ticker}
                                 rawChain={rawChain}
                                 currentPrice={displayPrice}
+                                squeezeScore={liveQuote?.flow?.squeezeScore}
+                                squeezeRisk={liveQuote?.flow?.squeezeRisk}
                             />
                         </div>
                     )}

@@ -39,6 +39,8 @@ function buildResponseFromResults(
                 isGammaSqueeze: data.isGammaSqueeze,
                 gammaFlipLevel: data.gammaFlipLevel,
                 atmIv: data.atmIv || null,
+                squeezeScore: data.squeezeScore ?? null,     // [SQUEEZE FIX] 0-100 score from structureService
+                squeezeRisk: data.squeezeRisk ?? null,       // [SQUEEZE FIX] LOW/MEDIUM/HIGH/EXTREME
                 levels: data.levels,
                 expiration: data.expiration,
                 options_status: data.options_status
@@ -223,6 +225,8 @@ export async function GET(request: NextRequest) {
                     isGammaSqueeze: data.isGammaSqueeze,
                     gammaFlipLevel: data.gammaFlipLevel,
                     atmIv: data.atmIv || null,  // [S-78] ATM IV for premium cards
+                    squeezeScore: data.squeezeScore ?? null,   // [SQUEEZE FIX] 0-100 score from structureService
+                    squeezeRisk: data.squeezeRisk ?? null,     // [SQUEEZE FIX] LOW/MEDIUM/HIGH/EXTREME
                     levels: data.levels,
                     expiration: data.expiration,
                     options_status: data.options_status
