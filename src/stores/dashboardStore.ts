@@ -138,10 +138,35 @@ export const useDashboardStore = create<DashboardState>()(
 
                     const data = await res.json();
 
+                    // [SIGNAL ACCUMULATION] Merge new signals with existing
+                    const existingSignals = get().signals;
+                    const newSignals: Signal[] = data.signals || [];
+                    const now = Date.now();
+                    const HOURS_24 = 24 * 60 * 60 * 1000;
+
+                    // Create unique key for deduplication: ticker + type + message
+                    const signalKey = (s: Signal) => `${s.ticker}|${s.type}|${s.message}`;
+                    const existingKeys = new Set(existingSignals.map(signalKey));
+
+                    // Filter new signals: only add if not duplicate
+                    const uniqueNewSignals = newSignals.filter(s => !existingKeys.has(signalKey(s)));
+
+                    // Merge: new signals first, then existing
+                    const merged = [...uniqueNewSignals, ...existingSignals];
+
+                    // Remove signals older than 24 hours
+                    const validSignals = merged.filter(s => {
+                        const signalTime = new Date(s.time).getTime();
+                        return (now - signalTime) < HOURS_24;
+                    });
+
+                    // Keep max 20 signals (newest first, already sorted by time)
+                    const finalSignals = validSignals.slice(0, 20);
+
                     set({
                         tickers: data.tickers || {},
                         market: data.market || null,
-                        signals: data.signals || [],
+                        signals: finalSignals,
                         lastUpdated: new Date(),
                         isLoading: false
                     });
