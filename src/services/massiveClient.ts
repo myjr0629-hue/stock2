@@ -753,11 +753,13 @@ export async function fetchFloat(ticker: string): Promise<FloatData | null> {
         const result = data.results?.[0] || data;
         if (!result) return null;
 
-        console.log(`[SI%] Float for ${ticker}: ${result.float_shares?.toLocaleString()} shares`);
+        // API returns 'free_float' not 'float_shares'
+        const floatShares = result.free_float || result.float_shares || 0;
+        console.log(`[SI%] Float for ${ticker}: ${floatShares?.toLocaleString()} shares`);
         return {
             ticker: result.ticker || ticker,
             shares_outstanding: result.shares_outstanding || 0,
-            float_shares: result.float_shares || 0,
+            float_shares: floatShares,  // Use free_float from API
             percent_held_by_insiders: result.percent_held_by_insiders || 0,
             percent_held_by_institutions: result.percent_held_by_institutions || 0
         };
