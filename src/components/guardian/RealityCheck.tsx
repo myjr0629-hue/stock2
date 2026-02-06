@@ -107,29 +107,43 @@ export function RealityCheck({
                         REALITY CHECK
                     </h3>
                 </div>
-                {/* VIX / DXY Indicators with Change % */}
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-white/60 font-medium">VIX</span>
-                        <span className={`text-sm font-bold tabular-nums ${getVixColor(vix)}`}>
-                            {vix > 0 ? vix.toFixed(1) : '—'}
-                        </span>
-                        {vixFactor?.chgPct != null && (
-                            <span className={`text-xs font-medium ${(vixFactor.chgPct ?? 0) >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                {(vixFactor.chgPct ?? 0) >= 0 ? '+' : ''}{(vixFactor.chgPct ?? 0).toFixed(1)}%
+                {/* VIX / DXY Glassmorphism Cards - Single Row */}
+                <div className="flex items-center gap-2">
+                    {/* VIX Card */}
+                    <div className="relative group">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-rose-500/30 to-amber-500/30 rounded-lg blur opacity-60 group-hover:opacity-100 transition" />
+                        <div className="relative flex items-center gap-3 px-4 py-px bg-slate-900/80 backdrop-blur-md rounded-lg border border-white/10">
+                            <span className="text-[10px] text-white/50 font-medium tracking-wider">VIX</span>
+                            <span className={`text-base font-bold tabular-nums ${getVixColor(vix)}`}>
+                                {vix > 0 ? vix.toFixed(1) : '—'}
                             </span>
-                        )}
+                            {vixFactor?.chgPct != null && (
+                                <span className={`text-sm font-semibold ${(vixFactor.chgPct ?? 0) >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    {(vixFactor.chgPct ?? 0) >= 0 ? '+' : ''}{(vixFactor.chgPct ?? 0).toFixed(1)}%
+                                </span>
+                            )}
+                            <span className={`text-xs font-bold uppercase tracking-wide border-l border-white/20 pl-3 ${getVixColor(vix)}`}>
+                                {vix > 30 ? '🔥 EXTREME FEAR' : vix > 20 ? '⚡ FEAR' : vix > 15 ? '😐 NEUTRAL' : '😊 CALM'}
+                            </span>
+                        </div>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-[11px] text-white/60 font-medium">DXY</span>
-                        <span className={`text-sm font-bold tabular-nums ${getDxyColor(dxy)}`}>
-                            {dxy > 0 ? dxy.toFixed(1) : '—'}
-                        </span>
-                        {dxyFactor?.chgPct != null && (
-                            <span className={`text-xs font-medium ${(dxyFactor.chgPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {(dxyFactor.chgPct ?? 0) >= 0 ? '+' : ''}{(dxyFactor.chgPct ?? 0).toFixed(1)}%
+                    {/* DXY Card */}
+                    <div className="relative group">
+                        <div className="absolute -inset-0.5 bg-gradient-to-r from-sky-500/30 to-cyan-500/30 rounded-lg blur opacity-60 group-hover:opacity-100 transition" />
+                        <div className="relative flex items-center gap-3 px-4 py-px bg-slate-900/80 backdrop-blur-md rounded-lg border border-white/10">
+                            <span className="text-[10px] text-white/50 font-medium tracking-wider">DXY</span>
+                            <span className={`text-base font-bold tabular-nums ${getDxyColor(dxy)}`}>
+                                {dxy > 0 ? dxy.toFixed(1) : '—'}
                             </span>
-                        )}
+                            {dxyFactor?.chgPct != null && (
+                                <span className={`text-sm font-semibold ${(dxyFactor.chgPct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {(dxyFactor.chgPct ?? 0) >= 0 ? '+' : ''}{(dxyFactor.chgPct ?? 0).toFixed(1)}%
+                                </span>
+                            )}
+                            <span className={`text-xs font-bold uppercase tracking-wide border-l border-white/20 pl-3 ${getDxyColor(dxy)}`}>
+                                {dxy > 105 ? '💪 STRONG $' : dxy > 100 ? '📈 FIRM' : dxy > 95 ? '😐 NEUTRAL' : '📉 WEAK $'}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
