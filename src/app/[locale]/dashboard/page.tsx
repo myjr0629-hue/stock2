@@ -547,7 +547,7 @@ function MainChartPanel() {
                     {(data?.siPercent || 0) >= 10 && (data?.siPercent || 0) < 20 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />}
                     <div className="flex items-center gap-2 mb-2">
                         <TrendingDown className="w-4 h-4 text-purple-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-white">SI%</span>
+                        <span className="text-[10px] uppercase tracking-wider text-white">SI% 공매도 비율</span>
                         {(data?.siPercent || 0) >= 20 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
                     </div>
                     <div className="flex items-center gap-2">
@@ -577,14 +577,14 @@ function MainChartPanel() {
                             <>
                                 <div className="flex items-center gap-2 mb-2">
                                     <Zap className="w-4 h-4 text-indigo-400" />
-                                    <span className="text-[10px] uppercase tracking-wider text-slate-400">Squeeze</span>
+                                    <span className="text-[10px] uppercase tracking-wider text-white">Squeeze</span>
                                     <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${bgColor} text-white`}>
                                         {risk}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${color}`}>{score}%</span>
-                                    <span className="text-[9px] text-slate-400">
+                                    <span className="text-[9px] text-white">
                                         {score >= 70 ? '급등/급락 가능' : score >= 50 ? '변동성 주의' : score >= 30 ? '보통' : '안정'}
                                     </span>
                                 </div>
