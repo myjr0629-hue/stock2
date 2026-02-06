@@ -357,10 +357,9 @@ export async function GET(request: NextRequest) {
 // Fetch market overview data - uses macro cache for NQ data (faster, no separate fetch)
 async function fetchMarketData() {
     try {
-        // [PERF] Use macro API which has Redis cache - no need for separate SPY fetch
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-        const macroRes = await fetch(`${baseUrl}/api/market/macro`);
-        const macro = await macroRes.json();
+        // [PERF] Direct import instead of HTTP call - faster and more reliable
+        const { getMacroSnapshotSSOT } = await import('@/services/macroHubProvider');
+        const macro = await getMacroSnapshotSSOT();
 
         const nqChange = macro?.nqChangePercent || 0;
         const nqPrice = macro?.nq || null;

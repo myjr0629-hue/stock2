@@ -60,15 +60,25 @@ export function isMarketHoliday(dateStr: string, holidays: MarketHoliday[]): boo
  * @returns YYYY-MM-DD format string
  */
 export function getNextWeeklyExpiration(fromDate: Date = new Date(), holidays: MarketHoliday[] = []): string {
-    // Find next Friday
-    const target = new Date(fromDate);
-    const dayOfWeek = target.getDay(); // 0=Sun, 5=Fri
+    // [V45.17 FIX] Use reliable ET components instead of buggy Date parsing
+    const { getETComponents } = require('./marketDaySSOT');
+    const et = getETComponents(fromDate);
 
-    // Days until next Friday
-    let daysToAdd = (5 - dayOfWeek + 7) % 7;
-    if (daysToAdd === 0) daysToAdd = 7; // If today is Friday, go to next Friday
+    // Find next Friday (5 = Friday)
+    let daysToAdd = (5 - et.dayOfWeek + 7) % 7;
 
-    target.setDate(target.getDate() + daysToAdd);
+    // If today is Friday (daysToAdd === 0):
+    // - Before 16:00 ET (market close): use TODAY's expiry
+    // - After 16:00 ET: use NEXT Friday
+    if (daysToAdd === 0) {
+        if (et.hour >= 16) {
+            daysToAdd = 7; // After market close, use next Friday
+        }
+        // else daysToAdd stays 0, use today
+    }
+
+    // Calculate target date by adding days
+    const targetDate = new Date(et.year, et.month - 1, et.day + daysToAdd);
 
     // Format as YYYY-MM-DD
     const formatDate = (d: Date): string => {
@@ -78,17 +88,17 @@ export function getNextWeeklyExpiration(fromDate: Date = new Date(), holidays: M
         return `${year}-${month}-${day}`;
     };
 
-    let targetStr = formatDate(target);
+    let targetStr = formatDate(targetDate);
 
     // If Friday is a holiday, move to Thursday
     if (isMarketHoliday(targetStr, holidays)) {
-        target.setDate(target.getDate() - 1);
-        targetStr = formatDate(target);
+        targetDate.setDate(targetDate.getDate() - 1);
+        targetStr = formatDate(targetDate);
 
         // If Thursday is also a holiday (rare), move to Wednesday
         if (isMarketHoliday(targetStr, holidays)) {
-            target.setDate(target.getDate() - 1);
-            targetStr = formatDate(target);
+            targetDate.setDate(targetDate.getDate() - 1);
+            targetStr = formatDate(targetDate);
         }
     }
 

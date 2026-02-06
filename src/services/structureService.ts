@@ -1,27 +1,24 @@
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
-import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
+import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
 
 // [S-69] Get next valid trading day for options expiration (skips weekends)
+// [V45.17 FIX] Uses getETComponents for reliable ET timezone handling
 export function getNextTradingDayET(): string {
-    const nowET = getETNow();
-    const dow = getETDayOfWeek(nowET);
+    const et = getETComponents();
 
-    // If Saturday, next trading day is Monday (+2)
-    // If Sunday, next trading day is Monday (+1)
-    // Otherwise, today or next weekday
-    const result = new Date(nowET);
-
-    if (dow === 6) {
-        // Saturday -> Monday
-        result.setDate(result.getDate() + 2);
-    } else if (dow === 0) {
-        // Sunday -> Monday
-        result.setDate(result.getDate() + 1);
+    // If Saturday (6), next trading day is Monday (+2)
+    // If Sunday (0), next trading day is Monday (+1)
+    // Otherwise, today (weekdays: options can expire today or later)
+    let daysToAdd = 0;
+    if (et.dayOfWeek === 6) {
+        daysToAdd = 2; // Saturday -> Monday
+    } else if (et.dayOfWeek === 0) {
+        daysToAdd = 1; // Sunday -> Monday
     }
-    // Weekdays: use today (options can expire today or later)
 
-    return toYYYYMMDD_ET(result);
+    const targetDate = new Date(et.year, et.month - 1, et.day + daysToAdd);
+    return `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
 }
 
 async function fetchMassiveWithRetry(url: string, maxAttempts = 3): Promise<any> {
@@ -172,11 +169,10 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
         }
 
         // [S-78] Session detection and extended price extraction
-        const etNow = getETNow();
-        const etHour = etNow.getHours();
-        const etMinute = etNow.getMinutes();
-        const etTime = etHour * 60 + etMinute;
-        const dayOfWeek = getETDayOfWeek();
+        // [V45.17 FIX] Use getETComponents for reliable ET timezone
+        const etComponents = getETComponents();
+        const etTime = etComponents.hour * 60 + etComponents.minute;
+        const dayOfWeek = etComponents.dayOfWeek;
 
         // Weekend = CLOSED
         if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -480,14 +476,122 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
         });
 
         gammaCoverage = contractsUsedForGex > 0 ? gammaCount / contractsUsedForGex : 0;
+
+        // [V45.17] Always calculate GEX with confidence level for Alpha Score accuracy
+        // Previously: null if coverage < 80% (caused fallback in Alpha Engine)
+        // Now: Always return value with confidence indicator
+        netGex = gexSum;
+
+        let gexConfidence: 'HIGH' | 'MEDIUM' | 'LOW' = 'LOW';
         if (gammaCoverage >= 0.80) {
-            netGex = gexSum;
-            gexNotes = `Calculation successful (coverage: ${(gammaCoverage * 100).toFixed(0)}%)`;
+            gexConfidence = 'HIGH';
+            gexNotes = `HIGH confidence (coverage: ${(gammaCoverage * 100).toFixed(0)}%)`;
+        } else if (gammaCoverage >= 0.60) {
+            gexConfidence = 'MEDIUM';
+            gexNotes = `MEDIUM confidence (coverage: ${(gammaCoverage * 100).toFixed(0)}%)`;
         } else {
-            netGex = null;
-            gexNotes = `Insufficient data (coverage: ${(gammaCoverage * 100).toFixed(0)}% < 80%)`;
+            gexConfidence = 'LOW';
+            gexNotes = `LOW confidence (coverage: ${(gammaCoverage * 100).toFixed(0)}%)`;
         }
 
+        // [V45.17] 0DTE Impact: Today's OI / (Today's OI + Next Week OI)
+        // This measures how much of total gamma is expiring today
+        const todayOI = totalCallOI + totalPutOI;
+        let nextWeekOI = 0;
+
+        // Find next weekly expiration (next Friday after targetExpiry)
+        const nextWeeklyExp = availableExpirations.find(exp => {
+            if (exp === targetExpiry) return false;
+            // Parse dates to check if it's a Friday and after target
+            const expParts = exp.split('-').map(Number);
+            const expDate = new Date(expParts[0], expParts[1] - 1, expParts[2]);
+            const targetParts = targetExpiry.split('-').map(Number);
+            const targetDate = new Date(targetParts[0], targetParts[1] - 1, targetParts[2]);
+
+            // Check if it's a Friday (day 5) and at least 5 days after target
+            const isFriday = expDate.getDay() === 5;
+            const diffDays = Math.round((expDate.getTime() - targetDate.getTime()) / (1000 * 60 * 60 * 24));
+
+            return isFriday && diffDays >= 5 && diffDays <= 10;
+        });
+
+        console.log(`[0DTE] ${ticker}: targetExpiry=${targetExpiry}, nextWeeklyExp=${nextWeeklyExp || 'not found'}`);
+
+        let nextWeekFetchError = '';
+        if (nextWeeklyExp) {
+            // Quick OI fetch for next week using direct fetchMassive
+            const nextUrl = `/v3/snapshot/options/${ticker}?expiration_date=${nextWeeklyExp}&limit=500`;
+            try {
+                const nextData = await fetchMassive(nextUrl, {}, false, undefined, CACHE_POLICY.LIVE);
+                console.log(`[0DTE FETCH] ${ticker}: results=${nextData?.results?.length || 0}`);
+                if (nextData?.results && nextData.results.length > 0) {
+                    nextWeekOI = nextData.results.reduce((sum: number, c: any) => {
+                        return sum + (c.open_interest || 0);
+                    }, 0);
+                    console.log(`[0DTE FETCH] ${ticker}: calculated nextWeekOI=${nextWeekOI}`);
+                } else {
+                    nextWeekFetchError = 'No results from API';
+                }
+            } catch (e: any) {
+                nextWeekFetchError = e.message || 'Exception';
+                console.log(`[0DTE] Failed to fetch next week OI for ${ticker}: ${e}`);
+            }
+        }
+        // [V45.17] 0DTE Impact as DTE (Days to Expiry)
+        // DTE = 0 means expiry today (maximum gamma impact)
+        const et = getETComponents();
+        const todayStr = `${et.year}-${String(et.month).padStart(2, '0')}-${String(et.day).padStart(2, '0')}`;
+        const targetParts = targetExpiry.split('-').map(Number);
+        const todayParts = todayStr.split('-').map(Number);
+        const targetDate = new Date(targetParts[0], targetParts[1] - 1, targetParts[2]);
+        const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
+        const zeroDteImpact = Math.max(0, Math.round((targetDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24)));
+
+        console.log(`[DTE] ${ticker}: expiry=${targetExpiry}, today=${todayStr}, DTE=${zeroDteImpact}`);
+
+        // [V45.17] Gamma Concentration: How much OI is near current price
+        // STICKY (70%+) = Price movements dampened by dealer hedging
+        // NORMAL (40-70%) = Balanced OI distribution  
+        // LOOSE (<40%) = Price can move more freely
+        const priceRange = underlyingPrice * 0.05; // 5% range
+        const nearPriceOI = cleanContracts.reduce((sum: number, c: any) => {
+            const strike = c.details?.strike_price || 0;
+            if (Math.abs(strike - underlyingPrice) <= priceRange) {
+                return sum + (c.open_interest || 0);
+            }
+            return sum;
+        }, 0);
+        const gammaConcentration = todayOI > 0 ? Math.round((nearPriceOI / todayOI) * 100) : 0;
+        const gammaConcentrationLabel = gammaConcentration >= 70 ? 'STICKY'
+            : gammaConcentration >= 40 ? 'NORMAL' : 'LOOSE';
+
+
+        // [V45.17] Squeeze Risk: Composite score based on multiple factors
+        let squeezeScore = 0;
+
+        // Factor 1: Short Gamma (netGex > 0 means dealers are short gamma)
+        if (netGex !== null && netGex > 0) squeezeScore += 35;
+
+        // Factor 2: 0DTE Impact (high 0DTE = more intraday volatility)
+        if (zeroDteImpact > 20) squeezeScore += 25;
+        else if (zeroDteImpact > 10) squeezeScore += 15;
+
+        // Factor 3: P/C Ratio extremes
+        if (pcr !== null && pcr > 1.5) squeezeScore += 20; // Put heavy
+        if (pcr !== null && pcr < 0.5) squeezeScore += 20; // Call heavy
+
+        // Factor 4: Price near Gamma Flip Level
+        if (gammaFlipLevel && underlyingPrice > 0) {
+            const distance = Math.abs(underlyingPrice - gammaFlipLevel) / underlyingPrice;
+            if (distance < 0.02) squeezeScore += 20; // Within 2%
+        }
+
+        const squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' =
+            squeezeScore >= 70 ? 'EXTREME' :
+                squeezeScore >= 50 ? 'HIGH' :
+                    squeezeScore >= 30 ? 'MEDIUM' : 'LOW';
+
+        // Legacy: keep isGammaSqueeze for backward compatibility
         const isGammaSqueeze = netGex !== null && netGex > 50000000 &&
             callWall > 0 && underlyingPrice >= callWall * 0.98 &&
             pcr !== null && pcr < 0.6;
@@ -530,9 +634,14 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             structure: { strikes: sortedStrikes, callsOI, putsOI },
             maxPain,
             netGex,
+            gexConfidence, // [V45.17] Added for Alpha Score accuracy
             gammaFlipLevel,
             gammaFlipType,
             atmIv,
+            gammaConcentration,      // [V45.17] OI concentration near price (0-100%)
+            gammaConcentrationLabel, // [V45.17] STICKY / NORMAL / LOOSE
+            squeezeRisk,   // [V45.17] LOW/MEDIUM/HIGH/EXTREME
+            squeezeScore,  // [V45.17] Raw score (0-100) for debugging
             levels: {
                 callWall: callWall || null,
                 putFloor: putFloor || null,
@@ -553,7 +662,12 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
                 netGexUnit: "shares",
                 gexFormula: "sum(call gamma*oi*mult) - sum(put gamma*oi*mult)",
                 notes: gexNotes,
-                gammaFlipCrossings
+                gammaFlipCrossings,
+                // [V45.17 DEBUG]
+                todayOI,
+                nearPriceOI,
+                gammaConcentration,
+                gammaConcentrationLabel
             }
         };
 
@@ -579,8 +693,12 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             structure: { strikes: sortedStrikes, callsOI, putsOI },
             maxPain: null,
             netGex: null,
+            gexConfidence: 'LOW' as const, // [V45.17] Consistent with successResponse
             gammaFlipLevel,
             gammaFlipType,
+            zeroDteImpact: 0,      // [V45.17] Default for failed response
+            squeezeRisk: 'LOW' as const, // [V45.17]
+            squeezeScore: 0,       // [V45.17]
             levels: { callWall: null, putFloor: null, pinZone: null },
             validation: { // [DATA VALIDATION] LOW confidence for incomplete data
                 isValid: false,

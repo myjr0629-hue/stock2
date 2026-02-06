@@ -1291,15 +1291,28 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                     {/* Infographic Grid - 0DTE & Squeeze Risk */}
                                     <div className="grid grid-cols-2 gap-2">
-                                        {/* 0DTE Impact */}
+                                        {/* Gamma Concentration */}
                                         <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
                                             <div className="flex items-center justify-between mb-1">
-                                                <span className="text-[9px] text-white/80 font-bold uppercase">0DTE Impact</span>
-                                                <Zap size={10} className={structure?.gexZeroDteRatio > 0.3 ? "text-amber-400" : "text-slate-600"} />
+                                                <span className="text-[9px] text-white font-bold uppercase">GAMMA CONC. 감마 집중도</span>
                                             </div>
-                                            <div className={`text-lg font-black ${structure?.gexZeroDteRatio > 0.3 ? "text-amber-400" : "text-slate-300"}`}>
-                                                {structure?.gexZeroDteRatio ? (structure.gexZeroDteRatio * 100).toFixed(0) : "0"}%
-                                            </div>
+                                            {(() => {
+                                                const concentration = structure?.gammaConcentration ?? 0;
+                                                const label = structure?.gammaConcentrationLabel ?? 'NORMAL';
+                                                const color = label === 'STICKY' ? 'text-amber-400'
+                                                    : label === 'LOOSE' ? 'text-emerald-400' : 'text-slate-300';
+                                                const desc = label === 'STICKY' ? '가격 움직임 억제'
+                                                    : label === 'LOOSE' ? '자유로운 움직임' : '균형 상태';
+                                                return (
+                                                    <div>
+                                                        <div className="flex items-baseline gap-1">
+                                                            <span className={`text-lg font-black ${color}`}>{concentration}%</span>
+                                                            <span className={`text-xs font-semibold ${color}`}>{label}</span>
+                                                        </div>
+                                                        <div className="text-[9px] text-white mt-0.5">{desc}</div>
+                                                    </div>
+                                                );
+                                            })()}
                                         </div>
 
                                         {/* Squeeze Risk */}
@@ -1308,27 +1321,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <span className="text-[9px] text-white/80 font-bold uppercase">Squeeze Risk</span>
                                             </div>
                                             {(() => {
-                                                // [SYNC] FlowRadar와 동일한 기준 적용
-                                                // 주의: stockApi는 시장 관점 (콜+, 풋-), FlowRadar는 딜러 관점 (콜-, 풋+)
-                                                // stockApi에서 netGex > 0 = 콜 우세 = 딜러 숏콜 = 숏감마
-                                                const zeroDte = structure?.gexZeroDteRatio || 0;
-                                                const isShortGamma = (structure?.netGex || 0) > 0; // ← 부호 반전!
-
-                                                // 점수 계산 (FlowRadar 모델 간소화)
-                                                let score = 0;
-                                                if (isShortGamma) score += 35; // 숏감마
-                                                else score += 5; // 롱감마
-                                                if (zeroDte > 0.3) score += 20; // 0DTE 높음
-                                                else if (zeroDte > 0.1) score += 10; // 0DTE 중간
-
-                                                // FlowRadar와 동일한 threshold
-                                                const risk = score >= 70 ? "EXTREME"
-                                                    : score >= 45 ? "HIGH"
-                                                        : score >= 20 ? "MODERATE" : "LOW";
+                                                // [V45.17] Use server-calculated squeezeRisk (SSOT)
+                                                const risk = structure?.squeezeRisk || 'LOW';
+                                                const score = structure?.squeezeScore ?? 0;
                                                 const color = risk === "EXTREME" ? "text-rose-400"
                                                     : risk === "HIGH" ? "text-amber-400"
-                                                        : risk === "MODERATE" ? "text-yellow-400" : "text-emerald-400";
-                                                return <div className={`text-lg font-black ${color}`}>{risk}</div>;
+                                                        : risk === "MEDIUM" ? "text-yellow-400" : "text-emerald-400";
+                                                return (
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className={`text-lg font-black ${color}`}>{risk}</span>
+                                                        <span className="text-xs text-white/60 font-semibold">({score})</span>
+                                                    </div>
+                                                );
                                             })()}
                                         </div>
                                     </div>

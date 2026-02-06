@@ -3,7 +3,57 @@
 // Handles timezone-aware market day calculations for non-trading day fallback
 
 /**
+ * Get current time components in ET (Eastern Time)
+ * Returns an object with year, month, day, hour, minute, dayOfWeek
+ * This avoids the Date re-parsing bug that occurs with new Date(etString)
+ */
+export function getETComponents(date: Date = new Date()): {
+    year: number;
+    month: number;
+    day: number;
+    hour: number;
+    minute: number;
+    dayOfWeek: number;
+} {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        weekday: 'short'
+    });
+
+    const parts = formatter.formatToParts(date);
+    const get = (type: string) => parts.find(p => p.type === type)?.value || '';
+
+    const dayMap: Record<string, number> = {
+        'Sun': 0, 'Mon': 1, 'Tue': 2, 'Wed': 3, 'Thu': 4, 'Fri': 5, 'Sat': 6
+    };
+
+    return {
+        year: parseInt(get('year')),
+        month: parseInt(get('month')),
+        day: parseInt(get('day')),
+        hour: parseInt(get('hour')),
+        minute: parseInt(get('minute')),
+        dayOfWeek: dayMap[get('weekday')] ?? 0
+    };
+}
+
+/**
+ * Get current date in ET as YYYY-MM-DD string (reliable method)
+ */
+export function getTodayETString(date: Date = new Date()): string {
+    const et = getETComponents(date);
+    return `${et.year}-${String(et.month).padStart(2, '0')}-${String(et.day).padStart(2, '0')}`;
+}
+
+/**
  * Get current time in ET (Eastern Time)
+ * @deprecated Use getETComponents() for reliable timezone handling
  */
 export function getETNow(): Date {
     // Create a date string in ET, then parse back
