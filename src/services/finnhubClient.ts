@@ -36,6 +36,15 @@ export interface InsiderTransaction {
     transactionPrice: number;
 }
 
+export interface PriceTarget {
+    lastUpdated: string;
+    symbol: string;
+    targetHigh: number;
+    targetLow: number;
+    targetMean: number;
+    targetMedian: number;
+}
+
 async function fetchFinnhub<T>(endpoint: string, params: Record<string, string> = {}): Promise<T | null> {
     if (!FINNHUB_API_KEY) {
         console.warn('[FinnhubClient] API key not configured');
@@ -132,3 +141,12 @@ export async function getInsiderTransactions(symbol: string): Promise<InsiderTra
     const data = await fetchFinnhub<{ data: InsiderTransaction[] }>('/stock/insider-transactions', { symbol });
     return data?.data || [];
 }
+
+/**
+ * Get analyst price target consensus
+ * Returns targetHigh, targetLow, targetMean, targetMedian
+ */
+export async function getPriceTarget(symbol: string): Promise<PriceTarget | null> {
+    return fetchFinnhub<PriceTarget>('/stock/price-target', { symbol });
+}
+
