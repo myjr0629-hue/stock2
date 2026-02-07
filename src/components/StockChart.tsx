@@ -355,7 +355,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     };
 
     return (
-        <Card className="shadow-none border border-slate-800 bg-[#0b1219] rounded-md overflow-hidden relative">
+        <Card className="shadow-none border border-slate-800 bg-[#0b1219] rounded-md overflow-hidden relative h-full">
             {/* Loading Overlay */}
             {loading && (
                 <div className="absolute inset-0 bg-[#0b1219]/80 backdrop-blur-sm z-50 flex items-center justify-center">

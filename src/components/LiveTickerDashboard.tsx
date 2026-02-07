@@ -19,7 +19,7 @@ import { useTranslations, useLocale } from 'next-intl';
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
     ssr: false,
     loading: () => (
-        <div className="h-[500px] flex items-center justify-center bg-slate-900/40 rounded-md border border-white/10">
+        <div className="h-full flex items-center justify-center bg-[#0b1219] rounded-md border border-slate-800">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
         </div>
     )
