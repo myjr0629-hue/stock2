@@ -1014,6 +1014,12 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
         hour12: false
       });
 
+      // [FIX] ET day-of-week formatter for weekend detection
+      const etDayFormatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        weekday: 'short'
+      });
+
       // [S-53.9] SSOT Session Classifier
       const classifyPoint = (date: Date): {
         session: 'PRE' | 'REG' | 'POST' | 'CLOSED',
@@ -1033,7 +1039,13 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
         const etFormatted = `${month}/${day} ${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')} ET`;
         const etTime = hour + minute / 60;
 
-        // [S-53.9] Hard Cut: Only 04:00-20:00 allowed
+        // [FIX] Weekend detection — ET 기준 요일 확인 (Sat/Sun = CLOSED)
+        const etDayOfWeek = etDayFormatter.format(date); // "Sat", "Sun", "Mon", etc.
+        if (etDayOfWeek === 'Sat' || etDayOfWeek === 'Sun') {
+          return { session: 'CLOSED', etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
+        }
+
+        // [S-53.9] Hard Cut: Only 04:00-20:00 allowed (weekdays only)
         let session: 'PRE' | 'REG' | 'POST' | 'CLOSED';
         if (hour < 4) {
           session = 'CLOSED'; // 00:00-03:59 - HARD DROP
@@ -1162,15 +1174,14 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       // [Pre-Market Fix] Filter to target day first
       let todayData = processed.filter((p: any) => p.etDate === targetTradingDayET);
 
-      // [Pre-Market Fix] If today's data is too sparse (< 5 points), show previous trading day
-      // This ensures sparkline charts have meaningful data during early pre-market
+      // [FIX] Fallback to previous trading day when data is insufficient
+      // Applies to ALL sessions (weekends, holidays, early pre-market, etc.)
       const MIN_SPARKLINE_POINTS = 5;
-      // [S-66] Also fallback during CLOSED session (weekends/after-hours)
-      if (todayData.length < MIN_SPARKLINE_POINTS && (currentClassified.session === 'PRE' || currentClassified.session === 'CLOSED')) {
+      if (todayData.length < MIN_SPARKLINE_POINTS) {
         // Find previous trading day from available dates
         const previousDayET = uniqueDates.find(d => d < targetTradingDayET);
         if (previousDayET) {
-          console.log(`[1D Chart ${currentClassified.session}] Today has only ${todayData.length} points, showing previous day: ${previousDayET}`);
+          console.log(`[1D Chart ${currentClassified.session}] Target ${targetTradingDayET} has only ${todayData.length} points, falling back to: ${previousDayET}`);
           finalProcessed = processed.filter((p: any) => p.etDate === previousDayET);
         } else {
           finalProcessed = todayData; // No fallback available
