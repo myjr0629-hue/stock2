@@ -8,7 +8,7 @@ interface CommandInsightProps {
     structure: any;
     liveQuote: any;
     newsScore: { score: number; label: string } | null;
-    macdData: { signal: string; label: string; histogram: number } | null;
+    smaData: { cross: string; crossType: string; label: string; sma50: number; sma200: number; distance: number; isImminent: boolean; phase: string } | null;
     session: string;
 }
 
@@ -26,7 +26,7 @@ export function CommandInsight({
     structure,
     liveQuote,
     newsScore,
-    macdData,
+    smaData,
     session
 }: CommandInsightProps) {
 
@@ -82,14 +82,14 @@ export function CommandInsight({
         }
     }
 
-    // 4. MACD Signal
-    if (macdData) {
-        if (macdData.signal === 'BUY') {
+    // 4. SMA Trend (replaces MACD)
+    if (smaData) {
+        if (smaData.cross === 'GOLDEN') {
             bullScore += 20;
-            factors.push({ label: 'MACD 매수', status: 'positive' });
-        } else if (macdData.signal === 'SELL') {
+            factors.push({ label: 'Golden Cross', status: 'positive' });
+        } else if (smaData.cross === 'DEAD') {
             bearScore += 20;
-            factors.push({ label: 'MACD 매도', status: 'negative' });
+            factors.push({ label: 'Dead Cross', status: 'negative' });
         }
     }
 
@@ -141,16 +141,16 @@ export function CommandInsight({
     if (optionsStatus !== 'OK') {
         briefing = `${ticker} 옵션 데이터 검증 중입니다. 데이터 안정화 후 분석이 가능합니다.`;
     } else if (verdict === 'BULLISH') {
-        if (macdData?.signal === 'BUY' && netGex > 0) {
-            briefing = `${ticker}은 MACD 매수신호와 롱감마 환경에서 안정적 상승 흐름입니다. 저항선($${callWall || '---'}) 테스트 가능성이 있습니다.`;
+        if (smaData?.cross === 'GOLDEN' && netGex > 0) {
+            briefing = `${ticker}은 Golden Cross와 롱감마 환경에서 안정적 상승 흐름입니다. 저항선($${callWall || '---'}) 테스트 가능성이 있습니다.`;
         } else if (displayPrice > maxPain && netPremium > 0) {
             briefing = `${ticker}은 Max Pain($${maxPain}) 위에서 콜 플로우 우위로 상승 모멘텀이 유지되고 있습니다.`;
         } else {
             briefing = `${ticker}은 복합 지표상 상승 편향입니다. 지지선($${putFloor || '---'})이 하방 방어 역할을 합니다.`;
         }
     } else if (verdict === 'BEARISH') {
-        if (macdData?.signal === 'SELL' && displayPrice < putFloor) {
-            briefing = `${ticker}은 MACD 매도신호와 함께 지지선($${putFloor}) 하단에서 거래 중입니다. 추가 하락 압력이 있습니다.`;
+        if (smaData?.cross === 'DEAD' && displayPrice < putFloor) {
+            briefing = `${ticker}은 Dead Cross와 함께 지지선($${putFloor}) 하단에서 거래 중입니다. 추가 하락 압력이 있습니다.`;
         } else if (netGex < 0 && zeroDteRatio > 0.3) {
             briefing = `${ticker}은 숏감마 + 0DTE 고비중으로 변동성 확대 구간입니다. 급격한 움직임에 주의하세요.`;
         } else {
@@ -206,8 +206,8 @@ export function CommandInsight({
                         <span
                             key={i}
                             className={`text-[10px] font-bold px-2 py-0.5 rounded ${f.status === 'positive' ? 'bg-emerald-500/20 text-emerald-400' :
-                                    f.status === 'negative' ? 'bg-rose-500/20 text-rose-400' :
-                                        'bg-slate-600/30 text-slate-400'
+                                f.status === 'negative' ? 'bg-rose-500/20 text-rose-400' :
+                                    'bg-slate-600/30 text-slate-400'
                                 }`}
                         >
                             {f.label}

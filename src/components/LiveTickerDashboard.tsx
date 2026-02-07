@@ -42,7 +42,7 @@ interface Props {
     chartDiagnostics?: ChartDiagnostics; // [S-56.4.7] No-Silence UX
 }
 
-const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, macdData, newsScore, liveQuote }: any) => {
+const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaData, newsScore, liveQuote }: any) => {
     const t = useTranslations('command');
 
     // === Data Completeness Check (only structure is required) ===
@@ -93,13 +93,13 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, macdDa
     let bullScore = 0, bearScore = 0;
     const insights: { text: string; type: 'bull' | 'bear' | 'neutral' }[] = [];
 
-    // 1. MACD
-    if (macdData?.signal === 'BUY') {
+    // 1. SMA Trend (replaces MACD)
+    if (smaData?.cross === 'GOLDEN') {
         bullScore += 25;
-        insights.push({ text: 'MACD 매수신호', type: 'bull' });
-    } else if (macdData?.signal === 'SELL') {
+        insights.push({ text: 'GOLDEN Cross ✨', type: 'bull' });
+    } else if (smaData?.cross === 'DEAD') {
         bearScore += 25;
-        insights.push({ text: 'MACD 매도신호', type: 'bear' });
+        insights.push({ text: 'DEAD Cross ☠️', type: 'bear' });
     }
 
     // 2. Price vs Max Pain
@@ -174,21 +174,21 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, macdDa
     } else if (diff >= 25) {
         verdict = 'BULLISH';
         verdictKR = '상승';
-        if (netGex > 0 && macdData?.signal === 'BUY') {
-            briefing = `${ticker}은 롱감마 환경에서 MACD 매수신호가 발생했습니다.`;
+        if (netGex > 0 && smaData?.cross === 'GOLDEN') {
+            briefing = `${ticker}은 롱감마 환경에서 Golden Cross가 확인되었습니다.`;
             subBriefing = `딜러들의 감마 헷징으로 변동성이 억제되어 안정적인 상승 흐름이 예상됩니다. 저항선($${callWall})까지 상승 여력이 있으며, 지지선($${putFloor})이 하방을 방어합니다.`;
         } else if (netPremium > 500000) {
             briefing = `${ticker}에 콜 옵션 매수세가 우위를 보이고 있습니다.`;
             subBriefing = `기관 플로우가 상승 방향으로 정렬되어 있으며, Max Pain($${maxPain}) 위에서 거래 중입니다. 저항선($${callWall}) 테스트 가능성이 높습니다.`;
         } else {
             briefing = `${ticker}은 복합 지표상 상승 우위입니다.`;
-            subBriefing = `MACD, 옵션 구조, 플로우 데이터가 전반적으로 상승 편향을 보이고 있습니다. 지지선($${putFloor})이 견고하며 추가 상승 여력이 있습니다.`;
+            subBriefing = `SMA, 옵션 구조, 플로우 데이터가 전반적으로 상승 편향을 보이고 있습니다. 지지선($${putFloor})이 견고하며 추가 상승 여력이 있습니다.`;
         }
     } else if (diff <= -25) {
         verdict = 'BEARISH';
         verdictKR = '하락';
-        if (macdData?.signal === 'SELL' && netGex < 0) {
-            briefing = `${ticker}은 숏감마 환경에서 MACD 매도신호가 발생했습니다.`;
+        if (smaData?.cross === 'DEAD' && netGex < 0) {
+            briefing = `${ticker}은 숙감마 환경에서 Dead Cross가 확인되었습니다.`;
             subBriefing = `딜러들의 역방향 헷징으로 가격 변동이 증폭될 수 있습니다. Max Pain($${maxPain})으로의 수렴 압력이 있으며, 지지선($${putFloor}) 이탈 시 하락 가속 가능성이 있습니다.`;
         } else if (netPremium < -500000) {
             briefing = `${ticker}에 풋 옵션 매수세가 우위를 보이고 있습니다.`;
@@ -290,7 +290,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [S-124.6] Quick Intel Gauges State
     const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
     const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string } | null>(null);
-    const [macdData, setMacdData] = useState<{ signal: string; label: string; histogram: number } | null>(null);
+    const [smaData, setSmaData] = useState<{ cross: string; crossType: string; label: string; sma50: number; sma200: number; distance: number; isImminent: boolean; phase: string } | null>(null);
+    const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(null);
 
 
@@ -477,19 +478,66 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         } catch (e) { console.warn('[Earnings] Error:', e); }
     };
 
-    // [S-124.6] Fetch MACD Signal
-    const fetchMacd = async () => {
+    // [PREMIUM] Fetch SMA 50/200 for TREND PHASE™
+    const fetchSma = async () => {
         try {
-            const res = await fetch(`/api/live/macd?t=${ticker}`);
+            const res = await fetch(`/api/live/sma?t=${ticker}`);
             if (res.ok) {
                 const data = await res.json();
-                setMacdData({
-                    signal: data.signal || 'NEUTRAL',
-                    label: data.label || '중립',
-                    histogram: data.histogram || 0
+                setSmaData({
+                    cross: data.cross || 'UNKNOWN',
+                    crossType: data.crossType || '',
+                    label: data.label || '데이터없음',
+                    sma50: data.sma50 || 0,
+                    sma200: data.sma200 || 0,
+                    distance: data.distance || 0,
+                    isImminent: data.isImminent || false,
+                    phase: data.phase || 'UNKNOWN'
                 });
             }
-        } catch (e) { console.warn('[MACD] Error:', e); }
+        } catch (e) { console.warn('[SMA] Error:', e); }
+    };
+
+    // [PREMIUM] Conviction Matrix: 클라이언트 사이드 융합 점수 (API 호출 없음)
+    const calculateConviction = () => {
+        let score = 50; // 기본 중립
+        // SMA Trend
+        if (smaData?.cross === 'GOLDEN') score += 15;
+        else if (smaData?.cross === 'DEAD') score -= 15;
+        // News
+        if (newsScore && newsScore.score >= 70) score += 10;
+        else if (newsScore && newsScore.score < 40) score -= 10;
+        // VWAP
+        const vwap = liveQuote?.prices?.vwap || initialStockData?.vwap || 0;
+        const price = displayPrice || 0;
+        if (vwap > 0 && price > 0) {
+            const vwapDiff = ((price - vwap) / vwap) * 100;
+            if (vwapDiff > 1) score += 8;
+            else if (vwapDiff < -1) score -= 8;
+        }
+        // PCR
+        const pcr = structure?.pcRatio || 0;
+        if (pcr > 0 && pcr < 0.7) score += 7; // 낮은 PCR = 콜 우세
+        else if (pcr > 1.2) score -= 7; // 높은 PCR = 풋 우세
+        // GEX
+        const netGex = structure?.netGex || 0;
+        if (netGex > 0) score += 5;
+        else if (netGex < 0) score -= 5;
+        // Flow
+        const netPrem = liveQuote?.flow?.netPremium || 0;
+        if (netPrem > 500000) score += 5;
+        else if (netPrem < -500000) score -= 5;
+        // Clamp
+        score = Math.max(0, Math.min(100, score));
+        let label = '관망'; let grade = 'C';
+        if (score >= 80) { label = '강한 확신'; grade = 'A'; }
+        else if (score >= 65) { label = '상승 우위'; grade = 'B+'; }
+        else if (score >= 55) { label = '약간 상승'; grade = 'B'; }
+        else if (score >= 45) { label = '관망'; grade = 'C'; }
+        else if (score >= 35) { label = '약간 하락'; grade = 'D'; }
+        else if (score >= 20) { label = '하락 우위'; grade = 'D-'; }
+        else { label = '강한 하락'; grade = 'F'; }
+        setConviction({ score, label, grade });
     };
 
     // [S-124.6] Fetch Related Tickers
@@ -511,13 +559,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         fetchQuote();
         fetchNewsAndScore(); // [PERF] 통합: fetchKrNews + fetchNewsScore → 1회 호출
         fetchEarnings();
-        fetchMacd();
+        fetchSma();
         fetchRelated();
         const interval = setInterval(fetchQuote, 10000); // Poll quote every 10s
         return () => {
             clearInterval(interval);
         };
     }, [ticker]);
+
+    // [PREMIUM] Recalculate conviction when dependencies change
+    useEffect(() => {
+        calculateConviction();
+    }, [smaData, newsScore, liveQuote, structure]);
 
     useEffect(() => {
         // [FIX] Reset structure state when ticker changes to prevent stale data
@@ -768,9 +821,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             </div>
 
             {/* [S-124.6] Quick Intel Gauges Bar - Clean/Bright Design */}
-            <div className="grid grid-cols-5 gap-2 mt-4 mb-4">
+            <div className="grid grid-cols-6 gap-2 mt-4 mb-4">
                 {/* News Sentiment Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
+                <div className={`relative overflow-hidden rounded-lg p-2.5 transition-all duration-500 ${newsScore && newsScore.score >= 75 ? 'bg-emerald-950/40 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.12)]'
+                    : newsScore && newsScore.score <= 25 ? 'bg-rose-950/40 border border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]'
+                        : 'bg-slate-800/80 border border-slate-700/50'
+                    }`}>
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <Newspaper className="w-4 h-4 text-amber-400" />
@@ -804,8 +860,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     )}
                 </div>
 
-                {/* SEC Risk Factors Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
+                {/* Earnings Gauge */}
+                <div className={`relative overflow-hidden rounded-lg p-2.5 transition-all duration-500 ${earningsData && earningsData.daysLabel && parseInt(earningsData.daysLabel) <= 3 && parseInt(earningsData.daysLabel) >= 0
+                    ? 'bg-amber-950/40 border border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]'
+                    : 'bg-slate-800/80 border border-slate-700/50'
+                    }`}>
                     <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-1.5">
                             <Activity className="w-4 h-4 text-cyan-400" />
@@ -827,57 +886,77 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
 
                 {/* VWAP Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-1.5">
-                            <Activity className="w-4 h-4 text-indigo-400" />
-                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">VWAP</span>
-                        </div>
-                        {(() => {
-                            const vwap = liveQuote?.prices?.vwap || initialStockData.vwap || 0;
-                            const price = displayPrice || 0;
-                            const diff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
-                            return (
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${diff > 0 ? 'bg-emerald-500/20 text-emerald-400' : diff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>
-                                    {diff > 0 ? `+${diff.toFixed(1)}%` : `${diff.toFixed(1)}%`}
-                                </span>
-                            );
-                        })()}
-                    </div>
-                    {(() => {
-                        const vwap = liveQuote?.prices?.vwap || initialStockData.vwap || 0;
-                        const price = displayPrice || 0;
-                        const diff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
-                        return (
-                            <div className="flex items-center justify-center">
-                                <div className="text-center">
-                                    <div className={`text-xl font-black font-mono ${diff > 0 ? 'text-emerald-400' : diff < 0 ? 'text-rose-400' : 'text-white'}`}>
-                                        ${vwap.toFixed(2)}
-                                    </div>
-                                    <div className="text-[10px] text-white">거래량 가중평균</div>
+                {(() => {
+                    const vwap = liveQuote?.prices?.vwap || initialStockData?.vwap || 0;
+                    const price = displayPrice || 0;
+                    const vwapDiff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
+                    return (
+                        <div className={`relative overflow-hidden rounded-lg p-2.5 transition-all duration-500 ${vwapDiff > 2 ? 'bg-emerald-950/40 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.12)]'
+                            : vwapDiff < -2 ? 'bg-rose-950/40 border border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]'
+                                : 'bg-slate-800/80 border border-slate-700/50'
+                            }`}>
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="flex items-center gap-1.5">
+                                    <Activity className="w-4 h-4 text-indigo-400" />
+                                    <span className="text-[10px] font-bold text-white uppercase tracking-wider">VWAP</span>
                                 </div>
+                                {(() => {
+                                    const vwap = liveQuote?.prices?.vwap || initialStockData?.vwap || 0;
+                                    const price = displayPrice || 0;
+                                    const diff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
+                                    return (
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${diff > 0 ? 'bg-emerald-500/20 text-emerald-400' : diff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>
+                                            {diff > 0 ? `+${diff.toFixed(1)}%` : `${diff.toFixed(1)}%`}
+                                        </span>
+                                    );
+                                })()}
                             </div>
-                        );
-                    })()}
-                </div>
+                            {(() => {
+                                const vwap = liveQuote?.prices?.vwap || initialStockData?.vwap || 0;
+                                const price = displayPrice || 0;
+                                const diff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
+                                return (
+                                    <div className="flex items-center justify-center">
+                                        <div className="text-center">
+                                            <div className={`text-xl font-black font-mono ${diff > 0 ? 'text-emerald-400' : diff < 0 ? 'text-rose-400' : 'text-white'}`}>
+                                                ${vwap.toFixed(2)}
+                                            </div>
+                                            <div className="text-[10px] text-white">거래량 가중평균</div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
+                        </div>
+                    );
+                })()}
 
-                {/* MACD Signal Gauge */}
-                <div className="bg-slate-800/80 border border-slate-700/50 rounded-lg p-2.5">
+                {/* [PREMIUM] TREND PHASE™ (SMA 50/200 Golden/Dead Cross) */}
+                <div className={`relative overflow-hidden rounded-lg p-2.5 transition-all duration-500 ${smaData?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)]'
+                    : smaData?.cross === 'DEAD' ? 'bg-rose-950/40 border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]'
+                        : 'bg-slate-800/80 border border-slate-700/50'
+                    }`}>
                     <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                             <TrendingUp className="w-4 h-4 text-cyan-400" />
-                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">MACD</span>
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">TREND</span>
                         </div>
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${macdData?.signal === 'BUY' ? 'bg-emerald-500/20 text-emerald-400' : macdData?.signal === 'SELL' ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>
-                            {macdData?.label || '...'}
-                        </span>
+                        {smaData?.crossType === 'NEW' && (
+                            <span className="text-[8px] font-black px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-300 animate-pulse">NEW!</span>
+                        )}
                     </div>
                     <div className="flex items-center justify-center">
                         <div className="text-center">
-                            <div className={`text-xl font-black ${macdData?.signal === 'BUY' ? 'text-emerald-400' : macdData?.signal === 'SELL' ? 'text-rose-400' : 'text-white'}`}>
-                                {macdData?.signal || '--'}
+                            <div className={`text-lg font-black ${smaData?.cross === 'GOLDEN' ? 'text-emerald-400' : smaData?.cross === 'DEAD' ? 'text-rose-400' : 'text-white'
+                                }`}>
+                                {smaData?.cross === 'GOLDEN' ? 'GOLDEN ✨' : smaData?.cross === 'DEAD' ? 'DEAD ☠️' : smaData?.label || '--'}
                             </div>
-                            <div className="text-[10px] text-white">히스토그램: {macdData?.histogram?.toFixed(2) || '--'}</div>
+                            <div className="text-[10px] text-white/70">{smaData?.label || '로딩중...'}</div>
+                            {smaData && smaData.distance !== null && (
+                                <div className={`text-[9px] font-bold mt-0.5 ${smaData.distance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    Gap {smaData.distance > 0 ? '+' : ''}{smaData.distance}%
+                                    {smaData.isImminent && <span className="ml-1 text-amber-400">⚡임박</span>}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -913,6 +992,37 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             <div className="text-[9px] text-white/50 text-center">로딩중...</div>
                         )}
                     </div>
+                </div>
+
+                {/* [PREMIUM] CONVICTION MATRIX™ */}
+                <div className={`relative overflow-hidden rounded-lg p-2.5 transition-all duration-500 ${conviction && conviction.score >= 70 ? 'bg-emerald-950/40 border border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.12)]'
+                    : conviction && conviction.score <= 30 ? 'bg-rose-950/40 border border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]'
+                        : 'bg-slate-800/80 border border-slate-700/50'
+                    }`}>
+                    <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5">
+                            <Target className="w-4 h-4 text-amber-400" />
+                            <span className="text-[10px] font-bold text-white uppercase tracking-wider">CONVICTION</span>
+                        </div>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${conviction && conviction.score >= 60 ? 'bg-emerald-500/20 text-emerald-400'
+                            : conviction && conviction.score <= 40 ? 'bg-rose-500/20 text-rose-400'
+                                : 'bg-slate-600/50 text-white'
+                            }`}>{conviction?.grade || '...'}</span>
+                    </div>
+                    <div className="flex items-center justify-center">
+                        <svg width="80" height="45" viewBox="0 0 100 55" className="overflow-visible">
+                            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" strokeLinecap="round" />
+                            <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none"
+                                stroke={conviction && conviction.score >= 60 ? '#10b981' : conviction && conviction.score <= 40 ? '#f43f5e' : '#f59e0b'}
+                                strokeWidth="8" strokeLinecap="round"
+                                strokeDasharray={Math.PI * 40}
+                                strokeDashoffset={Math.PI * 40 - (Math.PI * 40 * (conviction?.score || 50) / 100)}
+                                style={{ transition: 'stroke-dashoffset 1s' }}
+                            />
+                            <text x="50" y="42" textAnchor="middle" className="fill-white text-lg font-black">{conviction?.score || '--'}</text>
+                        </svg>
+                    </div>
+                    <div className="text-[10px] text-center text-white/70 mt-0.5">{conviction?.label || '계산중...'}</div>
                 </div>
             </div>
 
@@ -1493,7 +1603,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 session={effectiveSession}
                                 structure={structure}
                                 krNews={krNews}
-                                macdData={macdData}
+                                smaData={smaData}
                                 newsScore={newsScore}
                                 liveQuote={liveQuote}
                             />
