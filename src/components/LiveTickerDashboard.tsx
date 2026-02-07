@@ -337,7 +337,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     };
 
     const fetchStructure = async (exp?: string, maxRetries: number = 3) => {
-        setStructLoading(true);
+        // [FIX] 기존 데이터가 있으면 로딩 오버레이 표시 안함 (깜빡임 방지)
+        if (!structure) setStructLoading(true);
         let retryCount = 0;
 
         const attemptFetch = async (): Promise<any> => {
@@ -924,8 +925,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
                             <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
-                                {/* Loading Overlay */}
-                                {structLoading && (
+                                {/* Loading Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
+                                {structLoading && !structure && (
                                     <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
                                         <div className="flex flex-col items-center gap-2">
                                             <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
@@ -1059,8 +1060,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* 2. NET GAMMA ENGINE (Infographic Style) */}
                             <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
-                                {/* Loading Overlay */}
-                                {structLoading && (
+                                {/* Loading Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
+                                {structLoading && !structure && (
                                     <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
                                         <div className="flex flex-col items-center gap-2">
                                             <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
