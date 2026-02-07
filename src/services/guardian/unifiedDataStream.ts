@@ -339,6 +339,24 @@ export class GuardianDataHub {
 
                 try {
                     // [PERFORMANCE] Parallel AI Generation - saves ~1s
+                    // [V6.0] Build 5-day rotation context for AI
+                    const ri = rotationIntensity;
+                    const formatTopFlows = (type: 'inflow' | 'outflow') => {
+                        const items = type === 'inflow' ? ri.topInflow : ri.topOutflow;
+                        return items.map(s => `${s.sector}(${s.flow > 0 ? '+' : ''}${s.flow.toFixed(1)}%)`).join(', ');
+                    };
+                    const detectBounceWarning = () => {
+                        return ri.bounceWarnings?.join(' | ') || undefined;
+                    };
+
+                    // [V6.1] Detect signal conflicts before AI context
+                    let signalConflict: string | undefined;
+                    if (rlsi.score >= 55 && nq > 0 && ri.direction === 'RISK_OFF' && ri.conviction === 'HIGH') {
+                        signalConflict = `겉은 강세(RLSI ${rlsi.score.toFixed(0)}, NQ +${nq.toFixed(2)}%), 속은 약세(${ri.direction} ${ri.conviction})`;
+                    } else if (rlsi.score <= 35 && nq < 0 && ri.direction === 'RISK_ON' && ri.conviction === 'HIGH') {
+                        signalConflict = `지표 약세(RLSI ${rlsi.score.toFixed(0)}, NQ ${nq.toFixed(2)}%), 성장주 유입(${ri.direction} ${ri.conviction})`;
+                    }
+
                     const aiContext = {
                         rlsiScore: rlsi.score,
                         nasdaqChange: macro?.nqChangePercent || 0,
@@ -356,7 +374,15 @@ export class GuardianDataHub {
                         breadthPct: rlsi.components?.breadthPct ?? undefined,
                         adRatio: rlsi.components?.adRatio ?? undefined,
                         volumeBreadth: rlsi.components?.volumeBreadth ?? undefined,
-                        breadthSignal: rlsi.components?.breadthSignal ?? undefined
+                        breadthSignal: rlsi.components?.breadthSignal ?? undefined,
+                        // [V6.0] Enhanced Rotation Intelligence
+                        rotationRegime: ri.regime,
+                        topInflow5d: ri.topInflow.length > 0 ? formatTopFlows('inflow') : undefined,
+                        topOutflow5d: ri.topOutflow.length > 0 ? formatTopFlows('outflow') : undefined,
+                        noiseWarning: ri.noiseFlags?.join(', ') || undefined,
+                        trendVsToday: detectBounceWarning(),
+                        rotationConviction: ri.conviction,
+                        signalConflict
                     };
 
                     const [rotationText, realityText] = await Promise.all([
@@ -397,10 +423,24 @@ export class GuardianDataHub {
 
             // === STEP 5: TRIPLE-A LOGIC (TARGET LOCK) ===
             // Alignment / Acceleration / Accumulation
-            // 1. Regime Detection
+            // 1. Regime Detection — [V6.1] Cross-validated with Rotation Direction
             let regime: 'BULL' | 'BEAR' | 'NEUTRAL' = 'NEUTRAL';
             if (rlsi.score >= 55 && nq > 0) regime = 'BULL';
             else if (rlsi.score <= 35 && nq < 0) regime = 'BEAR';
+
+            // [V6.1] Rotation Cross-Validation — prevent conflicting signals
+            const rotDir = rotationIntensity?.direction;
+            const rotConviction = rotationIntensity?.conviction;
+
+            if (regime === 'BULL' && rotDir === 'RISK_OFF' && rotConviction === 'HIGH') {
+                // "겉은 강세, 속은 약세" — surface bullish but money rotating to defense
+                regime = 'NEUTRAL';
+                console.log(`[Guardian V6.1] Regime BULL → NEUTRAL (RISK_OFF HIGH conviction override)`);
+            } else if (regime === 'BEAR' && rotDir === 'RISK_ON' && rotConviction === 'HIGH') {
+                // Surface bearish but money flowing into growth — potential bottom
+                regime = 'NEUTRAL';
+                console.log(`[Guardian V6.1] Regime BEAR → NEUTRAL (RISK_ON HIGH conviction override)`);
+            }
 
             // 2. Alignment (Market + Sector)
             // Is the flows target actually aligned with the market direction?
@@ -490,39 +530,42 @@ export class GuardianDataHub {
                 checklist // [V6.0]
             };
 
-            // [V6.0] Rule-based Market Verdict
+            // [V6.1] Rule-based Market Verdict — Rotation-aware
             const breadth = rotationIntensity?.breadth || 50;
             let ruleVerdict: MarketVerdict;
 
-            if (rlsi.score >= 60 && rotationIntensity?.direction === 'RISK_ON') {
+            if (rlsi.score >= 60 && rotDir === 'RISK_ON') {
+                // Strong RLSI + growth rotation → confident bullish
                 ruleVerdict = {
                     status: 'BULLISH',
                     headline: RULE_VERDICT_TEXTS[locale].bullish.headline,
                     keyMetrics: [
                         `RLSI ${rlsi.score.toFixed(0)} (${RULE_VERDICT_TEXTS[locale].riskScore})`,
-                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotationIntensity.direction}`,
+                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotDir}`,
                         `NASDAQ ${nq > 0 ? '+' : ''}${nq.toFixed(2)}%`
                     ],
                     action: RULE_VERDICT_TEXTS[locale].bullish.action
                 };
-            } else if (rlsi.score <= 35 || rotationIntensity?.direction === 'RISK_OFF') {
+            } else if (rlsi.score <= 35 || (rotDir === 'RISK_OFF' && rotConviction === 'HIGH')) {
+                // RLSI danger zone OR high-conviction defensive rotation → bearish
                 ruleVerdict = {
                     status: 'BEARISH',
                     headline: RULE_VERDICT_TEXTS[locale].bearish.headline,
                     keyMetrics: [
-                        `RLSI ${rlsi.score.toFixed(0)} (${RULE_VERDICT_TEXTS[locale].dangerScore})`,
-                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotationIntensity?.direction || 'N/A'}`,
+                        `RLSI ${rlsi.score.toFixed(0)} (${rotConviction === 'HIGH' ? RULE_VERDICT_TEXTS[locale].dangerScore : RULE_VERDICT_TEXTS[locale].riskScore})`,
+                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotDir || 'N/A'} (${rotConviction || 'N/A'})`,
                         `${RULE_VERDICT_TEXTS[locale].advanceRatio} ${breadth.toFixed(0)}%`
                     ],
                     action: RULE_VERDICT_TEXTS[locale].bearish.action
                 };
             } else {
+                // Mixed or insufficient signal → neutral/standby
                 ruleVerdict = {
                     status: 'NEUTRAL',
                     headline: RULE_VERDICT_TEXTS[locale].neutral.headline,
                     keyMetrics: [
                         `RLSI ${rlsi.score.toFixed(0)}`,
-                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotationIntensity?.direction || 'NEUTRAL'}`,
+                        `${RULE_VERDICT_TEXTS[locale].rotation}: ${rotDir || 'NEUTRAL'} (${rotConviction || 'N/A'})`,
                         `Breadth ${breadth.toFixed(0)}%`
                     ],
                     action: RULE_VERDICT_TEXTS[locale].neutral.action

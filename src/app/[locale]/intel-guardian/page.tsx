@@ -99,6 +99,26 @@ interface GuardianContext {
     verdictSourceId: string | null;
     verdictTargetId: string | null;
     marketStatus: 'GO' | 'WAIT' | 'STOP';
+    rotationIntensity?: {
+        score: number;
+        direction: 'RISK_ON' | 'RISK_OFF' | 'NEUTRAL';
+        topInflow: { sector: string; flow: number }[];
+        topOutflow: { sector: string; flow: number }[];
+        breadth: number;
+        conviction: 'HIGH' | 'MEDIUM' | 'LOW';
+        regime: string;
+        fiveDayData?: Record<string, {
+            changes: number[];
+            cumReturn: number;
+            rvol: number;
+            consistency: number;
+            flowScore: number;
+            todayChange: number;
+            isBounce: boolean;
+        }>;
+        noiseFlags?: string[];
+        bounceWarnings?: string[];
+    };
     breadth?: {
         advancers: number;
         decliners: number;
@@ -267,10 +287,22 @@ export default function GuardianPage() {
 
                     {/* LEFT: MAP (Cols 1-8) */}
                     <div className={`col-span-12 lg:col-span-8 bg-[#0a0e14] border rounded-lg relative overflow-hidden group flex flex-col transition-all duration-500 ${mapBorderClass}`}>
-                        <div className="absolute top-6 left-6 z-10">
+                        <div className="absolute top-6 left-6 z-10 flex items-center gap-3">
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block">
                                 Flow Topography Map v3.0
                             </h3>
+                            {/* [V6.0] Rotation Regime Badge */}
+                            {data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
+                                <span className={`text-[9px] font-bold tracking-wider px-2 py-0.5 rounded border ${data.rotationIntensity.regime === 'RISK_ON_GROWTH' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' :
+                                    data.rotationIntensity.regime === 'RISK_OFF_DEFENSE' ? 'bg-rose-950/80 text-rose-400 border-rose-500/30' :
+                                        data.rotationIntensity.regime === 'CYCLICAL_RECOVERY' ? 'bg-amber-950/80 text-amber-400 border-amber-500/30' :
+                                            data.rotationIntensity.regime === 'BROAD_RALLY' ? 'bg-emerald-950/80 text-emerald-300 border-emerald-400/30' :
+                                                data.rotationIntensity.regime === 'BROAD_SELLOFF' ? 'bg-rose-950/80 text-rose-300 border-rose-400/30' :
+                                                    'bg-slate-800/80 text-slate-400 border-slate-600/30'
+                                    }`}>
+                                    {data.rotationIntensity.regime.replace(/_/g, ' ')}
+                                </span>
+                            )}
                         </div>
 
                         {/* [V3.0] TARGET LOCK HOLOGRAM OVERLAY - Positioned at bottom, animations disabled when market closed */}
@@ -340,7 +372,30 @@ export default function GuardianPage() {
                             </div>
 
                             {/* COMPACT METRICS */}
-                            <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-2 gap-4">
+                            <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-3 gap-3">
+                                {/* ROTATION - V6.0 Conviction Bar */}
+                                <div>
+                                    <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">ROTATION</div>
+                                    <div className="flex items-center gap-1.5">
+                                        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                            <div
+                                                className={`h-full rounded-full transition-all duration-700 ${(data?.rotationIntensity?.score || 0) >= 60 ? 'bg-emerald-400' :
+                                                    (data?.rotationIntensity?.score || 0) >= 35 ? 'bg-amber-400' : 'bg-rose-400'
+                                                    }`}
+                                                style={{ width: `${Math.min(100, data?.rotationIntensity?.score || 50)}%` }}
+                                            />
+                                        </div>
+                                        <span className="text-[10px] font-mono font-bold text-slate-300">
+                                            {(data?.rotationIntensity?.score || 50).toFixed(0)}%
+                                        </span>
+                                    </div>
+                                    <div className={`text-[8px] font-bold mt-0.5 tracking-wide ${data?.rotationIntensity?.direction === 'RISK_ON' ? 'text-emerald-400' :
+                                        data?.rotationIntensity?.direction === 'RISK_OFF' ? 'text-rose-400' : 'text-slate-400'
+                                        }`}>
+                                        {data?.rotationIntensity?.direction || 'NEUTRAL'} · {data?.rotationIntensity?.conviction || 'LOW'}
+                                    </div>
+                                </div>
+
                                 <div>
                                     <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">MOMENTUM</div>
                                     <div className="text-sm font-mono font-bold text-emerald-400">
@@ -377,12 +432,90 @@ export default function GuardianPage() {
                             <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
                                 {selectedSector ? (
                                     <div className="h-full flex flex-col">
-                                        <div className="flex justify-between items-baseline mb-4 flex-none">
+                                        <div className="flex justify-between items-baseline mb-3 flex-none">
                                             <span className="text-lg font-bold text-white">{selectedSector.name}</span>
                                             <span className={`text-xl font-mono ${selectedSector.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                 {selectedSector.change > 0 ? "+" : ""}{selectedSector.change.toFixed(2)}%
                                             </span>
                                         </div>
+
+                                        {/* [V6.0] 5-Day Trend Analysis Panel */}
+                                        {data?.rotationIntensity?.fiveDayData?.[selectedSectorId!] && (() => {
+                                            const td = data.rotationIntensity.fiveDayData![selectedSectorId!];
+                                            const dayLabels = ['D-4', 'D-3', 'D-2', 'D-1'];
+                                            const maxAbs = Math.max(...td.changes.map(Math.abs), 0.5);
+                                            const rvolLabel = td.rvol >= 1.5 ? '급증' : td.rvol >= 1.0 ? '활발' : td.rvol >= 0.7 ? '보통' : '저조';
+                                            const rvolColor = td.rvol >= 1.5 ? 'text-emerald-400' : td.rvol >= 1.0 ? 'text-cyan-400' : td.rvol >= 0.7 ? 'text-slate-400' : 'text-rose-400';
+                                            const consistencyLabel = td.consistency >= 0.75 ? '강한 추세' : td.consistency >= 0.5 ? '혼조' : '불안정';
+                                            const consistencyColor = td.consistency >= 0.75 ? 'text-emerald-400' : td.consistency >= 0.5 ? 'text-amber-400' : 'text-rose-400';
+
+                                            return (
+                                                <div className="mb-3 flex-none">
+                                                    {/* Header */}
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">5일 추세 분석</span>
+                                                        <span className={`text-xs font-mono font-bold ${td.cumReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                            {td.cumReturn > 0 ? '▲' : '▼'} {td.cumReturn > 0 ? '+' : ''}{td.cumReturn.toFixed(2)}%
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Daily Change Bars - Horizontal */}
+                                                    <div className="space-y-1.5 mb-3">
+                                                        {td.changes.map((c, i) => (
+                                                            <div key={i} className="flex items-center gap-2">
+                                                                <span className="text-[9px] text-slate-600 font-mono w-6 text-right shrink-0">{dayLabels[i] || `D${i}`}</span>
+                                                                <div className="flex-1 h-4 bg-slate-900 rounded overflow-hidden relative">
+                                                                    {/* Center line */}
+                                                                    <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-700/50" />
+                                                                    {/* Bar */}
+                                                                    <div
+                                                                        className={`absolute top-0.5 bottom-0.5 rounded-sm transition-all duration-500 ${c >= 0 ? 'bg-emerald-500/70' : 'bg-rose-500/70'
+                                                                            }`}
+                                                                        style={{
+                                                                            left: c >= 0 ? '50%' : `${50 - (Math.abs(c) / maxAbs) * 45}%`,
+                                                                            width: `${(Math.abs(c) / maxAbs) * 45}%`
+                                                                        }}
+                                                                    />
+                                                                </div>
+                                                                <span className={`text-[10px] font-mono font-bold w-12 text-right shrink-0 ${c >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                    {c > 0 ? '+' : ''}{c.toFixed(1)}%
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+
+                                                    {/* Metric Cards */}
+                                                    <div className="grid grid-cols-2 gap-2">
+                                                        {/* Volume Intensity */}
+                                                        <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
+                                                            <div className="text-[8px] text-slate-500 font-bold tracking-wider mb-1">거래량 강도</div>
+                                                            <div className="flex items-baseline gap-1.5">
+                                                                <span className={`text-sm font-mono font-bold ${rvolColor}`}>{td.rvol.toFixed(2)}x</span>
+                                                                <span className={`text-[9px] font-medium ${rvolColor}`}>{rvolLabel}</span>
+                                                            </div>
+                                                        </div>
+                                                        {/* Trend Consistency */}
+                                                        <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
+                                                            <div className="text-[8px] text-slate-500 font-bold tracking-wider mb-1">추세 일관성</div>
+                                                            <div className="flex items-baseline gap-1.5">
+                                                                <span className={`text-sm font-mono font-bold ${consistencyColor}`}>{(td.consistency * 100).toFixed(0)}%</span>
+                                                                <span className={`text-[9px] font-medium ${consistencyColor}`}>{consistencyLabel}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Bounce Warning */}
+                                                    {td.isBounce && (
+                                                        <div className="mt-2 flex items-center gap-2 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2">
+                                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                                                            <span className="text-[10px] text-amber-300 font-medium">
+                                                                노이즈 반등 — 오늘 {td.todayChange > 0 ? '+' : ''}{td.todayChange.toFixed(1)}% 이나 5일간 {td.cumReturn > 0 ? '+' : ''}{td.cumReturn.toFixed(1)}% 추세
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
 
                                         {/* LIVE TICKER TABLE */}
                                         <div className="space-y-1">

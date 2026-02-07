@@ -19,19 +19,336 @@ export interface FlowVector {
     rank: number; // 1, 2, 3
 }
 
-// [V5.0] Rotation Intensity Score (RIS)
-export interface RotationIntensity {
-    score: number;              // 0-100 순환매 강도
-    direction: 'RISK_ON' | 'RISK_OFF' | 'NEUTRAL';
-    topInflow: { sector: string; flow: number }[];  // 상위 유입 섹터
-    topOutflow: { sector: string; flow: number }[]; // 상위 유출 섹터
-    breadth: number;            // 전체 상승 섹터 비율 %
-    conviction: 'HIGH' | 'MEDIUM' | 'LOW';
+// [V6.0] Rotation Regime Classification
+export type RotationRegime = 'RISK_ON_GROWTH' | 'RISK_OFF_DEFENSE' | 'CYCLICAL_RECOVERY' | 'BROAD_RALLY' | 'BROAD_SELLOFF' | 'MIXED';
+
+// [V6.0] Per-Sector 5-Day Analysis
+export interface SectorTrendData {
+    changes: number[];       // 4 daily returns (day-over-day)
+    cumReturn: number;       // 5-day cumulative return
+    rvol: number;            // relative volume (recent vs avg)
+    consistency: number;     // direction consistency 0-1
+    flowScore: number;       // final weighted score
+    todayChange: number;     // today's single-day change
+    isBounce: boolean;       // today opposite to 5d trend
 }
 
-// [V5.0] Risk-On / Risk-Off Sector Classification
-const RISK_ON_SECTORS = ['XLK', 'XLY', 'XLC']; // Tech, Consumer Disc, Comm
-const RISK_OFF_SECTORS = ['XLU', 'XLP', 'XLRE']; // Utilities, Staples, Real Estate
+// [V6.0] Enhanced Rotation Intensity Score (RIS V2)
+export interface RotationIntensity {
+    score: number;              // 0-100 rotation intensity
+    direction: 'RISK_ON' | 'RISK_OFF' | 'NEUTRAL';
+    topInflow: { sector: string; flow: number }[];  // top inflow sectors
+    topOutflow: { sector: string; flow: number }[]; // top outflow sectors
+    breadth: number;            // % of rising sectors
+    conviction: 'HIGH' | 'MEDIUM' | 'LOW';
+    // V6.0 Enhanced fields
+    regime: RotationRegime;
+    fiveDayData?: Record<string, SectorTrendData>;
+    noiseFlags?: string[];      // sectors with <60% consistency
+    bounceWarnings?: string[];  // sectors where today contradicts 5d trend
+}
+
+// [V6.0] Sector Group Classification
+const GROWTH_SECTORS = ['XLK', 'XLY', 'XLC'];         // Tech, Consumer Disc, Comm
+const DEFENSIVE_SECTORS = ['XLU', 'XLP', 'XLRE'];      // Utilities, Staples, Real Estate
+const CYCLICAL_SECTORS = ['XLI', 'XLB', 'XLE', 'XLF']; // Industrials, Materials, Energy, Financials
+const HEALTHCARE_SECTORS = ['XLV'];                     // Healthcare (neutral)
+
+// Legacy aliases for backward compat
+const RISK_ON_SECTORS = GROWTH_SECTORS;
+const RISK_OFF_SECTORS = DEFENSIVE_SECTORS;
+
+// [V6.0] 5-Day Sector Cache
+interface FiveDayCache {
+    data: Record<string, { closes: number[]; volumes: number[]; dates: string[] }>;
+    fetchedAt: number;
+}
+let _fiveDayCache: FiveDayCache | null = null;
+const FIVE_DAY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * [V6.0] Fetch 5-day historical data for all sector ETFs
+ * Uses Polygon /v2/aggs API. Cached for 5 minutes.
+ * Synthetic sectors (e.g. AI_PWR) use constituent-level averaging.
+ */
+
+// Known real ETF tickers — synthetic sectors like AI_PWR are NOT in Polygon
+const REAL_ETF_SECTORS = new Set(['XLK', 'XLC', 'XLY', 'XLE', 'XLF', 'XLV', 'XLI', 'XLB', 'XLP', 'XLRE', 'XLU']);
+
+async function fetch5DaySectorData(): Promise<Record<string, { closes: number[]; volumes: number[]; dates: string[] }>> {
+    // Check cache
+    if (_fiveDayCache && (Date.now() - _fiveDayCache.fetchedAt < FIVE_DAY_CACHE_TTL)) {
+        return _fiveDayCache.data;
+    }
+
+    const sectorEtfs = Object.keys(SECTOR_MAP);
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 12); // fetch 12 days to ensure we get 5 trading days
+    const from = start.toISOString().split('T')[0];
+    const to = end.toISOString().split('T')[0];
+
+    const result: Record<string, { closes: number[]; volumes: number[]; dates: string[] }> = {};
+
+    console.log(`[SectorEngine V6.0] Fetching 5-day series for ${sectorEtfs.length} sectors...`);
+
+    // Helper: fetch single ticker's 5-day bars
+    async function fetchBars(ticker: string): Promise<{ closes: number[]; volumes: number[]; dates: string[] } | null> {
+        try {
+            const data = await fetchMassive(
+                `/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`,
+                { adjusted: 'true', sort: 'asc', limit: '15' }
+            );
+            const bars = (data.results || []).slice(-5);
+            if (bars.length >= 2) {
+                return {
+                    closes: bars.map((b: any) => b.c),
+                    volumes: bars.map((b: any) => b.v),
+                    dates: bars.map((b: any) => new Date(b.t).toISOString().split('T')[0])
+                };
+            }
+        } catch (e: any) {
+            console.warn(`[SectorEngine V6.0] Failed to fetch 5d for ${ticker}: ${e.message}`);
+        }
+        return null;
+    }
+
+    // Fetch all sectors in parallel
+    const promises = sectorEtfs.map(async (sectorId) => {
+        if (REAL_ETF_SECTORS.has(sectorId)) {
+            // Standard ETF — fetch directly
+            const bars = await fetchBars(sectorId);
+            if (bars) result[sectorId] = bars;
+        } else {
+            // Synthetic sector (e.g. AI_PWR) — average constituent bars
+            const tickers = SECTOR_MAP[sectorId].tickers;
+            const constituentBars = await Promise.all(tickers.map(t => fetchBars(t)));
+            const validBars = constituentBars.filter((b): b is NonNullable<typeof b> => b !== null && b.closes.length >= 2);
+
+            if (validBars.length >= 2) {
+                // Find minimum bar count for alignment
+                const minLen = Math.min(...validBars.map(b => b.closes.length));
+                const avgCloses: number[] = [];
+                const sumVolumes: number[] = [];
+
+                for (let i = 0; i < minLen; i++) {
+                    avgCloses.push(validBars.reduce((s, b) => s + b.closes[b.closes.length - minLen + i], 0) / validBars.length);
+                    sumVolumes.push(validBars.reduce((s, b) => s + b.volumes[b.volumes.length - minLen + i], 0));
+                }
+
+                result[sectorId] = {
+                    closes: avgCloses,
+                    volumes: sumVolumes,
+                    dates: validBars[0].dates.slice(-minLen)
+                };
+                console.log(`[SectorEngine V6.0] Synthetic sector ${sectorId}: synthesized from ${validBars.length}/${tickers.length} constituents`);
+            } else {
+                console.warn(`[SectorEngine V6.0] Synthetic sector ${sectorId}: insufficient data (${validBars.length} bars)`);
+            }
+        }
+    });
+
+    await Promise.all(promises);
+
+    console.log(`[SectorEngine V6.0] 5-day series fetched for ${Object.keys(result).length} sectors`);
+
+    // Cache result
+    _fiveDayCache = { data: result, fetchedAt: Date.now() };
+    return result;
+}
+
+/**
+ * [V6.0] Calculate per-sector trend data from 5-day series
+ */
+function analyzeSectorTrend(ticker: string, series: { closes: number[]; volumes: number[] }, todayChange: number): SectorTrendData {
+    const closes = series.closes;
+    const volumes = series.volumes;
+
+    // Calculate daily changes
+    const changes: number[] = [];
+    for (let i = 1; i < closes.length; i++) {
+        changes.push(+((closes[i] - closes[i - 1]) / closes[i - 1] * 100).toFixed(3));
+    }
+
+    // Cumulative return over the period
+    const cumReturn = changes.length > 0 ? changes.reduce((a, b) => a + b, 0) : 0;
+
+    // Consistency: what fraction of days move in the dominant direction
+    const positives = changes.filter(c => c > 0).length;
+    const negatives = changes.filter(c => c < 0).length;
+    const consistency = changes.length > 0
+        ? Math.max(positives, negatives) / changes.length
+        : 0.5;
+
+    // RVOL: recent 2-day avg volume vs overall avg volume
+    const avgVol = volumes.reduce((a, b) => a + b, 0) / volumes.length;
+    const recentVol = volumes.length >= 2
+        ? (volumes[volumes.length - 1] + volumes[volumes.length - 2]) / 2
+        : volumes[volumes.length - 1] || avgVol;
+    const rvol = avgVol > 0 ? +(recentVol / avgVol).toFixed(2) : 1;
+
+    // Flow Score: cumReturn * RVOL(capped) * consistency
+    const cappedRvol = Math.min(rvol, 3.0);
+    const flowScore = +(cumReturn * cappedRvol * consistency).toFixed(3);
+
+    // Bounce detection: today's direction contradicts 5-day trend
+    const isBounce = (todayChange > 0.3 && cumReturn < -1) || (todayChange < -0.3 && cumReturn > 1);
+
+    return {
+        changes,
+        cumReturn: +cumReturn.toFixed(3),
+        rvol,
+        consistency: +consistency.toFixed(2),
+        flowScore,
+        todayChange: +todayChange.toFixed(3),
+        isBounce
+    };
+}
+
+/**
+ * [V6.0] Determine rotation regime from sector group flows
+ */
+function classifyRegime(
+    fiveDayData: Record<string, SectorTrendData>,
+    flows: SectorFlowRate[]
+): RotationRegime {
+    // Calculate group-level 5-day cumulative returns
+    const groupReturn = (tickers: string[]) => {
+        const items = tickers.filter(t => fiveDayData[t]).map(t => fiveDayData[t].cumReturn);
+        return items.length > 0 ? items.reduce((a, b) => a + b, 0) / items.length : 0;
+    };
+
+    const growthRet = groupReturn(GROWTH_SECTORS);
+    const defenseRet = groupReturn(DEFENSIVE_SECTORS);
+    const cyclicalRet = groupReturn(CYCLICAL_SECTORS);
+
+    // Broad market check: if 80%+ of sectors move same direction
+    const risingSectors = flows.filter(s => s.change > 0).length;
+    const fallingRatio = flows.length > 0 ? (flows.length - risingSectors) / flows.length : 0;
+    const risingRatio = flows.length > 0 ? risingSectors / flows.length : 0;
+
+    if (risingRatio >= 0.8) return 'BROAD_RALLY';
+    if (fallingRatio >= 0.8) return 'BROAD_SELLOFF';
+
+    // Directional regime
+    const growthVsDefense = growthRet - defenseRet;
+    const cyclicalVsGrowth = cyclicalRet - growthRet;
+
+    if (growthVsDefense > 1.5 && growthRet > 0.5) return 'RISK_ON_GROWTH';
+    if (growthVsDefense < -1.5 && defenseRet > 0.5) return 'RISK_OFF_DEFENSE';
+    if (cyclicalVsGrowth > 1.5 && cyclicalRet > 0.5) return 'CYCLICAL_RECOVERY';
+
+    return 'MIXED';
+}
+
+/**
+ * [V6.0] Enhanced Rotation Intensity Calculation with 5-day trend analysis
+ */
+export function calculateRotationIntensityV2(
+    flows: SectorFlowRate[],
+    fiveDaySeriesData: Record<string, { closes: number[]; volumes: number[] }>
+): RotationIntensity {
+    const defaultResult: RotationIntensity = {
+        score: 50, direction: 'NEUTRAL', topInflow: [], topOutflow: [],
+        breadth: 50, conviction: 'LOW', regime: 'MIXED'
+    };
+
+    if (!flows || flows.length === 0) return defaultResult;
+
+    // 1. Build per-sector trend analysis
+    const fiveDayData: Record<string, SectorTrendData> = {};
+    const hasFiveDayData = Object.keys(fiveDaySeriesData).length > 0;
+
+    for (const sector of flows) {
+        const series = fiveDaySeriesData[sector.id];
+        if (series && series.closes.length >= 2) {
+            fiveDayData[sector.id] = analyzeSectorTrend(sector.id, series, sector.change);
+        }
+    }
+
+    // 2. Score using 5-day flowScore if available, fall back to 1-day change
+    const scoredSectors = flows.map(s => {
+        const trend = fiveDayData[s.id];
+        return {
+            id: s.id,
+            name: s.name,
+            score: trend ? trend.flowScore : s.change,
+            todayChange: s.change,
+            cumReturn: trend?.cumReturn ?? s.change,
+            consistency: trend?.consistency ?? 0.5,
+            rvol: trend?.rvol ?? 1,
+            isBounce: trend?.isBounce ?? false
+        };
+    }).sort((a, b) => b.score - a.score);
+
+    const inflows = scoredSectors.filter(s => s.score > 0);
+    const outflows = scoredSectors.filter(s => s.score < 0).sort((a, b) => a.score - b.score);
+
+    // 3. Rotation Score: spread between top inflows and outflows
+    const topInflowScore = inflows.slice(0, 3).reduce((sum, s) => sum + Math.abs(s.score), 0);
+    const topOutflowScore = outflows.slice(0, 3).reduce((sum, s) => sum + Math.abs(s.score), 0);
+    // Normalize: typical flowScores range from 0-10, so /20*100 = 0-100
+    const rawScore = topInflowScore + topOutflowScore;
+    const score = Math.min(100, hasFiveDayData ? rawScore * 8 : rawScore * 10);
+
+    // 4. Direction from 5-day group flows
+    const groupFlowScore = (tickers: string[]) =>
+        scoredSectors.filter(s => tickers.includes(s.id)).reduce((sum, s) => sum + s.score, 0);
+
+    const riskOnFlow = groupFlowScore(GROWTH_SECTORS);
+    const riskOffFlow = groupFlowScore(DEFENSIVE_SECTORS);
+
+    let direction: 'RISK_ON' | 'RISK_OFF' | 'NEUTRAL' = 'NEUTRAL';
+    if (riskOnFlow > riskOffFlow + 0.5) direction = 'RISK_ON';
+    else if (riskOffFlow > riskOnFlow + 0.5) direction = 'RISK_OFF';
+
+    // 5. Breadth (% of sectors with positive 5d flowScore)
+    const breadth = flows.length > 0
+        ? (inflows.length / flows.length) * 100
+        : 50;
+
+    // 6. Conviction: based on score AND consistency of top movers
+    const topConsistency = [...inflows.slice(0, 3), ...outflows.slice(0, 3)]
+        .map(s => s.consistency)
+        .filter(c => c > 0);
+    const avgConsistency = topConsistency.length > 0
+        ? topConsistency.reduce((a, b) => a + b, 0) / topConsistency.length
+        : 0.5;
+
+    let conviction: 'HIGH' | 'MEDIUM' | 'LOW';
+    if (score >= 60 && avgConsistency >= 0.7) conviction = 'HIGH';
+    else if (score >= 35 && avgConsistency >= 0.5) conviction = 'MEDIUM';
+    else conviction = 'LOW';
+
+    // 7. Regime classification
+    const regime = hasFiveDayData ? classifyRegime(fiveDayData, flows) : 'MIXED';
+
+    // 8. Noise and bounce detection
+    const noiseFlags = Object.entries(fiveDayData)
+        .filter(([, d]) => d.consistency < 0.6)
+        .map(([ticker]) => ticker);
+
+    const bounceWarnings = Object.entries(fiveDayData)
+        .filter(([, d]) => d.isBounce)
+        .map(([ticker, d]) => `${ticker}: today ${d.todayChange > 0 ? '+' : ''}${d.todayChange}% but 5d ${d.cumReturn > 0 ? '+' : ''}${d.cumReturn}%`);
+
+    console.log(`[RIS V6.0] Score: ${score.toFixed(1)}, Direction: ${direction}, Regime: ${regime}, Breadth: ${breadth.toFixed(0)}%, Conviction: ${conviction}`);
+    if (noiseFlags.length > 0) console.log(`[RIS V6.0] Noise flags: ${noiseFlags.join(', ')}`);
+    if (bounceWarnings.length > 0) console.log(`[RIS V6.0] Bounce warnings: ${bounceWarnings.join(' | ')}`);
+
+    return {
+        score: Number(score.toFixed(1)),
+        direction,
+        topInflow: inflows.slice(0, 3).map(s => ({ sector: s.name, flow: Number(s.score.toFixed(2)) })),
+        topOutflow: outflows.slice(0, 3).map(s => ({ sector: s.name, flow: Number(s.score.toFixed(2)) })),
+        breadth: Number(breadth.toFixed(1)),
+        conviction,
+        regime,
+        fiveDayData: hasFiveDayData ? fiveDayData : undefined,
+        noiseFlags: noiseFlags.length > 0 ? noiseFlags : undefined,
+        bounceWarnings: bounceWarnings.length > 0 ? bounceWarnings : undefined
+    };
+}
 
 // [V5.0] Calculate Rotation Intensity from Sector Flows
 export function calculateRotationIntensity(flows: SectorFlowRate[]): RotationIntensity {
@@ -42,7 +359,8 @@ export function calculateRotationIntensity(flows: SectorFlowRate[]): RotationInt
             topInflow: [],
             topOutflow: [],
             breadth: 50,
-            conviction: 'LOW'
+            conviction: 'LOW',
+            regime: 'MIXED'
         };
     }
 
@@ -90,7 +408,8 @@ export function calculateRotationIntensity(flows: SectorFlowRate[]): RotationInt
         topInflow: inflows.slice(0, 3).map(s => ({ sector: s.name, flow: Number(s.change.toFixed(2)) })),
         topOutflow: outflows.slice(0, 3).map(s => ({ sector: s.name, flow: Number(s.change.toFixed(2)) })),
         breadth: Number(breadth.toFixed(1)),
-        conviction
+        conviction,
+        regime: 'MIXED'
     };
 }
 
@@ -136,11 +455,10 @@ export class SectorEngine {
         rotationIntensity: RotationIntensity; // [V5.0] Added
     }> {
         try {
-            console.log(`[SectorEngine] Starting Institutional Flow Analysis...`);
+            console.log(`[SectorEngine V6.0] Starting Institutional Flow Analysis...`);
 
-            // 1. Check/Build Baseline (Heavy Lift)
-            // [Emergency Patch] Skipping Heavy Fetch to unblock report generation
-            // await this.ensureBaselines();
+            // 1. Fetch 5-day series data in parallel with snapshot
+            const fiveDayPromise = fetch5DaySectorData();
 
             // 2. Fetch Real-time Snapshot
             const allTickers: string[] = [];
@@ -196,7 +514,7 @@ export class SectorEngine {
             console.log(`[SectorEngine] Final Snapshot Size: ${currentSnapshot.length}`);
 
             if (!currentSnapshot || currentSnapshot.length === 0) {
-                return { flows: [], vectors: [], source: "N/A", target: "N/A", sourceId: null, targetId: null, rotationIntensity: { score: 50, direction: 'NEUTRAL', topInflow: [], topOutflow: [], breadth: 50, conviction: 'LOW' } };
+                return { flows: [], vectors: [], source: "N/A", target: "N/A", sourceId: null, targetId: null, rotationIntensity: { score: 50, direction: 'NEUTRAL', topInflow: [], topOutflow: [], breadth: 50, conviction: 'LOW', regime: 'MIXED' } };
             }
 
             // 3. Process Per Sector
@@ -233,9 +551,10 @@ export class SectorEngine {
                     .sort((a, b) => b.volume - a.volume) // Sort by Volume
                     .slice(0, 5); // Top 5
 
-                // If ETF data missing, fallback to average of constituents (optional, but robust)
+                // If ETF data missing (synthetic sectors), fallback to average of constituents
                 if (!sectorEtfData && constituents.length > 0) {
                     sectorChange = constituents.reduce((acc, c) => acc + c.change, 0) / constituents.length;
+                    sectorVolume = constituents.reduce((acc, c) => acc + c.volume, 0); // sum constituent volumes
                 }
 
                 sectorScores.push({
@@ -279,24 +598,62 @@ export class SectorEngine {
                 });
             }
 
-            console.log(`[SectorEngine] Flows Analysis Complete (Cached Mode). Vectors: ${vectors.length}`);
+            console.log(`[SectorEngine V6.0] Flows Analysis Complete. Vectors: ${vectors.length}`);
 
-            // [V5.0] Calculate Rotation Intensity
-            const ris = calculateRotationIntensity(sectorScores);
+            // [V6.0] Get 5-day data (should already be resolved from parallel promise)
+            let fiveDaySeriesData: Record<string, { closes: number[]; volumes: number[] }> = {};
+            try {
+                fiveDaySeriesData = await fiveDayPromise;
+            } catch (e: any) {
+                console.warn(`[SectorEngine V6.0] 5-day data failed, falling back to V5: ${e.message}`);
+            }
+
+            // [V6.0] Calculate Enhanced Rotation Intensity
+            const ris = calculateRotationIntensityV2(sectorScores, fiveDaySeriesData);
+
+            // [V6.0] Override vectors using 5-day flowScores for accurate source/target
+            const enhancedVectors: FlowVector[] = [];
+            if (ris.fiveDayData) {
+                const ranked = Object.entries(ris.fiveDayData)
+                    .sort((a, b) => b[1].flowScore - a[1].flowScore);
+                const topInflows = ranked.filter(([, d]) => d.flowScore > 0).slice(0, 3);
+                const topOutflows = ranked.filter(([, d]) => d.flowScore < 0)
+                    .sort((a, b) => a[1].flowScore - b[1].flowScore).slice(0, 3);
+
+                const pairLen = Math.min(topInflows.length, topOutflows.length, 3);
+                for (let i = 0; i < pairLen; i++) {
+                    enhancedVectors.push({
+                        sourceId: topOutflows[i][0],
+                        targetId: topInflows[i][0],
+                        strength: (Math.abs(topOutflows[i][1].flowScore) + topInflows[i][1].flowScore) / 2 * 10,
+                        rank: i + 1
+                    });
+                }
+            }
+
+            const finalVectors = enhancedVectors.length > 0 ? enhancedVectors : vectors;
+
+            // Determine source/target from V2 ranking
+            const v2Target = ris.topInflow[0]?.sector
+                ? sectorScores.find(s => s.name === ris.topInflow[0].sector) || target
+                : target;
+            const v2Source = ris.topOutflow[0]?.sector
+                ? sectorScores.find(s => s.name === ris.topOutflow[0].sector) || source
+                : source;
 
             return {
                 flows: sectorScores,
-                vectors,
-                source: source.name,
-                target: target.name,
-                sourceId: target.id,
-                targetId: target.id,
-                rotationIntensity: ris // [V5.0]
+                vectors: finalVectors,
+                source: v2Source.name,
+                target: v2Target.name,
+                sourceId: v2Source.id,
+                targetId: v2Target.id,
+                rotationIntensity: ris
             };
 
         } catch (e: any) {
             console.error("SectorEngine Error:", e?.message || e);
-            return { flows: [], vectors: [], source: "오류", target: "오류", sourceId: null, targetId: null, rotationIntensity: { score: 50, direction: 'NEUTRAL', topInflow: [], topOutflow: [], breadth: 50, conviction: 'LOW' } };
+            return { flows: [], vectors: [], source: "오류", target: "오류", sourceId: null, targetId: null, rotationIntensity: { score: 50, direction: 'NEUTRAL', topInflow: [], topOutflow: [], breadth: 50, conviction: 'LOW', regime: 'MIXED' } };
         }
     }
 

@@ -101,6 +101,15 @@ interface IntelligenceContext {
     volumeBreadth?: number;  // Volume breadth % (e.g., 77.4)
     breadthSignal?: string;  // STRONG, HEALTHY, NEUTRAL, WEAK, CRITICAL
     dxy?: number;            // Dollar index
+    // [V6.0] Enhanced Rotation Fields
+    rotationRegime?: string;          // e.g. "RISK_OFF_DEFENSE"
+    topInflow5d?: string;             // e.g. "Energy(+6.3%), Staples(+4.0%)"
+    topOutflow5d?: string;            // e.g. "Comm(-3.3%), Tech(-2.7%)"
+    noiseWarning?: string;            // e.g. "XLRE,XLV low consistency"
+    trendVsToday?: string;            // e.g. "XLK: today +4% but 5d -2.7%"
+    rotationConviction?: string;      // HIGH, MEDIUM, LOW
+    // [V6.1] Signal Conflict Detection
+    signalConflict?: string;          // e.g. "BULL→NEUTRAL: RLSI 강세 but RISK_OFF HIGH"
 }
 
 // === TIME-BASED GATING ===
@@ -139,17 +148,32 @@ const OFF_HOURS_REALITY: Record<Locale, string> = {
 // === LOCALIZED PROMPTS ===
 const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: string) => string> = {
     ko: (ctx, vectorDesc) => `
-        당신은 기관 투자 전략가입니다.
+        당신은 기관 투자 전략가입니다. 5일 추세 데이터를 기반으로 정확한 순환매 분석을 제공합니다.
 
         **현재 데이터:**
         - NASDAQ 변동: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
-        - 자금 흐름: [${vectorDesc}]
+        - 오늘의 자금 흐름: [${vectorDesc}]
         - VIX: ${ctx.vix.toFixed(1)}
         - RVOL: ${ctx.rvol.toFixed(2)}x
+        ${ctx.rotationRegime ? `- 5일 순환매 레짐: ${ctx.rotationRegime}` : ''}
+        ${ctx.topInflow5d ? `- 5일 유입 섹터: ${ctx.topInflow5d}` : ''}
+        ${ctx.topOutflow5d ? `- 5일 유출 섹터: ${ctx.topOutflow5d}` : ''}
+        ${ctx.trendVsToday ? `- 당일 vs 추세 괴리: ${ctx.trendVsToday}` : ''}
+        ${ctx.noiseWarning ? `- 노이즈 경고: ${ctx.noiseWarning}` : ''}
+        ${ctx.rotationConviction ? `- 순환매 확신도: ${ctx.rotationConviction}` : ''}
+
+        ${ctx.signalConflict ? `- ⚠️ 신호 충돌: ${ctx.signalConflict}` : ''}
+
+        **중요 분석 규칙:**
+        - 당일 반등이 있더라도 5일 추세가 하락이면 "일시적 반등"으로 판단
+        - 5일 유입/유출 데이터가 당일 데이터보다 우선
+        - 노이즈 경고가 있는 섹터는 신뢰도가 낮음을 언급
+        - 레짐(RISK_OFF_DEFENSE 등)을 반영한 실질적 조언 제공
+        - **신호 충돌 시**: RLSI/나스닥은 강세이나 순환매가 RISK_OFF이면 "겉은 강세, 속은 약세" 같은 표현으로 혼재 신호를 명확히 전달. 반대로 지표는 약세이나 성장주로 자금 유입 시 "저점 매집 가능성" 표현 사용
 
         **출력 형식 (반드시 이 형식으로):**
-        [현황] (섹터 이동 현황 1문장)
-        [해석] (의미 1문장)
+        [현황] (5일 기준 섹터 이동 현황 1문장)
+        [해석] (의미 + 레짐 맥락 1문장, 신호 충돌 시 반드시 언급)
         [액션] (구체적 행동 지시 1문장)
 
         **규칙:**
@@ -158,36 +182,63 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - 3줄 이내, 간결하게
     `,
     en: (ctx, vectorDesc) => `
-        You are an institutional investment strategist.
+        You are an institutional investment strategist. Analyze sector rotation using 5-day trend data.
 
         **Current Data:**
         - NASDAQ Change: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
-        - Money Flow: [${vectorDesc}]
+        - Today's Money Flow: [${vectorDesc}]
         - VIX: ${ctx.vix.toFixed(1)}
         - RVOL: ${ctx.rvol.toFixed(2)}x
+        ${ctx.rotationRegime ? `- 5-Day Rotation Regime: ${ctx.rotationRegime}` : ''}
+        ${ctx.topInflow5d ? `- 5-Day Inflow Leaders: ${ctx.topInflow5d}` : ''}
+        ${ctx.topOutflow5d ? `- 5-Day Outflow Leaders: ${ctx.topOutflow5d}` : ''}
+        ${ctx.trendVsToday ? `- Today vs Trend Divergence: ${ctx.trendVsToday}` : ''}
+        ${ctx.noiseWarning ? `- Noise Warning: ${ctx.noiseWarning}` : ''}
+        ${ctx.rotationConviction ? `- Rotation Conviction: ${ctx.rotationConviction}` : ''}
+
+        ${ctx.signalConflict ? `- ⚠️ Signal Conflict: ${ctx.signalConflict}` : ''}
+
+        **Critical Analysis Rules:**
+        - If today shows a bounce but 5-day trend is down, call it a "relief rally"
+        - 5-day inflow/outflow data takes priority over single-day data
+        - Sectors with noise warnings have low reliability
+        - Reflect the regime (RISK_OFF_DEFENSE etc.) in actionable advice
+        - **Signal Conflict**: When RLSI/NASDAQ are bullish but rotation is RISK_OFF, describe it as "surface strength masks underlying weakness" or similar. Conversely, when indicators are bearish but growth sees inflows, note "institutional accumulation at lows"
 
         **Output Format (strictly follow):**
-        [Status] (sector rotation status in 1 sentence)
-        [Interpretation] (meaning in 1 sentence)
-        [Action] (specific action directive in 1 sentence)
+        [Status] (1 sentence on 5-day sector movement)
+        [Interpretation] (1 sentence on meaning + regime context, MUST mention signal conflicts if present)
+        [Action] (1 concrete action directive)
 
         **Rules:**
-        - Professional English style
-        - Use sector names like Tech, Energy, Real Estate
-        - 3 lines max, concise
+        - Professional English briefing style
+        - Be specific with sector names
+        - Max 3 lines, concise
     `,
     ja: (ctx, vectorDesc) => `
-        あなたは機関投資戦略家です。
+        あなたは機関投資戦略家です。5日間のトレンドデータに基づいてセクターローテーションを分析します。
 
         **現在のデータ:**
         - NASDAQ変動: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
-        - 資金フロー: [${vectorDesc}]
+        - 本日の資金フロー: [${vectorDesc}]
         - VIX: ${ctx.vix.toFixed(1)}
         - RVOL: ${ctx.rvol.toFixed(2)}x
+        ${ctx.rotationRegime ? `- 5日ローテーションレジーム: ${ctx.rotationRegime}` : ''}
+        ${ctx.topInflow5d ? `- 5日流入リーダー: ${ctx.topInflow5d}` : ''}
+        ${ctx.topOutflow5d ? `- 5日流出リーダー: ${ctx.topOutflow5d}` : ''}
+        ${ctx.trendVsToday ? `- 本日 vs トレンド: ${ctx.trendVsToday}` : ''}
+        ${ctx.noiseWarning ? `- ノイズ警告: ${ctx.noiseWarning}` : ''}
+        ${ctx.rotationConviction ? `- ローテーション確信度: ${ctx.rotationConviction}` : ''}
+
+        **重要な分析ルール:**
+        - 本日反発があっても5日トレンドが下降なら「一時的反発」と判断
+        - 5日流入/流出データが1日データより優先
+        - ノイズ警告のあるセクターは信頼性が低い
+        - レジーム(RISK_OFF_DEFENSEなど)を反映した実質的なアドバイス
 
         **出力形式 (必ずこの形式で):**
-        [現況] (セクター移動現況 1文)
-        [解釈] (意味 1文)
+        [現況] (5日基準セクター移動現況 1文)
+        [解釈] (意味 + レジームコンテキスト 1文)
         [アクション] (具体的行動指示 1文)
 
         **ルール:**

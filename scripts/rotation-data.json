@@ -1,0 +1,837 @@
+{
+  "timestamp": "2026-02-07T13:38:26.688Z",
+  "tests": {
+    "snapshot": [
+      {
+        "ticker": "XLRE",
+        "todaysChangePerc": 1.8433179723502429,
+        "dayClose": 41.99,
+        "dayVolume": 8180640,
+        "prevClose": 41.23,
+        "lastTradePrice": 41.99,
+        "lastTradeTime": "2026-02-07T01:00:00.058Z",
+        "min": {
+          "av": 8180604,
+          "t": 1770420600000,
+          "n": 1,
+          "o": 42.08,
+          "h": 42.08,
+          "l": 42.08,
+          "c": 42.08,
+          "v": 500,
+          "vw": 42.08
+        }
+      },
+      {
+        "ticker": "XLV",
+        "todaysChangePerc": 1.853526220614831,
+        "dayClose": 157.71,
+        "dayVolume": 13613263,
+        "prevClose": 154.84,
+        "lastTradePrice": 157.71,
+        "lastTradeTime": "2026-02-07T01:00:00.077Z",
+        "min": {
+          "av": 13613045,
+          "t": 1770421200000,
+          "n": 11,
+          "o": 157.8,
+          "h": 157.8,
+          "l": 157.8,
+          "c": 157.8,
+          "v": 317,
+          "vw": 157.7884
+        }
+      },
+      {
+        "ticker": "IWM",
+        "todaysChangePerc": 3.592229214712883,
+        "dayClose": 265.02,
+        "dayVolume": 43502347,
+        "prevClose": 255.83,
+        "lastTradePrice": 265.02,
+        "lastTradeTime": "2026-02-07T01:00:00.084Z",
+        "min": {
+          "av": 43501479,
+          "t": 1770425340000,
+          "n": 2,
+          "o": 265.12,
+          "h": 265.12,
+          "l": 265.12,
+          "c": 265.12,
+          "v": 1030,
+          "vw": 265.1197
+        }
+      },
+      {
+        "ticker": "XLF",
+        "todaysChangePerc": 1.8202289360105064,
+        "dayClose": 54.26,
+        "dayVolume": 53059070,
+        "prevClose": 53.29,
+        "lastTradePrice": 54.26,
+        "lastTradeTime": "2026-02-07T01:00:00.070Z",
+        "min": {
+          "av": 53059068,
+          "t": 1770425760000,
+          "n": 3,
+          "o": 54.3,
+          "h": 54.3,
+          "l": 54.3,
+          "c": 54.3,
+          "v": 200,
+          "vw": 54.295
+        }
+      },
+      {
+        "ticker": "SPY",
+        "todaysChangePerc": 1.9184793837253917,
+        "dayClose": 690.62,
+        "dayVolume": 89131116,
+        "prevClose": 677.62,
+        "lastTradePrice": 690.62,
+        "lastTradeTime": "2026-02-07T01:00:00.005Z",
+        "min": {
+          "av": 89131116,
+          "t": 1770425940000,
+          "n": 34,
+          "o": 690.51,
+          "h": 690.6162,
+          "l": 690.51,
+          "c": 690.6162,
+          "v": 635,
+          "vw": 690.5489
+        }
+      },
+      {
+        "ticker": "QQQ",
+        "todaysChangePerc": 2.095372091854679,
+        "dayClose": 609.65,
+        "dayVolume": 78008851,
+        "prevClose": 597.03,
+        "lastTradePrice": 609.54,
+        "lastTradeTime": "2026-02-07T00:59:59.181Z",
+        "min": {
+          "av": 78008851,
+          "t": 1770425940000,
+          "n": 48,
+          "o": 609.49,
+          "h": 609.59,
+          "l": 609.49,
+          "c": 609.54,
+          "v": 2353,
+          "vw": 609.5539
+        }
+      },
+      {
+        "ticker": "XLU",
+        "todaysChangePerc": 0.580046403712297,
+        "dayClose": 43.35,
+        "dayVolume": 30529285,
+        "prevClose": 43.1,
+        "lastTradePrice": 43.35,
+        "lastTradeTime": "2026-02-07T01:00:00.003Z",
+        "min": {
+          "av": 30529264,
+          "t": 1770425520000,
+          "n": 3,
+          "o": 43.3119,
+          "h": 43.3119,
+          "l": 43.3119,
+          "c": 43.3119,
+          "v": 228,
+          "vw": 43.3203
+        }
+      },
+      {
+        "ticker": "XLP",
+        "todaysChangePerc": 1.1734928670041371,
+        "dayClose": 87.94,
+        "dayVolume": 29563905,
+        "prevClose": 86.92,
+        "lastTradePrice": 87.94,
+        "lastTradeTime": "2026-02-07T01:00:00.084Z",
+        "min": {
+          "av": 29563729,
+          "t": 1770425700000,
+          "n": 1,
+          "o": 87.76,
+          "h": 87.76,
+          "l": 87.76,
+          "c": 87.76,
+          "v": 200,
+          "vw": 87.76
+        }
+      },
+      {
+        "ticker": "XLY",
+        "todaysChangePerc": 0.4084758743936599,
+        "dayClose": 117.99,
+        "dayVolume": 20967755,
+        "prevClose": 117.51,
+        "lastTradePrice": 117.99,
+        "lastTradeTime": "2026-02-07T01:00:00.080Z",
+        "min": {
+          "av": 20967415,
+          "t": 1770415620000,
+          "n": 1,
+          "o": 117.95,
+          "h": 117.95,
+          "l": 117.95,
+          "c": 117.95,
+          "v": 423,
+          "vw": 117.95
+        }
+      },
+      {
+        "ticker": "XLC",
+        "todaysChangePerc": -0.3872300146286797,
+        "dayClose": 115.76,
+        "dayVolume": 9437753,
+        "prevClose": 116.21,
+        "lastTradePrice": 115.76,
+        "lastTradeTime": "2026-02-07T01:00:00.071Z",
+        "min": {
+          "av": 9434910,
+          "t": 1770415020000,
+          "n": 1,
+          "o": 115.9808,
+          "h": 115.9808,
+          "l": 115.9808,
+          "c": 115.9808,
+          "v": 150,
+          "vw": 115.9808
+        }
+      },
+      {
+        "ticker": "XLB",
+        "todaysChangePerc": 1.9999999999999962,
+        "dayClose": 51.51,
+        "dayVolume": 14366425,
+        "prevClose": 50.5,
+        "lastTradePrice": 51.51,
+        "lastTradeTime": "2026-02-07T01:00:00.001Z",
+        "min": {
+          "av": 14366425,
+          "t": 1770425580000,
+          "n": 1,
+          "o": 51.3099,
+          "h": 51.3099,
+          "l": 51.3099,
+          "c": 51.3099,
+          "v": 100,
+          "vw": 51.3099
+        }
+      },
+      {
+        "ticker": "XLK",
+        "todaysChangePerc": 4.055150040551501,
+        "dayClose": 141.13,
+        "dayVolume": 37121298,
+        "prevClose": 135.63,
+        "lastTradePrice": 141.13,
+        "lastTradeTime": "2026-02-07T01:00:00.077Z",
+        "min": {
+          "av": 37121298,
+          "t": 1770425820000,
+          "n": 1,
+          "o": 141.16,
+          "h": 141.16,
+          "l": 141.16,
+          "c": 141.16,
+          "v": 60,
+          "vw": 141.16
+        }
+      },
+      {
+        "ticker": "XLI",
+        "todaysChangePerc": 2.856803468551406,
+        "dayClose": 173.18,
+        "dayVolume": 11985854,
+        "prevClose": 168.37,
+        "lastTradePrice": 173.18,
+        "lastTradeTime": "2026-02-07T01:00:00.073Z",
+        "min": {
+          "av": 11985530,
+          "t": 1770422520000,
+          "n": 1,
+          "o": 173.1,
+          "h": 173.1,
+          "l": 173.1,
+          "c": 173.1,
+          "v": 100,
+          "vw": 173.1
+        }
+      },
+      {
+        "ticker": "XLE",
+        "todaysChangePerc": 1.9919555640681845,
+        "dayClose": 53.25,
+        "dayVolume": 41668640,
+        "prevClose": 52.21,
+        "lastTradePrice": 53.25,
+        "lastTradeTime": "2026-02-07T01:00:00.039Z",
+        "min": {
+          "av": 41668640,
+          "t": 1770425940000,
+          "n": 6,
+          "o": 53.3497,
+          "h": 53.3499,
+          "l": 53.3497,
+          "c": 53.3499,
+          "v": 1143,
+          "vw": 53.3496
+        }
+      }
+    ],
+    "fiveDaySeries": {
+      "XLK": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          145.26,
+          142.08,
+          138.12,
+          135.63,
+          141.13
+        ],
+        "volumes": [
+          16337576,
+          30464494,
+          45649454,
+          42760836,
+          37121298
+        ],
+        "changes": [
+          -2.189,
+          -2.787,
+          -1.803,
+          4.055
+        ]
+      },
+      "XLC": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          119.67,
+          117.74,
+          116.8,
+          116.21,
+          115.76
+        ],
+        "volumes": [
+          7651842,
+          8132181,
+          11640337,
+          15452340,
+          9437753
+        ],
+        "changes": [
+          -1.613,
+          -0.798,
+          -0.505,
+          -0.387
+        ]
+      },
+      "XLY": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          121.97,
+          120.99,
+          120.1,
+          117.51,
+          117.99
+        ],
+        "volumes": [
+          8483043,
+          12467805,
+          13915561,
+          13245099,
+          20967755
+        ],
+        "changes": [
+          -0.803,
+          -0.736,
+          -2.157,
+          0.408
+        ]
+      },
+      "XLE": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          50.05,
+          51.67,
+          52.83,
+          52.21,
+          53.25
+        ],
+        "volumes": [
+          61479856,
+          83754106,
+          78149891,
+          53821898,
+          41668640
+        ],
+        "changes": [
+          3.237,
+          2.245,
+          -1.174,
+          1.992
+        ]
+      },
+      "XLF": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          54.03,
+          53.53,
+          53.96,
+          53.29,
+          54.26
+        ],
+        "volumes": [
+          48031482,
+          66887064,
+          59506374,
+          64309272,
+          53059070
+        ],
+        "changes": [
+          -0.925,
+          0.803,
+          -1.242,
+          1.82
+        ]
+      },
+      "XLV": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          155.69,
+          154.1,
+          156.03,
+          154.84,
+          157.71
+        ],
+        "volumes": [
+          11005278,
+          21141876,
+          22951614,
+          21320400,
+          13613263
+        ],
+        "changes": [
+          -1.021,
+          1.252,
+          -0.763,
+          1.854
+        ]
+      },
+      "XLI": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          167.53,
+          168.94,
+          169.39,
+          168.37,
+          173.18
+        ],
+        "volumes": [
+          11466587,
+          16444043,
+          21338399,
+          18633920,
+          11985854
+        ],
+        "changes": [
+          0.842,
+          0.266,
+          -0.602,
+          2.857
+        ]
+      },
+      "XLB": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          49.65,
+          50.7,
+          51.89,
+          50.5,
+          51.51
+        ],
+        "volumes": [
+          25155336,
+          34077441,
+          35878617,
+          25510265,
+          14366425
+        ],
+        "changes": [
+          2.115,
+          2.347,
+          -2.679,
+          2
+        ]
+      },
+      "XLP": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          84.5,
+          85.87,
+          86.99,
+          86.92,
+          87.94
+        ],
+        "volumes": [
+          26041721,
+          33052470,
+          33748064,
+          38594327,
+          29563905
+        ],
+        "changes": [
+          1.621,
+          1.304,
+          -0.08,
+          1.173
+        ]
+      },
+      "XLRE": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          40.96,
+          40.81,
+          41.46,
+          41.23,
+          41.99
+        ],
+        "volumes": [
+          9386920,
+          8709896,
+          9574041,
+          9832867,
+          8180640
+        ],
+        "changes": [
+          -0.366,
+          1.593,
+          -0.555,
+          1.843
+        ]
+      },
+      "XLU": {
+        "dates": [
+          "2026-02-02",
+          "2026-02-03",
+          "2026-02-04",
+          "2026-02-05",
+          "2026-02-06"
+        ],
+        "closes": [
+          42.62,
+          43.24,
+          43.08,
+          43.1,
+          43.35
+        ],
+        "volumes": [
+          32847560,
+          35525495,
+          30994262,
+          31187390,
+          30529285
+        ],
+        "changes": [
+          1.455,
+          -0.37,
+          0.046,
+          0.58
+        ]
+      }
+    },
+    "comparison": {
+      "currentLogic": {
+        "rotationScore": 93,
+        "topInflow": [
+          {
+            "ticker": "XLK",
+            "change": 4.055
+          },
+          {
+            "ticker": "XLI",
+            "change": 2.857
+          },
+          {
+            "ticker": "XLB",
+            "change": 2
+          }
+        ],
+        "topOutflow": [
+          {
+            "ticker": "XLC",
+            "change": -0.387
+          }
+        ],
+        "breadth": 91,
+        "direction": "NEUTRAL",
+        "riskOnFlow": 4.076,
+        "riskOffFlow": 3.596
+      },
+      "improvedLogic": {
+        "ranked": [
+          {
+            "ticker": "XLE",
+            "name": "Energy",
+            "lastDayChange": 1.992,
+            "cumReturn5d": 6.3,
+            "consistency": 75,
+            "rvol": 0.75,
+            "flowScore": 4.725,
+            "finalScore": 3.544
+          },
+          {
+            "ticker": "XLP",
+            "name": "Staples",
+            "lastDayChange": 1.173,
+            "cumReturn5d": 4.018,
+            "consistency": 75,
+            "rvol": 1.06,
+            "flowScore": 4.259,
+            "finalScore": 3.194
+          },
+          {
+            "ticker": "XLI",
+            "name": "Indust",
+            "lastDayChange": 2.857,
+            "cumReturn5d": 3.363,
+            "consistency": 75,
+            "rvol": 0.96,
+            "flowScore": 3.228,
+            "finalScore": 2.421
+          },
+          {
+            "ticker": "XLB",
+            "name": "Materials",
+            "lastDayChange": 2,
+            "cumReturn5d": 3.783,
+            "consistency": 75,
+            "rvol": 0.74,
+            "flowScore": 2.799,
+            "finalScore": 2.099
+          },
+          {
+            "ticker": "XLRE",
+            "name": "RealEst",
+            "lastDayChange": 1.843,
+            "cumReturn5d": 2.515,
+            "consistency": 50,
+            "rvol": 0.99,
+            "flowScore": 2.49,
+            "finalScore": 1.245
+          },
+          {
+            "ticker": "XLU",
+            "name": "Util",
+            "lastDayChange": 0.58,
+            "cumReturn5d": 1.711,
+            "consistency": 75,
+            "rvol": 0.96,
+            "flowScore": 1.643,
+            "finalScore": 1.232
+          },
+          {
+            "ticker": "XLV",
+            "name": "Health",
+            "lastDayChange": 1.854,
+            "cumReturn5d": 1.322,
+            "consistency": 50,
+            "rvol": 0.97,
+            "flowScore": 1.282,
+            "finalScore": 0.641
+          },
+          {
+            "ticker": "XLF",
+            "name": "Fin",
+            "lastDayChange": 1.82,
+            "cumReturn5d": 0.456,
+            "consistency": 50,
+            "rvol": 1.01,
+            "flowScore": 0.461,
+            "finalScore": 0.231
+          },
+          {
+            "ticker": "XLK",
+            "name": "Tech",
+            "lastDayChange": 4.055,
+            "cumReturn5d": -2.724,
+            "consistency": 75,
+            "rvol": 1.16,
+            "flowScore": -3.16,
+            "finalScore": -2.37
+          },
+          {
+            "ticker": "XLY",
+            "name": "ConsDisc",
+            "lastDayChange": 0.408,
+            "cumReturn5d": -3.288,
+            "consistency": 75,
+            "rvol": 1.24,
+            "flowScore": -4.077,
+            "finalScore": -3.058
+          },
+          {
+            "ticker": "XLC",
+            "name": "Comm",
+            "lastDayChange": -0.387,
+            "cumReturn5d": -3.303,
+            "consistency": 100,
+            "rvol": 1.19,
+            "flowScore": -3.931,
+            "finalScore": -3.931
+          }
+        ],
+        "topInflow": [
+          {
+            "ticker": "XLE",
+            "name": "Energy",
+            "lastDayChange": 1.992,
+            "cumReturn5d": 6.3,
+            "consistency": 75,
+            "rvol": 0.75,
+            "flowScore": 4.725,
+            "finalScore": 3.544
+          },
+          {
+            "ticker": "XLP",
+            "name": "Staples",
+            "lastDayChange": 1.173,
+            "cumReturn5d": 4.018,
+            "consistency": 75,
+            "rvol": 1.06,
+            "flowScore": 4.259,
+            "finalScore": 3.194
+          },
+          {
+            "ticker": "XLI",
+            "name": "Indust",
+            "lastDayChange": 2.857,
+            "cumReturn5d": 3.363,
+            "consistency": 75,
+            "rvol": 0.96,
+            "flowScore": 3.228,
+            "finalScore": 2.421
+          }
+        ],
+        "topOutflow": [
+          {
+            "ticker": "XLC",
+            "name": "Comm",
+            "lastDayChange": -0.387,
+            "cumReturn5d": -3.303,
+            "consistency": 100,
+            "rvol": 1.19,
+            "flowScore": -3.931,
+            "finalScore": -3.931
+          },
+          {
+            "ticker": "XLY",
+            "name": "ConsDisc",
+            "lastDayChange": 0.408,
+            "cumReturn5d": -3.288,
+            "consistency": 75,
+            "rvol": 1.24,
+            "flowScore": -4.077,
+            "finalScore": -3.058
+          },
+          {
+            "ticker": "XLK",
+            "name": "Tech",
+            "lastDayChange": 4.055,
+            "cumReturn5d": -2.724,
+            "consistency": 75,
+            "rvol": 1.16,
+            "flowScore": -3.16,
+            "finalScore": -2.37
+          }
+        ],
+        "noiseDetected": [
+          {
+            "ticker": "XLRE",
+            "consistency": 50,
+            "cumReturn": 2.515
+          },
+          {
+            "ticker": "XLV",
+            "consistency": 50,
+            "cumReturn": 1.322
+          },
+          {
+            "ticker": "XLF",
+            "consistency": 50,
+            "cumReturn": 0.456
+          }
+        ]
+      },
+      "mismatch": {
+        "currentTop": "XLK",
+        "improvedTop": "XLE",
+        "reason": "5-day trend differs from last-day snapshot"
+      }
+    }
+  }
+}
