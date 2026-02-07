@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Activity, TrendingUp, TrendingDown, BarChart3, Radio, Globe, ShieldAlert, Minus } from "lucide-react";
+import React, { useEffect, useState, useMemo } from "react";
+import { Activity, TrendingUp, TrendingDown, BarChart3, Radio, Globe, ShieldAlert, Minus, ChevronUp, ChevronDown } from "lucide-react";
 import { useTranslations } from 'next-intl';
 
 interface RLSIComponents {
@@ -54,74 +54,95 @@ export default function GravityGauge({ score, loading, session, components }: Gr
     else if (normalizedScore <= 20) { statusText = "OVERSOLD"; statusColor = "#f43f5e"; }
     else if (normalizedScore <= 40) { statusText = "BEARISH"; statusColor = "#60a5fa"; }
 
-    // Decomposition data
+    // Score interpretation helper
+    const getInterpretation = (val: number): { text: string; color: string } => {
+        if (val >= 80) return { text: t('gauge.robust'), color: '#34d399' };
+        if (val >= 60) return { text: t('gauge.healthy'), color: '#6ee7b7' };
+        if (val >= 45) return { text: t('gauge.stable'), color: '#94a3b8' };
+        if (val >= 30) return { text: t('gauge.caution'), color: '#fbbf24' };
+        return { text: t('gauge.weak'), color: '#f87171' };
+    };
+
+    // Decomposition data with i18n labels
     const decomposition = components ? [
         {
-            label: "Momentum",
+            label: t('gauge.momentum'),
             score: components.momentumScore,
-            weight: 0.30,
             icon: TrendingUp,
             color: components.momentumScore >= 55 ? "#34d399" : components.momentumScore <= 45 ? "#f43f5e" : "#94a3b8"
         },
         {
-            label: "Breadth",
+            label: t('gauge.breadth'),
             score: components.breadthScore,
-            weight: 0.20,
             icon: Globe,
-            color: components.breadthScore >= 55 ? "#34d399" : components.breadthScore <= 40 ? "#f43f5e" : "#94a3b8",
-            subLabel: components.breadthDivergent ? "DIVERGENT" : undefined,
-            subColor: components.breadthDivergent ? "#f43f5e" : undefined
+            color: components.breadthScore >= 55 ? "#34d399" : components.breadthScore <= 40 ? "#f43f5e" : "#94a3b8"
         },
         {
-            label: "Price Action",
+            label: t('gauge.priceAction'),
             score: components.priceActionScore,
-            weight: 0.20,
             icon: BarChart3,
             color: components.priceActionScore >= 55 ? "#34d399" : components.priceActionScore <= 45 ? "#f43f5e" : "#94a3b8"
         },
         {
-            label: "Rotation",
+            label: t('gauge.rotation'),
             score: components.rotationScore,
-            weight: 0.10,
             icon: Radio,
             color: components.rotationScore >= 55 ? "#34d399" : components.rotationScore <= 40 ? "#f43f5e" : "#94a3b8"
         },
         {
-            label: "Sentiment",
+            label: t('gauge.sentiment'),
             score: components.sentimentScore,
-            weight: 0.10,
             icon: Activity,
             color: components.sentimentScore >= 55 ? "#34d399" : components.sentimentScore <= 45 ? "#f43f5e" : "#94a3b8"
         }
     ] : [];
 
-    // Penalty / multiplier info
-    const yieldPenalty = components?.yieldPenalty ?? 0;
-    const vixMult = components?.vixMultiplier ?? 1;
-    const hasVixDamping = vixMult < 1;
+    // Factor summary: count bullish vs bearish factors
+    const factorSummary = useMemo(() => {
+        if (!components) return null;
+        let bull = 0;
+        let bear = 0;
+        decomposition.forEach(d => {
+            if (d.score >= 60) bull++;
+            else if (d.score <= 40) bear++;
+        });
+        return { bull, bear, total: decomposition.length };
+    }, [components, decomposition]);
+
+    // Score scale zones
+    const scaleZones = [
+        { label: '0', pos: 0 },
+        { label: '20', pos: 20 },
+        { label: '40', pos: 40 },
+        { label: '60', pos: 60 },
+        { label: '80', pos: 80 },
+        { label: '100', pos: 100 }
+    ];
 
     return (
-        <div className="flex flex-col items-center justify-center h-full relative p-3">
+        <div className="flex flex-col items-center justify-start h-full relative p-3 pt-4">
             {/* Header */}
-            <div className="absolute top-4 left-6 flex items-center gap-2">
-                <Activity className="w-3 h-3 text-white opacity-70" />
-                <span className="text-xs uppercase tracking-[0.2em] text-white font-black">Gravity Gauge</span>
-                {session && (
-                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ml-2 ${session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                        session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                            session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
-                                'bg-slate-500/20 text-slate-400 border border-slate-500/30'
-                        }`}>
-                        {session === 'PRE' ? 'PRE-MKT' :
-                            session === 'REG' ? 'LIVE' :
-                                session === 'POST' ? 'AFTER' : 'CLOSED'}
-                    </span>
-                )}
+            <div className="w-full px-2 mb-1">
+                <div className="flex items-center gap-2">
+                    <Activity className="w-3 h-3 text-white opacity-70" />
+                    <span className="text-xs uppercase tracking-[0.2em] text-white font-black">Gravity Gauge</span>
+                    {session && (
+                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ml-auto ${session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                            session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
+                                    'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                            }`}>
+                            {session === 'PRE' ? 'PRE-MKT' :
+                                session === 'REG' ? 'LIVE' :
+                                    session === 'POST' ? 'AFTER' : 'CLOSED'}
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Main Gauge Container */}
-            <div className="relative mt-2">
-                <svg width="200" height="120" viewBox="0 0 200 120" className="overflow-visible">
+            <div className="relative mt-0">
+                <svg width="200" height="115" viewBox="0 0 200 115" className="overflow-visible">
                     <defs>
                         <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
                             <stop offset="0%" stopColor="#60a5fa" />
@@ -183,15 +204,20 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                         filter="url(#glow)"
                         opacity={loading ? 0.3 : 1}
                     />
+
+                    {/* RLSI Label — centered above the arc */}
+                    <text x="100" y="14" textAnchor="middle" className="fill-white text-[12px] font-black uppercase" letterSpacing="4">
+                        RLSI
+                    </text>
                 </svg>
 
                 {/* Central Score Display */}
-                <div className="absolute bottom-0 left-0 right-0 top-10 flex flex-col items-center justify-end pb-3">
+                <div className="absolute bottom-0 left-0 right-0 top-6 flex flex-col items-center justify-end pb-1">
                     <span className="text-4xl font-mono font-bold tracking-tighter text-white drop-shadow-lg">
                         {loading ? "--" : Math.round(animatedScore)}
                     </span>
                     <span
-                        className="text-[9px] font-black uppercase tracking-widest mt-1 px-2 py-0.5 rounded border border-white/10"
+                        className="text-[9px] font-black uppercase tracking-widest mt-0.5 px-2 py-0.5 rounded border border-white/10"
                         style={{ color: statusColor, borderColor: `${statusColor}33`, backgroundColor: `${statusColor}11` }}
                     >
                         {statusText}
@@ -199,36 +225,42 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                 </div>
             </div>
 
-            {/* RLSI Label */}
-            <div className="mt-[-5px] mb-2 text-center">
-                <div className="text-[9px] uppercase tracking-widest text-white font-bold">
-                    Relative Liquid Strength Index
+            {/* Score Scale Bar — replaces "RLSI 시장건강도" */}
+            <div className="w-full max-w-[260px] mt-1 mb-1">
+                <div className="relative h-[6px] rounded-full overflow-hidden"
+                    style={{ background: 'linear-gradient(90deg, #60a5fa 0%, #34d399 40%, #34d399 60%, #f43f5e 100%)' }}>
+                    {/* Score position marker */}
+                    <div
+                        className="absolute top-[-3px] w-[3px] h-[12px] bg-white rounded-full shadow-lg transition-all duration-1000 ease-out"
+                        style={{ left: `${normalizedScore}%`, transform: 'translateX(-50%)' }}
+                    />
+                </div>
+                {/* Scale labels */}
+                <div className="flex justify-between mt-0.5 px-0.5">
+                    {scaleZones.map(z => (
+                        <span key={z.label} className="text-[7px] font-mono text-slate-600">{z.label}</span>
+                    ))}
                 </div>
             </div>
 
             {/* === RLSI DECOMPOSITION BARS === */}
             {components && !loading && (
-                <div className="w-full max-w-[260px] border-t border-slate-800/50 pt-3 space-y-1.5">
+                <div className="w-full max-w-[290px] border-t border-slate-800/50 pt-2 space-y-[5px]">
                     {decomposition.map((item, idx) => {
                         const Icon = item.icon;
-                        const contribution = (item.score * item.weight).toFixed(1);
+                        const interp = getInterpretation(item.score);
                         return (
-                            <div key={idx} className="flex items-center gap-2 group">
+                            <div key={idx} className="flex items-center gap-1.5 group">
                                 {/* Icon */}
                                 <Icon className="w-3 h-3 flex-shrink-0 opacity-60" style={{ color: item.color }} />
                                 {/* Label */}
-                                <div className="w-[60px] flex-shrink-0">
-                                    <div className="text-[8px] font-bold text-white uppercase tracking-wide leading-tight">
+                                <div className="w-[52px] flex-shrink-0">
+                                    <div className="text-[9px] font-bold text-white/80 uppercase tracking-wide leading-tight truncate">
                                         {item.label}
                                     </div>
-                                    {item.subLabel && (
-                                        <div className="text-[7px] font-bold tracking-wide" style={{ color: item.subColor }}>
-                                            {item.subLabel}
-                                        </div>
-                                    )}
                                 </div>
                                 {/* Bar */}
-                                <div className="flex-1 h-[6px] bg-slate-800/80 rounded-full overflow-hidden relative">
+                                <div className="flex-1 h-[5px] bg-slate-800/80 rounded-full overflow-hidden relative">
                                     <div
                                         className="h-full rounded-full transition-all duration-700 ease-out"
                                         style={{
@@ -238,63 +270,72 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                                         }}
                                     />
                                     {/* 50% marker */}
-                                    <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-600/40" />
+                                    <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-600/30" />
                                 </div>
-                                {/* Score */}
-                                <div className="w-[32px] text-right flex-shrink-0">
-                                    <span className="text-[9px] font-mono font-bold" style={{ color: item.color }}>
+                                {/* Score + Interpretation */}
+                                <div className="w-[68px] text-right flex-shrink-0 flex items-center justify-end gap-1">
+                                    <span className="text-[10px] font-mono font-bold" style={{ color: item.color }}>
                                         {Math.round(item.score)}
                                     </span>
-                                    <span className="text-[7px] text-slate-600 font-mono ml-0.5">
-                                        /{contribution}
+                                    <span className="text-[8px] font-bold" style={{ color: interp.color }}>
+                                        {interp.text}
                                     </span>
                                 </div>
                             </div>
                         );
                     })}
 
-                    {/* Yield Penalty & VIX Multiplier */}
-                    {(yieldPenalty > 0 || hasVixDamping) && (
-                        <div className="flex items-center gap-2 pt-1 border-t border-slate-800/30">
-                            <ShieldAlert className="w-3 h-3 flex-shrink-0 text-amber-500/60" />
-                            <div className="flex gap-3 text-[8px]">
-                                {yieldPenalty > 0 && (
-                                    <span className="text-amber-400/80 font-mono">
-                                        <Minus className="w-2 h-2 inline mr-0.5" />YLD {yieldPenalty.toFixed(1)}
+                    {/* Factor Summary Row */}
+                    {factorSummary && (
+                        <div className="flex items-center justify-center gap-3 pt-2 border-t border-slate-800/30 mt-1">
+                            {factorSummary.bull > 0 && (
+                                <div className="flex items-center gap-1">
+                                    <ChevronUp className="w-3 h-3 text-emerald-400" />
+                                    <span className="text-[9px] font-bold text-emerald-400">
+                                        {t('bullish')} ×{factorSummary.bull}
                                     </span>
-                                )}
-                                {hasVixDamping && (
-                                    <span className="text-rose-400/80 font-mono">
-                                        VIX x{vixMult.toFixed(1)}
+                                </div>
+                            )}
+                            {factorSummary.bear > 0 && (
+                                <div className="flex items-center gap-1">
+                                    <ChevronDown className="w-3 h-3 text-red-400" />
+                                    <span className="text-[9px] font-bold text-red-400">
+                                        {t('bearish')} ×{factorSummary.bear}
                                     </span>
-                                )}
-                            </div>
+                                </div>
+                            )}
+                            {factorSummary.bull === 0 && factorSummary.bear === 0 && (
+                                <div className="flex items-center gap-1">
+                                    <Minus className="w-3 h-3 text-slate-400" />
+                                    <span className="text-[9px] font-bold text-slate-400">
+                                        {t('neutral')}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Fallback: simple scale when no components */}
+            {/* Loading state — same layout, just placeholders */}
             {(!components || loading) && (
-                <div className="text-center max-w-[220px] border-t border-slate-800/50 pt-3">
-                    <div className="flex items-center justify-center gap-0.5 mb-2">
-                        <div className="text-[8px] text-slate-500 pr-1">0</div>
-                        <div className="w-12 h-1.5 bg-gradient-to-r from-rose-500 to-rose-400 rounded-l"></div>
-                        <div className="w-12 h-1.5 bg-gradient-to-r from-slate-500 to-slate-400"></div>
-                        <div className="w-12 h-1.5 bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-r"></div>
-                        <div className="text-[8px] text-slate-500 pl-1">100</div>
-                    </div>
-                    <div className="flex justify-between text-[8px] font-bold mb-2 px-2">
-                        <span className="text-rose-400">{t('bearish')} 40-</span>
-                        <span className="text-slate-400">{t('neutral')}</span>
-                        <span className="text-emerald-400">{t('bullish')} 60+</span>
-                    </div>
-                    <div className="flex justify-center gap-2 flex-wrap">
-                        <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{t('news')}</span>
-                        <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{t('momentum')}</span>
-                        <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{t('sector')}</span>
-                        <span className="text-[8px] text-slate-300 bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">{t('yield')}</span>
-                    </div>
+                <div className="w-full max-w-[290px] border-t border-slate-800/50 pt-2 space-y-[5px]">
+                    {['momentum', 'breadth', 'priceAction', 'rotation', 'sentiment'].map((key) => (
+                        <div key={key} className="flex items-center gap-1.5">
+                            <div className="w-3 h-3 rounded bg-slate-800 animate-pulse flex-shrink-0" />
+                            <div className="w-[52px] flex-shrink-0">
+                                <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">
+                                    {t(`gauge.${key}` as 'gauge.momentum')}
+                                </div>
+                            </div>
+                            <div className="flex-1 h-[5px] bg-slate-800/80 rounded-full overflow-hidden">
+                                <div className="h-full w-0 rounded-full bg-slate-700" />
+                            </div>
+                            <div className="w-[68px] text-right flex-shrink-0">
+                                <span className="text-[10px] font-mono text-slate-600">--</span>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
         </div>
