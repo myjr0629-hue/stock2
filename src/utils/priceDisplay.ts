@@ -98,12 +98,30 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
 
 
         case 'POST':
-            // POST: Main = live price (underlyingPrice)
-            // Badge = POST price
-            mainPrice = underlyingPrice || 0;
+            // POST: Main = today's regular close (same as Flow/Command page)
+            // Badge = POST price (after-hours)
+            if (regularCloseToday && regularCloseToday > 0) {
+                mainPrice = regularCloseToday;
+            } else {
+                mainPrice = underlyingPrice || 0;
+            }
+            // Calculate change from prevClose (same as Flow/Command)
+            if (mainPrice > 0 && prevClose && prevClose > 0) {
+                const isNewTradingDay = Math.abs(mainPrice - prevClose) > 0.001;
+                if (isNewTradingDay) {
+                    mainChangePct = ((mainPrice - prevClose) / prevClose) * 100;
+                } else {
+                    mainChangePct = intradayChangePct ?? changePercent ?? 0;
+                }
+            }
             if (extended?.postPrice && extended.postPrice > 0) {
                 extPrice = extended.postPrice;
-                extChangePct = (extended.postChangePct || 0) * 100;
+                // POST change = (postPrice - regularClose) / regularClose
+                if (mainPrice > 0) {
+                    extChangePct = ((extended.postPrice - mainPrice) / mainPrice) * 100;
+                } else {
+                    extChangePct = (extended.postChangePct || 0) * 100;
+                }
                 extLabel = 'POST';
             }
             break;
@@ -113,6 +131,15 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
             // Badge = POST price if available
             if (regularCloseToday && regularCloseToday > 0) {
                 mainPrice = regularCloseToday;
+            }
+            // Calculate change from prevClose (same as Flow/Command)
+            if (mainPrice > 0 && prevClose && prevClose > 0) {
+                const isNewTradingDay = Math.abs(mainPrice - prevClose) > 0.001;
+                if (isNewTradingDay) {
+                    mainChangePct = ((mainPrice - prevClose) / prevClose) * 100;
+                } else {
+                    mainChangePct = intradayChangePct ?? changePercent ?? 0;
+                }
             }
             if (extended?.postPrice && extended.postPrice > 0) {
                 extPrice = extended.postPrice;
