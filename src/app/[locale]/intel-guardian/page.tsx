@@ -15,18 +15,31 @@ import { RealityCheck } from "@/components/guardian/RealityCheck";
 import { useGuardian } from "@/components/guardian/GuardianProvider";
 import { VitalsPanel } from "@/components/guardian/VitalsPanel";
 import { OracleHeader } from "@/components/guardian/OracleHeader";
+import RLSIInsightPanel from "@/components/guardian/MarketBreadthPanel";
 
 // === TYPES ===
 interface RLSIResult {
     score: number;
     level: 'DANGER' | 'NEUTRAL' | 'OPTIMAL';
-    session?: 'PRE' | 'REG' | 'POST' | 'CLOSED'; // [V5.0] Session indicator
+    session?: 'PRE' | 'REG' | 'POST' | 'CLOSED';
     components: {
+        priceActionRaw: number;
+        priceActionScore: number;
+        breadthPct: number;
+        breadthScore: number;
+        adRatio: number;
+        volumeBreadth: number;
+        breadthSignal: string;
+        breadthDivergent: boolean;
+        sentimentRaw: number;
         sentimentScore: number;
+        momentumRaw: number;
         momentumScore: number;
+        rotationScore: number;
+        yieldRaw: number;
         yieldPenalty: number;
         vix: number;
-        momentumRaw: number;
+        vixMultiplier: number;
         [key: string]: any;
     };
     timestamp: string;
@@ -86,6 +99,16 @@ interface GuardianContext {
     verdictSourceId: string | null;
     verdictTargetId: string | null;
     marketStatus: 'GO' | 'WAIT' | 'STOP';
+    breadth?: {
+        advancers: number;
+        decliners: number;
+        totalTickers: number;
+        breadthPct: number;
+        adRatio: number;
+        volumeBreadth: number;
+        signal: string;
+        isDivergent: boolean;
+    };
     timestamp: string;
 }
 
@@ -138,12 +161,18 @@ export default function GuardianPage() {
     const regime = data?.tripleA?.regime || 'NEUTRAL';
     const isBullMode = regime === 'BULL';
 
-    // Dynamic Map Border
-    const mapBorderClass = isTargetLocked
-        ? "border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.3)] animate-pulse" // Locked (Gold)
-        : isBullMode
-            ? "border-emerald-500/30"
-            : "border-slate-800";
+    // [V7.7] Session-based animation control — no blinking during off-hours
+    const session = data?.rlsi?.session;
+    const isMarketActive = session === 'PRE' || session === 'REG';
+
+    // Dynamic Map Border — no pulse animation when market is closed
+    const mapBorderClass = isTargetLocked && isMarketActive
+        ? "border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.3)] animate-pulse" // Locked (Gold) - only during market hours
+        : isTargetLocked
+            ? "border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.15)]" // Locked but static after hours
+            : isBullMode
+                ? "border-emerald-500/30"
+                : "border-slate-800";
 
 
 
@@ -188,22 +217,22 @@ export default function GuardianPage() {
 
                 <div className="flex-1 grid grid-cols-12 grid-rows-[auto_1fr_30px] gap-4 min-h-0">
 
-                    {/* BLOCK A: GAUGE (Top Left - 4 cols) */}
-                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14] border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col justify-center">
+                    {/* BLOCK A: GAUGE (4 cols) */}
+                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14]/80 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center">
                         {/* Sci-Fi Corner Decors */}
                         <div className="absolute top-2 left-2 w-2 h-2 border-t border-l border-slate-600"></div>
                         <div className="absolute top-2 right-2 w-2 h-2 border-t border-r border-slate-600"></div>
                         <div className="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-slate-600"></div>
                         <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-slate-600"></div>
 
-                        <GravityGauge score={data?.rlsi.score || 0} loading={loading} session={data?.rlsi.session} />
+                        <GravityGauge score={data?.rlsi.score || 0} loading={loading} session={data?.rlsi.session} components={data?.rlsi.components} />
 
                         {/* Scanline Overlay */}
                         <div className="absolute inset-0 bg-[url('/scanline.png')] opacity-5 pointer-events-none"></div>
                     </div>
 
-                    {/* BLOCK B: REALITY CHECK (Top Right - 8 cols) - VIX/DXY now inline in header */}
-                    <div className="col-span-12 lg:col-span-8 bg-[#0a0e14]/80 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center">
+                    {/* BLOCK B: REALITY CHECK (4 cols) */}
+                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14] border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center">
                         <RealityCheck
                             nasdaqChange={data?.market?.nqChangePercent || 0}
                             guardianScore={data?.rlsi.score || 0}
@@ -218,6 +247,22 @@ export default function GuardianPage() {
                         />
                     </div>
 
+                    {/* BLOCK C: RLSI INSIGHT + BREADTH COMPACT (4 cols) */}
+                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14]/80 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col">
+                        <RLSIInsightPanel
+                            alignmentStatus={data?.divergence?.isDivergent ? 'DIVERGENCE' : 'ALIGNMENT OK'}
+                            insightTitle={verdict.title}
+                            insightDesc={verdict.realityInsight || verdict.desc}
+                            sentiment={verdict.sentiment as 'BULLISH' | 'BEARISH' | 'NEUTRAL'}
+                            breadthPct={data?.breadth?.breadthPct ?? data?.rlsi.components?.breadthPct ?? 50}
+                            adRatio={data?.breadth?.adRatio ?? data?.rlsi.components?.adRatio ?? 1}
+                            volumeBreadth={data?.breadth?.volumeBreadth ?? data?.rlsi.components?.volumeBreadth ?? 50}
+                            breadthSignal={data?.breadth?.signal ?? data?.rlsi.components?.breadthSignal ?? 'NEUTRAL'}
+                            isDivergent={data?.breadth?.isDivergent ?? data?.rlsi.components?.breadthDivergent ?? false}
+                            loading={loading}
+                        />
+                    </div>
+
                     {/* ROW 2: SPLIT (MAP vs INTELLIGENCE STACK) */}
 
                     {/* LEFT: MAP (Cols 1-8) */}
@@ -228,14 +273,23 @@ export default function GuardianPage() {
                             </h3>
                         </div>
 
-                        {/* [V3.0] TARGET LOCK HOLOGRAM OVERLAY - Positioned at bottom, slow animation */}
+                        {/* [V3.0] TARGET LOCK HOLOGRAM OVERLAY - Positioned at bottom, animations disabled when market closed */}
                         {isTargetLocked && (
                             <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center select-none">
-                                {/* Subtle Crosshair - smaller, behind text */}
-                                <div className="absolute w-[180px] h-[180px] border border-amber-500/15 rounded-full animate-[spin_12s_linear_infinite]" />
-                                <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/25 rounded-full animate-[spin_6s_linear_infinite_reverse]" />
+                                {/* Subtle Crosshair - animate only during market hours */}
+                                {isMarketActive ? (
+                                    <>
+                                        <div className="absolute w-[180px] h-[180px] border border-amber-500/15 rounded-full animate-[spin_12s_linear_infinite]" />
+                                        <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/25 rounded-full animate-[spin_6s_linear_infinite_reverse]" />
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="absolute w-[180px] h-[180px] border border-amber-500/10 rounded-full" />
+                                        <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/15 rounded-full" />
+                                    </>
+                                )}
 
-                                <div className="text-2xl font-black text-amber-400 tracking-[0.15em] animate-[pulse_3s_ease-in-out_infinite] drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] whitespace-nowrap">
+                                <div className={`text-2xl font-black text-amber-400 tracking-[0.15em] drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] whitespace-nowrap ${isMarketActive ? 'animate-[pulse_3s_ease-in-out_infinite]' : 'opacity-60'}`}>
                                     TARGET LOCKED
                                 </div>
                                 <div className="text-[10px] text-amber-200 tracking-[0.5em] mt-2 uppercase font-bold bg-black/60 px-3 py-1 rounded border border-amber-500/30">
@@ -259,6 +313,7 @@ export default function GuardianPage() {
                                 targetId={data?.verdictTargetId}
                                 onSectorSelect={setSelectedSectorId}
                                 isBullMode={isBullMode}
+                                isMarketActive={isMarketActive}
                             />
                         </div>
                     </div>

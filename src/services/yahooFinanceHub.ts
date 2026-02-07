@@ -1,5 +1,5 @@
-// [V45.9] Yahoo Finance Real-time Data Hub
-// Rate-limited fetcher for VIX and NQ with Redis caching
+// [V7.0] Yahoo Finance Real-time Data Hub
+// Rate-limited fetcher for VIX, NQ, and TNX (US10Y) with Redis caching
 // Fetches from Yahoo max once per minute, serves from cache otherwise
 
 import { getFromCache, setInCache, CACHE_KEYS } from './redisClient';
@@ -23,6 +23,7 @@ export interface YahooQuote {
 export const YAHOO_CACHE_KEYS = {
     VIX: 'yahoo:vix',
     NQ: 'yahoo:nq',
+    TNX: 'yahoo:tnx',
     LAST_FETCH: 'yahoo:last_fetch'
 };
 
@@ -33,10 +34,12 @@ const RATE_LIMIT_MS = 60 * 1000;
 let memoryCache: {
     vix: YahooQuote | null;
     nq: YahooQuote | null;
+    tnx: YahooQuote | null;
     lastFetch: number;
 } = {
     vix: null,
     nq: null,
+    tnx: null,
     lastFetch: 0
 };
 
@@ -103,7 +106,7 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuo
  * Get Yahoo data with rate limiting and Redis persistence
  * Returns both VIX and NQ in single call
  */
-export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQuote }> {
+export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQuote; tnx: YahooQuote }> {
     const now = Date.now();
     const timeSinceLastFetch = now - memoryCache.lastFetch;
 
@@ -111,10 +114,11 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
     if (timeSinceLastFetch >= RATE_LIMIT_MS) {
         console.log(`[Yahoo] Fetching fresh data (${Math.floor(timeSinceLastFetch / 1000)}s since last fetch)`);
 
-        const quotes = await fetchYahooQuotes(['^VIX', 'NQ=F']);
+        const quotes = await fetchYahooQuotes(['^VIX', 'NQ=F', '^TNX']);
 
         const vixQuote = quotes.get('^VIX');
         const nqQuote = quotes.get('NQ=F');
+        const tnxQuote = quotes.get('^TNX');
 
         if (vixQuote) {
             memoryCache.vix = vixQuote;
@@ -126,7 +130,12 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
             setInCache(YAHOO_CACHE_KEYS.NQ, nqQuote).catch(() => { });
         }
 
-        if (vixQuote || nqQuote) {
+        if (tnxQuote) {
+            memoryCache.tnx = tnxQuote;
+            setInCache(YAHOO_CACHE_KEYS.TNX, tnxQuote).catch(() => { });
+        }
+
+        if (vixQuote || nqQuote || tnxQuote) {
             memoryCache.lastFetch = now;
         }
     } else {
@@ -135,18 +144,21 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
 
     // 2. Return from memory cache if available
     if (memoryCache.vix && memoryCache.nq) {
+        const cacheSource = (q: YahooQuote) => ({ ...q, source: q.source === "YAHOO" ? "YAHOO" as const : "CACHE" as const, isStale: q.source !== "YAHOO" });
         return {
-            vix: { ...memoryCache.vix, source: memoryCache.vix.source === "YAHOO" ? "YAHOO" : "CACHE", isStale: memoryCache.vix.source !== "YAHOO" },
-            nq: { ...memoryCache.nq, source: memoryCache.nq.source === "YAHOO" ? "YAHOO" : "CACHE", isStale: memoryCache.nq.source !== "YAHOO" }
+            vix: cacheSource(memoryCache.vix),
+            nq: cacheSource(memoryCache.nq),
+            tnx: memoryCache.tnx ? cacheSource(memoryCache.tnx) : getDefaultQuote('^TNX', 4.2)
         };
     }
 
     // 3. Try Redis cache (survives server restarts)
     console.log('[Yahoo] Memory cache empty, trying Redis...');
 
-    const [redisVix, redisNq] = await Promise.all([
+    const [redisVix, redisNq, redisTnx] = await Promise.all([
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX),
-        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.NQ)
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.NQ),
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.TNX)
     ]);
 
     if (redisVix) {
@@ -159,10 +171,16 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
         console.log(`[Yahoo] NQ from Redis: ${redisNq.price}`);
     }
 
+    if (redisTnx) {
+        memoryCache.tnx = redisTnx;
+        console.log(`[Yahoo] TNX (US10Y) from Redis: ${redisTnx.price}`);
+    }
+
     // 4. Return what we have (with defaults for missing)
     return {
         vix: memoryCache.vix || getDefaultQuote('^VIX', 15),
-        nq: memoryCache.nq || getDefaultQuote('NQ=F', 21000)
+        nq: memoryCache.nq || getDefaultQuote('NQ=F', 21000),
+        tnx: memoryCache.tnx || getDefaultQuote('^TNX', 4.2)
     };
 }
 
@@ -195,4 +213,9 @@ export async function getVixFromYahoo(): Promise<YahooQuote> {
 export async function getNqFromYahoo(): Promise<YahooQuote> {
     const data = await getYahooDataSSOT();
     return data.nq;
+}
+
+export async function getTnxFromYahoo(): Promise<YahooQuote> {
+    const data = await getYahooDataSSOT();
+    return data.tnx;
 }

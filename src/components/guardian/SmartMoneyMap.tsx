@@ -33,6 +33,7 @@ interface SmartMoneyMapProps {
     targetId?: string | null;
     onSectorSelect?: (sectorId: string) => void;
     isBullMode?: boolean; // [V3.0] Regime Flag
+    isMarketActive?: boolean; // [V7.7] Disable animations when market closed
 }
 
 // === CONSTANTS ===
@@ -95,13 +96,14 @@ function calculateHubLayout(sectors: SectorData[], vectors: FlowVector[], target
 }
 
 // === COMPONENT: HTML NODE (2D Overlay) ===
-function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter }: {
+function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMarketActive = true }: {
     data: SectorData & { pos: THREE.Vector3 },
     position: THREE.Vector3,
     onClick: (d: SectorData) => void,
     isSource: boolean,
     isTarget: boolean,
-    isCenter?: boolean
+    isCenter?: boolean,
+    isMarketActive?: boolean
 }) {
     const visual = SECTOR_VISUALS[data.id];
     const Icon = visual?.icon;
@@ -142,19 +144,19 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter }: {
                     onMouseEnter={() => setHovered(true)}
                     onMouseLeave={() => setHovered(false)}
                 >
-                    {/* RING ANIMATION FOR CENTER or AI_PWR (Turbo) */}
+                    {/* RING ANIMATION FOR CENTER or AI_PWR (Turbo) — static when market closed */}
                     {(isCenter || data.id === 'AI_PWR') && (
                         <div
-                            className={`absolute inset-[-15px] rounded-full border-2 border-dashed opacity-30 ${isCenter ? 'animate-spin-slow' : 'animate-spin'}`}
+                            className={`absolute inset-[-15px] rounded-full border-2 border-dashed opacity-30 ${isMarketActive ? (isCenter ? 'animate-spin-slow' : 'animate-spin') : ''}`}
                             style={{
                                 borderColor: color,
-                                animationDuration: data.id === 'AI_PWR' ? '1.5s' : '10s' // Turbo mode for AI_PWR
+                                animationDuration: isMarketActive ? (data.id === 'AI_PWR' ? '1.5s' : '10s') : undefined
                             }}
                         />
                     )}
 
-                    {/* EXTRA PULSE FOR AI_PWR (High Voltage) */}
-                    {data.id === 'AI_PWR' && (
+                    {/* EXTRA PULSE FOR AI_PWR (High Voltage) — disabled when market closed */}
+                    {data.id === 'AI_PWR' && isMarketActive && (
                         <div className="absolute inset-[-5px] rounded-full border border-cyan-400 opacity-60 animate-ping" />
                     )}
 
@@ -184,12 +186,12 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter }: {
                         </span>
                     </div>
 
-                    {/* ACTIVE INDICATOR DOT (If NOT Center, to avoid clutter) */}
+                    {/* ACTIVE INDICATOR DOT — static when market closed */}
                     {!isCenter && isSource && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-blue-500 animate-pulse border border-black" />
+                        <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full bg-blue-500 border border-black ${isMarketActive ? 'animate-pulse' : ''}`} />
                     )}
                     {!isCenter && isTarget && (
-                        <div className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 animate-pulse border border-black" />
+                        <div className={`absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border border-black ${isMarketActive ? 'animate-pulse' : ''}`} />
                     )}
                 </div>
             </Html>
@@ -280,7 +282,7 @@ function ArrowHead({ position, lookAtTarget, color }: { position: THREE.Vector3,
 
 
 // === MAIN SCENE ===
-export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, targetId, onSectorSelect, isBullMode = false }: SmartMoneyMapProps) {
+export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, targetId, onSectorSelect, isBullMode = false, isMarketActive = true }: SmartMoneyMapProps) {
 
     // Layout: Hub & Spoke
     const nodes = useMemo(() => calculateHubLayout(sectors, vectors, targetId), [sectors, vectors, targetId]);
@@ -348,6 +350,7 @@ export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, ta
                         isSource={node.id === sourceId || vectors?.some(v => v.sourceId === node.id) || false}
                         isTarget={node.id === targetId || vectors?.some(v => v.targetId === node.id) || false}
                         isCenter={node.isCenter}
+                        isMarketActive={isMarketActive}
                     />
                 ))}
 

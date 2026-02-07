@@ -41,7 +41,11 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
     const validLocale = ['ko', 'en', 'ja'].includes(locale) ? locale : 'ko';
 
     const refresh = async (force: boolean = false) => {
-        setLoading(true);
+        // Only show loading spinner on initial load or forced refresh
+        // Background polling updates data silently without flicker
+        if (!data || force) {
+            setLoading(true);
+        }
         try {
             // Using existing API endpoint with locale
             const res = await fetch(`/api/debug/guardian?force=${force}&locale=${validLocale}`);

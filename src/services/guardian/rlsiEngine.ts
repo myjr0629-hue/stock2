@@ -3,6 +3,7 @@ import { fetchMassive } from "@/services/massiveClient";
 import { getTreasuryYields } from "@/services/fedApiClient";
 import { fetchStockNews, NewsItem } from "@/services/newsHubProvider";
 import { getMacroSnapshotSSOT } from "@/services/macroHubProvider";
+import { getMarketBreadth, BreadthSnapshot } from "./breadthEngine";
 
 // === CONFIGURATION ===
 const MARKET_CORE_10 = [
@@ -13,11 +14,12 @@ const MARKET_CORE_10 = [
 const MOMENTUM_TICKER = 'QQQ';
 const MOMENTUM_WINDOW_DAYS = 22; // Approx 1 month trading days
 
-// [V5.0] Weight Configuration
+// [V6.0] Weight Configuration — Breadth 추가, 균형 재배분
 const WEIGHTS = {
-    PRICE_ACTION: 0.30,    // 가격 액션 센티먼트 (상승/하락 비율)
-    NEWS_SENTIMENT: 0.15,  // 뉴스 센티먼트
-    MOMENTUM: 0.35,        // 모멘텀 (20MA 대비)
+    PRICE_ACTION: 0.20,    // 가격 액션 센티먼트 (M7 10종목)
+    BREADTH: 0.20,         // [V6.0] Market Breadth (5000+ 종목 A/D)
+    NEWS_SENTIMENT: 0.10,  // 뉴스 센티먼트
+    MOMENTUM: 0.30,        // 모멘텀 (20MA 대비)
     ROTATION: 0.10,        // 순환매 강도 (외부 전달)
     BASE_BUFFER: 10        // 기본 버퍼
 };
@@ -30,9 +32,16 @@ export interface RLSIResult {
     level: 'DANGER' | 'NEUTRAL' | 'OPTIMAL';
     session: MarketSession; // [V5.0] Current session
     components: {
-        // [V5.0] Price Action Sentiment (NEW)
+        // [V5.0] Price Action Sentiment
         priceActionRaw: number;    // 0-1 (상승 종목 비율)
         priceActionScore: number;  // 0-100
+        // [V6.0] Market Breadth
+        breadthPct: number;        // 상승 종목 비율 (0-100)
+        breadthScore: number;      // 정규화 점수 (0-100)
+        adRatio: number;           // A/D Ratio
+        volumeBreadth: number;     // 거래량 기반 breadth (0-100)
+        breadthSignal: string;     // STRONG/HEALTHY/NEUTRAL/WEAK/CRITICAL
+        breadthDivergent: boolean; // NQ↑ but Breadth↓
         // News Sentiment
         sentimentRaw: number;      // -1 to 1
         sentimentScore: number;    // 0-100
@@ -174,7 +183,7 @@ async function getQQQMomentum(): Promise<number> {
 let cachedRLSI: RLSIResult | null = null;
 const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
 
-// === [V5.0] MAIN ENGINE - UPGRADED ===
+// === [V6.0] MAIN ENGINE - BREADTH INTEGRATED ===
 
 export async function calculateRLSI(force: boolean = false, rotationScore: number = 50): Promise<RLSIResult> {
     // 0. Check Cache
@@ -210,42 +219,48 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
         }
 
         // Fetch other data (universal across sessions)
-        const [news, yields, macro] = await Promise.all([
+        // [V6.0] Added breadth parallel fetch
+        const [news, yields, macro, breadth] = await Promise.all([
             fetchStockNews(MARKET_CORE_10, 30).catch(() => []),
             getTreasuryYields().catch(() => ({ us10y: 4.0 } as any)),
-            getMacroSnapshotSSOT().catch(() => ({ vix: 15 } as any))
+            getMacroSnapshotSSOT().catch(() => ({ vix: 15 } as any)),
+            getMarketBreadth(0).catch(() => null as BreadthSnapshot | null)
         ]);
 
         // 2. Component Calculations
 
-        // A. [V5.0] Price Action Score (0-100)
+        // A. Price Action Score (0-100)
         const priceActionScore = priceActionRaw * 100;
 
-        // B. News Sentiment Score (0-100)
+        // B. [V6.0] Market Breadth Score (0-100)
+        const breadthScoreValue = breadth?.breadthScore ?? 50;
+
+        // C. News Sentiment Score (0-100)
         const sentimentRaw = calculateNewsSentimentScore(news);
         const sentimentScore = (sentimentRaw + 1) * 50;
 
-        // C. Momentum Score (0-100)
+        // D. Momentum Score (0-100)
         let momentumScore = 50 + (momentumRaw - 1) * 1000;
         momentumScore = Math.max(0, Math.min(100, momentumScore));
 
-        // D. Rotation Score (passed from SectorEngine)
+        // E. Rotation Score (passed from SectorEngine)
         const rotationScoreNorm = Math.max(0, Math.min(100, rotationScore));
 
-        // E. Yield Penalty
+        // F. Yield Penalty
         const yieldRaw = yields.us10y || 4.0;
         const yieldPenalty = Math.max(0, (yieldRaw - 3.5) * 10);
 
-        // F. VIX Filter
+        // G. VIX Filter
         const vix = macro?.vix || 15;
         let vixMultiplier = 1.0;
         if (vix > 30) vixMultiplier = 0.5;
         else if (vix > 20) vixMultiplier = 0.8;
 
-        // 3. [V5.0] Final Calculation with New Weights
-        // PriceAction 30% + News 15% + Momentum 35% + Rotation 10% + Base 10 - Penalty
+        // 3. [V6.0] Final Calculation with Breadth Integration
+        // PriceAction 20% + Breadth 20% + News 10% + Momentum 30% + Rotation 10% + Base 10 - Penalty
         let baseScore =
             (priceActionScore * WEIGHTS.PRICE_ACTION) +
+            (breadthScoreValue * WEIGHTS.BREADTH) +
             (sentimentScore * WEIGHTS.NEWS_SENTIMENT) +
             (momentumScore * WEIGHTS.MOMENTUM) +
             (rotationScoreNorm * WEIGHTS.ROTATION) +
@@ -266,10 +281,18 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
         const result: RLSIResult = {
             score: Number(finalScore.toFixed(1)),
             level,
-            session, // [V5.0] Include session
+            session,
             components: {
                 priceActionRaw: Number(priceActionRaw.toFixed(2)),
                 priceActionScore: Number(priceActionScore.toFixed(1)),
+                // [V6.0] Market Breadth
+                breadthPct: breadth?.breadthPct ?? 50,
+                breadthScore: breadthScoreValue,
+                adRatio: breadth?.adRatio ?? 1,
+                volumeBreadth: breadth?.volumeBreadth ?? 50,
+                breadthSignal: breadth?.signal ?? 'NEUTRAL',
+                breadthDivergent: breadth?.isDivergent ?? false,
+                // News
                 sentimentRaw: Number(sentimentRaw.toFixed(2)),
                 sentimentScore: Number(sentimentScore.toFixed(1)),
                 momentumRaw: Number(momentumRaw.toFixed(3)),
@@ -285,7 +308,7 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
 
         // Update Cache
         cachedRLSI = result;
-        console.log(`[RLSI V5.0] Complete. Score: ${result.score}, Level: ${result.level}, Session: ${session}`);
+        console.log(`[RLSI V6.0] Complete. Score: ${result.score}, Level: ${result.level}, Session: ${session}, Breadth: ${breadth?.breadthPct?.toFixed(1) ?? 'N/A'}%`);
         return result;
 
     } catch (error: any) {
@@ -297,6 +320,12 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
             components: {
                 priceActionRaw: 0.5,
                 priceActionScore: 50,
+                breadthPct: 50,
+                breadthScore: 50,
+                adRatio: 1,
+                volumeBreadth: 50,
+                breadthSignal: 'NEUTRAL',
+                breadthDivergent: false,
                 sentimentRaw: 0,
                 sentimentScore: 50,
                 momentumRaw: 1.0,

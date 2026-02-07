@@ -31,7 +31,7 @@ export function MiniGauge({
     const sizeConfig = {
         sm: { px: 64, value: 'text-sm', label: 'text-[9px]', subLabel: 'text-[8px]', desc: 'text-[7px]', secondary: 'text-[8px]', stroke: 3 },
         md: { px: 80, value: 'text-base', label: 'text-[10px]', subLabel: 'text-[9px]', desc: 'text-[8px]', secondary: 'text-[9px]', stroke: 3.5 },
-        lg: { px: 96, value: 'text-lg', label: 'text-[11px]', subLabel: 'text-[10px]', desc: 'text-[9px]', secondary: 'text-[10px]', stroke: 4 },
+        lg: { px: 96, value: 'text-lg', label: 'text-[11px]', subLabel: 'text-[10px]', desc: 'text-[9px]', secondary: 'text-xs', stroke: 4 },
         xl: { px: 112, value: 'text-xl', label: 'text-xs', subLabel: 'text-[11px]', desc: 'text-[10px]', secondary: 'text-[11px]', stroke: 4.5 }
     };
     const cfg = sizeConfig[size];
@@ -154,8 +154,9 @@ export function DualGauge({ priceValue, flowValue, size = 'xl' }: DualGaugeProps
                 </div>
             </div>
             {/* Interpretation */}
-            <span className="text-[10px] font-bold text-white uppercase tracking-wide">
-                {priceValue >= 0 && flowValue >= 50 ? '🟢 상승 모멘텀' : priceValue < 0 && flowValue < 50 ? '🔴 하락 압력' : '⚪ 혼조세'}
+            <span className="text-[10px] font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
+                <span className={`inline-block w-1.5 h-1.5 rounded-full ${priceValue >= 0 && flowValue >= 50 ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : priceValue < 0 && flowValue < 50 ? 'bg-rose-400 shadow-[0_0_6px_#f43f5e]' : 'bg-slate-400'}`} />
+                {priceValue >= 0 && flowValue >= 50 ? '상승 모멘텀' : priceValue < 0 && flowValue < 50 ? '하락 압력' : '혼조세'}
             </span>
         </div>
     );

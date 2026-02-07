@@ -67,6 +67,17 @@ export interface GuardianContext {
         isTargetLock: boolean;
         checklist: TripleAChecklist;    // [V6.0] 체크리스트
     };
+    // [V7.0] Market Breadth
+    breadth?: {
+        advancers: number;
+        decliners: number;
+        totalTickers: number;
+        breadthPct: number;
+        adRatio: number;
+        volumeBreadth: number;
+        signal: string;
+        isDivergent: boolean;
+    };
     timestamp: string;
 }
 
@@ -85,24 +96,24 @@ const VERDICT_TEXTS: Record<string, Record<Locale, { title: string; desc: string
         ja: { title: "MARKET SYNCHRONIZED", desc: "指数と流動性が同期中。特異事項なし。" }
     },
     RETAIL_TRAP: {
-        ko: { title: "⚠️ RETAIL TRAP (개미지옥)", desc: "지수는 상승하나 유동성은 이탈 중. 추격 매수 금지." },
-        en: { title: "⚠️ RETAIL TRAP", desc: "Index rising but liquidity is exiting. Avoid chasing." },
-        ja: { title: "⚠️ RETAIL TRAP", desc: "指数上昇中も流動性は離脱中。追撃買い禁止。" }
+        ko: { title: "RETAIL TRAP", desc: "지수는 상승하나 유동성은 이탈 중. 추격 매수 금지." },
+        en: { title: "RETAIL TRAP", desc: "Index rising but liquidity is exiting. Avoid chasing." },
+        ja: { title: "RETAIL TRAP", desc: "指数上昇中も流動性は離脱中。追撃買い禁止。" }
     },
     SILENT_ACCUM: {
-        ko: { title: "💎 SILENT ACCUMULATION (침묵의 매집)", desc: "가격 하락 중 스마트 머니 강력 유입. 분할 매수 적기." },
-        en: { title: "💎 SILENT ACCUMULATION", desc: "Smart money accumulating during price decline. Good entry zone." },
-        ja: { title: "💎 SILENT ACCUMULATION", desc: "価格下落中にスマートマネーが強力流入。分割買いの好機。" }
+        ko: { title: "SILENT ACCUMULATION", desc: "가격 하락 중 스마트 머니 강력 유입. 분할 매수 적기." },
+        en: { title: "SILENT ACCUMULATION", desc: "Smart money accumulating during price decline. Good entry zone." },
+        ja: { title: "SILENT ACCUMULATION", desc: "価格下落中にスマートマネーが強力流入。分割買いの好機。" }
     },
     QUANTUM_LEAP: {
-        ko: { title: "🚀 QUANTUM LEAP (상승 폭발)", desc: "강력한 유동성 동반 상승. 수익 극대화 구간." },
-        en: { title: "🚀 QUANTUM LEAP", desc: "Strong liquidity-backed rally. Maximize gains." },
-        ja: { title: "🚀 QUANTUM LEAP", desc: "強力な流動性を伴う上昇。収益最大化区間。" }
+        ko: { title: "QUANTUM LEAP", desc: "강력한 유동성 동반 상승. 수익 극대화 구간." },
+        en: { title: "QUANTUM LEAP", desc: "Strong liquidity-backed rally. Maximize gains." },
+        ja: { title: "QUANTUM LEAP", desc: "強力な流動性を伴う上昇。収益最大化区間。" }
     },
     DEEP_FREEZE: {
-        ko: { title: "❄️ DEEP FREEZE (빙하기)", desc: "모멘텀 소멸. 현금 확보 필수." },
-        en: { title: "❄️ DEEP FREEZE", desc: "Momentum depleted. Cash preservation essential." },
-        ja: { title: "❄️ DEEP FREEZE", desc: "モメンタム消失。現金確保必須。" }
+        ko: { title: "DEEP FREEZE", desc: "모멘텀 소멸. 현금 확보 필수." },
+        en: { title: "DEEP FREEZE", desc: "Momentum depleted. Cash preservation essential." },
+        ja: { title: "DEEP FREEZE", desc: "モメンタム消失。現金確保必須。" }
     },
     STABLE: {
         ko: { title: "SYSTEM STABLE", desc: "특이 징후 없음. 섹터 순환매 감시 중." },
@@ -146,9 +157,9 @@ const CHECKLIST_TEXTS: Record<Locale, {
     under: string;
 }> = {
     ko: {
-        targetLocked: "🎯 TARGET LOCKED: 강세장 진입 조건 충족",
-        bearMode: "❄️ 약세장: 보수적 운용 권장",
-        waitMode: "⏸️ 방향성 부재: 관망 권장",
+        targetLocked: "TARGET LOCKED :: 강세장 진입 조건 충족",
+        bearMode: "BEAR MODE :: 보수적 운용 권장",
+        waitMode: "STANDBY :: 관망 권장",
         nasdaqUp: "NASDAQ 상승",
         targetSectorUp: "타겟 섹터 상승",
         yieldStable: "금리 안정",
@@ -157,9 +168,9 @@ const CHECKLIST_TEXTS: Record<Locale, {
         under: "미만"
     },
     en: {
-        targetLocked: "🎯 TARGET LOCKED: Bull market conditions met",
-        bearMode: "❄️ Bear Mode: Defensive stance recommended",
-        waitMode: "⏸️ No Direction: Wait recommended",
+        targetLocked: "TARGET LOCKED :: Bull market conditions met",
+        bearMode: "BEAR MODE :: Defensive stance recommended",
+        waitMode: "STANDBY :: Wait recommended",
         nasdaqUp: "NASDAQ Rising",
         targetSectorUp: "Target Sector Rising",
         yieldStable: "Yield Stable",
@@ -168,9 +179,9 @@ const CHECKLIST_TEXTS: Record<Locale, {
         under: "under"
     },
     ja: {
-        targetLocked: "🎯 TARGET LOCKED: 強気相場条件充足",
-        bearMode: "❄️ 弱気相場: 防御運用推奨",
-        waitMode: "⏸️ 方向性不在: 様子見推奨",
+        targetLocked: "TARGET LOCKED :: 強気相場条件充足",
+        bearMode: "BEAR MODE :: 防御運用推奨",
+        waitMode: "STANDBY :: 様子見推奨",
         nasdaqUp: "NASDAQ上昇",
         targetSectorUp: "ターゲットセクター上昇",
         yieldStable: "金利安定",
@@ -190,27 +201,27 @@ const RULE_VERDICT_TEXTS: Record<Locale, {
     advanceRatio: string;
 }> = {
     ko: {
-        bullish: { headline: "📈 강세 지속 구간", action: "상승 종목 비중 확대 유효" },
-        bearish: { headline: "📉 방어 구간", action: "신규 매수 자제, 현금 비중 확대" },
-        neutral: { headline: "⏸️ 관망 구간", action: "방향성 확인 후 진입" },
+        bullish: { headline: "BULL PHASE ACTIVE", action: "상승 종목 비중 확대 유효" },
+        bearish: { headline: "DEFENSIVE PHASE", action: "신규 매수 자제, 현금 비중 확대" },
+        neutral: { headline: "STANDBY PHASE", action: "방향성 확인 후 진입" },
         rotation: "순환매",
         riskScore: "양호",
         dangerScore: "위험",
         advanceRatio: "상승비율"
     },
     en: {
-        bullish: { headline: "📈 Bull Phase Continues", action: "Increase exposure to rising stocks" },
-        bearish: { headline: "📉 Defensive Phase", action: "Avoid new buys, increase cash" },
-        neutral: { headline: "⏸️ Wait Phase", action: "Enter after direction confirmed" },
+        bullish: { headline: "BULL PHASE ACTIVE", action: "Increase exposure to rising stocks" },
+        bearish: { headline: "DEFENSIVE PHASE", action: "Avoid new buys, increase cash" },
+        neutral: { headline: "STANDBY PHASE", action: "Enter after direction confirmed" },
         rotation: "Rotation",
         riskScore: "Healthy",
         dangerScore: "Danger",
         advanceRatio: "Advance Ratio"
     },
     ja: {
-        bullish: { headline: "📈 強気継続区間", action: "上昇銘柄のウェイト拡大有効" },
-        bearish: { headline: "📉 防御区間", action: "新規買い自制、現金ウェイト拡大" },
-        neutral: { headline: "⏸️ 様子見区間", action: "方向性確認後にエントリー" },
+        bullish: { headline: "BULL PHASE ACTIVE", action: "上昇銘柄のウェイト拡大有効" },
+        bearish: { headline: "DEFENSIVE PHASE", action: "新規買い自制、現金ウェイト拡大" },
+        neutral: { headline: "STANDBY PHASE", action: "方向性確認後にエントリー" },
         rotation: "ローテーション",
         riskScore: "良好",
         dangerScore: "危険",
@@ -340,7 +351,12 @@ export class GuardianDataHub {
                         us10yChange: macro?.factors?.us10y?.chgPct ?? undefined,
                         spread2s10s: macro?.yieldCurve?.spread2s10s ?? undefined,
                         realYield: macro?.realYield?.realYield ?? undefined,
-                        realYieldStance: macro?.realYield?.stance ?? undefined
+                        realYieldStance: macro?.realYield?.stance ?? undefined,
+                        // Breadth indicators
+                        breadthPct: rlsi.components?.breadthPct ?? undefined,
+                        adRatio: rlsi.components?.adRatio ?? undefined,
+                        volumeBreadth: rlsi.components?.volumeBreadth ?? undefined,
+                        breadthSignal: rlsi.components?.breadthSignal ?? undefined
                     };
 
                     const [rotationText, realityText] = await Promise.all([
@@ -529,6 +545,17 @@ export class GuardianDataHub {
                 rotationIntensity,
                 ruleVerdict, // [V6.0] 규칙 기반 핵심 결론
                 tripleA,     // [V6.0] 체크리스트 포함
+                // [V7.0] Market Breadth (from RLSI engine components)
+                breadth: {
+                    advancers: 0, // populated by breadthEngine cache
+                    decliners: 0,
+                    totalTickers: 0,
+                    breadthPct: rlsi.components?.breadthPct ?? 50,
+                    adRatio: rlsi.components?.adRatio ?? 1,
+                    volumeBreadth: rlsi.components?.volumeBreadth ?? 50,
+                    signal: rlsi.components?.breadthSignal ?? 'NEUTRAL',
+                    isDivergent: rlsi.components?.breadthDivergent ?? false
+                },
                 timestamp: new Date().toISOString()
             };
 

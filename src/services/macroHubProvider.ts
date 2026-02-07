@@ -6,7 +6,7 @@
 import { fetchMassive, CACHE_POLICY } from './massiveClient';
 import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider";
 import { getUpcomingEvents } from './eventHubProvider';
-import { getTreasuryYields } from './fedApiClient';
+import { getTreasuryYields, getInflationData } from './fedApiClient';
 import { getYahooDataSSOT, YahooQuote } from './yahooFinanceHub';
 
 export interface MacroFactor {
@@ -136,15 +136,20 @@ function createFailFactor(label: string, symbolUsed: string): MacroFactor {
 // Using /fed/v1/treasury-yields
 async function fetchFedYield(): Promise<MacroFactor> {
     try {
-        // Sort by date desc to get latest
-        const res = await fetchMassive('/fed/v1/treasury-yields', { limit: '1', sort: 'date', order: 'desc' }, true);
-        const latest = res?.results?.[0];
+        // Fetch latest 2 records to calculate change
+        const res = await fetchMassive('/fed/v1/treasury-yields', { limit: '2', sort: 'date', order: 'desc' }, true);
+        const records = res?.results;
 
-        if (latest && latest.yield_10_year) {
+        if (records?.[0]?.yield_10_year) {
+            const current = records[0].yield_10_year;
+            const previous = records[1]?.yield_10_year ?? current;
+            const chgAbs = current - previous;
+            const chgPct = previous !== 0 ? (chgAbs / previous) * 100 : 0;
+
             return {
-                level: latest.yield_10_year,
-                chgPct: 0,
-                chgAbs: 0,
+                level: current,
+                chgPct: Math.round(chgPct * 100) / 100,
+                chgAbs: Math.round(chgAbs * 1000) / 1000,
                 label: "US 10Y (Fed)",
                 source: "MASSIVE",
                 status: "OK",
@@ -201,9 +206,18 @@ interface RealYieldData {
 }
 
 async function fetchRealYieldData(us10y: number): Promise<RealYieldData | null> {
-    // [V45.0] Use reasonable default for inflation expectation based on Fed target
-    // Long-term inflation expectation is typically around 2.0-2.5%
-    const inflationExpectation = 2.3; // Fed's long-run expectation
+    // [V7.0] Use real inflation expectations from FED API, fallback to 2.3%
+    let inflationExpectation = 2.3; // Default fallback
+    try {
+        const inflationData = await getInflationData();
+        if (inflationData.expectations !== null) {
+            inflationExpectation = inflationData.expectations;
+            console.log(`[MacroHub] Real Inflation Expectation from API: ${inflationExpectation}%`);
+        }
+    } catch (e) {
+        console.warn('[MacroHub] Inflation API failed, using default 2.3%');
+    }
+
     const realYield = us10y - inflationExpectation;
 
     // Determine stance
@@ -211,7 +225,7 @@ async function fetchRealYieldData(us10y: number): Promise<RealYieldData | null> 
     if (realYield > 1.5) stance = 'TIGHT';
     else if (realYield < 0) stance = 'LOOSE';
 
-    console.log(`[MacroHub] RealYield: 10Y=${us10y.toFixed(2)}% - Exp=${inflationExpectation}% = ${realYield.toFixed(2)}% (${stance})`);
+    console.log(`[MacroHub] RealYield: 10Y=${us10y.toFixed(2)}% - Exp=${inflationExpectation.toFixed(2)}% = ${realYield.toFixed(2)}% (${stance})`);
     return { us10y, inflationExpectation, realYield, stance };
 }
 
@@ -246,12 +260,12 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const marketStatus = await getMarketStatusSSOT();
     const fetchedAtET = new Date().toISOString();
 
-    // Parallel Fetch with Multipliers + [V45.0] Advanced Indicators
-    // [V45.9] VIX and NQ from Yahoo (rate-limited: 1 call/min)
-    const [yahooData, qqqFallback, us10y, yieldCurve] = await Promise.all([
+    // Parallel Fetch with Multipliers + [V7.0] Advanced Indicators
+    // [V7.0] VIX, NQ, and TNX (US10Y) from Yahoo (rate-limited: 1 call/min)
+    const [yahooData, qqqFallback, fedYield, yieldCurve] = await Promise.all([
         getYahooDataSSOT(), // Yahoo -> Cache -> Redis -> Default (rate-limited)
         fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX, marketStatus), // QQQ fallback
-        fetchFedYield(),
+        fetchFedYield(), // FED daily yield (fallback for TNX)
         fetchYieldCurveData()
     ]);
 
@@ -279,11 +293,33 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         symbolUsed: vixData.source === "YAHOO" ? "^VIX" : vixData.source
     };
 
+    // [V7.0] US10Y: Yahoo ^TNX real-time, fallback to FED daily
+    const tnxData = yahooData.tnx;
+    const us10y: MacroFactor = tnxData.source !== "DEFAULT" ? {
+        level: tnxData.price,
+        chgPct: tnxData.changePct,
+        chgAbs: tnxData.change,
+        label: "US 10Y",
+        source: "MASSIVE",
+        status: "OK",
+        symbolUsed: "^TNX (Yahoo)"
+    } : fedYield; // Fallback to FED daily if Yahoo fails
+
+    // [V7.0] Use real-time US10Y for yield curve and real yield
+    const liveUs10y = us10y.level ?? yieldCurve?.us10y ?? 4.2;
+
+    // Override yieldCurve with live US10Y if available
+    const liveYieldCurve = yieldCurve ? {
+        ...yieldCurve,
+        us10y: liveUs10y,
+        spread2s10s: liveUs10y - yieldCurve.us2y
+    } : null;
+
+    // [V7.0] Real Yield with live US10Y
+    const realYield = await fetchRealYieldData(liveUs10y);
+
     // DXY Proxy: UUP (Bullish Dollar ETF) -> Calibrated to ~98.23 (x3.6315)
     const dxy = await fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY, marketStatus);
-
-    // [V45.0] Real Yield (depends on 10Y yield)
-    const realYield = yieldCurve ? await fetchRealYieldData(yieldCurve.us10y) : null;
 
     // Regime Logic: QQQ Price > SMA20
     // We need to fetch SMA20 for QQQ
@@ -326,8 +362,8 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         vix: vixy.level ?? 0,
         us10y: us10y.level ?? 0,
         dxy: dxy.level ?? 0,
-        // [V45.0] Advanced Macro Indicators
-        yieldCurve: yieldCurve ?? undefined,
+        // [V7.0] Advanced Macro Indicators (live US10Y)
+        yieldCurve: liveYieldCurve ?? undefined,
         realYield: realYield ?? undefined
     };
 
