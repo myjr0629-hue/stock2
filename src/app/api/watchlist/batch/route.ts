@@ -1,14 +1,94 @@
 // Watchlist Batch Analyze API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
 // [One Pipe] Uses Full Engine (analyzeGemsTicker) for unified alpha calculation
+// [PERF] Uses lightweight stock data (no chart/minute data) for faster response
 
 import { NextResponse } from 'next/server';
-import { getStockData, getOptionsData } from '@/services/stockApi';
+import { getOptionsData } from '@/services/stockApi';
 import { analyzeGemsTicker } from '@/services/stockTypes';
 import { getStructureData } from '@/services/structureService';
+import { fetchMassive } from '@/services/massiveClient';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
+
+// [PERF] Lightweight stock data fetcher - skips chart data entirely
+// Same data sources as getStockData(), minus getStockChartData() (which downloads 1000+ minute bars)
+// All prices, RSI, 3D return, VWAP are identical to getStockData()
+async function getStockDataLight(symbol: string) {
+    const to = new Date().toISOString().split('T')[0];
+    const fromDate = new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0];
+
+    // [PERF] All 3 calls in parallel (getStockData does snapshot+chart+RSI parallel, then 3D return SEQUENTIAL)
+    const [snapRes, rsiRes, dailyAggs] = await Promise.all([
+        // 1. Snapshot: price, change, volume, VWAP, prevClose (same as getStockData)
+        fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`),
+        // 2. RSI: same API as getTechnicalRSI()
+        fetchMassive(`/v1/indicators/rsi/${symbol}`, { timespan: 'day', window: '14', limit: '1' }).catch(() => null),
+        // 3. Daily aggregates: for 3D return + sparkline (same as getAggregates in getStockData)
+        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${fromDate}/${to}`, { limit: '5000', adjust: 'true', sort: 'asc' }).catch(() => null)
+    ]);
+
+    const t = snapRes?.ticker;
+    if (!t) return null;
+
+    // Session detection (same logic as getStockData lines 800-838)
+    const { getETNow } = await import('@/services/timezoneUtils');
+    const et = getETNow();
+    const etTime = et.hour + et.minute / 60;
+
+    let session: 'pre' | 'reg' | 'post' = 'reg';
+    if (!et.isWeekend) {
+        if (etTime >= 4 && etTime < 9.5) session = 'pre';
+        else if (etTime >= 16 && etTime < 20) session = 'post';
+        else if (etTime >= 9.5 && etTime < 16) session = 'reg';
+        else session = (etTime >= 20 || etTime < 4) ? 'post' : 'reg';
+    }
+
+    // Price calculation (same logic as getStockData lines 842-868)
+    const prevClose = t?.prevDay?.c || 0;
+    const todayClose = t?.day?.c || prevClose;
+    const latestPrice = t?.lastTrade?.p || t?.min?.c || t?.day?.c || t?.prevDay?.c || 0;
+
+    let changeBase = prevClose;
+    if (session === 'post') changeBase = todayClose;
+
+    const isExtended = session !== 'reg';
+    const extChange = isExtended ? (latestPrice - changeBase) : undefined;
+    const extChangePercent = isExtended ? (changeBase !== 0 ? ((latestPrice - changeBase) / changeBase) * 100 : 0) : undefined;
+    const regChange = t?.todaysChange || (todayClose - prevClose);
+    const regChangePercent = t?.todaysChangePerc || (prevClose !== 0 ? ((todayClose - prevClose) / prevClose) * 100 : 0);
+
+    // RSI (same as getTechnicalRSI)
+    const rsi = rsiRes?.results?.values?.[0]?.value ?? null;
+
+    // 3D Return + Sparkline from daily aggregates (same calculation as getStockData lines 870-908)
+    const dailyResults = (dailyAggs?.results || []).map((r: any) => ({ close: r.c }));
+    let return3d = 0;
+    if (dailyResults.length >= 4) {
+        const recentCandles = dailyResults.slice(-4);
+        const price3dAgo = recentCandles[0].close;
+        const currentClose = recentCandles[recentCandles.length - 1].close;
+        return3d = ((currentClose - price3dAgo) / price3dAgo) * 100;
+    }
+
+    // Sparkline: last 20 daily closes (shows ~1 month trend at watchlist scale)
+    const sparkline = dailyResults.slice(-20).map((d: any) => d.close);
+
+    return {
+        symbol,
+        price: latestPrice,
+        change: isExtended ? (extChange || 0) : (regChange || 0),
+        changePercent: isExtended ? (extChangePercent || 0) : (regChangePercent || 0),
+        volume: t?.day?.v,
+        prevClose,
+        session,
+        rsi,
+        return3d,
+        vwap: t?.day?.vw,
+        history: sparkline.map((close: number) => ({ close })), // Compatible format
+    };
+}
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -34,9 +114,9 @@ export async function GET(request: Request) {
     // Process all tickers in parallel
     const results = await Promise.all(tickers.map(async (ticker) => {
         try {
-            // Parallel fetch stock data, options, and structure
+            // [PERF] Use lightweight stock data (no chart download) + options + structure in parallel
             const [stockData, optionsData, structureRes] = await Promise.all([
-                getStockData(ticker, '1d').catch(() => null),
+                getStockDataLight(ticker).catch(() => null),
                 getOptionsData(ticker).catch(() => null),
                 getStructureData(ticker).catch(() => null)
             ]);
@@ -196,7 +276,7 @@ export async function GET(request: Request) {
         meta: {
             count: tickers.length,
             elapsed,
-            source: 'watchlist_batch_engine'
+            source: 'watchlist_batch_light' // [PERF] Mark as optimized version
         }
     });
 }
