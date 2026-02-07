@@ -270,7 +270,15 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, macdDa
 
 export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics }: Props) {
     // --- Live Data State ---
-    const [liveQuote, setLiveQuote] = useState<any>(null);
+    // [PERF] SSR 데이터를 초기값으로 사용하여 첫 화면 즉시 표시
+    const [liveQuote, setLiveQuote] = useState<any>(initialStockData ? {
+        prices: {
+            regularCloseToday: initialStockData.price,
+            prevClose: initialStockData.prevClose || null
+        },
+        session: initialStockData.session === 'reg' ? 'REG' : initialStockData.session === 'pre' ? 'PRE' : initialStockData.session === 'post' ? 'POST' : 'CLOSED',
+        changePercent: initialStockData.changePercent
+    } : null);
     const [options, setOptions] = useState<any>(null);
     const [structure, setStructure] = useState<any>(null);
     const [krNews, setKrNews] = useState<any[]>(initialNews || []);
@@ -309,13 +317,35 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             : liveQuote?.session || 'CLOSED';
 
     // --- Fetchers ---
-    const fetchKrNews = async () => {
+    // [PERF] News + NewsScore 통합: 같은 API를 1번만 호출 (~10초 절약)
+    const fetchNewsAndScore = async () => {
         setNewsLoading(true);
         try {
             const res = await fetch(`/api/live/news?t=${ticker}`);
             if (res.ok) {
                 const data = await res.json();
+                // 1. 뉴스 아이템 설정
                 setKrNews(data.items || []);
+                // 2. 감성분석 스코어 설정 (기존 fetchNewsScore 로직)
+                if (data.sentiment) {
+                    setNewsScore({
+                        score: data.sentiment.score || 50,
+                        label: data.sentiment.label || '중립',
+                        breakdown: data.sentiment.breakdown
+                    });
+                } else {
+                    const items = data.items || [];
+                    let score = 50;
+                    let positive = 0, negative = 0, neutral = 0;
+                    items.forEach((item: any) => {
+                        if (item.sentiment === 'positive') { score += 5; positive++; }
+                        else if (item.sentiment === 'negative') { score -= 5; negative++; }
+                        else neutral++;
+                    });
+                    score = Math.max(0, Math.min(100, score));
+                    const label = score >= 70 ? '양호' : score >= 40 ? '중립' : '주의';
+                    setNewsScore({ score, label, breakdown: { positive, negative, neutral } });
+                }
             }
         } catch (e: any) {
             if (e?.message?.includes("Failed to fetch")) console.warn("[News] Network retry...");
@@ -378,15 +408,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         setStructLoading(false);
     };
 
+    // [PERF] ATM + Structure 병렬 호출 (기존: 순차 → 대기시간 낭비)
     const fetchOptions = async () => {
         setOptionsLoading(true);
         try {
-            const atmRes = await fetch(`/api/live/options/atm?t=${ticker}`);
+            const [atmRes] = await Promise.all([
+                fetch(`/api/live/options/atm?t=${ticker}`),
+                fetchStructure() // 병렬 실행
+            ]);
             if (atmRes.ok) {
                 const data = await atmRes.json();
                 setOptions(data);
             }
-            await fetchStructure();
         } catch (e: any) {
             if (e?.message?.includes("Failed to fetch")) console.warn("[Options] Network retry...");
             else console.error(e);
@@ -476,8 +509,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // Initial Load & Polling
     useEffect(() => {
         fetchQuote();
-        fetchKrNews();
-        fetchNewsScore();
+        fetchNewsAndScore(); // [PERF] 통합: fetchKrNews + fetchNewsScore → 1회 호출
         fetchEarnings();
         fetchMacd();
         fetchRelated();
