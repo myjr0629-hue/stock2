@@ -1128,7 +1128,22 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
 
         probability = Math.round(Math.max(5, Math.min(95, probability)));
 
-        return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger };
+        // =====================================
+        // V4.0: FACTOR BREAKDOWN FOR VISUALIZATION
+        // =====================================
+        const factorBreakdown = [
+            { key: 'opi', name: 'OPI', score: Math.round(opiScore), max: 25, label: opi.value > 0 ? '콜 우위' : opi.value < 0 ? '풋 우위' : '중립' },
+            { key: 'whale', name: '고래', score: Math.round(whaleScore), max: 25, label: whaleScore > 0 ? '콜 매집' : whaleScore < 0 ? '풋 주도' : '관망' },
+            { key: 'squeeze', name: '스퀴즈', score: Math.round(squeezeScore), max: 15, label: squeezeProbability.value >= 45 ? `${squeezeProbability.value}%` : '안정' },
+            { key: 'skew', name: 'IV스큐', score: Math.round(skewScore), max: 15, label: ivSkew.value > 3 ? '공포' : ivSkew.value < -3 ? '탐욕' : '중립' },
+            { key: 'smart', name: '스마트', score: Math.round(smartScore), max: 10, label: smartMoney.label },
+            { key: 'dex', name: 'DEX', score: Math.round(dexScore), max: 10, label: dex.label },
+            { key: 'uoa', name: 'UOA', score: Math.round(uoaScore), max: 5, label: uoa.label },
+            { key: 'pc', name: 'P/C', score: Math.round(pcScore), max: 5, label: pcRatio.value > 1.3 ? '콜 과열' : pcRatio.value < 0.75 ? '풋 과열' : '균형' },
+            { key: 'zdte', name: '0DTE', score: Math.round(zdteScore), max: 5, label: zeroDteImpact.value >= 20 ? `${zeroDteImpact.value}%` : '미미' },
+        ];
+
+        return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
     }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, zeroDteImpact]);
 
     if (!rawChain || rawChain.length === 0) {
@@ -1224,8 +1239,9 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                     {/* Metrics Grid - Glassmorphism Cards - Balanced 50/50 */}
                     <div className="flex flex-col lg:flex-row gap-2">
                         {/* 1. Analysis Summary (50% width) - EXPANDED */}
-                        <div className="lg:w-[50%] bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-inner">
-                            <div className="flex items-center gap-2 mb-2">
+                        <div className="lg:w-[50%] bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-inner flex flex-col">
+                            {/* Row 1: Analysis Header + Composite Badge */}
+                            <div className="flex items-center gap-2 mb-1.5">
                                 <Activity size={14} className="text-cyan-400" />
                                 <span className="text-[11px] text-white font-bold uppercase tracking-wider">분석</span>
                                 {analysis.compositeScore !== undefined && (
@@ -1234,47 +1250,84 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                     </span>
                                 )}
                             </div>
-                            <p className="text-[12px] text-white leading-relaxed mb-2">{analysis.message}</p>
+                            {/* Row 2: Analysis Message */}
+                            <p className="text-[11px] text-white/90 leading-relaxed mb-2">{analysis.message}</p>
 
-                            {/* Signal Tags */}
-                            {analysis.signals && analysis.signals.length > 0 && (
-                                <div className="flex flex-wrap gap-1 mb-2">
-                                    {analysis.signals.map((sig: string, idx: number) => (
-                                        <span key={idx} className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                                            {sig}
-                                        </span>
+                            {/* Row 3: Composite Score Gauge */}
+                            <div className="mb-2">
+                                <div className="relative h-3 bg-gradient-to-r from-rose-500/30 via-slate-700/50 to-emerald-500/30 rounded-full overflow-hidden border border-white/10">
+                                    {/* Center line */}
+                                    <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/30 z-10" />
+                                    {/* Score indicator */}
+                                    <div
+                                        className={`absolute top-0.5 w-2 h-2 rounded-full z-20 shadow-lg transition-all duration-700 ${(analysis.compositeScore ?? 0) > 20 ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]' : (analysis.compositeScore ?? 0) < -20 ? 'bg-rose-400 shadow-[0_0_8px_rgba(251,113,133,0.8)]' : 'bg-white shadow-[0_0_8px_rgba(255,255,255,0.5)]'}`}
+                                        style={{ left: `calc(${Math.max(2, Math.min(98, ((analysis.compositeScore ?? 0) + 100) / 2))}% - 4px)` }}
+                                    />
+                                </div>
+                                <div className="flex justify-between mt-0.5">
+                                    <span className="text-[8px] text-rose-400/60">-100 극약세</span>
+                                    <span className="text-[8px] text-slate-500">0</span>
+                                    <span className="text-[8px] text-emerald-400/60">극강세 +100</span>
+                                </div>
+                            </div>
+
+                            {/* Row 4: Factor Breakdown - 3-Column Grid */}
+                            {analysis.factorBreakdown && (
+                                <div className="grid grid-cols-3 gap-x-2 gap-y-1 mb-2">
+                                    {analysis.factorBreakdown.map((f: any) => (
+                                        <div key={f.key} className="flex items-center gap-1">
+                                            <span className="text-[9px] text-slate-400 w-[28px] shrink-0 text-right font-mono">{f.name}</span>
+                                            <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden relative min-w-0">
+                                                {/* Center line for bidirectional */}
+                                                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10 z-10" />
+                                                {f.score > 0 ? (
+                                                    <div
+                                                        className="absolute left-1/2 top-0 h-full bg-emerald-500 rounded-r-full"
+                                                        style={{ width: `${Math.min(50, (f.score / f.max) * 50)}%` }}
+                                                    />
+                                                ) : f.score < 0 ? (
+                                                    <div
+                                                        className="absolute right-1/2 top-0 h-full bg-rose-500 rounded-l-full"
+                                                        style={{ width: `${Math.min(50, (Math.abs(f.score) / f.max) * 50)}%` }}
+                                                    />
+                                                ) : null}
+                                            </div>
+                                            <span className={`text-[8px] font-bold w-[18px] shrink-0 text-right ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-600'}`}>
+                                                {f.score > 0 ? '+' : ''}{f.score}
+                                            </span>
+                                        </div>
                                     ))}
                                 </div>
                             )}
 
-                            {/* Actionable Guidance Panel */}
+                            {/* Row 5: Actionable Guidance */}
                             {(analysis.action || analysis.warning || analysis.trigger) && (
-                                <div className="space-y-1 mb-2 bg-black/20 rounded-lg p-2 border border-white/5">
+                                <div className="space-y-0.5 mb-1.5 bg-black/20 rounded-lg p-1.5 border border-white/5">
                                     {analysis.action && (
-                                        <div className="flex items-start gap-1.5">
-                                            <div className="mt-0.5 w-1 h-3 rounded-full bg-emerald-400 shrink-0" />
-                                            <span className="text-[10px] text-emerald-400 font-bold uppercase shrink-0 w-8">ACT</span>
+                                        <div className="flex items-start gap-1">
+                                            <div className="mt-0.5 w-1 h-2.5 rounded-full bg-emerald-400 shrink-0" />
+                                            <span className="text-[9px] text-emerald-400 font-bold uppercase shrink-0 w-7">ACT</span>
                                             <span className="text-[10px] text-emerald-300">{analysis.action}</span>
                                         </div>
                                     )}
                                     {analysis.warning && (
-                                        <div className="flex items-start gap-1.5">
-                                            <div className="mt-0.5 w-1 h-3 rounded-full bg-amber-400 shrink-0" />
-                                            <span className="text-[10px] text-amber-400 font-bold uppercase shrink-0 w-8">WARN</span>
+                                        <div className="flex items-start gap-1">
+                                            <div className="mt-0.5 w-1 h-2.5 rounded-full bg-amber-400 shrink-0" />
+                                            <span className="text-[9px] text-amber-400 font-bold uppercase shrink-0 w-7">WARN</span>
                                             <span className="text-[10px] text-amber-300">{analysis.warning}</span>
                                         </div>
                                     )}
                                     {analysis.trigger && (
-                                        <div className="flex items-start gap-1.5">
-                                            <div className="mt-0.5 w-1 h-3 rounded-full bg-cyan-400 shrink-0" />
-                                            <span className="text-[10px] text-cyan-400 font-bold uppercase shrink-0 w-8">TRIG</span>
+                                        <div className="flex items-start gap-1">
+                                            <div className="mt-0.5 w-1 h-2.5 rounded-full bg-cyan-400 shrink-0" />
+                                            <span className="text-[9px] text-cyan-400 font-bold uppercase shrink-0 w-7">TRIG</span>
                                             <span className="text-[10px] text-cyan-300">{analysis.trigger}</span>
                                         </div>
                                     )}
                                 </div>
                             )}
-                            {/* Key Levels */}
-                            <div className="flex items-center gap-3 pt-2 border-t border-white/10">
+                            {/* Row 6: Key Levels */}
+                            <div className="flex items-center gap-3 pt-1.5 border-t border-white/10 mt-auto">
                                 <div className="flex items-center gap-1">
                                     <span className="text-[9px] text-slate-400">지지</span>
                                     <span className="text-[10px] text-emerald-400 font-bold">${putWall}</span>
