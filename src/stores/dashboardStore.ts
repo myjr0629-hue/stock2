@@ -25,10 +25,12 @@ interface TickerData {
     atmIv: number | null;  // [S-78] ATM Implied Volatility for premium cards
     squeezeScore: number | null;       // [SQUEEZE FIX] 0-100 score from structureService
     squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;  // [SQUEEZE FIX] Risk label
-    // [SI%] Short Interest fields
-    siPercent: number | null;          // SI% = Short Interest / Float
-    siPercentChange: number | null;    // Change from previous reporting period
-    daysToCover: number | null;        // Days to cover based on average volume
+    // [DASHBOARD V2] New intraday indicators
+    vwap: number | null;               // VWAP price for intraday distance calc
+    darkPoolPct: number | null;        // Dark Pool volume % (realtime)
+    shortVolPct: number | null;        // Short Volume % (realtime)
+    zeroDtePct: number | null;         // 0DTE Impact % (nearest expiry gamma ratio)
+    impliedMovePct: number | null;     // Implied Move % (ATM straddle)
     levels: {
         callWall: number | null;
         putFloor: number | null;

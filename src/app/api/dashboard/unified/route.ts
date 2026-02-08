@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchSIPercent } from '@/services/massiveClient';
 
 // [PERFORMANCE] Stale-While-Revalidate Cache
 interface CacheEntry {
@@ -42,10 +41,12 @@ function buildResponseFromResults(
                 atmIv: data.atmIv || null,
                 squeezeScore: data.squeezeScore ?? null,     // [SQUEEZE FIX] 0-100 score from structureService
                 squeezeRisk: data.squeezeRisk ?? null,       // [SQUEEZE FIX] LOW/MEDIUM/HIGH/EXTREME
-                // [SI%] Short Interest data
-                siPercent: data.siPercent ?? null,
-                siPercentChange: data.siPercentChange ?? null,
-                daysToCover: data.daysToCover ?? null,
+                // [DASHBOARD V2] New intraday indicators
+                vwap: data.vwap ?? null,
+                darkPoolPct: data.darkPoolPct ?? null,
+                shortVolPct: data.shortVolPct ?? null,
+                zeroDtePct: data.zeroDtePct ?? null,
+                impliedMovePct: data.impliedMovePct ?? null,
                 levels: data.levels,
                 expiration: data.expiration,
                 options_status: data.options_status
@@ -232,10 +233,12 @@ export async function GET(request: NextRequest) {
                     atmIv: data.atmIv || null,  // [S-78] ATM IV for premium cards
                     squeezeScore: data.squeezeScore ?? null,   // [SQUEEZE FIX] 0-100 score from structureService
                     squeezeRisk: data.squeezeRisk ?? null,     // [SQUEEZE FIX] LOW/MEDIUM/HIGH/EXTREME
-                    // [SI%] Short Interest data
-                    siPercent: data.siPercent ?? null,
-                    siPercentChange: data.siPercentChange ?? null,
-                    daysToCover: data.daysToCover ?? null,
+                    // [DASHBOARD V2] New intraday indicators
+                    vwap: data.vwap ?? null,
+                    darkPoolPct: data.darkPoolPct ?? null,
+                    shortVolPct: data.shortVolPct ?? null,
+                    zeroDtePct: data.zeroDtePct ?? null,
+                    impliedMovePct: data.impliedMovePct ?? null,
                     levels: data.levels,
                     expiration: data.expiration,
                     options_status: data.options_status
@@ -421,10 +424,11 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
     let retryCount = 0;
 
     const attemptFetch = async (): Promise<any> => {
-        // [S-78] Parallel fetch: structure (for options data) + ticker (for extended prices)
-        const [structureRes, tickerRes] = await Promise.all([
+        // [DASHBOARD V2] Parallel fetch: structure + ticker + realtime-metrics
+        const [structureRes, tickerRes, metricsRes] = await Promise.all([
             fetch(`${baseUrl}/api/live/options/structure?t=${ticker}`),
-            fetch(`${baseUrl}/api/live/ticker?t=${ticker}`)
+            fetch(`${baseUrl}/api/live/ticker?t=${ticker}`),
+            fetch(`${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`).catch(() => null)
         ]);
 
         if (!structureRes.ok) {
@@ -437,7 +441,7 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
         if (structureData.validation?.confidence === 'LOW' && retryCount < maxRetries) {
             retryCount++;
             console.log(`[Dashboard] ${ticker} validation LOW, retry ${retryCount}/${maxRetries}...`);
-            await new Promise(resolve => setTimeout(resolve, 300)); // 300ms delay for speed
+            await new Promise(resolve => setTimeout(resolve, 300));
             return attemptFetch();
         }
 
@@ -447,24 +451,57 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             structureData.extended = tickerData.extended || null;
             structureData.session = tickerData.session || 'CLOSED';
             structureData.prevClose = tickerData.prices?.prevRegularClose || structureData.prevClose;
-            // [INTRADAY FIX] Add today's regular close for proper intraday display
             structureData.regularCloseToday = tickerData.prices?.regularCloseToday || null;
-            // [INTRADAY FIX] Add intraday-only change (excludes post-market)
             structureData.intradayChangePct = tickerData.prices?.prevChangePct || null;
+            // [DASHBOARD V2] VWAP from ticker API
+            structureData.vwap = tickerData.vwap ?? null;
         }
 
-        // [SI%] Fetch Short Interest data (non-blocking, best-effort)
-        try {
-            const siData = await fetchSIPercent(ticker);
-            if (siData) {
-                structureData.siPercent = siData.siPercent;
-                structureData.siPercentChange = siData.siPercentChange;
-                structureData.daysToCover = siData.daysToCover;
-                console.log(`[SI%] ${ticker}: ${siData.siPercent?.toFixed(1)}%`);
+        // [DASHBOARD V2] Dark Pool % & Short Vol % from realtime-metrics
+        if (metricsRes && metricsRes.ok) {
+            try {
+                const metrics = await metricsRes.json();
+                structureData.darkPoolPct = metrics.darkPool?.percent ?? null;
+                structureData.shortVolPct = metrics.shortVolume?.percent ?? null;
+            } catch {
+                // Continue without metrics
             }
-        } catch (siErr) {
-            console.warn(`[SI%] Failed for ${ticker}:`, siErr);
-            // Continue without SI% data
+        }
+
+        // [DASHBOARD V2] 0DTE Impact & Implied Move from rawChain
+        try {
+            const rawChain = structureData.structure?.rawChain || [];
+            const price = structureData.underlyingPrice || 0;
+            const today = new Date().toISOString().split('T')[0];
+
+            // 0DTE: % of contracts expiring today or nearest expiry
+            if (rawChain.length > 0 && price > 0) {
+                const expirations = [...new Set(rawChain.map((o: any) => o.details?.expiration_date).filter(Boolean))] as string[];
+                expirations.sort();
+                const nearestExp = expirations[0] || '';
+                const isToday = nearestExp === today;
+                const nearestContracts = rawChain.filter((o: any) => o.details?.expiration_date === nearestExp);
+                const ratio = rawChain.length > 0 ? (nearestContracts.length / rawChain.length) * 100 : 0;
+                structureData.zeroDtePct = isToday ? Math.round(ratio) : Math.round(ratio * 0.5); // Discount if not 0DTE
+
+                // Implied Move: ATM straddle price / underlying price * 100
+                const atmStrike = Math.round(price / 2.5) * 2.5; // Round to nearest 2.5
+                const atmCalls = nearestContracts.filter((o: any) =>
+                    o.details?.contract_type === 'call' &&
+                    Math.abs((o.details?.strike_price || 0) - atmStrike) <= 5
+                );
+                const atmPuts = nearestContracts.filter((o: any) =>
+                    o.details?.contract_type === 'put' &&
+                    Math.abs((o.details?.strike_price || 0) - atmStrike) <= 5
+                );
+                const callMid = atmCalls[0]?.last_trade?.price || atmCalls[0]?.day?.close || 0;
+                const putMid = atmPuts[0]?.last_trade?.price || atmPuts[0]?.day?.close || 0;
+                if (callMid > 0 && putMid > 0 && price > 0) {
+                    structureData.impliedMovePct = parseFloat(((callMid + putMid) / price * 100).toFixed(1));
+                }
+            }
+        } catch (e) {
+            // Continue without 0DTE/IM data
         }
 
         return structureData;

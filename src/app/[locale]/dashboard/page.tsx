@@ -437,159 +437,257 @@ function MainChartPanel() {
                 </div>
             </div>
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-4 gap-4 p-4">
-                <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                    {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
-                    <div className="flex items-center gap-2 mb-2">
-                        <Activity className="w-4 h-4 text-amber-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-white">Net GEX</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                            {gexDisplay}
-                        </span>
-                        <span className="text-xs text-white">{(data?.netGex || 0) > 0 ? "안정적" : "변동성 ↑"}</span>
-                    </div>
-                </div>
-
-                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
-                    <div className="flex items-center gap-2 mb-2">
-                        <Target className="w-4 h-4 text-cyan-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-white">Max Pain</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl font-mono font-bold text-white">${data?.maxPain || "—"}</span>
-                        {data?.maxPain && data?.underlyingPrice && (
-                            <span className={`text-xs font-mono ${data.underlyingPrice > data.maxPain ? "text-emerald-400" : "text-rose-400"}`}>
-                                {((data.underlyingPrice - data.maxPain) / data.maxPain * 100).toFixed(1)}%
+            {/* ═══════ Metrics Grid: 3 Rows × 4 Cards (No Gap Between Rows) ═══════ */}
+            <div className="px-4 pt-4 space-y-0">
+                {/* ── ROW 1: 구조 판단 (Structure) ── */}
+                <div className="grid grid-cols-4 gap-3 pb-3">
+                    {/* Net GEX */}
+                    <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                        {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
+                        <div className="flex items-center gap-2 mb-2">
+                            <Activity className="w-4 h-4 text-amber-400" />
+                            <span className="text-[10px] uppercase tracking-wider text-white">Net GEX</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                {gexDisplay}
                             </span>
-                        )}
-                    </div>
-                </div>
-
-                <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.pcr || 1) < 0.7 ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : (data?.pcr || 1) > 1.3 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                    {(data?.pcr || 1) < 0.7 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-emerald-500" />}
-                    {(data?.pcr || 1) > 1.3 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
-                    <div className="flex items-center gap-2 mb-2">
-                        {(data?.pcr || 1) < 0.7 ? (
-                            <TrendingUp className="w-4 h-4 text-emerald-400" />
-                        ) : (data?.pcr || 1) > 1.3 ? (
-                            <TrendingDown className="w-4 h-4 text-rose-400" />
-                        ) : (
-                            <Activity className="w-4 h-4 text-slate-400" />
-                        )}
-                        <span className="text-[10px] uppercase tracking-wider text-white">Put/Call Ratio</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" : (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"}`}>
-                            {data?.pcr?.toFixed(2) || "—"}
-                        </span>
-                        <span className="text-xs text-white">
-                            {(data?.pcr || 1) < 0.7 ? "콜 우위" : (data?.pcr || 1) > 1.3 ? "풋 우위" : "중립"}
-                        </span>
-                    </div>
-                </div>
-
-                <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
-                    <div className="flex items-center gap-2 mb-2">
-                        <TrendingUp className="w-4 h-4 text-emerald-400" />
-                        <div className="flex flex-col leading-tight">
-                            <span className="text-[10px] uppercase tracking-wider text-white">Call Wall</span>
-                            <span className="text-[10px] uppercase tracking-wider text-white">Put Floor</span>
+                            <span className="text-xs text-white">{(data?.netGex || 0) > 0 ? "안정적" : "변동성 ↑"}</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-lg font-mono font-bold text-emerald-400">${data?.levels?.callWall || "—"}</span>
-                        <span className="text-slate-500">/</span>
-                        <span className="text-lg font-mono font-bold text-rose-400">${data?.levels?.putFloor || "—"}</span>
-                    </div>
-                </div>
-            </div>
 
-            {/* Premium Metrics Row 2 */}
-            <div className="grid grid-cols-4 gap-4 px-4">
-                <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                    {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
-                    <div className="flex items-center gap-2 mb-2">
-                        <Activity className="w-4 h-4 text-purple-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-white">ATM IV</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl font-mono font-bold text-white">
-                            {data?.atmIv ? `${data.atmIv}%` : "—"}
-                        </span>
-                        <span className="text-xs text-white">{(data?.atmIv || 0) > 50 ? "고변동" : "저변동"}</span>
-                    </div>
-                </div>
-
-                {/* Gamma Flip */}
-                <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                    {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
-                    <div className="flex items-center gap-2 mb-2">
-                        <Radio className="w-4 h-4 text-cyan-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-white">Gamma Flip</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="text-xl font-mono font-bold text-white">
-                            ${data?.gammaFlipLevel?.toFixed(0) || "—"}
-                        </span>
-                        {data?.gammaFlipLevel && data?.underlyingPrice && (
-                            <span className={`text-xs font-medium ${data.underlyingPrice > data.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
-                                {data.underlyingPrice > data.gammaFlipLevel ? "LONG" : "SHORT"}
+                    {/* Gamma Flip */}
+                    <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                        {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
+                        <div className="flex items-center gap-2 mb-2">
+                            <Radio className="w-4 h-4 text-cyan-400" />
+                            <span className="text-[10px] uppercase tracking-wider text-white">Gamma Flip</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl font-mono font-bold text-white">
+                                ${data?.gammaFlipLevel?.toFixed(0) || "—"}
                             </span>
-                        )}
+                            {data?.gammaFlipLevel && data?.underlyingPrice && (
+                                <span className={`text-xs font-medium ${data.underlyingPrice > data.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
+                                    {data.underlyingPrice > data.gammaFlipLevel ? "LONG" : "SHORT"}
+                                </span>
+                            )}
+                        </div>
                     </div>
-                </div>
 
-                {/* SI% (Short Interest) Card */}
-                <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.siPercent || 0) >= 20 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : (data?.siPercent || 0) >= 10 ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.2)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                    {(data?.siPercent || 0) >= 20 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
-                    {(data?.siPercent || 0) >= 10 && (data?.siPercent || 0) < 20 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />}
-                    <div className="flex items-center gap-2 mb-2">
-                        <TrendingDown className="w-4 h-4 text-purple-400" />
-                        <span className="text-[10px] uppercase tracking-wider text-white">SI% 공매도 비율</span>
-                        {(data?.siPercent || 0) >= 20 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
+                    {/* Squeeze */}
+                    <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                        {(data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH') && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
+                        {(() => {
+                            const score = data?.squeezeScore ?? 0;
+                            const risk = data?.squeezeRisk ?? 'LOW';
+                            const color = risk === 'EXTREME' ? 'text-rose-400' : risk === 'HIGH' ? 'text-amber-400' : risk === 'MEDIUM' ? 'text-yellow-400' : 'text-emerald-400';
+                            const bgColor = risk === 'EXTREME' ? 'bg-rose-500/80' : risk === 'HIGH' ? 'bg-amber-500/80' : risk === 'MEDIUM' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80';
+                            return (
+                                <>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Zap className="w-4 h-4 text-indigo-400" />
+                                        <span className="text-[10px] uppercase tracking-wider text-white">Squeeze</span>
+                                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${bgColor} text-white`}>{risk}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xl font-mono font-bold ${color}`}>{score}%</span>
+                                        <span className="text-[9px] text-white">
+                                            {score >= 70 ? '급등/급락 가능' : score >= 50 ? '변동성 주의' : score >= 30 ? '보통' : '안정'}
+                                        </span>
+                                    </div>
+                                </>
+                            );
+                        })()}
                     </div>
-                    <div className="flex items-center gap-2">
-                        <span className={`text-xl font-mono font-bold ${(data?.siPercent || 0) >= 20 ? "text-rose-400" : (data?.siPercent || 0) >= 10 ? "text-amber-400" : "text-white"}`}>
-                            {data?.siPercent ? `${data.siPercent.toFixed(1)}%` : "—"}
-                        </span>
-                        {data?.siPercentChange != null && data.siPercentChange !== 0 && (
-                            <span className={`text-sm font-mono font-bold ${data.siPercentChange > 0 ? "text-rose-400" : "text-emerald-400"}`}>
-                                {data.siPercentChange > 0 ? "↑" : "↓"}{Math.abs(data.siPercentChange).toFixed(1)}%
-                            </span>
-                        )}
-                        <span className="text-[10px] text-white font-medium">
-                            {data?.daysToCover ? `${data.daysToCover.toFixed(1)}일` : ""}
-                        </span>
-                    </div>
-                </div>
 
-                <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                    {(data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH') && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
+                    {/* VWAP 거리 (NEW) */}
                     {(() => {
-                        // Use API values directly (same as Flow page)
-                        const score = data?.squeezeScore ?? 0;
-                        const risk = data?.squeezeRisk ?? 'LOW';
-                        const color = risk === 'EXTREME' ? 'text-rose-400' : risk === 'HIGH' ? 'text-amber-400' : risk === 'MEDIUM' ? 'text-yellow-400' : 'text-emerald-400';
-                        const bgColor = risk === 'EXTREME' ? 'bg-rose-500/80' : risk === 'HIGH' ? 'bg-amber-500/80' : risk === 'MEDIUM' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80';
+                        const price = data?.underlyingPrice || 0;
+                        const vwap = data?.vwap || 0;
+                        const dist = vwap > 0 && price > 0 ? ((price - vwap) / vwap * 100) : 0;
+                        const isAlert = Math.abs(dist) >= 1;
                         return (
-                            <>
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? (dist > 0 ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]') : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                {isAlert && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${dist > 0 ? 'from-emerald-400 to-emerald-500' : 'from-rose-400 to-rose-500'}`} />}
                                 <div className="flex items-center gap-2 mb-2">
-                                    <Zap className="w-4 h-4 text-indigo-400" />
-                                    <span className="text-[10px] uppercase tracking-wider text-white">Squeeze</span>
-                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${bgColor} text-white`}>
-                                        {risk}
-                                    </span>
+                                    <BarChart3 className="w-4 h-4 text-cyan-400" />
+                                    <span className="text-[10px] uppercase tracking-wider text-white">VWAP 거리</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${color}`}>{score}%</span>
-                                    <span className="text-[9px] text-white">
-                                        {score >= 70 ? '급등/급락 가능' : score >= 50 ? '변동성 주의' : score >= 30 ? '보통' : '안정'}
+                                    <span className={`text-xl font-mono font-bold ${dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white'}`}>
+                                        {vwap > 0 ? `${dist > 0 ? '+' : ''}${dist.toFixed(1)}%` : '—'}
+                                    </span>
+                                    <span className="text-xs text-white">
+                                        {Math.abs(dist) < 0.3 ? '근접' : dist > 0 ? '위' : '아래'}
                                     </span>
                                 </div>
-                            </>
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* ── ROW 2: 가격 레벨 + 기관 (Levels & Institutional) ── */}
+                <div className="grid grid-cols-4 gap-3 pb-3">
+                    {/* Max Pain */}
+                    <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Target className="w-4 h-4 text-cyan-400" />
+                            <span className="text-[10px] uppercase tracking-wider text-white">Max Pain</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl font-mono font-bold text-white">${data?.maxPain || "—"}</span>
+                            {data?.maxPain && data?.underlyingPrice && (
+                                <span className={`text-xs font-mono ${data.underlyingPrice > data.maxPain ? "text-emerald-400" : "text-rose-400"}`}>
+                                    {((data.underlyingPrice - data.maxPain) / data.maxPain * 100).toFixed(1)}%
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Call Wall / Put Floor */}
+                    <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
+                        <div className="flex items-center gap-2 mb-2">
+                            <TrendingUp className="w-4 h-4 text-emerald-400" />
+                            <div className="flex flex-col leading-tight">
+                                <span className="text-[10px] uppercase tracking-wider text-white">Call Wall</span>
+                                <span className="text-[10px] uppercase tracking-wider text-white">Put Floor</span>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg font-mono font-bold text-emerald-400">${data?.levels?.callWall || "—"}</span>
+                            <span className="text-slate-500">/</span>
+                            <span className="text-lg font-mono font-bold text-rose-400">${data?.levels?.putFloor || "—"}</span>
+                        </div>
+                    </div>
+
+                    {/* Dark Pool % (NEW) */}
+                    {(() => {
+                        const dp = data?.darkPoolPct ?? 0;
+                        const isAlert = dp >= 45;
+                        return (
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-purple-500/10 backdrop-blur-md border-purple-400/40 shadow-[0_0_25px_rgba(168,85,247,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-purple-500" />}
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Activity className="w-4 h-4 text-purple-400" />
+                                    <span className="text-[10px] uppercase tracking-wider text-white">Dark Pool %</span>
+                                    {dp >= 55 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-purple-500/80 text-white">HIGH</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${dp >= 55 ? 'text-purple-400' : dp >= 45 ? 'text-purple-300' : 'text-white'}`}>
+                                        {dp > 0 ? `${dp.toFixed(1)}%` : '—'}
+                                    </span>
+                                    <span className="text-xs text-white">{dp >= 55 ? '기관 집중' : dp >= 45 ? '기관 활동' : '보통'}</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Short Vol % (NEW) */}
+                    {(() => {
+                        const sv = data?.shortVolPct ?? 0;
+                        const isAlert = sv >= 40;
+                        return (
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
+                                <div className="flex items-center gap-2 mb-2">
+                                    <TrendingDown className="w-4 h-4 text-rose-400" />
+                                    <span className="text-[10px] uppercase tracking-wider text-white">Short Vol %</span>
+                                    {sv >= 50 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${sv >= 50 ? 'text-rose-400' : sv >= 40 ? 'text-amber-400' : 'text-white'}`}>
+                                        {sv > 0 ? `${sv.toFixed(1)}%` : '—'}
+                                    </span>
+                                    <span className="text-xs text-white">{sv >= 50 ? '공매도 집중' : sv >= 40 ? '공매도 활동' : '보통'}</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+                </div>
+
+                {/* ── ROW 3: 변동성 + 당일 매매 (Volatility & Intraday) ── */}
+                <div className="grid grid-cols-4 gap-3">
+                    {/* ATM IV */}
+                    <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                        {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
+                        <div className="flex items-center gap-2 mb-2">
+                            <Activity className="w-4 h-4 text-purple-400" />
+                            <span className="text-[10px] uppercase tracking-wider text-white">ATM IV</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className="text-xl font-mono font-bold text-white">
+                                {data?.atmIv ? `${data.atmIv}%` : "—"}
+                            </span>
+                            <span className="text-xs text-white">{(data?.atmIv || 0) > 50 ? "고변동" : "저변동"}</span>
+                        </div>
+                    </div>
+
+                    {/* P/C Ratio */}
+                    <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.pcr || 1) < 0.7 ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : (data?.pcr || 1) > 1.3 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                        {(data?.pcr || 1) < 0.7 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-emerald-500" />}
+                        {(data?.pcr || 1) > 1.3 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
+                        <div className="flex items-center gap-2 mb-2">
+                            {(data?.pcr || 1) < 0.7 ? (
+                                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                            ) : (data?.pcr || 1) > 1.3 ? (
+                                <TrendingDown className="w-4 h-4 text-rose-400" />
+                            ) : (
+                                <Activity className="w-4 h-4 text-slate-400" />
+                            )}
+                            <span className="text-[10px] uppercase tracking-wider text-white">P/C Ratio</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" : (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"}`}>
+                                {data?.pcr?.toFixed(2) || "—"}
+                            </span>
+                            <span className="text-xs text-white">
+                                {(data?.pcr || 1) < 0.7 ? "콜 우위" : (data?.pcr || 1) > 1.3 ? "풋 우위" : "중립"}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 0DTE Impact (NEW) */}
+                    {(() => {
+                        const zdte = data?.zeroDtePct ?? 0;
+                        const isAlert = zdte >= 30;
+                        return (
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500 animate-pulse" />}
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Zap className="w-4 h-4 text-amber-400" />
+                                    <span className="text-[10px] uppercase tracking-wider text-white">0DTE Impact</span>
+                                    {zdte >= 60 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-500/80 text-white">극심</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${zdte >= 60 ? 'text-amber-400' : zdte >= 30 ? 'text-yellow-400' : 'text-white'}`}>
+                                        {zdte > 0 ? `${zdte}%` : '—'}
+                                    </span>
+                                    <span className="text-xs text-white">{zdte >= 60 ? '큰 움직임' : zdte >= 30 ? '변동성 확대' : '보통'}</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Implied Move (NEW) */}
+                    {(() => {
+                        const im = data?.impliedMovePct ?? 0;
+                        const isAlert = im >= 3;
+                        return (
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
+                                <div className="flex items-center gap-2 mb-2">
+                                    <Activity className="w-4 h-4 text-cyan-400" />
+                                    <span className="text-[10px] uppercase tracking-wider text-white">Implied Move</span>
+                                    {im >= 5 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-cyan-500/80 text-white">경고</span>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${im >= 5 ? 'text-cyan-400' : im >= 3 ? 'text-cyan-300' : 'text-white'}`}>
+                                        {im > 0 ? `±${im}%` : '—'}
+                                    </span>
+                                    <span className="text-xs text-white">{im >= 5 ? '급등/급락' : im >= 3 ? '변동 예고' : '안정'}</span>
+                                </div>
+                            </div>
                         );
                     })()}
                 </div>
