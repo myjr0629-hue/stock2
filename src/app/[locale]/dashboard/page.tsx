@@ -859,9 +859,13 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
 
 // Signal Feed Panel
 // [LOCALIZATION] Uses locale for time formatting, [SORTING] Newest signals first
+// [MARKET HOURS] Only active during regular trading session (OPEN)
 function SignalFeedPanel() {
-    const { signals } = useDashboardStore();
+    const { signals, selectedTicker, tickers } = useDashboardStore();
     const locale = useLocale();
+    const data = tickers[selectedTicker];
+    const session = data?.session || 'CLOSED';
+    const isOpen = session === 'REG';
 
     // Sort signals by time - newest first, limit to 15
     const sortedSignals = [...signals]
@@ -872,13 +876,23 @@ function SignalFeedPanel() {
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-white/5">
                 <div className="flex items-center gap-2">
-                    <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                    <Radio className={`w-3.5 h-3.5 ${isOpen ? 'text-cyan-400 animate-pulse' : 'text-slate-600'}`} />
                     <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Signal Feed</h2>
                 </div>
-                <span className="text-[10px] text-slate-500">{signals.length}</span>
+                {isOpen ? (
+                    <span className="text-[10px] text-slate-500">{signals.length}</span>
+                ) : (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-500">CLOSED</span>
+                )}
             </div>
             <div className="overflow-y-auto p-2 space-y-2 max-h-[calc(100vh-200px)]">
-                {sortedSignals.length > 0 ? (
+                {!isOpen ? (
+                    <div className="flex flex-col items-center justify-center h-32 gap-2">
+                        <Radio className="w-5 h-5 text-slate-600" />
+                        <p className="text-slate-500 text-xs text-center">본장 시간에만 활성화</p>
+                        <p className="text-slate-600 text-[10px]">9:30 AM ~ 4:00 PM ET</p>
+                    </div>
+                ) : sortedSignals.length > 0 ? (
                     sortedSignals.map((signal, i) => (
                         <SignalItem key={i} signal={signal} locale={locale} />
                     ))
