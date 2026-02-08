@@ -53,21 +53,18 @@ function buildResponseFromResults(
             };
 
             // Generate signals — ONLY during regular market hours (REG)
+            // [SIGNAL AUDIT V2] Removed: Gamma LONG/SHORT (always-firing), GEX<0 (structural noise)
+            // Added: Dark Pool ≥60%, Short Vol ≥50%, Implied Move ≥5%
             const session = data.session || 'CLOSED';
             if (session === 'REG') {
                 const timestamp = new Date().toISOString();
                 const price = data.underlyingPrice;
                 const callWall = data.levels?.callWall;
                 const putFloor = data.levels?.putFloor;
-                const gammaFlip = data.gammaFlipLevel;
-                const isLong = gammaFlip && price ? price > gammaFlip : null;
 
                 // BUY signals
                 if (putFloor && price && data.netGex && price <= putFloor * 1.02 && data.netGex > 0) {
                     signals.push({ time: timestamp, ticker, type: 'BUY', message: `지지선 매수 기회 (Put Floor $${putFloor})` });
-                }
-                if (isLong === true && data.netGex && data.netGex > 0) {
-                    signals.push({ time: timestamp, ticker, type: 'BUY', message: `Gamma LONG - 반등 구간 진입` });
                 }
                 if (data.pcr && data.pcr < 0.7) {
                     signals.push({ time: timestamp, ticker, type: 'BUY', message: `콜 강세 (PCR ${data.pcr.toFixed(2)}) - 상승 추세` });
@@ -76,9 +73,6 @@ function buildResponseFromResults(
                 // SELL signals
                 if (callWall && price && data.netGex && price >= callWall * 0.98 && data.netGex < 0) {
                     signals.push({ time: timestamp, ticker, type: 'SELL', message: `저항선 도달 - 익절 고려 (Call Wall $${callWall})` });
-                }
-                if (isLong === false) {
-                    signals.push({ time: timestamp, ticker, type: 'SELL', message: `Gamma SHORT - 하락 변동성 주의` });
                 }
                 if (data.pcr && data.pcr > 1.3) {
                     signals.push({ time: timestamp, ticker, type: 'SELL', message: `풋 헤징 증가 (PCR ${data.pcr.toFixed(2)}) - 하락 주의` });
@@ -90,21 +84,29 @@ function buildResponseFromResults(
                     signals.push({ time: timestamp, ticker, type: 'WHALE', message: `${size} 고래 GEX ($${(data.netGex / 1e6).toFixed(0)}M)` });
                 }
 
-                // ALERT signals
+                // ALERT signals — core
                 if (data.isGammaSqueeze) {
                     signals.push({ time: timestamp, ticker, type: 'ALERT', message: `🔥 감마 스퀴즈 - 급등 임박!` });
                 }
                 if (data.atmIv && data.atmIv > 60) {
                     signals.push({ time: timestamp, ticker, type: 'ALERT', message: `📈 고변동성 (IV ${data.atmIv}%) - 큰 움직임 예상` });
                 }
-                if (data.netGex && data.netGex < 0) {
-                    signals.push({ time: timestamp, ticker, type: 'ALERT', message: `⚠️ GEX 음수 - 변동성 확대` });
-                }
                 if (callWall && price && price > callWall) {
                     signals.push({ time: timestamp, ticker, type: 'ALERT', message: `🚀 Call Wall 돌파 ($${callWall}) - 신규 고점` });
                 }
                 if (putFloor && price && price < putFloor) {
                     signals.push({ time: timestamp, ticker, type: 'ALERT', message: `💥 Put Floor 이탈 ($${putFloor}) - 손절 고려` });
+                }
+
+                // ALERT signals — V2 dashboard card signals
+                if (data.darkPoolPct && data.darkPoolPct >= 60) {
+                    signals.push({ time: timestamp, ticker, type: 'ALERT', message: `🏦 Dark Pool 집중 (${data.darkPoolPct.toFixed(1)}%) - 기관 대량 거래` });
+                }
+                if (data.shortVolPct && data.shortVolPct >= 50) {
+                    signals.push({ time: timestamp, ticker, type: 'ALERT', message: `📉 Short Vol 급증 (${data.shortVolPct.toFixed(1)}%) - 공매도 공세` });
+                }
+                if (data.impliedMovePct && data.impliedMovePct >= 5) {
+                    signals.push({ time: timestamp, ticker, type: 'ALERT', message: `⚡ Implied Move ±${data.impliedMovePct}% - 대폭 변동 예상` });
                 }
             }
         } else {
