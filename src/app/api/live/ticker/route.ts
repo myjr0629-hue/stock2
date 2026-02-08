@@ -124,26 +124,12 @@ export async function GET(req: NextRequest) {
         ocDateStr = yesterdayStr;
     }
 
-    let ocRes = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${todayStr}?apiKey=${MASSIVE_API_KEY}`);
-
-    // If today's OC failed (e.g. weekend/pre-market), try the detected last trading day
-    if (!ocRes.success || !ocRes.data?.preMarket) {
-        if (ocDateStr !== todayStr) {
-            ocRes = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${ocDateStr}?apiKey=${MASSIVE_API_KEY}`);
-        } else {
-            // Fallback to yesterday if agg didn't help (rare)
-            ocRes = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${yesterdayStr}?apiKey=${MASSIVE_API_KEY}`);
-        }
-    }
-
-
+    // [PERF] Phase 1 results - extract snapshot data immediately
     const S = snapshotRes.data?.ticker || {};
-    const OC = ocRes.data || {};
-    // historicalResults is already declared above
 
     // [S-52.3] BASELINE SOURCE TRACKING - Identify where prevClose comes from
     let prevRegularClose: number | null = null;
-    let prevPrevRegularClose: number | null = null; // [New] Day BEFORE prevRegularClose
+    let prevPrevRegularClose: number | null = null;
     let baselineSource: string = "UNKNOWN";
 
     if (historicalResults[0]?.c) {
@@ -154,48 +140,69 @@ export async function GET(req: NextRequest) {
         baselineSource = "snapshot.prevDay.c";
     }
 
-    // [New] Get the close from 2 days ago (for intraday change calculation)
     if (historicalResults[1]?.c) {
         prevPrevRegularClose = historicalResults[1].c;
     }
 
+    const liveLast = S.lastTrade?.p || S.min?.c || null;
+
+    // [PERF] Phase 2: Parallelize OC, Flow, and Structure fetches (~2-3s saved)
+    const flowPriceDetect = liveLast || S.day?.c || S.prevDay?.c || 0;
+
+    const fetchOC = async () => {
+        let oc = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${todayStr}?apiKey=${MASSIVE_API_KEY}`);
+        if (!oc.success || !oc.data?.preMarket) {
+            if (ocDateStr !== todayStr) {
+                oc = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${ocDateStr}?apiKey=${MASSIVE_API_KEY}`);
+            } else {
+                oc = await fetchMassiveWithRetry(`${MASSIVE_BASE_URL}/v1/open-close/${ticker}/${yesterdayStr}?apiKey=${MASSIVE_API_KEY}`);
+            }
+        }
+        return oc;
+    };
+
+    const fetchFlow = async () => {
+        try {
+            return await CentralDataHub._fetchOptionsChain(ticker, flowPriceDetect);
+        } catch (err: any) {
+            return { dataSource: "NONE", rawChain: [], error: err.message };
+        }
+    };
+
+    const fetchStructure = async () => {
+        try {
+            return await getStructureData(ticker);
+        } catch {
+            return { squeezeScore: null, squeezeRisk: null };
+        }
+    };
+
+    const [ocRes, flowRes, structureResult] = await Promise.all([
+        fetchOC(),
+        fetchFlow(),
+        fetchStructure()
+    ]);
+
+    // Phase 2 results - extract OC data and compute derived values
+    const OC = ocRes.data || {};
+
     const hasMarketClosed = session === "POST" || session === "CLOSED";
     const regularCloseToday = hasMarketClosed ? (S.day?.c || OC.close || null) : null;
 
-    const liveLast = S.lastTrade?.p || S.min?.c || null;
-
-    // [Fix] Pre-Market: Prioritize REAL-TIME liveLast during PRE session
-    // Fallback to OC.preMarket (static daily snapshot) only if liveLast unavailable
     const prePrice = (session === "PRE" ? liveLast : null)
         || OC.preMarket
         || S.preMarket?.p;
 
-    // [Fix] Post-Market: Prioritize REAL-TIME liveLast during POST session
     const postPrice = (session === "POST" ? liveLast : null)
         || OC.afterHoursClose
         || S.afterHours?.p
         || OC.afterHours;
 
-    // [Fix] Fetch Options Flow Data using CentralDataHub
-    const flowPriceDetect = liveLast || S.day?.c || S.prevDay?.c || 0;
-    const flowRes = await CentralDataHub._fetchOptionsChain(ticker, flowPriceDetect).catch(err => ({
-        dataSource: "NONE",
-        rawChain: [],
-        error: err.message
-    }));
-
     // [SQUEEZE FIX] Get squeezeScore from structureService for unified display
-    let squeezeScore: number | null = null;
-    let squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null = null;
-    try {
-        const structureData = await getStructureData(ticker);
-        squeezeScore = structureData.squeezeScore ?? null;
-        squeezeRisk = structureData.squeezeRisk ?? null;
-    } catch (e) {
-        // Ignore - squeeze data is optional
-    }
+    const squeezeScore: number | null = structureResult.squeezeScore ?? null;
+    const squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null = structureResult.squeezeRisk ?? null;
 
-    const flowData = { ...flowRes, squeezeScore, squeezeRisk }; // Include squeezeScore in flow
+    const flowData = { ...flowRes, squeezeScore, squeezeRisk };
 
     const warnings: string[] = [];
 
