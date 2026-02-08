@@ -2,8 +2,10 @@
 import { NextRequest } from 'next/server';
 import { getBuildMeta } from '@/services/buildMeta';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
+import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedMovePct, computeIVSkew, type AlphaSession } from '@/services/alphaEngine';
 import { CentralDataHub } from "@/services/centralDataHub";
 import { getStructureData } from "@/services/structureService"; // [SQUEEZE FIX]
+import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
@@ -74,10 +76,10 @@ export async function GET(req: NextRequest) {
     yesterdayET.setUTCDate(yesterdayET.getUTCDate() - 1);
     const yesterdayStr = `${yesterdayET.getUTCFullYear()}-${String(yesterdayET.getUTCMonth() + 1).padStart(2, '0')}-${String(yesterdayET.getUTCDate()).padStart(2, '0')}`;
 
-    // 14 days ago for historical range
-    const twoWeeksAgoET = new Date(todayET);
-    twoWeeksAgoET.setUTCDate(twoWeeksAgoET.getUTCDate() - 14);
-    const twoWeeksAgoStr = `${twoWeeksAgoET.getUTCFullYear()}-${String(twoWeeksAgoET.getUTCMonth() + 1).padStart(2, '0')}-${String(twoWeeksAgoET.getUTCDate()).padStart(2, '0')}`;
+    // 30 days ago for RSI14 calculation (need at least 15 data points)
+    const thirtyDaysAgoET = new Date(todayET);
+    thirtyDaysAgoET.setUTCDate(thirtyDaysAgoET.getUTCDate() - 30);
+    const thirtyDaysAgoStr = `${thirtyDaysAgoET.getUTCFullYear()}-${String(thirtyDaysAgoET.getUTCMonth() + 1).padStart(2, '0')}-${String(thirtyDaysAgoET.getUTCDate()).padStart(2, '0')}`;
 
     // [SSOT] Use CentralDataHub/MarketStatusProvider for Session Logic (Handles Holidays/Weekends correctly)
     const marketStatus = await CentralDataHub.getMarketStatus();
@@ -93,7 +95,7 @@ export async function GET(req: NextRequest) {
     // Fetch Core Data
     const snapshotUrl = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${MASSIVE_API_KEY}`;
     // [S-52.2.3] Use proper date strings for agg API (not timestamps)
-    const aggUrl = `${MASSIVE_BASE_URL}/v2/aggs/ticker/${ticker}/range/1/day/${twoWeeksAgoStr}/${yesterdayStr}?adjusted=true&sort=desc&limit=5&apiKey=${MASSIVE_API_KEY}`;
+    const aggUrl = `${MASSIVE_BASE_URL}/v2/aggs/ticker/${ticker}/range/1/day/${thirtyDaysAgoStr}/${yesterdayStr}?adjusted=true&sort=desc&limit=20&apiKey=${MASSIVE_API_KEY}`;
 
     const [snapshotRes, aggRes, detailsRes] = await Promise.all([
         fetchMassiveWithRetry(snapshotUrl),
@@ -173,14 +175,49 @@ export async function GET(req: NextRequest) {
         try {
             return await getStructureData(ticker);
         } catch {
-            return { squeezeScore: null, squeezeRisk: null };
+            return { squeezeScore: null, squeezeRisk: null, atmIv: null, netGex: null, pcr: null, gammaFlipLevel: null, callWall: null, putFloor: null };
         }
     };
 
-    const [ocRes, flowRes, structureResult] = await Promise.all([
+    // [V3 PIPELINE] Fetch realtime-metrics for darkPool/shortVol
+    const fetchRealtimeMetrics = async () => {
+        try {
+            const baseUrl = new URL(req.url).origin;
+            const res = await fetch(`${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`);
+            if (res.ok) return await res.json();
+            return null;
+        } catch {
+            return null;
+        }
+    };
+
+    // [V3 PIPELINE] Fetch macro snapshot for regime data (NQ/VIX)
+    const fetchMacro = async () => {
+        try {
+            return await getMacroSnapshotSSOT();
+        } catch {
+            return null;
+        }
+    };
+
+    // [V3 PIPELINE] Fetch SMA20 for Momentum pillar
+    const fetchSMA20 = async () => {
+        try {
+            const sma20Url = `${MASSIVE_BASE_URL}/v1/indicators/sma/${ticker}?timespan=day&adjusted=true&window=20&series_type=close&limit=1&apiKey=${MASSIVE_API_KEY}`;
+            const res = await fetchMassiveWithRetry(sma20Url);
+            return res.data?.results?.values?.[0]?.value ?? null;
+        } catch {
+            return null;
+        }
+    };
+
+    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value] = await Promise.all([
         fetchOC(),
         fetchFlow(),
-        fetchStructure()
+        fetchStructure(),
+        fetchRealtimeMetrics(),
+        fetchMacro(),
+        fetchSMA20()
     ]);
 
     // Phase 2 results - extract OC data and compute derived values
@@ -389,7 +426,7 @@ export async function GET(req: NextRequest) {
             value: prevRegularClose,
             source: baselineSource,
             dateET: yesterdayStr,
-            aggDateRange: `${twoWeeksAgoStr} to ${yesterdayStr}`
+            aggDateRange: `${thirtyDaysAgoStr} to ${yesterdayStr}`
         },
 
         // [S-52.3] TIMEZONE DIAGNOSTICS
@@ -403,6 +440,102 @@ export async function GET(req: NextRequest) {
         },
 
         sourceGrade: snapshotRes.success ? "A" : "C",
+
+        // [V3.0] Alpha Engine V3 — Real-time absolute scoring
+        // Uses already-fetched data: minimal additional API calls (metrics only)
+        alpha: (() => {
+            try {
+                const sessionMap: Record<string, AlphaSession> = { PRE: 'PRE', REG: 'REG', POST: 'POST', CLOSED: 'CLOSED' };
+                const alphaSession: AlphaSession = sessionMap[session] || 'CLOSED';
+                const changePctForAlpha = changePctPct ?? 0;
+
+                // [V3 PIPELINE] Calculate derived metrics from available data
+                const dayVol = S.day?.v || 0;
+                const prevVol = S.prevDay?.v || 1;
+                const relVol = dayVol > 0 ? dayVol / prevVol : null;
+                const structGex = (structureResult as any)?.netGex ?? null;
+                const flowGex = (flowData as any)?.netGex ?? null;
+                const effectiveGex = structGex ?? flowGex;
+                const whaleIndex = calculateWhaleIndex(effectiveGex);
+
+                // [V3 PIPELINE] Calculate return3D from historical aggregates
+                let return3D: number | null = null;
+                if (historicalResults.length >= 4 && activePrice && historicalResults[3]?.c) {
+                    return3D = ((activePrice - historicalResults[3].c) / historicalResults[3].c) * 100;
+                }
+
+                // [V3 PIPELINE] Compute RSI14 from historical closes (sorted desc, need to reverse)
+                const closesForRSI = historicalResults.slice().reverse().map((h: any) => h.c).filter(Boolean);
+                const rsi14 = computeRSI14(closesForRSI);
+
+                // [V3 PIPELINE] Compute Implied Move % from rawChain ATM straddle
+                const alphaRawChain = (flowData as any)?.rawChain ?? [];
+                const impliedMovePct = computeImpliedMovePct(alphaRawChain, activePrice || 0);
+
+                // [V3 PIPELINE] Compute IV Skew (Put IV / Call IV at ATM)
+                const ivSkew = computeIVSkew(alphaRawChain, activePrice || 0);
+
+                const result = calculateAlphaScore({
+                    ticker,
+                    session: alphaSession,
+                    price: activePrice || 0,
+                    prevClose: prevRegularClose || 0,
+                    changePct: changePctForAlpha,
+                    vwap: S.day?.vw ?? null,
+                    return3D,
+                    rsi14,
+                    sma20: sma20Value,  // [V3 PIPELINE] SMA20 from Polygon
+                    // Structure data (from structureResult + flowData)
+                    pcr: (structureResult as any)?.pcr ?? (flowData as any)?.pcr ?? null,
+                    gex: effectiveGex,
+                    callWall: (structureResult as any)?.levels?.callWall ?? (flowData as any)?.callWall ?? null,
+                    putFloor: (structureResult as any)?.levels?.putFloor ?? (flowData as any)?.putFloor ?? null,
+                    gammaFlipLevel: (structureResult as any)?.gammaFlipLevel ?? null,
+                    rawChain: alphaRawChain,
+                    squeezeScore: squeezeScore ?? null,
+                    atmIv: (structureResult as any)?.atmIv ?? null,
+                    ivSkew,  // [V3 PIPELINE] IV Skew
+                    // Flow data (from metrics + calculated)
+                    darkPoolPct: metricsData?.darkPool?.percent ?? null,
+                    shortVolPct: metricsData?.shortVolume?.percent ?? null,
+                    whaleIndex,
+                    relVol,
+                    blockTrades: metricsData?.blockTrade?.count ?? null,  // [V3 PIPELINE] Block Trades
+                    netFlow: (flowData as any)?.netPremium ?? null,
+                    // Regime data (from macro snapshot)
+                    ndxChangePct: macroData?.nqChangePercent ?? null,
+                    vixValue: macroData?.vix ?? null,
+                    tltChangePct: macroData?.tltChangePct ?? null,  // [V3 PIPELINE] TLT Safe Haven
+                    // Catalyst data
+                    impliedMovePct,
+                    optionsDataAvailable: !!(alphaRawChain.length),
+                });
+
+                return {
+                    score: result.score,
+                    grade: result.grade,
+                    action: result.action,
+                    actionKR: result.actionKR,
+                    whyKR: result.whyKR,
+                    whyFactors: result.whyFactors,
+                    triggerCodes: result.triggerCodes,
+                    pillars: {
+                        momentum: { score: result.pillars.momentum.score, max: result.pillars.momentum.max },
+                        structure: { score: result.pillars.structure.score, max: result.pillars.structure.max },
+                        flow: { score: result.pillars.flow.score, max: result.pillars.flow.max },
+                        regime: { score: result.pillars.regime.score, max: result.pillars.regime.max },
+                        catalyst: { score: result.pillars.catalyst.score, max: result.pillars.catalyst.max },
+                    },
+                    gatesApplied: result.gatesApplied,
+                    sessionAdjusted: result.sessionAdjusted,
+                    dataCompleteness: result.dataCompleteness,
+                    engineVersion: result.engineVersion,
+                    calculatedAt: result.calculatedAt,
+                };
+            } catch {
+                return null;
+            }
+        })(),
         meta: getBuildMeta(req.headers),
         debug: {
             apiStatus: snapshotRes.success ? 200 : 500,

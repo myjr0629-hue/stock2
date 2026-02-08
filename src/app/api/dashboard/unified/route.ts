@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
 
 // [PERFORMANCE] Stale-While-Revalidate Cache
 interface CacheEntry {
@@ -49,8 +50,58 @@ function buildResponseFromResults(
                 impliedMovePct: data.impliedMovePct ?? null,
                 levels: data.levels,
                 expiration: data.expiration,
-                options_status: data.options_status
+                options_status: data.options_status,
             };
+
+            // [V3.0] Alpha Engine V3 — Real-time scoring (SWR path)
+            try {
+                const sessionMap: Record<string, AlphaSession> = { PRE: 'PRE', REG: 'REG', POST: 'POST', CLOSED: 'CLOSED' };
+                const alphaSession: AlphaSession = sessionMap[data.session || 'CLOSED'] || 'CLOSED';
+                const whaleIndex = calculateWhaleIndex(data.netGex);
+                const alphaResult = calculateAlphaScore({
+                    ticker,
+                    session: alphaSession,
+                    price: data.underlyingPrice || 0,
+                    prevClose: data.prevClose || 0,
+                    changePct: data.changePercent || 0,
+                    vwap: data.vwap ?? null,
+                    pcr: data.pcr ?? null,
+                    gex: data.netGex ?? null,
+                    callWall: data.levels?.callWall ?? null,
+                    putFloor: data.levels?.putFloor ?? null,
+                    gammaFlipLevel: data.gammaFlipLevel ?? null,
+                    rawChain: data._rawChain ?? [],
+                    squeezeScore: data.squeezeScore ?? null,
+                    atmIv: data.atmIv ?? null,
+                    darkPoolPct: data.darkPoolPct ?? null,
+                    shortVolPct: data.shortVolPct ?? null,
+                    whaleIndex,
+                    netFlow: data._netPremium ?? null,
+                    ndxChangePct: marketData?.nq?.change ?? null,
+                    vixValue: marketData?.vix ?? null,
+                    impliedMovePct: data.impliedMovePct ?? null,
+                    optionsDataAvailable: data.options_status === 'OK',
+                });
+                tickersData[ticker].alpha = {
+                    score: alphaResult.score,
+                    grade: alphaResult.grade,
+                    action: alphaResult.action,
+                    actionKR: alphaResult.actionKR,
+                    whyKR: alphaResult.whyKR,
+                    pillars: {
+                        momentum: alphaResult.pillars.momentum.score,
+                        structure: alphaResult.pillars.structure.score,
+                        flow: alphaResult.pillars.flow.score,
+                        regime: alphaResult.pillars.regime.score,
+                        catalyst: alphaResult.pillars.catalyst.score,
+                    },
+                    gatesApplied: alphaResult.gatesApplied,
+                    dataCompleteness: alphaResult.dataCompleteness,
+                    engineVersion: alphaResult.engineVersion,
+                };
+            } catch (e) {
+                console.error(`[Dashboard V3 SWR] Alpha failed for ${ticker}:`, e);
+            }
 
             // Generate signals — ONLY during regular market hours (REG)
             // [SIGNAL AUDIT V2] Removed: Gamma LONG/SHORT (always-firing), GEX<0 (structural noise)
@@ -250,7 +301,55 @@ export async function GET(request: NextRequest) {
                     // structure removed - FlowRadar fetches rawChain directly
                 };
 
-                // Generate actionable trading signals
+                // [V3.0] Alpha Engine V3 — Real-time absolute scoring
+                try {
+                    const sessionMap: Record<string, AlphaSession> = { PRE: 'PRE', REG: 'REG', POST: 'POST', CLOSED: 'CLOSED' };
+                    const alphaSession: AlphaSession = sessionMap[data.session || 'CLOSED'] || 'CLOSED';
+                    const whaleIndex = calculateWhaleIndex(data.netGex);
+                    const alphaResult = calculateAlphaScore({
+                        ticker,
+                        session: alphaSession,
+                        price: data.underlyingPrice || 0,
+                        prevClose: data.prevClose || 0,
+                        changePct: data.changePercent || 0,
+                        vwap: data.vwap ?? null,
+                        pcr: data.pcr ?? null,
+                        gex: data.netGex ?? null,
+                        callWall: data.levels?.callWall ?? null,
+                        putFloor: data.levels?.putFloor ?? null,
+                        gammaFlipLevel: data.gammaFlipLevel ?? null,
+                        rawChain: data._rawChain ?? [],
+                        squeezeScore: data.squeezeScore ?? null,
+                        atmIv: data.atmIv ?? null,
+                        darkPoolPct: data.darkPoolPct ?? null,
+                        shortVolPct: data.shortVolPct ?? null,
+                        whaleIndex,
+                        netFlow: data._netPremium ?? null,
+                        ndxChangePct: marketData?.nq?.change ?? null,
+                        vixValue: marketData?.vix ?? null,
+                        impliedMovePct: data.impliedMovePct ?? null,
+                        optionsDataAvailable: data.options_status === 'OK',
+                    });
+                    tickersData[ticker].alpha = {
+                        score: alphaResult.score,
+                        grade: alphaResult.grade,
+                        action: alphaResult.action,
+                        actionKR: alphaResult.actionKR,
+                        whyKR: alphaResult.whyKR,
+                        pillars: {
+                            momentum: alphaResult.pillars.momentum.score,
+                            structure: alphaResult.pillars.structure.score,
+                            flow: alphaResult.pillars.flow.score,
+                            regime: alphaResult.pillars.regime.score,
+                            catalyst: alphaResult.pillars.catalyst.score,
+                        },
+                        gatesApplied: alphaResult.gatesApplied,
+                        dataCompleteness: alphaResult.dataCompleteness,
+                        engineVersion: alphaResult.engineVersion,
+                    };
+                } catch (e) {
+                    console.error(`[Dashboard V3] Alpha failed for ${ticker}:`, e);
+                }
                 // [LOCALIZATION] Use ISO timestamp - client will format based on locale
                 const timestamp = new Date().toISOString();
                 const price = data.underlyingPrice;
@@ -530,6 +629,20 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
         } catch (e) {
             // Continue without 0DTE/IM data
         }
+
+        // [V3 PIPELINE] Pass rawChain and net premium for alpha scoring
+        structureData._rawChain = tickerRawChain;
+        // Calculate net premium from rawChain for flow scoring
+        let netPremium = 0;
+        try {
+            tickerRawChain.forEach((o: any) => {
+                const premium = (o.last_trade?.price || o.day?.close || 0) * (o.open_interest || 0) * 100;
+                const type = o.details?.contract_type;
+                if (type === 'call') netPremium += premium;
+                else if (type === 'put') netPremium -= premium;
+            });
+        } catch { /* ignore */ }
+        structureData._netPremium = netPremium !== 0 ? netPremium : null;
 
         return structureData;
     };

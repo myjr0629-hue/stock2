@@ -13,6 +13,7 @@ import {
     PowerMeta
 } from './engineConfig';
 import { MAGNIFICENT_7, BIO_LEADERS_TOP5, DATACENTER_TOP5, getSectorForTicker } from './universePolicy';
+import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, type AlphaSession, type AlphaResult } from './alphaEngine';
 
 // === GUARDIAN SIGNAL INTEGRATION (Phase 4) ===
 export interface GuardianSignal {
@@ -657,12 +658,178 @@ export function computeQualityTier(
         if (alphaScore < 40) tier = 'FILLER'; // Force downgrade if sentiment kills the score
     }
 
+    // ================================================================
+    // [V3.0] ALPHA ENGINE V3 — PROMOTED TO PRIMARY
+    // V3 score is now THE score for tier decisions.
+    // Legacy scoring above is kept for backward compatibility but V3 overrides.
+    // ================================================================
+    let alphaV3: AlphaResult | null = null;
+    try {
+        const price = evidence?.price?.last || evidence?.price?.lastPrice || evidence?.price?.price || 0;
+        const prevClose = evidence?.price?.prevClose || 0;
+        const changePct = evidence?.price?.changePct || (prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0);
+        const v3Session: AlphaSession = 'CLOSED'; // Reports run on closed data
+
+        // [V3 PIPELINE] Extract all available data from evidence layers
+        const gex = evidence?.options?.gex ?? evidence?.flow?.gammaExposure ?? null;
+        const relVol = evidence?.flow?.relVol ?? evidence?.price?.relativeVolume ?? null;
+        const netFlow = evidence?.flow?.netFlow ?? evidence?.flow?.largeTradesUsd ?? null;
+        const darkPoolPct = evidence?.stealth?.darkPoolPct ?? ((evidence?.flow?.offExPct ?? 0) > 0 ? evidence.flow.offExPct : null);
+        const shortVolPct = evidence?.stealth?.shortVolPct ?? null;
+
+        // Whale index: use evidence or compute from GEX
+        const whaleIdx = evidence?.flow?.whaleIndex
+            ?? (gex !== null ? calculateWhaleIndex(gex) : null);
+
+        // RSI from evidence (real value, not hardcoded 50)
+        const rsi14Raw = evidence?.price?.rsi14;
+        const rsi14 = (rsi14Raw && rsi14Raw !== 50 && rsi14Raw !== 0) ? rsi14Raw : null;
+
+        // Macro data from evidence
+        const ndxChangePct = evidence?.macro?.ndx?.changePct ?? null;
+        const vixValue = evidence?.macro?.vix?.value ?? null;
+
+        alphaV3 = calculateAlphaScore({
+            ticker: symbol,
+            session: v3Session,
+            price,
+            prevClose,
+            changePct,
+            vwap: evidence?.price?.vwap ?? null,
+            return3D: evidence?.price?.return3D ?? null,
+            rsi14,
+            sma20: evidence?.price?.sma20 ?? null,  // [V3 PIPELINE] SMA20
+            // Structure
+            pcr: evidence?.options?.pcr ?? evidence?.options?.putCallRatio ?? null,
+            gex,
+            callWall: evidence?.options?.callWall ?? null,
+            putFloor: evidence?.options?.putFloor ?? null,
+            gammaFlipLevel: evidence?.options?.gammaFlipLevel ?? null,
+            rawChain: evidence?.options?.rawChain ?? [],
+            squeezeScore: evidence?.options?.squeezeScore ?? null,
+            atmIv: evidence?.options?.atmIv ?? null,
+            ivSkew: computeIVSkew(evidence?.options?.rawChain ?? [], price),  // [V3 PIPELINE] IV Skew
+            // Flow
+            darkPoolPct,
+            shortVolPct,
+            whaleIndex: whaleIdx,
+            relVol,
+            blockTrades: evidence?.stealth?.blockTrades ?? evidence?.flow?.blockTrades ?? null,  // [V3 PIPELINE]
+            netFlow,
+            // Regime
+            ndxChangePct,
+            vixValue,
+            tltChangePct: evidence?.macro?.tlt?.changePct ?? null,  // [V3 PIPELINE] TLT Safe Haven
+            // Catalyst
+            impliedMovePct: evidence?.options?.impliedMovePct ?? null,
+            sentiment: sentiment ?? null,
+            // Context
+            wasInPrevReport,
+            optionsDataAvailable: optionsComplete,
+        });
+    } catch (e) {
+        console.error(`[PowerEngine] V3 alpha failed for ${symbol}:`, e);
+    }
+
+    // ================================================================
+    // [V3 PROMOTED] Use V3 results as PRIMARY if available
+    // Legacy tier/score kept as fallback only if V3 fails
+    // ================================================================
+    if (alphaV3) {
+        const v3Score = alphaV3.score;
+        const v3Completeness = alphaV3.dataCompleteness;
+
+        // [ZERO-DROP POLICY] Tier determination by V3 score + dataCompleteness
+        // Data failure never causes disqualification — only score-based decisions
+        let v3Tier: QualityTier;
+        let v3ReasonKR: string;
+
+        // V3 Grade → Tier mapping (respecting data completeness)
+        if (v3Score >= QUALITY_TIER_CONFIG.ACTIONABLE_MIN_SCORE && v3Completeness >= 60) {
+            v3Tier = 'ACTIONABLE';
+            v3ReasonKR = alphaV3.whyKR;
+
+            // Event Gate still applies
+            if (hasHighImpactEvent) {
+                v3Tier = 'WATCH';
+                v3ReasonKR = `⛔ Event Gate: ${item.evidence?.policy?.gate?.P0?.[0] || '이벤트'} 대기 (매수 보류)`;
+            }
+        } else if (v3Score >= QUALITY_TIER_CONFIG.WATCH_MIN_SCORE) {
+            v3Tier = 'WATCH';
+            v3ReasonKR = alphaV3.whyKR;
+        } else {
+            v3Tier = 'FILLER';
+            v3ReasonKR = alphaV3.whyKR || `저강도(${v3Score})`;
+        }
+
+        // Guardian Signal injection (preserved from legacy)
+        if (guardianSignal) {
+            const { marketStatus: mktStatus, divCaseId: dCase } = guardianSignal;
+            if (dCase === 'A') v3ReasonKR += ' [⚠️ 가짜 상승장 경고]';
+            else if (dCase === 'D') {
+                v3Tier = v3Tier === 'ACTIONABLE' ? 'WATCH' : v3Tier;
+                v3ReasonKR += ' [🚨 시장 붕괴]';
+            }
+            if (mktStatus === 'STOP' && v3Tier === 'ACTIONABLE' && v3Score < 90) {
+                v3Tier = 'WATCH';
+                v3ReasonKR += ' (가디언 정지)';
+            }
+        }
+
+        // Sector Boost annotation
+        if (targetSectorId && getSectorForTicker(symbol) === targetSectorId) {
+            v3ReasonKR += ` [🔥 주도 섹터]`;
+        }
+
+        // Sympathy annotation
+        if (isSympathyTarget) {
+            v3ReasonKR += ` [🤝 공명 효과]`;
+        }
+
+        // [V3.1] Record ACTIONABLE recommendations for backtest tracking
+        if (v3Tier === 'ACTIONABLE') {
+            try {
+                const { recordRecommendation } = require('./backtestService');
+                const recPrice = evidence?.price?.last || evidence?.price?.lastPrice || evidence?.price?.price || 0;
+                recordRecommendation(symbol, v3Score, alphaV3.grade, alphaV3.action, recPrice);
+            } catch (e) {
+                // Non-critical: backtest recording failure doesn't affect scoring
+            }
+        }
+
+        return {
+            tier: v3Tier,
+            reasonKR: v3ReasonKR,
+            triggersKR: alphaV3.triggerCodes,
+            powerScore: v3Score,
+            isBackfilled,
+            alphaV3: {
+                score: alphaV3.score,
+                grade: alphaV3.grade,
+                action: alphaV3.action,
+                actionKR: alphaV3.actionKR,
+                whyKR: alphaV3.whyKR,
+                triggerCodes: alphaV3.triggerCodes,
+                pillars: {
+                    momentum: alphaV3.pillars.momentum.score,
+                    structure: alphaV3.pillars.structure.score,
+                    flow: alphaV3.pillars.flow.score,
+                    regime: alphaV3.pillars.regime.score,
+                    catalyst: alphaV3.pillars.catalyst.score,
+                },
+                gatesApplied: alphaV3.gatesApplied,
+                dataCompleteness: alphaV3.dataCompleteness,
+            },
+        };
+    }
+
+    // Fallback: V3 failed — use legacy scoring
     return {
         tier,
         reasonKR,
-        triggersKR, // export to result
+        triggersKR,
         powerScore: alphaScore,
-        isBackfilled
+        isBackfilled,
     };
 }
 

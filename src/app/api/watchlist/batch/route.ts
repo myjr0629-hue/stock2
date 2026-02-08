@@ -1,11 +1,11 @@
 // Watchlist Batch Analyze API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
-// [One Pipe] Uses Full Engine (analyzeGemsTicker) for unified alpha calculation
+// [V3.0] Uses Alpha Engine V3 (calculateAlphaScore) for unified alpha calculation
 // [PERF] Uses lightweight stock data (no chart/minute data) for faster response
 
 import { NextResponse } from 'next/server';
 import { getOptionsData } from '@/services/stockApi';
-import { analyzeGemsTicker } from '@/services/stockTypes';
+import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 
@@ -125,62 +125,59 @@ export async function GET(request: Request) {
                 return { ticker, error: 'Stock data unavailable' };
             }
 
-            // [One Pipe] Full Engine Alpha Score (5-factor: Momentum, Options, Structure, Regime, Risk)
+            // [V3.0] Alpha Engine V3 — Unified absolute scoring
             const opts = optionsData as any;
             const changePct = stockData.changePercent || 0;
 
-            // Prepare data for Full Engine
-            const rawTicker = {
-                ticker: ticker.toUpperCase(),
-                lastTrade: { p: stockData.price },
-                todaysChangePerc: changePct,
-                day: { v: stockData.volume },
-                prevDay: { c: stockData.prevClose, v: stockData.volume }
-            };
+            // Map session string to AlphaSession type
+            const sessionMap: Record<string, AlphaSession> = { pre: 'PRE', reg: 'REG', post: 'POST' };
+            const alphaSession: AlphaSession = sessionMap[stockData.session] || 'CLOSED';
 
-            const optionsForEngine = opts ? {
-                currentPrice: stockData.price,
-                putCallRatio: opts.putCallRatio || 1,
-                gems: {
-                    gex: opts?.gems?.gex || opts?.gex || 0,
-                    gammaFlipLevel: opts?.gems?.gammaFlipLevel || null,
-                    gammaState: null,
-                    mmPos: '',
-                    edge: ''
-                },
-                maxPain: opts?.maxPain || null,
-                callWall: opts?.callWall || null,
-                putFloor: opts?.putFloor || null,
-                rsi14: 50,
-                options_status: 'OK' as const,
-                rawChain: opts?.rawChain || []
-            } : undefined;
+            // Prepare V3 input from available data
+            const alphaGex = structureRes?.netGex ?? opts?.gems?.gex ?? opts?.gex ?? null;
+            const alphaPcr = opts?.putCallRatio ?? null;
+            const alphaCallWall = structureRes?.callWall ?? opts?.callWall ?? null;
+            const alphaPutFloor = structureRes?.putFloor ?? opts?.putFloor ?? null;
+            const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
+            const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
 
-            // Call Full Engine
-            let score = 50;
-            let grade: 'A' | 'B' | 'C' | 'D' | 'F' = 'C';
-            let action: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH' = 'HOLD';
-            let confidence = 50;
-            let triggers: string[] = [];
+            // Calculate volume ratio for relVol
+            const relVol = stockData.volume && stockData.volume > 0 ? stockData.volume / (stockData.volume || 1) : null;
 
+            // Call V3 Engine — single source of truth
+            let alphaResult;
             try {
-                const result = analyzeGemsTicker(rawTicker, 'Neutral', optionsForEngine, false);
-                score = result.alphaScore;
-                grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
-                action = result.v71?.action === 'Enter' ? 'ADD'
-                    : result.v71?.action === 'Hold' ? 'HOLD'
-                        : result.v71?.action === 'Reduce' ? 'TRIM'
-                            : 'WATCH';
-                confidence = result.decisionSSOT?.confidence || 50;
-                triggers = result.decisionSSOT?.triggersKR || [];
+                alphaResult = calculateAlphaScore({
+                    ticker: ticker.toUpperCase(),
+                    session: alphaSession,
+                    price: stockData.price || 0,
+                    prevClose: stockData.prevClose || 0,
+                    changePct,
+                    vwap: stockData.vwap ?? null,
+                    return3D: stockData.return3d ?? null,
+                    rsi14: stockData.rsi ?? null,
+                    pcr: alphaPcr,
+                    gex: alphaGex,
+                    callWall: alphaCallWall,
+                    putFloor: alphaPutFloor,
+                    gammaFlipLevel: alphaGammaFlip,
+                    rawChain: opts?.rawChain || [],
+                    squeezeScore: alphaSqueezeScore,
+                    optionsDataAvailable: !!opts,
+                });
             } catch (e) {
-                console.error(`[Watchlist Batch] Full Engine failed for ${ticker}:`, e);
-                // Fallback to simple calculation
-                score = 50 + Math.round(changePct * 5);
-                score = Math.max(0, Math.min(100, score));
-                grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
-                triggers = ['알파 계산 실패'];
+                console.error(`[Watchlist Batch] V3 Engine failed for ${ticker}:`, e);
+                // Graceful fallback — still returns a valid result
+                alphaResult = calculateAlphaScore({
+                    ticker: ticker.toUpperCase(),
+                    session: alphaSession,
+                    price: stockData.price || 0,
+                    prevClose: stockData.prevClose || 0,
+                    changePct,
+                });
             }
+
+            const { score, grade, action, actionKR, whyKR, triggerCodes: triggers, dataCompleteness: confidence } = alphaResult;
 
             // === OPTIONS INDICATORS ===
             const hasOptionsData = opts && (opts?.maxPain || opts?.gems?.gex || opts?.gex);
@@ -235,8 +232,13 @@ export async function GET(request: Request) {
                     score,
                     grade,
                     action,
+                    actionKR,
+                    whyKR,
                     confidence: Math.round(confidence),
                     triggers,
+                    pillars: alphaResult.pillars,
+                    gatesApplied: alphaResult.gatesApplied,
+                    engineVersion: alphaResult.engineVersion,
                     capturedAt: new Date().toISOString()
                 },
                 realtime: {

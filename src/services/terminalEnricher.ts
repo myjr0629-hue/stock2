@@ -233,6 +233,13 @@ function buildPriceEvidence(data: any): UnifiedPrice {
     const last = data.price || 0;
     const vwap = data.snapshot?.day?.vw || last;
 
+    // [V3 PIPELINE] Calculate return3D from history
+    const h3d = data.history3d || [];
+    let return3D = 0;
+    if (h3d.length >= 3 && last > 0 && h3d[0]?.c > 0) {
+        return3D = ((last - h3d[0].c) / h3d[0].c) * 100;
+    }
+
     return {
         last,
         priceSource: data.priceSource, // [Phase 24.3] Session Tagging
@@ -245,10 +252,10 @@ function buildPriceEvidence(data: any): UnifiedPrice {
         changePct: data.finalChangePercent || data.changePct || 0, // [Phase 24.3] SSOT
         vwap,
         vwapDistPct: vwap > 0 ? ((last - vwap) / vwap) * 100 : 0,
-        rsi14: data.rsi || 50, // [Phase 41.2] Real RSI 14
-        return3D: 0,
+        rsi14: data.rsi || null, // [V3 FIX] null instead of 50 — let engine handle missing data honestly
+        return3D,
         structureState: 'CONSOLIDATION',
-        history3d: data.history3d || [], // [Phase 36] Sparkline data from CentralDataHub
+        history3d: h3d, // [Phase 36] Sparkline data from CentralDataHub
         complete: last > 0
     };
 }

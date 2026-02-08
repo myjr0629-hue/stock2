@@ -45,6 +45,52 @@ export const POWER_SCORE_CONFIG = {
     TARGET_SECTOR_BOOST: 10,       // Bonus for tickers in Guardian's Target Sector
 };
 
+// === [V3.0] ALPHA ENGINE V3 CONFIGURATION ===
+export const ALPHA_V3_CONFIG = {
+    // 5-Pillar Weights (Total: 100)
+    PILLAR_WEIGHTS: {
+        MOMENTUM: 25,     // Price trend, VWAP, 3D trend, Smart DIP
+        STRUCTURE: 25,    // OI Heat, Gamma, Wall Sandwich, PCR, Squeeze
+        FLOW: 25,         // Dark Pool, Whale, RelVol, Short Vol, Block
+        REGIME: 15,       // NDX, VIX, Safe Haven
+        CATALYST: 10,     // Implied Move, Sentiment, Events, Continuation
+    },
+
+    // Grade Thresholds (Absolute — never change)
+    GRADE_THRESHOLDS: {
+        S: 85,    // 🔥 STRONG_BUY
+        A: 70,    // ✅ BUY
+        B: 55,    // 👀 WATCH
+        C: 40,    // ⏸️ HOLD
+        D: 25,    // ⚠️ REDUCE
+        // Below 25 = F = 🚫 EXIT
+    },
+
+    // Session Caps (limit pillars when data is stale)
+    SESSION_CAPS: {
+        PRE: { structure: 20, flow: 20, momentum: 25 },
+        REG: { structure: 25, flow: 25, momentum: 25 },
+        POST: { structure: 22, flow: 20, momentum: 22 },
+        CLOSED: { structure: 18, flow: 15, momentum: 15 },
+    },
+
+    // Absolute Gate Thresholds
+    GATES: {
+        EXHAUSTION_RSI: 80,
+        EXHAUSTION_CHANGE_PCT: 12,
+        EXHAUSTION_RVOL: 2,
+        FAKE_PUMP_CHANGE: 5,
+        FAKE_PUMP_FLOW: -100000,
+        WALL_PROXIMITY_PCT: 0.02,
+        SHORT_STORM_PCT: 55,
+        RSI_EXTREME: 75,
+        DEAD_VOLUME_RVOL: 0.3,
+    },
+
+    // Engine Version
+    VERSION: '3.0.0',
+};
+
 // === REGIME CONFIGURATION ===
 export type MarketRegime = 'RISK_ON' | 'NEUTRAL' | 'RISK_OFF';
 
@@ -64,6 +110,24 @@ export interface QualityTierResult {
     triggersKR?: string[]; // [V3.7.3] Trigger codes for UI
     powerScore: number;
     isBackfilled: boolean;
+    // [V3.0] Alpha Engine V3 enrichment
+    alphaV3?: {
+        score: number;
+        grade: string;
+        action: string;
+        actionKR: string;
+        whyKR: string;
+        triggerCodes: string[];
+        pillars: {
+            momentum: number;
+            structure: number;
+            flow: number;
+            regime: number;
+            catalyst: number;
+        };
+        gatesApplied: string[];
+        dataCompleteness: number;
+    };
 }
 
 // === TOP3 STATS ===

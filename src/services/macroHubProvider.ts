@@ -36,6 +36,8 @@ export interface MacroSnapshot {
     vix?: number;
     us10y?: number;
     dxy?: number;
+    // [V3 PIPELINE] Safe Haven ETF Changes
+    tltChangePct?: number | null;   // TLT (20Y Bond) — rising = risk-off
     // [V45.0] Advanced Macro Indicators
     yieldCurve?: {
         us2y: number;      // 2-Year Yield
@@ -56,7 +58,8 @@ let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = {
 
 const SYMBOLS = {
     NDX_PROXY: "QQQ", // Massive uses QQQ for Trend Logic
-    DXY_PROXY: "UUP"   // UUP (Bullish Dollar ETF) as proxy for DXY
+    DXY_PROXY: "UUP",  // UUP (Bullish Dollar ETF) as proxy for DXY
+    TLT: "TLT"          // [V3 PIPELINE] 20+ Year Treasury Bond ETF
 };
 
 // Synthetic Multipliers
@@ -319,7 +322,11 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const realYield = await fetchRealYieldData(liveUs10y);
 
     // DXY Proxy: UUP (Bullish Dollar ETF) -> Calibrated to ~98.23 (x3.6315)
-    const dxy = await fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY, marketStatus);
+    // [V3 PIPELINE] Also fetch TLT for Safe Haven flow detection
+    const [dxy, tltFactor] = await Promise.all([
+        fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY, marketStatus),
+        fetchIndexSnapshot(SYMBOLS.TLT, "TLT (20Y Bond)", 1, marketStatus)
+    ]);
 
     // Regime Logic: QQQ Price > SMA20
     // We need to fetch SMA20 for QQQ
@@ -364,7 +371,9 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         dxy: dxy.level ?? 0,
         // [V7.0] Advanced Macro Indicators (live US10Y)
         yieldCurve: liveYieldCurve ?? undefined,
-        realYield: realYield ?? undefined
+        realYield: realYield ?? undefined,
+        // [V3 PIPELINE] Safe Haven ETF
+        tltChangePct: tltFactor.chgPct ?? null,
     };
 
     cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };
