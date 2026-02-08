@@ -438,9 +438,9 @@ function MainChartPanel() {
             </div>
 
             {/* ═══════ Metrics Grid: 3 Rows × 4 Cards (No Gap Between Rows) ═══════ */}
-            <div className="px-4 pt-4 space-y-0">
+            <div className="px-4 pt-4 pb-4 flex flex-col gap-1">
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
-                <div className="grid grid-cols-4 gap-3 pb-3">
+                <div className="grid grid-cols-4 gap-3">
                     {/* Net GEX */}
                     <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                         {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
@@ -518,8 +518,8 @@ function MainChartPanel() {
                                     <span className={`text-xl font-mono font-bold ${dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white'}`}>
                                         {vwap > 0 ? `${dist > 0 ? '+' : ''}${dist.toFixed(1)}%` : '—'}
                                     </span>
-                                    <span className="text-xs text-white">
-                                        {Math.abs(dist) < 0.3 ? '근접' : dist > 0 ? '위' : '아래'}
+                                    <span className="text-xs font-mono text-slate-400">
+                                        {vwap > 0 ? `$${vwap.toFixed(1)}` : ''}
                                     </span>
                                 </div>
                             </div>
@@ -528,7 +528,7 @@ function MainChartPanel() {
                 </div>
 
                 {/* ── ROW 2: 가격 레벨 + 기관 (Levels & Institutional) ── */}
-                <div className="grid grid-cols-4 gap-3 pb-3">
+                <div className="grid grid-cols-4 gap-3">
                     {/* Max Pain */}
                     <div className="p-4 bg-[#0d1829]/80 rounded-xl border border-white/5">
                         <div className="flex items-center gap-2 mb-2">

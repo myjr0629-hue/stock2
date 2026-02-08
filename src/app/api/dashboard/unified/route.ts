@@ -446,6 +446,7 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
         }
 
         // Merge extended session data from ticker API (Command style)
+        let tickerRawChain: any[] = [];
         if (tickerRes.ok) {
             const tickerData = await tickerRes.json();
             structureData.extended = tickerData.extended || null;
@@ -455,6 +456,8 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             structureData.intradayChangePct = tickerData.prices?.prevChangePct || null;
             // [DASHBOARD V2] VWAP from ticker API
             structureData.vwap = tickerData.vwap ?? null;
+            // [DASHBOARD V2] Save rawChain for 0DTE/IM computation
+            tickerRawChain = tickerData.flow?.rawChain || [];
         }
 
         // [DASHBOARD V2] Dark Pool % & Short Vol % from realtime-metrics
@@ -468,9 +471,9 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             }
         }
 
-        // [DASHBOARD V2] 0DTE Impact & Implied Move from rawChain
+        // [DASHBOARD V2] 0DTE Impact & Implied Move from rawChain (ticker API)
         try {
-            const rawChain = structureData.structure?.rawChain || [];
+            const rawChain = tickerRawChain;
             const price = structureData.underlyingPrice || 0;
             const today = new Date().toISOString().split('T')[0];
 
