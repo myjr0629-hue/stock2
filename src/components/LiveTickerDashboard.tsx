@@ -877,7 +877,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             </div>
 
             {/* [PREMIUM-5x2] Quick Intel Gauges — 5 Columns × 2 Rows */}
-            <div className="relative mt-3 mb-3">
+            <div className="relative -mt-4 mb-3">
                 <div className="absolute inset-0 rounded-xl pointer-events-none" style={{ background: 'radial-gradient(ellipse at 20% 30%, rgba(99,102,241,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(16,185,129,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.04) 0%, transparent 60%)' }} />
                 <div className="relative grid grid-cols-5 gap-1.5">
 
