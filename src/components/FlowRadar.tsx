@@ -1300,7 +1300,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                     <div className={`absolute inset-0 opacity-15 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
 
                                     <span className="text-[11px] text-white font-bold uppercase relative z-10">OPI(델타압력)</span>
-                                    <span className="text-[9px] text-white/80 relative z-10 mt-0.5">콜-풋 포지션</span>
+                                    <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">콜-풋 포지션</span>
 
                                     {/* Circular Gauge with Glow - LARGER */}
                                     <div className="relative w-14 h-14 mt-1">
@@ -1337,7 +1337,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                     <div className={`absolute inset-0 opacity-15 ${ivPercentile.value >= 60 ? 'bg-rose-500' : ivPercentile.value <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
 
                                     <span className="text-[11px] text-white font-bold uppercase relative z-10">ATM IV</span>
-                                    <span className="text-[9px] text-white/80 relative z-10 mt-0.5">옵션가격 온도계</span>
+                                    <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">옵션가격 온도계</span>
 
                                     <div className={`text-2xl font-black relative z-10 mt-1 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivPercentile.value >= 25 && ivPercentile.value < 60 ? 'none' : '0 0 10px currentColor' }}>
                                         {ivPercentile.value}%
@@ -1349,7 +1349,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                                     : ivPercentile.value <= 25 ? '매수 유리'
                                                         : '중립'}
                                     </div>
-                                    <div className="text-[10px] text-white/70 font-medium relative z-10 mt-0.5 text-center leading-tight">
+                                    <div className="text-[11px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
                                         {ivPercentile.value >= 80 ? '스프레드 매도 적극 추천'
                                             : ivPercentile.value >= 60 ? '변동성 축소 베팅'
                                                 : ivPercentile.value <= 15 ? '네이키드 매수 유리'
@@ -1364,7 +1364,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                     <div className={`absolute inset-0 opacity-15 ${analysis.probability >= 65 ? 'bg-emerald-500' : analysis.probability <= 35 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
 
                                     <span className="text-[11px] text-white font-bold uppercase relative z-10">COMPOSITE INDEX</span>
-                                    <span className="text-[9px] text-white/80 relative z-10 mt-0.5">(종합지수)</span>
+                                    <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">(종합지수)</span>
 
                                     <div className={`text-2xl font-black relative z-10 mt-1 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: analysis.probability > 35 && analysis.probability < 65 ? 'none' : '0 0 10px currentColor' }}>
                                         {analysis.probability}%
@@ -1376,7 +1376,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                                     : analysis.probability <= 35 ? '신호혼재'
                                                         : '관망'}
                                     </div>
-                                    <div className="text-[10px] text-white/70 font-medium relative z-10 mt-0.5 text-center leading-tight">
+                                    <div className="text-[11px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
                                         {analysis.probability >= 65
                                             ? `${analysis.signals.length}개 지표 일치 → 방향성 확인`
                                             : analysis.probability <= 35
@@ -1423,10 +1423,10 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                                     : `${((analysis.netWhalePremium || 0) / 1000).toFixed(0)}K`
                                                 }
                                             </div>
-                                            <div className="text-[8px] text-white/40">
+                                            <div className="text-[10px] text-white/90 font-medium">
                                                 C ${((analysis.callPremium || 0) / 1000).toFixed(0)}K / P ${((analysis.putPremium || 0) / 1000).toFixed(0)}K
                                             </div>
-                                            <div className="text-[8px] text-white/40 mt-0.5">
+                                            <div className="text-[10px] text-white/90 font-medium mt-0.5">
                                                 {(analysis.netWhalePremium || 0) > 500000 ? '대형 콜 매수 주도'
                                                     : (analysis.netWhalePremium || 0) > 100000 ? '콜 매수 우위'
                                                         : (analysis.netWhalePremium || 0) < -500000 ? '대형 풋 매수 주도'
@@ -1586,8 +1586,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                         <span className={`text-2xl font-black ${pcRatio.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
                             {pcRatio.value > 0 ? pcRatio.value.toFixed(2) : '--'}
                         </span>
-                        <span className={`text-[9px] font-bold ${pcRatio.color}`}>{pcRatio.label}</span>
-                        <span className="text-[8px] text-white/50 mt-0.5 font-mono">C {(pcRatio.callVol / 1000).toFixed(0)}K / P {(pcRatio.putVol / 1000).toFixed(0)}K</span>
+                        <span className={`text-[10px] font-bold ${pcRatio.color}`}>{pcRatio.label}</span>
+                        <span className="text-[10px] text-white font-medium mt-0.5 font-mono">C {(pcRatio.callVol / 1000).toFixed(0)}K / P {(pcRatio.putVol / 1000).toFixed(0)}K</span>
                     </div>
                 </div>
 
@@ -1603,8 +1603,8 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                         <span className={`text-2xl font-black ${zeroDteImpact.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
                             {zeroDteImpact.value}%
                         </span>
-                        <span className={`text-[9px] font-bold ${zeroDteImpact.color}`}>{zeroDteImpact.label}</span>
-                        <span className="text-[8px] text-white/50 mt-0.5 font-mono">
+                        <span className={`text-[10px] font-bold ${zeroDteImpact.color}`}>{zeroDteImpact.label}</span>
+                        <span className="text-[10px] text-white font-medium mt-0.5 font-mono">
                             {zeroDteImpact.expiryLabel} | {zeroDteImpact.nearestCount}계약
                         </span>
                     </div>
@@ -2017,7 +2017,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                         <span className="text-slate-400">ATM Straddle <span className="text-teal-400/70">({impliedMove.expiryLabel})</span></span>
                                         <span className="text-white font-bold font-mono">${impliedMove.straddle}</span>
                                     </div>
-                                    <div className="text-[10px] text-slate-400 pl-4 border-l border-teal-500/30">
+                                    <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-teal-500/30">
                                         <BarChart3 size={11} className="text-teal-400 inline mr-1" />{impliedMove.direction === 'bullish' ? '콜 프리미엄 우위 → 상승 기대' : impliedMove.direction === 'bearish' ? '풋 프리미엄 우위 → 하락 기대' : '균형'}
                                     </div>
                                 </div>
@@ -2082,7 +2082,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                             </div>
                                         </div>
                                         {/* Row 2: Rationale */}
-                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-indigo-500/30">
+                                        <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-indigo-500/30">
                                             <Banknote size={11} className="text-indigo-400 inline mr-1" />대형거래: {smartMoney.rationale || '분석 중...'}
                                         </div>
                                     </div>
@@ -2107,7 +2107,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                             <span className="text-slate-400">Max Pain</span>
                                             <span className="text-white font-bold font-mono">${maxPainDistance.maxPain}</span>
                                         </div>
-                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-orange-500/30">
+                                        <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-orange-500/30">
                                             <Crosshair size={11} className="text-orange-400 inline mr-1" />{maxPainDistance.direction === 'above' ? `현재가가 Max Pain 위에 $${Math.abs(maxPainDistance.distance).toFixed(1)} 초과` : maxPainDistance.direction === 'below' ? `현재가가 Max Pain 아래 $${Math.abs(maxPainDistance.distance).toFixed(1)} 미달` : 'Max Pain 근접 (수렴 가능성)'}
                                         </div>
                                     </div>
@@ -2131,7 +2131,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                             </div>
                                         </div>
                                         {/* Row 2: Rationale */}
-                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-violet-500/30">
+                                        <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-violet-500/30">
                                             <BarChart3 size={11} className="text-violet-400 inline mr-1" />{ivSkew.rationale || '풋/콜 IV 분석 중...'}
                                         </div>
                                     </div>
@@ -2155,7 +2155,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                             </div>
                                         </div>
                                         {/* Row 2: Rationale */}
-                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-cyan-500/30">
+                                        <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-cyan-500/30">
                                             <TrendingUp size={11} className="text-cyan-400 inline mr-1" />{dex.rationale || '델타 분석 중...'}
                                         </div>
                                     </div>
@@ -2179,7 +2179,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                             </div>
                                         </div>
                                         {/* Row 2: Rationale */}
-                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-amber-500/30">
+                                        <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-amber-500/30">
                                             <Activity size={11} className="text-amber-400 inline mr-1" />{uoa.rationale || '거래량 분석 중...'}
                                         </div>
                                     </div>
