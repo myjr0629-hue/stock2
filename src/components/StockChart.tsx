@@ -221,10 +221,26 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
 
     // [S-67] Fix: Remove unnecessary delay, mount immediately
     const [mounted, setMounted] = useState(false);
+    // [FIX] Delayed render-settled state: wait for all overlays to arrive before showing
+    const [renderSettled, setRenderSettled] = useState(false);
+    const settledTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     useEffect(() => {
-        // Immediate mount - delay was causing initial render issues
         setMounted(true);
     }, []);
+
+    // Reset settled on ticker change, then trigger after data is ready + 800ms buffer
+    useEffect(() => {
+        setRenderSettled(false);
+        if (settledTimer.current) clearTimeout(settledTimer.current);
+    }, [ticker]);
+
+    useEffect(() => {
+        if (dataReady && !renderSettled) {
+            if (settledTimer.current) clearTimeout(settledTimer.current);
+            settledTimer.current = setTimeout(() => setRenderSettled(true), 800);
+        }
+        return () => { if (settledTimer.current) clearTimeout(settledTimer.current); };
+    }, [dataReady, renderSettled]);
 
     // [S-65] Domain for 1D: FIXED 04:00-20:00 (240-1199) for consistent X-axis
     // Track actual data extent separately for gradient color calculation
@@ -421,7 +437,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             </CardHeader>
             <CardContent className="pt-6">
                 {/* [P0-2] Key-based remount for stability */}
-                <div key={`${ticker}-${range}`} className="h-[360px] w-full flex flex-col min-w-0 min-h-0 relative">
+                <div key={`${ticker}-${range}`} className={`h-[360px] w-full flex flex-col min-w-0 min-h-0 relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
                     {mounted && dataReady && processedData.length > 0 ? (
                         <>
                             <ResponsiveContainer width="99%" height="100%">

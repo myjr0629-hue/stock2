@@ -379,3 +379,36 @@
 .animate-fade-in {
   animation: fade-in 0.2s ease-out forwards;
 }
+
+/* [GRID] Subtle breathing glow for notable event cards — gentle enough to avoid eye fatigue */
+@keyframes card-breathe {
+
+  0%,
+  100% {
+    filter: brightness(1);
+    box-shadow: var(--card-glow, 0 0 20px rgba(255, 255, 255, 0));
+  }
+
+  50% {
+    filter: brightness(1.04);
+    box-shadow: var(--card-glow-peak, 0 0 28px rgba(255, 255, 255, 0.05));
+  }
+}
+
+.animate-card-breathe-bull {
+  --card-glow: 0 0 20px rgba(16, 185, 129, 0.2);
+  --card-glow-peak: 0 0 28px rgba(16, 185, 129, 0.3);
+  animation: card-breathe 5s ease-in-out infinite;
+}
+
+.animate-card-breathe-bear {
+  --card-glow: 0 0 20px rgba(244, 63, 94, 0.2);
+  --card-glow-peak: 0 0 28px rgba(244, 63, 94, 0.3);
+  animation: card-breathe 5s ease-in-out infinite;
+}
+
+.animate-card-breathe-warn {
+  --card-glow: 0 0 20px rgba(234, 179, 8, 0.2);
+  --card-glow-peak: 0 0 28px rgba(234, 179, 8, 0.3);
+  animation: card-breathe 5s ease-in-out infinite;
+}

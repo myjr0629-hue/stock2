@@ -877,388 +877,397 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             </div>
 
             {/* [PREMIUM-5x2] Quick Intel Gauges — 5 Columns × 2 Rows */}
-            <div className="grid grid-cols-5 gap-1.5 mt-3 mb-3">
+            <div className="relative mt-3 mb-3">
+                <div className="absolute inset-0 rounded-xl pointer-events-none" style={{ background: 'radial-gradient(ellipse at 20% 30%, rgba(99,102,241,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(16,185,129,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.04) 0%, transparent 60%)' }} />
+                <div className="relative grid grid-cols-5 gap-1.5">
 
-                {/* ═══ ROW 1: 실시간 / 당일 판단용 ═══ */}
+                    {/* ═══ ROW 1: 실시간 / 당일 판단용 ═══ */}
 
-                {/* [1-1] VOLATILITY REGIME™ */}
-                {(() => {
-                    const r = volatilityData;
-                    const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
-                    const regimeColor = r?.regime === 'ERUPTING' ? 'text-rose-400' : r?.regime === 'LOADED' ? 'text-amber-400' : r?.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400';
-                    const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/80 border-slate-700/50';
-                    const regimeDesc = r?.regime === 'ERUPTING' ? '극단적 변동성 주의' : r?.regime === 'LOADED' ? '변동성 축적, 폭발 대기' : r?.regime === 'COILING' ? '에너지 응축 중' : '시장 안정';
-                    return (
-                        <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md border ${regimeBg}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                            <div className="relative z-10 flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <Zap className={`w-3.5 h-3.5 ${isHot ? 'text-amber-400' : 'text-cyan-400'}`} />
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">VOL REGIME</span>
-                                </div>
-                                <span className={`text-[10px] font-black px-1.5 py-px rounded ${isHot ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${regimeColor}`}>
-                                    {r?.regime || '...'}
-                                </span>
-                            </div>
-                            <div className="relative z-10 flex items-baseline gap-1.5">
-                                <span className={`text-lg font-black tabular-nums leading-none ${regimeColor}`}>{r?.regimeScore ?? '--'}</span>
-                                <span className="text-[10px] text-white font-bold">/100</span>
-                                <span className="text-[10px] text-white ml-0.5">{regimeDesc}</span>
-                            </div>
-                            <div className="relative z-10 flex gap-3 mt-1 text-[9px] tabular-nums">
-                                <span className="text-white/60">GEX <span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel || '--'}</span></span>
-                                <span className="text-white/60">IV <span className="font-bold text-white/90">{r?.iv || '--'}%</span></span>
-                                <span className="text-white/60">Flip <span className="font-bold text-white/90">{r?.flipDistance ? `${r.flipDistance > 0 ? '+' : ''}${r.flipDistance}%` : '--'}</span></span>
-                            </div>
-                            <div className="relative z-10 mt-0.5">
-                                <span className="text-[10px] text-white">GEX + IV + Gamma Flip + Squeeze</span>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* [1-2] CONVICTION MATRIX™ */}
-                {(() => {
-                    const isBull = conviction && conviction.score >= 60;
-                    const isBear = conviction && conviction.score <= 40;
-                    const convDesc = conviction ? (conviction.score >= 70 ? '강한 매수 시그널' : conviction.score >= 55 ? '매수 우위' : conviction.score <= 30 ? '매도 시그널' : conviction.score <= 45 ? '약세 우위' : '방향성 탐색 중') : '계산중...';
-                    return (
-                        <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md border ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.12)]' : isBear ? 'bg-rose-950/40 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]' : 'bg-slate-800/80 border-slate-700/50'}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                            <div className="relative z-10 flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <Target className="w-3.5 h-3.5 text-amber-400" />
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">CONVICTION</span>
-                                </div>
-                                <span className={`text-[10px] font-black px-1.5 py-px rounded ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>{conviction?.grade || '...'}</span>
-                            </div>
-                            <div className="relative z-10 flex items-baseline gap-1.5">
-                                <span className={`text-lg font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '--'}</span>
-                                <span className="text-[10px] text-white font-bold">/100</span>
-                                <span className="text-[10px] text-white ml-0.5">{convDesc}</span>
-                            </div>
-                            <div className="relative z-10 text-[10px] text-white/70 mt-0.5">{conviction?.label || ''}</div>
-                            <div className="relative z-10 mt-0.5">
-                                <span className="text-[10px] text-white">SMA + VWAP + PCR + GEX + Flow 종합</span>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* [1-3] VWAP */}
-                {(() => {
-                    const vwap = liveQuote?.prices?.vwap || initialStockData?.vwap || 0;
-                    const price = displayPrice || 0;
-                    const vwapDiff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
-                    const vwapDesc = vwapDiff > 2 ? 'VWAP 상회 → 매수세 우위' : vwapDiff < -2 ? 'VWAP 하회 → 매도세 우위' : 'VWAP 근접 → 중립 구간';
-                    return (
-                        <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md border ${vwapDiff > 2 ? 'bg-emerald-950/40 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.12)]' : vwapDiff < -2 ? 'bg-rose-950/40 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]' : 'bg-slate-800/80 border-slate-700/50'}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                            <div className="relative z-10 flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <Activity className="w-3.5 h-3.5 text-indigo-400" />
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">VWAP</span>
-                                </div>
-                                <span className={`text-[10px] font-black px-1.5 py-px rounded ${vwapDiff > 0 ? 'bg-emerald-500/20 text-emerald-400' : vwapDiff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>
-                                    {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(1)}%
-                                </span>
-                            </div>
-                            <div className="relative z-10 flex items-baseline gap-1.5">
-                                <span className={`text-lg font-black font-mono tabular-nums leading-none ${vwapDiff > 0 ? 'text-emerald-400' : vwapDiff < 0 ? 'text-rose-400' : 'text-white'}`}>${vwap.toFixed(2)}</span>
-                            </div>
-                            <div className="relative z-10 text-[10px] text-white mt-0.5">{vwapDesc}</div>
-                            <div className="relative z-10 text-[10px] text-white/70 mt-px">현재가 대비 {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(2)}% 괴리</div>
-                            <div className="relative z-10 mt-0.5">
-                                <span className="text-[10px] text-white">장중 거래량 가중 평균</span>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* [1-4] SHORT SQUEEZE™ */}
-                {(() => {
-                    const s = squeezeData;
-                    const isCritical = s?.status === 'CRITICAL' || s?.status === 'HIGH';
-                    const statusColor = s?.status === 'CRITICAL' ? 'text-rose-400' : s?.status === 'HIGH' ? 'text-amber-400' : s?.status === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400';
-                    const statusBg = s?.status === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]' : s?.status === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/80 border-slate-700/50';
-                    const sqDesc = s?.status === 'CRITICAL' ? '숏커버 폭발 위험' : s?.status === 'HIGH' ? '숏커버 가능성 높음' : s?.status === 'MEDIUM' ? '공매도 보통' : '공매도 위험 낮음';
-                    return (
-                        <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md border ${statusBg}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                            <div className="relative z-10 flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <ShieldAlert className={`w-3.5 h-3.5 ${isCritical ? 'text-rose-400' : 'text-orange-400'}`} />
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">SHORT SQUEEZE</span>
-                                </div>
-                                <span className={`text-[10px] font-black px-1.5 py-px rounded ${isCritical ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${statusColor}`}>
-                                    {s?.status || '...'}
-                                </span>
-                            </div>
-                            <div className="relative z-10 flex items-baseline gap-1.5">
-                                <span className={`text-lg font-black tabular-nums leading-none ${statusColor}`}>{s?.siPercent !== undefined ? s.siPercent.toFixed(1) : '--'}%</span>
-                                <span className="text-[10px] text-white font-bold">SI%</span>
-                                <span className="text-[10px] text-white ml-0.5">{sqDesc}</span>
-                            </div>
-                            <div className="relative z-10 flex gap-3 mt-0.5 text-[9px] tabular-nums">
-                                <span className="text-white/60">상환 <span className="font-bold text-white/90">{s?.daysToCover?.toFixed(1) ?? '--'}일</span></span>
-                                <span className="text-white/60">공매도비 <span className="font-bold text-white/90">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></span>
-                            </div>
-                            <div className="relative z-10 mt-0.5">
-                                <span className="text-[10px] text-white">SI% + Days to Cover + Short Vol</span>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* [1-5] ANALYST TARGET */}
-                {(() => {
-                    const isBullish = analystData?.consensus === 'STRONG BUY' || analystData?.consensus === 'BUY';
-                    const isBearish = analystData?.consensus === 'SELL' || analystData?.consensus === 'STRONG SELL';
-                    const bd = analystData?.breakdown;
-                    const total = analystData?.totalAnalysts || 0;
-                    const targetPrice = analystData?.priceTarget?.mean || 0;
-                    const currentPrice = displayPrice || 0;
-                    const upside = targetPrice > 0 && currentPrice > 0 ? ((targetPrice - currentPrice) / currentPrice) * 100 : null;
-                    const buyCount = bd ? bd.strongBuy + bd.buy : 0;
-                    const buyPct = total > 0 ? Math.round((buyCount / total) * 100) : 0;
-                    const consensusKr = analystData?.consensus === 'STRONG BUY' ? '적극 매수' : analystData?.consensus === 'BUY' ? '매수' : analystData?.consensus === 'HOLD' ? '보유' : analystData?.consensus === 'SELL' ? '매도' : analystData?.consensus === 'STRONG SELL' ? '적극 매도' : '...';
-                    return (
-                        <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md border ${isBullish ? 'bg-emerald-950/40 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.12)]' : isBearish ? 'bg-rose-950/40 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]' : 'bg-slate-800/80 border-slate-700/50'}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                            <div className="relative z-10 flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <Crosshair className={`w-3.5 h-3.5 ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-cyan-400'}`} />
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">ANALYST TARGET</span>
-                                </div>
-                                <span className={`text-[10px] font-black px-1.5 py-px rounded ${isBullish ? 'bg-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white/70'}`}>{consensusKr}</span>
-                            </div>
-                            <div className="relative z-10 flex items-baseline gap-1.5">
-                                <span className="text-[10px] text-white">목표가</span>
-                                <span className="text-base font-black text-white tabular-nums leading-none">${targetPrice > 0 ? targetPrice.toFixed(0) : '--'}</span>
-                                {upside !== null && (
-                                    <span className={`text-[10px] font-bold ${upside >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>({upside >= 0 ? '+' : ''}{upside.toFixed(1)}%)</span>
-                                )}
-                            </div>
-                            {bd && total > 0 && (
-                                <div className="relative z-10 mt-1">
-                                    <div className="text-[8px] text-white/70 tabular-nums">
-                                        <span className="text-emerald-400 font-bold">Strong Buy {bd.strongBuy}</span>
-                                        <span className="text-white/30 mx-0.5">|</span>
-                                        <span className="text-emerald-400/70">Buy {bd.buy}</span>
-                                        <span className="text-white/30 mx-0.5">|</span>
-                                        <span className="text-white/60">Hold {bd.hold}</span>
-                                        {(bd.sell > 0 || bd.strongSell > 0) && (
-                                            <>
-                                                <span className="text-white/30 mx-0.5">|</span>
-                                                <span className="text-rose-400/70">Sell {bd.sell + bd.strongSell}</span>
-                                            </>
-                                        )}
+                    {/* [1-1] VOLATILITY REGIME™ */}
+                    {(() => {
+                        const r = volatilityData;
+                        const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
+                        const regimeColor = r?.regime === 'ERUPTING' ? 'text-rose-400' : r?.regime === 'LOADED' ? 'text-amber-400' : r?.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400';
+                        const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
+                        const regimeDesc = r?.regime === 'ERUPTING' ? '극단적 변동성 주의' : r?.regime === 'LOADED' ? '변동성 축적, 폭발 대기' : r?.regime === 'COILING' ? '에너지 응축 중' : '시장 안정';
+                        return (
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${regimeBg}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle at 85% 50%, rgba(255,255,255,0.8) 0%, transparent 8%, transparent 12%, rgba(255,255,255,0.4) 13%, transparent 14%, transparent 22%, rgba(255,255,255,0.2) 23%, transparent 24%)" }} />
+                                <div className="relative z-10 flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <Zap className={`w-3.5 h-3.5 ${isHot ? 'text-amber-400' : 'text-cyan-400'}`} />
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">VOL REGIME</span>
                                     </div>
-                                    <div className="flex h-1 rounded-full overflow-hidden bg-slate-800/80 mt-0.5">
-                                        <div className="bg-emerald-500" style={{ width: `${(bd.strongBuy / total) * 100}%` }} />
-                                        <div className="bg-emerald-400/60" style={{ width: `${(bd.buy / total) * 100}%` }} />
-                                        <div className="bg-slate-500/80" style={{ width: `${(bd.hold / total) * 100}%` }} />
-                                        <div className="bg-rose-400/60" style={{ width: `${(bd.sell / total) * 100}%` }} />
-                                        <div className="bg-rose-500" style={{ width: `${(bd.strongSell / total) * 100}%` }} />
-                                    </div>
-                                    <div className="text-[10px] text-white mt-0.5">→ {total}명 중 <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> 매수 추천</div>
-                                </div>
-                            )}
-                            <div className="relative z-10 mt-0.5">
-                                <span className="text-[10px] text-white">Consensus + Price Targets</span>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* ═══ ROW 2: 스윙 / 장기 판단용 ═══ */}
-
-                {/* [2-1] INSTITUTIONAL RADAR™ */}
-                {(() => {
-                    const dp = institutionalData?.darkPool?.percent || 0;
-                    const blockCount = institutionalData?.blockTrade?.count || 0;
-                    const isAccumulation = dp > 40 && blockCount >= 3;
-                    const isDistribution = dp < 20 && blockCount <= 1;
-                    const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
-                    const sigColor = isAccumulation ? 'text-emerald-400' : isDistribution ? 'text-rose-400' : 'text-slate-400';
-                    const sigBg = isAccumulation ? 'bg-emerald-950/40 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.12)]' : isDistribution ? 'bg-rose-950/40 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]' : 'bg-slate-800/80 border-slate-700/50';
-                    const instDesc = isAccumulation ? '기관 매집 시그널' : isDistribution ? '기관 이탈 시그널' : '기관 거래 정상 범위';
-                    return (
-                        <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md border ${sigBg}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                            <div className="relative z-10 flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <Radar className={`w-3.5 h-3.5 ${isAccumulation ? 'text-emerald-400' : 'text-indigo-400'}`} />
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">INST RADAR</span>
-                                </div>
-                                <span className={`text-[10px] font-black px-1.5 py-px rounded ${isAccumulation ? 'bg-emerald-500/20' : isDistribution ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${sigColor}`}>
-                                    {signal}
-                                </span>
-                            </div>
-                            <div className="relative z-10 flex items-baseline gap-1.5">
-                                <span className={`text-lg font-black tabular-nums leading-none ${dp > 35 ? 'text-indigo-400' : 'text-white/80'}`}>{dp.toFixed(1)}%</span>
-                                <span className="text-[10px] text-white font-bold">다크풀</span>
-                                <span className="text-[10px] text-white ml-0.5">{instDesc}</span>
-                            </div>
-                            <div className="relative z-10 flex gap-3 mt-0.5 text-[9px] tabular-nums">
-                                <span className="text-white/60">블록 <span className="font-bold text-white/90">{blockCount}건</span></span>
-                                <span className="text-white/60">공매도비 <span className="font-bold text-white/90">{institutionalData?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
-                            </div>
-                            <div className="relative z-10 mt-0.5">
-                                <span className="text-[10px] text-white">Dark Pool + Block Trade + Short Vol</span>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* [2-2] TREND PHASE™ */}
-                {(() => {
-                    const phase = smaData?.cross === 'GOLDEN' ? '강세 전환' : smaData?.cross === 'DEAD' ? '약세 전환' : smaData?.label === 'ABOVE' ? '상승 추세' : smaData?.label === 'BELOW' ? '하락 추세' : '...';
-                    return (
-                        <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md border ${smaData?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.12)]' : smaData?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 shadow-[0_0_12px_rgba(244,63,94,0.12)]' : 'bg-slate-800/80 border-slate-700/50'}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                            <div className="relative z-10 flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">TREND PHASE</span>
-                                </div>
-                                {smaData?.crossType === 'NEW' && (
-                                    <span className="text-[7px] font-black px-1.5 py-px rounded bg-amber-500/30 text-amber-300 animate-pulse">NEW!</span>
-                                )}
-                            </div>
-                            <div className="relative z-10 flex items-baseline gap-2">
-                                <span className={`text-lg font-black leading-none ${smaData?.cross === 'GOLDEN' ? 'text-emerald-400' : smaData?.cross === 'DEAD' ? 'text-rose-400' : 'text-white'}`}>
-                                    {smaData?.cross === 'GOLDEN' ? 'GOLDEN' : smaData?.cross === 'DEAD' ? 'DEAD' : smaData?.label || '--'}
-                                </span>
-                                <span className="text-[10px] text-white">{phase}</span>
-                            </div>
-                            {smaData && smaData.distance !== null && (
-                                <div className={`relative z-10 text-[10px] font-bold mt-0.5 ${smaData.distance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    SMA 괴리 {smaData.distance > 0 ? '+' : ''}{smaData.distance}%
-                                    {smaData.isImminent && <span className="ml-1 text-amber-400">⚡ 교차 임박</span>}
-                                </div>
-                            )}
-                            <div className="relative z-10 mt-0.5">
-                                <span className="text-[10px] text-white">SMA 50/200 Cross Analysis</span>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* [2-3] FUNDAMENTAL VALUE™ */}
-                {(() => {
-                    const f = fundamentalData;
-                    const hasData = f && f.score > 0;
-                    const gradeColor = f?.grade?.startsWith('A') ? 'text-emerald-400' : f?.grade?.startsWith('B') ? 'text-cyan-400' : f?.grade?.startsWith('C') ? 'text-amber-400' : 'text-slate-400';
-                    const gradeBg = f?.grade?.startsWith('A') ? 'bg-emerald-950/40 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.12)]' : f?.grade?.startsWith('B') ? 'bg-cyan-950/40 border-cyan-500/30' : 'bg-slate-800/80 border-slate-700/50';
-                    const bd = f?.breakdown;
-                    const fundDesc = !hasData ? '데이터 수집 중' : f?.grade?.startsWith('A') ? '재무 우수' : f?.grade?.startsWith('B') ? '재무 양호' : f?.grade?.startsWith('C') ? '재무 보통' : '주의 필요';
-                    // Display raw values even when score is 0
-                    const pe = f?.pe; const de = f?.de; const roe = f?.roe; const rev = f?.revenueGrowth; const margin = f?.netMargin;
-                    return (
-                        <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md border ${gradeBg}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                            <div className="relative z-10 flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <Shield className={`w-3.5 h-3.5 ${hasData ? 'text-emerald-400' : 'text-amber-400'}`} />
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">FUNDAMENTAL</span>
-                                </div>
-                                <span className={`text-[10px] font-black px-1.5 py-px rounded bg-slate-600/50 ${hasData ? gradeColor : 'text-slate-400'}`}>
-                                    {hasData ? f?.grade : '수집중'}
-                                </span>
-                            </div>
-                            {hasData ? (
-                                <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className={`text-lg font-black tabular-nums leading-none ${gradeColor}`}>{f?.score}</span>
-                                    <span className="text-[10px] text-white font-bold">/100</span>
-                                    <span className="text-[10px] text-white ml-0.5">{fundDesc}</span>
-                                </div>
-                            ) : (
-                                <div className="relative z-10">
-                                    <span className="text-sm font-bold text-white/40 leading-none">{fundDesc}</span>
-                                </div>
-                            )}
-                            <div className="relative z-10 flex flex-wrap gap-x-2 mt-1 text-[9px] tabular-nums">
-                                {pe !== null && pe !== undefined && <span className="text-white/60">PE <span className="font-bold text-white/90">{pe}</span></span>}
-                                {roe !== null && roe !== undefined && <span className="text-white/60">ROE <span className="font-bold text-white/90">{roe}%</span></span>}
-                                {rev !== null && rev !== undefined && <span className="text-white/60">매출 <span className="font-bold text-white/90">{rev > 0 ? '+' : ''}{rev}%</span></span>}
-                                {margin !== null && margin !== undefined && <span className="text-white/60">마진 <span className="font-bold text-white/90">{margin}%</span></span>}
-                                {de !== null && de !== undefined && <span className="text-white/60">D/E <span className="font-bold text-white/90">{de}</span></span>}
-                                {!pe && !roe && !rev && !margin && !de && <span className="text-white/40">Financial API 연결 대기</span>}
-                            </div>
-                            <div className="relative z-10 mt-0.5">
-                                <span className="text-[10px] text-white">PE + FCF + Rev + Margin + DE</span>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* [2-4] EARNINGS */}
-                {(() => {
-                    const rawDays = earningsData?.daysLabel || '';
-                    const daysNum = parseInt(rawDays.replace(/\D/g, ''));
-                    const isValidDays = !isNaN(daysNum);
-                    const isImminent = isValidDays && daysNum >= 0 && daysNum <= 7;
-                    const earnDesc = isValidDays ? (daysNum === 0 ? '오늘 실적 발표!' : daysNum <= 3 ? `실적 발표 임박` : daysNum <= 14 ? `${daysNum}일 후 실적` : `${daysNum}일 후`) : '';
-                    return (
-                        <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md border ${isImminent ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]' : 'bg-slate-800/80 border-slate-700/50'}`}>
-                            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                            <div className="relative z-10 flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1">
-                                    <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
-                                    <span className="text-[11px] font-bold text-white uppercase tracking-wider">EARNINGS</span>
-                                </div>
-                                <span className={`text-[10px] font-bold px-1.5 py-px rounded ${isImminent ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-500/20 text-slate-300'}`}>
-                                    {isValidDays ? `D-${daysNum}` : rawDays || 'TBD'}
-                                </span>
-                            </div>
-                            <div className="relative z-10 flex items-baseline gap-1.5">
-                                <span className="text-lg font-black text-white leading-none">{earningsData?.nextDate ? new Date(earningsData.nextDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}</span>
-                                {earningsData?.hourLabel && <span className="text-[10px] text-amber-400 font-bold">{earningsData.hourLabel}</span>}
-                                {earnDesc && <span className="text-[10px] text-white ml-0.5">{earnDesc}</span>}
-                            </div>
-                            {earningsData?.epsEstimate !== null && earningsData?.epsEstimate !== undefined && (
-                                <div className="relative z-10 text-[10px] text-white mt-0.5">
-                                    예상 EPS <span className="font-bold text-white/90">${earningsData.epsEstimate.toFixed(2)}</span>
-                                    {earningsData?.quarter && earningsData?.year && <span className="text-white/40 ml-1">Q{earningsData.quarter} FY{earningsData.year}</span>}
-                                </div>
-                            )}
-                            <div className="relative z-10 mt-0.5">
-                                <span className="text-[10px] text-white">Earnings Calendar</span>
-                            </div>
-                        </div>
-                    );
-                })()}
-
-                {/* [2-5] RELATED */}
-                <div className="relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-md bg-slate-800/80 border border-slate-700/50">
-                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
-                    <div className="relative z-10 flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1">
-                            <Layers className="w-3.5 h-3.5 text-violet-400" />
-                            <span className="text-[11px] font-bold text-white uppercase tracking-wider">RELATED</span>
-                        </div>
-                        <span className="text-[10px] text-white">동종업종</span>
-                    </div>
-                    <div className="relative z-10 flex flex-col gap-1">
-                        {relatedData?.topRelated && relatedData.topRelated.length > 0 ? (
-                            relatedData.topRelated.slice(0, 3).map((item, idx) => (
-                                <div key={idx} className="flex items-center justify-between">
-                                    <span className="text-[10px] font-bold text-white">{item.ticker}</span>
-                                    <span className={`text-[10px] font-bold tabular-nums ${item.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {item.change >= 0 ? '+' : ''}{item.change}%
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isHot ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${regimeColor}`}>
+                                        {r?.regime || '...'}
                                     </span>
                                 </div>
-                            ))
-                        ) : (
-                            <div className="text-[10px] text-white/70 text-center py-1">로딩중...</div>
-                        )}
-                    </div>
-                    <div className="relative z-10 mt-0.5">
-                        <span className="text-[10px] text-white">Related Tickers</span>
-                    </div>
-                </div>
+                                <div className="relative z-10 flex items-baseline gap-1.5">
+                                    <span className={`text-lg font-black tabular-nums leading-none ${regimeColor}`}>{r?.regimeScore ?? '--'}</span>
+                                    <span className="text-[11px] text-white font-bold">/100</span>
+                                    <span className="text-[11px] text-white ml-0.5">{regimeDesc}</span>
+                                </div>
+                                <div className="relative z-10 flex gap-3 mt-1 text-[10px] tabular-nums">
+                                    <span className="text-white/60">GEX <span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel || '--'}</span></span>
+                                    <span className="text-white/60">IV <span className="font-bold text-white/90">{r?.iv || '--'}%</span></span>
+                                    <span className="text-white/60">Flip <span className="font-bold text-white/90">{r?.flipDistance ? `${r.flipDistance > 0 ? '+' : ''}${r.flipDistance}%` : '--'}</span></span>
+                                </div>
+                                <div className="relative z-10 mt-0.5">
+                                    <span className="text-[11px] text-white">GEX + IV + Gamma Flip + Squeeze</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
 
+                    {/* [1-2] CONVICTION MATRIX™ */}
+                    {(() => {
+                        const isBull = conviction && conviction.score >= 60;
+                        const isBear = conviction && conviction.score <= 40;
+                        const convDesc = conviction ? (conviction.score >= 70 ? '강한 매수 시그널' : conviction.score >= 55 ? '매수 우위' : conviction.score <= 30 ? '매도 시그널' : conviction.score <= 45 ? '약세 우위' : '방향성 탐색 중') : '계산중...';
+                        return (
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "conic-gradient(from 220deg at 80% 60%, rgba(255,255,255,0.4) 0deg, transparent 60deg, transparent 360deg)" }} />
+                                <div className="relative z-10 flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <Target className="w-3.5 h-3.5 text-amber-400" />
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">CONVICTION</span>
+                                    </div>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>{conviction?.grade || '...'}</span>
+                                </div>
+                                <div className="relative z-10 flex items-baseline gap-1.5">
+                                    <span className={`text-lg font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '--'}</span>
+                                    <span className="text-[11px] text-white font-bold">/100</span>
+                                    <span className="text-[11px] text-white ml-0.5">{convDesc}</span>
+                                </div>
+                                <div className="relative z-10 text-[11px] text-white/70 mt-0.5">{conviction?.label || ''}</div>
+                                <div className="relative z-10 mt-0.5">
+                                    <span className="text-[11px] text-white">SMA + VWAP + PCR + GEX + Flow 종합</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* [1-3] VWAP */}
+                    {(() => {
+                        const vwap = liveQuote?.prices?.vwap || initialStockData?.vwap || 0;
+                        const price = displayPrice || 0;
+                        const vwapDiff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
+                        const vwapDesc = vwapDiff > 2 ? 'VWAP 상회 → 매수세 우위' : vwapDiff < -2 ? 'VWAP 하회 → 매도세 우위' : 'VWAP 근접 → 중립 구간';
+                        return (
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${vwapDiff > 2 ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : vwapDiff < -2 ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(255,255,255,0.3) 8px, rgba(255,255,255,0.3) 9px)" }} />
+                                <div className="relative z-10 flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <Activity className="w-3.5 h-3.5 text-indigo-400" />
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">VWAP</span>
+                                    </div>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${vwapDiff > 0 ? 'bg-emerald-500/20 text-emerald-400' : vwapDiff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>
+                                        {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(1)}%
+                                    </span>
+                                </div>
+                                <div className="relative z-10 flex items-baseline gap-1.5">
+                                    <span className={`text-lg font-black font-mono tabular-nums leading-none ${vwapDiff > 0 ? 'text-emerald-400' : vwapDiff < 0 ? 'text-rose-400' : 'text-white'}`}>${vwap.toFixed(2)}</span>
+                                </div>
+                                <div className="relative z-10 text-[11px] text-white mt-0.5">{vwapDesc}</div>
+                                <div className="relative z-10 text-[11px] text-white/70 mt-px">현재가 대비 {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(2)}% 괴리</div>
+                                <div className="relative z-10 mt-0.5">
+                                    <span className="text-[11px] text-white">장중 거래량 가중 평균</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* [1-4] SHORT SQUEEZE™ */}
+                    {(() => {
+                        const s = squeezeData;
+                        const isCritical = s?.status === 'CRITICAL' || s?.status === 'HIGH';
+                        const statusColor = s?.status === 'CRITICAL' ? 'text-rose-400' : s?.status === 'HIGH' ? 'text-amber-400' : s?.status === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400';
+                        const statusBg = s?.status === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : s?.status === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
+                        const sqDesc = s?.status === 'CRITICAL' ? '숏커버 폭발 위험' : s?.status === 'HIGH' ? '숏커버 가능성 높음' : s?.status === 'MEDIUM' ? '공매도 보통' : '공매도 위험 낮음';
+                        return (
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${statusBg}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.3) 6px, rgba(255,255,255,0.3) 7px, transparent 7px, transparent 13px)" }} />
+                                <div className="relative z-10 flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <ShieldAlert className={`w-3.5 h-3.5 ${isCritical ? 'text-rose-400' : 'text-orange-400'}`} />
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">SHORT SQUEEZE</span>
+                                    </div>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isCritical ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${statusColor}`}>
+                                        {s?.status || '...'}
+                                    </span>
+                                </div>
+                                <div className="relative z-10 flex items-baseline gap-1.5">
+                                    <span className={`text-lg font-black tabular-nums leading-none ${statusColor}`}>{s?.siPercent !== undefined ? s.siPercent.toFixed(1) : '--'}%</span>
+                                    <span className="text-[11px] text-white font-bold">SI%</span>
+                                    <span className="text-[11px] text-white ml-0.5">{sqDesc}</span>
+                                </div>
+                                <div className="relative z-10 flex gap-3 mt-0.5 text-[10px] tabular-nums">
+                                    <span className="text-white/60">상환 <span className="font-bold text-white/90">{s?.daysToCover?.toFixed(1) ?? '--'}일</span></span>
+                                    <span className="text-white/60">공매도비 <span className="font-bold text-white/90">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></span>
+                                </div>
+                                <div className="relative z-10 mt-0.5">
+                                    <span className="text-[11px] text-white">SI% + Days to Cover + Short Vol</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* [1-5] ANALYST TARGET */}
+                    {(() => {
+                        const isBullish = analystData?.consensus === 'STRONG BUY' || analystData?.consensus === 'BUY';
+                        const isBearish = analystData?.consensus === 'SELL' || analystData?.consensus === 'STRONG SELL';
+                        const bd = analystData?.breakdown;
+                        const total = analystData?.totalAnalysts || 0;
+
+                        const buyCount = bd ? bd.strongBuy + bd.buy : 0;
+                        const buyPct = total > 0 ? Math.round((buyCount / total) * 100) : 0;
+                        const consensusKr = analystData?.consensus === 'STRONG BUY' ? '적극 매수' : analystData?.consensus === 'BUY' ? '매수' : analystData?.consensus === 'HOLD' ? '보유' : analystData?.consensus === 'SELL' ? '매도' : analystData?.consensus === 'STRONG SELL' ? '적극 매도' : '...';
+                        return (
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isBullish ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBearish ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle at 80% 50%, rgba(255,255,255,0.6) 0%, transparent 10%, transparent 18%, rgba(255,255,255,0.3) 19%, transparent 20%, transparent 30%, rgba(255,255,255,0.15) 31%, transparent 32%)" }} />
+                                <div className="relative z-10 flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <Crosshair className={`w-3.5 h-3.5 ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-cyan-400'}`} />
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">ANALYST TARGET</span>
+                                    </div>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isBullish ? 'bg-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white/70'}`}>{consensusKr}</span>
+                                </div>
+                                <div className="relative z-10 flex items-baseline gap-1.5">
+                                    <span className={`text-lg font-black tabular-nums leading-none ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span>
+                                    <span className="text-[11px] text-white font-bold">매수 추천</span>
+                                    <span className="text-[11px] text-white">{total}명 중</span>
+                                </div>
+                                {bd && total > 0 && (
+                                    <div className="relative z-10 mt-1">
+                                        <div className="text-[9px] text-white/70 tabular-nums">
+                                            <span className="text-emerald-400 font-bold">Strong Buy {bd.strongBuy}</span>
+                                            <span className="text-white/30 mx-0.5">|</span>
+                                            <span className="text-emerald-400/70">Buy {bd.buy}</span>
+                                            <span className="text-white/30 mx-0.5">|</span>
+                                            <span className="text-white/60">Hold {bd.hold}</span>
+                                            {(bd.sell > 0 || bd.strongSell > 0) && (
+                                                <>
+                                                    <span className="text-white/30 mx-0.5">|</span>
+                                                    <span className="text-rose-400/70">Sell {bd.sell + bd.strongSell}</span>
+                                                </>
+                                            )}
+                                        </div>
+                                        <div className="flex h-1 rounded-full overflow-hidden bg-slate-800/40 mt-0.5">
+                                            <div className="bg-emerald-500" style={{ width: `${(bd.strongBuy / total) * 100}%` }} />
+                                            <div className="bg-emerald-400/60" style={{ width: `${(bd.buy / total) * 100}%` }} />
+                                            <div className="bg-slate-500/80" style={{ width: `${(bd.hold / total) * 100}%` }} />
+                                            <div className="bg-rose-400/60" style={{ width: `${(bd.sell / total) * 100}%` }} />
+                                            <div className="bg-rose-500" style={{ width: `${(bd.strongSell / total) * 100}%` }} />
+                                        </div>
+                                        <div className="text-[11px] text-white mt-0.5">→ {total}명 중 <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> 매수 추천</div>
+                                    </div>
+                                )}
+                                <div className="relative z-10 mt-0.5">
+                                    <span className="text-[11px] text-white">Analyst Consensus</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* ═══ ROW 2: 스윙 / 장기 판단용 ═══ */}
+
+                    {/* [2-1] INSTITUTIONAL RADAR™ */}
+                    {(() => {
+                        const dp = institutionalData?.darkPool?.percent || 0;
+                        const blockCount = institutionalData?.blockTrade?.count || 0;
+                        const isAccumulation = dp > 40 && blockCount >= 3;
+                        const isDistribution = dp < 20 && blockCount <= 1;
+                        const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
+                        const sigColor = isAccumulation ? 'text-emerald-400' : isDistribution ? 'text-rose-400' : 'text-slate-400';
+                        const sigBg = isAccumulation ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isDistribution ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50';
+                        const instDesc = isAccumulation ? '기관 매집 시그널' : isDistribution ? '기관 이탈 시그널' : '기관 거래 정상 범위';
+                        return (
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${sigBg}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "conic-gradient(from 0deg at 80% 50%, rgba(255,255,255,0.5) 0deg, transparent 30deg, transparent 360deg), radial-gradient(circle at 80% 50%, transparent 20%, rgba(255,255,255,0.1) 21%, transparent 22%)" }} />
+                                <div className="relative z-10 flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <Radar className={`w-3.5 h-3.5 ${isAccumulation ? 'text-emerald-400' : 'text-indigo-400'}`} />
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">INST RADAR</span>
+                                    </div>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isAccumulation ? 'bg-emerald-500/20' : isDistribution ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${sigColor}`}>
+                                        {signal}
+                                    </span>
+                                </div>
+                                <div className="relative z-10 flex items-baseline gap-1.5">
+                                    <span className={`text-lg font-black tabular-nums leading-none ${dp > 35 ? 'text-indigo-400' : 'text-white/80'}`}>{dp.toFixed(1)}%</span>
+                                    <span className="text-[11px] text-white font-bold">다크풀</span>
+                                    <span className="text-[11px] text-white ml-0.5">{instDesc}</span>
+                                </div>
+                                <div className="relative z-10 flex gap-3 mt-0.5 text-[10px] tabular-nums">
+                                    <span className="text-white/60">블록 <span className="font-bold text-white/90">{blockCount}건</span></span>
+                                    <span className="text-white/60">공매도비 <span className="font-bold text-white/90">{institutionalData?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
+                                </div>
+                                <div className="relative z-10 mt-0.5">
+                                    <span className="text-[11px] text-white">Dark Pool + Block Trade + Short Vol</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* [2-2] TREND PHASE™ */}
+                    {(() => {
+                        const phase = smaData?.cross === 'GOLDEN' ? '강세 전환' : smaData?.cross === 'DEAD' ? '약세 전환' : smaData?.label === 'ABOVE' ? '상승 추세' : smaData?.label === 'BELOW' ? '하락 추세' : '...';
+                        return (
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${smaData?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : smaData?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 11px)" }} />
+                                <div className="relative z-10 flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">TREND PHASE</span>
+                                    </div>
+                                    {smaData?.crossType === 'NEW' && (
+                                        <span className="text-[7px] font-black px-1.5 py-px rounded bg-amber-500/30 text-amber-300 animate-pulse">NEW!</span>
+                                    )}
+                                </div>
+                                <div className="relative z-10 flex items-baseline gap-2">
+                                    <span className={`text-lg font-black leading-none ${smaData?.cross === 'GOLDEN' ? 'text-emerald-400' : smaData?.cross === 'DEAD' ? 'text-rose-400' : 'text-white'}`}>
+                                        {smaData?.cross === 'GOLDEN' ? 'GOLDEN' : smaData?.cross === 'DEAD' ? 'DEAD' : smaData?.label || '--'}
+                                    </span>
+                                    <span className="text-[11px] text-white">{phase}</span>
+                                </div>
+                                {smaData && smaData.distance !== null && (
+                                    <div className={`relative z-10 text-[11px] font-bold mt-0.5 ${smaData.distance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        SMA 괴리 {smaData.distance > 0 ? '+' : ''}{smaData.distance}%
+                                        {smaData.isImminent && <span className="ml-1 text-amber-400">⚡ 교차 임박</span>}
+                                    </div>
+                                )}
+                                <div className="relative z-10 mt-0.5">
+                                    <span className="text-[11px] text-white">SMA 50/200 Cross Analysis</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* [2-3] FUNDAMENTAL VALUE™ */}
+                    {(() => {
+                        const f = fundamentalData;
+                        const hasData = f && f.score > 0;
+                        const gradeColor = f?.grade?.startsWith('A') ? 'text-emerald-400' : f?.grade?.startsWith('B') ? 'text-cyan-400' : f?.grade?.startsWith('C') ? 'text-amber-400' : 'text-slate-400';
+                        const gradeBg = f?.grade?.startsWith('A') ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : f?.grade?.startsWith('B') ? 'bg-cyan-950/40 border-cyan-500/30' : 'bg-slate-800/40 border-slate-700/50';
+                        const bd = f?.breakdown;
+                        const fundDesc = !hasData ? '데이터 수집 중' : f?.grade?.startsWith('A') ? '재무 우수' : f?.grade?.startsWith('B') ? '재무 양호' : f?.grade?.startsWith('C') ? '재무 보통' : '주의 필요';
+                        // Display raw values even when score is 0
+                        const pe = f?.pe; const de = f?.de; const roe = f?.roe; const rev = f?.revenueGrowth; const margin = f?.netMargin;
+                        return (
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${gradeBg}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 12px, rgba(255,255,255,0.15) 12px, rgba(255,255,255,0.15) 14px, transparent 14px, transparent 16px), linear-gradient(0deg, rgba(255,255,255,0.2) 0%, transparent 40%)" }} />
+                                <div className="relative z-10 flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <Shield className={`w-3.5 h-3.5 ${hasData ? 'text-emerald-400' : 'text-amber-400'}`} />
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">FUNDAMENTAL</span>
+                                    </div>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded bg-slate-600/50 ${hasData ? gradeColor : 'text-slate-400'}`}>
+                                        {hasData ? f?.grade : '수집중'}
+                                    </span>
+                                </div>
+                                {hasData ? (
+                                    <div className="relative z-10 flex items-baseline gap-1.5">
+                                        <span className={`text-lg font-black tabular-nums leading-none ${gradeColor}`}>{f?.score}</span>
+                                        <span className="text-[11px] text-white font-bold">/100</span>
+                                        <span className="text-[11px] text-white ml-0.5">{fundDesc}</span>
+                                    </div>
+                                ) : (
+                                    <div className="relative z-10">
+                                        <span className="text-sm font-bold text-white/40 leading-none">{fundDesc}</span>
+                                    </div>
+                                )}
+                                <div className="relative z-10 flex flex-wrap gap-x-2 mt-1 text-[10px] tabular-nums">
+                                    {pe !== null && pe !== undefined && <span className="text-white/60">PE <span className="font-bold text-white/90">{pe}</span></span>}
+                                    {roe !== null && roe !== undefined && <span className="text-white/60">ROE <span className="font-bold text-white/90">{roe}%</span></span>}
+                                    {rev !== null && rev !== undefined && <span className="text-white/60">매출 <span className="font-bold text-white/90">{rev > 0 ? '+' : ''}{rev}%</span></span>}
+                                    {margin !== null && margin !== undefined && <span className="text-white/60">마진 <span className="font-bold text-white/90">{margin}%</span></span>}
+                                    {de !== null && de !== undefined && <span className="text-white/60">D/E <span className="font-bold text-white/90">{de}</span></span>}
+                                    {!pe && !roe && !rev && !margin && !de && <span className="text-white/40">Financial API 연결 대기</span>}
+                                </div>
+                                <div className="relative z-10 mt-0.5">
+                                    <span className="text-[11px] text-white">PE + FCF + Rev + Margin + DE</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* [2-4] EARNINGS */}
+                    {(() => {
+                        const rawDays = earningsData?.daysLabel || '';
+                        const daysNum = parseInt(rawDays.replace(/\D/g, ''));
+                        const isValidDays = !isNaN(daysNum);
+                        const isImminent = isValidDays && daysNum >= 0 && daysNum <= 7;
+                        const earnDesc = isValidDays ? (daysNum === 0 ? '오늘 실적 발표!' : daysNum <= 3 ? `실적 발표 임박` : daysNum <= 14 ? `${daysNum}일 후 실적` : `${daysNum}일 후`) : '';
+                        return (
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isImminent ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 14px, rgba(255,255,255,0.2) 14px, rgba(255,255,255,0.2) 15px), repeating-linear-gradient(90deg, transparent, transparent 14px, rgba(255,255,255,0.2) 14px, rgba(255,255,255,0.2) 15px)" }} />
+                                <div className="relative z-10 flex items-center justify-between mb-1">
+                                    <div className="flex items-center gap-1">
+                                        <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">EARNINGS</span>
+                                    </div>
+                                    <span className={`text-[11px] font-bold px-1.5 py-px rounded ${isImminent ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-500/20 text-slate-300'}`}>
+                                        {isValidDays ? `D-${daysNum}` : rawDays || 'TBD'}
+                                    </span>
+                                </div>
+                                <div className="relative z-10 flex items-baseline gap-1.5">
+                                    <span className="text-lg font-black text-white leading-none">{earningsData?.nextDate ? new Date(earningsData.nextDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}</span>
+                                    {earningsData?.hourLabel && <span className="text-[11px] text-amber-400 font-bold">{earningsData.hourLabel}</span>}
+                                    {earnDesc && <span className="text-[11px] text-white ml-0.5">{earnDesc}</span>}
+                                </div>
+                                {earningsData?.epsEstimate !== null && earningsData?.epsEstimate !== undefined && (
+                                    <div className="relative z-10 text-[11px] text-white mt-0.5">
+                                        예상 EPS <span className="font-bold text-white/90">${earningsData.epsEstimate.toFixed(2)}</span>
+                                        {earningsData?.quarter && earningsData?.year && <span className="text-white/40 ml-1">Q{earningsData.quarter} FY{earningsData.year}</span>}
+                                    </div>
+                                )}
+                                <div className="relative z-10 mt-0.5">
+                                    <span className="text-[11px] text-white">Earnings Calendar</span>
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* [2-5] RELATED */}
+                    <div className="relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl bg-slate-800/40 border border-slate-700/50">
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                        <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px)", backgroundSize: "12px 12px" }} />
+                        <div className="relative z-10 flex items-center justify-between mb-1">
+                            <div className="flex items-center gap-1">
+                                <Layers className="w-3.5 h-3.5 text-violet-400" />
+                                <span className="text-[12px] font-bold text-white uppercase tracking-wider">RELATED</span>
+                            </div>
+                            <span className="text-[11px] text-white">동종업종</span>
+                        </div>
+                        <div className="relative z-10 flex flex-col gap-1">
+                            {relatedData?.topRelated && relatedData.topRelated.length > 0 ? (
+                                relatedData.topRelated.slice(0, 3).map((item, idx) => (
+                                    <div key={idx} className="flex items-center justify-between">
+                                        <span className="text-[11px] font-bold text-white">{item.ticker}</span>
+                                        <span className={`text-[11px] font-bold tabular-nums ${item.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {item.change >= 0 ? '+' : ''}{item.change}%
+                                        </span>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-[11px] text-white/70 text-center py-1">로딩중...</div>
+                            )}
+                        </div>
+                        <div className="relative z-10 mt-0.5">
+                            <span className="text-[11px] text-white">Related Tickers</span>
+                        </div>
+                    </div>
+
+                </div>
             </div>
 
             {/* COMMAND GRID (2 Columns: Main vs Sidebar) */}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getRecommendationTrends, getPriceTarget } from '@/services/finnhubClient';
+import { getRecommendationTrends } from '@/services/finnhubClient';
 
 /**
  * GET /api/live/analyst?t=NVDA
@@ -13,10 +13,7 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        const [trends, priceTarget] = await Promise.all([
-            getRecommendationTrends(ticker),
-            getPriceTarget(ticker),
-        ]);
+        const trends = await getRecommendationTrends(ticker);
 
         // Use most recent recommendation period
         const latest = trends.length > 0 ? trends[0] : null;
@@ -48,13 +45,7 @@ export async function GET(req: NextRequest) {
             bullishPct,
             breakdown: { strongBuy, buy, hold, sell, strongSell },
             period: latest?.period || null,
-            priceTarget: priceTarget ? {
-                mean: priceTarget.targetMean,
-                median: priceTarget.targetMedian,
-                high: priceTarget.targetHigh,
-                low: priceTarget.targetLow,
-                lastUpdated: priceTarget.lastUpdated,
-            } : null,
+            priceTarget: null, // Finnhub Premium only
         });
     } catch (err) {
         console.error('[API /live/analyst] Error:', err);
