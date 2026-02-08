@@ -633,7 +633,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
     // [NEW] 0DTE Impact - % of Total Gamma from Nearest-Expiry Options
     // V2: Falls back to nearest expiry on weekends/holidays instead of only matching today
     const zeroDteImpact = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', nearestCount: 0, totalCount: 0, expiryLabel: '' };
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', nearestCount: 0, totalCount: 0, expiryLabel: '', expiryCount: 0 };
 
         const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
         const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -686,7 +686,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         else if (roundedImpact >= 20) { label = '높음'; color = 'text-amber-400'; }
         else if (roundedImpact >= 5) { label = '보통'; color = 'text-cyan-400'; }
 
-        return { value: roundedImpact, label, color, nearestCount, totalCount, expiryLabel };
+        return { value: roundedImpact, label, color, nearestCount, totalCount, expiryLabel, expiryCount: sortedExpiries.length };
     }, [rawChain]);
 
     // [PREMIUM] Implied Move (기대변동폭) - Nearest Weekly Expiry ATM Straddle
@@ -1654,13 +1654,16 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                         <div className="flex items-center gap-1.5 mb-1">
                             <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] ${zeroDteImpact.value >= 20 ? 'bg-amber-500 animate-pulse' : 'bg-amber-500'}`} />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">0DTE Impact</span>
+                            {zeroDteImpact.expiryCount <= 2 && zeroDteImpact.expiryCount > 0 && (
+                                <span className="text-[7px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold">LIMITED</span>
+                            )}
                         </div>
                         <span className={`text-2xl font-black ${zeroDteImpact.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
                             {zeroDteImpact.value}%
                         </span>
                         <span className={`text-[10px] font-bold ${zeroDteImpact.color}`}>{zeroDteImpact.label}</span>
                         <span className="text-[10px] text-white font-medium mt-0.5 font-mono">
-                            {zeroDteImpact.expiryLabel} | {zeroDteImpact.nearestCount}계약
+                            {zeroDteImpact.expiryLabel} | {zeroDteImpact.nearestCount}계약{zeroDteImpact.expiryCount > 0 ? ` (${zeroDteImpact.expiryCount}개 만기)` : ''}
                         </span>
                     </div>
                 </div>
