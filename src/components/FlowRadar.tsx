@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle } from 'lucide-react';
+import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle, BarChart3, Banknote } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "./ui/progress";
 import { useTranslations } from 'next-intl';
@@ -45,11 +45,13 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
     const [whaleTrades, setWhaleTrades] = useState<any[]>([]);
     const [tradesLoading, setTradesLoading] = useState(false);
     const [isSystemReady, setIsSystemReady] = useState(false); // [Fix] Initial Load State
+    const [flowViewMode, setFlowViewMode] = useState<'WHALE' | 'DARKPOOL'>('WHALE');
+    const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>([]);
 
     // [NEW] Realtime Metrics State (Dark Pool, Short Vol, Bid-Ask, Block Trade)
     const [realtimeMetrics, setRealtimeMetrics] = useState<{
-        darkPool: { percent: number; volume: number } | null;
-        shortVolume: { percent: number } | null;
+        darkPool: { percent: number; volume: number; totalVolume: number } | null;
+        shortVolume: { percent: number; volume: number; totalVolume: number } | null;
         bidAsk: { spread: number; label: string } | null;
         blockTrade: { count: number; volume: number } | null;
     }>({ darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null });
@@ -57,6 +59,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
     // [Fix] Reset State on Ticker Change (Prevent Stale Data)
     useEffect(() => {
         setWhaleTrades([]);
+        setDarkPoolTrades([]);
         setIsSystemReady(false);
         setRealtimeMetrics({ darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null });
     }, [ticker]);
@@ -99,14 +102,29 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         }
     };
 
+    // [NEW] Fetch Dark Pool Trades
+    const fetchDarkPoolTrades = async () => {
+        try {
+            const res = await fetch(`/api/flow/dark-pool-trades?ticker=${ticker}&limit=30`);
+            if (res.ok) {
+                const data = await res.json();
+                setDarkPoolTrades(data.items || []);
+            }
+        } catch (e) {
+            console.error('[FlowRadar] Dark pool trades fetch error:', e);
+        }
+    };
+
     // Poll for trades and realtime metrics
     useEffect(() => {
         if (rawChain.length > 0) {
             fetchWhaleTrades();
             fetchRealtimeMetrics();
+            fetchDarkPoolTrades();
             const interval = setInterval(() => {
                 fetchWhaleTrades();
                 fetchRealtimeMetrics();
+                fetchDarkPoolTrades();
             }, 15000); // Every 15s
             return () => clearInterval(interval);
         }
@@ -201,18 +219,22 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
             }
         });
 
-        const rawOpi = callPressure - putPressure;
-        // Normalize to -100 ~ +100 scale (based on typical values)
-        const normalized = Math.max(-100, Math.min(100, rawOpi / 10000));
+        // [FIX] Ratio-based normalization: (CallPressure - PutPressure) / Total * 100
+        // Previous /10000 approach caused overflow (NVDA rawOpi=2.9M → always capped at 100)
+        const totalPressure = callPressure + putPressure;
+        const normalized = totalPressure > 0
+            ? (callPressure - putPressure) / totalPressure * 100
+            : 0;
+        // Result: -100 (full put dominance) ~ +100 (full call dominance)
 
         let label = '중립';
         let color = 'text-white';
-        if (normalized > 50) { label = '강한 상승 압력'; color = 'text-emerald-400'; }
-        else if (normalized > 20) { label = '상승 압력'; color = 'text-emerald-300'; }
-        else if (normalized < -50) { label = '강한 하락 압력'; color = 'text-rose-400'; }
-        else if (normalized < -20) { label = '하락 압력'; color = 'text-rose-300'; }
+        if (normalized > 50) { label = '강한 콜 우위'; color = 'text-emerald-400'; }
+        else if (normalized > 20) { label = '콜 우위'; color = 'text-emerald-300'; }
+        else if (normalized < -50) { label = '강한 풋 우위'; color = 'text-rose-400'; }
+        else if (normalized < -20) { label = '풋 우위'; color = 'text-rose-300'; }
 
-        return { value: Math.round(normalized), label, color };
+        return { value: Math.round(normalized), label, color, callPressure, putPressure };
     }, [rawChain]);
 
     // [PREMIUM] IV Percentile - ATM Implied Volatility Ranking
@@ -581,6 +603,196 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         return { score: Math.round(normalizedScore * 10) / 10, label, color, rationale };
     }, [rawChain]);
 
+    // [NEW] P/C Ratio - Call/Put Volume Ratio (Market Sentiment Gauge)
+    const pcRatio = useMemo(() => {
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', callVol: 0, putVol: 0 };
+
+        let callVol = 0;
+        let putVol = 0;
+
+        rawChain.forEach(opt => {
+            const vol = opt.day?.volume || 0;
+            const type = opt.details?.contract_type;
+            if (type === 'call') callVol += vol;
+            else if (type === 'put') putVol += vol;
+        });
+
+        const ratio = putVol > 0 ? callVol / putVol : callVol > 0 ? 10 : 0;
+        const roundedRatio = Math.round(ratio * 100) / 100;
+
+        let label = '균형';
+        let color = 'text-white';
+        if (ratio >= 2.0) { label = '강한 콜 우위'; color = 'text-emerald-400'; }
+        else if (ratio >= 1.3) { label = '콜 우위'; color = 'text-emerald-300'; }
+        else if (ratio <= 0.5) { label = '강한 풋 우위'; color = 'text-rose-400'; }
+        else if (ratio <= 0.75) { label = '풋 우위'; color = 'text-rose-300'; }
+
+        return { value: roundedRatio, label, color, callVol, putVol };
+    }, [rawChain]);
+
+    // [NEW] 0DTE Impact - % of Total Gamma from Nearest-Expiry Options
+    // V2: Falls back to nearest expiry on weekends/holidays instead of only matching today
+    const zeroDteImpact = useMemo(() => {
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', nearestCount: 0, totalCount: 0, expiryLabel: '' };
+
+        const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        // Collect all unique expiry dates
+        const expirySet = new Set<string>();
+        rawChain.forEach(opt => {
+            const expiry = opt.details?.expiration_date;
+            if (expiry) expirySet.add(expiry);
+        });
+
+        // Find the nearest expiry (today or next available)
+        const sortedExpiries = Array.from(expirySet).sort();
+        let targetExpiry = todayStr;
+        const todayTime = today.getTime();
+
+        // If today's expiry exists, use it. Otherwise find the nearest future expiry
+        if (!expirySet.has(todayStr)) {
+            const nearest = sortedExpiries.find(e => new Date(e + 'T00:00:00').getTime() >= todayTime);
+            targetExpiry = nearest || sortedExpiries[0] || todayStr;
+        }
+
+        let totalGamma = 0;
+        let nearestGamma = 0;
+        let nearestCount = 0;
+        let totalCount = rawChain.length;
+
+        rawChain.forEach(opt => {
+            const gamma = opt.greeks?.gamma || 0;
+            const oi = opt.open_interest || 0;
+            const gammaExposure = Math.abs(gamma * oi * 100);
+            totalGamma += gammaExposure;
+
+            const expiry = opt.details?.expiration_date;
+            if (expiry === targetExpiry) {
+                nearestGamma += gammaExposure;
+                nearestCount++;
+            }
+        });
+
+        const impact = totalGamma > 0 ? (nearestGamma / totalGamma) * 100 : 0;
+        const roundedImpact = Math.round(impact);
+
+        // Expiry label for display (e.g., "02/10" or "오늘")
+        const expiryLabel = targetExpiry === todayStr ? '오늘 만기' : `${targetExpiry.substring(5).replace('-', '/')} 만기`;
+
+        let label = '없음';
+        let color = 'text-slate-400';
+        if (roundedImpact >= 40) { label = '극심'; color = 'text-rose-400'; }
+        else if (roundedImpact >= 20) { label = '높음'; color = 'text-amber-400'; }
+        else if (roundedImpact >= 5) { label = '보통'; color = 'text-cyan-400'; }
+
+        return { value: roundedImpact, label, color, nearestCount, totalCount, expiryLabel };
+    }, [rawChain]);
+
+    // [PREMIUM] Implied Move (기대변동폭) - Nearest Weekly Expiry ATM Straddle
+    const impliedMove = useMemo(() => {
+        if (!rawChain || rawChain.length === 0 || !currentPrice) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
+
+        // 1. Find the nearest expiry date (weekly basis)
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        let nearestExpiry = '';
+        let minDays = Infinity;
+        rawChain.forEach((opt: any) => {
+            const expStr = opt.details?.expiration_date;
+            if (!expStr) return;
+            const parts = expStr.split('-');
+            if (parts.length !== 3) return;
+            const expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            const diffDays = (expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
+            if (diffDays >= 0 && diffDays < minDays) {
+                minDays = diffDays;
+                nearestExpiry = expStr;
+            }
+        });
+        if (!nearestExpiry) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
+
+        // 2. Filter to only nearest expiry options
+        const weeklyChain = rawChain.filter((opt: any) => opt.details?.expiration_date === nearestExpiry);
+
+        // 3. Find nearest ATM call and put from weekly chain
+        let nearestCall: any = null;
+        let nearestPut: any = null;
+        let minCallDist = Infinity;
+        let minPutDist = Infinity;
+        weeklyChain.forEach((opt: any) => {
+            const strike = opt.details?.strike_price;
+            if (!strike) return;
+            const dist = Math.abs(strike - currentPrice);
+            if (opt.details?.contract_type === 'call' && dist < minCallDist) {
+                minCallDist = dist;
+                nearestCall = opt;
+            }
+            if (opt.details?.contract_type === 'put' && dist < minPutDist) {
+                minPutDist = dist;
+                nearestPut = opt;
+            }
+        });
+        if (!nearestCall || !nearestPut) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
+
+        const callPrice = nearestCall.day?.close || nearestCall.last_quote?.midpoint || 0;
+        const putPrice = nearestPut.day?.close || nearestPut.last_quote?.midpoint || 0;
+        const straddle = callPrice + putPrice;
+        const movePercent = currentPrice > 0 ? (straddle / currentPrice) * 100 : 0;
+        const direction = callPrice > putPrice ? 'bullish' as const : callPrice < putPrice ? 'bearish' as const : 'neutral' as const;
+        const expiryLabel = `${nearestExpiry.substring(5).replace('-', '/')} 만기`;
+
+        let color = 'text-white';
+        let label = '보통';
+        if (movePercent >= 5) { color = 'text-rose-400'; label = '고변동'; }
+        else if (movePercent >= 3) { color = 'text-amber-400'; label = '주의'; }
+        else if (movePercent >= 1) { color = 'text-cyan-400'; label = '보통'; }
+        else { color = 'text-emerald-400'; label = '안정'; }
+
+        return { value: Math.round(movePercent * 10) / 10, direction, color, label, straddle: straddle.toFixed(2), expiryLabel };
+    }, [rawChain, currentPrice]);
+
+    // [PREMIUM] Max Pain Distance - how far current price from max pain
+    const maxPainDistance = useMemo(() => {
+        if (!rawChain || rawChain.length === 0 || !currentPrice) return { maxPain: 0, distance: 0, distPercent: 0, direction: 'at' as const, color: 'text-slate-400' };
+
+        // Calculate max pain: strike where total pain (loss) for option holders is maximized
+        const strikeMap = new Map<number, { callOI: number; putOI: number }>();
+        rawChain.forEach((opt: any) => {
+            const strike = opt.details?.strike_price;
+            if (!strike) return;
+            if (!strikeMap.has(strike)) strikeMap.set(strike, { callOI: 0, putOI: 0 });
+            const entry = strikeMap.get(strike)!;
+            if (opt.details?.contract_type === 'call') entry.callOI += (opt.open_interest || 0);
+            else if (opt.details?.contract_type === 'put') entry.putOI += (opt.open_interest || 0);
+        });
+
+        const strikes = Array.from(strikeMap.keys()).sort((a, b) => a - b);
+        let maxPainStrike = currentPrice;
+        let minPain = Infinity;
+        strikes.forEach(testStrike => {
+            let totalPain = 0;
+            strikes.forEach(s => {
+                const data = strikeMap.get(s)!;
+                // Call holders lose when strike < testStrike (ITM calls lose nothing above strike)
+                if (testStrike > s) totalPain += data.callOI * (testStrike - s) * 100;
+                // Put holders lose when strike > testStrike (ITM puts lose nothing below strike)
+                if (testStrike < s) totalPain += data.putOI * (s - testStrike) * 100;
+            });
+            if (totalPain < minPain) { minPain = totalPain; maxPainStrike = testStrike; }
+        });
+
+        const distance = currentPrice - maxPainStrike;
+        const distPercent = currentPrice > 0 ? Math.round((distance / currentPrice) * 1000) / 10 : 0;
+        const direction = distance > 0.5 ? 'above' as const : distance < -0.5 ? 'below' as const : 'at' as const;
+        let color = 'text-emerald-400';
+        if (Math.abs(distPercent) > 3) color = 'text-rose-400';
+        else if (Math.abs(distPercent) > 1.5) color = 'text-amber-400';
+        else if (Math.abs(distPercent) > 0.5) color = 'text-cyan-400';
+
+        return { maxPain: maxPainStrike, distance, distPercent, direction, color };
+    }, [rawChain, currentPrice]);
+
     // Intelligent Default Mode
     const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
     const isMarketClosed = totalVolume === 0 && rawChain.length > 0;
@@ -618,21 +830,33 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         const distToCall = ((callWall - currentPrice) / currentPrice) * 100;
         const distToPut = ((currentPrice - putWall) / currentPrice) * 100;
 
-        // [Fix] Filter for Today's Session only if Market is Active
+        // [Fix V2] Session-aware filter: use trades from the MOST RECENT trading session
+        // instead of a rigid 16-hour cutoff (which breaks on weekends/holidays)
         let activeTrades = whaleTrades;
-        if (!isMarketClosed) {
-            const cutoff = Date.now() - (16 * 60 * 60 * 1000);
-            activeTrades = whaleTrades.filter(t => new Date(t.tradeDate).getTime() > cutoff);
+        if (whaleTrades.length > 0) {
+            // Find the most recent trade timestamp
+            const mostRecent = Math.max(...whaleTrades.map(t => new Date(t.tradeDate).getTime()));
+            // Use all trades from the same trading day as the most recent trade
+            const sessionStart = new Date(mostRecent);
+            sessionStart.setHours(0, 0, 0, 0); // Start of that trading day
+            activeTrades = whaleTrades.filter(t => new Date(t.tradeDate).getTime() >= sessionStart.getTime());
         }
 
         // 1. Whale Flow Decomposition
         let netWhalePremium = 0;
+        let callPremium = 0;
+        let putPremium = 0;
         let maxPremium = 0;
         let alphaTrade: any = null;
 
         activeTrades.forEach(t => {
-            if (t.type === 'CALL') netWhalePremium += t.premium;
-            else netWhalePremium -= t.premium;
+            if (t.type === 'CALL') {
+                netWhalePremium += t.premium;
+                callPremium += t.premium;
+            } else {
+                netWhalePremium -= t.premium;
+                putPremium += t.premium;
+            }
 
             if (t.premium > maxPremium) {
                 maxPremium = t.premium;
@@ -727,133 +951,185 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         compositeScore += uoaScore;
         if (uoa.score >= 3) signals.push(`UOA ${uoa.score}x(${uoa.label})`);
 
+        // (9) P/C Ratio Score (Weight: 5%) - Market sentiment confirmation
+        let pcScore = 0;
+        if (pcRatio.value >= 2.0) pcScore = 5;       // Strong call dominance
+        else if (pcRatio.value >= 1.3) pcScore = 3;   // Call leaning
+        else if (pcRatio.value <= 0.5) pcScore = -5;   // Strong put dominance
+        else if (pcRatio.value <= 0.75) pcScore = -3;  // Put leaning
+        compositeScore += pcScore;
+        if (pcRatio.value >= 1.5 || pcRatio.value <= 0.65) signals.push(`P/C ${pcRatio.value.toFixed(2)}`);
+
+        // (10) 0DTE Impact Score (Weight: 5%) - Intraday volatility amplifier
+        let zdteScore = 0;
+        if (zeroDteImpact.value >= 40) zdteScore = 5;  // Extreme 0DTE concentration
+        else if (zeroDteImpact.value >= 20) zdteScore = 3;
+        // 0DTE amplifies existing direction
+        if (compositeScore < 0) zdteScore = -Math.abs(zdteScore);
+        compositeScore += zdteScore;
+        if (zeroDteImpact.value >= 20) signals.push(`0DTE ${zeroDteImpact.value}%`);
+
+        // (11) Net Premium Flow (integrated with Whale - additional weight when extreme)
+        if (Math.abs(netWhalePremium) > 1000000) {
+            const flowBonus = netWhalePremium > 0 ? 5 : -5;
+            compositeScore += flowBonus;
+        }
+
         // Clamp final score
         compositeScore = Math.max(-100, Math.min(100, compositeScore));
 
         // =====================================
-        // GENERATE NARRATIVE FROM COMPOSITE SCORE
+        // V3.0: ACTIONABLE NARRATIVE ENGINE
         // =====================================
+        // Output: status, message, action, warning, trigger
         let status = "판단 보류 (SCANNING)";
         let message = "세력들의 움직임을 정밀 분석 중입니다...";
         let color = "text-slate-400";
         let probability = 50;
         let probLabel = "중립";
         let probColor = "text-slate-500";
-
-        // Build signal summary string
-        const signalSummary = signals.length > 0 ? `[${signals.join(' / ')}]` : '';
+        let action = "";    // 대응 가이드
+        let warning = "";   // 경고
+        let trigger = "";   // 트리거 (다음 액션 조건)
 
         // Alpha Trade Intel
         let alphaIntel = "";
         if (alphaTrade) {
             const unitCost = alphaTrade.premium / (alphaTrade.size * 100);
-            const alphaBEP = alphaTrade.type === 'CALL' ? alphaTrade.strike + unitCost : alphaTrade.strike - unitCost;
             alphaIntel = `최대거래: ${alphaTrade.type} $${alphaTrade.strike} ($${(alphaTrade.premium / 1000).toFixed(0)}K)`;
         }
 
+        // ================================================
+        // SQUEEZE EMERGENCY CHECK (overrides position logic)
+        // ================================================
+        const isSqueezeExtreme = !squeezeProbability.isLoading && squeezeProbability.value >= 70;
+        const isSqueezeHigh = !squeezeProbability.isLoading && squeezeProbability.value >= 45;
+
         // Position-based logic with composite score integration
         if (currentPrice > callWall) {
-            // BREAKOUT ZONE
+            // ===== BREAKOUT ZONE =====
             if (compositeScore > 30) {
                 status = "초강력 상승 (SUPER-CYCLE)";
-                message = `저항벽($${callWall}) 돌파! ${signalSummary} 모든 지표가 상방을 지지합니다. ${alphaIntel}`;
+                message = `저항벽($${callWall}) 돌파. 기관 수급과 옵션 구조 모두 상방을 지지하는 희귀한 조건.`;
                 probability = Math.min(98, 75 + compositeScore * 0.23);
-                probLabel = "확신";
-                probColor = "text-emerald-400";
-                color = "text-emerald-400";
+                probLabel = "확신"; probColor = "text-emerald-400"; color = "text-emerald-400";
+                action = "기존 롱 유지, 풀백 시 추가 매수";
+                warning = "숏 절대 금지, 역추세 베팅 금지";
+                trigger = `새 저항선 형성 시 목표가 상향`;
             } else {
                 status = "돌파 후 숨고르기";
-                message = `저항($${callWall}) 돌파했으나 추가 수급 불확실. ${signalSummary} 지지 전환 확인 필요.`;
+                message = `저항($${callWall}) 돌파했으나 후속 수급이 약함. 지지 전환 확인까지 관망.`;
                 probability = 55 + compositeScore * 0.1;
-                probLabel = "관망";
-                probColor = "text-amber-400";
-                color = "text-amber-400";
+                probLabel = "관망"; probColor = "text-amber-400"; color = "text-amber-400";
+                action = "기존 롱 유지, 신규 진입 대기";
+                warning = "추격 매수 자제, 거래량 동반 필요";
+                trigger = `$${callWall} 위 안착 확인 시 추가 매수`;
             }
         } else if (currentPrice < putWall) {
-            // BREAKDOWN ZONE
+            // ===== BREAKDOWN ZONE =====
             if (compositeScore < -30) {
                 status = "지지선 붕괴 (COLLAPSE)";
-                message = `최후 방어선($${putWall}) 이탈! ${signalSummary} 하방 압력이 극심합니다. ${alphaIntel}`;
+                message = `최후 방어선($${putWall}) 이탈. 하방 압력 극심, 패닉 매도 구간.`;
                 probability = Math.max(5, 25 + compositeScore * 0.2);
-                probLabel = "위험";
-                probColor = "text-rose-500";
-                color = "text-rose-500";
+                probLabel = "위험"; probColor = "text-rose-500"; color = "text-rose-500";
+                action = "롱 즉시 손절, 숏 진입 가능";
+                warning = "반등 매수 시도 위험, 낙하 가속 가능";
+                trigger = `$${putWall} 회복 시 숏커버링 신호`;
             } else {
                 status = "베어 트랩 가능성";
-                message = `지지선($${putWall}) 이탈은 페이크일 수 있습니다. ${signalSummary} 반등 시 숏커버링 예상.`;
+                message = `지지선($${putWall}) 이탈이 페이크일 수 있음. 수급 신호가 혼재.`;
                 probability = 40 + compositeScore * 0.1;
-                probLabel = "주의";
-                probColor = "text-amber-500";
-                color = "text-amber-500";
+                probLabel = "주의"; probColor = "text-amber-500"; color = "text-amber-500";
+                action = "관망, 반등 확인 후 진입 검토";
+                warning = "성급한 바닥 매수 자제";
+                trigger = `$${putWall} 재진입 시 롱 신호`;
             }
         } else {
-            // INSIDE RANGE
+            // ===== INSIDE RANGE =====
             const isNearRes = distToCall < 1.0;
             const isNearSup = Math.abs(distToPut) < 1.0;
 
             if (isNearRes) {
                 if (compositeScore > 25) {
                     status = "돌파 임박 (BREAKOUT READY)";
-                    message = `저항($${callWall}) 근접! ${signalSummary} 에너지 충전 완료. 탑승 권고.`;
+                    message = `저항($${callWall}) 근접. 옵션 수급 에너지 충전 완료, 돌파 시 가속 예상.`;
                     probability = 75 + compositeScore * 0.2;
-                    probLabel = "강력 매수";
-                    probColor = "text-emerald-400";
-                    color = "text-emerald-400";
+                    probLabel = "강력 매수"; probColor = "text-emerald-400"; color = "text-emerald-400";
+                    action = `$${callWall} 돌파 시 추종 매수`;
+                    warning = "돌파 전 선행 매수는 리스크 있음";
+                    trigger = `거래량 동반 $${callWall} 돌파`;
                 } else {
                     status = "저항 확인 (RESISTANCE)";
-                    message = `저항벽($${callWall}) 도달. ${signalSummary} 돌파 실패 시 조정 가능.`;
+                    message = `저항벽($${callWall}) 도달. 수급이 약해 돌파 실패 시 조정 가능.`;
                     probability = 45 + compositeScore * 0.1;
-                    probLabel = "주의";
-                    probColor = "text-amber-400";
-                    color = "text-amber-400";
+                    probLabel = "주의"; probColor = "text-amber-400"; color = "text-amber-400";
+                    action = "보유 시 일부 익절 고려";
+                    warning = "신규 롱 자제, 저항 확인 필요";
+                    trigger = `$${callWall} 돌파 확인 시 재진입`;
                 }
             } else if (isNearSup) {
                 if (compositeScore > 15) {
                     status = "바닥 매수 기회 (BUY THE DIP)";
-                    message = `지지선($${putWall}) 터치! ${signalSummary} 스마트머니 저점 매집 중. 손익비 최상.`;
+                    message = `지지선($${putWall}) 터치. 기관 저점 매집 포착, 손익비 유리한 구간.`;
                     probability = 70 + compositeScore * 0.2;
-                    probLabel = "매수";
-                    probColor = "text-emerald-400";
-                    color = "text-emerald-400";
+                    probLabel = "매수"; probColor = "text-emerald-400"; color = "text-emerald-400";
+                    action = `$${putWall} 부근 분할 매수`;
+                    warning = `손절 기준: $${putWall} 이탈 시 즉시 탈출`;
+                    trigger = `반등 확인 후 추가 매수`;
                 } else {
                     status = "추가 하락 주의 (WEAK)";
-                    message = `지지선($${putWall})이 위태롭습니다. ${signalSummary} 지지 이탈 시 손절 권고.`;
+                    message = `지지선($${putWall})이 위태로움. 수급 약화 시 이탈 위험.`;
                     probability = 30 + compositeScore * 0.15;
-                    probLabel = "관망/매도";
-                    probColor = "text-rose-500";
-                    color = "text-rose-500";
+                    probLabel = "관망/매도"; probColor = "text-rose-500"; color = "text-rose-500";
+                    action = "기존 롱 축소 또는 풋 헤지 추가";
+                    warning = "신규 롱 자제, 반등 불확실";
+                    trigger = `$${putWall} 이탈 시 손절 실행`;
                 }
             } else {
                 // MID-RANGE
                 if (compositeScore > 35) {
                     status = "상승 모멘텀 (MOMENTUM)";
-                    message = `박스권 중간이지만 ${signalSummary} 상방 우위 확실. 눌림목 매수 유효.`;
+                    message = `박스권 중간이나 수급 상방 우위 확실. 기관 포지셔닝이 롱 방향.`;
                     probability = 65 + compositeScore * 0.2;
-                    probLabel = "매수 우위";
-                    probColor = "text-emerald-400";
-                    color = "text-emerald-400";
+                    probLabel = "매수 우위"; probColor = "text-emerald-400"; color = "text-emerald-400";
+                    action = `눌림목 매수 유효, $${putWall} 부근 진입`;
+                    warning = "추격 매수보다 풀백 대기가 유리";
+                    trigger = `$${callWall} 접근 시 익절 검토`;
                 } else if (compositeScore < -35) {
                     status = "하락 압력 (PRESSURE)";
-                    message = `${signalSummary} 하방 압력 우세. 보수적 접근 권고.`;
+                    message = `하방 압력 우세. 풋 수급 확대, 기관 방어적 포지셔닝 포착.`;
                     probability = 35 + compositeScore * 0.15;
-                    probLabel = "매도 우위";
-                    probColor = "text-rose-400";
-                    color = "text-rose-400";
+                    probLabel = "매도 우위"; probColor = "text-rose-400"; color = "text-rose-400";
+                    action = "롱 축소, 풋 헤지 확대";
+                    warning = "역추세 매수 위험, 하락 가속 가능";
+                    trigger = `$${putWall} 이탈 시 전량 손절`;
                 } else {
                     status = "방향성 탐색 (NEUTRAL)";
-                    message = `박스권($${putWall}~$${callWall}) 중간. ${signalSummary} 확실한 방향 결정 전까지 관망.`;
+                    message = `박스권($${putWall}~$${callWall}) 중간. 수급 혼재, 방향 미확정.`;
                     probability = 50 + compositeScore * 0.1;
-                    probLabel = "중립";
-                    probColor = "text-slate-500";
-                    color = "text-slate-500";
+                    probLabel = "중립"; probColor = "text-slate-500"; color = "text-slate-500";
+                    action = "관망, 방향 확정 시까지 대기";
+                    warning = "양방향 베팅 자제, 확인 후 진입";
+                    trigger = `Squeeze 50%+ 전환 또는 OPI ±30 이탈 시 방향 추종`;
                 }
+            }
+        }
+
+        // ===== SQUEEZE OVERRIDE: adds urgency to any scenario =====
+        if (isSqueezeExtreme) {
+            warning = "SQUEEZE EXTREME: 급등/급락 임박, 역방향 포지션 즉시 탈출";
+            trigger = "방향 터지면 즉시 따라가기, 장 마감 30분 특별 주의";
+        } else if (isSqueezeHigh) {
+            if (!trigger.includes('Squeeze')) {
+                trigger += trigger ? ' / ' : '';
+                trigger += `Squeeze ${squeezeProbability.value}% 주의`;
             }
         }
 
         probability = Math.round(Math.max(5, Math.min(95, probability)));
 
-        return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals };
-    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa]);
+        return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger };
+    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, zeroDteImpact]);
 
     if (!rawChain || rawChain.length === 0) {
         return (
@@ -971,6 +1247,32 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                 </div>
                             )}
 
+                            {/* Actionable Guidance Panel */}
+                            {(analysis.action || analysis.warning || analysis.trigger) && (
+                                <div className="space-y-1 mb-2 bg-black/20 rounded-lg p-2 border border-white/5">
+                                    {analysis.action && (
+                                        <div className="flex items-start gap-1.5">
+                                            <div className="mt-0.5 w-1 h-3 rounded-full bg-emerald-400 shrink-0" />
+                                            <span className="text-[10px] text-emerald-400 font-bold uppercase shrink-0 w-8">ACT</span>
+                                            <span className="text-[10px] text-emerald-300">{analysis.action}</span>
+                                        </div>
+                                    )}
+                                    {analysis.warning && (
+                                        <div className="flex items-start gap-1.5">
+                                            <div className="mt-0.5 w-1 h-3 rounded-full bg-amber-400 shrink-0" />
+                                            <span className="text-[10px] text-amber-400 font-bold uppercase shrink-0 w-8">WARN</span>
+                                            <span className="text-[10px] text-amber-300">{analysis.warning}</span>
+                                        </div>
+                                    )}
+                                    {analysis.trigger && (
+                                        <div className="flex items-start gap-1.5">
+                                            <div className="mt-0.5 w-1 h-3 rounded-full bg-cyan-400 shrink-0" />
+                                            <span className="text-[10px] text-cyan-400 font-bold uppercase shrink-0 w-8">TRIG</span>
+                                            <span className="text-[10px] text-cyan-300">{analysis.trigger}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                             {/* Key Levels */}
                             <div className="flex items-center gap-3 pt-2 border-t border-white/10">
                                 <div className="flex items-center gap-1">
@@ -988,106 +1290,235 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                             </div>
                         </div>
 
-                        {/* 2-5. 4 Metrics Row with Glow Effects (50% width) */}
-                        <div className="flex gap-2 lg:w-[50%] shrink-0">
-                            {/* OPI - Glowing Circular Gauge - ENLARGED */}
-                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
-                                {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-15 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
+                        {/* 2-5. 4 Metrics + 현재가위치/SQUEEZE (50% width) */}
+                        <div className="flex flex-col gap-2 lg:w-[50%] shrink-0 self-start">
+                            {/* Top Row: 4 Metric Cards (uniform height) */}
+                            <div className="flex gap-2">
+                                {/* OPI - Glowing Circular Gauge - ENLARGED */}
+                                <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                                    {/* Glow background */}
+                                    <div className={`absolute inset-0 opacity-15 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
 
-                                <span className="text-[11px] text-white font-bold uppercase relative z-10">OPI(델타압력)</span>
-                                <span className="text-[9px] text-white/80 relative z-10 mt-0.5">콜-풋 포지션</span>
+                                    <span className="text-[11px] text-white font-bold uppercase relative z-10">OPI(델타압력)</span>
+                                    <span className="text-[9px] text-white/80 relative z-10 mt-0.5">콜-풋 포지션</span>
 
-                                {/* Circular Gauge with Glow - LARGER */}
-                                <div className="relative w-14 h-14 mt-1">
-                                    {/* Outer glow ring */}
-                                    <div className={`absolute inset-0 rounded-full ${opi.value > 20 ? 'shadow-[0_0_20px_rgba(52,211,153,0.6)]' : opi.value < -20 ? 'shadow-[0_0_20px_rgba(248,113,113,0.6)]' : 'shadow-[0_0_10px_rgba(148,163,184,0.3)]'}`} />
+                                    {/* Circular Gauge with Glow - LARGER */}
+                                    <div className="relative w-14 h-14 mt-1">
+                                        {/* Outer glow ring */}
+                                        <div className={`absolute inset-0 rounded-full ${opi.value > 20 ? 'shadow-[0_0_20px_rgba(52,211,153,0.6)]' : opi.value < -20 ? 'shadow-[0_0_20px_rgba(248,113,113,0.6)]' : 'shadow-[0_0_10px_rgba(148,163,184,0.3)]'}`} />
 
-                                    <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
-                                        {/* Background circle */}
-                                        <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2.5" />
-                                        {/* Glow circle */}
-                                        <circle cx="18" cy="18" r="15" fill="none"
-                                            stroke={opi.value > 20 ? '#34d399' : opi.value < -20 ? '#f87171' : '#94a3b8'}
-                                            strokeWidth="3"
-                                            strokeLinecap="round"
-                                            strokeDasharray={`${Math.abs(opi.value) * 0.94} 94`}
-                                            style={{ filter: 'drop-shadow(0 0 6px currentColor)' }}
-                                        />
-                                    </svg>
+                                        <svg className="w-full h-full -rotate-90" viewBox="0 0 36 36">
+                                            {/* Background circle */}
+                                            <circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2.5" />
+                                            {/* Glow circle */}
+                                            <circle cx="18" cy="18" r="15" fill="none"
+                                                stroke={opi.value > 20 ? '#34d399' : opi.value < -20 ? '#f87171' : '#94a3b8'}
+                                                strokeWidth="3"
+                                                strokeLinecap="round"
+                                                strokeDasharray={`${Math.abs(opi.value) * 0.94} 94`}
+                                                style={{ filter: 'drop-shadow(0 0 6px currentColor)' }}
+                                            />
+                                        </svg>
 
-                                    {/* Center text - LARGER */}
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <span className={`text-lg font-black ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: opi.value > 20 || opi.value < -20 ? '0 0 10px currentColor' : 'none' }}>
-                                            {opi.value > 0 ? '+' : ''}{opi.value}
-                                        </span>
+                                        {/* Center text - LARGER */}
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <span className={`text-lg font-black ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: opi.value > 20 || opi.value < -20 ? '0 0 10px currentColor' : 'none' }}>
+                                                {opi.value > 0 ? '+' : ''}{opi.value}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className={`text-[11px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{opi.label}</div>
+                                </div>
+
+                                {/* ATM IV - Enhanced with Strategy Guidance */}
+                                <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                                    {/* Glow background */}
+                                    <div className={`absolute inset-0 opacity-15 ${ivPercentile.value >= 60 ? 'bg-rose-500' : ivPercentile.value <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
+
+                                    <span className="text-[11px] text-white font-bold uppercase relative z-10">ATM IV</span>
+                                    <span className="text-[9px] text-white/80 relative z-10 mt-0.5">옵션가격 온도계</span>
+
+                                    <div className={`text-2xl font-black relative z-10 mt-1 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivPercentile.value >= 25 && ivPercentile.value < 60 ? 'none' : '0 0 10px currentColor' }}>
+                                        {ivPercentile.value}%
+                                    </div>
+                                    <div className={`text-[11px] font-bold relative z-10 ${ivPercentile.value >= 80 ? 'text-rose-400' : ivPercentile.value >= 60 ? 'text-orange-400' : ivPercentile.value <= 15 ? 'text-cyan-400' : ivPercentile.value <= 25 ? 'text-teal-400' : 'text-white'}`}>
+                                        {ivPercentile.value >= 80 ? '극도 과열'
+                                            : ivPercentile.value >= 60 ? '매도 유리'
+                                                : ivPercentile.value <= 15 ? '극저 IV'
+                                                    : ivPercentile.value <= 25 ? '매수 유리'
+                                                        : '중립'}
+                                    </div>
+                                    <div className="text-[10px] text-white/70 font-medium relative z-10 mt-0.5 text-center leading-tight">
+                                        {ivPercentile.value >= 80 ? '스프레드 매도 적극 추천'
+                                            : ivPercentile.value >= 60 ? '변동성 축소 베팅'
+                                                : ivPercentile.value <= 15 ? '네이키드 매수 유리'
+                                                    : ivPercentile.value <= 25 ? '스프레드 매수 유리'
+                                                        : '커버드콜 중립 운용'}
                                     </div>
                                 </div>
 
-                                <div className={`text-[11px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{opi.label}</div>
+                                {/* COMPOSITE INDEX - replaces Confluence */}
+                                <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                                    {/* Glow background */}
+                                    <div className={`absolute inset-0 opacity-15 ${analysis.probability >= 65 ? 'bg-emerald-500' : analysis.probability <= 35 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
+
+                                    <span className="text-[11px] text-white font-bold uppercase relative z-10">COMPOSITE INDEX</span>
+                                    <span className="text-[9px] text-white/80 relative z-10 mt-0.5">(종합지수)</span>
+
+                                    <div className={`text-2xl font-black relative z-10 mt-1 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: analysis.probability > 35 && analysis.probability < 65 ? 'none' : '0 0 10px currentColor' }}>
+                                        {analysis.probability}%
+                                    </div>
+                                    <div className={`text-[11px] font-bold relative z-10 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`}>
+                                        {analysis.probability >= 80 ? '강한 수렴'
+                                            : analysis.probability >= 65 ? '신호수렴'
+                                                : analysis.probability <= 20 ? '강한 혼재'
+                                                    : analysis.probability <= 35 ? '신호혼재'
+                                                        : '관망'}
+                                    </div>
+                                    <div className="text-[10px] text-white/70 font-medium relative z-10 mt-0.5 text-center leading-tight">
+                                        {analysis.probability >= 65
+                                            ? `${analysis.signals.length}개 지표 일치 → 방향성 확인`
+                                            : analysis.probability <= 35
+                                                ? `지표 충돌 → 진입 위험`
+                                                : `${analysis.signals.length}개 시그널 | 추가 확인 필요`
+                                        }
+                                    </div>
+                                </div>
+
+                                {/* WHALE POSITION + Net Premium Flow */}
+                                <div className={`flex-1 backdrop-blur-md rounded-xl p-2 border flex flex-col items-center justify-center relative overflow-hidden ${analysis.whaleBias?.includes('BULL')
+                                    ? 'bg-emerald-500/10 border-emerald-400/30'
+                                    : analysis.whaleBias?.includes('BEAR')
+                                        ? 'bg-rose-500/10 border-rose-400/30'
+                                        : 'bg-white/5 border-white/10'
+                                    }`}>
+                                    {/* Glow background */}
+                                    <div className={`absolute inset-0 opacity-20 ${analysis.whaleBias?.includes('BULL') ? 'bg-emerald-500'
+                                        : analysis.whaleBias?.includes('BEAR') ? 'bg-rose-500'
+                                            : 'bg-slate-500'
+                                        } blur-xl`} />
+
+                                    <div className="flex items-center gap-1 mb-0.5 relative z-10">
+                                        <Shield size={12} className="text-cyan-400" />
+                                        <span className="text-[10px] text-white font-bold uppercase tracking-wider">WHALE POSITION</span>
+                                    </div>
+
+                                    <div className={`text-lg font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
+                                        : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
+                                            : 'text-white'
+                                        }`} style={{ textShadow: analysis.whaleBias?.includes('BULL') ? '0 0 12px rgba(52,211,153,0.8)' : analysis.whaleBias?.includes('BEAR') ? '0 0 12px rgba(248,113,113,0.8)' : 'none' }}>
+                                        {analysis.whaleBias?.includes('BULL') ? 'LONG'
+                                            : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
+                                                : 'WAIT'}
+                                    </div>
+
+                                    {/* Net Premium Flow */}
+                                    {analysis.netWhalePremium !== undefined && (
+                                        <div className="relative z-10 text-center">
+                                            <div className={`text-[11px] font-black ${(analysis.netWhalePremium || 0) > 0 ? 'text-emerald-400' : (analysis.netWhalePremium || 0) < 0 ? 'text-rose-400' : 'text-white'}`}>
+                                                {(analysis.netWhalePremium || 0) > 0 ? '+' : ''}
+                                                ${Math.abs((analysis.netWhalePremium || 0) / 1000000) >= 1
+                                                    ? `${((analysis.netWhalePremium || 0) / 1000000).toFixed(1)}M`
+                                                    : `${((analysis.netWhalePremium || 0) / 1000).toFixed(0)}K`
+                                                }
+                                            </div>
+                                            <div className="text-[8px] text-white/40">
+                                                C ${((analysis.callPremium || 0) / 1000).toFixed(0)}K / P ${((analysis.putPremium || 0) / 1000).toFixed(0)}K
+                                            </div>
+                                            <div className="text-[8px] text-white/40 mt-0.5">
+                                                {(analysis.netWhalePremium || 0) > 500000 ? '대형 콜 매수 주도'
+                                                    : (analysis.netWhalePremium || 0) > 100000 ? '콜 매수 우위'
+                                                        : (analysis.netWhalePremium || 0) < -500000 ? '대형 풋 매수 주도'
+                                                            : (analysis.netWhalePremium || 0) < -100000 ? '풋 매수 우위'
+                                                                : '고래 관망 중'}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
-                            {/* ATM IV - Larger Text with Position Suggestion */}
-                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
-                                {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-15 ${ivPercentile.value >= 60 ? 'bg-rose-500' : ivPercentile.value <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
-
-                                <span className="text-[11px] text-white font-bold uppercase relative z-10">ATM IV</span>
-
-                                <div className={`text-2xl font-black relative z-10 mt-1 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivPercentile.value >= 25 && ivPercentile.value < 60 ? 'none' : '0 0 10px currentColor' }}>
-                                    {ivPercentile.value}%
-                                </div>
-                                <div className={`text-[11px] font-bold relative z-10 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`}>
-                                    {ivPercentile.value >= 60 ? '매도유리' : ivPercentile.value <= 25 ? '매수유리' : '중립'}
-                                </div>
-                                <div className="text-[9px] text-white/50 relative z-10 mt-0.5">
-                                    {ivPercentile.value >= 60 ? '프리미엄 비쌈' : ivPercentile.value <= 25 ? '프리미엄 저렴' : '프리미엄 보통'}
-                                </div>
-                            </div>
-
-                            {/* Confluence - Signal Convergence */}
-                            <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
-                                {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-15 ${analysis.probability >= 65 ? 'bg-emerald-500' : analysis.probability <= 35 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
-
-                                <span className="text-[11px] text-white font-bold uppercase relative z-10">합류도(Confluence)</span>
-
-                                <div className={`text-2xl font-black relative z-10 mt-1 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: analysis.probability > 35 && analysis.probability < 65 ? 'none' : '0 0 10px currentColor' }}>
-                                    {analysis.probability}%
-                                </div>
-                                <div className={`text-[11px] font-bold relative z-10 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`}>
-                                    {analysis.probability >= 65 ? '신호수렴' : analysis.probability <= 35 ? '신호혼재' : '관망'}
-                                </div>
-                            </div>
-
-                            {/* Position - Glowing Card */}
-                            <div className={`flex-1 backdrop-blur-md rounded-xl p-2 border flex flex-col items-center justify-center relative overflow-hidden ${analysis.whaleBias?.includes('BULL')
-                                ? 'bg-emerald-500/10 border-emerald-400/30'
-                                : analysis.whaleBias?.includes('BEAR')
-                                    ? 'bg-rose-500/10 border-rose-400/30'
-                                    : 'bg-white/5 border-white/10'
-                                }`}>
-                                {/* Glow background */}
-                                <div className={`absolute inset-0 opacity-20 ${analysis.whaleBias?.includes('BULL') ? 'bg-emerald-500'
-                                    : analysis.whaleBias?.includes('BEAR') ? 'bg-rose-500'
-                                        : 'bg-slate-500'
-                                    } blur-xl`} />
-
-                                <div className="flex items-center gap-1 mb-1 relative z-10">
-                                    <span className="text-sm">🐋</span>
-                                    <span className="text-[11px] text-white font-bold uppercase">WHALE POSITION</span>
+                            {/* Bottom Row: 현재가 위치 + SQUEEZE PROBABILITY */}
+                            <div className="grid grid-cols-2 gap-2">
+                                {/* 현재가 위치 (Compact) */}
+                                <div className="bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 relative overflow-hidden">
+                                    <div className={`absolute inset-0 opacity-10 ${(() => { const range = callWall - putWall; const pos = range > 0 ? ((currentPrice - putWall) / range) * 100 : 50; return pos < 30 ? 'bg-rose-500' : pos > 70 ? 'bg-emerald-500' : 'bg-indigo-500'; })()} blur-xl`} />
+                                    <div className="relative z-10 flex flex-col items-center">
+                                        <span className="text-[10px] text-white font-bold uppercase tracking-wider mb-1">현재가 위치</span>
+                                        {(() => {
+                                            const totalRange = callWall - putWall;
+                                            const currentPos = currentPrice - putWall;
+                                            let pct = totalRange > 0 ? (currentPos / totalRange) * 100 : 50;
+                                            pct = Math.max(0, Math.min(100, pct));
+                                            let gaugeColor = '#6366f1';
+                                            if (pct < 30) gaugeColor = '#f43f5e';
+                                            else if (pct > 70) gaugeColor = '#10b981';
+                                            const radius = 45;
+                                            const strokeWidth = 7;
+                                            const circumference = Math.PI * radius;
+                                            const progressOffset = circumference - (pct / 100) * circumference;
+                                            return (
+                                                <>
+                                                    <svg width="110" height="65" viewBox="0 0 110 65" className="overflow-visible">
+                                                        <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} strokeLinecap="round" />
+                                                        <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke={gaugeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={progressOffset} style={{ filter: `drop-shadow(0 0 4px ${gaugeColor})`, transition: 'stroke-dashoffset 1s ease-out' }} />
+                                                        <text x="55" y="42" textAnchor="middle" className="fill-white text-sm font-black">${currentPrice.toFixed(2)}</text>
+                                                        <text x="55" y="56" textAnchor="middle" className="fill-slate-400 text-[9px]">{pct.toFixed(0)}%</text>
+                                                    </svg>
+                                                    <div className="flex justify-between w-full px-1 -mt-1">
+                                                        <span className="text-[8px] text-rose-400 font-mono">${putWall}</span>
+                                                        <span className="text-[8px] text-emerald-400 font-mono">${callWall}</span>
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
 
-                                <div className={`text-xl font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
-                                    : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
-                                        : 'text-white'
-                                    }`} style={{ textShadow: analysis.whaleBias?.includes('BULL') ? '0 0 12px rgba(52,211,153,0.8)' : analysis.whaleBias?.includes('BEAR') ? '0 0 12px rgba(248,113,113,0.8)' : 'none' }}>
-                                    {analysis.whaleBias?.includes('BULL') ? 'LONG'
-                                        : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
-                                            : 'WAIT'}
-                                </div>
-                                <div className={`text-[10px] font-bold relative z-10 ${analysis.whaleBias?.includes('STRONG') ? 'text-amber-400' : 'text-white'}`}>
-                                    {analysis.whaleBias?.includes('STRONG') ? '강력 추천' : '기본'}
+                                {/* SQUEEZE PROBABILITY (Compact) */}
+                                <div className="relative rounded-xl p-3 bg-gradient-to-br from-amber-950/40 to-slate-900/60 border border-amber-500/30 overflow-hidden">
+                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.1),transparent_70%)]" />
+                                    <div className="relative z-10 flex flex-col items-center">
+                                        <div className="flex items-center gap-1.5 mb-1">
+                                            <Zap size={11} className="text-amber-400" />
+                                            <span className="text-[10px] text-white font-bold uppercase tracking-wide">SQUEEZE</span>
+                                            {!squeezeProbability.isLoading && (
+                                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${squeezeProbability.label === 'EXTREME' ? 'bg-rose-500/80 text-white' : squeezeProbability.label === 'HIGH' ? 'bg-amber-500/80 text-white' : squeezeProbability.label === 'MODERATE' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80 text-white'}`}>
+                                                    {squeezeProbability.label}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {(() => {
+                                            const pct = squeezeProbability.value;
+                                            const strokeWidth = 7;
+                                            const circumference = Math.PI * 45;
+                                            const progressOffset = circumference * (1 - pct / 100);
+                                            let gaugeColor = '#10b981';
+                                            if (pct > 70) gaugeColor = '#ef4444';
+                                            else if (pct > 40) gaugeColor = '#f59e0b';
+                                            return (
+                                                <>
+                                                    <svg width="110" height="65" viewBox="0 0 110 65" className="overflow-visible">
+                                                        <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth} strokeLinecap="round" />
+                                                        <path d="M 10 55 A 45 45 0 0 1 100 55" fill="none" stroke={gaugeColor} strokeWidth={strokeWidth} strokeLinecap="round" strokeDasharray={circumference} strokeDashoffset={progressOffset} style={{ filter: `drop-shadow(0 0 4px ${gaugeColor})`, transition: 'stroke-dashoffset 1s ease-out' }} />
+                                                        {(() => {
+                                                            const angle = Math.PI - (pct / 100) * Math.PI;
+                                                            const cx = 55 + 45 * Math.cos(angle);
+                                                            const cy = 55 - 45 * Math.sin(angle);
+                                                            return <circle cx={cx} cy={cy} r="4" fill="white" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.8))', transition: 'cx 1s, cy 1s' }} />;
+                                                        })()}
+                                                        <text x="55" y="42" textAnchor="middle" className="fill-white text-sm font-black">{squeezeProbability.isLoading ? '--' : `${pct}%`}</text>
+                                                        <text x="55" y="56" textAnchor="middle" className="fill-slate-400 text-[9px]">{pct > 70 ? '스퀴즈 임박' : pct > 40 ? '주의 필요' : '안정'}</text>
+                                                    </svg>
+                                                    <div className="flex justify-between w-full px-2 -mt-1">
+                                                        <span className="text-[8px] text-emerald-400 font-bold">0%</span>
+                                                        <span className="text-[8px] text-amber-400 font-bold">50%</span>
+                                                        <span className="text-[8px] text-rose-400 font-bold">100%</span>
+                                                    </div>
+                                                </>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1110,6 +1541,11 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                             {realtimeMetrics.darkPool ? `${realtimeMetrics.darkPool.percent}%` : '--'}
                         </span>
                         <span className="text-[9px] text-white font-medium">기관 비중</span>
+                        {realtimeMetrics.darkPool && (
+                            <span className="text-[10px] text-white mt-0.5 font-mono font-medium">
+                                DP {(realtimeMetrics.darkPool.volume / 1000).toFixed(1)}K / 전체 {(realtimeMetrics.darkPool.totalVolume / 1000).toFixed(1)}K
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -1125,46 +1561,52 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                         <span className="text-2xl font-black text-rose-400" style={{ textShadow: '0 0 20px rgba(244,63,94,0.7)' }}>
                             {realtimeMetrics.shortVolume ? `${realtimeMetrics.shortVolume.percent}%` : '--'}
                         </span>
-                        <span className="text-[9px] text-white font-medium">일일 공매도</span>
+                        <span className="text-[9px] text-white font-medium">
+                            {realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 40 ? '일일 공매도'
+                                : realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 25 ? '일일 공매도'
+                                    : '일일 공매도'}
+                        </span>
+                        {realtimeMetrics.shortVolume && (
+                            <span className="text-[10px] text-white mt-0.5 font-mono font-medium">
+                                공매도 {(realtimeMetrics.shortVolume.volume / 1000000).toFixed(1)}M / 총 {(realtimeMetrics.shortVolume.totalVolume / 1000000).toFixed(1)}M
+                            </span>
+                        )}
                     </div>
                 </div>
 
-                {/* Bid-Ask Spread */}
+                {/* P/C Ratio (Replaced Bid-Ask) */}
                 <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-cyan-500/50 transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
                     <div className="relative z-10 flex flex-col items-center justify-center">
                         <div className="flex items-center gap-1.5 mb-1">
-                            <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(34,211,238,0.8)]" />
-                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">Bid-Ask <span className="text-white/60 font-normal">호가</span></span>
+                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)] ${pcRatio.value >= 1.3 ? 'bg-emerald-500' : pcRatio.value <= 0.75 ? 'bg-rose-500' : 'bg-cyan-500'}`} />
+                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">P/C Ratio</span>
                         </div>
-                        <span className="text-2xl font-black text-cyan-400" style={{ textShadow: '0 0 20px rgba(34,211,238,0.7)' }}>
-                            {realtimeMetrics.bidAsk ? `$${realtimeMetrics.bidAsk.spread.toFixed(2)}` : '--'}
+                        <span className={`text-2xl font-black ${pcRatio.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
+                            {pcRatio.value > 0 ? pcRatio.value.toFixed(2) : '--'}
                         </span>
-                        <span className={`text-[9px] font-bold ${realtimeMetrics.bidAsk?.label === '타이트' || realtimeMetrics.bidAsk?.label === '매우 타이트' ? 'text-emerald-400' : realtimeMetrics.bidAsk?.label === '넓음' ? 'text-rose-400' : 'text-white'}`}>
-                            {realtimeMetrics.bidAsk ? (
-                                realtimeMetrics.bidAsk.label === '매우 타이트' ? '유동성 풍부' :
-                                    realtimeMetrics.bidAsk.label === '타이트' ? '진입 용이' :
-                                        realtimeMetrics.bidAsk.label === '넓음' ? '슬리피지 주의' :
-                                            '정상 거래' // 보통
-                            ) : '대기'}
-                        </span>
+                        <span className={`text-[9px] font-bold ${pcRatio.color}`}>{pcRatio.label}</span>
+                        <span className="text-[8px] text-white/50 mt-0.5 font-mono">C {(pcRatio.callVol / 1000).toFixed(0)}K / P {(pcRatio.putVol / 1000).toFixed(0)}K</span>
                     </div>
                 </div>
 
-                {/* Block Trade */}
+                {/* 0DTE Impact (Replaced Block Trade) */}
                 <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-amber-500/50 transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
                     <div className="relative z-10 flex flex-col items-center justify-center">
                         <div className="flex items-center gap-1.5 mb-1">
-                            <div className={`w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)] ${realtimeMetrics.blockTrade && realtimeMetrics.blockTrade.count > 0 ? 'animate-pulse' : ''}`} />
-                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">Block Trade</span>
+                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] ${zeroDteImpact.value >= 20 ? 'bg-amber-500 animate-pulse' : 'bg-amber-500'}`} />
+                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">0DTE Impact</span>
                         </div>
-                        <span className="text-2xl font-black text-amber-400" style={{ textShadow: '0 0 20px rgba(245,158,11,0.7)' }}>
-                            {realtimeMetrics.blockTrade ? realtimeMetrics.blockTrade.count : '--'}
+                        <span className={`text-2xl font-black ${zeroDteImpact.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
+                            {zeroDteImpact.value}%
                         </span>
-                        <span className="text-[9px] text-white font-medium">10K+ 거래</span>
+                        <span className={`text-[9px] font-bold ${zeroDteImpact.color}`}>{zeroDteImpact.label}</span>
+                        <span className="text-[8px] text-white/50 mt-0.5 font-mono">
+                            {zeroDteImpact.expiryLabel} | {zeroDteImpact.nearestCount}계약
+                        </span>
                     </div>
                 </div>
             </div>
@@ -1190,9 +1632,27 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                     <span className="text-[9px] font-black px-2 py-0.5 rounded bg-rose-950/40 border border-rose-500/40 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse tracking-widest">
                                         TOP SECRET // EYES ONLY
                                     </span>
-                                    <span className="text-[10px] text-slate-500 font-bold ml-2 tracking-wide hidden sm:inline-block">
-                                        ℹ️ Cost (평단가) • BEP (손익분기점)
-                                    </span>
+                                    {/* Whale / Dark Pool Toggle */}
+                                    <div className="flex bg-slate-950 rounded-md p-0.5 border border-white/10 shrink-0 ml-auto">
+                                        <button
+                                            onClick={() => setFlowViewMode('WHALE')}
+                                            className={`px-3 py-1 text-[9px] font-black rounded transition-all uppercase tracking-wider ${flowViewMode === 'WHALE' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                        >
+                                            Whale
+                                        </button>
+                                        <button
+                                            onClick={() => setFlowViewMode('DARKPOOL')}
+                                            className={`px-3 py-1 text-[9px] font-black rounded transition-all uppercase tracking-wider ${flowViewMode === 'DARKPOOL' ? 'bg-teal-700 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                        >
+                                            Dark Pool
+                                        </button>
+                                    </div>
+                                    {flowViewMode === 'WHALE' && (
+                                        <span className="text-[9px] text-slate-400 font-medium tracking-wide hidden sm:inline-block">
+                                            <Info size={11} className="text-slate-500 inline mr-0.5" />
+                                            <span className="text-cyan-400/80">Cost</span>=매수단가 | <span className="text-amber-400/80">BEP</span>=손익분기점
+                                        </span>
+                                    )}
                                 </div>
 
                                 {/* Horizontal Scroll Container */}
@@ -1200,120 +1660,198 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                     className="flex gap-3 overflow-x-auto pb-4 pt-1 px-1 scrollbar-hide mask-linear-gradient"
                                     style={{ maskImage: 'linear-gradient(to right, transparent, black 2%, black 98%, transparent)' }}
                                 >
-                                    {whaleTrades.length === 0 ? (
-                                        <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-500/30 font-mono text-sm border border-cyan-500/10 rounded-xl bg-cyan-950/10 backdrop-blur-sm">
-                                            Scanning for Classified Intel...
-                                        </div>
-                                    ) : (
-                                        whaleTrades.map((t, i) => {
-                                            const isHighImpact = t.premium >= 500000;
-                                            const isMedImpact = t.premium >= 100000 && t.premium < 500000;
-                                            const isCall = t.type === 'CALL';
+                                    {flowViewMode === 'WHALE' ? (
+                                        /* ===== WHALE TRADES VIEW ===== */
+                                        whaleTrades.length === 0 ? (
+                                            <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-500/30 font-mono text-sm border border-cyan-500/10 rounded-xl bg-cyan-950/10 backdrop-blur-sm">
+                                                Scanning for Classified Intel...
+                                            </div>
+                                        ) : (
+                                            whaleTrades.map((t, i) => {
+                                                const isHighImpact = t.premium >= 500000;
+                                                const isMedImpact = t.premium >= 100000 && t.premium < 500000;
+                                                const isCall = t.type === 'CALL';
 
-                                            // Impact Label
-                                            const impactLabel = isHighImpact ? "HIGH" : isMedImpact ? "MED" : "LOW";
-                                            const impactTextColor = isHighImpact ? "text-amber-400" : isMedImpact ? "text-indigo-400" : "text-slate-400";
+                                                // Impact Label
+                                                const impactLabel = isHighImpact ? "HIGH" : isMedImpact ? "MED" : "LOW";
+                                                const impactTextColor = isHighImpact ? "text-amber-400" : isMedImpact ? "text-indigo-400" : "text-slate-400";
 
-                                            // Strategy Logic
-                                            const moneyness = t.strike / currentPrice;
-                                            let strategyMain = "";
-                                            let strategySub = "";
-                                            if (isCall && moneyness < 0.60) {
-                                                strategyMain = "STOCK REPL"; strategySub = "주식대체";
-                                            } else if (isCall && moneyness < 0.85) {
-                                                strategyMain = "LEVERAGE"; strategySub = "레버리지";
-                                            } else {
-                                                const isBlock = t.size >= 500;
-                                                strategyMain = isBlock ? "BLOCK" : "SWEEP";
-                                            }
+                                                // Strategy Logic
+                                                const moneyness = t.strike / currentPrice;
+                                                let strategyMain = "";
+                                                let strategySub = "";
+                                                if (isCall && moneyness < 0.60) {
+                                                    strategyMain = "STOCK REPL"; strategySub = "주식대체";
+                                                } else if (isCall && moneyness < 0.85) {
+                                                    strategyMain = "LEVERAGE"; strategySub = "레버리지";
+                                                } else {
+                                                    const isBlock = t.size >= 500;
+                                                    strategyMain = isBlock ? "BLOCK" : "SWEEP";
+                                                }
 
-                                            // [V3.7.3] Sniper Logic: Local BEP Calculation
-                                            // Unit Cost = Premium / (Size * 100)
-                                            const unitCost = t.premium / (t.size * 100);
-                                            const bep = isCall ? t.strike + unitCost : t.strike - unitCost;
-                                            const bepDist = ((bep - currentPrice) / currentPrice) * 100;
-                                            const isInMoney = (isCall && currentPrice > t.strike) || (!isCall && currentPrice < t.strike);
+                                                // [V3.7.3] Sniper Logic: Local BEP Calculation
+                                                // Unit Cost = Premium / (Size * 100)
+                                                const unitCost = t.premium / (t.size * 100);
+                                                const bep = isCall ? t.strike + unitCost : t.strike - unitCost;
+                                                const bepDist = ((bep - currentPrice) / currentPrice) * 100;
+                                                const isInMoney = (isCall && currentPrice > t.strike) || (!isCall && currentPrice < t.strike);
 
-                                            // Node Color Theme
-                                            const nodeBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
-                                                isCall ? 'border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
-                                                    'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
+                                                // Node Color Theme
+                                                const nodeBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
+                                                    isCall ? 'border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
+                                                        'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
 
-                                            const nodeBg = isHighImpact ? 'bg-amber-950/40' : 'bg-slate-900/60';
+                                                const nodeBg = isHighImpact ? 'bg-amber-950/40' : 'bg-slate-900/60';
 
-                                            // Blinking Border Logic (Overlay)
-                                            const ShowBlink = isHighImpact || i === 0;
-                                            const BlinkColor = isHighImpact ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]' : 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]';
+                                                // Blinking Border Logic (Overlay)
+                                                const ShowBlink = isHighImpact || i === 0;
+                                                const BlinkColor = isHighImpact ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]' : 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]';
 
-                                            return (
-                                                <div
-                                                    key={t.id || i}
-                                                    className={`
+                                                return (
+                                                    <div
+                                                        key={t.id || i}
+                                                        className={`
                                                         relative min-w-[220px] p-3.5 rounded-xl border-2 backdrop-blur-md flex flex-col justify-between gap-2
                                                         transition-all duration-500 hover:scale-105 hover:z-10 bg-gradient-to-b from-white/10 to-transparent
                                                         animate-in fade-in slide-in-from-right-4
                                                         ${nodeBorder} ${nodeBg}
                                                     `}
-                                                >
-                                                    {/* Blinking Border Overlay */}
-                                                    {ShowBlink && (
-                                                        <div className={`absolute inset-[-2px] rounded-xl border-2 ${BlinkColor} animate-pulse pointer-events-none`} />
-                                                    )}
+                                                    >
+                                                        {/* Blinking Border Overlay */}
+                                                        {ShowBlink && (
+                                                            <div className={`absolute inset-[-2px] rounded-xl border-2 ${BlinkColor} animate-pulse pointer-events-none`} />
+                                                        )}
 
-                                                    {/* Row 1: Ticker & Time */}
-                                                    <div className="flex justify-between items-start">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5 shadow-black/50 drop-shadow-md">
-                                                                {isHighImpact && <span className="text-amber-400 animate-spin-slow">☢️</span>} {t.underlying || ticker}
-                                                            </span>
-                                                            <span className="text-[11px] text-slate-400 font-mono mt-0.5 opacity-0 h-0 overflow-hidden">
-                                                                {/* Hidden for layout balance, moved to Row 2 */}
-                                                            </span>
-                                                        </div>
-                                                        <div className="text-right flex flex-col items-end">
-                                                            <div className={`text-[11px] font-bold px-2 py-0.5 rounded mb-1 flex items-center gap-1.5 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
-                                                                <span>{t.type}</span>
-                                                                <span className="opacity-50">|</span>
-                                                                {/* [Fix] Direct string parsing to avoid UTC->EST shift (e.g. 2025-01-16 -> Jan 15) */}
-                                                                <span>{t.expiry.substring(5).replace('-', '/')}</span>
-                                                            </div>
-                                                            <div className={`text-[9px] font-bold tracking-wider ${impactTextColor}`}>
-                                                                IMPACT: {impactLabel}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Row 2: Strategy & Strike (Expanded) */}
-                                                    <div className="flex justify-between items-end border-b border-white/10 pb-2">
-                                                        <div className="flex flex-col">
-                                                            <span className="text-[11px] font-bold text-cyan-200">{strategyMain}</span>
-                                                            <span className="text-xs font-bold text-cyan-300 mt-0.5 font-mono">
-                                                                {new Date(t.tradeDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })} {t.timeET}
-                                                            </span>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <span className="text-sm font-bold text-white">Strike ${t.strike}</span>
-                                                            <div className="text-xs font-bold text-slate-300 font-mono flex items-center justify-end gap-1 mt-0.5">
-                                                                <span className={bepDist > 0 ? "text-emerald-400 drop-shadow-sm" : "text-rose-400 drop-shadow-sm"}>
-                                                                    BEP ${bep.toFixed(2)}
+                                                        {/* Row 1: Ticker & Time */}
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5 shadow-black/50 drop-shadow-md">
+                                                                    {isHighImpact && <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />} {t.underlying || ticker}
+                                                                </span>
+                                                                <span className="text-[11px] text-slate-400 font-mono mt-0.5 opacity-0 h-0 overflow-hidden">
+                                                                    {/* Hidden for layout balance, moved to Row 2 */}
                                                                 </span>
                                                             </div>
+                                                            <div className="text-right flex flex-col items-end">
+                                                                <div className={`text-[11px] font-bold px-2 py-0.5 rounded mb-1 flex items-center gap-1.5 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
+                                                                    <span>{t.type}</span>
+                                                                    <span className="opacity-50">|</span>
+                                                                    {/* [Fix] Direct string parsing to avoid UTC->EST shift (e.g. 2025-01-16 -> Jan 15) */}
+                                                                    <span>{t.expiry.substring(5).replace('-', '/')}</span>
+                                                                </div>
+                                                                <div className={`text-[9px] font-bold tracking-wider ${impactTextColor}`}>
+                                                                    IMPACT: {impactLabel}
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                    </div>
 
-                                                    {/* Row 3: Premium & Size */}
-                                                    <div className="flex justify-between items-center">
-                                                        <div className={`text-sm font-black tracking-tight ${isHighImpact ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-white'}`}>
-                                                            ${(t.premium / 1000).toFixed(0)}K
+                                                        {/* Row 2: Strategy & Strike (Expanded) */}
+                                                        <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[11px] font-bold text-cyan-200">{strategyMain}</span>
+                                                                <span className="text-xs font-bold text-cyan-300 mt-0.5 font-mono">
+                                                                    {new Date(t.tradeDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })} {t.timeET}
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <span className="text-sm font-bold text-white">Strike ${t.strike}</span>
+                                                                <div className="text-xs font-bold text-slate-300 font-mono flex items-center justify-end gap-1 mt-0.5">
+                                                                    <span className={bepDist > 0 ? "text-emerald-400 drop-shadow-sm" : "text-rose-400 drop-shadow-sm"}>
+                                                                        BEP ${bep.toFixed(2)}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
                                                         </div>
-                                                        <div className="text-[11px] font-mono text-slate-300">
-                                                            {t.size} cts
+
+                                                        {/* Row 3: Premium & Size */}
+                                                        <div className="flex justify-between items-center">
+                                                            <div className={`text-sm font-black tracking-tight ${isHighImpact ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-white'}`}>
+                                                                ${(t.premium / 1000).toFixed(0)}K
+                                                            </div>
+                                                            <div className="text-[11px] font-mono text-slate-300">
+                                                                {t.size} cts
+                                                            </div>
                                                         </div>
                                                     </div>
-                                                </div>
-                                            );
-                                        })
-                                    )}
+                                                );
+                                            })
+                                        )) : (
+                                        /* ===== DARK POOL VIEW ===== */
+                                        darkPoolTrades.length === 0 ? (
+                                            <div className="min-w-[300px] h-[100px] flex items-center justify-center text-teal-500/30 font-mono text-sm border border-teal-500/10 rounded-xl bg-teal-950/10 backdrop-blur-sm">
+                                                Scanning Dark Pool Activity...
+                                            </div>
+                                        ) : (
+                                            darkPoolTrades.map((dp: any, i: number) => {
+                                                const isBlock = dp.size >= 10000;
+                                                const isMajor = dp.premium >= 1000000;
+                                                const nodeBorder = isMajor
+                                                    ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]'
+                                                    : isBlock
+                                                        ? 'border-teal-400/60 shadow-[0_0_10px_rgba(45,212,191,0.2)]'
+                                                        : 'border-slate-500/30 shadow-[0_0_5px_rgba(100,116,139,0.1)]';
+                                                const nodeBg = isMajor ? 'bg-amber-950/40' : 'bg-slate-800/40';
+
+                                                return (
+                                                    <div
+                                                        key={dp.id || i}
+                                                        className={`
+                                                        relative min-w-[200px] p-3 rounded-xl border-2 backdrop-blur-md flex flex-col justify-between gap-2
+                                                        transition-all duration-500 hover:scale-105 hover:z-10 bg-gradient-to-b from-white/10 to-transparent
+                                                        animate-in fade-in slide-in-from-right-4
+                                                        ${nodeBorder} ${nodeBg}
+                                                    `}
+                                                    >
+                                                        {/* Blinking border for major trades */}
+                                                        {isMajor && (
+                                                            <div className="absolute inset-[-2px] rounded-xl border-2 border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)] animate-pulse pointer-events-none" />
+                                                        )}
+
+                                                        {/* Row 1: Ticker & Exchange */}
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5">
+                                                                    {isBlock && <span className="inline-block w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.6)] animate-pulse" />}
+                                                                    {ticker}
+                                                                </span>
+                                                                <span className="text-[10px] text-slate-400 font-mono mt-0.5">{dp.exchangeName}</span>
+                                                            </div>
+                                                            <div className="text-right flex flex-col items-end">
+                                                                <div className="text-[11px] font-bold px-2 py-0.5 rounded mb-1 text-teal-300 bg-teal-500/15">
+                                                                    DARK POOL
+                                                                </div>
+                                                                <div className={`text-[9px] font-bold tracking-wider ${isBlock ? 'text-amber-400' : 'text-slate-400'}`}>
+                                                                    {isBlock ? 'BLOCK' : 'STANDARD'}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Row 2: Size & Price */}
+                                                        <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] text-slate-400">Size</span>
+                                                                <span className="text-sm font-bold text-white">
+                                                                    {dp.size >= 1000 ? `${(dp.size / 1000).toFixed(1)}K` : dp.size} shares
+                                                                </span>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <span className="text-sm font-bold text-white">${dp.price.toFixed(2)}</span>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Row 3: Premium & Time */}
+                                                        <div className="flex justify-between items-center">
+                                                            <div className={`text-sm font-black tracking-tight ${isMajor ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-teal-300'}`}>
+                                                                ${dp.premium >= 1000000 ? `${(dp.premium / 1000000).toFixed(1)}M` : `${(dp.premium / 1000).toFixed(0)}K`}
+                                                            </div>
+                                                            <div className="text-[11px] font-mono text-slate-400">
+                                                                {dp.timeET}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })
+                                        ))}
                                 </div>
                             </div>
                         </div>
@@ -1459,68 +1997,30 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
 
                         <CardContent className="p-4 pb-8 flex flex-col relative z-10">
-                            {/* Current Price Position - Semicircle Gauge (Moved to Top) */}
-                            <div className="mb-4 bg-slate-800/30 rounded-lg p-4 border border-white/5">
-                                <div className="text-[10px] text-white font-bold uppercase tracking-wider mb-3 text-center">현재가 위치</div>
-                                {(() => {
-                                    const totalRange = callWall - putWall;
-                                    const currentPos = currentPrice - putWall;
-                                    let pct = totalRange > 0 ? (currentPos / totalRange) * 100 : 50;
-                                    pct = Math.max(0, Math.min(100, pct));
-
-                                    // SVG semicircle gauge
-                                    const radius = 60;
-                                    const strokeWidth = 10;
-                                    const circumference = Math.PI * radius;
-                                    const progressOffset = circumference - (pct / 100) * circumference;
-
-                                    // Determine color based on position
-                                    let gaugeColor = '#6366f1'; // indigo (middle)
-                                    if (pct < 30) gaugeColor = '#f43f5e'; // rose (near support)
-                                    else if (pct > 70) gaugeColor = '#10b981'; // emerald (near resistance)
-
-                                    return (
-                                        <div className="flex flex-col items-center">
-                                            <svg width="140" height="80" viewBox="0 0 140 80" className="overflow-visible">
-                                                {/* Background arc */}
-                                                <path
-                                                    d="M 10 70 A 60 60 0 0 1 130 70"
-                                                    fill="none"
-                                                    stroke="rgba(255,255,255,0.1)"
-                                                    strokeWidth={strokeWidth}
-                                                    strokeLinecap="round"
-                                                />
-                                                {/* Progress arc */}
-                                                <path
-                                                    d="M 10 70 A 60 60 0 0 1 130 70"
-                                                    fill="none"
-                                                    stroke={gaugeColor}
-                                                    strokeWidth={strokeWidth}
-                                                    strokeLinecap="round"
-                                                    strokeDasharray={circumference}
-                                                    strokeDashoffset={progressOffset}
-                                                    style={{
-                                                        filter: `drop-shadow(0 0 6px ${gaugeColor})`,
-                                                        transition: 'stroke-dashoffset 1s ease-out, stroke 0.5s'
-                                                    }}
-                                                />
-                                                {/* Center current price */}
-                                                <text x="70" y="55" textAnchor="middle" className="fill-white text-lg font-black">
-                                                    ${currentPrice.toFixed(2)}
-                                                </text>
-                                                {/* Percentage */}
-                                                <text x="70" y="72" textAnchor="middle" className="fill-slate-400 text-[10px]">
-                                                    {pct.toFixed(0)}%
-                                                </text>
-                                            </svg>
-                                            {/* Labels */}
-                                            <div className="flex justify-between w-full mt-1 px-1">
-                                                <div className="text-[10px] text-rose-400 font-mono">${putWall}</div>
-                                                <div className="text-[10px] text-emerald-400 font-mono">${callWall}</div>
-                                            </div>
+                            {/* Implied Move (기대변동폭) */}
+                            <div className="mb-4 bg-gradient-to-br from-teal-950/20 to-slate-900/40 border border-teal-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-teal-500/30 transition-all">
+                                <div className="absolute inset-0 bg-teal-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                <div className="relative z-10">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-2 h-2 bg-teal-400 rounded-full animate-pulse" />
+                                            <span className="text-xs text-white font-bold uppercase tracking-wider">Implied Move</span>
                                         </div>
-                                    );
-                                })()}
+                                        <div className="flex items-center gap-2">
+                                            <div className={`text-2xl font-black ${impliedMove.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                ±{impliedMove.value}%
+                                            </div>
+                                            <div className={`text-sm font-bold ${impliedMove.color} px-2 py-0.5 bg-black/20 rounded`}>{impliedMove.label}</div>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center justify-between text-[10px] mb-1">
+                                        <span className="text-slate-400">ATM Straddle <span className="text-teal-400/70">({impliedMove.expiryLabel})</span></span>
+                                        <span className="text-white font-bold font-mono">${impliedMove.straddle}</span>
+                                    </div>
+                                    <div className="text-[10px] text-slate-400 pl-4 border-l border-teal-500/30">
+                                        <BarChart3 size={11} className="text-teal-400 inline mr-1" />{impliedMove.direction === 'bullish' ? '콜 프리미엄 우위 → 상승 기대' : impliedMove.direction === 'bearish' ? '풋 프리미엄 우위 → 하락 기대' : '균형'}
+                                    </div>
+                                </div>
                             </div>
 
                             {/* PUT FLOOR + CALL WALL: 2-Column Grid (Swapped Order) */}
@@ -1583,107 +2083,32 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                         </div>
                                         {/* Row 2: Rationale */}
                                         <div className="text-[10px] text-slate-400 pl-4 border-l border-indigo-500/30">
-                                            💰 대형거래: {smartMoney.rationale || '분석 중...'}
+                                            <Banknote size={11} className="text-indigo-400 inline mr-1" />대형거래: {smartMoney.rationale || '분석 중...'}
                                         </div>
                                     </div>
                                 </div>
 
-                                {/* Squeeze Probability - Clean Semicircle Gauge (like 현재가 위치) */}
-                                <div className="relative p-4 rounded-xl bg-gradient-to-r from-amber-950/50 via-amber-900/30 to-amber-950/50 border border-amber-500/40 overflow-hidden">
-                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.15),transparent_70%)]" />
-
+                                {/* Max Pain 거리 */}
+                                <div className="bg-gradient-to-br from-orange-950/20 to-slate-900/40 border border-orange-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-orange-500/30 transition-all">
+                                    <div className="absolute inset-0 bg-orange-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <div className="relative z-10">
-                                        {/* Header */}
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
-                                                <Zap size={14} className="text-amber-400" />
-                                                <span className="text-[10px] text-white font-bold uppercase tracking-wide">SQUEEZE PROBABILITY <span className="text-white/60 font-normal">감마</span></span>
+                                                <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">Max Pain 거리</span>
                                             </div>
-                                            {squeezeProbability.isLoading ? (
-                                                <div className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-600/80 text-white animate-pulse">
-                                                    분석 중...
+                                            <div className="flex items-center gap-2">
+                                                <div className={`text-2xl font-black ${maxPainDistance.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                    {maxPainDistance.direction === 'above' ? '+' : maxPainDistance.direction === 'below' ? '' : ''}{maxPainDistance.distPercent}%
                                                 </div>
-                                            ) : (
-                                                <div className={`text-[10px] font-bold px-2 py-0.5 rounded ${squeezeProbability.label === 'EXTREME' ? 'bg-rose-500/80 text-white' : squeezeProbability.label === 'HIGH' ? 'bg-amber-500/80 text-white' : squeezeProbability.label === 'MODERATE' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80 text-white'}`}>
-                                                    {squeezeProbability.label}
-                                                </div>
-                                            )}
+                                            </div>
                                         </div>
-
-                                        {/* Clean Semicircle Gauge */}
-                                        <div className="flex flex-col items-center">
-                                            {(() => {
-                                                const pct = squeezeProbability.value;
-                                                const strokeWidth = 8;
-                                                const circumference = Math.PI * 60; // half circle
-                                                const progressOffset = circumference * (1 - pct / 100);
-
-                                                // Color based on squeeze risk
-                                                let gaugeColor = '#10b981'; // low (emerald)
-                                                if (pct > 70) gaugeColor = '#ef4444'; // high (rose)
-                                                else if (pct > 40) gaugeColor = '#f59e0b'; // medium (amber)
-
-                                                return (
-                                                    <>
-                                                        <svg width="140" height="80" viewBox="0 0 140 80" className="overflow-visible">
-                                                            {/* Background arc */}
-                                                            <path
-                                                                d="M 10 70 A 60 60 0 0 1 130 70"
-                                                                fill="none"
-                                                                stroke="rgba(255,255,255,0.1)"
-                                                                strokeWidth={strokeWidth}
-                                                                strokeLinecap="round"
-                                                            />
-                                                            {/* Progress arc */}
-                                                            <path
-                                                                d="M 10 70 A 60 60 0 0 1 130 70"
-                                                                fill="none"
-                                                                stroke={gaugeColor}
-                                                                strokeWidth={strokeWidth}
-                                                                strokeLinecap="round"
-                                                                strokeDasharray={circumference}
-                                                                strokeDashoffset={progressOffset}
-                                                                style={{
-                                                                    filter: `drop-shadow(0 0 6px ${gaugeColor})`,
-                                                                    transition: 'stroke-dashoffset 1s ease-out, stroke 0.5s'
-                                                                }}
-                                                            />
-                                                            {/* Needle dot at the progress position */}
-                                                            {(() => {
-                                                                const angle = Math.PI - (pct / 100) * Math.PI;
-                                                                const cx = 70 + 60 * Math.cos(angle);
-                                                                const cy = 70 - 60 * Math.sin(angle);
-                                                                return (
-                                                                    <circle
-                                                                        cx={cx}
-                                                                        cy={cy}
-                                                                        r="5"
-                                                                        fill="white"
-                                                                        style={{
-                                                                            filter: 'drop-shadow(0 0 6px rgba(255,255,255,0.9))',
-                                                                            transition: 'cx 1s ease-out, cy 1s ease-out'
-                                                                        }}
-                                                                    />
-                                                                );
-                                                            })()}
-                                                            {/* Center value */}
-                                                            <text x="70" y="55" textAnchor="middle" className="fill-white text-lg font-black">
-                                                                {squeezeProbability.isLoading ? '--' : `${pct}%`}
-                                                            </text>
-                                                            {/* Interpretation */}
-                                                            <text x="70" y="72" textAnchor="middle" className="fill-slate-400 text-[10px]">
-                                                                {pct > 70 ? '스퀴즈 임박' : pct > 40 ? '주의 필요' : '안정'}
-                                                            </text>
-                                                        </svg>
-                                                        {/* Scale Labels */}
-                                                        <div className="flex justify-between w-full mt-1 px-2">
-                                                            <span className="text-[9px] text-emerald-400 font-bold">0%</span>
-                                                            <span className="text-[9px] text-amber-400 font-bold">50%</span>
-                                                            <span className="text-[9px] text-rose-400 font-bold">100%</span>
-                                                        </div>
-                                                    </>
-                                                );
-                                            })()}
+                                        <div className="flex items-center justify-between text-[10px] mb-1">
+                                            <span className="text-slate-400">Max Pain</span>
+                                            <span className="text-white font-bold font-mono">${maxPainDistance.maxPain}</span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 pl-4 border-l border-orange-500/30">
+                                            <Crosshair size={11} className="text-orange-400 inline mr-1" />{maxPainDistance.direction === 'above' ? `현재가가 Max Pain 위에 $${Math.abs(maxPainDistance.distance).toFixed(1)} 초과` : maxPainDistance.direction === 'below' ? `현재가가 Max Pain 아래 $${Math.abs(maxPainDistance.distance).toFixed(1)} 미달` : 'Max Pain 근접 (수렴 가능성)'}
                                         </div>
                                     </div>
                                 </div>
@@ -1707,7 +2132,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                         </div>
                                         {/* Row 2: Rationale */}
                                         <div className="text-[10px] text-slate-400 pl-4 border-l border-violet-500/30">
-                                            📊 {ivSkew.rationale || '풋/콜 IV 분석 중...'}
+                                            <BarChart3 size={11} className="text-violet-400 inline mr-1" />{ivSkew.rationale || '풋/콜 IV 분석 중...'}
                                         </div>
                                     </div>
                                 </div>
@@ -1731,7 +2156,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                         </div>
                                         {/* Row 2: Rationale */}
                                         <div className="text-[10px] text-slate-400 pl-4 border-l border-cyan-500/30">
-                                            📈 {dex.rationale || '델타 분석 중...'}
+                                            <TrendingUp size={11} className="text-cyan-400 inline mr-1" />{dex.rationale || '델타 분석 중...'}
                                         </div>
                                     </div>
                                 </div>
@@ -1755,7 +2180,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                         </div>
                                         {/* Row 2: Rationale */}
                                         <div className="text-[10px] text-slate-400 pl-4 border-l border-amber-500/30">
-                                            🔥 {uoa.rationale || '거래량 분석 중...'}
+                                            <Activity size={11} className="text-amber-400 inline mr-1" />{uoa.rationale || '거래량 분석 중...'}
                                         </div>
                                     </div>
                                 </div>
@@ -1764,6 +2189,6 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                     </Card>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
