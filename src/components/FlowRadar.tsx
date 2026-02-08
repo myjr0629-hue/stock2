@@ -1271,32 +1271,34 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                 </div>
                             </div>
 
-                            {/* Row 4: Factor Breakdown - 3-Column Grid */}
+                            {/* Row 4: Factor Breakdown - Compact Glassmorphism */}
                             {analysis.factorBreakdown && (
-                                <div className="grid grid-cols-3 gap-x-2 gap-y-1 mb-2">
-                                    {analysis.factorBreakdown.map((f: any) => (
-                                        <div key={f.key} className="flex items-center gap-1">
-                                            <span className="text-[9px] text-slate-400 w-[28px] shrink-0 text-right font-mono">{f.name}</span>
-                                            <div className="flex-1 h-2 bg-slate-800 rounded-full overflow-hidden relative min-w-0">
-                                                {/* Center line for bidirectional */}
-                                                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/10 z-10" />
-                                                {f.score > 0 ? (
-                                                    <div
-                                                        className="absolute left-1/2 top-0 h-full bg-emerald-500 rounded-r-full"
-                                                        style={{ width: `${Math.min(50, (f.score / f.max) * 50)}%` }}
-                                                    />
-                                                ) : f.score < 0 ? (
-                                                    <div
-                                                        className="absolute right-1/2 top-0 h-full bg-rose-500 rounded-l-full"
-                                                        style={{ width: `${Math.min(50, (Math.abs(f.score) / f.max) * 50)}%` }}
-                                                    />
-                                                ) : null}
+                                <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg p-2 border border-white/10 mb-2">
+                                    <div className="grid grid-cols-3 gap-x-3 gap-y-1.5">
+                                        {analysis.factorBreakdown.map((f: any) => (
+                                            <div key={f.key} className="flex items-center gap-1">
+                                                <span className={`text-[9px] w-[28px] shrink-0 text-right font-bold ${f.score > 0 ? 'text-emerald-400/80' : f.score < 0 ? 'text-rose-400/80' : 'text-slate-500'}`}>{f.name}</span>
+                                                <div className="flex-1 h-2.5 bg-slate-900/60 rounded-full overflow-hidden relative min-w-0 border border-white/5">
+                                                    {/* Center line */}
+                                                    <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20 z-10" />
+                                                    {f.score > 0 ? (
+                                                        <div
+                                                            className="absolute left-1/2 top-0 h-full bg-gradient-to-r from-emerald-500/80 to-emerald-400 rounded-r-full shadow-[0_0_6px_rgba(52,211,153,0.4)]"
+                                                            style={{ width: `${Math.min(50, (f.score / f.max) * 50)}%` }}
+                                                        />
+                                                    ) : f.score < 0 ? (
+                                                        <div
+                                                            className="absolute right-1/2 top-0 h-full bg-gradient-to-l from-rose-500/80 to-rose-400 rounded-l-full shadow-[0_0_6px_rgba(244,63,94,0.4)]"
+                                                            style={{ width: `${Math.min(50, (Math.abs(f.score) / f.max) * 50)}%` }}
+                                                        />
+                                                    ) : null}
+                                                </div>
+                                                <span className={`text-[9px] font-black w-[20px] shrink-0 text-right ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-600'}`}>
+                                                    {f.score > 0 ? '+' : ''}{f.score}
+                                                </span>
                                             </div>
-                                            <span className={`text-[8px] font-bold w-[18px] shrink-0 text-right ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-600'}`}>
-                                                {f.score > 0 ? '+' : ''}{f.score}
-                                            </span>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
                             )}
 
