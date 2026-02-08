@@ -1293,7 +1293,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                     <div className="flex-1 min-h-0 relative z-10 p-1 pb-12">
                                         <StockChart
-                                            key={`${ticker}:${range}:${initialStockData.history.length}`}
+                                            key={`${ticker}:${range}`}
                                             data={initialStockData.history}
                                             color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
                                             ticker={ticker}

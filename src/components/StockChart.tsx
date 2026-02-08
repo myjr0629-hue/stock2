@@ -237,7 +237,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     useEffect(() => {
         if (dataReady && !renderSettled) {
             if (settledTimer.current) clearTimeout(settledTimer.current);
-            settledTimer.current = setTimeout(() => setRenderSettled(true), 800);
+            settledTimer.current = setTimeout(() => setRenderSettled(true), 150);
         }
         return () => { if (settledTimer.current) clearTimeout(settledTimer.current); };
     }, [dataReady, renderSettled]);
