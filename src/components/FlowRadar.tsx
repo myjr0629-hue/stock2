@@ -1632,6 +1632,12 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                     <span className="text-[9px] font-black px-2 py-0.5 rounded bg-rose-950/40 border border-rose-500/40 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse tracking-widest">
                                         TOP SECRET // EYES ONLY
                                     </span>
+                                    {flowViewMode === 'WHALE' && (
+                                        <span className="text-[11px] text-slate-300 font-medium tracking-wide hidden sm:inline-block">
+                                            <Info size={12} className="text-slate-400 inline mr-0.5" />
+                                            <span className="text-cyan-400">Cost</span>=매수단가 | <span className="text-amber-400">BEP</span>=손익분기점
+                                        </span>
+                                    )}
                                     {/* Whale / Dark Pool Toggle */}
                                     <div className="flex bg-slate-950 rounded-md p-0.5 border border-white/10 shrink-0 ml-auto">
                                         <button
@@ -1647,12 +1653,7 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                             Dark Pool
                                         </button>
                                     </div>
-                                    {flowViewMode === 'WHALE' && (
-                                        <span className="text-[9px] text-slate-400 font-medium tracking-wide hidden sm:inline-block">
-                                            <Info size={11} className="text-slate-500 inline mr-0.5" />
-                                            <span className="text-cyan-400/80">Cost</span>=매수단가 | <span className="text-amber-400/80">BEP</span>=손익분기점
-                                        </span>
-                                    )}
+
                                 </div>
 
                                 {/* Horizontal Scroll Container */}
