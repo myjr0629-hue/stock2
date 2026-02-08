@@ -614,6 +614,7 @@ function MainChartPanel() {
                         <div className="flex items-center gap-2 mb-2">
                             <Activity className="w-4 h-4 text-purple-400" />
                             <span className="text-[10px] uppercase tracking-wider text-white">ATM IV</span>
+                            <span className="text-[9px] text-slate-400">내재변동성</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xl font-mono font-bold text-white">
@@ -700,7 +701,7 @@ function MainChartPanel() {
             </div>
 
             {/* Chart Area: Full height StockChart */}
-            <div className="flex-1 overflow-hidden p-4">
+            <div className="flex-1 overflow-hidden px-4 pb-4">
                 {/* Price History (StockChart) */}
                 <div className="h-full bg-[#0d1829]/60 rounded-xl border border-white/5 overflow-hidden flex flex-col">
                     <div className="flex items-center gap-2 p-3 border-b border-white/5">
