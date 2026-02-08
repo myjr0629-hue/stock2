@@ -1639,18 +1639,35 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                         </span>
                                     )}
                                     {/* Whale / Dark Pool Toggle */}
-                                    <div className="flex bg-slate-950 rounded-md p-0.5 border border-white/10 shrink-0 ml-auto">
+                                    <div className="flex bg-slate-950/80 backdrop-blur-xl rounded-lg p-1 border border-white/10 shrink-0 ml-auto gap-1">
                                         <button
                                             onClick={() => setFlowViewMode('WHALE')}
-                                            className={`px-3 py-1 text-[9px] font-black rounded transition-all uppercase tracking-wider ${flowViewMode === 'WHALE' ? 'bg-cyan-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-300 ${flowViewMode === 'WHALE'
+                                                ? 'bg-cyan-500/20 backdrop-blur-md text-white border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
+                                                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                                         >
-                                            Whale
+                                            <Shield size={13} className={flowViewMode === 'WHALE' ? 'text-cyan-400' : 'text-slate-500'} />
+                                            <div className="flex flex-col items-start">
+                                                <span className="text-[10px] font-black uppercase tracking-wider leading-none">Whale</span>
+                                                <span className={`text-[8px] leading-none mt-0.5 ${flowViewMode === 'WHALE' ? 'text-cyan-300/70' : 'text-slate-600'}`}>고래추적</span>
+                                            </div>
+                                            {whaleTrades.length > 0 && (
+                                                <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'WHALE' ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-700 text-slate-400'}`}>
+                                                    {whaleTrades.length}
+                                                </span>
+                                            )}
                                         </button>
                                         <button
                                             onClick={() => setFlowViewMode('DARKPOOL')}
-                                            className={`px-3 py-1 text-[9px] font-black rounded transition-all uppercase tracking-wider ${flowViewMode === 'DARKPOOL' ? 'bg-teal-700 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-300 ${flowViewMode === 'DARKPOOL'
+                                                ? 'bg-teal-500/20 backdrop-blur-md text-white border border-teal-400/40 shadow-[0_0_15px_rgba(20,184,166,0.3)]'
+                                                : 'text-slate-500 hover:text-slate-300 hover:bg-white/5'}`}
                                         >
-                                            Dark Pool
+                                            <Layers size={13} className={flowViewMode === 'DARKPOOL' ? 'text-teal-400' : 'text-slate-500'} />
+                                            <div className="flex flex-col items-start">
+                                                <span className="text-[10px] font-black uppercase tracking-wider leading-none">Dark Pool</span>
+                                                <span className={`text-[8px] leading-none mt-0.5 ${flowViewMode === 'DARKPOOL' ? 'text-teal-300/70' : 'text-slate-600'}`}>다크풀</span>
+                                            </div>
                                         </button>
                                     </div>
 
@@ -1712,12 +1729,16 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                                                     <div
                                                         key={t.id || i}
                                                         className={`
-                                                        relative min-w-[220px] p-3.5 rounded-xl border-2 backdrop-blur-md flex flex-col justify-between gap-2
-                                                        transition-all duration-500 hover:scale-105 hover:z-10 bg-gradient-to-b from-white/10 to-transparent
+                                                        relative min-w-[220px] p-3.5 rounded-xl border-2 backdrop-blur-xl flex flex-col justify-between gap-2
+                                                        transition-all duration-500 hover:scale-105 hover:z-10
                                                         animate-in fade-in slide-in-from-right-4
                                                         ${nodeBorder} ${nodeBg}
                                                     `}
                                                     >
+                                                        {/* Glassmorphism inner glow */}
+                                                        <div className={`absolute inset-0 rounded-xl opacity-20 pointer-events-none ${isHighImpact ? 'bg-gradient-to-br from-amber-400/30 via-transparent to-amber-500/10' : isCall ? 'bg-gradient-to-br from-emerald-400/20 via-transparent to-cyan-500/10' : 'bg-gradient-to-br from-rose-400/20 via-transparent to-pink-500/10'}`} />
+                                                        {/* Top shine */}
+                                                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-t-xl" />
                                                         {/* Blinking Border Overlay */}
                                                         {ShowBlink && (
                                                             <div className={`absolute inset-[-2px] rounded-xl border-2 ${BlinkColor} animate-pulse pointer-events-none`} />
