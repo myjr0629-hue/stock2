@@ -636,14 +636,15 @@ function MainChartPanel() {
                                 <Activity className="w-4 h-4 text-slate-400" />
                             )}
                             <span className="text-[10px] uppercase tracking-wider text-white">P/C Ratio</span>
+                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${(data?.pcr || 1) < 0.7 ? 'bg-emerald-500/60 text-white' : (data?.pcr || 1) > 1.3 ? 'bg-rose-500/60 text-white' : 'bg-slate-600/60 text-slate-300'}`}>
+                                {(data?.pcr || 1) < 0.7 ? '콜 우위' : (data?.pcr || 1) > 1.3 ? '풋 우위' : '중립'}
+                            </span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" : (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"}`}>
                                 {data?.pcr?.toFixed(2) || "—"}
                             </span>
-                            <span className="text-xs text-white">
-                                {(data?.pcr || 1) < 0.7 ? "콜 우위" : (data?.pcr || 1) > 1.3 ? "풋 우위" : "중립"}
-                            </span>
+                            <span className="text-[10px] text-slate-400">Put/Call</span>
                         </div>
                     </div>
 
@@ -679,13 +680,18 @@ function MainChartPanel() {
                                 <div className="flex items-center gap-2 mb-2">
                                     <Activity className="w-4 h-4 text-cyan-400" />
                                     <span className="text-[10px] uppercase tracking-wider text-white">Implied Move</span>
-                                    {im >= 5 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-cyan-500/80 text-white">경고</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${im >= 5 ? 'text-cyan-400' : im >= 3 ? 'text-cyan-300' : 'text-white'}`}>
                                         {im > 0 ? `±${im}%` : '—'}
                                     </span>
-                                    <span className="text-xs text-white">{im >= 5 ? '급등/급락' : im >= 3 ? '변동 예고' : '안정'}</span>
+                                    {im >= 5 ? (
+                                        <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-cyan-500/80 text-white">급등/급락</span>
+                                    ) : im >= 3 ? (
+                                        <span className="text-xs text-cyan-300">변동 예고</span>
+                                    ) : (
+                                        <span className="text-xs text-slate-400">안정</span>
+                                    )}
                                 </div>
                             </div>
                         );

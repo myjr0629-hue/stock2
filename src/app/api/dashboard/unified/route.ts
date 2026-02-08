@@ -472,23 +472,42 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
         }
 
         // [DASHBOARD V2] 0DTE Impact & Implied Move from rawChain (ticker API)
+        // Uses gamma-weighted ratio matching FlowRadar.tsx
         try {
             const rawChain = tickerRawChain;
             const price = structureData.underlyingPrice || 0;
-            const today = new Date().toISOString().split('T')[0];
 
-            // 0DTE: % of contracts expiring today or nearest expiry
             if (rawChain.length > 0 && price > 0) {
-                const expirations = [...new Set(rawChain.map((o: any) => o.details?.expiration_date).filter(Boolean))] as string[];
-                expirations.sort();
-                const nearestExp = expirations[0] || '';
-                const isToday = nearestExp === today;
-                const nearestContracts = rawChain.filter((o: any) => o.details?.expiration_date === nearestExp);
-                const ratio = rawChain.length > 0 ? (nearestContracts.length / rawChain.length) * 100 : 0;
-                structureData.zeroDtePct = isToday ? Math.round(ratio) : Math.round(ratio * 0.5); // Discount if not 0DTE
+                // Find nearest expiry (same as FlowRadar)
+                const expirySet = new Set<string>();
+                rawChain.forEach((o: any) => {
+                    const exp = o.details?.expiration_date;
+                    if (exp) expirySet.add(exp);
+                });
+                const sortedExpiries = Array.from(expirySet).sort();
+                const today = new Date().toISOString().split('T')[0];
+                let targetExpiry = today;
+                if (!expirySet.has(today)) {
+                    targetExpiry = sortedExpiries.find(e => e >= today) || sortedExpiries[0] || today;
+                }
+
+                // Gamma-weighted 0DTE (same logic as FlowRadar)
+                let totalGamma = 0;
+                let nearestGamma = 0;
+                rawChain.forEach((o: any) => {
+                    const gamma = o.greeks?.gamma || 0;
+                    const oi = o.open_interest || 0;
+                    const gammaExposure = Math.abs(gamma * oi * 100);
+                    totalGamma += gammaExposure;
+                    if (o.details?.expiration_date === targetExpiry) {
+                        nearestGamma += gammaExposure;
+                    }
+                });
+                structureData.zeroDtePct = totalGamma > 0 ? Math.round((nearestGamma / totalGamma) * 100) : 0;
 
                 // Implied Move: ATM straddle price / underlying price * 100
-                const atmStrike = Math.round(price / 2.5) * 2.5; // Round to nearest 2.5
+                const nearestContracts = rawChain.filter((o: any) => o.details?.expiration_date === targetExpiry);
+                const atmStrike = Math.round(price / 2.5) * 2.5;
                 const atmCalls = nearestContracts.filter((o: any) =>
                     o.details?.contract_type === 'call' &&
                     Math.abs((o.details?.strike_price || 0) - atmStrike) <= 5
