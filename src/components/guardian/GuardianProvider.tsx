@@ -62,8 +62,9 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
 
     useEffect(() => {
         refresh();
-        // Poll every 60s
-        const interval = setInterval(refresh, 60000);
+        // Poll every 5 minutes (matches server-side CACHE_TTL_MS)
+        // Stock prices are updated independently via /api/live/prices (30s)
+        const interval = setInterval(refresh, 5 * 60 * 1000);
         return () => clearInterval(interval);
     }, [validLocale]); // Re-fetch when locale changes
 
