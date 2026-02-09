@@ -12,6 +12,7 @@ import {
     Bot
 } from "lucide-react";
 import { ReportArchive } from "@/components/ReportArchive";
+import { TrackRecord } from "@/components/intel/TrackRecord";
 import { TacticalCard } from "@/components/TacticalCard";
 import { TacticalSidebar } from "@/components/TacticalSidebar"; // [NEW]
 import { PremiumBlur } from "@/components/PremiumBlur";
@@ -1540,25 +1541,10 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
 
                 <div className="max-w-[1920px] mx-auto px-8 py-8 space-y-8 relative z-10">
 
-                    {/* Placeholder for Non-Final Tabs */}
-                    {activeTab !== 'FINAL' && activeTab !== 'DISCOVERY' && activeTab !== 'M7' && activeTab !== 'PHYSICAL_AI' && (
-                        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center animate-in fade-in zoom-in duration-300">
-                            <div className="w-20 h-20 bg-slate-900/50 rounded-full flex items-center justify-center mb-6 border border-slate-800 shadow-2xl">
-                                <Shield className="w-10 h-10 text-slate-600" />
-                            </div>
-                            <h2 className="text-3xl font-black text-slate-200 mb-2 tracking-tight">RESTRICTED AREA</h2>
-                            <div className="w-12 h-1 bg-emerald-500/20 rounded-full mb-6" />
-                            <p className="text-slate-400 max-w-md text-lg leading-relaxed">
-                                Tactical module <span className="text-emerald-400 font-mono font-bold">{activeTab}</span> is currently<br />undergoing final calibration.
-                            </p>
-                            <button
-                                onClick={() => setActiveTab('FINAL')}
-                                className="mt-8 px-6 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 text-xs font-bold uppercase tracking-widest rounded border border-emerald-500/20 transition-all"
-                            >
-                                Return to Final Battle
-                            </button>
-                        </div>
-                    )}
+                    {/* TRACK RECORD CONTENT */}
+                    <div className={activeTab === 'TRACK_RECORD' ? "space-y-8" : "hidden"}>
+                        <TrackRecord />
+                    </div>
 
                     {/* HYPER DISCOVERY CONTENT (HUNTER CORPS) */}
                     <div className={activeTab === 'DISCOVERY' ? "space-y-8" : "hidden"}>

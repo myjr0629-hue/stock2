@@ -84,11 +84,11 @@ export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps
 
                 <SidebarItem
                     icon={<Archive />}
-                    label="ARCHIVE"
-                    subLabel="HISTORY & WIN RATE"
-                    isActive={activeTab === 'ARCHIVE'}
-                    onClick={() => onTabChange('ARCHIVE')}
-                    accentColor="text-slate-400"
+                    label="TRACK RECORD"
+                    subLabel="PERFORMANCE & HISTORY"
+                    isActive={activeTab === 'TRACK_RECORD'}
+                    onClick={() => onTabChange('TRACK_RECORD')}
+                    accentColor="text-emerald-400"
                 />
 
                 <div className="my-2 px-4"><div className="h-px bg-slate-800/50" /></div>
@@ -120,16 +120,6 @@ export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps
                     accentColor="text-amber-500"
                 />
 
-                <div className="my-2 px-4"><div className="h-px bg-slate-800/50" /></div>
-
-                <SidebarItem
-                    icon={<Activity />}
-                    label="POST-MORTEM"
-                    subLabel="RESULT ANALYTICS"
-                    isActive={activeTab === 'POST'}
-                    onClick={() => onTabChange('POST')}
-                    accentColor="text-rose-400"
-                />
 
             </div>
 
