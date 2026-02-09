@@ -413,9 +413,85 @@ export function analyzeGemsTicker(t: any, regime: string, opts?: any, strict = f
 
     // Sync legacy variables
     const gate: 'PASS' | 'FAIL' = eligible;
-    const entryLow = price * 0.98;
-    const entryHigh = price * 1.02;
-    const isInsideEntry = true;
+
+    // =========================================================================
+    // [PHASE 1] REALISTIC ENTRY/TARGET/CUT PRICES
+    // Uses: callWall, putFloor, maxPain, prevClose, ATR-based volatility
+    // Fallback: price ± dynamic % based on available data
+    // =========================================================================
+    const realCallWall = (optStatus === "OK" && opts?.strikes && opts?.callsOI)
+        ? (opts.strikes[opts.callsOI.indexOf(Math.max(...opts.callsOI))] || null)
+        : null;
+    const realPutFloor = (optStatus === "OK" && opts?.strikes && opts?.putsOI)
+        ? (opts.strikes[opts.putsOI.indexOf(Math.max(...opts.putsOI))] || null)
+        : null;
+    const realMaxPain = (optStatus === "OK" && typeof opts?.maxPain === "number") ? opts.maxPain : null;
+
+    // ATR-based dynamic range (uses price history if available, fallback ~2%)
+    const atrPctCalc = calculateATRPct(opts?.priceHistory || []);
+    const dynamicPct = atrPctCalc > 0.005 ? atrPctCalc : 0.02; // min 0.5%, fallback 2%
+
+    // --- Entry Zone ---
+    let entryLow: number;
+    let entryHigh: number;
+
+    if (realPutFloor && realMaxPain) {
+        // Best case: Options data available
+        // Entry low = near put floor support, entry high = maxPain or slightly above
+        entryLow = Math.max(realPutFloor, price * (1 - dynamicPct * 2));
+        entryHigh = Math.min(realMaxPain, price * (1 + dynamicPct));
+        // Ensure entryLow < entryHigh
+        if (entryLow >= entryHigh) {
+            entryLow = price * (1 - dynamicPct);
+            entryHigh = price * (1 + dynamicPct * 0.5);
+        }
+    } else if (prevClose > 0) {
+        // Fallback: prevClose-based support
+        entryLow = Math.min(prevClose, price * (1 - dynamicPct));
+        entryHigh = price * (1 + dynamicPct * 0.5);
+    } else {
+        // Last resort: dynamic ATR-based 
+        entryLow = price * (1 - dynamicPct);
+        entryHigh = price * (1 + dynamicPct * 0.5);
+    }
+
+    // --- Target Price (TP1) ---
+    let targetPriceCalc: number;
+    if (realCallWall && realCallWall > price * 1.01) {
+        // Target = Call Wall (real options resistance)
+        targetPriceCalc = realCallWall;
+    } else if (realMaxPain && realMaxPain > price * 1.02) {
+        // Fallback: Max Pain above current price
+        targetPriceCalc = realMaxPain;
+    } else {
+        // Fallback: ATR-based target (2x ATR move)
+        targetPriceCalc = price * (1 + dynamicPct * 2);
+    }
+
+    // --- Cut Price (Stop Loss) ---
+    let cutPriceCalc: number;
+    if (realPutFloor && realPutFloor < price * 0.99) {
+        // Stop = below put floor (real options support breach)
+        cutPriceCalc = realPutFloor * (1 - dynamicPct * 0.5);
+    } else if (prevClose > 0) {
+        // Fallback: below prevClose
+        cutPriceCalc = prevClose * (1 - dynamicPct);
+    } else {
+        // Fallback: ATR-based stop (1.5x ATR below)
+        cutPriceCalc = price * (1 - dynamicPct * 1.5);
+    }
+
+    // --- TP2 (Extended target) ---
+    const tp2Calc = realCallWall
+        ? realCallWall * (1 + dynamicPct)
+        : targetPriceCalc * (1 + dynamicPct);
+
+    // --- Support & Resistance (display levels) ---
+    const supportCalc = realPutFloor || prevClose || price * (1 - dynamicPct * 1.5);
+    const resistanceCalc = realCallWall || price * (1 + dynamicPct * 2);
+
+    // --- Entry Zone Position ---
+    const isInsideEntry = price >= entryLow && price <= entryHigh;
 
     const safeMaxPainNear: number | null =
         (optStatus === "OK" && typeof opts?.maxPain === "number") ? opts.maxPain : null;
@@ -548,8 +624,8 @@ export function analyzeGemsTicker(t: any, regime: string, opts?: any, strict = f
         volume,
         change: t.todaysChange || 0,
         changePercent: changeP,
-        targetPrice: price * 1.1,
-        cutPrice: price * 0.95,
+        targetPrice: targetPriceCalc,
+        cutPrice: cutPriceCalc,
         alphaScore,
         scoreDecomposition,
         velocity,
@@ -573,16 +649,16 @@ export function analyzeGemsTicker(t: any, regime: string, opts?: any, strict = f
             gate: eligible,
             gateReason: summary,
             action: entryNow === 'PASS' ? 'Enter' : eligible === 'PASS' ? 'Hold' : 'No Trade',
-            entryZone: [price * 0.98, price * 1.02],
-            isInsideEntry: true,
-            support: price * 0.95,
-            resistance: price * 1.05,
-            tp1: price * 1.08,
-            tp2: price * 1.15,
+            entryZone: [entryLow, entryHigh],
+            isInsideEntry,
+            support: supportCalc,
+            resistance: resistanceCalc,
+            tp1: targetPriceCalc,
+            tp2: tp2Calc,
             oiLevels: {
-                pin: opts?.maxPain || null,
-                callWall: (opts?.strikes || [])[(opts?.callsOI || []).indexOf(Math.max(...(opts?.callsOI || [0])))] || price * 1.1,
-                putFloor: (opts?.strikes || [])[(opts?.putsOI || []).indexOf(Math.max(...(opts?.putsOI || [0])))] || price * 0.9,
+                pin: realMaxPain,
+                callWall: realCallWall || resistanceCalc,
+                putFloor: realPutFloor || supportCalc,
                 grade: optGrade
             },
             timeStop: "T+3 (72h)",

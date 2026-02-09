@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { cn } from "@/lib/utils";
 import {
     Archive,
-    Crosshair,
+    BarChart3,
     Zap,
     ShieldAlert,
     Activity,
@@ -126,9 +126,9 @@ export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps
                 <div className="my-2 px-4"><div className="h-px bg-slate-800/50" /></div>
 
                 <SidebarItem
-                    icon={<Crosshair />}
-                    label="FINAL BATTLE"
-                    subLabel="TODAY'S 12 ELITES"
+                    icon={<BarChart3 />}
+                    label="ALPHA REPORT"
+                    subLabel="오늘의 진입 종목 12선"
                     isActive={activeTab === 'FINAL'}
                     onClick={() => onTabChange('FINAL')}
                     accentColor="text-emerald-400"

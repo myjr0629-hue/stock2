@@ -127,8 +127,8 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
             <section>
                 <SectionHeader
                     icon={Crosshair}
-                    title="MAIN CORPS"
-                    subtitle="Data Verified • High Probability"
+                    title="TOP PICKS"
+                    subtitle="확신도 최상위 · 즉시 검토 대상"
                     count={mainCorps.length}
                 />
 
@@ -171,8 +171,8 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
             <section>
                 <SectionHeader
                     icon={Eye}
-                    title="CORE ALPHA"
-                    subtitle="Strong Signals • Watch Zone"
+                    title="ACTIONABLE"
+                    subtitle="조건부 진입 · 트리거 대기"
                     count={core12.length}
                 />
 
@@ -215,8 +215,8 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
                 <section>
                     <SectionHeader
                         icon={AlertTriangle}
-                        title="MOONSHOT ZONE"
-                        subtitle="High Risk • Gamma Play"
+                        title="SPECULATIVE"
+                        subtitle="고위험 · 고수익 · 소규모 포지션 권장"
                         count={moonshot.length}
                         variant="warning"
                     />
