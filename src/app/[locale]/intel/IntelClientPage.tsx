@@ -1352,18 +1352,35 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
     const alphaItems: AlphaItem[] = useMemo(() => {
         return sortedItems.slice(0, 12).map((item, idx) => {
             const av3 = (item as any).alphaV3;
+            const ds = (item as any).decisionSSOT;
+            const price = item.evidence?.price?.last || 0;
+
+            // Entry Band: array [min, max] or object {min, max} or {low, high}
+            const eb = ds?.entryBand;
+            let eLow = 0, eHigh = 0;
+            if (Array.isArray(eb)) { eLow = eb[0] || 0; eHigh = eb[1] || 0; }
+            else if (eb && typeof eb === 'object') { eLow = eb.min || eb.low || 0; eHigh = eb.max || eb.high || 0; }
+
+            // Target / Stop: multiple fallback paths
+            const tgt = ds?.whaleTargetLevel || ds?.targetPrice || 0;
+            const cut = ds?.cutPrice || 0;
+
+            // If still missing, derive from price
+            if (eLow === 0 && price > 0) eLow = price * 0.98;
+            if (eHigh === 0 && price > 0) eHigh = price * 1.02;
+
             return {
                 ticker: item.ticker,
                 rank: idx + 1,
-                price: item.evidence?.price?.last || 0,
+                price,
                 changePct: item.evidence?.price?.changePct || 0,
                 volume: item.evidence?.flow?.vol,
                 alphaScore: item.alphaScore || 70,
                 scoreBreakdown: (item as any).scoreDecomposition || undefined,
-                entryLow: item.entryBand?.low ?? item.decisionSSOT?.entryBand?.min,
-                entryHigh: item.entryBand?.high ?? item.decisionSSOT?.entryBand?.max,
-                targetPrice: item.decisionSSOT?.whaleTargetLevel,
-                cutPrice: item.decisionSSOT?.cutPrice,
+                entryLow: eLow,
+                entryHigh: eHigh,
+                targetPrice: tgt > 0 ? tgt : price * 1.05,
+                cutPrice: cut > 0 ? cut : price * 0.96,
                 whaleNetM: (() => {
                     const flow = item.evidence?.flow;
                     const rawValue = flow?.netPremium ?? flow?.netFlow ?? flow?.largeTradesUsd ?? undefined;

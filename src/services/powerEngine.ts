@@ -1007,7 +1007,9 @@ export function applyQualityTiers(
             },
             powerScore: tierResult.powerScore,
             alphaScore: tierResult.powerScore, // Keep in sync
-            isBackfilled: tierResult.isBackfilled
+            isBackfilled: tierResult.isBackfilled,
+            // [속살] Pass through full alpha engine result
+            alphaV3: tierResult.alphaV3 || undefined,
         };
     });
 }
