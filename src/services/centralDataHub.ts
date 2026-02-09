@@ -150,73 +150,121 @@ export const CentralDataHub = {
         const fullHistory = historyRes?.results || [];
         const history3d = [...fullHistory].reverse().slice(0, 3);
 
-        const liveLast = S.lastTrade?.p || null;
-        let regClose = S.day?.c || S.prevDay?.c || OC.close || 0;
-        const prevDay = S.prevDay || {};
-        let prevClose = prevDay.c || 0;
+        // [V4.3] When specificDate is provided (report path), use history aggs as primary data source.
+        // Snapshot may return empty data on weekends/holidays, but history aggs always has the correct data.
+        const useHistoryPrimary = !!specificDate && fullHistory.length >= 2;
 
-        // Robust Fallback
-        if (regClose === 0 && prevClose === 0) {
-            if (OC.close) regClose = OC.close;
-            else if (fullHistory.length > 0) {
-                regClose = fullHistory[fullHistory.length - 1].c;
-                prevClose = fullHistory.length > 1 ? fullHistory[fullHistory.length - 2].c : regClose;
-            }
-        }
-
-        // Reg Close Logic (Official)
-        if (isClosed && OC.close) {
-            regClose = OC.close;
-        } else {
-            if (session === 'PRE') {
-                regClose = prevClose || S.prevDay?.c || regClose;
-            } else {
-                regClose = S.day?.c || S.min?.c || liveLast || regClose;
-            }
-        }
-
-        // Price Selection
         let price = 0;
+        let prevClose = 0;
+        let regClose = 0;
+        let dayVolume = 0;
+        let dayOpen = 0;
+        let dayVwap = 0;
         let priceSource: UnifiedQuote['priceSource'] = "OFFICIAL_CLOSE";
         let extendedPrice = 0;
         let extendedLabel: "PRE" | "POST" | "CLOSED" | undefined = undefined;
 
-        if (session === 'REG') {
-            price = liveLast || regClose;
-            priceSource = "LIVE_SNAPSHOT";
-        } else {
-            price = regClose;
+        if (useHistoryPrimary) {
+            // --- REPORT PATH: History Aggs as Primary Source ---
+            // [V4.3.1] Filter out today's incomplete bar — during market hours,
+            // Polygon returns a partial bar for today with low volume.
+            // We want only COMPLETED trading day bars.
+            const todayStr = new Date().toISOString().split('T')[0];
+            const completedBars = fullHistory.filter((bar: any) => {
+                const barDate = new Date(bar.t).toISOString().split('T')[0];
+                return barDate !== todayStr;
+            });
+
+            if (completedBars.length >= 2) {
+                const lastBar = completedBars[completedBars.length - 1];  // Last completed trading day
+                const prevBar = completedBars[completedBars.length - 2];  // Day before
+                price = lastBar.c;
+                prevClose = prevBar.c;
+                regClose = lastBar.c;
+                dayVolume = lastBar.v || 0;
+                dayOpen = lastBar.o || 0;
+                dayVwap = lastBar.vw || lastBar.c;
+            } else {
+                // Fallback: not enough completed bars, use all bars
+                const lastBar = fullHistory[fullHistory.length - 1];
+                const prevBar = fullHistory[fullHistory.length - 2];
+                price = lastBar.c;
+                prevClose = prevBar.c;
+                regClose = lastBar.c;
+                dayVolume = lastBar.v || 0;
+                dayOpen = lastBar.o || 0;
+                dayVwap = lastBar.vw || lastBar.c;
+            }
             priceSource = "OFFICIAL_CLOSE";
-            if (session === 'PRE') {
-                extendedPrice = S.min?.c || liveLast || 0;
-                extendedLabel = 'PRE';
-            } else if (session === 'POST') {
-                extendedPrice = S.min?.c || liveLast || 0;
-                extendedLabel = 'POST';
-            } else if (session === 'CLOSED') {
-                if (S.afterHours?.p && S.afterHours.p > 0) {
-                    extendedPrice = S.afterHours.p;
-                    extendedLabel = 'POST';
+        } else {
+            // --- REAL-TIME PATH: Snapshot as Primary Source (existing logic) ---
+            const liveLast = S.lastTrade?.p || null;
+            regClose = S.day?.c || S.prevDay?.c || OC.close || 0;
+            const prevDay = S.prevDay || {};
+            prevClose = prevDay.c || 0;
+
+            // Robust Fallback
+            if (regClose === 0 && prevClose === 0) {
+                if (OC.close) regClose = OC.close;
+                else if (fullHistory.length > 0) {
+                    regClose = fullHistory[fullHistory.length - 1].c;
+                    prevClose = fullHistory.length > 1 ? fullHistory[fullHistory.length - 2].c : regClose;
                 }
             }
-        }
 
-        // Weekend/Holiday Stale Data Correction
-        const isNonTradingDay = marketStatus.isHoliday || session === "CLOSED";
-        if (isNonTradingDay && fullHistory.length >= 2) {
-            if (Math.abs(price - prevClose) < 0.001) {
-                const lastClose = fullHistory[fullHistory.length - 1].c;
-                if (Math.abs(price - lastClose) < 0.001) {
-                    prevClose = fullHistory[fullHistory.length - 2].c;
+            // Reg Close Logic (Official)
+            if (isClosed && OC.close) {
+                regClose = OC.close;
+            } else {
+                if (session === 'PRE') {
+                    regClose = prevClose || S.prevDay?.c || regClose;
+                } else {
+                    regClose = S.day?.c || S.min?.c || liveLast || regClose;
                 }
             }
-        }
 
-        if (!price || price === 0) {
-            if (prevClose > 0) {
-                price = prevClose;
+            // Price Selection
+            if (session === 'REG') {
+                price = liveLast || regClose;
+                priceSource = "LIVE_SNAPSHOT";
+            } else {
+                price = regClose;
                 priceSource = "OFFICIAL_CLOSE";
+                if (session === 'PRE') {
+                    extendedPrice = S.min?.c || liveLast || 0;
+                    extendedLabel = 'PRE';
+                } else if (session === 'POST') {
+                    extendedPrice = S.min?.c || liveLast || 0;
+                    extendedLabel = 'POST';
+                } else if (session === 'CLOSED') {
+                    if (S.afterHours?.p && S.afterHours.p > 0) {
+                        extendedPrice = S.afterHours.p;
+                        extendedLabel = 'POST';
+                    }
+                }
             }
+
+            // Weekend/Holiday Stale Data Correction
+            const isNonTradingDay = marketStatus.isHoliday || session === "CLOSED";
+            if (isNonTradingDay && fullHistory.length >= 2) {
+                if (Math.abs(price - prevClose) < 0.001) {
+                    const lastClose = fullHistory[fullHistory.length - 1].c;
+                    if (Math.abs(price - lastClose) < 0.001) {
+                        prevClose = fullHistory[fullHistory.length - 2].c;
+                    }
+                }
+            }
+
+            if (!price || price === 0) {
+                if (prevClose > 0) {
+                    price = prevClose;
+                    priceSource = "OFFICIAL_CLOSE";
+                }
+            }
+
+            dayVolume = S.day?.v || 0;
+            dayOpen = S.day?.o || 0;
+            dayVwap = S.day?.vw || 0;
         }
 
         let changePct = 0;
@@ -239,13 +287,20 @@ export const CentralDataHub = {
 
         const flowData = optionsRes as any;
 
+        // [V4.3] relVol: use history aggs average volume for both paths
+        const avgVol = fullHistory.length > 0 ? fullHistory.reduce((a: number, b: any) => a + (b.v || 0), 0) / fullHistory.length : 0;
+        const relVol = (avgVol > 0 && dayVolume > 0) ? dayVolume / avgVol : 1;
+
+        // [V4.3] gapPct: use dayOpen vs prevClose
+        const gapPct = (dayOpen > 0 && prevClose > 0) ? ((dayOpen - prevClose) / prevClose * 100) : 0;
+
         return {
             ticker,
             price: price || 0,
             changePct: changePct || 0,
             finalChangePercent: changePct || 0,
             prevClose: prevClose || 0,
-            volume: S.day?.v || 0,
+            volume: dayVolume,
             extendedPrice,
             extendedChangePct,
             extendedLabel,
@@ -258,8 +313,8 @@ export const CentralDataHub = {
             history3d,
             history15d: fullHistory,
             rsi: rsiRes?.results?.values?.[0]?.value || null,
-            relVol: (fullHistory.length > 0 && S.day?.v) ? (S.day.v / (fullHistory.reduce((a: number, b: any) => a + (b.v || 0), 0) / fullHistory.length)) : 1,
-            gapPct: (S.day?.o && S.prevDay?.c) ? ((S.day.o - S.prevDay.c) / S.prevDay.c * 100) : 0
+            relVol,
+            gapPct
         };
     },
 

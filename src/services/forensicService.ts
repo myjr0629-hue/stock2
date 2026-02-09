@@ -18,6 +18,7 @@ export interface ForensicResult {
         aggressorRatio: number; // Volume at Ask / Total Volume
         blockCount: number; // Trades > $50k
         maxBlockSize: number;
+        offExchangePct: number; // [V4.1] Dark Pool + Off-Exchange volume percentage
         sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
         lastBigPrint?: string;
         whaleEntryLevel?: number; // Underlying Stock Price (Precise)
@@ -333,6 +334,7 @@ export class ForensicService {
                 aggressorRatio,
                 blockCount,
                 maxBlockSize,
+                offExchangePct: Math.round(offExPct * 10) / 10, // [V4.1] Precise dark pool percentage
                 sentiment,
                 lastBigPrint,
                 whaleEntryLevel: undefined, // [Fix] Don't return Premium as Stock Price
@@ -352,6 +354,7 @@ export class ForensicService {
                 aggressorRatio: 0,
                 blockCount: 0,
                 maxBlockSize: 0,
+                offExchangePct: 0,
                 sentiment: 'NEUTRAL',
                 // [Revert] User explicitly rejected fallback estimation.
                 // We return undefined so UI knows data is genuinely missing if fetch fails.

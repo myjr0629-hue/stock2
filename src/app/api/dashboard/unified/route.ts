@@ -1,6 +1,111 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
 
+// [V4.1] Polygon API for technical indicators (return3D, sma20, rsi14, relVol)
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
+const POLYGON_BASE = 'https://api.polygon.io';
+
+// [V4.1] Fetch daily bars and compute return3D, sma20, rsi14, relVol in one call
+async function fetchTechnicalIndicators(ticker: string): Promise<{
+    return3D: number | null;
+    sma20: number | null;
+    rsi14: number | null;
+    relVol: number | null;
+}> {
+    try {
+        const to = new Date().toISOString().split('T')[0];
+        const from = new Date(Date.now() - 45 * 86400000).toISOString().split('T')[0]; // 45 calendar days for 20+ trading days
+        const url = `${POLYGON_BASE}/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}?adjusted=true&sort=asc&limit=50&apiKey=${POLYGON_API_KEY}`;
+        const res = await fetch(url, { next: { revalidate: 300 } }); // cache 5min
+        if (!res.ok) return { return3D: null, sma20: null, rsi14: null, relVol: null };
+
+        const data = await res.json();
+        const bars = data.results || [];
+        if (bars.length < 4) return { return3D: null, sma20: null, rsi14: null, relVol: null };
+
+        const closes: number[] = bars.map((b: any) => b.c);
+        const volumes: number[] = bars.map((b: any) => b.v);
+
+        // return3D: 3-trading-day return
+        let return3D: number | null = null;
+        if (closes.length >= 4) {
+            const recent = closes.slice(-4);
+            return3D = parseFloat((((recent[3] - recent[0]) / recent[0]) * 100).toFixed(2));
+        }
+
+        // sma20: 20-day simple moving average
+        let sma20: number | null = null;
+        if (closes.length >= 20) {
+            const last20 = closes.slice(-20);
+            sma20 = parseFloat((last20.reduce((a, b) => a + b, 0) / 20).toFixed(2));
+        }
+
+        // rsi14: 14-period RSI (Wilder's smoothing)
+        let rsi14: number | null = null;
+        if (closes.length >= 15) {
+            const changes = closes.slice(1).map((c, i) => c - closes[i]);
+            let avgGain = 0, avgLoss = 0;
+            for (let i = 0; i < 14; i++) {
+                if (changes[i] > 0) avgGain += changes[i];
+                else avgLoss += Math.abs(changes[i]);
+            }
+            avgGain /= 14;
+            avgLoss /= 14;
+            // Wilder's smoothing for remaining periods
+            for (let i = 14; i < changes.length; i++) {
+                if (changes[i] > 0) {
+                    avgGain = (avgGain * 13 + changes[i]) / 14;
+                    avgLoss = (avgLoss * 13) / 14;
+                } else {
+                    avgGain = (avgGain * 13) / 14;
+                    avgLoss = (avgLoss * 13 + Math.abs(changes[i])) / 14;
+                }
+            }
+            const rs = avgLoss > 0 ? avgGain / avgLoss : 100;
+            rsi14 = parseFloat((100 - 100 / (1 + rs)).toFixed(1));
+        }
+
+        // relVol: current day volume / 20-day average volume
+        let relVol: number | null = null;
+        if (volumes.length >= 21) {
+            const todayVol = volumes[volumes.length - 1];
+            const avg20Vol = volumes.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
+            relVol = avg20Vol > 0 ? parseFloat((todayVol / avg20Vol).toFixed(2)) : null;
+        }
+
+        return { return3D, sma20, rsi14, relVol };
+    } catch {
+        return { return3D: null, sma20: null, rsi14: null, relVol: null };
+    }
+}
+
+// [V4.1] Calculate ivSkew from rawChain: Put ATM IV / Call ATM IV
+function calculateIvSkew(rawChain: any[], price: number): number | null {
+    if (!rawChain || rawChain.length === 0 || !price) return null;
+    try {
+        const tolerance = price * 0.05; // ±5% of price
+        const atmCalls = rawChain.filter((c: any) =>
+            c.details?.contract_type === 'call' &&
+            Math.abs((c.details?.strike_price || 0) - price) <= tolerance &&
+            c.implied_volatility > 0
+        );
+        const atmPuts = rawChain.filter((c: any) =>
+            c.details?.contract_type === 'put' &&
+            Math.abs((c.details?.strike_price || 0) - price) <= tolerance &&
+            c.implied_volatility > 0
+        );
+        if (atmCalls.length === 0 || atmPuts.length === 0) return null;
+
+        const avgCallIV = atmCalls.reduce((s: number, c: any) => s + c.implied_volatility, 0) / atmCalls.length;
+        const avgPutIV = atmPuts.reduce((s: number, c: any) => s + c.implied_volatility, 0) / atmPuts.length;
+        if (avgCallIV <= 0) return null;
+
+        return parseFloat((avgPutIV / avgCallIV).toFixed(3)); // >1 = institutional hedging
+    } catch {
+        return null;
+    }
+}
+
 // [PERFORMANCE] Stale-While-Revalidate Cache
 interface CacheEntry {
     data: any;
@@ -65,6 +170,9 @@ function buildResponseFromResults(
                     prevClose: data.prevClose || 0,
                     changePct: data.changePercent || 0,
                     vwap: data.vwap ?? null,
+                    return3D: data._return3D ?? null, // [V4.1]
+                    sma20: data._sma20 ?? null, // [V4.1]
+                    rsi14: data._rsi14 ?? null, // [V4.1]
                     pcr: data.pcr ?? null,
                     gex: data.netGex ?? null,
                     callWall: data.levels?.callWall ?? null,
@@ -73,13 +181,18 @@ function buildResponseFromResults(
                     rawChain: data._rawChain ?? [],
                     squeezeScore: data.squeezeScore ?? null,
                     atmIv: data.atmIv ?? null,
+                    ivSkew: data._ivSkew ?? null, // [V4.1]
                     darkPoolPct: data.darkPoolPct ?? null,
                     shortVolPct: data.shortVolPct ?? null,
                     whaleIndex,
+                    relVol: data._relVol ?? null, // [V4.1]
                     netFlow: data._netPremium ?? null,
                     ndxChangePct: marketData?.nq?.change ?? null,
                     vixValue: marketData?.vix ?? null,
                     impliedMovePct: data.impliedMovePct ?? null,
+                    blockTrades: data._blockTrades ?? null, // [V4.1]
+                    tltChangePct: marketData?.tltChangePct ?? null, // [V4.1]
+                    gldChangePct: marketData?.gldChangePct ?? null, // [V4.1]
                     optionsDataAvailable: data.options_status === 'OK',
                 });
                 tickersData[ticker].alpha = {
@@ -313,6 +426,9 @@ export async function GET(request: NextRequest) {
                         prevClose: data.prevClose || 0,
                         changePct: data.changePercent || 0,
                         vwap: data.vwap ?? null,
+                        return3D: data._return3D ?? null, // [V4.1]
+                        sma20: data._sma20 ?? null, // [V4.1]
+                        rsi14: data._rsi14 ?? null, // [V4.1]
                         pcr: data.pcr ?? null,
                         gex: data.netGex ?? null,
                         callWall: data.levels?.callWall ?? null,
@@ -321,13 +437,18 @@ export async function GET(request: NextRequest) {
                         rawChain: data._rawChain ?? [],
                         squeezeScore: data.squeezeScore ?? null,
                         atmIv: data.atmIv ?? null,
+                        ivSkew: data._ivSkew ?? null, // [V4.1]
                         darkPoolPct: data.darkPoolPct ?? null,
                         shortVolPct: data.shortVolPct ?? null,
                         whaleIndex,
+                        relVol: data._relVol ?? null, // [V4.1]
                         netFlow: data._netPremium ?? null,
                         ndxChangePct: marketData?.nq?.change ?? null,
                         vixValue: marketData?.vix ?? null,
                         impliedMovePct: data.impliedMovePct ?? null,
+                        blockTrades: data._blockTrades ?? null, // [V4.1]
+                        tltChangePct: marketData?.tltChangePct ?? null, // [V4.1]
+                        gldChangePct: marketData?.gldChangePct ?? null, // [V4.1]
                         optionsDataAvailable: data.options_status === 'OK',
                     });
                     tickersData[ticker].alpha = {
@@ -509,7 +630,10 @@ async function fetchMarketData() {
             },
             vix,
             phase,
-            marketStatus: getMarketStatus()
+            marketStatus: getMarketStatus(),
+            // [V4.1] Safe Haven ETFs for AlphaEngine regime scoring
+            tltChangePct: (macro as any)?.tltChangePct ?? null,
+            gldChangePct: (macro as any)?.gldChangePct ?? null,
         };
     } catch {
         return {
@@ -528,11 +652,12 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
     let retryCount = 0;
 
     const attemptFetch = async (): Promise<any> => {
-        // [DASHBOARD V2] Parallel fetch: structure + ticker + realtime-metrics
-        const [structureRes, tickerRes, metricsRes] = await Promise.all([
+        // [DASHBOARD V2] Parallel fetch: structure + ticker + realtime-metrics + technical indicators
+        const [structureRes, tickerRes, metricsRes, techIndicators] = await Promise.all([
             fetch(`${baseUrl}/api/live/options/structure?t=${ticker}`),
             fetch(`${baseUrl}/api/live/ticker?t=${ticker}`),
-            fetch(`${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`).catch(() => null)
+            fetch(`${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`).catch(() => null),
+            fetchTechnicalIndicators(ticker) // [V4.1] return3D, sma20, rsi14, relVol
         ]);
 
         if (!structureRes.ok) {
@@ -570,6 +695,7 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
                 const metrics = await metricsRes.json();
                 structureData.darkPoolPct = metrics.darkPool?.percent ?? null;
                 structureData.shortVolPct = metrics.shortVolume?.percent ?? null;
+                structureData._blockTrades = metrics.blockTrade?.count ?? null; // [V4.1] Block trades for AlphaEngine
             } catch {
                 // Continue without metrics
             }
@@ -643,6 +769,15 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             });
         } catch { /* ignore */ }
         structureData._netPremium = netPremium !== 0 ? netPremium : null;
+
+        // [V4.1] Technical indicators (return3D, sma20, rsi14, relVol)
+        structureData._return3D = techIndicators.return3D;
+        structureData._sma20 = techIndicators.sma20;
+        structureData._rsi14 = techIndicators.rsi14;
+        structureData._relVol = techIndicators.relVol;
+
+        // [V4.1] IV Skew from rawChain (Put IV / Call IV at ATM)
+        structureData._ivSkew = calculateIvSkew(tickerRawChain, structureData.underlyingPrice);
 
         return structureData;
     };

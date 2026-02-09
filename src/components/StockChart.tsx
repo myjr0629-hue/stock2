@@ -84,9 +84,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     // [S-67] Fix: Only fetch if range is 1D (to get etMinute/session data from chart API)
     useEffect(() => {
         const fetchInitialData = async () => {
-            // 1D always requires client fetch for session masking data
-            if (range === '1d') {
-                console.log('[StockChart] Fetching 1D data - required for etMinute/session fields');
+            // 1D: only fetch if SSR data is incomplete (lacks etMinute/session fields)
+            if (range === '1d' && !ssrHasCompleteData) {
+                console.log('[StockChart] Fetching 1D data - SSR data incomplete, needs etMinute/session fields');
                 setLoading(true);
                 try {
                     const t = Date.now();
@@ -237,7 +237,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     useEffect(() => {
         if (dataReady && !renderSettled) {
             if (settledTimer.current) clearTimeout(settledTimer.current);
-            settledTimer.current = setTimeout(() => setRenderSettled(true), 150);
+            settledTimer.current = setTimeout(() => setRenderSettled(true), 0);
         }
         return () => { if (settledTimer.current) clearTimeout(settledTimer.current); };
     }, [dataReady, renderSettled]);

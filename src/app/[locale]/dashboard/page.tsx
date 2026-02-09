@@ -714,7 +714,7 @@ function MainChartPanel() {
                                 <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
                             </div>
                         ) : chartHistory.length > 0 ? (
-                            <div className="animate-fade-in">
+                            <div className="animate-fade-in h-full">
                                 <StockChart
                                     data={chartHistory}
                                     ticker={selectedTicker}

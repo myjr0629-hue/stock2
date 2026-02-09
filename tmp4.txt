@@ -1,0 +1,12 @@
+ 1. VAL   S:48 DC: 91% chg:  22.8% rV: 2.93 DP: 82.7 SV: 70.9 tags:offExSurge,highMomentum
+ 2. APPX  S:42 DC: 95% chg:  18.6% rV: 0.92 DP: 78.6 SV: 77.3 tags:offExSurge
+ 3. ORCX  S:40 DC: 95% chg:  17.5% rV: 1.16 DP:   81 SV: 87.1 tags:offExSurge
+ 4. WULX  S:39 DC: 95% chg:  20.1% rV: 0.76 DP: 78.6 SV: 96.7 tags:offExSurge
+ 5. PONY  S:50 DC: 95% chg:   4.7% rV: 0.17 DP: 81.4 SV: 24.5 tags:offExSurge
+ 6. BIIB  S:47 DC: 95% chg:  -2.8% rV: 0.15 DP: 57.1 SV: 32.9 tags:offExSurge
+ 7. SBAC  S:49 DC: 95% chg:  -1.2% rV: 0.02 DP:   63 SV: 17.5 tags:offExSurge
+ 8. GILD  S:49 DC: 95% chg:  -0.9% rV: 0.07 DP: 79.5 SV: 40.6 tags:offExSurge
+ 9. MBLY  S:47 DC: 95% chg:  -1.5% rV: 0.08 DP: 67.5 SV:   47 tags:offExSurge,supportiveGamma
+10. VRTX  S:45 DC: 95% chg:  -0.9% rV: 0.10 DP: 71.7 SV: 45.6 tags:offExSurge
+11. SYM   S:50 DC: 95% chg:   5.1% rV: 0.29 DP: 81.8 SV: 50.9 tags:offExSurge
+12. DLR   S:40 DC: 95% chg:  -2.1% rV: 0.07 DP: 30.3 SV: 52.9 tags:noSignal

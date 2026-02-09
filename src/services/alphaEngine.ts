@@ -403,13 +403,14 @@ function calculateStructure(input: AlphaInput): PillarDetail {
     let gammaScore = 0;
     const gammaFlipBonus = getGammaFlipBonus(input.price, input.gammaFlipLevel);
 
-    // GEX direction: positive = dealer support (good), negative = amplification (risky but potential)
+    // GEX direction: positive = dealer support (good), negative = amplification (squeeze potential)
     const gex = input.gex || 0;
     let gexDirectionBonus = 0;
     if (gex > 2000000) gexDirectionBonus = 2;       // Strong positive GEX — dealer support
     else if (gex > 0) gexDirectionBonus = 1;         // Positive GEX — mild support
-    else if (gex < -2000000) gexDirectionBonus = 0;  // Strong negative — amplification danger
-    else gexDirectionBonus = 0;
+    else if (gex < -5000000) gexDirectionBonus = 2;  // [V4.1] Very strong negative — explosive squeeze potential
+    else if (gex < -1000000) gexDirectionBonus = 1;  // [V4.1] Moderate negative — amplification potential
+    else gexDirectionBonus = 0;                       // Near-zero = no directional signal
 
     gammaScore = clamp(gammaFlipBonus + gexDirectionBonus, 0, 5);
     const gexLabel = gex > 0 ? `GEX+$${(gex / 1e6).toFixed(0)}M` : `GEX-$${(Math.abs(gex) / 1e6).toFixed(0)}M`;

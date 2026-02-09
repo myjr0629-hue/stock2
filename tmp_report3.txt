@@ -1,0 +1,12 @@
+1. VAL Score:48 DC:91% | chg:22.75% relVol:2.93 darkPool:82.7 shortVol:70.9 tags:offExSurge,highMomentum
+2. APPX Score:42 DC:95% | chg:18.58% relVol:0.92 darkPool:78.6 shortVol:77.3 tags:offExSurge
+3. ORCX Score:40 DC:95% | chg:17.45% relVol:1.16 darkPool:81 shortVol:87.1 tags:offExSurge
+4. WULX Score:39 DC:95% | chg:20.09% relVol:0.76 darkPool:78.6 shortVol:96.7 tags:offExSurge
+5. PONY Score:50 DC:95% | chg:4.68% relVol:0.17 darkPool:81.4 shortVol:24.5 tags:offExSurge
+6. BIIB Score:47 DC:95% | chg:-2.84% relVol:0.15 darkPool:57.1 shortVol:32.9 tags:offExSurge
+7. SBAC Score:49 DC:95% | chg:-1.22% relVol:0.02 darkPool:63 shortVol:17.5 tags:offExSurge
+8. GILD Score:49 DC:95% | chg:-0.89% relVol:0.07 darkPool:79.5 shortVol:40.6 tags:offExSurge
+9. MBLY Score:47 DC:95% | chg:-1.55% relVol:0.08 darkPool:67.5 shortVol:47 tags:offExSurge,supportiveGamma
+10. VRTX Score:45 DC:95% | chg:-0.90% relVol:0.10 darkPool:71.7 shortVol:45.6 tags:offExSurge
+11. SYM Score:50 DC:95% | chg:5.12% relVol:0.29 darkPool:81.8 shortVol:50.9 tags:offExSurge
+12. DLR Score:40 DC:95% | chg:-2.07% relVol:0.07 darkPool:30.3 shortVol:52.9 tags:noSignal

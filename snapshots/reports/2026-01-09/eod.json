@@ -9,13 +9,17 @@
     "version": "S-56.5.5-master",
     "optionsStatus": {
       "state": "READY",
-      "coveragePct": 100,
       "pendingTickers": [],
-      "lastUpdatedAtISO": "2026-01-09T16:00:00.000Z"
+      "coveragePct": 100,
+      "lastUpdatedAtISO": "2026-02-09T04:35:11.332Z",
+      "note": " [FORCE FINALIZED]"
     },
     "integrity": {
-      "status": "OK",
-      "reasons": [],
+      "status": "INCOMPLETE",
+      "reasons": [
+        "TOP3_LT_3",
+        "MACRO_MISSING"
+      ],
       "expected": {
         "items": 12,
         "top3": 3,
@@ -23,14 +27,20 @@
       },
       "actual": {
         "items": 12,
-        "top3": 3,
-        "fullUniverse": 12
+        "top3": 0,
+        "fullUniverse": 0
       },
       "gates": {
         "options": "READY",
-        "macro": "OK"
+        "macro": "FALLBACK"
       }
-    }
+    },
+    "validationScore": 40,
+    "hardFails": [
+      "TOP3_LT_3",
+      "MACRO_MISSING"
+    ],
+    "softFails": []
   },
   "marketState": {
     "session": "CLOSED",
@@ -48,8 +58,8 @@
       "decisionSSOT": {
         "action": "STRONG_BUY",
         "confidencePct": 95,
-        "cutPrice": 425.00,
-        "targetPrice": 467.00,
+        "cutPrice": 425,
+        "targetPrice": 467,
         "isLocked": true,
         "whaleReasonKR": "감마 스퀴즈 및 기관 매집 포착 ($120M)",
         "whaleIndex": 85,
@@ -60,14 +70,14 @@
         ]
       },
       "entryBand": {
-        "low": 438.00,
-        "high": 442.50
+        "low": 438,
+        "high": 442.5
       },
       "evidence": {
         "price": {
           "last": 445.61,
           "changePct": 2.25,
-          "vwap": 440.10,
+          "vwap": 440.1,
           "vwapDistPct": 1.25,
           "rsi14": 68,
           "structureState": "Breakout",
@@ -118,8 +128,8 @@
       "decisionSSOT": {
         "action": "BUY",
         "confidencePct": 90,
-        "cutPrice": 175.00,
-        "targetPrice": 195.00,
+        "cutPrice": 175,
+        "targetPrice": 195,
         "isLocked": true,
         "whaleReasonKR": "AI 섹터 강력한 모멘텀 및 저점 매수세 유입",
         "whaleIndex": 91,
@@ -130,14 +140,14 @@
         ]
       },
       "entryBand": {
-        "low": 180.00,
-        "high": 183.00
+        "low": 180,
+        "high": 183
       },
       "evidence": {
         "price": {
           "last": 184.97,
           "changePct": -0.04,
-          "vwap": 184.00,
+          "vwap": 184,
           "vwapDistPct": 0.53,
           "rsi14": 72,
           "structureState": "Consolidation",
@@ -188,8 +198,8 @@
       "decisionSSOT": {
         "action": "BUY",
         "confidencePct": 85,
-        "cutPrice": 248.00,
-        "targetPrice": 272.00,
+        "cutPrice": 248,
+        "targetPrice": 272,
         "isLocked": false,
         "whaleReasonKR": "저점 반등 신호 및 안정적 수급",
         "whaleIndex": 88,
@@ -199,14 +209,14 @@
         ]
       },
       "entryBand": {
-        "low": 254.00,
-        "high": 257.00
+        "low": 254,
+        "high": 257
       },
       "evidence": {
         "price": {
           "last": 259.35,
           "changePct": 0.12,
-          "vwap": 258.50,
+          "vwap": 258.5,
           "vwapDistPct": 0.33,
           "rsi14": 45,
           "structureState": "Rebound",
@@ -257,8 +267,8 @@
       "decisionSSOT": {
         "action": "BUY",
         "confidencePct": 82,
-        "cutPrice": 190.00,
-        "targetPrice": 215.00,
+        "cutPrice": 190,
+        "targetPrice": 215,
         "isLocked": false,
         "whaleReasonKR": "반도체 섹터 동반 상승",
         "whaleIndex": 85,
@@ -268,14 +278,14 @@
         ]
       },
       "entryBand": {
-        "low": 198.00,
-        "high": 201.00
+        "low": 198,
+        "high": 201
       },
       "evidence": {
         "price": {
           "last": 203.51,
           "changePct": -0.57,
-          "vwap": 202.00,
+          "vwap": 202,
           "vwapDistPct": 0.75,
           "rsi14": 62,
           "structureState": "BullFlag",
@@ -294,7 +304,7 @@
         "flow": {
           "vol": 35000000,
           "netFlow": 2000000,
-          "offExPct": 35.0,
+          "offExPct": 35,
           "netPremium": 4200000,
           "complete": true
         },
@@ -325,8 +335,8 @@
       "decisionSSOT": {
         "action": "HOLD",
         "confidencePct": 78,
-        "cutPrice": 460.00,
-        "targetPrice": 500.00,
+        "cutPrice": 460,
+        "targetPrice": 500,
         "isLocked": false,
         "whaleReasonKR": "고점 횡보 중, 방향성 탐색",
         "whaleIndex": 82,
@@ -336,14 +346,14 @@
         ]
       },
       "entryBand": {
-        "low": 470.00,
-        "high": 475.00
+        "low": 470,
+        "high": 475
       },
       "evidence": {
         "price": {
           "last": 479.05,
-          "changePct": 0.20,
-          "vwap": 478.50,
+          "changePct": 0.2,
+          "vwap": 478.5,
           "vwapDistPct": 0.11,
           "rsi14": 55,
           "structureState": "BoxRange",
@@ -362,7 +372,7 @@
         "flow": {
           "vol": 20000000,
           "netFlow": 500000,
-          "offExPct": 40.0,
+          "offExPct": 40,
           "netPremium": -500000,
           "complete": true
         },
@@ -393,8 +403,8 @@
       "decisionSSOT": {
         "action": "HOLD",
         "confidencePct": 75,
-        "cutPrice": 315.00,
-        "targetPrice": 345.00,
+        "cutPrice": 315,
+        "targetPrice": 345,
         "isLocked": false,
         "whaleReasonKR": "광고 매출 우려 완화",
         "whaleIndex": 79,
@@ -403,14 +413,14 @@
         ]
       },
       "entryBand": {
-        "low": 322.00,
-        "high": 326.00
+        "low": 322,
+        "high": 326
       },
       "evidence": {
         "price": {
-          "last": 329.20,
+          "last": 329.2,
           "changePct": 1.16,
-          "vwap": 328.00,
+          "vwap": 328,
           "vwapDistPct": 0.37,
           "rsi14": 48,
           "structureState": "Bottoming",
@@ -420,7 +430,7 @@
           "status": "OK",
           "coveragePct": 100,
           "gex": 4000000,
-          "pcr": 1.10,
+          "pcr": 1.1,
           "callWall": 350,
           "putFloor": 310,
           "maxPain": 330,
@@ -429,7 +439,7 @@
         "flow": {
           "vol": 18000000,
           "netFlow": 800000,
-          "offExPct": 30.0,
+          "offExPct": 30,
           "netPremium": 1200000,
           "complete": true
         },
@@ -460,8 +470,8 @@
       "decisionSSOT": {
         "action": "BUY",
         "confidencePct": 80,
-        "cutPrice": 620.00,
-        "targetPrice": 680.00,
+        "cutPrice": 620,
+        "targetPrice": 680,
         "isLocked": false,
         "whaleReasonKR": "비용 절감 효과 지속",
         "whaleIndex": 78,
@@ -470,14 +480,14 @@
         ]
       },
       "entryBand": {
-        "low": 640.00,
-        "high": 645.00
+        "low": 640,
+        "high": 645
       },
       "evidence": {
         "price": {
-          "last": 653.10,
+          "last": 653.1,
           "changePct": 1.09,
-          "vwap": 650.00,
+          "vwap": 650,
           "vwapDistPct": 0.48,
           "rsi14": 65,
           "structureState": "TrendUp",
@@ -487,7 +497,7 @@
           "status": "OK",
           "coveragePct": 100,
           "gex": 6000000,
-          "pcr": 0.70,
+          "pcr": 0.7,
           "callWall": 700,
           "putFloor": 600,
           "maxPain": 650,
@@ -496,7 +506,7 @@
         "flow": {
           "vol": 15000000,
           "netFlow": 1200000,
-          "offExPct": 33.0,
+          "offExPct": 33,
           "netPremium": 3500000,
           "complete": true
         },
@@ -527,8 +537,8 @@
       "decisionSSOT": {
         "action": "HOLD",
         "confidencePct": 70,
-        "cutPrice": 235.00,
-        "targetPrice": 260.00,
+        "cutPrice": 235,
+        "targetPrice": 260,
         "isLocked": false,
         "whaleReasonKR": "물류 혁신 기대감",
         "whaleIndex": 76,
@@ -537,14 +547,14 @@
         ]
       },
       "entryBand": {
-        "low": 240.00,
-        "high": 244.00
+        "low": 240,
+        "high": 244
       },
       "evidence": {
         "price": {
-          "last": 247.50,
+          "last": 247.5,
           "changePct": 0.49,
-          "vwap": 246.00,
+          "vwap": 246,
           "vwapDistPct": 0.61,
           "rsi14": 52,
           "structureState": "SlowGrind",
@@ -594,8 +604,8 @@
       "decisionSSOT": {
         "action": "HOLD",
         "confidencePct": 65,
-        "cutPrice": 85.00,
-        "targetPrice": 95.00,
+        "cutPrice": 85,
+        "targetPrice": 95,
         "isLocked": false,
         "whaleReasonKR": "가입자 수 정체 우려",
         "whaleIndex": 45,
@@ -604,15 +614,15 @@
         ]
       },
       "entryBand": {
-        "low": 87.00,
-        "high": 88.50
+        "low": 87,
+        "high": 88.5
       },
       "evidence": {
         "price": {
           "last": 89.37,
           "changePct": -1.28,
-          "vwap": 90.00,
-          "vwapDistPct": -0.70,
+          "vwap": 90,
+          "vwapDistPct": -0.7,
           "rsi14": 42,
           "structureState": "Weakness",
           "complete": true
@@ -630,7 +640,7 @@
         "flow": {
           "vol": 5000000,
           "netFlow": -200000,
-          "offExPct": 28.0,
+          "offExPct": 28,
           "netPremium": -1500000,
           "complete": true
         },
@@ -661,8 +671,8 @@
       "decisionSSOT": {
         "action": "BUY",
         "confidencePct": 75,
-        "cutPrice": 165.00,
-        "targetPrice": 190.00,
+        "cutPrice": 165,
+        "targetPrice": 190,
         "isLocked": false,
         "whaleReasonKR": "정부 수주 증가 기대",
         "whaleIndex": 72,
@@ -671,14 +681,14 @@
         ]
       },
       "entryBand": {
-        "low": 170.00,
-        "high": 174.00
+        "low": 170,
+        "high": 174
       },
       "evidence": {
         "price": {
           "last": 177.47,
           "changePct": 0.35,
-          "vwap": 176.00,
+          "vwap": 176,
           "vwapDistPct": 0.84,
           "rsi14": 75,
           "structureState": "VolExpansion",
@@ -688,7 +698,7 @@
           "status": "OK",
           "coveragePct": 100,
           "gex": 1500000,
-          "pcr": 0.80,
+          "pcr": 0.8,
           "callWall": 190,
           "putFloor": 160,
           "maxPain": 175,
@@ -697,7 +707,7 @@
         "flow": {
           "vol": 40000000,
           "netFlow": 2500000,
-          "offExPct": 48.0,
+          "offExPct": 48,
           "netPremium": 3200000,
           "complete": true
         },
@@ -728,8 +738,8 @@
       "decisionSSOT": {
         "action": "WATCH",
         "confidencePct": 60,
-        "cutPrice": 225.00,
-        "targetPrice": 260.00,
+        "cutPrice": 225,
+        "targetPrice": 260,
         "isLocked": false,
         "whaleReasonKR": "비트코인 변동성 연동",
         "whaleIndex": 60,
@@ -738,14 +748,14 @@
         ]
       },
       "entryBand": {
-        "low": 232.00,
-        "high": 238.00
+        "low": 232,
+        "high": 238
       },
       "evidence": {
         "price": {
           "last": 241.08,
           "changePct": -1.84,
-          "vwap": 243.00,
+          "vwap": 243,
           "vwapDistPct": -0.79,
           "rsi14": 78,
           "structureState": "Correction",
@@ -755,7 +765,7 @@
           "status": "OK",
           "coveragePct": 100,
           "gex": 2000000,
-          "pcr": 1.20,
+          "pcr": 1.2,
           "callWall": 260,
           "putFloor": 220,
           "maxPain": 240,
@@ -764,7 +774,7 @@
         "flow": {
           "vol": 18000000,
           "netFlow": 1000000,
-          "offExPct": 44.0,
+          "offExPct": 44,
           "netPremium": 150000,
           "complete": true
         },
@@ -795,8 +805,8 @@
       "decisionSSOT": {
         "action": "WATCH",
         "confidencePct": 55,
-        "cutPrice": 140.00,
-        "targetPrice": 175.00,
+        "cutPrice": 140,
+        "targetPrice": 175,
         "isLocked": false,
         "whaleReasonKR": "레버리지 비트코인 플레이",
         "whaleIndex": 55,
@@ -805,15 +815,15 @@
         ]
       },
       "entryBand": {
-        "low": 150.00,
-        "high": 154.00
+        "low": 150,
+        "high": 154
       },
       "evidence": {
         "price": {
           "last": 157.76,
           "changePct": -5.52,
-          "vwap": 160.00,
-          "vwapDistPct": -1.40,
+          "vwap": 160,
+          "vwapDistPct": -1.4,
           "rsi14": 80,
           "structureState": "DeepPullback",
           "complete": true
@@ -822,7 +832,7 @@
           "status": "OK",
           "coveragePct": 100,
           "gex": 1800000,
-          "pcr": 1.50,
+          "pcr": 1.5,
           "callWall": 180,
           "putFloor": 140,
           "maxPain": 160,
@@ -831,7 +841,7 @@
         "flow": {
           "vol": 8000000,
           "netFlow": 500000,
-          "offExPct": 52.0,
+          "offExPct": 52,
           "netPremium": -800000,
           "complete": true
         },

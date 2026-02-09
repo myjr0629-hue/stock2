@@ -649,5 +649,59 @@
       }
     ],
     "calculated": false
+  },
+  {
+    "date": "2026-02-08",
+    "reportType": "draft",
+    "sessionType": "pre",
+    "timestamp": "2026-02-09T13:34:33.807Z",
+    "tickers": [
+      {
+        "symbol": "BIIB",
+        "rank": 1,
+        "baselinePrice": 201.18,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "PONY",
+        "rank": 2,
+        "baselinePrice": 14.31,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "EQIX",
+        "rank": 3,
+        "baselinePrice": 848.12,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
+  },
+  {
+    "date": "2026-02-09",
+    "reportType": "draft",
+    "sessionType": "regular",
+    "timestamp": "2026-02-09T14:55:07.084Z",
+    "tickers": [
+      {
+        "symbol": "PONY",
+        "rank": 1,
+        "baselinePrice": 14.98,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "SYM",
+        "rank": 2,
+        "baselinePrice": 62.8,
+        "alphaScore": 0
+      },
+      {
+        "symbol": "SBAC",
+        "rank": 3,
+        "baselinePrice": 178.53,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
   }
 ]

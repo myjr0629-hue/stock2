@@ -44,8 +44,15 @@ const KNOWN_ETF_SYMBOLS = new Set([
     // First Trust ETFs (V10.8.3)
     'FIEE', 'FIDU', 'FTEC', 'FXR', 'FXH', 'FXG', 'FXD', 'FXL', 'FXO', 'FXN', 'FXU', 'FXZ',
     'FTCS', 'FTSL', 'FTXN', 'FTXR', 'FTXD', 'FTXG', 'FTXH', 'FTXL', 'FTXO', 'FTXZ',
-    // --- 추가 (S-56.2) ---
-    'FCX_ETF_CHECK', // Placeholder - FCX는 주식임
+    // [V4.1] Single-Stock / Leveraged ETFs (T-REX, GraniteShares, Direxion, YieldMax)
+    'MSTU', 'MSTX', 'MSTZ', 'CONL', 'CONY', 'NVDL', 'NVDU', 'NVDX', 'NVDS',
+    'TSLL', 'TSLR', 'TSLS', 'AMDL', 'AMDY', 'PLTR', 'MSFL', 'MSFD',
+    'AAPU', 'AAPD', 'AMZU', 'AMZD', 'GOOU', 'GOOD', 'METV',
+    'BITX', 'BITU', 'BITC', 'BTFX', 'IBIT', 'BITO', 'GBTC',
+    'NRGD', 'NRGU', 'WEBL', 'WEBS', 'OILU', 'OILD', 'DPST', 'DRV',
+    'BULZ', 'BERZ', 'HIBS', 'HIBL', 'PILL', 'CHPU', 'CHPS',
+    // [V4.1] Covered Call / Buffer ETFs
+    'OARK', 'JEPI', 'JEPQ', 'XYLD', 'QYLD', 'RYLD', 'DIVO',
 ]);
 
 // ETF 이름 패턴 (ProShares, Direxion 등)

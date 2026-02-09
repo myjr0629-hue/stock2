@@ -132,6 +132,63 @@ export async function enrichTerminalItems(
 
 // === SINGLE TICKER ENRICHMENT WITH RETRY ===
 
+// [V4.1] Fetch REAL short volume % from Polygon (FINRA-reported data)
+// Same data source as /api/live/short-squeeze but called directly for engine use
+const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+async function fetchShortVolumePct(ticker: string): Promise<number | undefined> {
+    try {
+        const url = `https://api.polygon.io/stocks/v1/short-volume?ticker=${ticker}&limit=1&apiKey=${POLYGON_API_KEY}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        if (!res.ok) {
+            console.warn(`[ShortVol] ${ticker}: HTTP ${res.status}`);
+            return undefined;
+        }
+        const data = await res.json();
+        const result = data.results?.[0];
+        if (!result) {
+            console.warn(`[ShortVol] ${ticker}: No results in response`);
+            return undefined;
+        }
+        const shortVolume = result.short_volume || 0;
+        const totalVolume = result.total_volume || 1;
+        return Math.round((shortVolume / totalVolume) * 1000) / 10; // e.g. 42.3%
+    } catch (e: any) {
+        console.warn(`[ShortVol] ${ticker}: ${e?.message || 'error'}`);
+        return undefined;
+    }
+}
+
+// [V4.3] Fetch REAL dark pool % from Polygon (stock trades, not options)
+// Same logic as /api/flow/dark-pool-trades — FINRA TRF/ADF exchanges
+const DARK_POOL_EXCHANGES = new Set([4, 15, 16, 19]);
+const DARK_POOL_CONDITIONS = new Set([12, 41, 52]);
+async function fetchDarkPoolPct(ticker: string): Promise<number | undefined> {
+    try {
+        const url = `https://api.polygon.io/v3/trades/${ticker}?limit=5000&order=desc&apiKey=${POLYGON_API_KEY}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) return undefined;
+        const data = await res.json();
+        const trades = data.results || [];
+        if (trades.length === 0) return undefined;
+
+        let totalVolume = 0;
+        let darkPoolVolume = 0;
+        for (const trade of trades) {
+            const size = trade.size || 0;
+            totalVolume += size;
+            const isDarkExchange = DARK_POOL_EXCHANGES.has(trade.exchange);
+            const hasDarkCondition = (trade.conditions || []).some((c: number) => DARK_POOL_CONDITIONS.has(c));
+            if (isDarkExchange || hasDarkCondition) {
+                darkPoolVolume += size;
+            }
+        }
+        return totalVolume > 0 ? Math.round((darkPoolVolume / totalVolume) * 1000) / 10 : undefined;
+    } catch (e: any) {
+        console.warn(`[DarkPool] ${ticker}: ${e?.message || 'error'}`);
+        return undefined;
+    }
+}
+
 async function enrichSingleTickerWithRetry(
     ticker: string,
     session: 'pre' | 'regular' | 'post',
@@ -186,18 +243,45 @@ async function enrichSingleTickerWithRetry(
         optionsData = null; // Continue with null - don't fail
     }
 
-    // [V4.2] MOVED: Forensic analysis is now handled centrally in reportScheduler.ts
-    // This prevents N × ForensicService calls during terminal enrichment
-    forensicData = { whaleIndex: 0, whaleConfidence: 'NONE' };
+    // [V4.1] RE-ENABLED: ForensicService for darkPool/blockTrades/whaleIndex
+    // Previously disabled with hardcoded { whaleIndex: 0 } — this broke darkPool/blockTrades/shortVol
+    try {
+        const dateStr = targetDate || new Date().toISOString().split('T')[0];
+        forensicData = await Promise.race([
+            ForensicService.analyzeTarget(ticker, dateStr, hubData.price || 0),
+            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Forensic timeout')), 8000))
+        ]);
+        console.log(`[V4.1] ${ticker}: Forensic OK — whale=${forensicData.whaleIndex}, blocks=${forensicData.blockCount}`);
+    } catch (e: any) {
+        console.warn(`[V4.1] ${ticker}: Forensic skipped (${e?.message || 'timeout'})`);
+        forensicData = { whaleIndex: 0, whaleConfidence: 'NONE', blockCount: 0, details: {} };
+    }
+
+    // [V4.1] Step 3: Get SHORT VOLUME from Polygon (FINRA data)
+    // Real short selling percentage, not an approximation
+    let shortVolPct: number | undefined = undefined;
+    let darkPoolPct: number | undefined = undefined;
+    try {
+        // Fetch both in parallel — same Polygon API, different endpoints
+        const [svp, dpp] = await Promise.all([
+            fetchShortVolumePct(ticker),
+            fetchDarkPoolPct(ticker)
+        ]);
+        shortVolPct = svp;
+        darkPoolPct = dpp;
+        console.log(`[V4.3] ${ticker}: Short Vol=${shortVolPct ?? 'N/A'}% DarkPool=${darkPoolPct ?? 'N/A'}%`);
+    } catch (e) {
+        console.warn(`[V4.3] ${ticker}: Short/DarkPool fetch error (isolated)`);
+    }
 
     const whaleIndex = forensicData?.whaleIndex || 0;
     const whaleConfidence = forensicData?.whaleConfidence || 'NONE';
 
     // Build Evidence Layers - with null safety
     const price = buildPriceEvidence(hubData);
-    const flow = buildFlowEvidence(hubData, forensicData); // [V4.0] Pass forensic data for offExPct
+    const flow = buildFlowEvidence(hubData, forensicData, optionsData); // [V4.1] Pass optionsData for GEX-based whaleIndex
     const options = buildOptionsEvidence(optionsData);
-    const stealth = calculateStealthLabel(price, flow, options);
+    const stealth = calculateStealthLabel(price, flow, options, forensicData, shortVolPct, darkPoolPct);
     const policy = calculatePolicyEvidence(ticker, events, policies);
 
     const evidence: UnifiedEvidence = {
@@ -207,12 +291,23 @@ async function enrichSingleTickerWithRetry(
         macro,
         policy,
         stealth,
-        complete: false,
+        complete: false, // placeholder, updated below
         fetchedAtET: targetDate ? `${targetDate}T16:00:00.000Z` : new Date().toISOString()
     };
-    // ...
-    if (evidence.complete) {
-        // ...
+    // [V4.1] Dynamic completeness based on actual data layers
+    const layerStatus = [
+        price.last > 0,                                           // price layer
+        (flow.vol > 0 || flow.relVol > 1),                       // flow layer  
+        (options.status === 'OK' || options.status === 'READY'),  // options layer
+        ((macro as any)?.ndx?.price > 0 || (macro as any)?.vix?.value > 0),          // macro layer
+        (stealth.label !== undefined)                             // stealth layer
+    ];
+    const completeCount = layerStatus.filter(Boolean).length;
+    evidence.complete = completeCount >= 3; // 5개 중 3개 이상이면 complete
+    if (!evidence.complete) {
+        const layerNames = ['price', 'flow', 'options', 'macro', 'stealth'];
+        const missing = layerNames.filter((_, i) => !layerStatus[i]);
+        console.warn(`[V4.1] ${ticker}: ${completeCount}/5 layers, missing: ${missing.join(',')}`);
     }
 
     return {
@@ -233,11 +328,29 @@ function buildPriceEvidence(data: any): UnifiedPrice {
     const last = data.price || 0;
     const vwap = data.snapshot?.day?.vw || last;
 
-    // [V3 PIPELINE] Calculate return3D from history
+    // [V4.1 FIX] Calculate return3D from history correctly
+    // history3d is [most_recent, day_before, 3_days_ago] (reversed from asc)
+    // We need: (current_price - close_3_days_ago) / close_3_days_ago * 100
     const h3d = data.history3d || [];
     let return3D = 0;
-    if (h3d.length >= 3 && last > 0 && h3d[0]?.c > 0) {
-        return3D = ((last - h3d[0].c) / h3d[0].c) * 100;
+    if (h3d.length >= 3 && last > 0 && h3d[h3d.length - 1]?.c > 0) {
+        // h3d[last] = oldest = 3 days ago
+        return3D = ((last - h3d[h3d.length - 1].c) / h3d[h3d.length - 1].c) * 100;
+    } else if (h3d.length >= 2 && last > 0 && h3d[h3d.length - 1]?.c > 0) {
+        return3D = ((last - h3d[h3d.length - 1].c) / h3d[h3d.length - 1].c) * 100;
+    }
+
+    // [V4.1] Calculate SMA20 from history15d (full 30-day history)
+    const history15d = data.history15d || [];
+    let sma20: number | null = null;
+    if (history15d.length >= 20) {
+        const last20 = history15d.slice(-20);
+        const sum = last20.reduce((acc: number, bar: any) => acc + (bar.c || 0), 0);
+        sma20 = sum / 20;
+    } else if (history15d.length >= 10) {
+        // Partial SMA from available data
+        const sum = history15d.reduce((acc: number, bar: any) => acc + (bar.c || 0), 0);
+        sma20 = sum / history15d.length;
     }
 
     return {
@@ -254,23 +367,31 @@ function buildPriceEvidence(data: any): UnifiedPrice {
         vwapDistPct: vwap > 0 ? ((last - vwap) / vwap) * 100 : 0,
         rsi14: data.rsi || null, // [V3 FIX] null instead of 50 — let engine handle missing data honestly
         return3D,
+        sma20, // [V4.1] SMA20 from history
         structureState: 'CONSOLIDATION',
         history3d: h3d, // [Phase 36] Sparkline data from CentralDataHub
         complete: last > 0
     };
 }
 
-function buildFlowEvidence(data: any, forensicData?: any): UnifiedFlow {
+function buildFlowEvidence(data: any, forensicData?: any, optionsData?: any): UnifiedFlow {
     // data is UnifiedQuote from Hub
     // Map netPremium to largeTradesUsd and netFlow
     const netPrem = data.flow?.netPremium || 0;
 
     // [V4.0] Extract offExPct from ForensicService analysis
-    // ForensicService now calculates dark pool percentage using Condition Codes
-    // We use aggressorRatio as a proxy (dark pool ratio from cluster analysis)
     const offExPct = forensicData?.details?.aggressorRatio
         ? Math.round(forensicData.details.aggressorRatio * 100)
         : 0;
+
+    // [V4.1] Calculate whaleIndex from GEX — use optionsData.gex (the REAL source)
+    const gex = optionsData?.gex ?? data.flow?.gex ?? 0;
+    const absGex = Math.abs(gex);
+    let whaleIndex = 0;
+    if (absGex > 50_000_000) whaleIndex = Math.min(90, 60 + Math.floor(absGex / 100_000));
+    else if (absGex > 10_000_000) whaleIndex = Math.min(60, 30 + Math.floor(absGex / 500_000));
+    else if (absGex > 1_000_000) whaleIndex = Math.min(30, 10 + Math.floor(absGex / 200_000));
+    else if (absGex > 100_000) whaleIndex = Math.min(10, Math.floor(absGex / 50_000));
 
     return {
         vol: data.volume || 0,
@@ -281,6 +402,7 @@ function buildFlowEvidence(data: any, forensicData?: any): UnifiedFlow {
         offExDeltaPct: 0,
         netFlow: netPrem,
         netPremium: netPrem, // [FIX] Explicitly set netPremium for Intel page whaleNetM
+        whaleIndex, // [V4.1] Calculated from GEX
         complete: (data.flow?.optionsCount || 0) > 0
     };
 }
@@ -340,6 +462,28 @@ async function fetchOptionsChain(ticker: string, currentPrice?: number, force: b
                 optionsResult.putFloor = puts.length > 0 ? puts[0].strike : 0;
                 optionsResult.pinZone = (optionsResult.callWall + optionsResult.putFloor) / 2;
                 optionsResult.oiClusters = { callsTop: calls.slice(0, 5), putsTop: puts.slice(0, 5) };
+                // [V4.1] Build rawChain from rawContracts (preserves IV from Polygon greeks)
+                const rawContracts = (analytics as any).rawContracts || [];
+                if (rawContracts.length > 0) {
+                    // Use actual contracts with full greeks data (includes implied_volatility)
+                    (optionsResult as any).rawChain = rawContracts.map((c: any) => ({
+                        strike: c.strike_price,
+                        open_interest: c.open_interest || 0,
+                        contract_type: c.contract_type,
+                        // [V4.2] Polygon returns IV at top-level (c.implied_volatility) or nested (c.greeks.implied_volatility)
+                        implied_volatility: c.implied_volatility ?? c.greeks?.implied_volatility ?? undefined,
+                        delta: c.greeks?.delta ?? c.delta ?? undefined,
+                        gamma: c.greeks?.gamma ?? c.gamma ?? undefined,
+                    }));
+                } else {
+                    // Fallback: reconstruct from strikes/OI (no IV)
+                    const rawChain: any[] = [];
+                    analytics.strikes.forEach((strike: number, i: number) => {
+                        if (analytics.callsOI[i] > 0) rawChain.push({ strike, open_interest: analytics.callsOI[i], contract_type: 'call' });
+                        if (analytics.putsOI[i] > 0) rawChain.push({ strike, open_interest: analytics.putsOI[i], contract_type: 'put' });
+                    });
+                    (optionsResult as any).rawChain = rawChain;
+                }
             }
             await setOptionsToCache(ticker, optionsResult);
 
@@ -387,6 +531,10 @@ async function fetchMacroWithCache(): Promise<UnifiedMacro> {
         vix: { value: (macro?.vix || 0) as number },
         us10y: { yield: (macro?.us10y || 0) as number },
         dxy: { value: (macro?.dxy || 0) as number },
+        // [V4.1] TLT Safe Haven — was fetched by getMacroSnapshotSSOT but never passed through
+        tlt: { changePct: ((macro as any)?.tltChangePct || 0) as number },
+        // [V4.1] GLD Safe Haven — Gold ETF for risk-off detection
+        gld: { changePct: ((macro as any)?.gldChangePct || 0) as number },
         fetchedAtET: new Date().toISOString(),
         ageSeconds: 0,
         complete: ((macro?.nq || 0) as number) > 0
@@ -446,6 +594,68 @@ function buildOptionsEvidence(data: CachedOptionsChain | null): UnifiedOptions {
             complete: false
         };
     }
+    // [V4.1] Calculate squeezeScore from GEX vs MaxPain distance
+    let squeezeScore: number | null = null;
+    if (data.gex !== undefined && data.maxPain > 0 && data.callWall > 0) {
+        // High negative GEX + price near maxPain = squeeze potential
+        const gexNorm = Math.min(5, Math.max(0, -data.gex / 1_000_000)); // negative GEX = squeeze
+        squeezeScore = Math.round(gexNorm * 20); // 0-100 scale
+    }
+
+    // [V4.1] Calculate impliedMovePct from ATM options (callWall/putFloor spread)
+    let impliedMovePct: number | null = null;
+    if (data.callWall > 0 && data.putFloor > 0) {
+        const midPrice = (data.callWall + data.putFloor) / 2;
+        if (midPrice > 0) {
+            impliedMovePct = ((data.callWall - data.putFloor) / midPrice) * 100;
+        }
+    }
+
+    // [V4.1] Calculate ATM Implied Volatility from rawChain greeks
+    let atmIv: number | null = null;
+    const rawChain = (data as any).rawChain || [];
+    if (rawChain.length > 0 && data.maxPain > 0) {
+        const atmPrice = data.maxPain; // Use maxPain as ATM reference
+        const tolerance = atmPrice * 0.05; // ±5% of ATM
+        const nearAtm = rawChain.filter((c: any) =>
+            c.implied_volatility != null &&
+            c.implied_volatility > 0 &&
+            Math.abs(c.strike - atmPrice) <= tolerance
+        );
+        if (nearAtm.length > 0) {
+            const avgIv = nearAtm.reduce((sum: number, c: any) => sum + c.implied_volatility, 0) / nearAtm.length;
+            atmIv = Math.round(avgIv * 1000) / 10; // e.g. 0.45 → 45.0%
+        }
+    }
+
+    // [V4.2] Calculate IV Skew from rawChain (Put ATM IV / Call ATM IV)
+    // Uses enricher's flat field format: c.strike, c.contract_type, c.implied_volatility
+    let ivSkew: number | null = null;
+    if (rawChain.length > 0) {
+        const refPrice = data.maxPain > 0 ? data.maxPain : (data.callWall + data.putFloor) / 2;
+        if (refPrice > 0) {
+            const tolerance = refPrice * 0.05;
+            const callIVs: number[] = [];
+            const putIVs: number[] = [];
+            for (const c of rawChain) {
+                const strike = c.strike;
+                const iv = c.implied_volatility;
+                const type = c.contract_type;
+                if (!strike || !iv || iv <= 0) continue;
+                if (Math.abs(strike - refPrice) > tolerance) continue;
+                if (type === 'call') callIVs.push(iv);
+                else if (type === 'put') putIVs.push(iv);
+            }
+            if (callIVs.length > 0 && putIVs.length > 0) {
+                const avgCallIV = callIVs.reduce((a, b) => a + b, 0) / callIVs.length;
+                const avgPutIV = putIVs.reduce((a, b) => a + b, 0) / putIVs.length;
+                if (avgCallIV > 0) {
+                    ivSkew = Math.round((avgPutIV / avgCallIV) * 100) / 100;
+                }
+            }
+        }
+    }
+
     return {
         status: data.status,
         coveragePct: data.coveragePct,
@@ -459,6 +669,11 @@ function buildOptionsEvidence(data: CachedOptionsChain | null): UnifiedOptions {
         pinZone: data.pinZone,
         maxPain: data.maxPain,
         oiClusters: data.oiClusters,
+        rawChain, // [V4.1] Full rawChain with IV data
+        squeezeScore, // [V4.1]
+        impliedMovePct, // [V4.1]
+        atmIv, // [V4.1] ATM implied volatility from Polygon greeks
+        ivSkew, // [V4.2] IV Skew for DC completeness
         complete: ['OK', 'READY', 'NO_OPTIONS'].includes(data.status)
     };
 }
@@ -480,13 +695,16 @@ function calculatePolicyEvidence(ticker: string, events: any[], policies: any[])
     };
 }
 
-function calculateStealthLabel(price: UnifiedPrice, flow: UnifiedFlow, options: UnifiedOptions): UnifiedStealth {
+function calculateStealthLabel(price: UnifiedPrice, flow: UnifiedFlow, options: UnifiedOptions, forensicData?: any, shortVolPct?: number, realDarkPoolPct?: number): UnifiedStealth {
     // [V4.0] ENHANCED STEALTH TAG LOGIC
     // Comprehensive condition-based tag assignment for maximum signal detection
     const tags: string[] = [];
 
+    // [V4.3] Use REAL dark pool % from Polygon stock trades (same as /api/flow/dark-pool-trades)
+    const darkPoolPct = realDarkPoolPct ?? forensicData?.details?.offExchangePct ?? (flow.offExPct > 0 ? flow.offExPct : undefined);
+    const blockTrades = forensicData?.details?.blockCount ?? undefined;
+
     // 1. GAMMA SQUEEZE DETECTION
-    // GEX > $10M + Price near call wall = gamma squeeze potential
     if (options.gex > 10000000 && options.callWall > 0) {
         const priceToWallRatio = (price.last || 0) / options.callWall;
         if (priceToWallRatio >= 0.95) {
@@ -494,35 +712,29 @@ function calculateStealthLabel(price: UnifiedPrice, flow: UnifiedFlow, options: 
         }
     }
 
-    // 2. WHALE ACCUMULATION
-    // High off-exchange activity + positive net flow
-    if ((flow.offExPct || 0) > 40 && (flow.netFlow || 0) > 5000000) {
+    // 2. WHALE ACCUMULATION — using real dark pool %
+    if ((darkPoolPct || 0) > 40 && (flow.netFlow || 0) > 5000000) {
         tags.push('WhaleAccumulation');
     }
 
     // 3. MASSIVE BLOCK PRINT
-    // Very large trades detected
     if ((flow.largeTradesUsd || 0) > 10000000) {
         tags.push('MassiveBlockPrint');
     } else if ((flow.largeTradesUsd || 0) > 5000000) {
         tags.push('blockPrint');
     }
 
-    // 4. OFF-EXCHANGE SURGE
-    // Unusual dark pool activity
-    if ((flow.offExPct || 0) > 50) {
+    // 4. OFF-EXCHANGE SURGE — using real dark pool %
+    if ((darkPoolPct || 0) > 50) {
         tags.push('offExSurge');
     }
 
     // 5. POSITIVE GAMMA REGIME
-    // Long gamma positioning provides support
     if (options.gammaRegime === 'Long Gamma') {
         tags.push('supportiveGamma');
     }
 
     // 6. AI MOMENTUM (Sector-specific)
-    // Note: We need ticker for this, but it's not passed. Consider enhancing later.
-    // For now, check if it looks like high-growth tech (high RSI + strong flow)
     if ((price.rsi14 || 50) > 70 && (flow.relVol || 1) > 1.5) {
         tags.push('highMomentum');
     }
@@ -545,11 +757,11 @@ function calculateStealthLabel(price: UnifiedPrice, flow: UnifiedFlow, options: 
         label = 'B';
     }
 
-    // Impact assessment (uses type-compatible values)
+    // Impact assessment
     let impact: 'NEUTRAL' | 'BOOST' | 'WARN' = 'NEUTRAL';
     if (tags.includes('GammaSqueeze') || tags.includes('WhaleAccumulation') || tags.includes('bullishDivergence')) {
         impact = 'BOOST';
     }
 
-    return { label, tags, impact, complete: true };
+    return { label, tags, impact, darkPoolPct, blockTrades, shortVolPct, complete: true };
 }

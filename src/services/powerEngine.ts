@@ -337,22 +337,101 @@ export function computeQualityTier(
     if (!scoreResult.layerScores.macro) missingLayers.push('매크로');
     if (!scoreResult.layerScores.stealth) missingLayers.push('스텔스');
 
+    // ================================================================
+    // [V3.1] Run Alpha Engine V3 for ALL items (before completeness check)
+    // V3 handles partial data gracefully via dataCompleteness
+    // ================================================================
+    const optionsComplete = evidence?.options?.complete && evidence.options.status !== 'PENDING';
+    const wasInPrevReport = prevReportSymbols.has(symbol);
+    let alphaV3: AlphaResult | null = null;
+    try {
+        const price = evidence?.price?.last || evidence?.price?.lastPrice || evidence?.price?.price || 0;
+        const prevCloseV3 = evidence?.price?.prevClose || 0;
+        const changePctV3 = evidence?.price?.changePct || (prevCloseV3 > 0 ? ((price - prevCloseV3) / prevCloseV3) * 100 : 0);
+        const v3Session: AlphaSession = 'REG'; // [V4.2] Report data IS previous day's full REG session. Pre-market macro reflected via macro layer.
+        const gex = evidence?.options?.gex ?? evidence?.flow?.gammaExposure ?? null;
+        const relVol = evidence?.flow?.relVol ?? evidence?.price?.relativeVolume ?? null;
+        const netFlow = evidence?.flow?.netFlow ?? evidence?.flow?.largeTradesUsd ?? null;
+        const darkPoolPct = evidence?.stealth?.darkPoolPct ?? ((evidence?.flow?.offExPct ?? 0) > 0 ? evidence.flow.offExPct : null);
+        const shortVolPct = evidence?.stealth?.shortVolPct ?? null;
+        const whaleIdx = evidence?.flow?.whaleIndex ?? (gex !== null ? calculateWhaleIndex(gex) : null);
+        const rsi14Raw = evidence?.price?.rsi14;
+        const rsi14 = (rsi14Raw && rsi14Raw !== 50 && rsi14Raw !== 0) ? rsi14Raw : null;
+        const ndxChangePct = evidence?.macro?.ndx?.changePct ?? null;
+        const vixValue = evidence?.macro?.vix?.value ?? null;
+
+        alphaV3 = calculateAlphaScore({
+            ticker: symbol,
+            session: v3Session,
+            price,
+            prevClose: prevCloseV3,
+            changePct: changePctV3,
+            vwap: evidence?.price?.vwap ?? null,
+            return3D: evidence?.price?.return3D ?? null,
+            rsi14,
+            sma20: evidence?.price?.sma20 ?? null,
+            pcr: evidence?.options?.pcr ?? evidence?.options?.putCallRatio ?? null,
+            gex,
+            callWall: evidence?.options?.callWall ?? null,
+            putFloor: evidence?.options?.putFloor ?? null,
+            gammaFlipLevel: evidence?.options?.gammaFlipLevel ?? null,
+            rawChain: evidence?.options?.rawChain ?? [],
+            squeezeScore: evidence?.options?.squeezeScore ?? null,
+            atmIv: evidence?.options?.atmIv ?? null,
+            ivSkew: evidence?.options?.ivSkew ?? computeIVSkew(evidence?.options?.rawChain ?? [], price),
+            darkPoolPct,
+            shortVolPct,
+            whaleIndex: whaleIdx,
+            relVol,
+            blockTrades: evidence?.stealth?.blockTrades ?? evidence?.flow?.blockTrades ?? null,
+            netFlow,
+            ndxChangePct,
+            vixValue,
+            tltChangePct: evidence?.macro?.tlt?.changePct ?? null,
+            impliedMovePct: evidence?.options?.impliedMovePct ?? null,
+            sentiment: sentiment ?? null,
+            wasInPrevReport,
+            optionsDataAvailable: !!optionsComplete,
+        });
+    } catch (e: any) {
+        console.error(`[PowerEngine] V3 alpha failed for ${symbol}:`, e?.message || e);
+    }
+
+    // Build alphaV3 payload for return
+    const alphaV3Payload = alphaV3 ? {
+        score: alphaV3.score,
+        grade: alphaV3.grade,
+        action: alphaV3.action,
+        actionKR: alphaV3.actionKR,
+        whyKR: alphaV3.whyKR,
+        whyFactors: alphaV3.whyFactors,
+        triggerCodes: alphaV3.triggerCodes,
+        pillars: alphaV3.pillars,
+        gatesApplied: alphaV3.gatesApplied,
+        dataCompleteness: alphaV3.dataCompleteness,
+        dataCompletenessLabel: alphaV3.dataCompletenessLabel,
+    } : undefined;
+
     // [P0] Determine tier based on completeness and score
     if (!isComplete) {
         // Partial data - still give a score but mark as PARTIAL tier
+        // If V3 succeeded, use V3 score as powerScore
         const missingStr = missingLayers.length > 0 ? missingLayers.slice(0, 2).join('/') : '';
+        const v3Score = alphaV3?.score ?? alphaScore;
         return {
             tier: scoreResult.calculatedLayers >= 3 ? 'WATCH' : 'FILLER',
-            reasonKR: `부분 데이터 (${scoreResult.calculatedLayers}/5${missingStr ? ', 누락: ' + missingStr : ''})`,
-            powerScore: Math.round(alphaScore * 10) / 10, // [P0] Never zero!
-            isBackfilled: true
+            reasonKR: alphaV3?.whyKR || `부분 데이터 (${scoreResult.calculatedLayers}/5${missingStr ? ', 누락: ' + missingStr : ''})`,
+            triggersKR: alphaV3?.triggerCodes || [],
+            powerScore: Math.round(v3Score * 10) / 10,
+            isBackfilled: true,
+            alphaV3: alphaV3Payload,
         };
     }
 
     // 3. Apply Bonuses/Penalties (only for complete items)
     const holdAction = item.decisionSSOT?.action || 'NONE';
     let reportDiffReason = item.classification?.reportDiffReason || item.reportDiffReason || 'NONE';
-    const wasInPrevReport = prevReportSymbols.has(symbol);
+    // wasInPrevReport already declared above (V3 block)
 
     // [V3.7.4] Stability Patch: Auto-detect Continuation from History
     if (reportDiffReason === 'NONE' && wasInPrevReport && history?.tMinus1?.score && history.tMinus1.score >= QUALITY_TIER_CONFIG.ACTIONABLE_MIN_SCORE) {
@@ -405,8 +484,7 @@ export function computeQualityTier(
     let reasonKR: string;
     let triggersKR: string[] = []; // [V3.7.3] Codes
 
-    // Options incomplete = cannot be ACTIONABLE (Top3 Gate)
-    const optionsComplete = evidence?.options?.complete && evidence.options.status !== 'PENDING';
+    // optionsComplete already declared above (V3 block)
 
     // [Step 1] State Machine & Event Gate Variables (Lifted Scope)
     const currentAction = item.decisionSSOT?.action || 'NONE';
@@ -659,77 +737,9 @@ export function computeQualityTier(
     }
 
     // ================================================================
-    // [V3.0] ALPHA ENGINE V3 — PROMOTED TO PRIMARY
-    // V3 score is now THE score for tier decisions.
-    // Legacy scoring above is kept for backward compatibility but V3 overrides.
+    // [V3.0] ALPHA ENGINE V3 — Already computed above (before isComplete check)
+    // alphaV3 and alphaV3Payload are available from early computation
     // ================================================================
-    let alphaV3: AlphaResult | null = null;
-    try {
-        const price = evidence?.price?.last || evidence?.price?.lastPrice || evidence?.price?.price || 0;
-        const prevClose = evidence?.price?.prevClose || 0;
-        const changePct = evidence?.price?.changePct || (prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0);
-        const v3Session: AlphaSession = 'CLOSED'; // Reports run on closed data
-
-        // [V3 PIPELINE] Extract all available data from evidence layers
-        const gex = evidence?.options?.gex ?? evidence?.flow?.gammaExposure ?? null;
-        const relVol = evidence?.flow?.relVol ?? evidence?.price?.relativeVolume ?? null;
-        const netFlow = evidence?.flow?.netFlow ?? evidence?.flow?.largeTradesUsd ?? null;
-        const darkPoolPct = evidence?.stealth?.darkPoolPct ?? ((evidence?.flow?.offExPct ?? 0) > 0 ? evidence.flow.offExPct : null);
-        const shortVolPct = evidence?.stealth?.shortVolPct ?? null;
-
-        // Whale index: use evidence or compute from GEX
-        const whaleIdx = evidence?.flow?.whaleIndex
-            ?? (gex !== null ? calculateWhaleIndex(gex) : null);
-
-        // RSI from evidence (real value, not hardcoded 50)
-        const rsi14Raw = evidence?.price?.rsi14;
-        const rsi14 = (rsi14Raw && rsi14Raw !== 50 && rsi14Raw !== 0) ? rsi14Raw : null;
-
-        // Macro data from evidence
-        const ndxChangePct = evidence?.macro?.ndx?.changePct ?? null;
-        const vixValue = evidence?.macro?.vix?.value ?? null;
-
-        alphaV3 = calculateAlphaScore({
-            ticker: symbol,
-            session: v3Session,
-            price,
-            prevClose,
-            changePct,
-            vwap: evidence?.price?.vwap ?? null,
-            return3D: evidence?.price?.return3D ?? null,
-            rsi14,
-            sma20: evidence?.price?.sma20 ?? null,  // [V3 PIPELINE] SMA20
-            // Structure
-            pcr: evidence?.options?.pcr ?? evidence?.options?.putCallRatio ?? null,
-            gex,
-            callWall: evidence?.options?.callWall ?? null,
-            putFloor: evidence?.options?.putFloor ?? null,
-            gammaFlipLevel: evidence?.options?.gammaFlipLevel ?? null,
-            rawChain: evidence?.options?.rawChain ?? [],
-            squeezeScore: evidence?.options?.squeezeScore ?? null,
-            atmIv: evidence?.options?.atmIv ?? null,
-            ivSkew: computeIVSkew(evidence?.options?.rawChain ?? [], price),  // [V3 PIPELINE] IV Skew
-            // Flow
-            darkPoolPct,
-            shortVolPct,
-            whaleIndex: whaleIdx,
-            relVol,
-            blockTrades: evidence?.stealth?.blockTrades ?? evidence?.flow?.blockTrades ?? null,  // [V3 PIPELINE]
-            netFlow,
-            // Regime
-            ndxChangePct,
-            vixValue,
-            tltChangePct: evidence?.macro?.tlt?.changePct ?? null,  // [V3 PIPELINE] TLT Safe Haven
-            // Catalyst
-            impliedMovePct: evidence?.options?.impliedMovePct ?? null,
-            sentiment: sentiment ?? null,
-            // Context
-            wasInPrevReport,
-            optionsDataAvailable: optionsComplete,
-        });
-    } catch (e) {
-        console.error(`[PowerEngine] V3 alpha failed for ${symbol}:`, e);
-    }
 
     // ================================================================
     // [V3 PROMOTED] Use V3 results as PRIMARY if available
@@ -803,19 +813,7 @@ export function computeQualityTier(
             triggersKR: alphaV3.triggerCodes,
             powerScore: v3Score,
             isBackfilled,
-            alphaV3: {
-                score: alphaV3.score,
-                grade: alphaV3.grade,
-                action: alphaV3.action,
-                actionKR: alphaV3.actionKR,
-                whyKR: alphaV3.whyKR,
-                whyFactors: alphaV3.whyFactors,
-                triggerCodes: alphaV3.triggerCodes,
-                pillars: alphaV3.pillars,
-                gatesApplied: alphaV3.gatesApplied,
-                dataCompleteness: alphaV3.dataCompleteness,
-                dataCompletenessLabel: alphaV3.dataCompletenessLabel,
-            },
+            alphaV3: alphaV3Payload,
         };
     }
 

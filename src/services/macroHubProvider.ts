@@ -38,6 +38,7 @@ export interface MacroSnapshot {
     dxy?: number;
     // [V3 PIPELINE] Safe Haven ETF Changes
     tltChangePct?: number | null;   // TLT (20Y Bond) — rising = risk-off
+    gldChangePct?: number | null;   // [V4.1] GLD (Gold) — rising = risk-off / safe haven
     // [V45.0] Advanced Macro Indicators
     yieldCurve?: {
         us2y: number;      // 2-Year Yield
@@ -59,7 +60,8 @@ let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = {
 const SYMBOLS = {
     NDX_PROXY: "QQQ", // Massive uses QQQ for Trend Logic
     DXY_PROXY: "UUP",  // UUP (Bullish Dollar ETF) as proxy for DXY
-    TLT: "TLT"          // [V3 PIPELINE] 20+ Year Treasury Bond ETF
+    TLT: "TLT",         // [V3 PIPELINE] 20+ Year Treasury Bond ETF
+    GLD: "GLD"           // [V4.1] Gold ETF for safe-haven flow detection
 };
 
 // Synthetic Multipliers
@@ -323,9 +325,10 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
 
     // DXY Proxy: UUP (Bullish Dollar ETF) -> Calibrated to ~98.23 (x3.6315)
     // [V3 PIPELINE] Also fetch TLT for Safe Haven flow detection
-    const [dxy, tltFactor] = await Promise.all([
+    const [dxy, tltFactor, gldFactor] = await Promise.all([
         fetchIndexSnapshot(SYMBOLS.DXY_PROXY, "DOLLAR (DXY)", MULTIPLIERS.DXY, marketStatus),
-        fetchIndexSnapshot(SYMBOLS.TLT, "TLT (20Y Bond)", 1, marketStatus)
+        fetchIndexSnapshot(SYMBOLS.TLT, "TLT (20Y Bond)", 1, marketStatus),
+        fetchIndexSnapshot(SYMBOLS.GLD, "GLD (Gold)", 1, marketStatus)
     ]);
 
     // Regime Logic: QQQ Price > SMA20
@@ -372,8 +375,9 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         // [V7.0] Advanced Macro Indicators (live US10Y)
         yieldCurve: liveYieldCurve ?? undefined,
         realYield: realYield ?? undefined,
-        // [V3 PIPELINE] Safe Haven ETF
+        // [V3 PIPELINE] Safe Haven ETFs
         tltChangePct: tltFactor.chgPct ?? null,
+        gldChangePct: gldFactor.chgPct ?? null,
     };
 
     cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };

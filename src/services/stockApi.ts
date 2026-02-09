@@ -316,6 +316,7 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
           contract_type: (c.details?.contract_type || c.contract_type || c.details?.type || "call").toLowerCase(),
           open_interest: Number.isFinite(oi) ? oi : 0,
           greeks: c.greeks || { gamma: 0 },
+          implied_volatility: c.implied_volatility ?? null, // [V4.2] Preserve IV from Polygon for ivSkew/atmIv
           expiry: c.details?.expiration_date || c.expiration_date // Keep track of specific expiry
         };
       });
@@ -342,7 +343,8 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
             strike_price: c.details?.strike_price || c.strike_price || 0,
             contract_type: (c.details?.contract_type || c.contract_type || c.details?.type || "call").toLowerCase(),
             open_interest: Number.isFinite(oi) ? oi : 0,
-            greeks: c.greeks || { gamma: 0 }
+            greeks: c.greeks || { gamma: 0 },
+            implied_volatility: c.implied_volatility ?? null, // [V4.2] Preserve IV
           };
         });
       return { contracts, expiry: targetExpiry, spot: spot || 0 };
@@ -600,7 +602,8 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
     },
     options_status: analytics.options_status,
     options_grade: analytics.options_grade,
-    options_reason: analytics.options_reason
+    options_reason: analytics.options_reason,
+    rawContracts: chainData.contracts // [V4.1] Pass raw contracts for IV/rawChain consumption
   } as any;
 }
 

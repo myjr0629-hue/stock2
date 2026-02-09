@@ -447,11 +447,11 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             }
         }
 
-        // [Universal Analysis] Reverted Injection.
-        // We do NOT inject into candidateTickers to preserve "Final Battle" organic selection.
-        console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items (Full Scan + Discovery)`);
+        // [V4.2] M7/PhysicalAI를 메인 풀에 포함 — 전체 시장에서 공정 경쟁
+        candidateTickers = [...new Set([...candidateTickers, ...M7_TICKERS, ...PHYSICAL_AI_TICKERS])];
+        console.log(`[ReportScheduler] Universe: ${candidateTickers.length} items (Full Scan + Discovery + M7 + PhysicalAI)`);
 
-        // 1. Main Universe Enrichment
+        // 1. Main Universe Enrichment (모든 종목 한 번에)
         const rawItems = await enrichTerminalItems(candidateTickers, sessionParam, force);
 
         // [V3.7.2] Assign Tactical Roles
@@ -463,46 +463,39 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             }
         });
 
-        // [INTEGRITY GATE] Drop items with invalid price ($0.00)
+        // [V4.2 HARD FILTER] 3단계 품질 게이트 — 통과 못하면 제거
+        const preFilterCount = rawItems.length;
         enrichedItems = rawItems.filter(item => {
             const price = item.evidence?.price?.last || 0;
+            const callWall = item.evidence?.options?.callWall || 0;
+            const putFloor = item.evidence?.options?.putFloor || 0;
+            const hasOptions = callWall > 0 || putFloor > 0;
+
+            // Gate 1: Invalid price ($0)
             if (price <= 0) {
-                console.warn(`[Integrity] Dropping ${item.ticker}: Invalid Price ($${price.toFixed(2)})`);
+                console.warn(`[HardFilter] REMOVING ${item.ticker}: Invalid Price ($${price.toFixed(2)})`);
+                return false;
+            }
+            // Gate 2: Penny stock ($5 미만)
+            if (price < 5) {
+                console.warn(`[HardFilter] REMOVING ${item.ticker}: Penny Stock ($${price.toFixed(2)})`);
+                return false;
+            }
+            // Gate 3: No options data — 엔진 분석 불가
+            if (!hasOptions) {
+                console.warn(`[HardFilter] REMOVING ${item.ticker}: No options (callWall=${callWall}, putFloor=${putFloor})`);
                 return false;
             }
             return true;
         });
-        console.log(`[Integrity] Qualified Items: ${enrichedItems.length}/${rawItems.length}`);
-
-        // [V10.8.3 OPTIONS GATE] Drop items without options data from main ranking
-        // Stocks without callWall/putFloor cannot be properly analyzed by Alpha Engine
-        const optionsQualified = enrichedItems.filter(item => {
-            const callWall = item.evidence?.options?.callWall || 0;
-            const putFloor = item.evidence?.options?.putFloor || 0;
-            const hasOptions = callWall > 0 || putFloor > 0;
-            if (!hasOptions) {
-                console.warn(`[OptionsGate] Demoting ${item.ticker}: No options data (callWall=${callWall}, putFloor=${putFloor})`);
-                // Don't filter out, but mark as incomplete for lower ranking
-                item.optionsIncomplete = true;
-            }
-            return true; // Keep all for now, but mark incomplete ones
-        });
-
-        // Sort to deprioritize items without options (they go to the end)
-        enrichedItems = optionsQualified.sort((a, b) => {
-            if (a.optionsIncomplete && !b.optionsIncomplete) return 1;
-            if (!a.optionsIncomplete && b.optionsIncomplete) return -1;
-            return 0;
-        });
+        console.log(`[HardFilter] Qualified: ${enrichedItems.length}/${preFilterCount} (removed ${preFilterCount - enrichedItems.length})`);
     }
 
 
-    // [Universal Analysis] Sector-Specific Enrichment (Parallel Processing)
-    // This runs for ALL stages to ensure M7/PhysicalAI data is always fresh and available
-    // without polluting the Ranking Algorithm of the main list.
-    console.log(`[ReportScheduler] Analyzing Segregated Sectors (M7 & Physical AI)...`);
-    const m7Items = await enrichTerminalItems(M7_TICKERS, sessionParam, force);
-    const physicalAiItems = await enrichTerminalItems(PHYSICAL_AI_TICKERS, sessionParam, force);
+    // [V4.2] M7/PhysicalAI: 메인 풀에서 이미 enrichment 완료 → 추출만
+    // 별도 모니터링 섹션에 항상 표시 (M7/PhysicalAI는 대형주로 하드필터 통과)
+    const m7Items = enrichedItems.filter((i: any) => M7_TICKERS.includes(i.ticker));
+    const physicalAiItems = enrichedItems.filter((i: any) => PHYSICAL_AI_TICKERS.includes(i.ticker));
 
     return generateReportFromItems(type, enrichedItems, force, marketDate, macro, events, policy, news, guardian, m7Items, physicalAiItems);
 }
