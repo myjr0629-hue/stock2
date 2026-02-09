@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslations } from 'next-intl';
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio } from "lucide-react";
@@ -138,6 +138,9 @@ export default function GuardianPage() {
     // Map global data to local type if necessary, or just cast
     const data = globalData as GuardianContext | null;
     const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
+    // [30s POLLING] Live constituent prices, independent from 5-min Guardian cache
+    const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; volume: number }>>({});
+    const priceIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // useEffect removed to prevent double-fetch (Provider handles it)
 
@@ -147,6 +150,43 @@ export default function GuardianPage() {
             setSelectedSectorId(data.verdictTargetId);
         }
     }, [data?.verdictTargetId, selectedSectorId]);
+
+    // [30s POLLING] Fetch constituent prices every 30 seconds
+    const selectedSector = data?.sectors.find(s => s.id === selectedSectorId);
+    const constituentSymbols = selectedSector?.topConstituents?.map(c => c.symbol) || [];
+
+    const fetchLivePrices = useCallback(async (symbols: string[]) => {
+        if (symbols.length === 0) return;
+        try {
+            const res = await fetch(`/api/live/prices?t=${symbols.join(',')}`);
+            if (!res.ok) return;
+            const json = await res.json();
+            const map: Record<string, { price: number; change: number; volume: number }> = {};
+            (json.prices || []).forEach((p: any) => {
+                map[p.symbol] = { price: p.price, change: p.change, volume: p.volume };
+            });
+            setLivePrices(map);
+        } catch { /* silent */ }
+    }, []);
+
+    useEffect(() => {
+        // Clear previous interval when sector changes
+        if (priceIntervalRef.current) {
+            clearInterval(priceIntervalRef.current);
+            priceIntervalRef.current = null;
+        }
+        if (constituentSymbols.length === 0) return;
+
+        // Initial fetch
+        fetchLivePrices(constituentSymbols);
+
+        // Poll every 30 seconds
+        priceIntervalRef.current = setInterval(() => fetchLivePrices(constituentSymbols), 30_000);
+
+        return () => {
+            if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
+        };
+    }, [selectedSectorId, constituentSymbols.join(','), fetchLivePrices]);
 
     const verdict = React.useMemo(() => {
         if (!data || !data.verdict) return {
@@ -170,11 +210,11 @@ export default function GuardianPage() {
         };
     }, [data]);
 
-    // Find selected sector data
-    const selectedSector = data?.sectors.find(s => s.id === selectedSectorId);
-
-    // Determine Movers (Use dynamic data or empty)
-    const topMovers = selectedSector?.topConstituents || [];
+    // Determine Movers: merge live prices over Guardian snapshot data
+    const topMovers = (selectedSector?.topConstituents || []).map(stock => {
+        const live = livePrices[stock.symbol];
+        return live ? { ...stock, price: live.price, change: live.change, volume: live.volume } : stock;
+    });
 
     // [V3.0] Regime Logic
     const isTargetLocked = data?.tripleA?.isTargetLock || false;
