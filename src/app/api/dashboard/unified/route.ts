@@ -153,6 +153,7 @@ function buildResponseFromResults(
                 shortVolPct: data.shortVolPct ?? null,
                 zeroDtePct: data.zeroDtePct ?? null,
                 impliedMovePct: data.impliedMovePct ?? null,
+                impliedMoveDir: data.impliedMoveDir ?? null,
                 gammaConcentration: data.gammaConcentration ?? null,
                 levels: data.levels,
                 expiration: data.expiration,
@@ -409,6 +410,7 @@ export async function GET(request: NextRequest) {
                     shortVolPct: data.shortVolPct ?? null,
                     zeroDtePct: data.zeroDtePct ?? null,
                     impliedMovePct: data.impliedMovePct ?? null,
+                    impliedMoveDir: data.impliedMoveDir ?? null,
                     gammaConcentration: data.gammaConcentration ?? null,
                     levels: data.levels,
                     expiration: data.expiration,
@@ -760,6 +762,7 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
                 const putMid = nearestPut?.last_trade?.price || nearestPut?.day?.close || 0;
                 if (callMid > 0 && putMid > 0 && price > 0) {
                     structureData.impliedMovePct = parseFloat(((callMid + putMid) / price * 100).toFixed(1));
+                    structureData.impliedMoveDir = callMid > putMid ? 'bullish' : callMid < putMid ? 'bearish' : 'neutral';
                 }
             }
         } catch (e) {

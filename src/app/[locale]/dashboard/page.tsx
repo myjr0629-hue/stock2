@@ -704,6 +704,7 @@ function MainChartPanel() {
                     {/* Implied Move (NEW) */}
                     {(() => {
                         const im = data?.impliedMovePct ?? 0;
+                        const dir = data?.impliedMoveDir ?? 'neutral';
                         const isAlert = im >= 3;
                         return (
                             <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
@@ -724,6 +725,9 @@ function MainChartPanel() {
                                         <span className="text-xs text-slate-400">안정</span>
                                     )}
                                 </div>
+                                <span className="text-[9px] text-slate-400 block mt-0.5">
+                                    {dir === 'bullish' ? '↗ 콜 프리미엄 우위 → 상승 기대' : dir === 'bearish' ? '↘ 풋 프리미엄 우위 → 하락 기대' : '⟷ 균형'}
+                                </span>
                             </div>
                         );
                     })()}
