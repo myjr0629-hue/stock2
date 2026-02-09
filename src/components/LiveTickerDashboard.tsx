@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -280,6 +280,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         changePercent: initialStockData.changePercent
     } : null);
     const [options, setOptions] = useState<any>(null);
+    // [FIX] Client-side chart data to override stale SSR data on navigation back
+    const [liveChartData, setLiveChartData] = useState<any[] | null>(null);
     const [structure, setStructure] = useState<any>(null);
     const [krNews, setKrNews] = useState<any[]>(initialNews || []);
     const [optionsLoading, setOptionsLoading] = useState(false);
@@ -605,6 +607,20 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         } catch (e) { console.warn('[Fundamentals] Error:', e); }
     };
 
+    // [FIX] Client-side chart refresh on visibility/focus change
+    const fetchChartData = useCallback(async () => {
+        try {
+            const res = await fetch(`/api/chart?symbol=${ticker}&range=${range}`);
+            if (res.ok) {
+                const json = await res.json();
+                const newData = json.data || [];
+                if (newData.length > 0) setLiveChartData(newData);
+            }
+        } catch (e) {
+            console.error('[Command] Chart refresh error:', e);
+        }
+    }, [ticker, range]);
+
     // Initial Load & Polling
     useEffect(() => {
         fetchQuote();
@@ -618,10 +634,25 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         fetchInstitutional();
         fetchFundamentals();
         const interval = setInterval(fetchQuote, 10000); // Poll quote every 10s
+
+        // [FIX] Re-fetch chart when user returns to this page/tab
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') fetchChartData();
+        };
+        const handleFocus = () => fetchChartData();
+        document.addEventListener('visibilitychange', handleVisibility);
+        window.addEventListener('focus', handleFocus);
+
+        // Silent chart refresh every 30s
+        const chartInterval = setInterval(fetchChartData, 30000);
+
         return () => {
             clearInterval(interval);
+            clearInterval(chartInterval);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            window.removeEventListener('focus', handleFocus);
         };
-    }, [ticker]);
+    }, [ticker, fetchChartData]);
 
     // [PREMIUM] Recalculate conviction when dependencies change
     useEffect(() => {
@@ -1294,7 +1325,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="flex-1 min-h-0 relative z-10 p-1 pb-12">
                                         <StockChart
                                             key={`${ticker}:${range}`}
-                                            data={initialStockData.history}
+                                            data={liveChartData || initialStockData.history}
                                             color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
                                             ticker={ticker}
                                             initialRange={range}
