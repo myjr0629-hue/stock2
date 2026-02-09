@@ -212,7 +212,7 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                     e.stopPropagation();
                     toggleDashboardTicker(ticker);
                 }}
-                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400"
+                className="absolute right-1 top-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-rose-500/20 rounded text-rose-400 z-10"
                 title="대시보드에서 제거"
             >
                 <X className="w-3 h-3" />
