@@ -12,12 +12,13 @@ interface FlowRadarProps {
     rawChain: any[];
     allExpiryChain?: any[];  // [GEX REGIME] Multi-expiry probe data
     gammaFlipLevel?: number | null;  // [GEX REGIME] Gamma flip price level from structureService
+    oiPcr?: number | null;  // [PCR] OI-based Put/Call Ratio from structureService
     currentPrice: number;
     squeezeScore?: number | null;
     squeezeRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;
 }
 
-export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -1695,7 +1696,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, cu
                     </div>
                 </div>
 
-                {/* P/C Ratio (Replaced Bid-Ask) */}
+                {/* P/C Ratio - Dual View (Volume + OI) */}
                 <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-cyan-500/50 transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
@@ -1703,11 +1704,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, cu
                         <div className="flex items-center gap-1.5 mb-1">
                             <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)] ${pcRatio.value >= 1.3 ? 'bg-emerald-500' : pcRatio.value <= 0.75 ? 'bg-rose-500' : 'bg-cyan-500'}`} />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">P/C Ratio</span>
+                            <span className="text-[8px] text-white/40 font-medium">VOLUME</span>
                         </div>
                         <span className={`text-2xl font-black ${pcRatio.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
-                            {pcRatio.value > 0 ? pcRatio.value.toFixed(2) : '--'}
+                            {pcRatio.value > 0 ? pcRatio.value.toFixed(2) : '--'} <span className="text-sm">{pcRatio.label}</span>
                         </span>
-                        <span className={`text-[10px] font-bold ${pcRatio.color}`}>{pcRatio.label}</span>
                         <span className="text-[10px] text-white font-medium mt-0.5 font-mono">C {(pcRatio.callVol / 1000).toFixed(0)}K / P {(pcRatio.putVol / 1000).toFixed(0)}K</span>
                     </div>
                 </div>

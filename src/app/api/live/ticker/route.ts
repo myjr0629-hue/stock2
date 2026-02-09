@@ -376,6 +376,7 @@ export async function GET(req: NextRequest) {
         flow: {
             ...flowData as any,
             gammaFlipLevel: (structureResult as any)?.gammaFlipLevel ?? null,
+            oiPcr: (structureResult as any)?.pcr ?? null,  // [PCR] OI-based Put/Call Ratio from structureService
         },
 
         // [S-52.2.1] PRIMARY DISPLAY BLOCK

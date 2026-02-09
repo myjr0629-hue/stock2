@@ -113,6 +113,7 @@ function FlowPageContent() {
     const rawChain = liveQuote?.flow?.rawChain || [];
     const allExpiryChain = liveQuote?.flow?.allExpiryChain || [];
     const gammaFlipLevel = liveQuote?.flow?.gammaFlipLevel ?? null;
+    const oiPcr = liveQuote?.flow?.oiPcr ?? null;
 
     return (
         <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
@@ -256,6 +257,7 @@ function FlowPageContent() {
                                 rawChain={rawChain}
                                 allExpiryChain={allExpiryChain}
                                 gammaFlipLevel={gammaFlipLevel}
+                                oiPcr={oiPcr}
                                 currentPrice={displayPrice}
                                 squeezeScore={liveQuote?.flow?.squeezeScore}
                                 squeezeRisk={liveQuote?.flow?.squeezeRisk}
