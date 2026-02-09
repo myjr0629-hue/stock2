@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { cn } from "@/lib/utils";
 import {
     Archive,
@@ -75,6 +75,38 @@ export interface TacticalSidebarProps {
 }
 
 export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps) {
+    const [winRate, setWinRate] = useState<number | null>(null);
+    const [totalTrades, setTotalTrades] = useState(0);
+
+    useEffect(() => {
+        async function fetchWinRate() {
+            try {
+                const res = await fetch('/api/backtest', { cache: 'no-store' });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.summary?.checkedRecords > 0) {
+                    setWinRate(data.summary.winRate);
+                    setTotalTrades(data.summary.checkedRecords);
+                }
+            } catch { }
+        }
+        fetchWinRate();
+    }, []);
+
+    const getWinRateColor = () => {
+        if (winRate === null) return 'text-slate-600';
+        if (winRate >= 70) return 'text-emerald-500';
+        if (winRate >= 50) return 'text-amber-400';
+        return 'text-rose-400';
+    };
+
+    const getBarColor = () => {
+        if (winRate === null) return 'bg-slate-700';
+        if (winRate >= 70) return 'bg-emerald-500';
+        if (winRate >= 50) return 'bg-amber-400';
+        return 'bg-rose-400';
+    };
+
     return (
         <aside className="w-52 h-[calc(100vh-4rem)] bg-[#05090f] border-r border-slate-800 flex flex-col fixed left-0 top-16 z-40 overflow-y-auto scrollbar-hide">
 
@@ -123,19 +155,29 @@ export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps
 
             </div>
 
-            {/* Footer Status */}
+            {/* Footer — Real Win Rate */}
             <div className="p-6 border-t border-slate-800/50 bg-[#080d15]">
                 <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 mb-2">
-                    <span>DOMINANCE</span>
-                    <span className="text-emerald-500">76.4%</span>
+                    <span>WIN RATE</span>
+                    <span className={getWinRateColor()}>
+                        {winRate !== null ? `${winRate.toFixed(1)}%` : '—'}
+                    </span>
                 </div>
                 <div className="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-emerald-500" style={{ width: '76.4%' }} />
+                    <div
+                        className={`h-full ${getBarColor()} transition-all duration-700 rounded-full`}
+                        style={{ width: winRate !== null ? `${winRate}%` : '0%' }}
+                    />
                 </div>
-                <div className="mt-4 flex gap-2">
-                    <span className="px-2 py-1 bg-slate-800 rounded text-[9px] text-slate-400 border border-slate-700">GUARDIAN ACTIVE</span>
-                    <span className="px-2 py-1 bg-slate-800 rounded text-[9px] text-slate-400 border border-slate-700">CMD: ONLINE</span>
-                </div>
+                {winRate !== null ? (
+                    <p className="mt-2 text-[9px] text-slate-600 font-mono">
+                        {totalTrades} verified trades
+                    </p>
+                ) : (
+                    <p className="mt-2 text-[9px] text-slate-600 font-mono">
+                        COLLECTING DATA...
+                    </p>
+                )}
             </div>
         </aside>
     );
