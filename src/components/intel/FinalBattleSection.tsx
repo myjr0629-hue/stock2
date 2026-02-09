@@ -31,6 +31,20 @@ export interface AlphaItem {
     callWall?: number;
     putFloor?: number;
     isLive?: boolean;
+    // === Engine "속살" data ===
+    whyKR?: string;
+    actionKR?: string;
+    grade?: string;
+    triggerCodes?: string[];
+    pillars?: {
+        momentum: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
+        structure: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
+        flow: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
+        regime: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
+        catalyst: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
+    };
+    gatesApplied?: string[];
+    dataCompleteness?: number;
 }
 
 interface FinalBattleSectionProps {
@@ -158,6 +172,13 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
                                     callWall={item.callWall}
                                     putFloor={item.putFloor}
                                     isLive={item.isLive}
+                                    whyKR={item.whyKR}
+                                    actionKR={item.actionKR}
+                                    grade={item.grade}
+                                    triggerCodes={item.triggerCodes}
+                                    pillars={item.pillars}
+                                    gatesApplied={item.gatesApplied}
+                                    dataCompleteness={item.dataCompleteness}
                                     variant="hero"
                                     onClick={() => onItemClick?.(item)}
                                 />
@@ -202,6 +223,13 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
                                     callWall={item.callWall}
                                     putFloor={item.putFloor}
                                     isLive={item.isLive}
+                                    whyKR={item.whyKR}
+                                    actionKR={item.actionKR}
+                                    grade={item.grade}
+                                    triggerCodes={item.triggerCodes}
+                                    pillars={item.pillars}
+                                    gatesApplied={item.gatesApplied}
+                                    dataCompleteness={item.dataCompleteness}
                                     onClick={() => onItemClick?.(item)}
                                 />
                             </motion.div>
@@ -244,6 +272,13 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
                                     callWall={item.callWall}
                                     putFloor={item.putFloor}
                                     isLive={item.isLive}
+                                    whyKR={item.whyKR}
+                                    actionKR={item.actionKR}
+                                    grade={item.grade}
+                                    triggerCodes={item.triggerCodes}
+                                    pillars={item.pillars}
+                                    gatesApplied={item.gatesApplied}
+                                    dataCompleteness={item.dataCompleteness}
                                     isHighRisk={true}
                                     variant="compact"
                                     onClick={() => onItemClick?.(item)}

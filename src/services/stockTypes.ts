@@ -481,6 +481,25 @@ export function analyzeGemsTicker(t: any, regime: string, opts?: any, strict = f
         cutPriceCalc = price * (1 - dynamicPct * 1.5);
     }
 
+    // =========================================================================
+    // SANITY CHECK — Absolute Rules (prevents SL > Price bugs like QCOM)
+    // Rule 1: SL must be BELOW current price (min -3%)
+    // Rule 2: TP must be ABOVE current price (min +3%)
+    // Rule 3: entryZone must be near current price (±5%)
+    // Rule 4: SL < entryLow < entryHigh < TP
+    // =========================================================================
+    cutPriceCalc = Math.min(cutPriceCalc, price * 0.97);
+    targetPriceCalc = Math.max(targetPriceCalc, price * 1.03);
+    entryLow = Math.max(Math.min(entryLow, price * 0.99), price * 0.90);
+    entryHigh = Math.min(Math.max(entryHigh, price * 1.01), price * 1.10);
+    if (entryLow >= entryHigh) {
+        entryLow = price * (1 - dynamicPct);
+        entryHigh = price * (1 + dynamicPct * 0.5);
+    }
+    // Enforce chain: SL < entryLow < entryHigh < TP
+    if (cutPriceCalc >= entryLow) cutPriceCalc = entryLow * 0.97;
+    if (targetPriceCalc <= entryHigh) targetPriceCalc = entryHigh * 1.03;
+
     // --- TP2 (Extended target) ---
     const tp2Calc = realCallWall
         ? realCallWall * (1 + dynamicPct)

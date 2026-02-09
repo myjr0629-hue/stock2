@@ -1,35 +1,40 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Card } from "@/components/ui/card";
-import {
-    ChevronRight, TrendingUp, TrendingDown, Zap, Activity, Target,
-    ChevronDown, BarChart3, Layers, Shield, Radio, Triangle, Circle, Minus,
-    ExternalLink, AlertTriangle, CheckCircle, Clock, XCircle
-} from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useRouter } from 'next/navigation';
+import {
+    CheckCircle, XCircle, AlertTriangle, Clock,
+    ChevronDown, ChevronUp, ArrowUpRight, ArrowDownRight,
+    Shield, Activity, Zap, TrendingUp, BarChart3,
+    Eye, Radio, Database
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-interface ScoreBreakdown {
-    momentum: number;
-    options: number;
-    structure: number;
-    regime: number;
-    risk: number;
+interface PillarFactor {
+    name: string;
+    value: number;
+    max: number;
+    detail?: string;
 }
 
-interface AlphaCardProps {
+interface PillarData {
+    score: number;
+    max: number;
+    pct: number;
+    factors: PillarFactor[];
+}
+
+export interface AlphaCardProps {
     ticker: string;
     rank: number;
     price: number;
     changePct: number;
     volume?: number;
-    alphaScore?: number;
-    scoreBreakdown?: ScoreBreakdown;
+    alphaScore: number;
     entryLow?: number;
     entryHigh?: number;
     targetPrice?: number;
@@ -39,696 +44,476 @@ interface AlphaCardProps {
     putFloor?: number;
     isLive?: boolean;
     isHighRisk?: boolean;
-    variant?: 'hero' | 'large' | 'compact';
+    variant?: 'hero' | 'compact';
     onClick?: () => void;
+    // === Engine "속살" data ===
+    whyKR?: string;
+    actionKR?: string;
+    grade?: string;
+    triggerCodes?: string[];
+    pillars?: {
+        momentum: PillarData;
+        structure: PillarData;
+        flow: PillarData;
+        regime: PillarData;
+        catalyst: PillarData;
+    };
+    gatesApplied?: string[];
+    dataCompleteness?: number;
 }
 
 // =============================================================================
-// PREMIUM COLOR SYSTEM - 5-TIER SCORING
-// =============================================================================
-
-function getScoreColor(score: number) {
-    if (score >= 80) return {
-        main: '#00ffa3', glow: 'rgba(0, 255, 163, 0.4)',
-        bg: 'rgba(0, 255, 163, 0.1)', text: 'text-emerald-400',
-        label: 'EXCELLENT', labelKR: '최상', border: 'border-emerald-500/40'
-    };
-    if (score >= 65) return {
-        main: '#00d4ff', glow: 'rgba(0, 212, 255, 0.4)',
-        bg: 'rgba(0, 212, 255, 0.1)', text: 'text-cyan-400',
-        label: 'GOOD', labelKR: '양호', border: 'border-cyan-500/40'
-    };
-    if (score >= 50) return {
-        main: '#ffd000', glow: 'rgba(255, 208, 0, 0.4)',
-        bg: 'rgba(255, 208, 0, 0.1)', text: 'text-amber-400',
-        label: 'NEUTRAL', labelKR: '보통', border: 'border-amber-500/40'
-    };
-    if (score >= 35) return {
-        main: '#ff8c00', glow: 'rgba(255, 140, 0, 0.4)',
-        bg: 'rgba(255, 140, 0, 0.1)', text: 'text-orange-400',
-        label: 'WEAK', labelKR: '약세', border: 'border-orange-500/40'
-    };
-    return {
-        main: '#ff4d6a', glow: 'rgba(255, 77, 106, 0.4)',
-        bg: 'rgba(255, 77, 106, 0.1)', text: 'text-rose-400',
-        label: 'POOR', labelKR: '위험', border: 'border-rose-500/40'
-    };
-}
-
-// =============================================================================
-// ENTRY SIGNAL INDICATOR — "지금 살 수 있나?" 즉시 판단
+// HELPER: Entry Signal
 // =============================================================================
 
 type EntryStatus = 'ENTRY_ZONE' | 'WAIT' | 'EXTENDED' | 'CUT_ZONE';
 
-function getEntryStatus(price: number, entryLow: number, entryHigh: number, cutPrice: number, callWall?: number): {
-    status: EntryStatus;
-    icon: React.ReactNode;
-    label: string;
-    detail: string;
-    color: string;
-    bgColor: string;
-} {
+function getEntrySignal(
+    price: number,
+    entryLow: number,
+    entryHigh: number,
+    cutPrice: number,
+    callWall?: number
+): { status: EntryStatus; label: string; detail: string; color: string; bgColor: string; icon: React.ReactNode } {
     if (price <= cutPrice) {
         return {
-            status: 'CUT_ZONE',
-            icon: <XCircle className="w-3.5 h-3.5" />,
-            label: '손절 구간',
-            detail: `지지선 $${cutPrice.toFixed(0)} 이탈`,
-            color: 'text-rose-400',
-            bgColor: 'bg-rose-500/15 border-rose-500/30'
+            status: 'CUT_ZONE', label: '손절 구간',
+            detail: `$${cutPrice.toFixed(0)} 이탈`,
+            color: 'text-rose-400', bgColor: 'bg-rose-500/10 border-rose-500/20',
+            icon: <XCircle className="w-3.5 h-3.5" />
         };
     }
     if (callWall && price >= callWall * 0.98) {
         return {
-            status: 'EXTENDED',
-            icon: <AlertTriangle className="w-3.5 h-3.5" />,
-            label: '과열 구간',
-            detail: `저항선 $${callWall.toFixed(0)} 접근`,
-            color: 'text-amber-400',
-            bgColor: 'bg-amber-500/15 border-amber-500/30'
+            status: 'EXTENDED', label: '과매수',
+            detail: `CW $${callWall.toFixed(0)} 접근`,
+            color: 'text-amber-400', bgColor: 'bg-amber-500/10 border-amber-500/20',
+            icon: <AlertTriangle className="w-3.5 h-3.5" />
         };
     }
     if (price >= entryLow && price <= entryHigh) {
         return {
-            status: 'ENTRY_ZONE',
-            icon: <CheckCircle className="w-3.5 h-3.5" />,
-            label: '진입 구간 내',
+            status: 'ENTRY_ZONE', label: '진입 적기',
             detail: `$${entryLow.toFixed(0)}~$${entryHigh.toFixed(0)}`,
-            color: 'text-emerald-400',
-            bgColor: 'bg-emerald-500/15 border-emerald-500/30'
+            color: 'text-emerald-400', bgColor: 'bg-emerald-500/10 border-emerald-500/20',
+            icon: <CheckCircle className="w-3.5 h-3.5" />
         };
     }
     return {
-        status: 'WAIT',
-        icon: <Clock className="w-3.5 h-3.5" />,
-        label: '대기',
+        status: 'WAIT', label: '대기',
         detail: price > entryHigh ? `$${entryHigh.toFixed(0)} 이하 대기` : `$${entryLow.toFixed(0)} 이상 대기`,
-        color: 'text-slate-400',
-        bgColor: 'bg-slate-500/15 border-slate-500/30'
+        color: 'text-slate-400', bgColor: 'bg-slate-500/10 border-slate-500/20',
+        icon: <Clock className="w-3.5 h-3.5" />
     };
 }
 
+// =============================================================================
+// HELPER: Score Grade Badge
+// =============================================================================
+
+function GradeBadge({ score, grade }: { score: number; grade?: string }) {
+    const g = grade || (score >= 80 ? 'S' : score >= 65 ? 'A' : score >= 50 ? 'B' : score >= 35 ? 'C' : 'D');
+    const colors: Record<string, string> = {
+        S: 'from-yellow-400 to-amber-500 text-black',
+        A: 'from-emerald-400 to-cyan-500 text-black',
+        B: 'from-blue-400 to-indigo-500 text-white',
+        C: 'from-slate-400 to-slate-500 text-white',
+        D: 'from-rose-400 to-red-500 text-white',
+        F: 'from-red-600 to-red-800 text-white',
+    };
+    return (
+        <div className={cn(
+            "w-14 h-14 rounded-xl bg-gradient-to-br flex flex-col items-center justify-center shadow-lg",
+            colors[g] || colors.C
+        )}>
+            <span className="text-lg font-black leading-none">{score.toFixed(0)}</span>
+            <span className="text-[9px] font-bold opacity-80">{g}</span>
+        </div>
+    );
+}
 
 // =============================================================================
-// TRADE MAP — REDESIGNED (TP/Current/Stop with real labels)
+// HELPER: Trigger Badge
 // =============================================================================
 
-function TradeMap({
-    currentPrice, targetPrice, riskLine, callWall, putFloor
+const TRIGGER_LABELS: Record<string, { label: string; color: string }> = {
+    MOM_STRONG: { label: '모멘텀↑', color: 'text-emerald-400 border-emerald-500/30' },
+    TREND_3D: { label: '3일상승', color: 'text-emerald-400 border-emerald-500/30' },
+    SMART_DIP: { label: '기관매집', color: 'text-cyan-400 border-cyan-500/30' },
+    GEX_SAFE: { label: 'GEX+', color: 'text-blue-400 border-blue-500/30' },
+    GEX_NEG: { label: 'GEX−', color: 'text-rose-400 border-rose-500/30' },
+    SQUEEZE: { label: '스퀴즈', color: 'text-amber-400 border-amber-500/30' },
+    DP_HIGH: { label: '다크풀↑', color: 'text-purple-400 border-purple-500/30' },
+    WHALE_IN: { label: '고래유입', color: 'text-cyan-400 border-cyan-500/30' },
+    SHORT_ALERT: { label: '공매도⚠', color: 'text-rose-400 border-rose-500/30' },
+    VOL_BOOM: { label: '거래폭발', color: 'text-amber-400 border-amber-500/30' },
+    REGIME_OFF: { label: '시장악화', color: 'text-rose-400 border-rose-500/30' },
+    GATE_EXHAUST: { label: '과열', color: 'text-rose-400 border-rose-500/30' },
+    GATE_FAKE: { label: '가짜상승', color: 'text-rose-400 border-rose-500/30' },
+    GATE_WALL: { label: '벽저항', color: 'text-amber-400 border-amber-500/30' },
+    GATE_SHORT: { label: 'Short폭풍', color: 'text-rose-400 border-rose-500/30' },
+};
+
+// =============================================================================
+// HELPER: Factor Status Icon  
+// =============================================================================
+
+function FactorStatus({ value, max }: { value: number; max: number }) {
+    const pct = max > 0 ? (value / max) * 100 : 0;
+    if (pct >= 70) return <span className="text-emerald-400 text-xs font-bold">✓</span>;
+    if (pct >= 35) return <span className="text-yellow-400 text-xs">○</span>;
+    return <span className="text-slate-600 text-xs">✗</span>;
+}
+
+// =============================================================================
+// FACTOR DISPLAY NAME MAP
+// =============================================================================
+
+const FACTOR_DISPLAY: Record<string, string> = {
+    priceChange: '가격변동',
+    vwapPosition: 'VWAP',
+    trend3D: '3일추세',
+    smartDip: 'Smart DIP',
+    oiHeat: 'OI집중도',
+    gammaSetup: '감마/GEX',
+    wallSandwich: '옵션 벽',
+    pcrBalance: 'PCR',
+    squeezePotential: '스퀴즈',
+    ivSkew: 'IV 스큐',
+    darkPool: '다크풀',
+    darkPoolPct: '다크풀',
+    whaleIndex: '고래지수',
+    shortVolPct: '공매도',
+    shortVolume: '공매도',
+    relativeVolume: '상대거래량',
+    relVol: '상대거래량',
+    vixLevel: 'VIX',
+    sectorStrength: '섹터',
+    marketTrend: '시장추세',
+    breadth: '시장폭',
+    earningsProximity: '실적임박',
+    sectorMomentum: '섹터모멘텀',
+    optionsData: '옵션데이터',
+};
+
+// =============================================================================
+// PILLAR DISPLAY CONFIG
+// =============================================================================
+
+const PILLAR_CONFIG: Record<string, { label: string; labelEN: string; icon: React.ReactNode; color: string }> = {
+    momentum: { label: '모멘텀', labelEN: 'Momentum', icon: <TrendingUp className="w-3 h-3" />, color: 'text-emerald-400' },
+    structure: { label: '옵션구조', labelEN: 'Structure', icon: <BarChart3 className="w-3 h-3" />, color: 'text-blue-400' },
+    flow: { label: '자금흐름', labelEN: 'Flow', icon: <Activity className="w-3 h-3" />, color: 'text-purple-400' },
+    regime: { label: '시장환경', labelEN: 'Regime', icon: <Radio className="w-3 h-3" />, color: 'text-amber-400' },
+    catalyst: { label: '촉매', labelEN: 'Catalyst', icon: <Zap className="w-3 h-3" />, color: 'text-cyan-400' },
+};
+
+// =============================================================================
+// INSIGHT PANEL (속살)
+// =============================================================================
+
+function InsightPanel({
+    pillars,
+    gatesApplied,
+    dataCompleteness
 }: {
-    currentPrice: number; targetPrice: number; riskLine: number;
-    callWall?: number; putFloor?: number;
+    pillars: AlphaCardProps['pillars'];
+    gatesApplied?: string[];
+    dataCompleteness?: number;
 }) {
-    const targetPct = ((targetPrice - currentPrice) / currentPrice * 100).toFixed(1);
-    const riskPct = ((riskLine - currentPrice) / currentPrice * 100).toFixed(1);
-    const potentialGain = targetPrice - currentPrice;
-    const potentialLoss = currentPrice - riskLine;
-    const rrRatio = potentialLoss > 0 ? (potentialGain / potentialLoss).toFixed(1) : '∞';
+    if (!pillars) return null;
+
+    const pillarEntries = Object.entries(pillars) as [string, PillarData][];
 
     return (
-        <div className="p-3 rounded-xl bg-gradient-to-br from-slate-900/90 to-slate-800/60 border border-white/10">
-            <h4 className="text-center text-[10px] font-bold text-slate-400 tracking-wider mb-3 uppercase">
-                Trade Map
-            </h4>
-            <div className="relative py-1">
-                <div className="absolute left-5 top-4 bottom-4 w-[2px] bg-gradient-to-b from-emerald-500 via-cyan-500 to-rose-500 rounded-full" />
-                <div className="space-y-3 relative">
-                    {/* Target */}
-                    <div className="flex items-center gap-3 pl-1">
-                        <div className="w-8 h-8 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center shadow-[0_0_10px_rgba(16,185,129,0.4)] z-10">
-                            <Triangle className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" />
-                        </div>
-                        <div className="flex-1 flex items-center justify-between">
-                            <div>
-                                <span className="text-[10px] text-emerald-400 font-bold">TP</span>
-                                <span className="ml-1.5 text-sm font-mono font-bold text-white">${targetPrice.toFixed(2)}</span>
-                                {callWall && <span className="ml-1.5 text-[9px] text-slate-500">Call Wall</span>}
+        <div className="mt-3 space-y-1">
+            {pillarEntries.map(([key, pillar]) => {
+                const config = PILLAR_CONFIG[key];
+                if (!config || !pillar?.factors) return null;
+                return (
+                    <div key={key} className="bg-slate-900/60 rounded-lg px-3 py-2">
+                        {/* Pillar Header */}
+                        <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-1.5">
+                                <span className={config.color}>{config.icon}</span>
+                                <span className="text-[11px] font-bold text-slate-300">{config.label}</span>
                             </div>
-                            <span className="text-emerald-400 text-xs font-bold">+{targetPct}%</span>
-                        </div>
-                    </div>
-                    {/* Current */}
-                    <div className="flex items-center gap-3 pl-1">
-                        <div className="w-8 h-8 rounded-full bg-cyan-500/20 border-2 border-cyan-500 flex items-center justify-center shadow-[0_0_10px_rgba(0,212,255,0.4)] z-10">
-                            <Minus className="w-3.5 h-3.5 text-cyan-400" />
-                        </div>
-                        <div className="flex-1">
-                            <span className="text-[10px] text-cyan-400 font-bold">NOW</span>
-                            <span className="ml-1.5 text-sm font-mono font-bold text-white">${currentPrice.toFixed(2)}</span>
-                        </div>
-                    </div>
-                    {/* Stop */}
-                    <div className="flex items-center gap-3 pl-1">
-                        <div className="w-8 h-8 rounded-full bg-rose-500/20 border-2 border-rose-500 flex items-center justify-center shadow-[0_0_10px_rgba(244,63,94,0.4)] z-10">
-                            <Triangle className="w-3.5 h-3.5 text-rose-400 fill-rose-400 rotate-180" />
-                        </div>
-                        <div className="flex-1 flex items-center justify-between">
-                            <div>
-                                <span className="text-[10px] text-rose-400 font-bold">SL</span>
-                                <span className="ml-1.5 text-sm font-mono font-bold text-white">${riskLine.toFixed(2)}</span>
-                                {putFloor && <span className="ml-1.5 text-[9px] text-slate-500">Put Floor</span>}
-                            </div>
-                            <span className="text-rose-400 text-xs font-bold">{riskPct}%</span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div className="flex items-center justify-center gap-6 pt-2 mt-2 border-t border-white/10">
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-slate-500">R:R</span>
-                    <span className="text-xs font-bold text-emerald-400">{rrRatio}:1</span>
-                </div>
-            </div>
-        </div>
-    );
-}
-
-// =============================================================================
-// ALPHA SCORE BADGE - CIRCULAR GAUGE
-// =============================================================================
-
-function AlphaScoreBadge({ score, size = 'large' }: { score: number; size?: 'large' | 'small' }) {
-    const colors = getScoreColor(score);
-    const radius = size === 'large' ? 32 : 24;
-    const circumference = 2 * Math.PI * radius;
-    const fillAmount = (score / 100) * circumference;
-    const svgSize = size === 'large' ? 80 : 60;
-    const strokeWidth = size === 'large' ? 4 : 3;
-
-    return (
-        <div className="relative flex-shrink-0">
-            <svg width={svgSize} height={svgSize} viewBox={`0 0 ${svgSize} ${svgSize}`}>
-                {/* Background Track */}
-                <circle
-                    cx={svgSize / 2} cy={svgSize / 2} r={radius}
-                    fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={strokeWidth}
-                />
-                {/* Score Arc */}
-                <circle
-                    cx={svgSize / 2} cy={svgSize / 2} r={radius}
-                    fill="none" stroke={colors.main} strokeWidth={strokeWidth}
-                    strokeDasharray={`${fillAmount} ${circumference}`}
-                    strokeLinecap="round"
-                    transform={`rotate(-90 ${svgSize / 2} ${svgSize / 2})`}
-                    style={{
-                        filter: `drop-shadow(0 0 8px ${colors.glow})`,
-                        transition: 'stroke-dasharray 1s ease-out'
-                    }}
-                />
-            </svg>
-            {/* Score Text */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className={cn(
-                    "font-black font-mono leading-none",
-                    size === 'large' ? "text-lg" : "text-base"
-                )} style={{ color: colors.main }}>
-                    {score.toFixed(1)}
-                </span>
-                <span className={cn(
-                    "font-bold uppercase tracking-wider mt-0.5",
-                    size === 'large' ? "text-[8px]" : "text-[7px]"
-                )} style={{ color: colors.main, opacity: 0.8 }}>
-                    {colors.label}
-                </span>
-            </div>
-        </div>
-    );
-}
-
-// =============================================================================
-// CONVICTION PANEL — Factor breakdown with explanations
-// =============================================================================
-
-function ConvictionPanel({ scores }: { scores: ScoreBreakdown }) {
-    const factors = [
-        { key: 'momentum', label: '모멘텀', max: 20, color: '#00ffa3', icon: '📈' },
-        { key: 'options', label: '옵션', max: 20, color: '#00d4ff', icon: '🎯' },
-        { key: 'structure', label: '구조', max: 20, color: '#a855f7', icon: '🏗️' },
-        { key: 'regime', label: '시장환경', max: 20, color: '#ffd000', icon: '🌐' },
-        { key: 'risk', label: '리스크', max: 20, color: '#ff4d6a', icon: '🛡️' },
-    ] as const;
-
-    return (
-        <div className="p-3 rounded-xl bg-gradient-to-br from-slate-900/80 to-slate-800/40 border border-white/5">
-            <div className="flex items-center gap-2 mb-3">
-                <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
-                <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider">Conviction Breakdown</span>
-            </div>
-            <div className="space-y-2.5">
-                {factors.map(f => {
-                    const value = scores[f.key as keyof ScoreBreakdown];
-                    const pct = Math.min(100, (value / f.max) * 100);
-                    const status = pct >= 75 ? '✓' : pct >= 40 ? '○' : '✗';
-                    const statusColor = pct >= 75 ? 'text-emerald-400' : pct >= 40 ? 'text-slate-500' : 'text-rose-400';
-
-                    return (
-                        <div key={f.key}>
-                            <div className="flex items-center justify-between mb-1">
-                                <div className="flex items-center gap-1.5">
-                                    <span className={cn("text-[10px] font-bold", statusColor)}>{status}</span>
-                                    <span className="text-[10px] text-slate-400 font-medium">{f.label}</span>
+                            <div className="flex items-center gap-1.5">
+                                <div className="w-16 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                    <div
+                                        className={cn("h-full rounded-full transition-all",
+                                            pillar.pct >= 70 ? "bg-emerald-500" : pillar.pct >= 40 ? "bg-yellow-500" : "bg-slate-600"
+                                        )}
+                                        style={{ width: `${Math.min(100, pillar.pct)}%` }}
+                                    />
                                 </div>
-                                <span className="text-[10px] font-mono font-bold" style={{ color: f.color }}>
-                                    {value.toFixed(1)}/{f.max}
+                                <span className={cn(
+                                    "text-[10px] font-mono font-bold",
+                                    pillar.pct >= 70 ? "text-emerald-400" : pillar.pct >= 40 ? "text-yellow-400" : "text-slate-500"
+                                )}>
+                                    {pillar.score}/{pillar.max}
                                 </span>
                             </div>
-                            <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full rounded-full transition-all duration-700"
-                                    style={{
-                                        width: `${pct}%`,
-                                        background: `linear-gradient(90deg, ${f.color}88, ${f.color})`,
-                                        boxShadow: `0 0 8px ${f.color}40`
-                                    }}
-                                />
-                            </div>
                         </div>
-                    );
-                })}
+                        {/* Factors */}
+                        <div className="space-y-0.5">
+                            {pillar.factors.map((factor, i) => (
+                                <div key={i} className="flex items-center gap-2 text-[10px]">
+                                    <FactorStatus value={factor.value} max={factor.max} />
+                                    <span className="text-slate-500 w-14 flex-shrink-0">
+                                        {FACTOR_DISPLAY[factor.name] || factor.name}
+                                    </span>
+                                    <span className="text-slate-600 font-mono">{factor.value}/{factor.max}</span>
+                                    {factor.detail && (
+                                        <span className="text-slate-400 truncate ml-auto">{factor.detail}</span>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
+
+            {/* Gates & Data Quality */}
+            <div className="flex items-center justify-between pt-1 px-1">
+                {gatesApplied && gatesApplied.length > 0 ? (
+                    <div className="flex items-center gap-1 text-[10px] text-rose-400">
+                        <Shield className="w-3 h-3" />
+                        <span>GATE: {gatesApplied.join(', ')}</span>
+                    </div>
+                ) : (
+                    <div className="flex items-center gap-1 text-[10px] text-slate-600">
+                        <Shield className="w-3 h-3" />
+                        <span>GATE 없음</span>
+                    </div>
+                )}
+                {dataCompleteness !== undefined && (
+                    <div className="flex items-center gap-1 text-[10px]">
+                        <Database className="w-3 h-3 text-slate-600" />
+                        <span className={cn(
+                            "font-mono",
+                            dataCompleteness >= 80 ? "text-emerald-400" : dataCompleteness >= 50 ? "text-yellow-400" : "text-slate-500"
+                        )}>
+                            {dataCompleteness}%
+                        </span>
+                    </div>
+                )}
             </div>
         </div>
     );
 }
 
+
 // =============================================================================
-// MAIN COMPONENT - PREMIUM GLASSMORPHISM DESIGN
+// MAIN: AlphaCard (Hero + Compact variants)
 // =============================================================================
 
 export function AlphaCard({
-    ticker,
-    rank,
-    price,
-    changePct,
-    alphaScore = 70,
-    scoreBreakdown,
-    entryLow,
-    entryHigh,
-    targetPrice,
-    cutPrice,
-    whaleNetM,
-    callWall,
-    putFloor,
-    isLive = false,
-    isHighRisk = false,
-    variant = 'large',
-    onClick
+    ticker, rank, price, changePct, volume, alphaScore,
+    entryLow = 0, entryHigh = 0, targetPrice = 0, cutPrice = 0,
+    whaleNetM, callWall, putFloor, isLive = false, isHighRisk = false,
+    variant = 'compact', onClick,
+    whyKR, actionKR, grade, triggerCodes, pillars, gatesApplied, dataCompleteness,
 }: AlphaCardProps) {
-    const [expanded, setExpanded] = useState(false);
     const router = useRouter();
+    const [showInsight, setShowInsight] = useState(false);
 
-    const safePrice = price || 0;
-    const minEntry = entryLow || safePrice * 0.97;
-    const maxEntry = entryHigh || safePrice * 1.02;
-    const target = targetPrice || safePrice * 1.08;
-    const stop = cutPrice || safePrice * 0.95;
-    const isPositive = changePct >= 0;
-    const colors = getScoreColor(alphaScore);
+    const entrySignal = getEntrySignal(price, entryLow, entryHigh, cutPrice, callWall);
 
-    // R:R Ratio
-    const potentialGain = target - safePrice;
-    const potentialLoss = safePrice - stop;
-    const rrRatio = potentialLoss > 0 ? (potentialGain / potentialLoss).toFixed(1) : '∞';
+    const upside = targetPrice > 0 ? ((targetPrice - price) / price * 100) : 0;
+    const downside = cutPrice > 0 ? ((cutPrice - price) / price * 100) : 0;
+    const rr = downside !== 0 ? Math.abs(upside / downside) : 0;
 
     const isHero = variant === 'hero';
-    const isCompact = variant === 'compact';
 
-    // Score breakdown defaults
-    const scores = scoreBreakdown || {
-        momentum: Math.round(alphaScore * 0.9),
-        options: Math.round(alphaScore * 0.85),
-        structure: Math.round(alphaScore * 0.95),
-        regime: Math.round(alphaScore * 0.88),
-        risk: Math.round(alphaScore * 0.82)
-    };
-
-    // Entry Signal
-    const entrySignal = getEntryStatus(safePrice, minEntry, maxEntry, stop, callWall);
-
-    // Navigate to Command page
-    const handleCardClick = () => {
-        if (onClick) onClick();
+    const handleClick = () => {
         router.push(`/command?ticker=${ticker}`);
     };
 
+    const handleInsightToggle = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setShowInsight(!showInsight);
+    };
+
+    // Logo URL
+    const logoUrl = `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;
+
     return (
-        <Card
+        <div
             className={cn(
-                "relative overflow-hidden cursor-pointer transition-all duration-300 group",
-                "bg-gradient-to-br from-slate-900/95 via-slate-900/90 to-slate-800/80",
-                "backdrop-blur-xl border-2",
+                "group relative rounded-xl border transition-all duration-300 cursor-pointer",
+                "bg-gradient-to-b from-slate-900/95 to-slate-950/95 backdrop-blur-xl",
                 isHighRisk
-                    ? "border-rose-500/40 hover:border-rose-400/60 shadow-[0_0_40px_rgba(255,77,106,0.2)]"
-                    : "border-cyan-500/30 hover:border-cyan-400/50 shadow-[0_0_40px_rgba(0,212,255,0.15)]",
-                isHero ? "p-6" : isCompact ? "p-4" : "p-5"
+                    ? "border-rose-500/20 hover:border-rose-500/40 hover:shadow-[0_0_30px_rgba(244,63,94,0.08)]"
+                    : "border-white/[0.06] hover:border-white/[0.12] hover:shadow-[0_0_40px_rgba(0,0,0,0.3)]",
+                isHero ? "p-5" : "p-4",
             )}
-            style={{
-                background: isHighRisk
-                    ? 'linear-gradient(135deg, rgba(30, 10, 20, 0.95), rgba(15, 15, 25, 0.9))'
-                    : 'linear-gradient(135deg, rgba(10, 20, 35, 0.95), rgba(15, 15, 25, 0.9))'
-            }}
-            onClick={handleCardClick}
+            onClick={handleClick}
         >
-            {/* Top Accent Glow Line */}
-            <div
-                className="absolute top-0 left-0 right-0 h-[3px]"
-                style={{
-                    background: isHighRisk
-                        ? 'linear-gradient(90deg, transparent, #ff4d6a, #ff4d6a, transparent)'
-                        : `linear-gradient(90deg, transparent, ${colors.main}, ${colors.main}, transparent)`,
-                    boxShadow: isHighRisk
-                        ? '0 0 20px rgba(255, 77, 106, 0.6)'
-                        : `0 0 20px ${colors.glow}`
-                }}
-            />
-
-            {/* Corner Glow */}
-            <div
-                className={cn(
-                    "absolute rounded-full blur-[80px] opacity-40 pointer-events-none",
-                    isHero ? "-top-32 -right-32 w-64 h-64" : "-top-20 -right-20 w-40 h-40"
-                )}
-                style={{ background: isHighRisk ? '#ff4d6a' : colors.main }}
-            />
-
-            {/* Rank Display - Watermark Style */}
-            <div
-                className={cn(
-                    "absolute font-black font-mono pointer-events-none select-none leading-none",
-                    isHero
-                        ? "right-4 bottom-4 text-[100px]"
-                        : isCompact
-                            ? "left-3 top-3 text-[50px]"
-                            : "left-3 top-3 text-[70px]"
-                )}
-                style={{
-                    color: isHero ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.12)',
-                    textShadow: '0 0 30px rgba(255, 255, 255, 0.1)'
-                }}
-            >
-                {rank}
-            </div>
-
-            {/* Main Content */}
-            <div className="space-y-4">
-
-                {/* Header: Logo + Ticker + Score */}
-                <div className="flex items-start gap-5">
-                    {/* Ticker Logo */}
-                    <div
-                        className={cn(
-                            "rounded-xl overflow-hidden flex-shrink-0 p-1",
-                            isHero ? "w-14 h-14" : isCompact ? "w-12 h-12" : "w-16 h-16"
-                        )}
-                        style={{
-                            background: 'linear-gradient(135deg, rgba(255,255,255,0.15), rgba(255,255,255,0.05))',
-                            border: '1px solid rgba(255,255,255,0.2)',
-                            boxShadow: `0 0 30px ${colors.bg}`
-                        }}
-                    >
-                        <img
-                            src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
-                            alt={ticker}
-                            className="w-full h-full object-cover rounded-xl"
-                            onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                            }}
-                        />
+            {/* Rank Badge */}
+            {rank <= 3 && (
+                <div className="absolute -top-2 -right-2 z-10">
+                    <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black shadow-lg",
+                        rank === 1 ? "bg-gradient-to-br from-yellow-400 to-amber-500 text-black" :
+                            rank === 2 ? "bg-gradient-to-br from-slate-300 to-slate-400 text-black" :
+                                "bg-gradient-to-br from-amber-600 to-amber-700 text-white"
+                    )}>
+                        {rank}
                     </div>
+                </div>
+            )}
 
-                    {/* Ticker Info */}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className={cn(
-                                "font-black text-white tracking-tight",
-                                isHero ? "text-xl" : isCompact ? "text-xl" : "text-2xl"
-                            )}>
-                                {ticker}
-                            </h3>
-                            {isLive && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40">
-                                    <Radio className="w-2.5 h-2.5 text-emerald-400 animate-pulse" />
-                                    <span className="text-[9px] font-bold text-emerald-400">LIVE</span>
-                                </span>
-                            )}
+            {/* === SURFACE LAYER === */}
+
+            {/* Header: Logo + Ticker + Price + Grade */}
+            <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-slate-800/80 border border-white/5 overflow-hidden flex-shrink-0">
+                        <img src={logoUrl} alt={ticker} className="w-full h-full object-contain p-1" onError={(e) => {
+                            (e.target as HTMLImageElement).style.display = 'none';
+                        }} />
+                    </div>
+                    <div>
+                        <div className="flex items-center gap-2">
+                            <h3 className="text-base font-black text-white tracking-tight">{ticker}</h3>
                             {isHighRisk && (
-                                <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40">
-                                    <Shield className="w-2.5 h-2.5 text-rose-400" />
-                                    <span className="text-[9px] font-bold text-rose-400">HIGH RISK</span>
+                                <span className="text-[8px] font-bold bg-rose-500/20 text-rose-400 px-1.5 py-0.5 rounded border border-rose-500/20">
+                                    HIGH RISK
                                 </span>
                             )}
                         </div>
-
-                        {/* Price */}
-                        <div className="flex items-baseline gap-2 mt-0.5">
+                        <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold text-white font-mono">${price.toFixed(2)}</span>
                             <span className={cn(
-                                "font-mono font-bold text-white",
-                                isHero ? "text-lg" : isCompact ? "text-lg" : "text-2xl"
+                                "text-xs font-bold flex items-center gap-0.5",
+                                changePct >= 0 ? "text-emerald-400" : "text-rose-400"
                             )}>
-                                ${safePrice.toFixed(2)}
-                            </span>
-                            <span className={cn(
-                                "font-mono font-bold flex items-center gap-0.5",
-                                isHero ? "text-sm" : isCompact ? "text-sm" : "text-base",
-                                isPositive ? "text-emerald-400" : "text-rose-400"
-                            )}>
-                                {isPositive
-                                    ? <TrendingUp className="w-4 h-4" />
-                                    : <TrendingDown className="w-4 h-4" />
-                                }
-                                {isPositive ? '+' : ''}{changePct.toFixed(2)}%
+                                {changePct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                                {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
                             </span>
                         </div>
                     </div>
-
-                    {/* Alpha Score Badge */}
-                    <AlphaScoreBadge score={alphaScore} size={isHero || !isCompact ? 'large' : 'small'} />
                 </div>
+                <GradeBadge score={alphaScore} grade={grade} />
+            </div>
 
-                {/* ━━━ ENTRY SIGNAL — 핵심: "지금 살 수 있나?" ━━━ */}
-                <div className={cn(
-                    "flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-bold",
-                    entrySignal.bgColor, entrySignal.color
-                )}>
-                    {entrySignal.icon}
-                    <span>{entrySignal.label}</span>
-                    <span className="text-slate-500 font-normal ml-auto">{entrySignal.detail}</span>
+            {/* Action + Why (Engine verdict) */}
+            {(actionKR || whyKR) && (
+                <div className="mb-3">
+                    {actionKR && (
+                        <span className="text-xs font-bold text-emerald-400">{actionKR}</span>
+                    )}
+                    {whyKR && (
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">{whyKR}</p>
+                    )}
                 </div>
+            )}
 
-                {/* HERO: Quick Stats - Horizontal Inline */}
-                {isHero && ((callWall && putFloor) || whaleNetM !== undefined) && (
-                    <div
-                        className="flex items-center justify-between gap-4 p-3 rounded-xl"
-                        style={{
-                            background: 'linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))',
-                            border: '1px solid rgba(255,255,255,0.1)'
-                        }}
-                    >
-                        {callWall && (
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-white font-semibold">Call Wall</span>
-                                <span className="text-sm font-mono font-bold text-cyan-400">${callWall}</span>
-                            </div>
-                        )}
-                        {putFloor && (
-                            <div className="flex items-center gap-2">
-                                <span className="text-xs text-white font-semibold">Put Floor</span>
-                                <span className="text-sm font-mono font-bold text-rose-400">${putFloor}</span>
-                            </div>
-                        )}
-                        {whaleNetM !== undefined && (
-                            <div className="flex items-center gap-2">
-                                <svg className={cn("w-6 h-6", whaleNetM >= 0 ? "text-emerald-400" : "text-rose-400")}
-                                    viewBox="0 0 32 32" fill="currentColor">
-                                    <ellipse cx="16" cy="16" rx="12" ry="8" opacity="0.9" />
-                                    <path d="M4 16 C2 12, 1 10, 3 8 C5 10, 5 14, 4 16 M4 16 C2 20, 1 22, 3 24 C5 22, 5 18, 4 16" opacity="0.85" />
-                                    <path d="M18 8 Q20 4, 22 6 Q20 8, 18 8" opacity="0.8" />
-                                    <circle cx="24" cy="14" r="1.5" fill="white" />
-                                    <path d="M26 10 Q28 6, 26 4 M26 10 Q24 6, 26 4" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.6" />
-                                </svg>
-                                <span className={cn("text-sm font-mono font-bold", whaleNetM >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                    {whaleNetM >= 0 ? '+' : ''}${Math.abs(whaleNetM).toFixed(1)}M
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                )}
+            {/* Entry Signal Banner */}
+            <div className={cn(
+                "flex items-center justify-between px-3 py-2 rounded-lg mb-3 border",
+                entrySignal.bgColor
+            )}>
+                <div className="flex items-center gap-2">
+                    <span className={entrySignal.color}>{entrySignal.icon}</span>
+                    <span className={cn("text-xs font-bold", entrySignal.color)}>{entrySignal.label}</span>
+                </div>
+                <span className={cn("text-[11px] font-mono", entrySignal.color)}>{entrySignal.detail}</span>
+            </div>
 
-                {/* HERO VARIANT: Trade Map + Conviction Panel */}
-                {isHero && (
-                    <>
-                        <TradeMap
-                            currentPrice={safePrice}
-                            targetPrice={target}
-                            riskLine={stop}
-                            callWall={callWall}
-                            putFloor={putFloor}
-                        />
-
-                        {/* Conviction Panel Toggle for Hero */}
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setExpanded(!expanded);
-                            }}
-                            className="w-full py-2 rounded-lg font-bold uppercase tracking-wider text-[10px] flex items-center justify-center gap-2 transition-all bg-white/5 text-slate-400 hover:bg-white/10 hover:text-cyan-400 border border-white/10"
-                        >
-                            <BarChart3 className="w-3.5 h-3.5" />
-                            {expanded ? '접기' : 'Conviction 분석'}
-                            <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", expanded && "rotate-180")} />
-                        </button>
-
-                        {expanded && (
-                            <div className="animate-in slide-in-from-top-2 duration-300">
-                                <ConvictionPanel scores={scores} />
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {/* Non-Hero: Quick Stats + Entry/Target */}
-                {!isHero && (
-                    <>
-                        {/* Quick Stats Row */}
-                        {(callWall && putFloor) || whaleNetM !== undefined ? (
-                            <div
-                                className="flex items-center justify-between gap-3 p-3 rounded-xl"
-                                style={{
-                                    background: 'linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02))',
-                                    border: '1px solid rgba(255,255,255,0.08)'
-                                }}
-                            >
-                                {callWall && (
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-xs text-white font-semibold">Call Wall</span>
-                                        <span className="text-sm font-mono font-bold text-cyan-400">${callWall}</span>
-                                    </div>
-                                )}
-                                {putFloor && (
-                                    <div className="flex items-center gap-1.5">
-                                        <span className="text-xs text-white font-semibold">Put Floor</span>
-                                        <span className="text-sm font-mono font-bold text-rose-400">${putFloor}</span>
-                                    </div>
-                                )}
-                                {whaleNetM !== undefined && (
-                                    <div className="flex items-center gap-1.5">
-                                        <svg className={cn("w-5 h-5", whaleNetM >= 0 ? "text-emerald-400" : "text-rose-400")}
-                                            viewBox="0 0 32 32" fill="currentColor">
-                                            <ellipse cx="16" cy="16" rx="12" ry="8" opacity="0.9" />
-                                            <path d="M4 16 C2 12, 1 10, 3 8 C5 10, 5 14, 4 16 M4 16 C2 20, 1 22, 3 24 C5 22, 5 18, 4 16" opacity="0.85" />
-                                            <path d="M18 8 Q20 4, 22 6 Q20 8, 18 8" opacity="0.8" />
-                                            <circle cx="24" cy="14" r="1.5" fill="white" />
-                                            <path d="M26 10 Q28 6, 26 4 M26 10 Q24 6, 26 4" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.6" />
-                                        </svg>
-                                        <span className={cn("text-sm font-mono font-bold", whaleNetM >= 0 ? "text-emerald-400" : "text-rose-400")}>
-                                            {whaleNetM >= 0 ? '+' : ''}${Math.abs(whaleNetM).toFixed(1)}M
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        ) : null}
-
-                        {/* Entry → Target (Large variant) */}
-                        {!isCompact && (
-                            <div
-                                className="flex items-center justify-between p-3 rounded-xl"
-                                style={{
-                                    background: 'linear-gradient(135deg, rgba(0,212,255,0.08), rgba(0,255,163,0.05))',
-                                    border: '1px solid rgba(0,212,255,0.2)'
-                                }}
-                            >
-                                <div className="text-center">
-                                    <span className="block text-[9px] text-slate-500 uppercase font-bold tracking-wider">Entry</span>
-                                    <span className="text-sm font-mono font-bold text-emerald-400">
-                                        ${minEntry.toFixed(0)}-${maxEntry.toFixed(0)}
-                                    </span>
-                                </div>
-                                <ChevronRight className="w-4 h-4 text-slate-600" />
-                                <div className="text-center">
-                                    <span className="block text-[9px] text-slate-500 uppercase font-bold tracking-wider">Target</span>
-                                    <span className="text-sm font-mono font-bold text-cyan-400">${target.toFixed(0)}</span>
-                                </div>
-                                <div className="text-center pl-3 border-l border-white/10">
-                                    <span className="block text-[9px] text-slate-500 uppercase font-bold tracking-wider">R:R</span>
-                                    <span className="text-sm font-mono font-bold text-white">{rrRatio}:1</span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Compact Entry/Target */}
-                        {isCompact && (
-                            <div className="flex items-center justify-between text-[11px]">
-                                <span>
-                                    <span className="text-slate-500">Entry </span>
-                                    <span className="font-mono font-bold text-emerald-400">${minEntry.toFixed(0)}-${maxEntry.toFixed(0)}</span>
-                                </span>
-                                <span>
-                                    <span className="text-slate-500">Target </span>
-                                    <span className="font-mono font-bold text-cyan-400">${target.toFixed(0)}</span>
-                                </span>
-                                <span>
-                                    <span className="text-slate-500">R:R </span>
-                                    <span className="font-mono font-bold text-white">{rrRatio}:1</span>
-                                </span>
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {/* View Details Button (Non-Hero only) */}
-                {!isHero && (
-                    <>
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setExpanded(!expanded);
-                            }}
-                            className={cn(
-                                "w-full py-2.5 rounded-xl font-bold uppercase tracking-wider text-xs flex items-center justify-center gap-2 transition-all",
-                                isHighRisk
-                                    ? "bg-gradient-to-r from-rose-500/20 to-rose-600/10 text-rose-400 hover:from-rose-500/30 border border-rose-500/30"
-                                    : "bg-gradient-to-r from-cyan-500/20 to-emerald-500/10 text-cyan-400 hover:from-cyan-500/30 border border-cyan-500/30"
-                            )}
-                        >
-                            <Zap className="w-3.5 h-3.5" />
-                            {expanded ? '접기' : '상세 분석'}
-                            <ChevronDown className={cn("w-4 h-4 transition-transform", expanded && "rotate-180")} />
-                        </button>
-
-                        {/* Expanded Details */}
-                        {expanded && (
-                            <div className="mt-3 pt-3 border-t border-white/10 space-y-3 animate-in slide-in-from-top-2 duration-300">
-                                <ConvictionPanel scores={scores} />
-                                <TradeMap
-                                    currentPrice={safePrice}
-                                    targetPrice={target}
-                                    riskLine={stop}
-                                    callWall={callWall}
-                                    putFloor={putFloor}
-                                />
-                            </div>
-                        )}
-                    </>
-                )}
-
-                {/* Command Link - Bottom */}
-                <div className="flex items-center justify-end pt-1">
-                    <span className="flex items-center gap-1 text-[10px] text-slate-600 group-hover:text-cyan-400 transition-colors">
-                        <ExternalLink className="w-3 h-3" />
-                        상세 분석
-                    </span>
+            {/* Trade Summary: Entry / Target / Stop in 1 row */}
+            <div className="grid grid-cols-3 gap-2 mb-3">
+                <div className="text-center bg-slate-800/40 rounded-lg py-2 px-1">
+                    <p className="text-[9px] text-slate-500 uppercase tracking-wider">Entry</p>
+                    <p className="text-xs font-bold text-white font-mono">
+                        ${entryLow.toFixed(0)}~${entryHigh.toFixed(0)}
+                    </p>
+                </div>
+                <div className="text-center bg-slate-800/40 rounded-lg py-2 px-1">
+                    <p className="text-[9px] text-slate-500 uppercase tracking-wider">Target</p>
+                    <p className="text-xs font-bold text-emerald-400 font-mono">
+                        ${targetPrice.toFixed(0)}
+                        <span className="text-[9px] ml-1">+{upside.toFixed(1)}%</span>
+                    </p>
+                </div>
+                <div className="text-center bg-slate-800/40 rounded-lg py-2 px-1">
+                    <p className="text-[9px] text-slate-500 uppercase tracking-wider">Stop</p>
+                    <p className="text-xs font-bold text-rose-400 font-mono">
+                        ${cutPrice.toFixed(0)}
+                        <span className="text-[9px] ml-1">{downside.toFixed(1)}%</span>
+                    </p>
                 </div>
             </div>
-        </Card>
+
+            {/* Options + Whale Quick Stats */}
+            <div className="flex items-center justify-between text-[10px] text-slate-500 mb-2 px-1">
+                <div className="flex items-center gap-3">
+                    {callWall && <span>CW <span className="text-slate-300 font-mono">${callWall.toFixed(0)}</span></span>}
+                    {putFloor && <span>PF <span className="text-slate-300 font-mono">${putFloor.toFixed(0)}</span></span>}
+                    {whaleNetM !== undefined && (
+                        <span className={whaleNetM >= 0 ? 'text-emerald-500' : 'text-rose-500'}>
+                            🐋 {whaleNetM >= 0 ? '+' : ''}{whaleNetM.toFixed(1)}M
+                        </span>
+                    )}
+                </div>
+                {rr > 0 && (
+                    <span className="text-slate-400 font-mono">
+                        R:R <span className={rr >= 2 ? 'text-emerald-400' : 'text-slate-300'}>{rr.toFixed(1)}:1</span>
+                    </span>
+                )}
+            </div>
+
+            {/* Trigger Code Badges */}
+            {triggerCodes && triggerCodes.length > 0 && (
+                <div className="flex flex-wrap gap-1 mb-2">
+                    {triggerCodes.slice(0, 5).map(code => {
+                        const t = TRIGGER_LABELS[code];
+                        const label = t?.label || code;
+                        const color = t?.color || 'text-slate-400 border-slate-500/30';
+                        return (
+                            <span key={code} className={cn(
+                                "text-[9px] font-bold px-1.5 py-0.5 rounded border bg-slate-900/60",
+                                color
+                            )}>
+                                {label}
+                            </span>
+                        );
+                    })}
+                </div>
+            )}
+
+            {/* === INSIGHT TOGGLE === */}
+            <button
+                onClick={handleInsightToggle}
+                className={cn(
+                    "w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold transition-all",
+                    "bg-slate-800/40 hover:bg-slate-800/70 border border-white/[0.04]",
+                    showInsight ? "text-cyan-400" : "text-slate-500 hover:text-slate-300"
+                )}
+            >
+                <Eye className="w-3 h-3" />
+                {showInsight ? '엔진 분석 접기' : '엔진 분석 속살 보기'}
+                {showInsight ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </button>
+
+            {/* === INSIGHT LAYER (속살) === */}
+            {showInsight && (
+                <InsightPanel
+                    pillars={pillars}
+                    gatesApplied={gatesApplied}
+                    dataCompleteness={dataCompleteness}
+                />
+            )}
+        </div>
     );
 }
 
-// Variant exports
+
+// =============================================================================
+// COMPACT VARIANT (used in ACTIONABLE section)
+// =============================================================================
+
 export function AlphaCardCompact(props: Omit<AlphaCardProps, 'variant'>) {
     return <AlphaCard {...props} variant="compact" />;
-}
-
-export function AlphaCardHero(props: Omit<AlphaCardProps, 'variant'>) {
-    return <AlphaCard {...props} variant="hero" />;
 }

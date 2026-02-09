@@ -1350,28 +1350,38 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
 
     // [V6.0] Premium Card Data Mapper (TickerItem -> AlphaItem)
     const alphaItems: AlphaItem[] = useMemo(() => {
-        return sortedItems.slice(0, 12).map((item, idx) => ({
-            ticker: item.ticker,
-            rank: idx + 1,
-            price: item.evidence?.price?.last || 0,
-            changePct: item.evidence?.price?.changePct || 0,
-            volume: item.evidence?.flow?.vol,
-            alphaScore: item.alphaScore || 70,
-            scoreBreakdown: (item as any).scoreDecomposition || undefined,
-            entryLow: item.entryBand?.low ?? item.decisionSSOT?.entryBand?.min,
-            entryHigh: item.entryBand?.high ?? item.decisionSSOT?.entryBand?.max,
-            targetPrice: item.decisionSSOT?.whaleTargetLevel,
-            cutPrice: item.decisionSSOT?.cutPrice,
-            whaleNetM: (() => {
-                // Fallback chain: netPremium -> netFlow -> largeTradesUsd (OI-based calculation for after-hours)
-                const flow = item.evidence?.flow;
-                const rawValue = flow?.netPremium ?? flow?.netFlow ?? flow?.largeTradesUsd ?? undefined;
-                return rawValue !== undefined && rawValue !== 0 ? rawValue / 1000000 : undefined;
-            })(),
-            callWall: item.evidence?.options?.callWall,
-            putFloor: item.evidence?.options?.putFloor,
-            isLive: item.evidence?.price?.priceSource === 'LIVE_SNAPSHOT'
-        }));
+        return sortedItems.slice(0, 12).map((item, idx) => {
+            const av3 = (item as any).alphaV3;
+            return {
+                ticker: item.ticker,
+                rank: idx + 1,
+                price: item.evidence?.price?.last || 0,
+                changePct: item.evidence?.price?.changePct || 0,
+                volume: item.evidence?.flow?.vol,
+                alphaScore: item.alphaScore || 70,
+                scoreBreakdown: (item as any).scoreDecomposition || undefined,
+                entryLow: item.entryBand?.low ?? item.decisionSSOT?.entryBand?.min,
+                entryHigh: item.entryBand?.high ?? item.decisionSSOT?.entryBand?.max,
+                targetPrice: item.decisionSSOT?.whaleTargetLevel,
+                cutPrice: item.decisionSSOT?.cutPrice,
+                whaleNetM: (() => {
+                    const flow = item.evidence?.flow;
+                    const rawValue = flow?.netPremium ?? flow?.netFlow ?? flow?.largeTradesUsd ?? undefined;
+                    return rawValue !== undefined && rawValue !== 0 ? rawValue / 1000000 : undefined;
+                })(),
+                callWall: item.evidence?.options?.callWall,
+                putFloor: item.evidence?.options?.putFloor,
+                isLive: item.evidence?.price?.priceSource === 'LIVE_SNAPSHOT',
+                // === Engine "속살" data ===
+                whyKR: av3?.whyKR,
+                actionKR: av3?.actionKR,
+                grade: av3?.grade,
+                triggerCodes: av3?.triggerCodes,
+                pillars: av3?.pillars,
+                gatesApplied: av3?.gatesApplied,
+                dataCompleteness: av3?.dataCompleteness,
+            };
+        });
     }, [sortedItems]);
 
     // [V4.7] M7 Filter (Extract M7 from available report items)

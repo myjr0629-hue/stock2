@@ -809,16 +809,12 @@ export function computeQualityTier(
                 action: alphaV3.action,
                 actionKR: alphaV3.actionKR,
                 whyKR: alphaV3.whyKR,
+                whyFactors: alphaV3.whyFactors,
                 triggerCodes: alphaV3.triggerCodes,
-                pillars: {
-                    momentum: alphaV3.pillars.momentum.score,
-                    structure: alphaV3.pillars.structure.score,
-                    flow: alphaV3.pillars.flow.score,
-                    regime: alphaV3.pillars.regime.score,
-                    catalyst: alphaV3.pillars.catalyst.score,
-                },
+                pillars: alphaV3.pillars,
                 gatesApplied: alphaV3.gatesApplied,
                 dataCompleteness: alphaV3.dataCompleteness,
+                dataCompletenessLabel: alphaV3.dataCompletenessLabel,
             },
         };
     }

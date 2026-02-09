@@ -117,16 +117,18 @@ export interface QualityTierResult {
         action: string;
         actionKR: string;
         whyKR: string;
+        whyFactors?: string[];
         triggerCodes: string[];
         pillars: {
-            momentum: number;
-            structure: number;
-            flow: number;
-            regime: number;
-            catalyst: number;
+            momentum: any;
+            structure: any;
+            flow: any;
+            regime: any;
+            catalyst: any;
         };
         gatesApplied: string[];
         dataCompleteness: number;
+        dataCompletenessLabel?: string;
     };
 }
 
