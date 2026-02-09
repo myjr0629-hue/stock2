@@ -10,13 +10,14 @@ import { useTranslations } from 'next-intl';
 interface FlowRadarProps {
     ticker: string;
     rawChain: any[];
+    allExpiryChain?: any[];  // [GEX REGIME] Multi-expiry probe data
+    gammaFlipLevel?: number | null;  // [GEX REGIME] Gamma flip price level from structureService
     currentPrice: number;
-    // [SQUEEZE FIX] API squeezeScore for unified display with Dashboard
     squeezeScore?: number | null;
     squeezeRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;
 }
 
-export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -630,64 +631,129 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         return { value: roundedRatio, label, color, callVol, putVol };
     }, [rawChain]);
 
-    // [NEW] 0DTE Impact - % of Total Gamma from Nearest-Expiry Options
-    // V2: Falls back to nearest expiry on weekends/holidays instead of only matching today
-    const zeroDteImpact = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', nearestCount: 0, totalCount: 0, expiryLabel: '', expiryCount: 0 };
+    // [GEX REGIME] Institutional-grade gamma regime indicator
+    // Combines: ATM concentration (rawChain) + Gamma Flip distance + DTE weighting
+    const gexRegime = useMemo(() => {
+        if (!rawChain || rawChain.length === 0 || !currentPrice) return {
+            pinStrength: 0, label: '분석 중', color: 'text-slate-400',
+            regime: 'LOADING' as const, regimeColor: 'text-slate-400',
+            nearestExpiry: '', dte: -1, weeklyExpiry: '', weeklyLabel: '', expiryLabel: '',
+            atmConcentration: 0, gammaShare: 0,
+            flipLevel: null as number | null, flipDistance: 0, flipDir: '' as string,
+            nearestCount: 0, weeklyContracts: 0, expiryCount: 0, isLongGamma: true
+        };
 
-        const today = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const todayStr = `${etNow.getFullYear()}-${String(etNow.getMonth() + 1).padStart(2, '0')}-${String(etNow.getDate()).padStart(2, '0')}`;
 
-        // Collect all unique expiry dates
-        const expirySet = new Set<string>();
-        rawChain.forEach(opt => {
-            const expiry = opt.details?.expiration_date;
-            if (expiry) expirySet.add(expiry);
+        // === PART 1: ATM Concentration from rawChain (accurate, weekly expiry) ===
+        let weeklyTotalGamma = 0, weeklyATMGamma = 0, weeklyNetGEX = 0;
+        let weeklyCallOI = 0, weeklyPutOI = 0;
+        let weeklyExpiry = '';
+
+        rawChain.forEach((c: any) => {
+            const gamma = c.greeks?.gamma || 0;
+            const oi = c.open_interest || 0;
+            const strike = c.details?.strike_price || 0;
+            const type = c.details?.contract_type;
+            const gExp = Math.abs(gamma * oi * 100);
+            weeklyTotalGamma += gExp;
+            if (!weeklyExpiry && c.details?.expiration_date) weeklyExpiry = c.details.expiration_date;
+            if (type === 'call') { weeklyNetGEX += gamma * oi * 100; weeklyCallOI += oi; }
+            else if (type === 'put') { weeklyNetGEX -= gamma * oi * 100; weeklyPutOI += oi; }
+            if (Math.abs(strike - currentPrice) / currentPrice < 0.02) weeklyATMGamma += gExp;
         });
 
-        // Find the nearest expiry (today or next available)
-        const sortedExpiries = Array.from(expirySet).sort();
-        let targetExpiry = todayStr;
-        const todayTime = today.getTime();
+        const atmConcentration = weeklyTotalGamma > 0 ? (weeklyATMGamma / weeklyTotalGamma) * 100 : 0;
+        const isLongGamma = weeklyNetGEX >= 0;
 
-        // If today's expiry exists, use it. Otherwise find the nearest future expiry
-        if (!expirySet.has(todayStr)) {
-            const nearest = sortedExpiries.find(e => new Date(e + 'T00:00:00').getTime() >= todayTime);
-            targetExpiry = nearest || sortedExpiries[0] || todayStr;
+        // === PART 2: Gamma Share from allExpiryChain ===
+        let gammaShare = 100, expiryCount = 1;
+        const probeChain = allExpiryChain && allExpiryChain.length > 0 ? allExpiryChain : null;
+        if (probeChain) {
+            const probeByExpiry: Record<string, number> = {};
+            let probeTotalGamma = 0;
+            probeChain.forEach((c: any) => {
+                const exp = c.details?.expiration_date;
+                if (exp) {
+                    const gExp = Math.abs((c.greeks?.gamma || 0) * (c.open_interest || 0) * 100);
+                    probeByExpiry[exp] = (probeByExpiry[exp] || 0) + gExp;
+                    probeTotalGamma += gExp;
+                }
+            });
+            expiryCount = Object.keys(probeByExpiry).length;
+            if (weeklyExpiry && probeTotalGamma > 0) gammaShare = ((probeByExpiry[weeklyExpiry] || 0) / probeTotalGamma) * 100;
         }
 
-        let totalGamma = 0;
-        let nearestGamma = 0;
-        let nearestCount = 0;
-        let totalCount = rawChain.length;
+        // DTE calculation
+        let nearestExpiry = weeklyExpiry;
+        if (probeChain) {
+            const allExpiries = Array.from(new Set(probeChain.map((c: any) => c.details?.expiration_date).filter(Boolean))).sort() as string[];
+            if (allExpiries.length > 0) nearestExpiry = allExpiries[0];
+        }
+        const dte = Math.max(0, Math.round((new Date((nearestExpiry || todayStr) + 'T16:00:00').getTime() - new Date(todayStr + 'T09:30:00').getTime()) / 86400000));
 
-        rawChain.forEach(opt => {
-            const gamma = opt.greeks?.gamma || 0;
-            const oi = opt.open_interest || 0;
-            const gammaExposure = Math.abs(gamma * oi * 100);
-            totalGamma += gammaExposure;
+        // Weekly expiry label fallback
+        if (!weeklyExpiry && probeChain) {
+            const allExpiries = Array.from(new Set(probeChain.map((c: any) => c.details?.expiration_date).filter(Boolean))).sort() as string[];
+            for (const exp of allExpiries) { const d = new Date(exp + 'T12:00:00'); if (d.getDay() === 5) { weeklyExpiry = exp; break; } if (d.getDay() === 4) weeklyExpiry = exp; }
+            if (!weeklyExpiry && allExpiries.length > 0) weeklyExpiry = allExpiries[0];
+        }
 
-            const expiry = opt.details?.expiration_date;
-            if (expiry === targetExpiry) {
-                nearestGamma += gammaExposure;
-                nearestCount++;
+        // === PART 3: Gamma Flip Integration ===
+        const flip = gammaFlipLevel && gammaFlipLevel > 0 ? gammaFlipLevel : null;
+        let flipDistWeight = isLongGamma ? 1.0 : 0.3; // fallback: binary
+        let flipDistance = 0;
+        let flipDir = '';
+        let regime: 'STABLE' | 'TRANSITION' | 'FLIP_ZONE' | 'EXPLOSIVE' | 'LOADING' = isLongGamma ? 'STABLE' : 'EXPLOSIVE';
+
+        if (flip && currentPrice > 0) {
+            flipDistance = ((currentPrice - flip) / flip) * 100; // positive = above flip
+            flipDir = flipDistance > 0 ? '↑' : '↓';
+
+            if (flipDistance > 5) {
+                flipDistWeight = 1.2;  // Deep long gamma - very stable pinning
+                regime = 'STABLE';
+            } else if (flipDistance > 2) {
+                flipDistWeight = 1.0;  // Long gamma - normal pinning
+                regime = 'STABLE';
+            } else if (flipDistance > 0) {
+                flipDistWeight = 0.5;  // Near flip - unstable
+                regime = 'TRANSITION';
+            } else if (flipDistance > -2) {
+                flipDistWeight = 0.3;  // Just below flip
+                regime = 'FLIP_ZONE';
+            } else {
+                flipDistWeight = 0.2;  // Deep short gamma - explosive
+                regime = 'EXPLOSIVE';
             }
-        });
+        }
 
-        const impact = totalGamma > 0 ? (nearestGamma / totalGamma) * 100 : 0;
-        const roundedImpact = Math.round(impact);
+        // === Pin Strength = ATM concentration × flip distance weight × DTE weight ===
+        const dteWeight = dte === 0 ? 1.0 : dte === 1 ? 0.7 : dte <= 3 ? 0.4 : 0.2;
+        const pinStrength = Math.min(100, Math.round(atmConcentration * flipDistWeight * dteWeight));
 
-        // Expiry label for display (e.g., "02/10" or "오늘")
-        const expiryLabel = targetExpiry === todayStr ? '오늘 만기' : `${targetExpiry.substring(5).replace('-', '/')} 만기`;
+        // Label and color (driven by regime)
+        let label: string, color: string;
+        const regimeLabels = { STABLE: '안정 핀닝', TRANSITION: '전환 임박', FLIP_ZONE: '플립 구간', EXPLOSIVE: '폭발 대기', LOADING: '분석 중' };
+        const regimeColors = { STABLE: 'text-emerald-400', TRANSITION: 'text-amber-400', FLIP_ZONE: 'text-orange-400', EXPLOSIVE: 'text-rose-400', LOADING: 'text-slate-400' };
+        label = regimeLabels[regime];
+        color = regimeColors[regime];
 
-        let label = '없음';
-        let color = 'text-slate-400';
-        if (roundedImpact >= 40) { label = '극심'; color = 'text-rose-400'; }
-        else if (roundedImpact >= 20) { label = '높음'; color = 'text-amber-400'; }
-        else if (roundedImpact >= 5) { label = '보통'; color = 'text-cyan-400'; }
+        const expiryLabel = nearestExpiry === todayStr ? '오늘 만기' : `${nearestExpiry.substring(5).replace('-', '/')} 만기`;
+        const weeklyLabel = weeklyExpiry === todayStr ? '오늘' : weeklyExpiry ? `${weeklyExpiry.substring(5).replace('-', '/')}(주간)` : '';
 
-        return { value: roundedImpact, label, color, nearestCount, totalCount, expiryLabel, expiryCount: sortedExpiries.length };
-    }, [rawChain]);
+        return {
+            pinStrength, label, color,
+            regime, regimeColor: regimeColors[regime],
+            nearestExpiry, dte, weeklyExpiry, weeklyLabel, expiryLabel,
+            atmConcentration: Math.round(atmConcentration),
+            gammaShare: Math.round(gammaShare),
+            flipLevel: flip, flipDistance: Math.round(Math.abs(flipDistance) * 10) / 10, flipDir,
+            nearestCount: rawChain.length, weeklyContracts: rawChain.length,
+            expiryCount, isLongGamma, nearestCallOI: weeklyCallOI, nearestPutOI: weeklyPutOI
+        };
+    }, [rawChain, allExpiryChain, currentPrice, gammaFlipLevel]);
 
     // [PREMIUM] Implied Move (기대변동폭) - Nearest Weekly Expiry ATM Straddle
     const impliedMove = useMemo(() => {
@@ -960,14 +1026,14 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
         compositeScore += pcScore;
         if (pcRatio.value >= 1.5 || pcRatio.value <= 0.65) signals.push(`P/C ${pcRatio.value.toFixed(2)}`);
 
-        // (10) 0DTE Impact Score (Weight: 5%) - Intraday volatility amplifier
+        // (10) GEX Regime Score (Weight: 5%) - Pinning strength amplifier
         let zdteScore = 0;
-        if (zeroDteImpact.value >= 40) zdteScore = 5;  // Extreme 0DTE concentration
-        else if (zeroDteImpact.value >= 20) zdteScore = 3;
-        // 0DTE amplifies existing direction
+        if (gexRegime.pinStrength >= 60) zdteScore = 5;  // Strong pinning
+        else if (gexRegime.pinStrength >= 35) zdteScore = 3;
+        // Pinning amplifies existing direction
         if (compositeScore < 0) zdteScore = -Math.abs(zdteScore);
         compositeScore += zdteScore;
-        if (zeroDteImpact.value >= 20) signals.push(`0DTE ${zeroDteImpact.value}%`);
+        if (gexRegime.pinStrength >= 35) signals.push(`GEX ${gexRegime.pinStrength}%`);
 
         // (11) Net Premium Flow (integrated with Whale - additional weight when extreme)
         if (Math.abs(netWhalePremium) > 1000000) {
@@ -1140,11 +1206,11 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
             { key: 'dex', name: 'DEX', score: Math.round(dexScore), max: 10, label: dex.label },
             { key: 'uoa', name: 'UOA', score: Math.round(uoaScore), max: 5, label: uoa.label },
             { key: 'pc', name: 'P/C', score: Math.round(pcScore), max: 5, label: pcRatio.value > 1.3 ? '콜 과열' : pcRatio.value < 0.75 ? '풋 과열' : '균형' },
-            { key: 'zdte', name: '0DTE', score: Math.round(zdteScore), max: 5, label: zeroDteImpact.value >= 20 ? `${zeroDteImpact.value}%` : '미미' },
+            { key: 'zdte', name: 'GEX', score: Math.round(zdteScore), max: 5, label: gexRegime.pinStrength >= 35 ? `${gexRegime.pinStrength}%` : '미미' },
         ];
 
         return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
-    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, zeroDteImpact]);
+    }, [currentPrice, callWall, putWall, flowMap, whaleTrades, isMarketClosed, opi, squeezeProbability, ivSkew, smartMoney, ivPercentile, dex, uoa, pcRatio, gexRegime]);
 
     if (!rawChain || rawChain.length === 0) {
         return (
@@ -1646,24 +1712,53 @@ export function FlowRadar({ ticker, rawChain, currentPrice, squeezeScore: apiSqu
                     </div>
                 </div>
 
-                {/* 0DTE Impact (Replaced Block Trade) */}
+                {/* GEX REGIME - Institutional Gamma Regime Indicator */}
                 <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-amber-500/50 transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
                     <div className="relative z-10 flex flex-col items-center justify-center">
                         <div className="flex items-center gap-1.5 mb-1">
-                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] ${zeroDteImpact.value >= 20 ? 'bg-amber-500 animate-pulse' : 'bg-amber-500'}`} />
-                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">0DTE Impact</span>
-                            {zeroDteImpact.expiryCount <= 2 && zeroDteImpact.expiryCount > 0 && (
-                                <span className="text-[7px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 font-bold">LIMITED</span>
+                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] ${gexRegime.pinStrength >= 50 ? 'bg-amber-500 animate-pulse' : 'bg-amber-500'}`} />
+                            <span className="text-[10px] text-white uppercase font-bold tracking-wider">GEX REGIME</span>
+                            {gexRegime.dte === 0 && (
+                                <span className="text-[7px] px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold animate-pulse">TODAY</span>
                             )}
+                            <span className={`text-[7px] px-1 py-0.5 rounded font-bold border ${gexRegime.regime === 'STABLE' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                                gexRegime.regime === 'TRANSITION' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                                    gexRegime.regime === 'FLIP_ZONE' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
+                                        'bg-rose-500/20 text-rose-400 border-rose-500/30'
+                                }`}>{gexRegime.regime === 'STABLE' ? 'STABLE' : gexRegime.regime === 'TRANSITION' ? 'SHIFT' : gexRegime.regime === 'FLIP_ZONE' ? 'FLIP' : 'EXPLODE'}</span>
                         </div>
-                        <span className={`text-2xl font-black ${zeroDteImpact.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
-                            {zeroDteImpact.value}%
+                        <span className={`text-2xl font-black ${gexRegime.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
+                            {gexRegime.pinStrength}% <span className="text-sm">{gexRegime.label}</span>
                         </span>
-                        <span className={`text-[10px] font-bold ${zeroDteImpact.color}`}>{zeroDteImpact.label}</span>
-                        <span className="text-[10px] text-white font-medium mt-0.5 font-mono">
-                            {zeroDteImpact.expiryLabel} | {zeroDteImpact.nearestCount}계약{zeroDteImpact.expiryCount > 0 ? ` (${zeroDteImpact.expiryCount}개 만기)` : ''}
+                        <span className="text-[10px] text-white/70 font-medium mt-0.5 font-mono">
+                            {gexRegime.weeklyLabel} | {gexRegime.nearestCount}계약
+                        </span>
+                        <span className="text-[10px] text-amber-300 mt-0.5 italic font-semibold">
+                            {gexRegime.flipLevel
+                                ? (() => {
+                                    const f = `FLIP $${gexRegime.flipLevel} (${gexRegime.flipDir}${gexRegime.flipDistance}%)`;
+                                    const pinZone = Math.round(currentPrice / 5) * 5;
+                                    if (gexRegime.regime === 'STABLE') return `${f} | $${pinZone} 핀닝 안정`;
+                                    if (gexRegime.regime === 'TRANSITION') return `${f} | $${pinZone} 부근 ⚠ 전환 임박`;
+                                    if (gexRegime.regime === 'FLIP_ZONE') return `${f} | 플립 근접, 급변동 주의`;
+                                    return `${f} | 숏감마, 방향성 증폭 구간`;
+                                })()
+                                : (() => {
+                                    const mp = maxPainDistance.maxPain;
+                                    const atm = gexRegime.atmConcentration;
+                                    if (gexRegime.isLongGamma) {
+                                        return mp > 0
+                                            ? `롱감마 | ATM ${atm}% 집중 | MP $${mp}`
+                                            : `롱감마 | ATM ${atm}% 집중 → 가격 억제`;
+                                    } else {
+                                        return mp > 0
+                                            ? `숏감마 | ATM ${atm}% | MP $${mp} → 변동 확대`
+                                            : `숏감마 | ATM ${atm}% → 방향성 증폭 가능`;
+                                    }
+                                })()
+                            }
                         </span>
                     </div>
                 </div>

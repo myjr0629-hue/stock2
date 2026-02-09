@@ -373,7 +373,10 @@ export async function GET(req: NextRequest) {
         vwap: S.day?.vw || S.prevDay?.vw || null,
 
         // [Fix] Include Options Flow Data in Response
-        flow: flowData,
+        flow: {
+            ...flowData as any,
+            gammaFlipLevel: (structureResult as any)?.gammaFlipLevel ?? null,
+        },
 
         // [S-52.2.1] PRIMARY DISPLAY BLOCK
         display: {

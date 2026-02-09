@@ -1,0 +1,149 @@
+{
+  "GOOGL": {
+    "ticker": "GOOGL",
+    "currentPrice": 325.77,
+    "etDate": "2026-02-09",
+    "dayName": "Mon",
+    "totalContracts": 250,
+    "expiryCount": 3,
+    "expiryTable": [
+      {
+        "expiry": "2026-02-09",
+        "dte": 0,
+        "contracts": 108,
+        "gammaK": 104,
+        "atmPct": 84.7,
+        "callOI": 31587,
+        "putOI": 18642,
+        "isToday": true,
+        "sharePct": 72.7
+      },
+      {
+        "expiry": "2026-02-11",
+        "dte": 2,
+        "contracts": 106,
+        "gammaK": 39,
+        "atmPct": 54.9,
+        "callOI": 14920,
+        "putOI": 7217,
+        "isToday": false,
+        "sharePct": 27.3
+      },
+      {
+        "expiry": "2026-02-13",
+        "dte": 4,
+        "contracts": 36,
+        "gammaK": 0,
+        "atmPct": 0,
+        "callOI": 343,
+        "putOI": 0,
+        "isToday": false,
+        "sharePct": 0
+      }
+    ],
+    "proposed": {
+      "nearest": "2026-02-09",
+      "dte": 0,
+      "isToday": true,
+      "atmConcentration": 84.7,
+      "gammaShare": 72.7,
+      "contracts": 108,
+      "callOI": 31587,
+      "putOI": 18642,
+      "level": "EXTREME",
+      "insight": "Gamma explosion imminent"
+    },
+    "current": {
+      "value": "100%",
+      "level": "EXTREME",
+      "note": "Always 100% because rawChain has only 1 expiry"
+    }
+  },
+  "TSLA": {
+    "ticker": "TSLA",
+    "currentPrice": 417.735,
+    "etDate": "2026-02-09",
+    "dayName": "Mon",
+    "totalContracts": 250,
+    "expiryCount": 2,
+    "expiryTable": [
+      {
+        "expiry": "2026-02-09",
+        "dte": 0,
+        "contracts": 144,
+        "gammaK": 198,
+        "atmPct": 83.6,
+        "callOI": 83436,
+        "putOI": 48638,
+        "isToday": true,
+        "sharePct": 78
+      },
+      {
+        "expiry": "2026-02-11",
+        "dte": 2,
+        "contracts": 106,
+        "gammaK": 56,
+        "atmPct": 51.5,
+        "callOI": 32472,
+        "putOI": 21076,
+        "isToday": false,
+        "sharePct": 22.1
+      }
+    ],
+    "proposed": {
+      "nearest": "2026-02-09",
+      "dte": 0,
+      "isToday": true,
+      "atmConcentration": 83.6,
+      "gammaShare": 78,
+      "contracts": 144,
+      "callOI": 83436,
+      "putOI": 48638,
+      "level": "EXTREME",
+      "insight": "Gamma explosion imminent"
+    },
+    "current": {
+      "value": "100%",
+      "level": "EXTREME",
+      "note": "Always 100% because rawChain has only 1 expiry"
+    }
+  },
+  "SPY": {
+    "ticker": "SPY",
+    "currentPrice": 694.4799,
+    "etDate": "2026-02-09",
+    "dayName": "Mon",
+    "totalContracts": 250,
+    "expiryCount": 1,
+    "expiryTable": [
+      {
+        "expiry": "2026-02-09",
+        "dte": 0,
+        "contracts": 250,
+        "gammaK": 1293,
+        "atmPct": 97.3,
+        "callOI": 231362,
+        "putOI": 246181,
+        "isToday": true,
+        "sharePct": 100
+      }
+    ],
+    "proposed": {
+      "nearest": "2026-02-09",
+      "dte": 0,
+      "isToday": true,
+      "atmConcentration": 97.3,
+      "gammaShare": 100,
+      "contracts": 250,
+      "callOI": 231362,
+      "putOI": 246181,
+      "level": "EXTREME",
+      "insight": "Gamma explosion imminent"
+    },
+    "current": {
+      "value": "100%",
+      "level": "EXTREME",
+      "note": "Always 100% because rawChain has only 1 expiry"
+    }
+  }
+}

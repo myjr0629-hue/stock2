@@ -438,6 +438,10 @@ export const CentralDataHub = {
                 isAfterHours,
                 gamma: totalGamma,
                 rawChain: results,
+                // [FIX] Multi-expiry probe data for accurate 0DTE Impact calculation
+                // probeResults contains contracts across ALL available expirations (up to 250)
+                allExpiryChain: probeResults,
+                allExpirations: expirations,
                 weeklyExpiration: weeklyExpiry,
                 callWall: calcMaxOI(results, 'call'),
                 putFloor: calcMaxOI(results, 'put'),

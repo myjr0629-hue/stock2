@@ -111,6 +111,8 @@ function FlowPageContent() {
 
     // EXACT SAME rawChain source as COMMAND (L1152)
     const rawChain = liveQuote?.flow?.rawChain || [];
+    const allExpiryChain = liveQuote?.flow?.allExpiryChain || [];
+    const gammaFlipLevel = liveQuote?.flow?.gammaFlipLevel ?? null;
 
     return (
         <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
@@ -252,6 +254,8 @@ function FlowPageContent() {
                             <FlowRadar
                                 ticker={ticker}
                                 rawChain={rawChain}
+                                allExpiryChain={allExpiryChain}
+                                gammaFlipLevel={gammaFlipLevel}
                                 currentPrice={displayPrice}
                                 squeezeScore={liveQuote?.flow?.squeezeScore}
                                 squeezeRisk={liveQuote?.flow?.squeezeRisk}

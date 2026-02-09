@@ -1,0 +1,73 @@
+=== Expiry Gamma Concentration Test ===
+
+
+============================================================
+GOOGL - Expiry Gamma Concentration
+============================================================
+Price: $325.21 | ET: 2026-02-09 (Mon)
+Contracts: 250
+Expiries: 3 => 2026-02-09, 2026-02-11, 2026-02-13
+
+Expiry      | DTE | Cnts | GammaK  | ATM%   | Share%
+------------|-----|------|---------|--------|------
+>>>2026-02-09 |   0 |  108 |    108K |  84.4% |  73.2%
+   2026-02-11 |   2 |  106 |     40K |  54.8% |  26.8%
+   2026-02-13 |   4 |   36 |      0K |   0.0% |   0.0%
+
+--- PROPOSED INDICATOR ---
+Nearest: 2026-02-09 (TODAY)
+ATM Concentration: 84.4%
+Gamma Share: 73.2% of 3 expiries
+Contracts: 108 (C:31587 / P:18642)
+Level: EXTREME | Gamma explosion imminent
+
+--- CURRENT vs PROPOSED ---
+CURRENT: 0DTE Impact=100% EXTREME 2026-02-09 108contracts (1 expiry)
+PROPOSED: GammaConc=84.4% EXTREME 2026-02-09(TODAY) Share:73.2% of 3 expiries
+
+============================================================
+TSLA - Expiry Gamma Concentration
+============================================================
+Price: $418.48 | ET: 2026-02-09 (Mon)
+Contracts: 250
+Expiries: 2 => 2026-02-09, 2026-02-11
+
+Expiry      | DTE | Cnts | GammaK  | ATM%   | Share%
+------------|-----|------|---------|--------|------
+>>>2026-02-09 |   0 |  144 |    193K |  81.5% |  77.5%
+   2026-02-11 |   2 |  106 |     56K |  40.8% |  22.5%
+
+--- PROPOSED INDICATOR ---
+Nearest: 2026-02-09 (TODAY)
+ATM Concentration: 81.5%
+Gamma Share: 77.5% of 2 expiries
+Contracts: 144 (C:83436 / P:48638)
+Level: EXTREME | Gamma explosion imminent
+
+--- CURRENT vs PROPOSED ---
+CURRENT: 0DTE Impact=100% EXTREME 2026-02-09 144contracts (1 expiry)
+PROPOSED: GammaConc=81.5% EXTREME 2026-02-09(TODAY) Share:77.5% of 2 expiries
+
+============================================================
+SPY - Expiry Gamma Concentration
+============================================================
+Price: $694.30 | ET: 2026-02-09 (Mon)
+Contracts: 250
+Expiries: 1 => 2026-02-09
+
+Expiry      | DTE | Cnts | GammaK  | ATM%   | Share%
+------------|-----|------|---------|--------|------
+>>>2026-02-09 |   0 |  250 |   1334K |  96.7% | 100.0%
+
+--- PROPOSED INDICATOR ---
+Nearest: 2026-02-09 (TODAY)
+ATM Concentration: 96.7%
+Gamma Share: 100.0% of 1 expiries
+Contracts: 250 (C:231362 / P:246181)
+Level: EXTREME | Gamma explosion imminent
+
+--- CURRENT vs PROPOSED ---
+CURRENT: 0DTE Impact=100% EXTREME 2026-02-09 250contracts (1 expiry)
+PROPOSED: GammaConc=96.7% EXTREME 2026-02-09(TODAY) Share:100.0% of 1 expiries
+
+Done.
