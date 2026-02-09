@@ -1658,6 +1658,21 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         <div className="flex items-center gap-1.5 mb-1">
                             <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">Dark Pool %</span>
+                            {/* Session Label: PRE / REG / POST */}
+                            {(() => {
+                                const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                                const h = etNow.getHours(), m = etNow.getMinutes();
+                                const mins = h * 60 + m;
+                                const isPre = mins >= 240 && mins < 570;   // 4:00 AM - 9:29 AM ET
+                                const isReg = mins >= 570 && mins < 960;   // 9:30 AM - 3:59 PM ET
+                                const isPost = mins >= 960 && mins < 1200; // 4:00 PM - 7:59 PM ET
+                                const label = isPre ? 'PRE' : isReg ? 'REG' : isPost ? 'POST' : 'CLOSED';
+                                const color = isPre ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                                    isReg ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                                        isPost ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' :
+                                            'bg-slate-500/20 text-slate-400 border-slate-500/30';
+                                return <span className={`text-[7px] px-1 py-0.5 rounded font-bold border ${color}`}>{label}</span>;
+                            })()}
                         </div>
                         <span className="text-2xl font-black text-purple-400" style={{ textShadow: '0 0 20px rgba(168,85,247,0.7)' }}>
                             {realtimeMetrics.darkPool ? `${realtimeMetrics.darkPool.percent}%` : '--'}
