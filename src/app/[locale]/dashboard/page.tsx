@@ -700,10 +700,10 @@ function MainChartPanel() {
                 </div>
             </div>
 
-            {/* Chart Area: Full height StockChart */}
-            <div className="flex-1 overflow-hidden px-4 pb-4">
+            {/* Chart Area: Fixed height to prevent layout shift when 5-Day table loads */}
+            <div className="px-4 pb-4">
                 {/* Price History (StockChart) */}
-                <div className="h-full bg-[#0d1829]/60 rounded-xl border border-white/5 overflow-hidden flex flex-col">
+                <div className="h-[480px] bg-[#0d1829]/60 rounded-xl border border-white/5 overflow-hidden flex flex-col">
                     <div className="flex items-center gap-2 p-3 border-b border-white/5">
                         <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Price History</span>
