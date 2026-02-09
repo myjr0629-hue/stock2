@@ -292,7 +292,7 @@ export default function GuardianPage() {
                     </div>
 
                     {/* BLOCK B: REALITY CHECK (4 cols) */}
-                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14] border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center">
+                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14]/80 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center">
                         <RealityCheck
                             nasdaqChange={data?.market?.nqChangePercent || 0}
                             guardianScore={data?.rlsi.score || 0}
