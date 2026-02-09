@@ -48,48 +48,19 @@ export class RvolEngine {
             // 2. Ensure Baseline Exists (Heavy Lift - done once)
             await this.ensureBaseline(ticker);
 
-            // 3. Fallback Logic for PRE_MARKET (Show Yesterday's Final RVOL)
-            if (status === "PRE_MARKET") {
-                // Fetch Previous Close Data
-                const prevRes = await fetchMassive(`/v2/aggs/ticker/${ticker}/prev`, { adjusted: "true" });
-
-                if (prevRes.results && prevRes.results.length > 0) {
-                    const prevBar = prevRes.results[0];
-                    const prevVol = prevBar.v;
-
-                    // Get Baseline Total Volume (at 16:00 / 960m)
-                    const baseline = baselineCache.get(ticker);
-                    // Find the last minute in the map (usually 960 or closest)
-                    const endOfDayMinute = 16 * 60;
-                    const baselineTotal = baseline?.get(endOfDayMinute) || baseline?.get(endOfDayMinute - 5) || 0;
-
-                    // [ADJUSTMENT] For PRE_MARKET (Yesterday's Data), we must exclude 'Yesterday' 
-                    // from the 20-day baseline average to show the true "Closing Figure" as seen yesterday.
-                    // Logic: The current 'baselineTotal' likely INCLUDES 'prevVol' (if rolled over).
-                    // We back it out: (Avg * 20 - Current) / 19
-                    let adjustedBaseline = baselineTotal;
-                    if (baselineTotal > 0) {
-                        const sum20 = baselineTotal * 20;
-                        // Safety check: ensure we don't divide by zero or get negative if data is weird
-                        if (sum20 > prevVol) {
-                            adjustedBaseline = (sum20 - prevVol) / 19;
-                        }
-                    }
-
-                    const finalRvol = adjustedBaseline > 0 ? (prevVol / adjustedBaseline) : 0;
-
-                    return {
-                        ticker,
-                        rvol: finalRvol,
-                        currentVol: prevVol,
-                        baselineVol: adjustedBaseline,
-                        timestamp: prevBar.t || Date.now(), // Use data timestamp if available
-                        status: "CLOSED" // Display as Closed/Final
-                    };
-                }
+            // 3. Skip RVOL during PRE_MARKET and AFTER_HOURS (data is stale/misleading)
+            if (status === "PRE_MARKET" || status === "AFTER_HOURS") {
+                return {
+                    ticker,
+                    rvol: 0,
+                    currentVol: 0,
+                    baselineVol: 0,
+                    timestamp: Date.now(),
+                    status
+                };
             }
 
-            // 4. Standard Intraday Logic (OPEN / AFTER_HOURS)
+            // 4. Standard Intraday Logic (OPEN only — PRE/POST already returned above)
             // Fetch today's bars
             const todayStr = nyTime.toISOString().split('T')[0];
             const result = await fetchMassive(`/v2/aggs/ticker/${ticker}/range/1/minute/${todayStr}/${todayStr}`, {
@@ -111,12 +82,7 @@ export class RvolEngine {
 
             // Get Baseline Volume for this specific time
             const baseline = baselineCache.get(ticker);
-
-            // Clamp time for AFTER_HOURS to ensure we compare against End-of-Day Baseline
-            let lookupMinute = currentMinuteOfDay;
-            if (status === "AFTER_HOURS") {
-                lookupMinute = 955; // 15:55 (Start of last 5-min bar)
-            }
+            const lookupMinute = currentMinuteOfDay;
 
             const baselineVol = baseline?.get(lookupMinute) || baseline?.get(lookupMinute - (lookupMinute % 5)) || 0;
 
