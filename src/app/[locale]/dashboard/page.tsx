@@ -658,25 +658,28 @@ function MainChartPanel() {
                         const price = data?.underlyingPrice || 0;
                         const flip = data?.gammaFlipLevel || 0;
                         const gex = data?.netGex || 0;
+                        const atmConc = data?.gammaConcentration || 0;
                         const isLong = gex >= 0;
                         let regime: 'STABLE' | 'TRANSITION' | 'FLIP_ZONE' | 'EXPLOSIVE' = isLong ? 'STABLE' : 'EXPLOSIVE';
                         let flipDist = 0;
                         let flipDir = '';
+                        let flipDistWeight = isLong ? 1.0 : 0.3;
 
                         if (flip > 0 && price > 0) {
                             flipDist = ((price - flip) / flip) * 100;
                             flipDir = flipDist > 0 ? '↑' : '↓';
-                            if (flipDist > 5) regime = 'STABLE';
-                            else if (flipDist > 2) regime = 'STABLE';
-                            else if (flipDist > 0) regime = 'TRANSITION';
-                            else if (flipDist > -2) regime = 'FLIP_ZONE';
-                            else regime = 'EXPLOSIVE';
+                            if (flipDist > 5) { flipDistWeight = 1.2; regime = 'STABLE'; }
+                            else if (flipDist > 2) { flipDistWeight = 1.0; regime = 'STABLE'; }
+                            else if (flipDist > 0) { flipDistWeight = 0.5; regime = 'TRANSITION'; }
+                            else if (flipDist > -2) { flipDistWeight = 0.3; regime = 'FLIP_ZONE'; }
+                            else { flipDistWeight = 0.2; regime = 'EXPLOSIVE'; }
                         }
 
+                        // pinStrength = ATM concentration × flip weight (simplified: no DTE weight on dashboard)
+                        const pinStrength = Math.min(100, Math.round(atmConc * flipDistWeight));
+
                         const labels: Record<string, string> = { STABLE: '안정 핀닝', TRANSITION: '전환 임박', FLIP_ZONE: '플립 구간', EXPLOSIVE: '폭발 대기' };
-                        const badges: Record<string, string> = { STABLE: 'STABLE', TRANSITION: 'SHIFT', FLIP_ZONE: 'FLIP', EXPLOSIVE: 'EXPLODE' };
                         const colors: Record<string, string> = { STABLE: 'text-emerald-400', TRANSITION: 'text-amber-400', FLIP_ZONE: 'text-orange-400', EXPLOSIVE: 'text-rose-400' };
-                        const badgeBg: Record<string, string> = { STABLE: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', TRANSITION: 'bg-amber-500/20 text-amber-400 border-amber-500/30', FLIP_ZONE: 'bg-orange-500/20 text-orange-400 border-orange-500/30', EXPLOSIVE: 'bg-rose-500/20 text-rose-400 border-rose-500/30' };
                         const isAlert = regime === 'EXPLOSIVE' || regime === 'FLIP_ZONE';
                         const absDist = Math.abs(flipDist).toFixed(1);
 
@@ -686,10 +689,10 @@ function MainChartPanel() {
                                 <div className="flex items-center gap-2 mb-2">
                                     <Zap className="w-4 h-4 text-amber-400" />
                                     <span className="text-[10px] uppercase tracking-wider text-white">GEX Regime</span>
-                                    <span className={`text-[8px] font-bold px-1 py-0.5 rounded border ${badgeBg[regime]}`}>{badges[regime]}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${colors[regime]}`}>{labels[regime]}</span>
+                                    <span className={`text-xl font-mono font-bold ${colors[regime]}`}>{pinStrength}%</span>
+                                    <span className={`text-xs font-bold ${colors[regime]}`}>{labels[regime]}</span>
                                 </div>
                                 <span className="text-[9px] text-slate-400 font-mono block mt-0.5">
                                     {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? '롱 감마 환경' : '숏 감마 환경'}

@@ -153,6 +153,7 @@ function buildResponseFromResults(
                 shortVolPct: data.shortVolPct ?? null,
                 zeroDtePct: data.zeroDtePct ?? null,
                 impliedMovePct: data.impliedMovePct ?? null,
+                gammaConcentration: data.gammaConcentration ?? null,
                 levels: data.levels,
                 expiration: data.expiration,
                 options_status: data.options_status,
@@ -408,6 +409,7 @@ export async function GET(request: NextRequest) {
                     shortVolPct: data.shortVolPct ?? null,
                     zeroDtePct: data.zeroDtePct ?? null,
                     impliedMovePct: data.impliedMovePct ?? null,
+                    gammaConcentration: data.gammaConcentration ?? null,
                     levels: data.levels,
                     expiration: data.expiration,
                     options_status: data.options_status
@@ -724,16 +726,23 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
                 // Gamma-weighted 0DTE (same logic as FlowRadar)
                 let totalGamma = 0;
                 let nearestGamma = 0;
+                let atmGamma = 0; // [GEX REGIME] ATM concentration for pinStrength
                 rawChain.forEach((o: any) => {
                     const gamma = o.greeks?.gamma || 0;
                     const oi = o.open_interest || 0;
+                    const strike = o.details?.strike_price || 0;
                     const gammaExposure = Math.abs(gamma * oi * 100);
                     totalGamma += gammaExposure;
                     if (o.details?.expiration_date === targetExpiry) {
                         nearestGamma += gammaExposure;
                     }
+                    // ATM = within 2% of current price (matches FlowRadar)
+                    if (Math.abs(strike - price) / price < 0.02) {
+                        atmGamma += gammaExposure;
+                    }
                 });
                 structureData.zeroDtePct = totalGamma > 0 ? Math.round((nearestGamma / totalGamma) * 100) : 0;
+                structureData.gammaConcentration = totalGamma > 0 ? Math.round((atmGamma / totalGamma) * 100) : 0;
 
                 // Implied Move: ATM straddle price / underlying price * 100
                 const nearestContracts = rawChain.filter((o: any) => o.details?.expiration_date === targetExpiry);

@@ -31,6 +31,7 @@ interface TickerData {
     shortVolPct: number | null;        // Short Volume % (realtime)
     zeroDtePct: number | null;         // 0DTE Impact % (nearest expiry gamma ratio)
     impliedMovePct: number | null;     // Implied Move % (ATM straddle)
+    gammaConcentration: number | null;  // [GEX REGIME] ATM gamma concentration (0-100%)
     levels: {
         callWall: number | null;
         putFloor: number | null;
