@@ -565,11 +565,9 @@ function MainChartPanel() {
                     {(() => {
                         const dp = data?.darkPoolPct ?? 0;
                         const isAlert = dp >= 45;
-                        const sessionLabel = data?.session === 'PRE' ? 'PRE' : data?.session === 'POST' ? 'POST' : data?.session === 'REG' ? 'LIVE' : 'CLOSED';
+                        const sessionLabel = data?.session === 'PRE' ? 'PRE' : data?.session === 'POST' ? 'POST' : null;
                         const sessionColor = data?.session === 'PRE' ? 'text-amber-400 bg-amber-500/20 border-amber-500/30'
-                            : data?.session === 'POST' ? 'text-purple-400 bg-purple-500/20 border-purple-500/30'
-                                : data?.session === 'REG' ? 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30'
-                                    : 'text-slate-400 bg-slate-500/20 border-slate-500/30';
+                            : 'text-purple-400 bg-purple-500/20 border-purple-500/30';
                         return (
                             <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-purple-500/10 backdrop-blur-md border-purple-400/40 shadow-[0_0_25px_rgba(168,85,247,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-purple-500" />}
@@ -577,7 +575,7 @@ function MainChartPanel() {
                                     <Activity className="w-4 h-4 text-purple-400" />
                                     <span className="text-[10px] uppercase tracking-wider text-white">Dark Pool %</span>
                                     {dp >= 55 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-purple-500/80 text-white">HIGH</span>}
-                                    <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ml-auto ${sessionColor}`}>{sessionLabel}</span>
+                                    {sessionLabel && <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${sessionColor}`}>{sessionLabel}</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${dp >= 55 ? 'text-purple-400' : dp >= 45 ? 'text-purple-300' : 'text-white'}`}>
