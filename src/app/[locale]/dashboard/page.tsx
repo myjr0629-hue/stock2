@@ -337,41 +337,50 @@ function MainChartPanel() {
     // [S-78] Silent refresh: Only show loading on first load or ticker change, background updates thereafter
     const lastTickerRef = React.useRef<string | null>(null);
 
+    const fetchChartData = useCallback(async (showLoading: boolean = false) => {
+        if (!selectedTicker) return;
+        if (showLoading) setChartLoading(true);
+        try {
+            const res = await fetch(`/api/chart?symbol=${selectedTicker}&range=1d`);
+            if (res.ok) {
+                const json = await res.json();
+                const newData = json.data || [];
+                if (newData.length > 0) setChartHistory(newData);
+            }
+        } catch (e) {
+            console.error('[Dashboard] Chart fetch error:', e);
+        }
+        setChartLoading(false);
+    }, [selectedTicker]);
+
     useEffect(() => {
         const isTickerChange = lastTickerRef.current !== selectedTicker;
         lastTickerRef.current = selectedTicker;
 
-        const fetchChartData = async (showLoading: boolean = false) => {
-            if (!selectedTicker) return;
-
-            // Show loading only on ticker change, not on periodic refresh
-            if (showLoading) {
-                setChartLoading(true);
-            }
-
-            try {
-                const res = await fetch(`/api/chart?symbol=${selectedTicker}&range=1d`);
-                if (res.ok) {
-                    const json = await res.json();
-                    const newData = json.data || [];
-                    // Only update if data actually changed (prevents unnecessary re-render)
-                    if (newData.length > 0) {
-                        setChartHistory(newData);
-                    }
-                }
-            } catch (e) {
-                console.error('[Dashboard] Chart fetch error:', e);
-            }
-            setChartLoading(false);
-        };
-
         // Show loading on ticker change or first load
         fetchChartData(isTickerChange || chartHistory.length === 0);
 
-        // Silent background refresh every 30s (leverages API cache)
+        // Silent background refresh every 30s
         const interval = setInterval(() => fetchChartData(false), 30000);
-        return () => clearInterval(interval);
-    }, [selectedTicker]);
+
+        // Re-fetch when user returns to this tab/page (visibilitychange)
+        const handleVisibility = () => {
+            if (document.visibilityState === 'visible') {
+                fetchChartData(false);
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibility);
+
+        // Re-fetch on window focus (covers alt-tab and navigation back)
+        const handleFocus = () => fetchChartData(false);
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            clearInterval(interval);
+            document.removeEventListener('visibilitychange', handleVisibility);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [selectedTicker, fetchChartData]);
 
     const isPositive = (data?.changePercent || 0) >= 0;
     const gexDisplay = data?.netGex
