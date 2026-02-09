@@ -653,24 +653,47 @@ function MainChartPanel() {
                         </div>
                     </div>
 
-                    {/* 0DTE Impact (NEW) */}
+                    {/* GEX REGIME (Replaced 0DTE Impact) */}
                     {(() => {
-                        const zdte = data?.zeroDtePct ?? 0;
-                        const isAlert = zdte >= 30;
+                        const price = data?.underlyingPrice || 0;
+                        const flip = data?.gammaFlipLevel || 0;
+                        const gex = data?.netGex || 0;
+                        const isLong = gex >= 0;
+                        let regime: 'STABLE' | 'TRANSITION' | 'FLIP_ZONE' | 'EXPLOSIVE' = isLong ? 'STABLE' : 'EXPLOSIVE';
+                        let flipDist = 0;
+                        let flipDir = '';
+
+                        if (flip > 0 && price > 0) {
+                            flipDist = ((price - flip) / flip) * 100;
+                            flipDir = flipDist > 0 ? '↑' : '↓';
+                            if (flipDist > 5) regime = 'STABLE';
+                            else if (flipDist > 2) regime = 'STABLE';
+                            else if (flipDist > 0) regime = 'TRANSITION';
+                            else if (flipDist > -2) regime = 'FLIP_ZONE';
+                            else regime = 'EXPLOSIVE';
+                        }
+
+                        const labels: Record<string, string> = { STABLE: '안정 핀닝', TRANSITION: '전환 임박', FLIP_ZONE: '플립 구간', EXPLOSIVE: '폭발 대기' };
+                        const badges: Record<string, string> = { STABLE: 'STABLE', TRANSITION: 'SHIFT', FLIP_ZONE: 'FLIP', EXPLOSIVE: 'EXPLODE' };
+                        const colors: Record<string, string> = { STABLE: 'text-emerald-400', TRANSITION: 'text-amber-400', FLIP_ZONE: 'text-orange-400', EXPLOSIVE: 'text-rose-400' };
+                        const badgeBg: Record<string, string> = { STABLE: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', TRANSITION: 'bg-amber-500/20 text-amber-400 border-amber-500/30', FLIP_ZONE: 'bg-orange-500/20 text-orange-400 border-orange-500/30', EXPLOSIVE: 'bg-rose-500/20 text-rose-400 border-rose-500/30' };
+                        const isAlert = regime === 'EXPLOSIVE' || regime === 'FLIP_ZONE';
+                        const absDist = Math.abs(flipDist).toFixed(1);
+
                         return (
                             <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500 animate-pulse" />}
                                 <div className="flex items-center gap-2 mb-2">
                                     <Zap className="w-4 h-4 text-amber-400" />
-                                    <span className="text-[10px] uppercase tracking-wider text-white">0DTE Impact</span>
-                                    {zdte >= 60 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-amber-500/80 text-white">극심</span>}
+                                    <span className="text-[10px] uppercase tracking-wider text-white">GEX Regime</span>
+                                    <span className={`text-[8px] font-bold px-1 py-0.5 rounded border ${badgeBg[regime]}`}>{badges[regime]}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${zdte >= 60 ? 'text-amber-400' : zdte >= 30 ? 'text-yellow-400' : 'text-white'}`}>
-                                        {zdte > 0 ? `${zdte}%` : '—'}
-                                    </span>
-                                    <span className="text-xs text-white">{zdte >= 60 ? '큰 움직임' : zdte >= 30 ? '변동성 확대' : '보통'}</span>
+                                    <span className={`text-xl font-mono font-bold ${colors[regime]}`}>{labels[regime]}</span>
                                 </div>
+                                <span className="text-[9px] text-slate-400 font-mono block mt-0.5">
+                                    {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? '롱 감마 환경' : '숏 감마 환경'}
+                                </span>
                             </div>
                         );
                     })()}
