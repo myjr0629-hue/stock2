@@ -745,18 +745,19 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
                 structureData.gammaConcentration = totalGamma > 0 ? Math.round((atmGamma / totalGamma) * 100) : 0;
 
                 // Implied Move: ATM straddle price / underlying price * 100
+                // [FIX] Use FlowRadar's nearest-strike approach (not rounded ATM ±5)
                 const nearestContracts = rawChain.filter((o: any) => o.details?.expiration_date === targetExpiry);
-                const atmStrike = Math.round(price / 2.5) * 2.5;
-                const atmCalls = nearestContracts.filter((o: any) =>
-                    o.details?.contract_type === 'call' &&
-                    Math.abs((o.details?.strike_price || 0) - atmStrike) <= 5
-                );
-                const atmPuts = nearestContracts.filter((o: any) =>
-                    o.details?.contract_type === 'put' &&
-                    Math.abs((o.details?.strike_price || 0) - atmStrike) <= 5
-                );
-                const callMid = atmCalls[0]?.last_trade?.price || atmCalls[0]?.day?.close || 0;
-                const putMid = atmPuts[0]?.last_trade?.price || atmPuts[0]?.day?.close || 0;
+                let nearestCall: any = null, nearestPut: any = null;
+                let minCallDist = Infinity, minPutDist = Infinity;
+                nearestContracts.forEach((o: any) => {
+                    const strike = o.details?.strike_price;
+                    if (!strike) return;
+                    const dist = Math.abs(strike - price);
+                    if (o.details?.contract_type === 'call' && dist < minCallDist) { minCallDist = dist; nearestCall = o; }
+                    if (o.details?.contract_type === 'put' && dist < minPutDist) { minPutDist = dist; nearestPut = o; }
+                });
+                const callMid = nearestCall?.last_trade?.price || nearestCall?.day?.close || 0;
+                const putMid = nearestPut?.last_trade?.price || nearestPut?.day?.close || 0;
                 if (callMid > 0 && putMid > 0 && price > 0) {
                     structureData.impliedMovePct = parseFloat(((callMid + putMid) / price * 100).toFixed(1));
                 }
