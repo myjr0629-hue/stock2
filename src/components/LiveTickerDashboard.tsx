@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
+import { useFlowData } from '@/hooks/useFlowData';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown, Crosshair, Radar, Shield } from "lucide-react";
@@ -270,15 +271,21 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 
 export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics }: Props) {
     // --- Live Data State ---
-    // [PERF] SSR 데이터를 초기값으로 사용하여 첫 화면 즉시 표시
-    const [liveQuote, setLiveQuote] = useState<any>(initialStockData ? {
+    // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
+    // SSR data → SWR fallbackData → instant first render → background refresh
+    const ssrFallback = initialStockData ? {
         prices: {
             regularCloseToday: initialStockData.price,
             prevClose: initialStockData.prevClose || null
         },
         session: initialStockData.session === 'reg' ? 'REG' : initialStockData.session === 'pre' ? 'PRE' : initialStockData.session === 'post' ? 'POST' : 'CLOSED',
         changePercent: initialStockData.changePercent
-    } : null);
+    } : undefined;
+    const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
+        refreshInterval: 15000,
+    });
+    // Use SWR data when available, SSR fallback otherwise — keeps 'liveQuote' name for compatibility
+    const liveQuote = _swrQuote || ssrFallback || null;
     const [options, setOptions] = useState<any>(null);
     // [FIX] Client-side chart data to override stale SSR data on navigation back
     const [liveChartData, setLiveChartData] = useState<any[] | null>(null);
@@ -286,7 +293,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [krNews, setKrNews] = useState<any[]>(initialNews || []);
     const [optionsLoading, setOptionsLoading] = useState(false);
     const [structLoading, setStructLoading] = useState(false);
-    const [quoteLoading, setQuoteLoading] = useState(false);
     const [newsLoading, setNewsLoading] = useState(false);
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
@@ -363,19 +369,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             else console.error(e);
         } finally { setNewsLoading(false); }
     };
-    const fetchQuote = async () => {
-        setQuoteLoading(true);
-        try {
-            const res = await fetch(`/api/live/ticker?t=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                setLiveQuote(data);
-            }
-        } catch (e: any) {
-            if (e?.message?.includes("Failed to fetch")) console.warn("[Quote] Network retry...");
-            else console.error(e);
-        } finally { setQuoteLoading(false); }
-    };
+    // [PERF] fetchQuote removed — replaced by SWR useFlowData hook above
+    // SWR handles: caching, deduplication, background refresh (15s), error retry
 
     const fetchStructure = async (exp?: string, maxRetries: number = 3) => {
         // [FIX] 기존 데이터가 있으면 로딩 오버레이 표시 안함 (깜빡임 방지)
@@ -623,7 +618,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     // Initial Load & Polling
     useEffect(() => {
-        fetchQuote();
+        // [PERF] fetchQuote removed — SWR handles quote polling automatically
         fetchNewsAndScore(); // [PERF] 통합: fetchKrNews + fetchNewsScore → 1회 호출
         fetchEarnings();
         fetchSma();
@@ -633,7 +628,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         fetchShortSqueeze();
         fetchInstitutional();
         fetchFundamentals();
-        const interval = setInterval(fetchQuote, 10000); // Poll quote every 10s
 
         // [FIX] Re-fetch chart when user returns to this page/tab
         const handleVisibility = () => {
@@ -647,7 +641,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         const chartInterval = setInterval(fetchChartData, 30000);
 
         return () => {
-            clearInterval(interval);
             clearInterval(chartInterval);
             document.removeEventListener('visibilitychange', handleVisibility);
             window.removeEventListener('focus', handleFocus);
