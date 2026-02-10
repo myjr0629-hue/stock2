@@ -662,14 +662,14 @@ function MainChartPanel() {
 
                     {/* P/C Ratio (VOLUME) - matches Flow page */}
                     {(() => {
-                        const vpcr = liveVolumePcr;  // Direct from ticker API (not unified API)
+                        const vpcr = liveVolumePcr ?? data?.volumePcr ?? null;  // Prefer live ticker, fallback to unified API (instant)
                         const isAlert = vpcr !== null && (vpcr >= 2.0 || vpcr <= 0.5);
                         const label = vpcr === null ? '—' : vpcr >= 2.0 ? '강한 콜 우위' : vpcr >= 1.3 ? '콜 우위' : vpcr <= 0.5 ? '강한 풋 우위' : vpcr <= 0.75 ? '풋 우위' : '균형';
                         const isBullish = vpcr !== null && vpcr >= 1.3;
                         const isBearish = vpcr !== null && vpcr <= 0.75;
                         const color = isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white';
-                        const callVol = liveCallVol ?? 0;
-                        const putVol = livePutVol ?? 0;
+                        const callVol = liveCallVol ?? data?.volumePcrCallVol ?? 0;
+                        const putVol = livePutVol ?? data?.volumePcrPutVol ?? 0;
                         const hasVolData = callVol > 0 || putVol > 0;
                         return (
                             <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? (isBullish ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]') : 'bg-[#0d1829]/80 border-white/5'}`}>
