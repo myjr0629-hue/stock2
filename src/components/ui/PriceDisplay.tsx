@@ -132,25 +132,26 @@ export function PriceDisplay({
                 </span>
             </div>
 
-            {/* ===== Extended (POST/PRE) Price ===== */}
+            {/* ===== Extended (POST/PRE) Price — Command-style pill ===== */}
             {hasExtended && (
-                <div className={`flex items-center ${config.gap} ml-3`}>
-                    {/* Dot separator */}
-                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500 mr-2" />
-                    {/* Label with status */}
-                    <span className={`font-bold uppercase ${config.extLabel} ${EXT_LABEL_COLORS[extendedLabel]}`}>
-                        {extendedLabel}
-                        {sessionStatus && <span className="text-slate-500 ml-1">({sessionStatus})</span>}
-                    </span>
-                    <span className={`font-mono text-slate-300 ${config.extPrice}`}>
-                        ${extendedPrice.toLocaleString(undefined, {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        })}
-                    </span>
-                    <span className={`font-mono ${extendedColor} ${config.extChange}`}>
-                        {isExtendedUp ? '+' : ''}{extendedChangePct.toFixed(2)}%
-                    </span>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/50 border border-slate-700/50 backdrop-blur-md ml-2">
+                    <div className={`w-1.5 h-1.5 rounded-full ${extendedLabel.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'
+                        } animate-pulse`} />
+                    <div className="flex items-baseline gap-1.5">
+                        <span className={`text-[9px] font-black uppercase tracking-widest ${EXT_LABEL_COLORS[extendedLabel]}`}>
+                            {extendedLabel}
+                            {sessionStatus && <span className="text-slate-500 ml-1">({sessionStatus})</span>}
+                        </span>
+                        <span className="text-xs font-mono font-bold text-slate-200">
+                            ${extendedPrice.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2
+                            })}
+                        </span>
+                        <span className={`text-[10px] font-mono font-bold ${extendedColor}`}>
+                            {isExtendedUp ? '+' : ''}{extendedChangePct.toFixed(2)}%
+                        </span>
+                    </div>
                 </div>
             )}
         </div>

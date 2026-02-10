@@ -131,7 +131,10 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
         intradayChangePct: data?.intradayChangePct || null,
         changePercent: data?.changePercent || null,
         session: data?.session || 'CLOSED',
-        extended: data?.extended
+        extended: data?.extended,
+        display: data?.display || null,
+        prevChangePct: data?.prevChangePct ?? null,
+        prevRegularClose: data?.prevRegularClose ?? null
     });
 
     const { mainPrice, mainChangePct, extPrice, extChangePct, extLabel } = priceInfo;
@@ -194,12 +197,14 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                             <div className="h-3 w-10 bg-slate-700 rounded" />
                         </div>
                     )}
-                    {/* Separator + Extended Session (POST/PRE) */}
+                    {/* Extended Session Badge (Command-style pill) */}
                     {extPrice > 0 && (
-                        <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700">
-                            <span className={`text-[8px] font-bold uppercase ${extColor}`}>{displayExtLabel}</span>
-                            <span className="text-xs text-white font-mono">${extPrice.toFixed(2)}</span>
-                            <span className={`text-[9px] font-mono ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/60 border border-slate-700/50">
+                            <div className={`w-1.5 h-1.5 rounded-full ${displayExtLabel === 'PRE' ? 'bg-amber-500' : displayExtLabel === 'POST' ? 'bg-indigo-500' : 'bg-cyan-500'
+                                } animate-pulse`} />
+                            <span className={`text-[8px] font-black uppercase tracking-wider ${extColor}`}>{displayExtLabel}</span>
+                            <span className="text-[11px] text-slate-200 font-mono font-bold">${extPrice.toFixed(2)}</span>
+                            <span className={`text-[9px] font-mono font-bold ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                 {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
                             </span>
                         </div>
@@ -425,7 +430,10 @@ function MainChartPanel() {
                             intradayChangePct: data?.intradayChangePct || null,
                             changePercent: data?.changePercent || null,
                             session: data?.session || 'CLOSED',
-                            extended: data?.extended
+                            extended: data?.extended,
+                            display: data?.display || null,
+                            prevChangePct: data?.prevChangePct ?? null,
+                            prevRegularClose: data?.prevRegularClose ?? null
                         });
 
                         return (

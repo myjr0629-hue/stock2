@@ -138,6 +138,10 @@ function buildResponseFromResults(
                 regularCloseToday: data.regularCloseToday || null,
                 // [INTRADAY FIX] Intraday-only change (regularCloseToday vs prevClose)
                 intradayChangePct: data.intradayChangePct || data.prevChangePct || null,
+                // [FIX] Command-style price display data
+                display: data.display || null,
+                prevChangePct: data.prevChangePct ?? null,
+                prevRegularClose: data.prevRegularClose ?? null,
                 extended: data.extended || null,
                 session: data.session || 'CLOSED',
                 netGex: data.netGex,
@@ -696,6 +700,10 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             structureData.prevClose = tickerData.prices?.prevRegularClose || structureData.prevClose;
             structureData.regularCloseToday = tickerData.prices?.regularCloseToday || null;
             structureData.intradayChangePct = tickerData.prices?.prevChangePct || null;
+            // [FIX] Pass display object for accurate PRE/POST/CLOSED price rendering (matches Command page)
+            structureData.display = tickerData.display || null;
+            structureData.prevChangePct = tickerData.prices?.prevChangePct ?? null;
+            structureData.prevRegularClose = tickerData.prices?.prevRegularClose ?? null;
             // [DASHBOARD V2] VWAP from ticker API
             structureData.vwap = tickerData.vwap ?? null;
             // [DASHBOARD V2] Save rawChain for 0DTE/IM computation

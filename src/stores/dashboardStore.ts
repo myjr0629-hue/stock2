@@ -9,12 +9,17 @@ interface TickerData {
     regularCloseToday: number | null;
     // [INTRADAY FIX] Intraday-only change (excludes post-market)
     intradayChangePct: number | null;
+    // [FIX] Command-style price display data from /api/live/ticker
+    display: { price?: number; changePctPct?: number } | null;
+    prevChangePct: number | null;
+    prevRegularClose: number | null;
     // [S-78] Extended session data for Command-style display
     extended: {
         postPrice?: number;
         postChangePct?: number;
         prePrice?: number;
         preChangePct?: number;
+        preClose?: number;
     } | null;
     session: 'PRE' | 'REG' | 'POST' | 'CLOSED';
     netGex: number | null;
