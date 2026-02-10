@@ -1,13 +1,15 @@
 // src/app/[locale]/flow/page.tsx
 // FLOW - Options Intelligence Page (FlowRadar with SAME data as COMMAND)
+// [PERF] SWR-powered: stale-while-revalidate caching for instant revisit
 "use client";
 
-import React, { useEffect, useState, useCallback, Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { FlowRadar } from '@/components/FlowRadar';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
+import { useFlowData } from '@/hooks/useFlowData';
 
 function FlowPageContent() {
     const searchParams = useSearchParams();
@@ -16,39 +18,13 @@ function FlowPageContent() {
         || searchParams.get('t')?.toUpperCase()
         || 'TSLA';
 
-    // EXACT SAME state as LiveTickerDashboard
-    const [liveQuote, setLiveQuote] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
-    const [quoteLoading, setQuoteLoading] = useState(false);
-
-    // Fetch ticker data (EXACT same API as COMMAND - L236)
-    // This API returns flow.rawChain which FlowRadar uses
-    const fetchTicker = useCallback(async () => {
-        setQuoteLoading(true);
-        try {
-            const res = await fetch(`/api/live/ticker?t=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                setLiveQuote(data);
-                setLoading(false);
-            }
-        } catch (e) {
-            console.error('[Flow] Ticker fetch error:', e);
-            setLoading(false);
-        } finally {
-            setQuoteLoading(false);
-        }
-    }, [ticker]);
-
-    useEffect(() => {
-        setLoading(true);
-        setLiveQuote(null);
-        fetchTicker();
-
-        // Poll every 10s (same as COMMAND)
-        const quoteInterval = setInterval(fetchTicker, 10000);
-        return () => clearInterval(quoteInterval);
-    }, [ticker, fetchTicker]);
+    // [PERF] SWR replaces useState+useEffect+fetch+setInterval
+    // - Cached data returned instantly on revisit (0ms)
+    // - Background refresh every 15s
+    // - Deduplication prevents concurrent duplicate requests
+    const { data: liveQuote, isLoading: loading, isValidating: quoteLoading } = useFlowData(ticker, {
+        refreshInterval: 15000,  // 15s polling (was 10s, but API takes 20s)
+    });
 
     // =====================================================
     // PRICE DISPLAY LOGIC (EXACT COPY from LiveTickerDashboard L305-417)

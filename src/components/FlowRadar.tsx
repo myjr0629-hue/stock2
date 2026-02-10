@@ -2,6 +2,7 @@
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades } from '@/hooks/useFlowData';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle, BarChart3, Banknote } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "./ui/progress";
@@ -43,94 +44,14 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         }
     }, [currentPrice, rawChain]);
 
-    // State for Live Whale Trades [V3.7.3]
-    const [whaleTrades, setWhaleTrades] = useState<any[]>([]);
-    const [tradesLoading, setTradesLoading] = useState(false);
-    const [isSystemReady, setIsSystemReady] = useState(false); // [Fix] Initial Load State
+    // [PERF] SWR-powered data fetching (replaces manual fetch + setInterval)
+    // SWR handles: caching, deduplication, background refresh, error retry
+    const hasData = rawChain.length > 0;
+    const { trades: whaleTrades, isLoading: tradesLoading } = useWhaleTrades(ticker, hasData);
+    const { metrics: realtimeMetrics } = useRealtimeMetrics(ticker, hasData);
+    const { trades: darkPoolTrades } = useDarkPoolTrades(ticker, hasData);
     const [flowViewMode, setFlowViewMode] = useState<'WHALE' | 'DARKPOOL'>('WHALE');
-    const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>([]);
-
-    // [NEW] Realtime Metrics State (Dark Pool, Short Vol, Bid-Ask, Block Trade)
-    const [realtimeMetrics, setRealtimeMetrics] = useState<{
-        darkPool: { percent: number; volume: number; totalVolume: number; buyPct?: number; sellPct?: number; buyVolume?: number; sellVolume?: number; buyVwap?: number; sellVwap?: number; netBuyValue?: number } | null;
-        shortVolume: { percent: number; volume: number; totalVolume: number } | null;
-        bidAsk: { spread: number; label: string } | null;
-        blockTrade: { count: number; volume: number } | null;
-    }>({ darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null });
-
-    // [Fix] Reset State on Ticker Change (Prevent Stale Data)
-    useEffect(() => {
-        setWhaleTrades([]);
-        setDarkPoolTrades([]);
-        setIsSystemReady(false);
-        setRealtimeMetrics({ darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null });
-    }, [ticker]);
-
-    // Fetch Whale Trades
-    const fetchWhaleTrades = async () => {
-        try {
-            const res = await fetch(`/api/live/options/trades?t=${ticker}`); // Use explicit ticker
-            if (res.ok) {
-                const data = await res.json();
-                setWhaleTrades(prev => {
-                    const newTrades = data.items || [];
-                    const combined = [...newTrades, ...prev];
-                    const unique = combined.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
-                    return unique.slice(0, 50); // Keep last 50
-                });
-            }
-        } catch (e) {
-            console.error(e);
-        } finally {
-            setIsSystemReady(true);
-        }
-    };
-
-    // [NEW] Fetch Realtime Metrics (Dark Pool, Short Vol, Bid-Ask, Block Trade)
-    const fetchRealtimeMetrics = async () => {
-        try {
-            const res = await fetch(`/api/flow/realtime-metrics?ticker=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                setRealtimeMetrics({
-                    darkPool: data.darkPool,
-                    shortVolume: data.shortVolume,
-                    bidAsk: data.bidAsk,
-                    blockTrade: data.blockTrade,
-                });
-            }
-        } catch (e) {
-            console.error('[FlowRadar] Realtime metrics fetch error:', e);
-        }
-    };
-
-    // [NEW] Fetch Dark Pool Trades
-    const fetchDarkPoolTrades = async () => {
-        try {
-            const res = await fetch(`/api/flow/dark-pool-trades?ticker=${ticker}&limit=30`);
-            if (res.ok) {
-                const data = await res.json();
-                setDarkPoolTrades(data.items || []);
-            }
-        } catch (e) {
-            console.error('[FlowRadar] Dark pool trades fetch error:', e);
-        }
-    };
-
-    // Poll for trades and realtime metrics
-    useEffect(() => {
-        if (rawChain.length > 0) {
-            fetchWhaleTrades();
-            fetchRealtimeMetrics();
-            fetchDarkPoolTrades();
-            const interval = setInterval(() => {
-                fetchWhaleTrades();
-                fetchRealtimeMetrics();
-                fetchDarkPoolTrades();
-            }, 15000); // Every 15s
-            return () => clearInterval(interval);
-        }
-    }, [rawChain, ticker]);
+    const isSystemReady = hasData && !tradesLoading;
 
     // [REMOVED] News Sentiment, Treasury, Risk Factors - Now displayed in Command page gauges
 
@@ -497,8 +418,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         // 5. INSTITUTIONAL FLOW SIGNAL (0-10 points)
         // ============================================
         // Large directional bets near ATM = Smart money positioning
-        const bigBets = whaleTrades.filter(t => t.premium >= 100000);
-        const nearAtmBets = bigBets.filter(t =>
+        const bigBets = whaleTrades.filter((t: any) => t.premium >= 100000);
+        const nearAtmBets = bigBets.filter((t: any) =>
             t.strike && Math.abs(t.strike - currentPrice) / currentPrice < 0.05
         );
 
@@ -929,11 +850,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         let activeTrades = whaleTrades;
         if (whaleTrades.length > 0) {
             // Find the most recent trade timestamp
-            const mostRecent = Math.max(...whaleTrades.map(t => new Date(t.tradeDate).getTime()));
+            const mostRecent = Math.max(...whaleTrades.map((t: any) => new Date(t.tradeDate).getTime()));
             // Use all trades from the same trading day as the most recent trade
             const sessionStart = new Date(mostRecent);
             sessionStart.setHours(0, 0, 0, 0); // Start of that trading day
-            activeTrades = whaleTrades.filter(t => new Date(t.tradeDate).getTime() >= sessionStart.getTime());
+            activeTrades = whaleTrades.filter((t: any) => new Date(t.tradeDate).getTime() >= sessionStart.getTime());
         }
 
         // 1. Whale Flow Decomposition
@@ -943,7 +864,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         let maxPremium = 0;
         let alphaTrade: any = null;
 
-        activeTrades.forEach(t => {
+        activeTrades.forEach((t: any) => {
             if (t.type === 'CALL') {
                 netWhalePremium += t.premium;
                 callPremium += t.premium;
@@ -1977,7 +1898,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                 Scanning for Classified Intel...
                                             </div>
                                         ) : (
-                                            whaleTrades.map((t, i) => {
+                                            whaleTrades.map((t: any, i: number) => {
                                                 const isHighImpact = t.premium >= 500000;
                                                 const isMedImpact = t.premium >= 100000 && t.premium < 500000;
                                                 const isCall = t.type === 'CALL';

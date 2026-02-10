@@ -1,4 +1,5 @@
 // [S-52.2.3] Live Ticker API - Force Dynamic + Build Metadata
+// [PERF] Redis cache + payload slimming for Flow page optimization
 import { NextRequest } from 'next/server';
 import { getBuildMeta } from '@/services/buildMeta';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
@@ -6,6 +7,7 @@ import { calculateAlphaScore, calculateWhaleIndex, computeRSI14, computeImpliedM
 import { CentralDataHub } from "@/services/centralDataHub";
 import { getStructureData } from "@/services/structureService"; // [SQUEEZE FIX]
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
+import { getFromCache, setInCache } from '@/services/redisClient'; // [PERF] Redis caching
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
@@ -32,6 +34,50 @@ function fracToPct(frac: number | null): number | null {
     return frac !== null ? Math.round(frac * 10000) / 100 : null;  // 0.00144 -> 0.14
 }
 
+// [PERF] Slim option chain: keep only fields FlowRadar actually uses
+function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true): any[] {
+    if (!chain || !Array.isArray(chain)) return [];
+    return chain.map(opt => {
+        const slim: any = {
+            details: {
+                strike_price: opt.details?.strike_price,
+                contract_type: opt.details?.contract_type,
+                expiration_date: opt.details?.expiration_date,
+            },
+            open_interest: opt.open_interest,
+        };
+        if (includeGreeksDetail) {
+            // rawChain needs full greeks + day data
+            slim.greeks = {
+                delta: opt.greeks?.delta,
+                gamma: opt.greeks?.gamma,
+                implied_volatility: opt.greeks?.implied_volatility,
+            };
+            slim.day = {
+                volume: opt.day?.volume,
+                close: opt.day?.close,
+                open_interest: opt.day?.open_interest,
+            };
+            slim.implied_volatility = opt.implied_volatility;
+            if (opt.last_quote?.midpoint !== undefined) {
+                slim.last_quote = { midpoint: opt.last_quote.midpoint };
+            }
+        } else {
+            // allExpiryChain only needs gamma + OI for GEX calculation
+            slim.greeks = {
+                gamma: opt.greeks?.gamma,
+            };
+        }
+        return slim;
+    });
+}
+
+// [PERF] Redis cache key for ticker response
+const TICKER_CACHE_TTL = 60; // 60 seconds
+function tickerCacheKey(ticker: string): string {
+    return `flow:ticker:${ticker}`;
+}
+
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
     if (!t) {
@@ -42,6 +88,25 @@ export async function GET(req: NextRequest) {
     }
 
     const ticker = t.toUpperCase();
+
+    // [PERF] Check Redis cache first — returns in ~0.1s if cache hit
+    try {
+        const cached = await getFromCache<any>(tickerCacheKey(ticker));
+        if (cached) {
+            console.log(`[live/ticker] CACHE HIT for ${ticker}`);
+            return new Response(JSON.stringify({ ...cached, _cached: true, _cachedAt: cached.tsServer }), {
+                status: 200,
+                headers: {
+                    'Content-Type': 'application/json; charset=utf-8',
+                    'Cache-Control': 'no-store, max-age=0, must-revalidate',
+                    'X-Cache': 'HIT'
+                }
+            });
+        }
+    } catch (e) {
+        console.warn(`[live/ticker] Redis cache check failed for ${ticker}, proceeding without cache`);
+    }
+
     const serverTs = Date.now();
     const seq = serverTs;
 
@@ -416,8 +481,11 @@ export async function GET(req: NextRequest) {
         vwap: S.day?.vw || S.prevDay?.vw || null,
 
         // [Fix] Include Options Flow Data in Response
+        // [PERF] Slim rawChain (121KB→35KB) and allExpiryChain (2.89MB→~400KB)
         flow: {
-            ...flowData as any,
+            ...(flowData as any),
+            rawChain: slimOptionChain((flowData as any)?.rawChain, true),
+            allExpiryChain: slimOptionChain((flowData as any)?.allExpiryChain, false),
             gammaFlipLevel: (structureResult as any)?.gammaFlipLevel ?? null,
             oiPcr: (structureResult as any)?.pcr ?? null,  // [PCR] OI-based Put/Call Ratio from structureService
             volumePcr: _vpcr,
@@ -623,11 +691,18 @@ export async function GET(req: NextRequest) {
         }
     };
 
+    // [PERF] Cache the slimmed response in Redis (60s TTL)
+    // Non-blocking: don't wait for cache write to respond
+    setInCache(tickerCacheKey(ticker), response, TICKER_CACHE_TTL).catch(e => {
+        console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
+    });
+
     return new Response(JSON.stringify(response), {
         status: 200,
         headers: {
             'Content-Type': 'application/json; charset=utf-8',
-            'Cache-Control': 'no-store, max-age=0, must-revalidate'
+            'Cache-Control': 'no-store, max-age=0, must-revalidate',
+            'X-Cache': 'MISS'
         }
     });
 }
