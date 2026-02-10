@@ -723,8 +723,18 @@ function MainChartPanel() {
                             else { flipDistWeight = 0.2; regime = 'EXPLOSIVE'; }
                         }
 
-                        // pinStrength = ATM concentration × flip weight (simplified: no DTE weight on dashboard)
-                        const pinStrength = Math.min(100, Math.round(atmConc * flipDistWeight));
+                        // DTE weight (matches FlowRadar exactly)
+                        const expStr = data?.expiration;
+                        let dte = -1;
+                        if (expStr) {
+                            const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                            const todayStr = `${etNow.getFullYear()}-${String(etNow.getMonth() + 1).padStart(2, '0')}-${String(etNow.getDate()).padStart(2, '0')}`;
+                            dte = Math.max(0, Math.round((new Date(expStr + 'T16:00:00').getTime() - new Date(todayStr + 'T09:30:00').getTime()) / 86400000));
+                        }
+                        const dteWeight = dte === 0 ? 1.0 : dte === 1 ? 0.7 : dte <= 3 ? 0.4 : 0.2;
+
+                        // pinStrength = ATM concentration × flip weight × DTE weight (matches FlowRadar)
+                        const pinStrength = Math.min(100, Math.round(atmConc * flipDistWeight * dteWeight));
 
                         const labels: Record<string, string> = { STABLE: '안정 핀닝', TRANSITION: '전환 임박', FLIP_ZONE: '플립 구간', EXPLOSIVE: '폭발 대기' };
                         const colors: Record<string, string> = { STABLE: 'text-emerald-400', TRANSITION: 'text-amber-400', FLIP_ZONE: 'text-orange-400', EXPLOSIVE: 'text-rose-400' };
@@ -744,6 +754,7 @@ function MainChartPanel() {
                                     <span className={`text-xs font-bold ${colors[regime]}`}>{labels[regime]}</span>
                                 </div>
                                 <span className="text-[9px] text-slate-400 font-mono block mt-0.5">
+                                    {expStr ? `${expStr.slice(5)}(${dte === 0 ? '당일' : dte === 1 ? '익일' : `${dte}일`})` : ''}{' | '}
                                     {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? '롱 감마 환경' : '숏 감마 환경'}
                                 </span>
                             </div>
