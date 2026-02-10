@@ -632,6 +632,33 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         return { value: roundedRatio, label, color, callVol, putVol };
     }, [rawChain]);
 
+    // [NEW] P/C Ratio (OI-based) - switches with VOLUME/OI toggle
+    const pcRatioOI = useMemo(() => {
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', callOI: 0, putOI: 0 };
+
+        let callOI = 0;
+        let putOI = 0;
+
+        rawChain.forEach(opt => {
+            const oi = opt.open_interest || 0;
+            const type = opt.details?.contract_type;
+            if (type === 'call') callOI += oi;
+            else if (type === 'put') putOI += oi;
+        });
+
+        const ratio = putOI > 0 ? callOI / putOI : callOI > 0 ? 10 : 0;
+        const roundedRatio = Math.round(ratio * 100) / 100;
+
+        let label = '균형';
+        let color = 'text-white';
+        if (ratio >= 2.0) { label = '강한 콜 우위'; color = 'text-emerald-400'; }
+        else if (ratio >= 1.3) { label = '콜 우위'; color = 'text-emerald-300'; }
+        else if (ratio <= 0.5) { label = '강한 풋 우위'; color = 'text-rose-400'; }
+        else if (ratio <= 0.75) { label = '풋 우위'; color = 'text-rose-300'; }
+
+        return { value: roundedRatio, label, color, callOI, putOI };
+    }, [rawChain]);
+
     // [GEX REGIME] Institutional-grade gamma regime indicator
     // Combines: ATM concentration (rawChain) + Gamma Flip distance + DTE weighting
     const gexRegime = useMemo(() => {
@@ -1712,21 +1739,33 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                 </div>
 
                 {/* P/C Ratio - Dual View (Volume + OI) */}
-                <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-cyan-500/50 transition-all duration-300">
-                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
-                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
-                    <div className="relative z-10 flex flex-col items-center justify-center">
-                        <div className="flex items-center gap-1.5 mb-1">
-                            <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)] ${pcRatio.value >= 1.3 ? 'bg-emerald-500' : pcRatio.value <= 0.75 ? 'bg-rose-500' : 'bg-cyan-500'}`} />
-                            <span className="text-[10px] text-white uppercase font-bold tracking-wide">P/C Ratio</span>
-                            <span className="text-[8px] text-white/40 font-medium">VOLUME</span>
+                {(() => {
+                    const isOI = effectiveViewMode === 'OI';
+                    const activePC = isOI ? pcRatioOI : pcRatio;
+                    const dotColor = activePC.value >= 1.3 ? 'bg-emerald-500' : activePC.value <= 0.75 ? 'bg-rose-500' : 'bg-cyan-500';
+                    return (
+                        <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-cyan-500/50 transition-all duration-300">
+                            <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
+                            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
+                            <div className="relative z-10 flex flex-col items-center justify-center">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                    <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)] ${dotColor}`} />
+                                    <span className="text-[10px] text-white uppercase font-bold tracking-wide">P/C Ratio</span>
+                                    <span className={`text-[8px] font-medium ${isOI ? 'text-indigo-400' : 'text-white/40'}`}>{isOI ? 'OI' : 'VOLUME'}</span>
+                                </div>
+                                <span className={`text-2xl font-black ${activePC.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
+                                    {activePC.value > 0 ? activePC.value.toFixed(2) : '--'} <span className="text-sm">{activePC.label}</span>
+                                </span>
+                                <span className="text-[10px] text-white font-medium mt-0.5 font-mono">
+                                    {isOI
+                                        ? `C ${((pcRatioOI as any).callOI / 1000).toFixed(0)}K / P ${((pcRatioOI as any).putOI / 1000).toFixed(0)}K`
+                                        : `C ${(pcRatio.callVol / 1000).toFixed(0)}K / P ${(pcRatio.putVol / 1000).toFixed(0)}K`
+                                    }
+                                </span>
+                            </div>
                         </div>
-                        <span className={`text-2xl font-black ${pcRatio.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
-                            {pcRatio.value > 0 ? pcRatio.value.toFixed(2) : '--'} <span className="text-sm">{pcRatio.label}</span>
-                        </span>
-                        <span className="text-[10px] text-white font-medium mt-0.5 font-mono">C {(pcRatio.callVol / 1000).toFixed(0)}K / P {(pcRatio.putVol / 1000).toFixed(0)}K</span>
-                    </div>
-                </div>
+                    );
+                })()}
 
                 {/* GEX REGIME - Institutional Gamma Regime Indicator */}
                 <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-amber-500/50 transition-all duration-300">
