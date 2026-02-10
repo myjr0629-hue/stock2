@@ -1130,6 +1130,54 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             }
         }
 
+        // ===== GAMMA PINCH: Put Floor > Call Wall (inverted walls) =====
+        // This is a rare, dangerous condition where buying pressure (Call Wall) is BELOW
+        // selling pressure (Put Floor) — price is trapped between colliding forces.
+        const isGammaPinch = putWall > callWall && callWall > 0 && putWall > 0;
+        const gexFlipDist = currentPrice > 0 && (gexRegime.flipLevel ?? 0) > 0
+            ? ((currentPrice - (gexRegime.flipLevel ?? 0)) / currentPrice) * 100
+            : null;
+        const isNearGexFlip = gexFlipDist !== null && Math.abs(gexFlipDist) < 1.5;
+
+        if (isGammaPinch) {
+            if (compositeScore > 20) {
+                status = "감마 핀치 — 상방 유력 (GAMMA PINCH ↑)";
+                message = `벽 구조 역전: 풋벽($${putWall}) > 콜벽($${callWall}). 양쪽 압력 충돌 중이나, OPI·수급이 상방 우위. $${callWall} 돌파 시 감마 스퀴즈 가속.`;
+                probability = Math.min(85, 65 + compositeScore * 0.2);
+                probLabel = "상방 유력"; probColor = "text-emerald-400"; color = "text-emerald-400";
+                action = `$${callWall} 돌파 확인 후 매수 추종`;
+                warning = `뒤집힌 구조는 양방향 리스크 존재 — 실패 시 급락 가능`;
+                trigger = `$${callWall} 돌파 + 거래량 동반 시 확정`;
+            } else if (compositeScore < -20) {
+                status = "감마 핀치 — 하방 압력 (GAMMA PINCH ↓)";
+                message = `벽 구조 역전: 풋벽($${putWall}) > 콜벽($${callWall}). 수급이 하방 우위. $${putWall} 하단 이탈 시 낙폭 확대.`;
+                probability = Math.max(15, 35 + compositeScore * 0.2);
+                probLabel = "하방 주의"; probColor = "text-rose-400"; color = "text-rose-400";
+                action = `롱 축소, $${putWall} 이탈 시 풋 진입`;
+                warning = `뒤집힌 구조 — 반등 시에도 $${callWall}이 저항`;
+                trigger = `$${putWall} 이탈 시 하락 가속, 반등 시 $${callWall} 확인`;
+            } else {
+                status = "감마 핀치 — 폭발 대기 (GAMMA PINCH ⚡)";
+                message = `벽 구조 역전: 풋벽($${putWall}) > 콜벽($${callWall}). 양쪽 압력이 충돌하며 방향 미정. 한쪽 벽 돌파 시 급격한 움직임 예상.`;
+                probability = 50;
+                probLabel = "방향 미정"; probColor = "text-amber-400"; color = "text-amber-400";
+                action = "양방향 대비 — 돌파 방향 추종 (straddle 적합)";
+                warning = `뒤집힌 구조는 변동성 폭발 전조 — 역방향 포지션 즉시 탈출 준비`;
+                trigger = `$${callWall} 돌파=상승 / $${putWall} 이탈=하락 — 방향 터지면 즉시 추종`;
+            }
+        }
+
+        // ===== GEX FLIP PROXIMITY: Price near gamma flip level =====
+        const flipLevel = gexRegime.flipLevel ?? 0;
+        if (isNearGexFlip && flipLevel > 0) {
+            const aboveFlip = currentPrice > flipLevel;
+            const flipWarning = aboveFlip
+                ? `GEX 전환 임박: 현재가가 감마 플립($${flipLevel.toFixed(1)}) ${gexFlipDist!.toFixed(1)}% 위. 이탈 시 숏감마 → 변동성 급증`
+                : `숏감마 진입 직전: 감마 플립($${flipLevel.toFixed(1)})까지 ${Math.abs(gexFlipDist!).toFixed(1)}%. 반등 못 하면 하락 가속`;
+            if (warning) warning += ' / ' + flipWarning;
+            else warning = flipWarning;
+        }
+
         // ===== SQUEEZE OVERRIDE: adds urgency to any scenario =====
         if (isSqueezeExtreme) {
             warning = "SQUEEZE EXTREME: 급등/급락 임박, 역방향 포지션 즉시 탈출";

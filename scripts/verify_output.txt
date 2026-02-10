@@ -1,0 +1,77 @@
+﻿=== TSLA Flow Data Verification ===
+
+Current Price: $421.93
+Session: REG
+rawChain count: 324
+allExpiryChain count: 5000
+
+--- rawChain Expirations ---
+  2026-02-13 (DTE: 4) ??324 contracts
+
+--- allExpiryChain Expirations (22 total) ---
+  2026-02-11 ??150 contracts
+  2026-02-13 ??324 contracts
+  2026-02-18 ??136 contracts
+  2026-02-20 ??320 contracts
+  2026-02-23 ??116 contracts
+  2026-02-25 ??60 contracts
+  2026-02-27 ??256 contracts
+  2026-03-06 ??236 contracts
+  2026-03-13 ??236 contracts
+  2026-03-20 ??332 contracts
+
+--- Volume by Strike (rawChain, sorted by total volume) ---
+  Strike         Call Vol      Put Vol        Total
+  ????????????????????????????????????????????????
+  $425              27012         4087        31099
+  $430              13360         8721        22081 ??$430!
+  $420              11673         8172        19845
+  $170                  1        15018        15019
+  $410              10052         4434        14486
+  $450              13717          448        14165
+  $422.5             6359         6468        12827
+  $400               8603         3974        12577
+  $440               6766         2456         9222
+  $435               4983         2820         7803
+  $405               1380         3218         4598
+  $415               2123         1911         4034
+  $427.5             2639         1136         3775
+  $432.5             2767          450         3217
+  $390               1557         1276         2833
+  $392.5             2005          633         2638
+  $417.5             1657          828         2485
+  $485                 46         2290         2336
+  $387.5             2020          262         2282
+  $445               2017           43         2060
+
+--- $430 PUT Details ---
+  Expiry: 2026-02-13
+  Volume: 8721
+  OI: 2663
+  Delta: -0.6362637162148072
+  IV: N/A
+
+--- AI Verdict Input Data ---
+  OPI: Calculated from rawChain delta*OI
+    Call delta*OI: 57127
+    Put delta*OI: 16791
+    OPI raw: 40335
+    OPI normalized: 40.3
+    Call Volume: 137174
+    Put Volume: 89163
+    P/C Ratio: 1.54 (Screenshot shows 1.54)
+    Net Premium: $39,445,976
+    Squeeze Score: 21
+    Squeeze Risk: MEDIUM
+    Gamma Flip Level: $417.5
+    Max Pain: $412.5
+    Call Wall: $680
+    Put Floor: $180
+
+--- Data Integrity Check ---
+  Contracts with greeks.delta: 244/324
+  Contracts with day.volume: 276/324
+  Contracts with open_interest: 324/324
+  Contracts with strike_price: 324/324
+
+  ??All critical fields present ??slimming preserved data integrity
