@@ -273,14 +273,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // --- Live Data State ---
     // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
     // SSR data → SWR fallbackData → instant first render → background refresh
-    const ssrFallback = initialStockData ? {
+    const ssrFallback = React.useMemo(() => initialStockData ? {
         prices: {
             regularCloseToday: initialStockData.price,
             prevClose: initialStockData.prevClose || null
         },
         session: initialStockData.session === 'reg' ? 'REG' : initialStockData.session === 'pre' ? 'PRE' : initialStockData.session === 'post' ? 'POST' : 'CLOSED',
         changePercent: initialStockData.changePercent
-    } : undefined;
+    } : undefined, [initialStockData]);
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
         refreshInterval: 15000,
     });
@@ -648,9 +648,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     }, [ticker, fetchChartData]);
 
     // [PREMIUM] Recalculate conviction when dependencies change
+    // [FIX] Use stable scalar values instead of full liveQuote object to prevent infinite loop
+    const liveQuotePrice = liveQuote?.prices?.regularCloseToday || liveQuote?.price || 0;
+    const liveQuoteNetPremium = liveQuote?.flow?.netPremium || 0;
     useEffect(() => {
         calculateConviction();
-    }, [smaData, newsScore, liveQuote, structure]);
+    }, [smaData, newsScore, liveQuotePrice, liveQuoteNetPremium, structure]);
 
     useEffect(() => {
         // [FIX] Reset structure state when ticker changes to prevent stale data
