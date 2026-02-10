@@ -1600,6 +1600,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* 현재가 위치 (Compact) */}
                                 <div className="bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 relative overflow-hidden">
                                     <div className={`absolute inset-0 opacity-10 ${(() => { const range = callWall - putWall; const pos = range > 0 ? ((currentPrice - putWall) / range) * 100 : 50; return pos < 30 ? 'bg-rose-500' : pos > 70 ? 'bg-emerald-500' : 'bg-indigo-500'; })()} blur-xl`} />
+                                    {/* Infographic: price range gauge */}
+                                    <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M10 46 A 35 35 0 0 1 70 46" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-400" strokeLinecap="round" /><line x1="40" y1="46" x2="40" y2="16" stroke="currentColor" strokeWidth="1.5" className="text-indigo-300" strokeLinecap="round" /><circle cx="40" cy="14" r="2.5" fill="currentColor" className="text-indigo-400" /></svg>
                                     <div className="relative z-10 flex flex-col items-center">
                                         <span className="text-[10px] text-white font-bold uppercase tracking-wider mb-1">현재가 위치</span>
                                         {(() => {
@@ -1635,6 +1637,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* SQUEEZE PROBABILITY (Compact) */}
                                 <div className="relative rounded-xl p-3 bg-gradient-to-br from-amber-950/40 to-slate-900/60 border border-amber-500/30 overflow-hidden">
                                     <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.1),transparent_70%)]" />
+                                    {/* Infographic: spring coil */}
+                                    <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M12 44 Q20 8 28 44 Q36 8 44 44 Q52 8 60 44 Q68 8 72 44" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" strokeLinecap="round" /><path d="M8 44 L72 44" stroke="currentColor" strokeWidth="0.5" className="text-amber-300" strokeDasharray="3 3" /></svg>
                                     <div className="relative z-10 flex flex-col items-center">
                                         <div className="flex items-center gap-1.5 mb-1">
                                             <Zap size={11} className="text-amber-400" />
