@@ -695,6 +695,23 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             structureData.vwap = tickerData.vwap ?? null;
             // [DASHBOARD V2] Save rawChain for 0DTE/IM computation
             tickerRawChain = tickerData.flow?.rawChain || [];
+
+            // [P/C RATIO VOLUME] Compute IMMEDIATELY from rawChain (no price dependency)
+            // Matches FlowRadar.tsx pcRatio exactly - weekly expiry contracts
+            if (tickerRawChain.length > 0) {
+                let cvol = 0, pvol = 0;
+                tickerRawChain.forEach((o: any) => {
+                    const vol = o.day?.volume || 0;
+                    const type = o.details?.contract_type;
+                    if (type === 'call') cvol += vol;
+                    else if (type === 'put') pvol += vol;
+                });
+                if (cvol > 0 || pvol > 0) {
+                    structureData.volumePcr = pvol > 0 ? Math.round((cvol / pvol) * 100) / 100 : (cvol > 0 ? 10 : 0);
+                    structureData.volumePcrCallVol = cvol;
+                    structureData.volumePcrPutVol = pvol;
+                }
+            }
         }
 
         // [DASHBOARD V2] Dark Pool % & Short Vol % from realtime-metrics
@@ -769,20 +786,6 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
                     structureData.impliedMoveDir = callMid > putMid ? 'bullish' : callMid < putMid ? 'bearish' : 'neutral';
                 }
 
-                // [P/C RATIO VOLUME] Calculate call/put volume ratio (matches FlowRadar.tsx pcRatio exactly)
-                // rawChain = weekly expiration contracts from CentralDataHub._fetchOptionsChain()
-                let callVol = 0, putVol = 0;
-                rawChain.forEach((o: any) => {
-                    const vol = o.day?.volume || 0;
-                    const type = o.details?.contract_type;
-                    if (type === 'call') callVol += vol;
-                    else if (type === 'put') putVol += vol;
-                });
-                if (callVol > 0 || putVol > 0) {
-                    structureData.volumePcr = putVol > 0 ? Math.round((callVol / putVol) * 100) / 100 : (callVol > 0 ? 10 : 0);
-                    structureData.volumePcrCallVol = callVol;
-                    structureData.volumePcrPutVol = putVol;
-                }
             }
         } catch (e) {
             // Continue without 0DTE/IM data
