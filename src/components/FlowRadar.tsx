@@ -1447,6 +1447,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                     {/* Glow background */}
                                     <div className={`absolute inset-0 opacity-15 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
+                                    {/* Infographic: pressure arrows */}
+                                    <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M10 28 L25 14 M10 28 L25 42 M70 28 L55 14 M70 28 L55 42" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-emerald-400" /><line x1="25" y1="28" x2="55" y2="28" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" className="text-slate-400" /></svg>
 
                                     <span className="text-[11px] text-white font-bold uppercase relative z-10">OPI(델타압력)</span>
                                     <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">콜-풋 포지션</span>
@@ -1484,6 +1486,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                     {/* Glow background */}
                                     <div className={`absolute inset-0 opacity-15 ${ivPercentile.value >= 60 ? 'bg-rose-500' : ivPercentile.value <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
+                                    {/* Infographic: volatility wave */}
+                                    <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M4 28 Q14 8 24 28 Q34 48 44 28 Q54 8 64 28 Q74 48 80 28" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" strokeLinecap="round" /><line x1="4" y1="28" x2="80" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
 
                                     <span className="text-[11px] text-white font-bold uppercase relative z-10">ATM IV</span>
                                     <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">옵션가격 온도계</span>
@@ -1511,6 +1515,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                     {/* Glow background */}
                                     <div className={`absolute inset-0 opacity-15 ${analysis.probability >= 65 ? 'bg-emerald-500' : analysis.probability <= 35 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
+                                    {/* Infographic: convergence radar */}
+                                    <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><circle cx="40" cy="28" r="20" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-400" /><circle cx="40" cy="28" r="12" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-300" /><circle cx="40" cy="28" r="4" fill="currentColor" className="text-emerald-400" /><line x1="40" y1="4" x2="40" y2="52" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /><line x1="16" y1="28" x2="64" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /></svg>
 
                                     <span className="text-[11px] text-white font-bold uppercase relative z-10">COMPOSITE INDEX</span>
                                     <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">(종합지수)</span>
@@ -1547,6 +1553,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         : analysis.whaleBias?.includes('BEAR') ? 'bg-rose-500'
                                             : 'bg-slate-500'
                                         } blur-xl`} />
+                                    {/* Infographic: whale silhouette */}
+                                    <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M8 36 Q20 12 40 24 Q60 36 72 18" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-400" strokeLinecap="round" /><circle cx="16" cy="32" r="2.5" fill="currentColor" className="text-cyan-300" /><circle cx="64" cy="22" r="4" fill="currentColor" className="text-cyan-300" /></svg>
 
                                     <div className="flex items-center gap-1 mb-0.5 relative z-10">
                                         <Shield size={12} className="text-cyan-400" />
@@ -2302,6 +2310,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             {/* Implied Move (기대변동폭) */}
                             <div className="mb-4 bg-gradient-to-br from-teal-950/20 to-slate-900/40 border border-teal-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-teal-500/30 transition-all">
                                 <div className="absolute inset-0 bg-teal-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                {/* Infographic: expanding arrows (implied move range) */}
+                                <svg className="absolute right-2 bottom-2 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M25 28 L8 16 M25 28 L8 40 M55 28 L72 16 M55 28 L72 40" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-teal-400" /><line x1="25" y1="28" x2="55" y2="28" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" className="text-teal-300" /></svg>
                                 <div className="relative z-10">
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
@@ -2330,6 +2340,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* PUT FLOOR (Left - Support) */}
                                 <div className="bg-gradient-to-br from-rose-950/30 to-slate-900/50 border border-rose-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-rose-500/40 transition-all">
                                     <div className="absolute inset-0 bg-rose-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {/* Infographic: floor support line */}
+                                    <svg className="absolute right-1 bottom-1 w-16 h-12 opacity-[0.06] pointer-events-none" viewBox="0 0 64 48"><line x1="4" y1="38" x2="60" y2="38" stroke="currentColor" strokeWidth="2" className="text-rose-400" /><path d="M12 30 L24 22 L36 26 L48 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose-300" strokeLinecap="round" /><path d="M48 14 L48 20 M48 14 L42 14" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose-300" strokeLinecap="round" /></svg>
                                     <div className="flex items-center justify-between mb-2 relative z-10">
                                         <div className="flex items-center gap-1.5">
                                             <div className="w-1.5 h-1.5 bg-rose-500 rounded-sm shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse" />
@@ -2348,6 +2360,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* CALL WALL (Right - Resistance) */}
                                 <div className="bg-gradient-to-br from-emerald-950/30 to-slate-900/50 border border-emerald-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-emerald-500/40 transition-all">
                                     <div className="absolute inset-0 bg-emerald-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {/* Infographic: ceiling resistance line */}
+                                    <svg className="absolute right-1 bottom-1 w-16 h-12 opacity-[0.06] pointer-events-none" viewBox="0 0 64 48"><line x1="4" y1="10" x2="60" y2="10" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /><path d="M12 38 L24 30 L36 34 L48 22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-emerald-300" strokeLinecap="round" /><path d="M48 22 L48 28 M48 22 L42 22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-emerald-300" strokeLinecap="round" /></svg>
                                     <div className="flex items-center justify-between mb-2 relative z-10">
                                         <div className="flex items-center gap-1.5">
                                             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-sm shadow-[0_0_5px_rgba(16,185,129,0.8)] animate-pulse" />
@@ -2369,6 +2383,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* Smart Money Score */}
                                 <div className="bg-gradient-to-br from-indigo-950/20 to-slate-900/40 border border-indigo-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-indigo-500/30 transition-all">
                                     <div className="absolute inset-0 bg-indigo-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {/* Infographic: money flow stack */}
+                                    <svg className="absolute right-2 bottom-2 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><rect x="10" y="8" width="24" height="6" rx="2" fill="currentColor" className="text-indigo-400" /><rect x="10" y="18" width="36" height="6" rx="2" fill="currentColor" className="text-indigo-400" /><rect x="10" y="28" width="48" height="6" rx="2" fill="currentColor" className="text-indigo-300" /><rect x="10" y="38" width="60" height="6" rx="2" fill="currentColor" className="text-indigo-300" /></svg>
                                     <div className="relative z-10">
                                         {/* Row 1: Label + Value */}
                                         <div className="flex items-center justify-between mb-2">
@@ -2393,6 +2409,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* Max Pain 거리 */}
                                 <div className="bg-gradient-to-br from-orange-950/20 to-slate-900/40 border border-orange-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-orange-500/30 transition-all">
                                     <div className="absolute inset-0 bg-orange-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {/* Infographic: target crosshair */}
+                                    <svg className="absolute right-2 bottom-2 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><circle cx="40" cy="28" r="18" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-orange-400" /><circle cx="40" cy="28" r="10" fill="none" stroke="currentColor" strokeWidth="1" className="text-orange-300" /><circle cx="40" cy="28" r="3" fill="currentColor" className="text-orange-400" /><line x1="40" y1="6" x2="40" y2="50" stroke="currentColor" strokeWidth="0.5" className="text-orange-300" /><line x1="18" y1="28" x2="62" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-orange-300" /></svg>
                                     <div className="relative z-10">
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
@@ -2418,6 +2436,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* IV Skew */}
                                 <div className="bg-gradient-to-br from-violet-950/20 to-slate-900/40 border border-violet-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-violet-500/30 transition-all">
                                     <div className="absolute inset-0 bg-violet-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {/* Infographic: tilted skew line */}
+                                    <svg className="absolute right-2 bottom-2 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M8 44 Q24 40 40 28 Q56 16 72 12" fill="none" stroke="currentColor" strokeWidth="2" className="text-violet-400" strokeLinecap="round" /><line x1="8" y1="28" x2="72" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-violet-300" strokeDasharray="4 3" /><circle cx="40" cy="28" r="2.5" fill="currentColor" className="text-violet-400" /></svg>
                                     <div className="relative z-10">
                                         {/* Row 1: Label + Value */}
                                         <div className="flex items-center justify-between mb-2">
@@ -2442,6 +2462,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* DEX (Delta Exposure) - Dealer Delta Hedging */}
                                 <div className="bg-gradient-to-br from-cyan-950/20 to-slate-900/40 border border-cyan-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
                                     <div className="absolute inset-0 bg-cyan-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {/* Infographic: delta hedging arrows */}
+                                    <svg className="absolute right-2 bottom-2 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M12 40 L40 12 L68 40" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-400" strokeLinecap="round" strokeLinejoin="round" /><path d="M26 40 L40 24 L54 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
                                     <div className="relative z-10">
                                         {/* Row 1: Label + Value */}
                                         <div className="flex items-center justify-between mb-2">
@@ -2466,6 +2488,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* UOA Score (Unusual Options Activity) */}
                                 <div className="bg-gradient-to-br from-amber-950/20 to-slate-900/40 border border-amber-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-amber-500/30 transition-all">
                                     <div className="absolute inset-0 bg-amber-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {/* Infographic: alert burst */}
+                                    <svg className="absolute right-2 bottom-2 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M40 8 L44 20 L56 20 L46 28 L50 40 L40 32 L30 40 L34 28 L24 20 L36 20 Z" fill="currentColor" className="text-amber-400" /><circle cx="40" cy="24" r="4" fill="none" stroke="currentColor" strokeWidth="1" className="text-amber-300" /></svg>
                                     <div className="relative z-10">
                                         {/* Row 1: Label + Value */}
                                         <div className="flex items-center justify-between mb-2">
