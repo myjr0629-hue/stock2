@@ -77,6 +77,10 @@ export interface AlphaInput {
     hasFOMCSoon?: boolean;
     eventDescription?: string | null;
 
+    // === PRE-MARKET VALIDATION data (V3.4) ===
+    preMarketPrice?: number | null;       // Pre-market 현재가
+    preMarketChangePct?: number | null;   // Pre-market 변동률 (vs prevClose)
+
     // === CONTEXT (optional enrichment) ===
     wasInPrevReport?: boolean;
     prevAlphaScore?: number | null;
@@ -129,7 +133,7 @@ export interface AlphaResult {
 // CONSTANTS
 // ============================================================================
 
-const ENGINE_VERSION = '3.1.0';
+const ENGINE_VERSION = '3.4.0';
 
 // Pillar max scores
 const PILLAR_MAX = {
@@ -150,23 +154,9 @@ const GRADE_THRESHOLDS = {
     // Below 25 = F
 } as const;
 
-// Session caps — when data is limited, cap certain pillars
-const SESSION_CAPS: Record<AlphaSession, { structure: number; flow: number; momentum: number }> = {
-    PRE: { structure: 20, flow: 20, momentum: 25 },    // Options = prev day, Flow = limited
-    REG: { structure: 25, flow: 25, momentum: 25 },    // Full power
-    POST: { structure: 22, flow: 20, momentum: 22 },   // Volume declining
-    CLOSED: { structure: 18, flow: 15, momentum: 15 },  // Stale data
-};
-
-// [V3.1] Adaptive Pillar Weight Multipliers per session
-// During REG, Flow & Structure are most reliable → boost them
-// During CLOSED, Momentum & Regime are most stable → boost them
-const ADAPTIVE_WEIGHTS: Record<AlphaSession, { momentum: number; structure: number; flow: number; regime: number; catalyst: number }> = {
-    PRE: { momentum: 1.1, structure: 0.9, flow: 0.85, regime: 1.15, catalyst: 1.0 },
-    REG: { momentum: 1.0, structure: 1.05, flow: 1.1, regime: 0.95, catalyst: 0.9 },
-    POST: { momentum: 1.0, structure: 0.95, flow: 0.9, regime: 1.1, catalyst: 1.05 },
-    CLOSED: { momentum: 1.15, structure: 0.85, flow: 0.8, regime: 1.2, catalyst: 1.0 },
-};
+// [V3.2] SESSION_CAPS REMOVED — 데이터가 같으면 점수도 같아야 합니다.
+// 시간에 따른 인위적 점수 제한 없음.
+// ADAPTIVE_WEIGHTS도 제거 — 모든 pillar 동일 가중치.
 
 // ============================================================================
 // MAIN FUNCTION — THE SINGLE ENTRY POINT
@@ -194,22 +184,11 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
     const regime = calculateRegime(input);
     const catalyst = calculateCatalyst(input);
 
-    // 3. Apply session caps
-    const caps = SESSION_CAPS[input.session];
-    const cappedMomentum = applyPillarCap(momentum, caps.momentum);
-    const cappedStructure = applyPillarCap(structure, caps.structure);
-    const cappedFlow = applyPillarCap(flow, caps.flow);
+    // [V3.2] No session caps, no adaptive weights.
+    // 데이터가 같으면 점수도 같아야 합니다.
 
-    // 3b. [V3.1] Apply Adaptive Weights per session
-    const aw = ADAPTIVE_WEIGHTS[input.session];
-    const weightedMomentum = cappedMomentum.score * aw.momentum;
-    const weightedStructure = cappedStructure.score * aw.structure;
-    const weightedFlow = cappedFlow.score * aw.flow;
-    const weightedRegime = regime.score * aw.regime;
-    const weightedCatalyst = catalyst.score * aw.catalyst;
-
-    // 4. Raw score (with adaptive weights)
-    let rawScore = weightedMomentum + weightedStructure + weightedFlow + weightedRegime + weightedCatalyst;
+    // 4a. [V3.2] Score Normalization
+    let rawScore = momentum.score + structure.score + flow.score + regime.score + catalyst.score;
 
     // 4b. [V3.1] Historical Score Trend Adjustment (±3)
     // If previous score exists, adjust based on trajectory
@@ -243,7 +222,7 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
 
     // 7. Build WHY explanation
     const { whyKR, whyFactors, triggerCodes } = buildExplanation(
-        input, cappedMomentum, cappedStructure, cappedFlow, regime, catalyst, gatesResult, grade
+        input, momentum, structure, flow, regime, catalyst, gatesResult, grade
     );
 
     // 8. Session adjustment flag
@@ -258,9 +237,9 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
         whyFactors,
         triggerCodes,
         pillars: {
-            momentum: cappedMomentum,
-            structure: cappedStructure,
-            flow: cappedFlow,
+            momentum,
+            structure,
+            flow,
             regime,
             catalyst,
         },
@@ -284,79 +263,173 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     const factors: PillarDetail['factors'] = [];
     let total = 0;
 
-    // Factor 1: Price Change (0-8)
+    // Factor 1: Price Change (0-8) — [V3.3.1] Recalibrated
     const changePct = input.changePct || 0;
     let changeScore: number;
-    if (changePct >= 5) changeScore = 8;
-    else if (changePct >= 3) changeScore = 6;
-    else if (changePct >= 1) changeScore = 2 + (changePct - 1) * 2;  // Linear 2-6
-    else if (changePct >= 0) changeScore = changePct * 2;              // Linear 0-2
-    else if (changePct >= -2) changeScore = 0;                         // Small dip = neutral
-    else changeScore = 0;                                              // Big drop = 0    
+    if (changePct >= 3) changeScore = 8;         // 3%+ = max (was 5%+)
+    else if (changePct >= 2) changeScore = 7;
+    else if (changePct >= 1) changeScore = 5;
+    else if (changePct >= 0.5) changeScore = 4;
+    else if (changePct >= 0) changeScore = changePct * 6; // 0-3 linear
+    else if (changePct >= -1) changeScore = 1;   // Small dip = minimal
+    else changeScore = 0;
     changeScore = clamp(changeScore, 0, 8);
     factors.push({ name: 'priceChange', value: round1(changeScore), max: 8, detail: `${changePct >= 0 ? '+' : ''}${changePct.toFixed(1)}%` });
     total += changeScore;
 
-    // Factor 2: VWAP Position (0-5)
+    // Factor 2: VWAP Position (0-5) — [V3.3.1] Improved no-data proxy
     let vwapScore = 0;
     if (input.vwap && input.vwap > 0 && input.price > 0) {
         const vwapDist = ((input.price - input.vwap) / input.vwap) * 100;
-        if (vwapDist > 2) vwapScore = 5;        // Well above VWAP — strong
-        else if (vwapDist > 0.5) vwapScore = 3;  // Slightly above — good
-        else if (vwapDist > -0.5) vwapScore = 2; // Near VWAP — neutral
-        else if (vwapDist > -2) vwapScore = 1;   // Below VWAP — weak
-        else vwapScore = 0;                       // Far below — bad
+        if (vwapDist > 2) vwapScore = 5;
+        else if (vwapDist > 0.5) vwapScore = 4;
+        else if (vwapDist > -0.5) vwapScore = 3;
+        else if (vwapDist > -2) vwapScore = 1;
+        else vwapScore = 0;
         factors.push({ name: 'vwapPosition', value: round1(vwapScore), max: 5, detail: `VWAP거리 ${vwapDist >= 0 ? '+' : ''}${vwapDist.toFixed(1)}%` });
     } else {
-        // No VWAP → use changePct as proxy (reduced weight)
-        vwapScore = changePct > 0 ? Math.min(3, changePct) : 0;
-        factors.push({ name: 'vwapPosition', value: round1(vwapScore), max: 5, detail: 'VWAP 없음(프록시)' });
+        // No VWAP → changePct positive = likely above VWAP
+        vwapScore = changePct > 1 ? 4 : changePct > 0 ? 3 : 1;
+        factors.push({ name: 'vwapPosition', value: round1(vwapScore), max: 5, detail: 'VWAP 없음(추정)' });
     }
     total += vwapScore;
 
-    // Factor 3: 3-Day Trend (0-7)
+    // Factor 3: 3-Day Trend (0-7) — [V3.3.1] Recalibrated
     let trendScore = 0;
     const return3D = input.return3D;
     if (return3D !== null && return3D !== undefined) {
-        if (return3D >= 8) trendScore = 7;
-        else if (return3D >= 5) trendScore = 6;
-        else if (return3D >= 3) trendScore = 5;
-        else if (return3D >= 1) trendScore = 3;
-        else if (return3D >= 0) trendScore = 2;
-        else if (return3D >= -2) trendScore = 1;
+        if (return3D >= 5) trendScore = 7;
+        else if (return3D >= 3) trendScore = 6;
+        else if (return3D >= 2) trendScore = 5;
+        else if (return3D >= 1) trendScore = 4;
+        else if (return3D >= 0) trendScore = 3;  // Flat = neutral-positive
+        else if (return3D >= -1) trendScore = 2;
+        else if (return3D >= -3) trendScore = 1;
         else trendScore = 0;
         factors.push({ name: 'trend3D', value: round1(trendScore), max: 7, detail: `3일수익률 ${return3D >= 0 ? '+' : ''}${return3D.toFixed(1)}%` });
     } else {
-        // Fallback: use changePct extrapolation (reduced confidence)
-        trendScore = Math.min(4, Math.max(0, changePct * 1.5));
+        trendScore = changePct > 0 ? Math.min(5, changePct * 2 + 2) : 2;
         factors.push({ name: 'trend3D', value: round1(trendScore), max: 7, detail: '3일 데이터 없음(추정)' });
     }
     total += trendScore;
 
-    // Factor 4: Smart DIP Detection (0-5)
-    // Price down BUT institutional buying → reversal signal
-    let smartDipScore = 0;
-    if (changePct < -0.5) {
-        const netFlow = input.netFlow || 0;
-        const whaleIdx = input.whaleIndex || 0;
-        const darkPool = input.darkPoolPct || 0;
+    // Factor 4: Trend Confirmation (0-5) — [V3.3.1] Replaces SmartDIP
+    // Positive momentum + institutional support = confirmation bonus
+    // Negative momentum + institutional buying = reversal signal
+    let confirmScore = 0;
+    const netFlowM = input.netFlow || 0;
+    const whaleIdxM = input.whaleIndex || 0;
+    const darkPoolM = input.darkPoolPct || 0;
 
-        if (netFlow > 1000000 || whaleIdx >= 70 || darkPool >= 50) {
-            smartDipScore = 5; // Strong Smart DIP
-            factors.push({ name: 'smartDip', value: 5, max: 5, detail: '가격↓ + 기관매수↑ = 반등신호' });
-        } else if (netFlow > 0 || whaleIdx >= 50) {
-            smartDipScore = 3;
-            factors.push({ name: 'smartDip', value: 3, max: 5, detail: '가격↓ + 소규모 매집' });
-        } else {
-            factors.push({ name: 'smartDip', value: 0, max: 5, detail: '가격↓ + 매집 없음' });
-        }
-    } else if (changePct < 0) {
-        factors.push({ name: 'smartDip', value: 0, max: 5, detail: '소폭 하락' });
+    if (changePct >= 1 && (netFlowM > 0 || whaleIdxM >= 40 || darkPoolM >= 35)) {
+        // Strong: positive momentum + institutional confirmation
+        confirmScore = 5;
+        factors.push({ name: 'trendConfirm', value: 5, max: 5, detail: '가격↑ + 기관확인' });
+    } else if (changePct >= 0.5) {
+        confirmScore = 3;
+        factors.push({ name: 'trendConfirm', value: 3, max: 5, detail: '양호한 상승' });
+    } else if (changePct < -0.5 && (netFlowM > 1000000 || whaleIdxM >= 70)) {
+        confirmScore = 5; // Smart DIP
+        factors.push({ name: 'trendConfirm', value: 5, max: 5, detail: '가격↓ + 기관매수↑ = 반등신호' });
+    } else if (changePct < -0.5 && (netFlowM > 0 || whaleIdxM >= 50)) {
+        confirmScore = 3;
+        factors.push({ name: 'trendConfirm', value: 3, max: 5, detail: '가격↓ + 소규모 매집' });
+    } else if (changePct >= 0) {
+        confirmScore = 2; // Neutral positive
+        factors.push({ name: 'trendConfirm', value: 2, max: 5, detail: '횡보/소폭 양' });
     } else {
-        // No dip → no Smart DIP factor applies, but don't penalize
-        factors.push({ name: 'smartDip', value: 0, max: 5, detail: '해당없음' });
+        confirmScore = 0;
+        factors.push({ name: 'trendConfirm', value: 0, max: 5, detail: '하락 + 매집 없음' });
     }
-    total += smartDipScore;
+    total += confirmScore;
+
+    // Factor 5: [V3.3] Momentum Acceleration (0-5)
+    // 가속 중인 상승 = 강한 추세, 감속 = 정점 근처
+    let accelScore = 0;
+    const return3DVal = input.return3D ?? null;
+    if (return3DVal !== null && return3DVal !== undefined) {
+        const dailyAvg3D = return3DVal / 3; // 3일 평균 일일 수익률
+        const todayPace = changePct;       // 오늘 수익률
+        const acceleration = todayPace - dailyAvg3D;
+
+        if (acceleration > 2) {
+            accelScore = 5;  // 강한 가속
+            factors.push({ name: 'acceleration', value: 5, max: 5, detail: `가속 +${acceleration.toFixed(1)}%p` });
+        } else if (acceleration > 1) {
+            accelScore = 3;
+            factors.push({ name: 'acceleration', value: 3, max: 5, detail: `가속 +${acceleration.toFixed(1)}%p` });
+        } else if (acceleration > -0.5) {
+            accelScore = 1;  // 등속 유지
+            factors.push({ name: 'acceleration', value: 1, max: 5, detail: `등속` });
+        } else {
+            accelScore = 0;  // 감속 — 정점 가능성
+            factors.push({ name: 'acceleration', value: 0, max: 5, detail: `감속 ${acceleration.toFixed(1)}%p` });
+        }
+    } else {
+        factors.push({ name: 'acceleration', value: 0, max: 5, detail: '3D 데이터 없음' });
+    }
+    total += accelScore;
+
+    // Factor 6: [V3.3] Late Momentum Penalty (0 to -5)
+    // RSI + 3D수익률 + relVol 교차 분석으로 과열 vs 지속 판단
+    let latePenalty = 0;
+    const rsiVal = input.rsi14 ?? 50;
+    const rvVal = input.relVol ?? 1;
+    if (return3DVal !== null && return3DVal > 8 && rsiVal > 70) {
+        if (rvVal < 1.0) {
+            // 3D +8%이상 + RSI 70+ + 거래량 감소 = 과열 후 이탈
+            latePenalty = -5;
+            factors.push({ name: 'lateMomentum', value: -5, max: 0, detail: '과열+거래량감소 = 이탈 경고' });
+        } else if (rvVal >= 1.5) {
+            // RSI 높지만 거래량 아직 증가 = 기관 아직 참여 중
+            latePenalty = -1;
+            factors.push({ name: 'lateMomentum', value: -1, max: 0, detail: 'RSI높음+기관참여 유지' });
+        } else {
+            latePenalty = -3;
+            factors.push({ name: 'lateMomentum', value: -3, max: 0, detail: '과열 주의' });
+        }
+    } else {
+        factors.push({ name: 'lateMomentum', value: 0, max: 0, detail: '해당없음' });
+    }
+    total += latePenalty;
+
+    // Factor 7: [V3.4] Pre-Market Validation (-5 to +5)
+    // 직전장 방향 vs Pre-market 방향 교차 검증
+    // Pre-market이 같은 방향 → 확인 보너스, 역행 → 감점
+    let preMarketScore = 0;
+    const pmChg = input.preMarketChangePct;
+    if (pmChg !== null && pmChg !== undefined) {
+        const prevDir = input.changePct; // 직전장 방향
+        const sameDirection = (prevDir >= 0 && pmChg >= 0) || (prevDir < 0 && pmChg < 0);
+
+        if (sameDirection) {
+            // 같은 방향 = 확인
+            const pmAbs = Math.abs(pmChg);
+            if (pmAbs >= 3) preMarketScore = 5;      // 강한 확인
+            else if (pmAbs >= 1.5) preMarketScore = 4;
+            else if (pmAbs >= 0.5) preMarketScore = 3;
+            else preMarketScore = 2;                  // 약한 확인
+            factors.push({
+                name: 'preMarketValidation', value: preMarketScore, max: 5,
+                detail: `PM ${pmChg >= 0 ? '+' : ''}${pmChg.toFixed(1)}% 확인`
+            });
+        } else {
+            // 반대 방향 = 역행
+            const pmAbs = Math.abs(pmChg);
+            if (pmAbs >= 3) preMarketScore = -5;      // 강한 역행 — 위험
+            else if (pmAbs >= 1.5) preMarketScore = -3;
+            else if (pmAbs >= 0.5) preMarketScore = -1;
+            else preMarketScore = 0;                   // 미세 역행 — 무시
+            factors.push({
+                name: 'preMarketValidation', value: preMarketScore, max: 5,
+                detail: `PM ${pmChg >= 0 ? '+' : ''}${pmChg.toFixed(1)}% 역행${pmAbs >= 1.5 ? ' ⚠' : ''}`
+            });
+        }
+    } else {
+        // Pre-market 데이터 없음 → 중립 (보너스도 패널티도 없음)
+        factors.push({ name: 'preMarketValidation', value: 0, max: 5, detail: 'PM 데이터 없음' });
+    }
+    total += preMarketScore;
 
     total = clamp(total, 0, PILLAR_MAX.MOMENTUM);
 
@@ -384,12 +457,12 @@ function calculateStructure(input: AlphaInput): PillarDetail {
     );
 
     if (!optionsAvailable) {
-        // No options data → minimal structure score with honest labeling
+        // [V3.3.1] No options data → neutral baseline (not penalized for missing data)
         factors.push({ name: 'optionsData', value: 0, max: 25, detail: '옵션 데이터 없음' });
         return {
-            score: 8, // Neutral baseline when no data
+            score: 13, // Neutral baseline when no data (was 8)
             max: PILLAR_MAX.STRUCTURE,
-            pct: Math.round((8 / PILLAR_MAX.STRUCTURE) * 100),
+            pct: Math.round((13 / PILLAR_MAX.STRUCTURE) * 100),
             factors,
         };
     }
@@ -433,15 +506,15 @@ function calculateStructure(input: AlphaInput): PillarDetail {
     factors.push({ name: 'wallSandwich', value: round1(wallScaled), max: 5, detail: wallDetail });
     total += wallScaled;
 
-    // Factor 4: PCR Balance (0-5)
+    // Factor 4: PCR Balance (0-5) — [V3.3.1] Recalibrated
     let pcrScore = 0;
     const pcr = input.pcr || 1;
-    if (pcr < 0.5) pcrScore = 5;       // Extreme call dominance
-    else if (pcr < 0.7) pcrScore = 4;  // Call dominance — bullish
-    else if (pcr < 0.9) pcrScore = 3;  // Mild bullish
-    else if (pcr < 1.1) pcrScore = 2;  // Neutral
-    else if (pcr < 1.3) pcrScore = 1;  // Mild bearish
-    else pcrScore = 0;                  // Put dominance — bearish
+    if (pcr < 0.5) pcrScore = 5;
+    else if (pcr < 0.7) pcrScore = 4;
+    else if (pcr < 0.85) pcrScore = 4;  // Mild call dominance = good
+    else if (pcr < 1.1) pcrScore = 3;   // Neutral = healthy (was 2)
+    else if (pcr < 1.3) pcrScore = 1;
+    else pcrScore = 0;
     factors.push({ name: 'pcrBalance', value: round1(pcrScore), max: 5, detail: `PCR ${pcr.toFixed(2)}` });
     total += pcrScore;
 
@@ -456,8 +529,8 @@ function calculateStructure(input: AlphaInput): PillarDetail {
         else squeezeScore = 1;
         factors.push({ name: 'squeezePotential', value: round1(squeezeScore), max: 5, detail: `스퀴즈 ${sq.toFixed(0)}점` });
     } else {
-        squeezeScore = 1; // Neutral fallback
-        factors.push({ name: 'squeezePotential', value: 1, max: 5, detail: '스퀴즈 데이터 없음' });
+        squeezeScore = 2; // [V3.3.1] Neutral fallback (was 1)
+        factors.push({ name: 'squeezePotential', value: 2, max: 5, detail: '스퀴즈 데이터 없음' });
     }
     total += squeezeScore;
 
@@ -502,53 +575,53 @@ function calculateFlow(input: AlphaInput): PillarDetail {
     const factors: PillarDetail['factors'] = [];
     let total = 0;
 
-    // Factor 1: Dark Pool % (0-7)
+    // Factor 1: Dark Pool % (0-7) — [V3.3.1] Recalibrated
     let darkPoolScore = 0;
     const dp = input.darkPoolPct;
     if (dp !== null && dp !== undefined) {
-        if (dp >= 60) darkPoolScore = 7;       // Massive institutional
-        else if (dp >= 50) darkPoolScore = 6;  // Heavy institutional
-        else if (dp >= 40) darkPoolScore = 5;  // Significant
-        else if (dp >= 30) darkPoolScore = 3;  // Moderate
-        else if (dp >= 20) darkPoolScore = 1;  // Light
-        else darkPoolScore = 0;
+        if (dp >= 50) darkPoolScore = 7;
+        else if (dp >= 40) darkPoolScore = 6;
+        else if (dp >= 30) darkPoolScore = 5;  // 30% = significant (was 3)
+        else if (dp >= 20) darkPoolScore = 3;
+        else if (dp >= 10) darkPoolScore = 2;
+        else darkPoolScore = 1;
         factors.push({ name: 'darkPool', value: round1(darkPoolScore), max: 7, detail: `Dark Pool ${dp.toFixed(1)}%` });
     } else {
-        darkPoolScore = 2; // Neutral when no data
-        factors.push({ name: 'darkPool', value: 2, max: 7, detail: 'Dark Pool 데이터 없음' });
+        darkPoolScore = 3; // [V3.3.1] Neutral when no data (was 2)
+        factors.push({ name: 'darkPool', value: 3, max: 7, detail: 'Dark Pool 데이터 없음' });
     }
     total += darkPoolScore;
 
-    // Factor 2: Whale Index (0-6)
+    // Factor 2: Whale Index (0-6) — [V3.3.1] Recalibrated
     let whaleScore = 0;
     const wi = input.whaleIndex;
     if (wi !== null && wi !== undefined) {
-        if (wi >= 80) whaleScore = 6;
-        else if (wi >= 65) whaleScore = 5;
-        else if (wi >= 50) whaleScore = 4;
-        else if (wi >= 35) whaleScore = 2;
-        else whaleScore = 1;
+        if (wi >= 70) whaleScore = 6;
+        else if (wi >= 55) whaleScore = 5;
+        else if (wi >= 40) whaleScore = 4;  // 40 = significant (was 50)
+        else if (wi >= 25) whaleScore = 3;
+        else whaleScore = 2;
         factors.push({ name: 'whaleIndex', value: round1(whaleScore), max: 6, detail: `Whale ${wi.toFixed(0)}` });
     } else {
-        whaleScore = 2;
-        factors.push({ name: 'whaleIndex', value: 2, max: 6, detail: 'Whale 데이터 없음' });
+        whaleScore = 3; // [V3.3.1] Neutral (was 2)
+        factors.push({ name: 'whaleIndex', value: 3, max: 6, detail: 'Whale 데이터 없음' });
     }
     total += whaleScore;
 
-    // Factor 3: Relative Volume (0-5)
+    // Factor 3: Relative Volume (0-5) — [V3.3.1] Recalibrated
     let relVolScore = 0;
     const rv = input.relVol;
     if (rv !== null && rv !== undefined) {
-        if (rv >= 3.0) relVolScore = 5;       // Explosive volume
-        else if (rv >= 2.0) relVolScore = 4;  // Very high
-        else if (rv >= 1.5) relVolScore = 3;  // Above average
-        else if (rv >= 1.0) relVolScore = 2;  // Normal
-        else if (rv >= 0.5) relVolScore = 1;  // Below average
-        else relVolScore = 0;                  // Dead volume
+        if (rv >= 2.5) relVolScore = 5;
+        else if (rv >= 1.8) relVolScore = 4;
+        else if (rv >= 1.2) relVolScore = 3;
+        else if (rv >= 0.8) relVolScore = 3;  // Normal volume = good (was 2)
+        else if (rv >= 0.5) relVolScore = 2;
+        else relVolScore = 1;
         factors.push({ name: 'relativeVol', value: round1(relVolScore), max: 5, detail: `RelVol ${rv.toFixed(1)}x` });
     } else {
-        relVolScore = 2;
-        factors.push({ name: 'relativeVol', value: 2, max: 5, detail: 'RelVol 데이터 없음' });
+        relVolScore = 3; // [V3.3.1] Neutral (was 2)
+        factors.push({ name: 'relativeVol', value: 3, max: 5, detail: 'RelVol 데이터 없음' });
     }
     total += relVolScore;
 
@@ -603,46 +676,43 @@ function calculateRegime(input: AlphaInput): PillarDetail {
     const factors: PillarDetail['factors'] = [];
     let total = 0;
 
-    // Factor 1: NDX/Market Trend (0-5)
+    // Factor 1: NDX/Market Trend (0-5) — [V3.3.1] Recalibrated
     let ndxScore = 0;
     const ndx = input.ndxChangePct;
     if (ndx !== null && ndx !== undefined) {
-        if (ndx >= 1.0) ndxScore = 5;       // Strong risk-on
-        else if (ndx >= 0.5) ndxScore = 4;
-        else if (ndx >= 0) ndxScore = 3;    // Mild positive
-        else if (ndx >= -0.5) ndxScore = 2;  // Mild negative
-        else if (ndx >= -1.0) ndxScore = 1;
-        else ndxScore = 0;                    // Strong risk-off
+        if (ndx >= 0.8) ndxScore = 5;
+        else if (ndx >= 0.3) ndxScore = 4;
+        else if (ndx >= -0.3) ndxScore = 3;  // Flat market = normal (narrowed range)
+        else if (ndx >= -0.8) ndxScore = 2;
+        else if (ndx >= -1.5) ndxScore = 1;
+        else ndxScore = 0;
         factors.push({ name: 'ndxTrend', value: round1(ndxScore), max: 5, detail: `NDX ${ndx >= 0 ? '+' : ''}${ndx.toFixed(1)}%` });
     } else {
-        ndxScore = 3; // Neutral
+        ndxScore = 3;
         factors.push({ name: 'ndxTrend', value: 3, max: 5, detail: 'NDX 데이터 없음' });
     }
     total += ndxScore;
 
-    // Factor 2: VIX Level & Direction (0-5)
+    // Factor 2: VIX Level & Direction (0-5) — [V3.3.1] Recalibrated
     let vixScore = 0;
     const vix = input.vixValue;
     const vixChg = input.vixChangePct;
 
     if (vix !== null && vix !== undefined) {
-        // VIX level base
-        if (vix < 13) vixScore = 5;       // Ultra-calm
-        else if (vix < 16) vixScore = 4;  // Calm
-        else if (vix < 20) vixScore = 3;  // Normal
-        else if (vix < 25) vixScore = 2;  // Elevated
-        else if (vix < 30) vixScore = 1;  // High
-        else vixScore = 0;                 // Panic
+        if (vix < 14) vixScore = 5;
+        else if (vix < 18) vixScore = 4;
+        else if (vix < 22) vixScore = 3;  // Normal range widened (was <20)
+        else if (vix < 27) vixScore = 2;
+        else if (vix < 32) vixScore = 1;
+        else vixScore = 0;
 
-        // VIX direction adjustment: falling VIX = good, rising = bad
         if (vixChg !== null && vixChg !== undefined) {
-            if (vixChg < -5) vixScore = Math.min(5, vixScore + 1);  // VIX collapsing = great
-            else if (vixChg > 10) vixScore = Math.max(0, vixScore - 1); // VIX spiking = bad
+            if (vixChg < -5) vixScore = Math.min(5, vixScore + 1);
+            else if (vixChg > 10) vixScore = Math.max(0, vixScore - 1);
         }
 
         factors.push({ name: 'vixLevel', value: round1(vixScore), max: 5, detail: `VIX ${vix.toFixed(1)}` });
     } else {
-        // Use VIX term proxy from V2
         vixScore = getVIXTermScore(vixChg || 0);
         vixScore = clamp(vixScore, 0, 5);
         factors.push({ name: 'vixLevel', value: round1(vixScore), max: 5, detail: 'VIX 추정' });
@@ -698,35 +768,37 @@ function calculateCatalyst(input: AlphaInput): PillarDetail {
     }
     total += impliedScore;
 
-    // Factor 2: Sentiment (0-3)
+    // Factor 2: Sentiment (0-3) — [V3.3.1] Neutral = 2 (was 1)
     let sentimentScore = 0;
     if (input.sentiment === 'POSITIVE') sentimentScore = 3;
-    else if (input.sentiment === 'NEUTRAL') sentimentScore = 1;
+    else if (input.sentiment === 'NEUTRAL') sentimentScore = 2;
     else if (input.sentiment === 'NEGATIVE') sentimentScore = 0;
-    else sentimentScore = 1; // Default neutral
+    else sentimentScore = 2; // Default neutral = 2 (was 1)
     factors.push({ name: 'sentiment', value: round1(sentimentScore), max: 3, detail: input.sentiment || 'N/A' });
     total += sentimentScore;
 
-    // Factor 3: Event Gate (-4 to 0) — earnings/FOMC uncertainty penalty
-    let eventPenalty = 0;
+    // Factor 3: Event Gate (-4 to +2) — [V3.3.1] No event = safety bonus
+    let eventScore = 0;
     if (input.hasEarningsSoon) {
-        eventPenalty = -4;  // Earnings = max uncertainty
-        factors.push({ name: 'eventGate', value: -4, max: 0, detail: `실적발표 임박${input.eventDescription ? ': ' + input.eventDescription : ''}` });
+        eventScore = -4;
+        factors.push({ name: 'eventGate', value: -4, max: 2, detail: `실적발표 임박${input.eventDescription ? ': ' + input.eventDescription : ''}` });
     } else if (input.hasFOMCSoon) {
-        eventPenalty = -3;  // FOMC = high uncertainty
-        factors.push({ name: 'eventGate', value: -3, max: 0, detail: 'FOMC 임박' });
+        eventScore = -3;
+        factors.push({ name: 'eventGate', value: -3, max: 2, detail: 'FOMC 임박' });
     } else {
-        factors.push({ name: 'eventGate', value: 0, max: 0, detail: '주요 이벤트 없음' });
+        eventScore = 2; // [V3.3.1] No major event = stability = +2
+        factors.push({ name: 'eventGate', value: 2, max: 2, detail: '이벤트 없음 = 안정' });
     }
-    total += eventPenalty;
+    total += eventScore;
 
-    // Factor 4: Continuation Bonus (0-3)
+    // Factor 4: Continuation Bonus (0-3) — [V3.3.1] New stocks get 1pt baseline
     let contScore = 0;
     if (input.wasInPrevReport) {
-        contScore = 3; // Stability bonus for staying in report
+        contScore = 3;
         factors.push({ name: 'continuation', value: 3, max: 3, detail: '전일 Top12 유지' });
     } else {
-        factors.push({ name: 'continuation', value: 0, max: 3, detail: '신규' });
+        contScore = 1; // [V3.3.1] New stock = fresh potential (was 0)
+        factors.push({ name: 'continuation', value: 1, max: 3, detail: '신규' });
     }
     total += contScore;
 
@@ -764,28 +836,80 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
         return { adjustedScore: score, gatesApplied }; // Immediate return
     }
 
-    // Gate 2: FAKE PUMP — price up but institutions selling
+    // Gate 2: FAKE PUMP — [V3.3] 다차원 교차 검증
+    // 단순히 price up + flow 음수가 아니라, darkPool/블록매매까지 확인
     const netFlow = input.netFlow || 0;
     const gex = input.gex || 0;
+    const darkPoolPct = input.darkPoolPct ?? null;
+    const blockTrades = input.blockTrades ?? 0;
     if (changePct > 5 && netFlow < -100000 && gex < 0) {
-        score = Math.min(score, 45);
-        gatesApplied.push('FAKE_PUMP');
-    }
-
-    // Gate 3: WALL REJECTION — price at Call Wall resistance
-    if (input.callWall && input.callWall > 0 && input.price > 0) {
-        const wallProximity = Math.abs(input.price - input.callWall) / input.price;
-        if (wallProximity < 0.02) { // Within 2% of Call Wall
-            score = Math.min(score, 55);
-            gatesApplied.push('WALL_REJECTION');
+        // 진짜 가짜 펌프: 모든 기관 시그널이 매도 방향
+        if (darkPoolPct !== null && darkPoolPct < 30 && blockTrades <= 1) {
+            // darkPool 낮음 + 블록매매 없음 → 확실한 가짜 펌프
+            score = Math.min(score, 45);
+            gatesApplied.push('FAKE_PUMP');
+        } else if (darkPoolPct !== null && darkPoolPct >= 40) {
+            // darkPool 높음 → 기관이 포지션 전환 중일 수 있음, 약한 감점만
+            score = score - 3;
+            gatesApplied.push('FLOW_DIVERGENCE');
+        } else {
+            // 애매한 경우 → 경미한 감점
+            score = score - 3;
+            gatesApplied.push('FLOW_DIVERGENCE');
         }
     }
 
-    // Gate 4: SHORT STORM — extremely high short volume
+    // Gate 3: CALL WALL CONTEXT — [V3.3] 돌파 vs 저항 교차 분석
+    // "근처니까 탈락"이 아니라 GEX/Flow/Volume으로 방향 판단
+    if (input.callWall && input.callWall > 0 && input.price > 0) {
+        const wallDist = (input.callWall - input.price) / input.price;
+
+        if (wallDist > -0.02 && wallDist < 0.03) {
+            // Call Wall ±2~3% 범위 내
+            const isBreakout = input.price > input.callWall; // 이미 돌파
+            const hasVolume = relVol >= 1.5;
+            const bullishFlow = netFlow > 0 || (darkPoolPct !== null && darkPoolPct >= 40);
+            const negativeGex = gex < 0; // 감마스퀴즈 잠재력
+
+            if (isBreakout && hasVolume && negativeGex) {
+                // 감마 스퀴즈 돌파 — 보너스
+                score = score + 5;
+                gatesApplied.push('GAMMA_BREAKOUT');
+            } else if (isBreakout && bullishFlow) {
+                // 돌파 + 기관 매수 — 약한 보너스
+                score = score + 3;
+                gatesApplied.push('WALL_BREAKOUT');
+            } else if (!isBreakout && !hasVolume && netFlow < 0) {
+                // 접근 중 + 거래량 약함 + 기관 매도 → 저항 확인
+                score = score - 3;
+                gatesApplied.push('WALL_RESISTANCE');
+            }
+            // 그 외: 아무 조치 없음 (판단 유보)
+        }
+    }
+
+    // Gate 4: SHORT ANALYSIS — [V3.3] 숏커버/스퀴즈 교차 판단
+    // 높은 공매도 = 위험이 아니라, 방향에 따라 기회일 수 있음
     const shortVol = input.shortVolPct;
     if (shortVol !== null && shortVol !== undefined && shortVol >= 55) {
-        score = score - 10;
-        gatesApplied.push('SHORT_STORM');
+        const squeezeVal = input.squeezeScore ?? 0;
+
+        if (changePct > 0 && relVol >= 1.5 && squeezeVal >= 50) {
+            // 숏커버 랠리 + 스퀴즈 조건 → 오히려 보너스
+            score = score + 5;
+            gatesApplied.push('SHORT_SQUEEZE_MOMENTUM');
+        } else if (changePct > 0 && relVol >= 1.2) {
+            // 가격 상승 중 + 거래량 증가 → 숏커버 진행, 감점 안 함
+            gatesApplied.push('SHORT_COVER_ACTIVE');
+        } else if (changePct < -2 && netFlow < 0) {
+            // 진짜 위험: 가격 하락 + 기관 매도 + 공매도 높음
+            score = score - 8;
+            gatesApplied.push('SHORT_STORM');
+        } else {
+            // 공매도 높지만 방향 불분명 → 경미한 감점
+            score = score - 3;
+            gatesApplied.push('SHORT_ELEVATED');
+        }
     }
 
     // Gate 5: CONTEXT-AWARE RSI — Market regime adjusts thresholds

@@ -2,59 +2,17 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, AlertTriangle, Crosshair, Eye, type LucideIcon } from 'lucide-react';
+import { Shield, AlertTriangle, Crosshair, Eye, Target, type LucideIcon } from 'lucide-react';
 import { AlphaCard, AlphaCardCompact } from './AlphaCard';
 
 // =============================================================================
-// TYPES
+// TYPES (Re-export from AlphaCard)
 // =============================================================================
 
-export interface AlphaItem {
-    ticker: string;
-    rank: number;
-    price: number;
-    changePct: number;
-    volume?: number;
-    alphaScore: number;
-    scoreBreakdown?: {
-        momentum: number;
-        options: number;
-        structure: number;
-        regime: number;
-        risk: number;
-    };
-    entryLow?: number;
-    entryHigh?: number;
-    targetPrice?: number;
-    cutPrice?: number;
-    whaleNetM?: number;
-    callWall?: number;
-    putFloor?: number;
-    isLive?: boolean;
-    // === Engine "속살" data ===
-    whyKR?: string;
-    actionKR?: string;
-    grade?: string;
-    triggerCodes?: string[];
-    pillars?: {
-        momentum: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
-        structure: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
-        flow: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
-        regime: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
-        catalyst: { score: number; max: number; pct: number; factors: { name: string; value: number; max: number; detail?: string }[] };
-    };
-    gatesApplied?: string[];
-    dataCompleteness?: number;
-}
-
-interface FinalBattleSectionProps {
-    items: AlphaItem[];
-    isLoading?: boolean;
-    onItemClick?: (item: AlphaItem) => void;
-}
+export type { AlphaCardProps as AlphaItem } from './AlphaCard';
 
 // =============================================================================
-// SECTION HEADER
+// SECTION HEADER (Premium Glassmorphism)
 // =============================================================================
 
 function SectionHeader({
@@ -70,24 +28,28 @@ function SectionHeader({
     count: number;
     variant?: 'default' | 'warning';
 }) {
-    const iconColor = variant === 'warning' ? 'text-rose-400' : 'text-cyan-400';
-    const bgColor = variant === 'warning' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-cyan-500/10 border-cyan-500/20';
-    const badgeColor = variant === 'warning' ? 'bg-rose-500/20 text-rose-400' : 'bg-cyan-500/20 text-cyan-400';
+    const isWarning = variant === 'warning';
 
     return (
         <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${bgColor}`}>
-                    <Icon className={`w-5 h-5 ${iconColor}`} />
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center border backdrop-blur-sm ${isWarning
+                        ? 'bg-rose-500/[0.08] border-rose-500/20'
+                        : 'bg-white/[0.06] border-white/[0.10]'
+                    }`}>
+                    <Icon className={`w-4.5 h-4.5 ${isWarning ? 'text-rose-400' : 'text-white/60'}`} />
                 </div>
                 <div>
-                    <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
+                    <h2 className="text-sm font-black text-white/90 tracking-wide uppercase flex items-center gap-2">
                         {title}
-                        <span className={`text-xs font-mono px-2 py-0.5 rounded ${badgeColor}`}>
+                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${isWarning
+                                ? 'bg-rose-500/[0.08] text-rose-400/80 border border-rose-500/15'
+                                : 'bg-white/[0.06] text-white/40 border border-white/[0.08]'
+                            }`}>
                             {count}
                         </span>
                     </h2>
-                    <p className="text-xs text-slate-500 uppercase tracking-wider">{subtitle}</p>
+                    <p className="text-[10px] text-white/30 tracking-wider mt-0.5">{subtitle}</p>
                 </div>
             </div>
         </div>
@@ -95,31 +57,32 @@ function SectionHeader({
 }
 
 // =============================================================================
-// LOADING SKELETON
+// LOADING SKELETON (Glassmorphic)
 // =============================================================================
 
 function CardSkeleton({ variant = 'large' }: { variant?: 'large' | 'compact' }) {
     return (
-        <div className={`rounded-xl border border-white/5 bg-slate-900/50 animate-pulse ${variant === 'large' ? 'h-[420px]' : 'h-[320px]'}`}>
+        <div className={`rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] via-white/[0.02] to-transparent backdrop-blur-xl animate-pulse ${variant === 'large' ? 'h-[440px]' : 'h-[380px]'
+            }`}>
             <div className="p-5 space-y-4">
                 <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-14 h-14 rounded-xl bg-slate-800" />
+                        <div className="w-7 h-7 rounded-lg bg-white/[0.06]" />
+                        <div className="w-10 h-10 rounded-xl bg-white/[0.06]" />
                         <div className="space-y-2">
-                            <div className="h-6 w-20 bg-slate-800 rounded" />
-                            <div className="h-8 w-32 bg-slate-800 rounded" />
+                            <div className="h-4 w-16 bg-white/[0.06] rounded" />
+                            <div className="h-5 w-28 bg-white/[0.06] rounded" />
                         </div>
                     </div>
-                    <div className="w-[92px] h-[92px] rounded-full bg-slate-800" />
+                    <div className="w-14 h-14 rounded-full bg-white/[0.06]" />
                 </div>
-                <div className="h-6 w-24 bg-slate-800 rounded" />
-                <div className="space-y-2 py-3">
-                    {[1, 2, 3, 4, 5].map(i => (
-                        <div key={i} className="h-2 bg-slate-800 rounded-full" />
-                    ))}
+                <div className="h-16 bg-white/[0.04] rounded-xl" />
+                <div className="h-8 bg-white/[0.04] rounded-xl" />
+                <div className="h-20 bg-white/[0.03] rounded-xl" />
+                <div className="flex gap-2">
+                    {[1, 2, 3, 4].map(i => <div key={i} className="h-5 w-14 bg-white/[0.04] rounded-md" />)}
                 </div>
-                <div className="h-12 bg-slate-800 rounded-lg" />
-                <div className="h-12 bg-slate-800 rounded-lg" />
+                <div className="h-8 bg-white/[0.03] rounded-xl" />
             </div>
         </div>
     );
@@ -129,56 +92,40 @@ function CardSkeleton({ variant = 'large' }: { variant?: 'large' | 'compact' }) 
 // MAIN COMPONENT
 // =============================================================================
 
-export function FinalBattleSection({ items, isLoading = false, onItemClick }: FinalBattleSectionProps) {
+export function FinalBattleSection({ items, isLoading = false, onItemClick }: {
+    items: import('./AlphaCard').AlphaCardProps[];
+    isLoading?: boolean;
+    onItemClick?: (item: import('./AlphaCard').AlphaCardProps) => void;
+}) {
     const mainCorps = items.filter(i => i.rank <= 3);
     const core12 = items.filter(i => i.rank >= 4 && i.rank <= 10);
     const moonshot = items.filter(i => i.rank >= 11);
 
     return (
-        <div className="space-y-12">
+        <div className="space-y-10">
 
-            {/* MAIN CORPS (Top 3) */}
+            {/* TOP PICKS (Ranks 1-3) */}
             <section>
                 <SectionHeader
                     icon={Crosshair}
                     title="TOP PICKS"
-                    subtitle="확신도 최상위 · 즉시 검토 대상"
+                    subtitle="HIGH CONVICTION — IMMEDIATE REVIEW"
                     count={mainCorps.length}
                 />
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
                     {isLoading ? (
                         [1, 2, 3].map(i => <CardSkeleton key={i} variant="large" />)
                     ) : (
                         mainCorps.map((item) => (
                             <motion.div
                                 key={item.ticker}
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 16 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: item.rank * 0.1 }}
+                                transition={{ delay: item.rank * 0.08, duration: 0.4, ease: 'easeOut' }}
                             >
                                 <AlphaCard
-                                    ticker={item.ticker}
-                                    rank={item.rank}
-                                    price={item.price}
-                                    changePct={item.changePct}
-                                    volume={item.volume}
-                                    alphaScore={item.alphaScore}
-                                    entryLow={item.entryLow}
-                                    entryHigh={item.entryHigh}
-                                    targetPrice={item.targetPrice}
-                                    cutPrice={item.cutPrice}
-                                    whaleNetM={item.whaleNetM}
-                                    callWall={item.callWall}
-                                    putFloor={item.putFloor}
-                                    isLive={item.isLive}
-                                    whyKR={item.whyKR}
-                                    actionKR={item.actionKR}
-                                    grade={item.grade}
-                                    triggerCodes={item.triggerCodes}
-                                    pillars={item.pillars}
-                                    gatesApplied={item.gatesApplied}
-                                    dataCompleteness={item.dataCompleteness}
+                                    {...item}
                                     variant="hero"
                                     onClick={() => onItemClick?.(item)}
                                 />
@@ -188,12 +135,12 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
                 </div>
             </section>
 
-            {/* CORE ALPHA (Ranks 4-10) */}
+            {/* ACTIONABLE (Ranks 4-10) */}
             <section>
                 <SectionHeader
-                    icon={Eye}
+                    icon={Target}
                     title="ACTIONABLE"
-                    subtitle="조건부 진입 · 트리거 대기"
+                    subtitle="CONDITIONAL ENTRY — TRIGGER STANDBY"
                     count={core12.length}
                 />
 
@@ -204,32 +151,12 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
                         core12.map((item) => (
                             <motion.div
                                 key={item.ticker}
-                                initial={{ opacity: 0, y: 15 }}
+                                initial={{ opacity: 0, y: 12 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: item.rank * 0.05 }}
+                                transition={{ delay: item.rank * 0.04, duration: 0.35, ease: 'easeOut' }}
                             >
                                 <AlphaCardCompact
-                                    ticker={item.ticker}
-                                    rank={item.rank}
-                                    price={item.price}
-                                    changePct={item.changePct}
-                                    volume={item.volume}
-                                    alphaScore={item.alphaScore}
-                                    entryLow={item.entryLow}
-                                    entryHigh={item.entryHigh}
-                                    targetPrice={item.targetPrice}
-                                    cutPrice={item.cutPrice}
-                                    whaleNetM={item.whaleNetM}
-                                    callWall={item.callWall}
-                                    putFloor={item.putFloor}
-                                    isLive={item.isLive}
-                                    whyKR={item.whyKR}
-                                    actionKR={item.actionKR}
-                                    grade={item.grade}
-                                    triggerCodes={item.triggerCodes}
-                                    pillars={item.pillars}
-                                    gatesApplied={item.gatesApplied}
-                                    dataCompleteness={item.dataCompleteness}
+                                    {...item}
                                     onClick={() => onItemClick?.(item)}
                                 />
                             </motion.div>
@@ -238,47 +165,27 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
                 </div>
             </section>
 
-            {/* MOONSHOT ZONE (Ranks 11+) */}
+            {/* SPECULATIVE (Ranks 11+) */}
             {moonshot.length > 0 && (
                 <section>
                     <SectionHeader
                         icon={AlertTriangle}
                         title="SPECULATIVE"
-                        subtitle="고위험 · 고수익 · 소규모 포지션 권장"
+                        subtitle="HIGH RISK — SMALL POSITION ONLY"
                         count={moonshot.length}
                         variant="warning"
                     />
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         {moonshot.map((item) => (
                             <motion.div
                                 key={item.ticker}
-                                initial={{ opacity: 0, y: 20 }}
+                                initial={{ opacity: 0, y: 16 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: item.rank * 0.1 }}
+                                transition={{ delay: item.rank * 0.08, duration: 0.4 }}
                             >
                                 <AlphaCard
-                                    ticker={item.ticker}
-                                    rank={item.rank}
-                                    price={item.price}
-                                    changePct={item.changePct}
-                                    volume={item.volume}
-                                    alphaScore={item.alphaScore}
-                                    entryLow={item.entryLow}
-                                    entryHigh={item.entryHigh}
-                                    targetPrice={item.targetPrice}
-                                    cutPrice={item.cutPrice}
-                                    whaleNetM={item.whaleNetM}
-                                    callWall={item.callWall}
-                                    putFloor={item.putFloor}
-                                    isLive={item.isLive}
-                                    whyKR={item.whyKR}
-                                    actionKR={item.actionKR}
-                                    grade={item.grade}
-                                    triggerCodes={item.triggerCodes}
-                                    pillars={item.pillars}
-                                    gatesApplied={item.gatesApplied}
-                                    dataCompleteness={item.dataCompleteness}
+                                    {...item}
                                     isHighRisk={true}
                                     variant="compact"
                                     onClick={() => onItemClick?.(item)}
@@ -292,11 +199,11 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: Fi
             {/* Empty State */}
             {!isLoading && items.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="w-16 h-16 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center mb-4">
-                        <Shield className="w-8 h-8 text-slate-600" />
+                    <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-4 backdrop-blur-sm">
+                        <Shield className="w-7 h-7 text-white/20" />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-300 mb-2">No Alpha Detected</h3>
-                    <p className="text-sm text-slate-500 max-w-md">
+                    <h3 className="text-lg font-bold text-white/40 mb-1">No Alpha Detected</h3>
+                    <p className="text-xs text-white/20 max-w-sm">
                         The engine is scanning the market. Alpha signals will appear when high-probability setups are identified.
                     </p>
                 </div>

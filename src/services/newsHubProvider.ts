@@ -477,6 +477,7 @@ function deriveMarketSentiment(news: NewsItem[]): { likes: LikeDislikeItem[], di
 }
 
 // Main snapshot function
+// [V3.4.1] Static headlines REMOVED from sentiment derivation — live Polygon only
 export async function getNewsHubSnapshot(tickers: string[] = ['NVDA', 'AAPL', 'TSLA', 'MSFT', 'AMZN']): Promise<NewsHubSnapshot> {
     const now = new Date().toLocaleString('en-US', {
         timeZone: 'America/New_York',
@@ -484,14 +485,22 @@ export async function getNewsHubSnapshot(tickers: string[] = ['NVDA', 'AAPL', 'T
         timeStyle: 'short'
     });
 
-    const marketHeadlines = loadMarketHeadlines();
-    const stockNews = await fetchStockNews(tickers, 15);
-    const allNews = [...marketHeadlines, ...stockNews];
-    const { likes, dislikes } = deriveMarketSentiment(allNews);
+    // [V3.4.1] Fetch LIVE market-level news (broad market ETFs) + ticker-specific
+    const marketTickers = ['SPY', 'QQQ', 'DIA'];
+    const [marketNews, stockNews] = await Promise.all([
+        fetchStockNews(marketTickers, 10),
+        fetchStockNews(tickers, 15)
+    ]);
+
+    // Sentiment derived from LIVE news only — never from stale static files
+    const liveNews = [...marketNews, ...stockNews];
+    const { likes, dislikes } = deriveMarketSentiment(liveNews);
+
+    console.log(`[NewsHub V3.4.1] Live news: ${marketNews.length} market + ${stockNews.length} stock → Likes:${likes.length} Dislikes:${dislikes.length}`);
 
     return {
         asOfET: now,
-        marketHeadlines: marketHeadlines.slice(0, 5),
+        marketHeadlines: marketNews.slice(0, 5),  // Live market headlines (SPY/QQQ/DIA)
         stockNews: stockNews.slice(0, 10),
         marketLikes: likes,
         marketDislikes: dislikes

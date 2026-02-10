@@ -9,11 +9,11 @@ export async function POST(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as ReportType | null;
 
-    if (!type || !['eod', 'pre2h', 'open30m'].includes(type)) {
+    if (!type || !['draft', 'final', 'revised', 'eod', 'pre', 'open', 'morning'].includes(type)) {
         return new Response(JSON.stringify({
             error: 'Invalid report type',
             validTypes: Object.keys(REPORT_SCHEDULES),
-            usage: 'POST /api/reports/generate?type=eod|pre2h|open30m'
+            usage: 'POST /api/reports/generate?type=draft|final|revised|eod'
         }), {
             status: 400,
             headers: { 'Content-Type': 'application/json; charset=utf-8' }

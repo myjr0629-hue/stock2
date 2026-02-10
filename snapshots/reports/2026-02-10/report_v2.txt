@@ -1,0 +1,46 @@
+=== SIGNUM Alpha Report V3.4.1 (PM Validation Rebuild) ===
+Date: 2026-02-10 | Generated: 02/10/2026, 10:01:29 AM
+Version: S-56.4.6e | Engine: 3.4.0
+Type: draft | Items: 12
+
+=== MACRO ===
+VIX: 17.62 | NQ%: -0.36% | US10Y: 4.147 | DXY: 97.10249999999999
+Market Status: {"market":"open","session":"regular","isHoliday":false,"serv
+
+=== ALPHA GRID ===
+Rank | Ticker | Price      | Chg%      | PScore | Tier       | Grade | PCR  | CW      | PF      | Reason
+-----|--------|------------|-----------|--------|------------|-------|------|---------|---------|-------
+   1 | ICHR   | $    42.32 |   +24.07% |     65 | WATCH      | ?     | 0.48 | $    40 | $  37.5 | 강한 상승세 + 3일연속상승 + 콜옵션우세 + 기관매집(DP 86%) = 관심종목
+   2 | NKTR   | $    53.88 |   +45.35% |     63 | WATCH      | ?     | 0.39 | $    50 | $    60 | 강한 상승세 + 3일연속상승 + 콜옵션우세 + 기관매집(DP 82%) = 관심종목
+   3 | VSTS   | $     9.14 |   +24.86% |     63 | WATCH      | ?     | 0.16 | $    10 | $    10 | 강한 상승세 + 3일연속상승 + 콜옵션우세 + 기관매집(DP 87%) = 관심종목
+   4 | PONY   | $    14.83 |    +0.14% |     56 | WATCH      | ?     | 0.40 | $    14 | $  13.5 | 3일연속상승 + 콜옵션우세 + 기관매집(DP 85%) = 관심종목
+   5 | MBLY   | $     9.31 |    +2.70% |     50 | WATCH      | ?     | 0.75 | $   9.5 | $   8.5 | 강한 상승세 + 3일연속상승 + 기관매집(DP 90%) = 관망
+   6 | EQIX   | $   849.73 |    -0.93% |     50 | WATCH      | ?     | 8.34 | $   890 | $   750 | 기관매집(DP 66%) = 관망
+   7 | AMT    | $   175.33 |    +0.93% |     50 | WATCH      | ?     | 0.32 | $   190 | $   170 | 상승 모멘텀 + 3일연속상승 + 콜옵션우세 = 관망
+   8 | QCOM   | $   139.28 |    +0.26% |     50 | WATCH      | ?     | 0.47 | $   145 | $   150 | 콜옵션우세 + 기관매집(DP 84%) = 관망
+   9 | CCI    | $    83.45 |    +0.45% |     50 | WATCH      | ?     | 0.47 | $    90 | $    85 | 3일연속상승 + 콜옵션우세 = 관망
+  10 | SBAC   | $   185.56 |    +0.50% |     50 | WATCH      | ?     | 0.89 | $   190 | $   165 | 상승 모멘텀 + 3일연속상승 + 기관매집(DP 62%) = 관망
+  11 | BIIB   | $   191.65 |    -1.11% |     47 | FILLER     | ?     | 0.53 | $   200 | $   170 | 콜옵션우세 + 기관매집(DP 66%) = 관망 [🧪 Discovery Slot: 변동성 베팅]
+  12 | REGN   | $   774.18 |    -0.78% |     47 | FILLER     | ?     | 0.98 | $   810 | $   750 | 기관매집(DP 64%) = 관망 [🧪 Discovery Slot: 변동성 베팅]
+
+=== M7 SECTOR ===
+  AAPL   $   273.74    -0.32% Score: 46 FILLER 
+  MSFT   $   417.54    +0.95% Score: 50 WATCH 
+  AMZN   $   206.81    -0.92% Score: 47 FILLER 
+  NVDA   $   188.83    -0.64% Score: 50 WATCH 
+  GOOGL  $   314.91    -2.90% Score: 49 FILLER 
+  META   $   672.65    -0.67% Score: 50 WATCH 
+  TSLA   $   422.40    +1.22% Score: 50 WATCH 
+
+=== PHYSICAL AI SECTOR ===
+  ISRG   $   497.56    +0.96% Score: 50 WATCH 
+  TER    $   301.33    -2.80% Score: 48 FILLER 
+  PLTR   $   143.93    +0.72% Score: 50 WATCH 
+  SYM    $    63.02    +0.77% Score: 50 WATCH 
+  RKLB   $    73.71    -2.81% Score: 48 FILLER 
+  SERV   $    10.60    -0.75% Score: 49 FILLER 
+  PL     $    23.22    -3.33% Score: 50 WATCH 
+
+=== MARKET SENTIMENT ===
+  + 뚜렷한 긍정 촉매 없음
+  - 뚜렷한 부정 촉매 없음

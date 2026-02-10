@@ -138,11 +138,35 @@ export const CentralDataHub = {
         const useMemoryCache = !forceRefresh;
         const fetchOptions = forceRefresh ? { cache: 'no-store' as RequestCache } : undefined;
 
+        // [V3.4] Resilient fetch helper — retry before giving up
+        const resilientFetch = async (fn: () => Promise<any>, fallback: any, label: string) => {
+            for (let attempt = 0; attempt < 3; attempt++) {
+                try { return await fn(); } catch (err: any) {
+                    if (attempt < 2) {
+                        console.warn(`[CentralDataHub] ${label} attempt ${attempt + 1} failed for ${ticker}, retrying...`);
+                        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+                    } else {
+                        console.error(`[CentralDataHub] ${label} FINAL FAIL for ${ticker}:`, err.message);
+                        return fallback;
+                    }
+                }
+            }
+        };
+
         const [snapshotRes, ocRes, historyRes, rsiRes] = await Promise.all([
             fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`, {}, useMemoryCache, undefined, fetchOptions),
-            fetchMassive(`/v1/open-close/${ticker}/${toDate}`, {}, useMemoryCache, undefined, fetchOptions).catch(() => ({ data: null })),
-            fetchMassive(`/v2/aggs/ticker/${ticker}/range/1/day/${fromDateStr}/${toDate}`, { limit: '30', sort: 'asc' }, useMemoryCache, undefined, fetchOptions).catch(() => ({ results: [] })),
-            fetchMassive(`/v1/indicators/rsi/${ticker}`, { timespan: 'day', adjusted: 'true', window: '14', series_type: 'close', order: 'desc', limit: '1' }, useMemoryCache, undefined, fetchOptions).catch(() => ({ results: { values: [] } }))
+            resilientFetch(
+                () => fetchMassive(`/v1/open-close/${ticker}/${toDate}`, {}, useMemoryCache, undefined, fetchOptions),
+                { data: null }, 'OpenClose'
+            ),
+            resilientFetch(
+                () => fetchMassive(`/v2/aggs/ticker/${ticker}/range/1/day/${fromDateStr}/${toDate}`, { limit: '30', sort: 'asc' }, useMemoryCache, undefined, fetchOptions),
+                { results: [] }, 'History'
+            ),
+            resilientFetch(
+                () => fetchMassive(`/v1/indicators/rsi/${ticker}`, { timespan: 'day', adjusted: 'true', window: '14', series_type: 'close', order: 'desc', limit: '1' }, useMemoryCache, undefined, fetchOptions),
+                { results: { values: [] } }, 'RSI'
+            )
         ]);
 
         const S = snapshotRes.ticker || {};
@@ -272,14 +296,27 @@ export const CentralDataHub = {
             changePct = ((price - prevClose) / prevClose) * 100;
         }
 
+        // [V3.4] Pre-market change vs prevClose (for Pre-Market Validation factor)
         let extendedChangePct = 0;
-        if (extendedPrice > 0 && price > 0) {
-            extendedChangePct = ((extendedPrice - price) / price) * 100;
+        if (extendedPrice > 0 && prevClose > 0) {
+            extendedChangePct = ((extendedPrice - prevClose) / prevClose) * 100;
         }
 
-        const isRollover = (session === "PRE" && changePct === 0);
+        // [V3.4.1] PRE SESSION VALIDATION REBUILD
+        // 원칙: 기본틀(옵션/구조/플로우) = 직전장 데이터
+        //       검증 레이어(가격/모멘텀) = PM 데이터로 리빌드
+        // PM changePct를 primaryChange로 승격하여 Momentum Pillar가 PM 현실을 반영
+        let primaryChangePercent = changePct;
+        let activePrice = price;
+        if (session === 'PRE' && extendedPrice > 0 && prevClose > 0) {
+            primaryChangePercent = extendedChangePct;
+            activePrice = extendedPrice; // PM 가격을 active price로 승격
+            console.log(`[V3.4.1] ${ticker}: PRE Validation Rebuild — PM $${extendedPrice.toFixed(2)} (${extendedChangePct >= 0 ? '+' : ''}${extendedChangePct.toFixed(2)}%) overrides regClose $${price.toFixed(2)}`);
+        }
 
-        // Smart Options Fetch
+        const isRollover = (session === "PRE" && changePct === 0 && extendedChangePct === 0);
+
+        // Smart Options Fetch — 옵션 체인은 직전장 기준 (기본틀 원칙)
         const fetchPrice = price || prevClose;
         const optionsRes = await CentralDataHub._fetchOptionsChain(ticker, fetchPrice, specificDate).catch(err => ({
             netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0, optionsCount: 0, error: err.message || "Safe Fallback"
@@ -296,9 +333,9 @@ export const CentralDataHub = {
 
         return {
             ticker,
-            price: price || 0,
+            price: activePrice || 0,
             changePct: changePct || 0,
-            finalChangePercent: changePct || 0,
+            finalChangePercent: primaryChangePercent || 0,
             prevClose: prevClose || 0,
             volume: dayVolume,
             extendedPrice,

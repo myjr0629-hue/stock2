@@ -212,7 +212,7 @@ function RecordRow({ record, index }: { record: BacktestRecord; index: number })
                             style={{ width: `${Math.min(record.alphaScore, 100)}%` }}
                         />
                     </div>
-                    <span className="text-xs font-mono font-bold text-slate-300">{record.alphaScore}</span>
+                    <span className="text-xs font-mono font-bold text-slate-300">{record.alphaScore.toFixed(1)}</span>
                 </div>
             </div>
 
@@ -500,28 +500,28 @@ export function TrackRecord() {
                     <div className="flex-1 grid grid-cols-2 lg:grid-cols-4 gap-4 w-full">
                         <StatCard
                             label="Expectancy"
-                            value={`${summary.expectancy >= 0 ? '+' : ''}${summary.expectancy.toFixed(2)}%`}
+                            value={`${(summary.expectancy ?? 0) >= 0 ? '+' : ''}${(summary.expectancy ?? 0).toFixed(2)}%`}
                             subValue="Expected return per trade"
                             icon={Zap}
                             color={summary.expectancy >= 0 ? 'emerald' : 'rose'}
                         />
                         <StatCard
                             label="Profit Factor"
-                            value={summary.profitFactor === Infinity ? '∞' : summary.profitFactor.toFixed(2)}
+                            value={summary.profitFactor === Infinity ? '∞' : (summary.profitFactor ?? 0).toFixed(2)}
                             subValue="Win $ / Loss $"
                             icon={BarChart3}
                             color={summary.profitFactor >= 1.5 ? 'cyan' : 'amber'}
                         />
                         <StatCard
                             label="Avg Win"
-                            value={`+${summary.avgWinReturn.toFixed(2)}%`}
+                            value={`+${(summary.avgWinReturn ?? 0).toFixed(2)}%`}
                             subValue={`${summary.wins} wins`}
                             icon={TrendingUp}
                             color="emerald"
                         />
                         <StatCard
                             label="Avg Loss"
-                            value={`-${summary.avgLossReturn.toFixed(2)}%`}
+                            value={`-${(summary.avgLossReturn ?? 0).toFixed(2)}%`}
                             subValue={`${summary.losses} losses`}
                             icon={TrendingDown}
                             color="rose"

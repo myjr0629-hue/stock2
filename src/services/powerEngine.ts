@@ -392,6 +392,9 @@ export function computeQualityTier(
             sentiment: sentiment ?? null,
             wasInPrevReport,
             optionsDataAvailable: !!optionsComplete,
+            // [V3.4] Pre-Market Validation
+            preMarketPrice: evidence?.price?.preMarketPrice ?? null,
+            preMarketChangePct: evidence?.price?.preMarketChangePct ?? null,
         });
     } catch (e: any) {
         console.error(`[PowerEngine] V3 alpha failed for ${symbol}:`, e?.message || e);
@@ -648,6 +651,27 @@ export function computeQualityTier(
         reasonKR = `📉 [Gate 2] 설거지 패턴 감지 (RSI 과열 + 거래량 폭발) - 즉시 이탈 권고`;
     }
 
+    // [Gate 2.5] Overheated Cap — changePct 기반 과열 차단 (V3.4.1)
+    // RSI/relVol 무관하게, 단일 세션 급등 자체가 추격매수 위험
+    else if (changePct >= 40.0) {
+        console.log(`[PowerEngine] ${symbol} Gate 2.5: OVERHEATED (${changePct.toFixed(1)}% >= 40%)`);
+        alphaScore = Math.min(alphaScore, 35);
+        tier = 'FILLER';
+        reasonKR = `⛔ [Gate 2.5] 과열 급등 ${changePct.toFixed(0)}% — 추격매수 금지`;
+    }
+    else if (changePct >= 25.0) {
+        console.log(`[PowerEngine] ${symbol} Gate 2.5: HIGH CHASE RISK (${changePct.toFixed(1)}% >= 25%)`);
+        alphaScore = Math.min(alphaScore, 55);
+        tier = (tier === 'ACTIONABLE') ? 'WATCH' : tier;
+        reasonKR = `🔥 [Gate 2.5] 추격매수 위험 ${changePct.toFixed(0)}% — 눌림목 대기`;
+    }
+    else if (changePct >= 15.0) {
+        console.log(`[PowerEngine] ${symbol} Gate 2.5: MOMENTUM ALERT (${changePct.toFixed(1)}% >= 15%)`);
+        alphaScore = Math.min(alphaScore, 65);
+        tier = (tier === 'ACTIONABLE') ? 'WATCH' : tier;
+        reasonKR = `⚡ [Gate 2.5] 모멘텀 알림 ${changePct.toFixed(0)}% — ACTIONABLE 불가`;
+    }
+
     // [Gate 3] Smart Money Alignment (GEX/Flow)
     // If Price UP but Gamma is Short (Volatile) and Flow is Negative? 
     // User Guide: "rising OI ... stable PCR". 
@@ -843,10 +867,8 @@ export function selectTop3(
     const changelog: string[] = [];
     const prevTop3Set = new Set(previousTop3Symbols.map(s => s.toUpperCase()));
 
-    // Get promotion threshold based on regime
-    const promotionThreshold = regime === 'RISK_OFF'
-        ? QUALITY_TIER_CONFIG.TOP3_RISK_OFF_THRESHOLD
-        : QUALITY_TIER_CONFIG.TOP3_PROMOTION_SCORE;
+    // [V3.2] ABSOLUTE RULE: Top3 = 80점+ ACTIONABLE ONLY
+    // WATCH→Top3 승격 제거. 80점 미달시 빈 슬롯 유지.
 
     // Filter: Only COMPLETE items can be in Top3
     const eligibleItems = rankedItems.filter(item =>
@@ -855,17 +877,23 @@ export function selectTop3(
         item.evidence?.options?.status !== 'PENDING'
     );
 
-    // Separate by tier
-    const actionables = eligibleItems.filter(item => item.qualityTier === 'ACTIONABLE');
-    const watches = eligibleItems.filter(item => item.qualityTier === 'WATCH');
+    // Separate by tier — 오직 ACTIONABLE만
+    // [V3.4.1] changePct > 15% 종목은 Top3 후보에서 제외 — 추격매수 위험, 모니터링 전용
+    const actionables = eligibleItems.filter(item => {
+        if (item.qualityTier !== 'ACTIONABLE') return false;
+        const itemChangePct = Math.abs(item.evidence?.price?.changePct || item.changePct || 0);
+        if (itemChangePct >= 15.0) {
+            console.log(`[Top3] Excluded ${item.symbol || item.ticker}: changePct ${itemChangePct.toFixed(1)}% >= 15% (chase risk)`);
+            return false;
+        }
+        return true;
+    });
 
     // Sort by powerScore (descending)
     actionables.sort((a, b) => (b.powerScore || 0) - (a.powerScore || 0));
-    watches.sort((a, b) => (b.powerScore || 0) - (a.powerScore || 0));
 
     const selected: any[] = [];
     let actionableUsed = 0;
-    let watchUsed = 0;
     let swapCount = 0;
 
     // === ANTI-CHURN: Keep previous Top3 if still ACTIONABLE ===
@@ -909,44 +937,18 @@ export function selectTop3(
         }
     }
 
-    // === [P0] FILL FROM WATCH IF NEEDED ===
-    if (selected.length < 3) {
-        for (const item of watches) {
-            if (selected.length >= 3) break;
-
-            const sym = (item.symbol || item.ticker)?.toUpperCase();
-            if (selected.some(s => (s.symbol || s.ticker)?.toUpperCase() === sym)) continue;
-
-            // [P0] Accept any WATCH item, no threshold when filling
-            selected.push({ ...item, top3Action: 'WATCH' });
-            watchUsed++;
-            changelog.push(`[WATCH 승격] ${sym} - 점수 ${(item.powerScore || 0).toFixed(1)}`);
-        }
+    // [V3.2] NO WATCH PROMOTION, NO FILLER BACKFILL
+    // 80점+ ACTIONABLE가 3개 미만이면 빈 슬롯 유지
+    const emptySlots = 3 - selected.length;
+    if (emptySlots > 0) {
+        changelog.push(`[빈 슬롯 ${emptySlots}개] 80점+ ACTIONABLE 부족 — 품질 유지`);
     }
 
-    // === [P0] FILL FROM ALL ITEMS (FILLER) IF STILL NOT 3 ===
-    if (selected.length < 3) {
-        // Sort all remaining items by score
-        const remaining = rankedItems
-            .filter(item => !selected.some(s => (s.symbol || s.ticker)?.toUpperCase() === (item.symbol || item.ticker)?.toUpperCase()))
-            .sort((a, b) => (b.powerScore || 0) - (a.powerScore || 0));
-
-        for (const item of remaining) {
-            if (selected.length >= 3) break;
-            const sym = (item.symbol || item.ticker)?.toUpperCase();
-            // [P0] Mark as NO_TRADE action for incomplete items
-            const action = item.complete ? 'HOLD_ONLY' : 'NO_TRADE';
-            selected.push({ ...item, top3Action: action });
-            changelog.push(`[${action}] ${sym} - 점수 ${(item.powerScore || 0).toFixed(1)} (데이터 부분)`);
-        }
-    }
-
-    // [P0] noTradeSlots = count of items with NO_TRADE action
-    const noTradeSlots = selected.filter(s => s.top3Action === 'NO_TRADE').length;
+    const noTradeSlots = 3 - selected.length; // Empty slots = no 80+ ACTIONABLE
 
     const stats: Top3Stats = {
         actionableUsed,
-        watchUsed,
+        watchUsed: 0, // [V3.2] No WATCH promotion
         noTradeSlots,
         changelogKR: changelog
     };

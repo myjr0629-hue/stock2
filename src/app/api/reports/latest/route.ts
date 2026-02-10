@@ -8,6 +8,11 @@ import * as path from 'path';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0; // [S-56.3] No caching
 
+// [PERF] In-memory cache to avoid re-loading on rapid page visits
+// TTL: 30s — fresh enough for real-time, fast enough for dev
+let reportCache: { data: any; ts: number; type: string } | null = null;
+const CACHE_TTL_MS = 30_000;
+
 // [S-56.3] Cache-Control SSOT: No stale data
 const NO_CACHE_HEADERS = {
     'Content-Type': 'application/json; charset=utf-8',
@@ -46,8 +51,19 @@ export async function GET(request: Request) {
 
         let report;
         if (reportType === 'global') {
+            // [PERF] Check in-memory cache first
+            if (reportCache && reportCache.type === 'global' && (Date.now() - reportCache.ts) < CACHE_TTL_MS) {
+                return new Response(JSON.stringify(reportCache.data), {
+                    status: 200,
+                    headers: NO_CACHE_HEADERS
+                });
+            }
             const { getGlobalLatestReport } = await import('@/services/reportScheduler');
             report = await getGlobalLatestReport();
+            if (report) {
+                // Cache for next request
+                reportCache = { data: report, ts: Date.now(), type: 'global' };
+            }
         } else {
             report = await loadLatest(reportType);
         }

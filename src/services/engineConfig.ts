@@ -4,15 +4,17 @@
 // === QUALITY TIER THRESHOLDS ===
 export const QUALITY_TIER_CONFIG = {
     // Score thresholds
-    ACTIONABLE_MIN_SCORE: 70,      // Minimum score for ACTIONABLE tier
+    // [V3.3.1] Recalibrated: 70 = ACTIONABLE after factor scale rebalance
+    ACTIONABLE_MIN_SCORE: 70,      // [V3.3.1] Adjusted from 80 → 70 (factor scales recalibrated)
     WATCH_MIN_SCORE: 50,           // Minimum score for WATCH tier
 
     // Confidence thresholds
-    ACTIONABLE_MIN_CONFIDENCE: 60, // Minimum holdConfidence for ACTIONABLE (Reduced from 70)
+    ACTIONABLE_MIN_CONFIDENCE: 60, // Minimum holdConfidence for ACTIONABLE
 
     // Top3 promotion thresholds
-    TOP3_PROMOTION_SCORE: 75,      // Minimum score to promote WATCH to Top3
-    TOP3_RISK_OFF_THRESHOLD: 80,   // Higher threshold during RISK_OFF regime
+    // [V3.3.1] Top3 = ACTIONABLE(70+) ONLY.
+    TOP3_PROMOTION_SCORE: 70,      // [V3.3.1] Synced with ACTIONABLE_MIN_SCORE
+    TOP3_RISK_OFF_THRESHOLD: 75,   // [V3.3.1] Adjusted from 85 → 75
 };
 
 // === POWER SCORE ADJUSTMENTS ===
@@ -88,7 +90,7 @@ export const ALPHA_V3_CONFIG = {
     },
 
     // Engine Version
-    VERSION: '3.0.0',
+    VERSION: '3.2.0',
 };
 
 // === REGIME CONFIGURATION ===

@@ -164,39 +164,71 @@ export async function GET(req: NextRequest) {
     };
 
     const fetchFlow = async () => {
-        try {
-            return await CentralDataHub._fetchOptionsChain(ticker, flowPriceDetect);
-        } catch (err: any) {
-            return { dataSource: "NONE", rawChain: [], error: err.message };
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                return await CentralDataHub._fetchOptionsChain(ticker, flowPriceDetect);
+            } catch (err: any) {
+                if (attempt < 2) {
+                    console.warn(`[live/ticker] fetchFlow attempt ${attempt + 1} failed for ${ticker}, retrying...`);
+                    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+                } else {
+                    console.error(`[live/ticker] fetchFlow FINAL FAIL for ${ticker}:`, err.message);
+                    return { dataSource: "NONE", rawChain: [], error: err.message };
+                }
+            }
         }
     };
 
     const fetchStructure = async () => {
-        try {
-            return await getStructureData(ticker);
-        } catch {
-            return { squeezeScore: null, squeezeRisk: null, atmIv: null, netGex: null, pcr: null, gammaFlipLevel: null, callWall: null, putFloor: null };
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                return await getStructureData(ticker);
+            } catch (err: any) {
+                if (attempt < 2) {
+                    console.warn(`[live/ticker] fetchStructure attempt ${attempt + 1} failed for ${ticker}, retrying...`);
+                    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+                } else {
+                    console.error(`[live/ticker] fetchStructure FINAL FAIL for ${ticker}:`, err.message);
+                    return { squeezeScore: null, squeezeRisk: null, atmIv: null, netGex: null, pcr: null, gammaFlipLevel: null, callWall: null, putFloor: null };
+                }
+            }
         }
     };
 
     // [V3 PIPELINE] Fetch realtime-metrics for darkPool/shortVol
     const fetchRealtimeMetrics = async () => {
-        try {
-            const baseUrl = new URL(req.url).origin;
-            const res = await fetch(`${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`);
-            if (res.ok) return await res.json();
-            return null;
-        } catch {
-            return null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const baseUrl = new URL(req.url).origin;
+                const res = await fetch(`${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`);
+                if (res.ok) return await res.json();
+                throw new Error(`HTTP ${res.status}`);
+            } catch (err: any) {
+                if (attempt < 2) {
+                    console.warn(`[live/ticker] fetchRealtimeMetrics attempt ${attempt + 1} failed for ${ticker}, retrying...`);
+                    await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+                } else {
+                    console.error(`[live/ticker] fetchRealtimeMetrics FINAL FAIL for ${ticker}`);
+                    return null;
+                }
+            }
         }
     };
 
     // [V3 PIPELINE] Fetch macro snapshot for regime data (NQ/VIX)
     const fetchMacro = async () => {
-        try {
-            return await getMacroSnapshotSSOT();
-        } catch {
-            return null;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                return await getMacroSnapshotSSOT();
+            } catch (err: any) {
+                if (attempt < 2) {
+                    console.warn(`[live/ticker] fetchMacro attempt ${attempt + 1} failed, retrying...`);
+                    await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
+                } else {
+                    console.error(`[live/ticker] fetchMacro FINAL FAIL:`, err.message);
+                    return null;
+                }
+            }
         }
     };
 
@@ -465,21 +497,45 @@ export async function GET(req: NextRequest) {
             try {
                 const sessionMap: Record<string, AlphaSession> = { PRE: 'PRE', REG: 'REG', POST: 'POST', CLOSED: 'CLOSED' };
                 const alphaSession: AlphaSession = sessionMap[session] || 'CLOSED';
-                const changePctForAlpha = changePctPct ?? 0;
+                // [V3.2] SESSION DATA RULE:
+                // REG → 실시간 데이터 사용
+                // NOT REG (PRE/POST/CLOSED) → 직전 정규장 데이터 사용
+                // "장이 안 열렸을 때의 최신 데이터 = 직전 정규장 데이터"
+                const isREG = alphaSession === 'REG';
 
-                // [V3 PIPELINE] Calculate derived metrics from available data
-                const dayVol = S.day?.v || 0;
-                const prevVol = S.prevDay?.v || 1;
-                const relVol = dayVol > 0 ? dayVol / prevVol : null;
+                // changePct: REG → 실시간, NOT REG → 직전 정규장 변동률
+                let changePctForAlpha = changePctPct ?? 0;
+                if (!isREG && historicalResults.length >= 2) {
+                    const lastClose = historicalResults[0].c;
+                    const prevLastClose = historicalResults[1].c;
+                    if (lastClose && prevLastClose) {
+                        changePctForAlpha = ((lastClose - prevLastClose) / prevLastClose) * 100;
+                    }
+                }
+
+                // relVol: REG → 실시간, NOT REG → 직전장 거래량 / 전전장 거래량
+                let relVol: number | null = null;
+                if (isREG) {
+                    const dayVol = S.day?.v || 0;
+                    const prevVol = S.prevDay?.v || 1;
+                    relVol = dayVol > 0 ? dayVol / prevVol : null;
+                } else if (historicalResults.length >= 2) {
+                    const lastVol = historicalResults[0].v || 0;
+                    const prevLastVol = historicalResults[1].v || 1;
+                    relVol = lastVol > 0 ? lastVol / prevLastVol : null;
+                }
+
                 const structGex = (structureResult as any)?.netGex ?? null;
                 const flowGex = (flowData as any)?.netGex ?? null;
                 const effectiveGex = structGex ?? flowGex;
                 const whaleIndex = calculateWhaleIndex(effectiveGex);
 
-                // [V3 PIPELINE] Calculate return3D from historical aggregates
+                // return3D: REG → activePrice vs 4일전, NOT REG → 직전장 종가 vs 4일전
                 let return3D: number | null = null;
-                if (historicalResults.length >= 4 && activePrice && historicalResults[3]?.c) {
+                if (isREG && activePrice && historicalResults.length >= 4 && historicalResults[3]?.c) {
                     return3D = ((activePrice - historicalResults[3].c) / historicalResults[3].c) * 100;
+                } else if (!isREG && historicalResults.length >= 4 && historicalResults[0]?.c && historicalResults[3]?.c) {
+                    return3D = ((historicalResults[0].c - historicalResults[3].c) / historicalResults[3].c) * 100;
                 }
 
                 // [V3 PIPELINE] Compute RSI14 from historical closes (sorted desc, need to reverse)
@@ -527,6 +583,9 @@ export async function GET(req: NextRequest) {
                     // Catalyst data
                     impliedMovePct,
                     optionsDataAvailable: !!(alphaRawChain.length),
+                    // [V3.4] Pre-Market Validation
+                    preMarketPrice: prePrice ?? null,
+                    preMarketChangePct: changePctFrac_PRE !== null ? changePctFrac_PRE * 100 : null,
                 });
 
                 return {

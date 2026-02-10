@@ -63,7 +63,7 @@ async function getStockDataLight(symbol: string) {
     const rsi = rsiRes?.results?.values?.[0]?.value ?? null;
 
     // 3D Return + Sparkline from daily aggregates (same calculation as getStockData lines 870-908)
-    const dailyResults = (dailyAggs?.results || []).map((r: any) => ({ close: r.c }));
+    const dailyResults = (dailyAggs?.results || []).map((r: any) => ({ close: r.c, volume: r.v || 0 }));
     let return3d = 0;
     if (dailyResults.length >= 4) {
         const recentCandles = dailyResults.slice(-4);
@@ -82,11 +82,13 @@ async function getStockDataLight(symbol: string) {
         changePercent: isExtended ? (extChangePercent || 0) : (regChangePercent || 0),
         volume: t?.day?.v,
         prevClose,
+        prevDayVolume: t?.prevDay?.v || 0, // [V3.2] For relVol calculation
         session,
         rsi,
         return3d,
         vwap: t?.day?.vw,
         history: sparkline.map((close: number) => ({ close })), // Compatible format
+        dailyResults, // [V3.2] For session-aware changePct/relVol
     };
 }
 
@@ -125,15 +127,45 @@ export async function GET(request: Request) {
                 return { ticker, error: 'Stock data unavailable' };
             }
 
-            // [V3.0] Alpha Engine V3 — Unified absolute scoring
-            const opts = optionsData as any;
-            const changePct = stockData.changePercent || 0;
-
-            // Map session string to AlphaSession type
+            // [V3.2] SESSION DATA RULE:
+            // REG → 실시간 데이터, NOT REG → 직전 정규장 데이터
             const sessionMap: Record<string, AlphaSession> = { pre: 'PRE', reg: 'REG', post: 'POST' };
             const alphaSession: AlphaSession = sessionMap[stockData.session] || 'CLOSED';
+            const isREG = alphaSession === 'REG';
+            const dailyResults = stockData.dailyResults || [];
 
-            // Prepare V3 input from available data
+            let changePct = stockData.changePercent || 0;
+            if (!isREG && dailyResults.length >= 2) {
+                const lastBar = dailyResults[dailyResults.length - 1];
+                const prevBar = dailyResults[dailyResults.length - 2];
+                if (lastBar?.close && prevBar?.close) {
+                    changePct = ((lastBar.close - prevBar.close) / prevBar.close) * 100;
+                }
+            }
+
+            // [V3.2] relVol: REG → 실시간 거래량/전일, NOT REG → 직전장/전전장
+            let relVol: number | null = null;
+            if (isREG) {
+                const dayVol = stockData.volume || 0;
+                const prevVol = stockData.prevDayVolume || 1;
+                relVol = dayVol > 0 ? dayVol / prevVol : null;
+            } else if (dailyResults.length >= 2) {
+                const lastVol = dailyResults[dailyResults.length - 1]?.volume || 0;
+                const prevVol = dailyResults[dailyResults.length - 2]?.volume || 1;
+                relVol = lastVol > 0 ? lastVol / prevVol : null;
+            }
+
+            // [V3.2] return3D: NOT REG → 직전장 종가 기준
+            let return3D = stockData.return3d ?? null;
+            if (!isREG && dailyResults.length >= 4) {
+                const lastClose = dailyResults[dailyResults.length - 1]?.close;
+                const close4dAgo = dailyResults[dailyResults.length - 4]?.close;
+                if (lastClose && close4dAgo) {
+                    return3D = ((lastClose - close4dAgo) / close4dAgo) * 100;
+                }
+            }
+
+            const opts = optionsData as any;
             const alphaGex = structureRes?.netGex ?? opts?.gems?.gex ?? opts?.gex ?? null;
             const alphaPcr = opts?.putCallRatio ?? null;
             const alphaCallWall = structureRes?.callWall ?? opts?.callWall ?? null;
@@ -141,10 +173,7 @@ export async function GET(request: Request) {
             const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
             const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
 
-            // Calculate volume ratio for relVol
-            const relVol = stockData.volume && stockData.volume > 0 ? stockData.volume / (stockData.volume || 1) : null;
-
-            // Call V3 Engine — single source of truth
+            // Call V3.2 Engine
             let alphaResult;
             try {
                 alphaResult = calculateAlphaScore({
@@ -154,7 +183,7 @@ export async function GET(request: Request) {
                     prevClose: stockData.prevClose || 0,
                     changePct,
                     vwap: stockData.vwap ?? null,
-                    return3D: stockData.return3d ?? null,
+                    return3D,
                     rsi14: stockData.rsi ?? null,
                     pcr: alphaPcr,
                     gex: alphaGex,
@@ -163,17 +192,20 @@ export async function GET(request: Request) {
                     gammaFlipLevel: alphaGammaFlip,
                     rawChain: opts?.rawChain || [],
                     squeezeScore: alphaSqueezeScore,
+                    relVol,
                     optionsDataAvailable: !!opts,
+                    // [V3.4] Pre-Market Validation
+                    preMarketChangePct: (stockData as any).extendedChangePct ?? null,
                 });
             } catch (e) {
-                console.error(`[Watchlist Batch] V3 Engine failed for ${ticker}:`, e);
-                // Graceful fallback — still returns a valid result
+                console.error(`[Watchlist Batch] V3.2 Engine failed for ${ticker}:`, e);
                 alphaResult = calculateAlphaScore({
                     ticker: ticker.toUpperCase(),
                     session: alphaSession,
                     price: stockData.price || 0,
                     prevClose: stockData.prevClose || 0,
                     changePct,
+                    preMarketChangePct: (stockData as any).extendedChangePct ?? null,
                 });
             }
 

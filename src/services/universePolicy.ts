@@ -53,6 +53,13 @@ const KNOWN_ETF_SYMBOLS = new Set([
     'BULZ', 'BERZ', 'HIBS', 'HIBL', 'PILL', 'CHPU', 'CHPS',
     // [V4.1] Covered Call / Buffer ETFs
     'OARK', 'JEPI', 'JEPQ', 'XYLD', 'QYLD', 'RYLD', 'DIVO',
+    // [V3.4.1] Additional ETFs discovered in Top Gainers 2026-02
+    'DOGD', 'SPOG', 'SMX', 'EWCZ', 'CRDU', 'CRDD',
+    'MAGS', 'FNGU', 'FNGD', 'CONL', 'CONY', 'MSTY', 'NVDY', 'TSLY', 'APLY', 'PLTY',
+    'YMAX', 'YMAG', 'ULTY', 'MSTU', 'MSTX', 'MSTZ',
+    'TECL', 'TECS', 'FAS', 'FAZ', 'TNA', 'TZA',
+    'BOIL', 'KOLD', 'UNG', 'USO', 'UCO', 'SCO',
+    'UVIX', 'SVIX', 'VIXY', 'VIXM',
 ]);
 
 // ETF 이름 패턴 (ProShares, Direxion 등)

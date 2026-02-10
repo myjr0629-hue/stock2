@@ -201,6 +201,8 @@ function buildResponseFromResults(
                     tltChangePct: marketData?.tltChangePct ?? null, // [V4.1]
                     gldChangePct: marketData?.gldChangePct ?? null, // [V4.1]
                     optionsDataAvailable: data.options_status === 'OK',
+                    // [V3.4] Pre-Market Validation
+                    preMarketChangePct: data._extendedChangePct ?? null,
                 });
                 tickersData[ticker].alpha = {
                     score: alphaResult.score,
@@ -459,6 +461,8 @@ export async function GET(request: NextRequest) {
                         tltChangePct: marketData?.tltChangePct ?? null, // [V4.1]
                         gldChangePct: marketData?.gldChangePct ?? null, // [V4.1]
                         optionsDataAvailable: data.options_status === 'OK',
+                        // [V3.4] Pre-Market Validation
+                        preMarketChangePct: data._extendedChangePct ?? null,
                     });
                     tickersData[ticker].alpha = {
                         score: alphaResult.score,

@@ -22,7 +22,7 @@ import { fetchMassive, RunBudget, fetchTopGainers, fetchTopActive, fetchNewsForS
 import { enrichTop3Candidates, generateTop3WHY, getVelocitySymbol, EnrichedCandidate } from './top3Enrichment';
 import { generateContinuationReport, ContinuationReport } from './continuationEngine';
 import { generateReportDiff } from './reportDiff'; // [S-56.1] Decision Continuity
-import { applyUniversePolicy, applyUniversePolicyWithBackfill, buildLeadersTrack, getMacroSSOT, validateNoETFInItems, loadStockUniversePool, getExpandedUniversePool } from './universePolicy'; // [S-56.2] + [S-56.3] + [V4.0]
+import { applyUniversePolicy, applyUniversePolicyWithBackfill, buildLeadersTrack, getMacroSSOT, validateNoETFInItems, loadStockUniversePool, getExpandedUniversePool, classifySymbol } from './universePolicy'; // [S-56.2] + [S-56.3] + [V4.0]
 import { applyQualityTiers, selectTop3, determineRegime, computePowerMeta, computeQualityTier, selectFinalList } from './powerEngine'; // [S-56.4]
 import { BUILD_PIPELINE_VERSION, orchestrateGemsEngine } from '../engine/reportOrchestrator'; // [S-56.4.5c]
 import { GuardianDataHub } from './guardian/unifiedDataStream'; // [Phase 4]
@@ -420,6 +420,12 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             const validGainers = gainers.filter((g: any) => {
                 const price = g.day?.c || g.min?.c || g.prevDay?.c || 0;
                 const volume = g.day?.v || g.prevDay?.v || 0;
+                // [V3.4.1] ETF 필터 — Discovery 경로에서 ETF 차단
+                const classification = classifySymbol(g.ticker, g.name || '', g.type || '');
+                if (classification.isETF) {
+                    console.log(`[Discovery] ETF Blocked: ${g.ticker} (${classification.classificationReason})`);
+                    return false;
+                }
                 return price >= DISCOVERY_FILTER.minPrice &&
                     price <= DISCOVERY_FILTER.maxPrice &&
                     volume >= DISCOVERY_FILTER.minVolume &&
@@ -431,6 +437,12 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             const validActive = mostActive.filter((g: any) => {
                 const price = g.day?.c || g.min?.c || g.prevDay?.c || 0;
                 const volume = g.day?.v || g.prevDay?.v || 0;
+                // [V3.4.1] ETF 필터 — Discovery 경로에서 ETF 차단
+                const classification = classifySymbol(g.ticker, g.name || '', g.type || '');
+                if (classification.isETF) {
+                    console.log(`[Discovery] ETF Blocked: ${g.ticker} (${classification.classificationReason})`);
+                    return false;
+                }
                 return price >= DISCOVERY_FILTER.minPrice &&
                     price <= DISCOVERY_FILTER.maxPrice &&
                     volume >= DISCOVERY_FILTER.minVolume &&

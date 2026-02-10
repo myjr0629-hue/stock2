@@ -185,7 +185,7 @@ export function WatchlistGrid() {
                                         <td className="px-6 py-4 text-center bg-slate-50/30">
                                             <div className="flex items-center justify-center gap-1.5">
                                                 <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center font-black text-slate-900">
-                                                    {Math.round(row.pulseScore || 0)}
+                                                    {(row.pulseScore || 0).toFixed(1)}
                                                 </div>
                                                 <div className="text-[10px] font-bold text-slate-500">
                                                     {row.velocity === '▲' && <ArrowUpRight className="w-4 h-4 text-emerald-500" />}
