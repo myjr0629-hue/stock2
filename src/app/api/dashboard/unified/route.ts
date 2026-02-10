@@ -112,6 +112,7 @@ interface CacheEntry {
     timestamp: number;
     isRevalidating?: boolean;
 }
+const CACHE_VERSION = 'v2'; // Bump to invalidate stale entries when response format changes
 const cache: Map<string, CacheEntry> = new Map();
 const CACHE_TTL_MS = 60000; // 60 seconds (fresh)
 const STALE_TTL_MS = 300000; // 5 minutes (stale but usable)
@@ -337,7 +338,7 @@ export async function GET(request: NextRequest) {
         ? tickersParam.split(',').slice(0, 10) // Max 10 tickers
         : DEFAULT_TICKERS;
 
-    const cacheKey = tickers.sort().join(',');
+    const cacheKey = `${CACHE_VERSION}:${tickers.sort().join(',')}`;
     const cached = cache.get(cacheKey);
     const now = Date.now();
 
@@ -696,22 +697,10 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             // [DASHBOARD V2] Save rawChain for 0DTE/IM computation
             tickerRawChain = tickerData.flow?.rawChain || [];
 
-            // [P/C RATIO VOLUME] Compute IMMEDIATELY from rawChain (no price dependency)
-            // Matches FlowRadar.tsx pcRatio exactly - weekly expiry contracts
-            if (tickerRawChain.length > 0) {
-                let cvol = 0, pvol = 0;
-                tickerRawChain.forEach((o: any) => {
-                    const vol = o.day?.volume || 0;
-                    const type = o.details?.contract_type;
-                    if (type === 'call') cvol += vol;
-                    else if (type === 'put') pvol += vol;
-                });
-                if (cvol > 0 || pvol > 0) {
-                    structureData.volumePcr = pvol > 0 ? Math.round((cvol / pvol) * 100) / 100 : (cvol > 0 ? 10 : 0);
-                    structureData.volumePcrCallVol = cvol;
-                    structureData.volumePcrPutVol = pvol;
-                }
-            }
+            // [P/C RATIO VOLUME] Use pre-computed values from ticker API (bypasses SWR cache)
+            structureData.volumePcr = tickerData.flow?.volumePcr ?? null;
+            structureData.volumePcrCallVol = tickerData.flow?.volumePcrCallVol ?? null;
+            structureData.volumePcrPutVol = tickerData.flow?.volumePcrPutVol ?? null;
         }
 
         // [DASHBOARD V2] Dark Pool % & Short Vol % from realtime-metrics

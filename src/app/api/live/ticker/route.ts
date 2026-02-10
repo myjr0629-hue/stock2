@@ -357,6 +357,17 @@ export async function GET(req: NextRequest) {
         match: changePctFrac === null ? null : (Math.abs((changePctFrac || 0) - (changePctFracComputed || 0)) < 1e-9)
     };
 
+    // [P/C RATIO VOLUME] Pre-compute volume PCR (same as FlowRadar.tsx pcRatio)
+    const _rc = (flowData as any)?.rawChain || [];
+    let _cvol = 0, _pvol = 0;
+    _rc.forEach((o: any) => {
+        const v = o.day?.volume || 0;
+        const ct = o.details?.contract_type;
+        if (ct === 'call') _cvol += v;
+        else if (ct === 'put') _pvol += v;
+    });
+    const _vpcr = (_cvol > 0 || _pvol > 0) ? (_pvol > 0 ? Math.round((_cvol / _pvol) * 100) / 100 : (_cvol > 0 ? 10 : 0)) : null;
+
     // [S-52.2.1] Full response with explicit Frac/Pct/Abs
     const response = {
         ticker,
@@ -377,6 +388,9 @@ export async function GET(req: NextRequest) {
             ...flowData as any,
             gammaFlipLevel: (structureResult as any)?.gammaFlipLevel ?? null,
             oiPcr: (structureResult as any)?.pcr ?? null,  // [PCR] OI-based Put/Call Ratio from structureService
+            volumePcr: _vpcr,
+            volumePcrCallVol: _cvol > 0 ? _cvol : null,
+            volumePcrPutVol: _pvol > 0 ? _pvol : null,
         },
 
         // [S-52.2.1] PRIMARY DISPLAY BLOCK
