@@ -1707,8 +1707,19 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     <span className="text-rose-400">{realtimeMetrics.darkPool.sellPct}% 매도</span>
                                 </div>
                                 <div className="flex h-[5px] rounded-full overflow-hidden bg-slate-700/50">
-                                    <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${realtimeMetrics.darkPool.buyPct}%` }} />
-                                    <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${realtimeMetrics.darkPool.sellPct}%` }} />
+                                    {(() => {
+                                        const buyRaw = realtimeMetrics.darkPool.buyPct || 0;
+                                        const sellRaw = realtimeMetrics.darkPool.sellPct || 0;
+                                        const total = buyRaw + sellRaw;
+                                        const buyNorm = total > 0 ? (buyRaw / total) * 100 : 50;
+                                        const sellNorm = total > 0 ? (sellRaw / total) * 100 : 50;
+                                        return (
+                                            <>
+                                                <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${buyNorm}%` }} />
+                                                <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${sellNorm}%` }} />
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                         )}
