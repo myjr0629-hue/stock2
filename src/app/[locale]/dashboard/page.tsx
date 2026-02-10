@@ -671,20 +671,18 @@ function MainChartPanel() {
                                     )}
                                     <span className="text-[10px] uppercase tracking-wider text-white">P/C Ratio</span>
                                     <span className="text-[8px] text-white/40 font-medium">VOLUME</span>
-                                    <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${isBullish ? 'bg-emerald-500/60 text-white' : isBearish ? 'bg-rose-500/60 text-white' : 'bg-slate-600/60 text-slate-300'}`}>
-                                        {label}
-                                    </span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${color}`}>
                                         {vpcr !== null ? vpcr.toFixed(2) : '—'}
                                     </span>
-                                    {hasVolData && (
-                                        <span className="text-[10px] text-slate-400 font-mono">
-                                            C {(callVol / 1000).toFixed(0)}K / P {(putVol / 1000).toFixed(0)}K
-                                        </span>
-                                    )}
+                                    <span className={`text-sm font-bold ${color}`}>{label}</span>
                                 </div>
+                                {hasVolData && (
+                                    <span className="text-[10px] text-slate-400 font-mono mt-1 block">
+                                        C {(callVol / 1000).toFixed(0)}K / P {(putVol / 1000).toFixed(0)}K
+                                    </span>
+                                )}
                             </div>
                         );
                     })()}

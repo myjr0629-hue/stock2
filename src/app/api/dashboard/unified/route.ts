@@ -770,21 +770,11 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
                 }
 
                 // [P/C RATIO VOLUME] Calculate call/put volume ratio (matches FlowRadar.tsx pcRatio)
-                // Uses 0-7 DTE options (short-term gamma, same as Flow page VOLUME mode)
-                const maxDTE = 7;
-                const todayDate = new Date();
-                todayDate.setHours(0, 0, 0, 0);
+                // Uses ALL expirations (same as Flow page VOLUME mode)
                 let callVol = 0, putVol = 0;
                 rawChain.forEach((o: any) => {
                     const vol = o.day?.volume || 0;
                     const type = o.details?.contract_type;
-                    const expStr = o.details?.expiration_date;
-                    if (!expStr || vol === 0) return;
-                    const parts = expStr.split('-');
-                    if (parts.length !== 3) return;
-                    const expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
-                    const dte = (expDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24);
-                    if (dte < 0 || dte > maxDTE) return;
                     if (type === 'call') callVol += vol;
                     else if (type === 'put') putVol += vol;
                 });
