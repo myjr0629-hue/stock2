@@ -1681,6 +1681,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                 <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
+                    {/* Infographic: scattered dots (institutional distribution) */}
+                    <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.06] pointer-events-none" viewBox="0 0 96 64">
+                        {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <circle key={i} cx={8 + i * 12} cy={8 + ((i * 19) % 48)} r={2 + (i % 3)} fill="currentColor" className="text-purple-400" />)}
+                        <path d="M8 56 L20 38 L32 45 L44 22 L56 30 L68 12 L80 28 L92 8" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeLinecap="round" />
+                    </svg>
                     <div className="relative z-10 flex flex-col items-center justify-center">
                         <div className="flex items-center gap-1.5 mb-1">
                             <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
@@ -1733,6 +1738,15 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                 <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/50 to-transparent" />
+                    {/* Infographic: descending bars (short selling pressure) */}
+                    <svg className="absolute right-1 bottom-0 w-24 h-16 opacity-[0.06] pointer-events-none" viewBox="0 0 96 64">
+                        <rect x="6" y="8" width="8" height="52" rx="2" fill="currentColor" className="text-rose-400" />
+                        <rect x="20" y="16" width="8" height="44" rx="2" fill="currentColor" className="text-rose-400" />
+                        <rect x="34" y="24" width="8" height="36" rx="2" fill="currentColor" className="text-rose-400" />
+                        <rect x="48" y="30" width="8" height="30" rx="2" fill="currentColor" className="text-rose-300" />
+                        <rect x="62" y="36" width="8" height="24" rx="2" fill="currentColor" className="text-rose-300" />
+                        <rect x="76" y="42" width="8" height="18" rx="2" fill="currentColor" className="text-rose-300" />
+                    </svg>
                     <div className="relative z-10 flex flex-col items-center justify-center">
                         <div className="flex items-center gap-1.5 mb-1">
                             <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
@@ -1763,6 +1777,14 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-cyan-500/50 transition-all duration-300">
                             <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
                             <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
+                            {/* Infographic: balanced scale lines (call/put equilibrium) */}
+                            <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.06] pointer-events-none" viewBox="0 0 96 64">
+                                <line x1="48" y1="4" x2="48" y2="56" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" />
+                                <path d="M12 28 Q30 12 48 28 Q66 44 84 28" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-300" strokeLinecap="round" />
+                                <circle cx="20" cy="24" r="3" fill="currentColor" className="text-emerald-400" />
+                                <circle cx="76" cy="24" r="3" fill="currentColor" className="text-rose-400" />
+                                <path d="M8 48 L88 48" stroke="currentColor" strokeWidth="0.5" className="text-cyan-500" strokeDasharray="4 3" />
+                            </svg>
                             <div className="relative z-10 flex flex-col items-center justify-center">
                                 <div className="flex items-center gap-1.5 mb-1">
                                     <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)] ${dotColor}`} />
@@ -1815,6 +1837,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                 <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-amber-500/50 transition-all duration-300">
                     <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
                     <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
+                    {/* Infographic: sine wave (gamma oscillation) */}
+                    <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.06] pointer-events-none" viewBox="0 0 96 64">
+                        <path d="M4 32 Q16 8 28 32 Q40 56 52 32 Q64 8 76 32 Q88 56 96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" strokeLinecap="round" />
+                        <path d="M4 32 Q16 16 28 32 Q40 48 52 32 Q64 16 76 32 Q88 48 96 32" fill="none" stroke="currentColor" strokeWidth="1" className="text-amber-300" strokeLinecap="round" strokeDasharray="3 4" />
+                        <line x1="4" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="0.5" className="text-amber-500" strokeDasharray="2 3" />
+                    </svg>
                     <div className="relative z-10 flex flex-col items-center justify-center">
                         <div className="flex items-center gap-1.5 mb-1">
                             <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] ${gexRegime.pinStrength >= 50 ? 'bg-amber-500 animate-pulse' : 'bg-amber-500'}`} />
