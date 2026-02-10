@@ -628,6 +628,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         fetchShortSqueeze();
         fetchInstitutional();
         fetchFundamentals();
+        fetchChartData(); // [FIX] Immediately fetch chart data on mount (prevents empty chart + currentPrice stretch)
 
         // [FIX] Re-fetch chart when user returns to this page/tab
         const handleVisibility = () => {

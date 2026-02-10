@@ -268,8 +268,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         xDomain = ["dataMin", "dataMax"];
     }
 
-    // Loading & Empty State (Allow empty data if we have a currentPrice to show)
-    if (!loading && (!processedData || processedData.length === 0) && !currentPrice) {
+    // Loading & Empty State
+    // [FIX] Show loading if chart data not yet arrived (even if currentPrice exists)
+    if (loading || (!processedData || processedData.length === 0)) {
         return (
             <Card className="shadow-none border border-slate-200 bg-white rounded-md overflow-hidden">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-slate-100 bg-slate-50/30">
@@ -290,11 +291,20 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 </CardHeader>
                 <CardContent className="pt-6">
                     <div className="h-[360px] w-full flex flex-col items-center justify-center text-slate-400">
-                        <div className="p-4 rounded-full bg-red-100 mb-3">
-                            <AlertCircle className="h-8 w-8 text-red-500" />
-                        </div>
-                        <p className="font-semibold text-red-600">No Data Received from Server</p>
-                        <p className="text-xs mt-1 text-slate-500">Market might be closed or API is unavailable.</p>
+                        {loading ? (
+                            <>
+                                <Loader2 className="h-8 w-8 animate-spin text-indigo-400 mb-3" />
+                                <p className="font-semibold text-slate-500">Loading Chart...</p>
+                            </>
+                        ) : (
+                            <>
+                                <div className="p-4 rounded-full bg-red-100 mb-3">
+                                    <AlertCircle className="h-8 w-8 text-red-500" />
+                                </div>
+                                <p className="font-semibold text-red-600">No Data Received from Server</p>
+                                <p className="text-xs mt-1 text-slate-500">Market might be closed or API is unavailable.</p>
+                            </>
+                        )}
                     </div>
                 </CardContent>
             </Card>
@@ -303,7 +313,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
 
     // Determine Min/Max for Y-Axis (Include currentPrice in range)
     const validPrices = processedData.filter((d: any) => d.close != null).map((d: any) => d.close);
-    if (currentPrice) validPrices.push(currentPrice); // Ensure live price is in domain
+    // [FIX] Only include currentPrice in domain when chart data exists
+    // Prevents Y-axis stretch when currentPrice arrives before chart data
+    if (currentPrice && validPrices.length > 0) validPrices.push(currentPrice);
 
     const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
     const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 0;
