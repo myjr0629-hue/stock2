@@ -769,8 +769,8 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
                     structureData.impliedMoveDir = callMid > putMid ? 'bullish' : callMid < putMid ? 'bearish' : 'neutral';
                 }
 
-                // [P/C RATIO VOLUME] Calculate call/put volume ratio (matches FlowRadar.tsx pcRatio)
-                // Uses ALL expirations (same as Flow page VOLUME mode)
+                // [P/C RATIO VOLUME] Calculate call/put volume ratio (matches FlowRadar.tsx pcRatio exactly)
+                // rawChain = weekly expiration contracts from CentralDataHub._fetchOptionsChain()
                 let callVol = 0, putVol = 0;
                 rawChain.forEach((o: any) => {
                     const vol = o.day?.volume || 0;
