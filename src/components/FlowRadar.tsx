@@ -1713,14 +1713,14 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         {/* Buy/Sell Ratio Bar */}
                         {realtimeMetrics.darkPool && (realtimeMetrics.darkPool.buyPct ?? 0) > 0 && (
                             <div className="w-full mt-1.5 px-1">
-                                <div className="flex items-center justify-between text-[8px] font-bold mb-0.5">
+                                <div className="flex items-center justify-between text-[10px] font-bold mb-0.5">
                                     <span className="text-emerald-400">매수 {realtimeMetrics.darkPool.buyPct}%</span>
-                                    <span className={`text-[7px] font-mono ${(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? '+' : ''}{((realtimeMetrics.darkPool.netBuyValue || 0) / 1e6).toFixed(1)}M
+                                    <span className={`text-[9px] font-mono font-bold ${(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        순매수 {(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? '+' : ''}{((realtimeMetrics.darkPool.netBuyValue || 0) / 1e6).toFixed(1)}M
                                     </span>
                                     <span className="text-rose-400">{realtimeMetrics.darkPool.sellPct}% 매도</span>
                                 </div>
-                                <div className="flex h-[4px] rounded-full overflow-hidden bg-slate-700/50">
+                                <div className="flex h-[5px] rounded-full overflow-hidden bg-slate-700/50">
                                     <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${realtimeMetrics.darkPool.buyPct}%` }} />
                                     <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${realtimeMetrics.darkPool.sellPct}%` }} />
                                 </div>
@@ -1778,6 +1778,34 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         : `C ${(pcRatio.callVol / 1000).toFixed(0)}K / P ${(pcRatio.putVol / 1000).toFixed(0)}K`
                                     }
                                 </span>
+                                {/* Call/Put Volume Visual Bar */}
+                                {(() => {
+                                    const cVol = isOI ? (pcRatioOI as any).callOI : pcRatio.callVol;
+                                    const pVol = isOI ? (pcRatioOI as any).putOI : pcRatio.putVol;
+                                    const total = cVol + pVol;
+                                    if (total <= 0) return null;
+                                    const cPct = Math.round((cVol / total) * 100);
+                                    const pPct = 100 - cPct;
+                                    return (
+                                        <div className="w-full mt-1.5 px-1">
+                                            <div className="flex items-center justify-between text-[9px] font-bold mb-0.5">
+                                                <span className="text-emerald-400">콜 {cPct}%</span>
+                                                <span className={`text-[8px] font-medium ${activePC.value >= 2.0 ? 'text-emerald-400' : activePC.value >= 1.3 ? 'text-emerald-300/80' : activePC.value <= 0.5 ? 'text-rose-400' : activePC.value <= 0.75 ? 'text-rose-300/80' : 'text-slate-400'}`}>
+                                                    {activePC.value >= 2.0 ? '강세 심리'
+                                                        : activePC.value >= 1.3 ? '상승 기대감'
+                                                            : activePC.value <= 0.5 ? '하락 헷지'
+                                                                : activePC.value <= 0.75 ? '방어적 심리'
+                                                                    : '방향 탐색'}
+                                                </span>
+                                                <span className="text-rose-400">{pPct}% 풋</span>
+                                            </div>
+                                            <div className="flex h-[4px] rounded-full overflow-hidden bg-slate-700/50">
+                                                <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${cPct}%` }} />
+                                                <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${pPct}%` }} />
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     );
