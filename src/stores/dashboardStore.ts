@@ -33,6 +33,10 @@ interface TickerData {
     impliedMovePct: number | null;     // Implied Move % (ATM straddle)
     impliedMoveDir: 'bullish' | 'bearish' | 'neutral' | null;  // Call/Put premium dominance
     gammaConcentration: number | null;  // [GEX REGIME] ATM gamma concentration (0-100%)
+    // [P/C RATIO VOLUME] Volume-based P/C ratio (matches Flow page)
+    volumePcr: number | null;
+    volumePcrCallVol: number | null;
+    volumePcrPutVol: number | null;
     levels: {
         callWall: number | null;
         putFloor: number | null;

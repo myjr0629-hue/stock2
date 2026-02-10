@@ -646,31 +646,48 @@ function MainChartPanel() {
                         </div>
                     </div>
 
-                    {/* P/C Ratio */}
-                    <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.pcr || 1) < 0.7 ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : (data?.pcr || 1) > 1.3 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                        {(data?.pcr || 1) < 0.7 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-emerald-400 to-emerald-500" />}
-                        {(data?.pcr || 1) > 1.3 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
-                        <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="15" y="8" width="18" height="52" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><rect x="47" y="8" width="18" height="52" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="34" x2="80" y2="34" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
-                        <div className="flex items-center gap-2 mb-2">
-                            {(data?.pcr || 1) < 0.7 ? (
-                                <TrendingUp className="w-4 h-4 text-emerald-400" />
-                            ) : (data?.pcr || 1) > 1.3 ? (
-                                <TrendingDown className="w-4 h-4 text-rose-400" />
-                            ) : (
-                                <Activity className="w-4 h-4 text-slate-400" />
-                            )}
-                            <span className="text-[10px] uppercase tracking-wider text-white">P/C Ratio</span>
-                            <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${(data?.pcr || 1) < 0.7 ? 'bg-emerald-500/60 text-white' : (data?.pcr || 1) > 1.3 ? 'bg-rose-500/60 text-white' : 'bg-slate-600/60 text-slate-300'}`}>
-                                {(data?.pcr || 1) < 0.7 ? '콜 우위' : (data?.pcr || 1) > 1.3 ? '풋 우위' : '중립'}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className={`text-xl font-mono font-bold ${(data?.pcr || 1) < 0.7 ? "text-emerald-400" : (data?.pcr || 1) > 1.3 ? "text-rose-400" : "text-white"}`}>
-                                {data?.pcr?.toFixed(2) || "—"}
-                            </span>
-                            <span className="text-[10px] text-slate-400">Put/Call</span>
-                        </div>
-                    </div>
+                    {/* P/C Ratio (VOLUME) - matches Flow page */}
+                    {(() => {
+                        const vpcr = data?.volumePcr ?? data?.pcr ?? null;
+                        const isAlert = vpcr !== null && (vpcr >= 2.0 || vpcr <= 0.5);
+                        const label = vpcr === null ? '—' : vpcr >= 2.0 ? '강한 콜 우위' : vpcr >= 1.3 ? '콜 우위' : vpcr <= 0.5 ? '강한 풋 우위' : vpcr <= 0.75 ? '풋 우위' : '균형';
+                        const isBullish = vpcr !== null && vpcr >= 1.3;
+                        const isBearish = vpcr !== null && vpcr <= 0.75;
+                        const color = isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white';
+                        const callVol = data?.volumePcrCallVol ?? 0;
+                        const putVol = data?.volumePcrPutVol ?? 0;
+                        const hasVolData = callVol > 0 || putVol > 0;
+                        return (
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? (isBullish ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]') : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                {isAlert && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${isBullish ? 'from-emerald-400 to-emerald-500' : 'from-rose-400 to-rose-500'}`} />}
+                                <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="15" y="8" width="18" height="52" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><rect x="47" y="8" width="18" height="52" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="34" x2="80" y2="34" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
+                                <div className="flex items-center gap-2 mb-2">
+                                    {isBullish ? (
+                                        <TrendingUp className="w-4 h-4 text-emerald-400" />
+                                    ) : isBearish ? (
+                                        <TrendingDown className="w-4 h-4 text-rose-400" />
+                                    ) : (
+                                        <Activity className="w-4 h-4 text-slate-400" />
+                                    )}
+                                    <span className="text-[10px] uppercase tracking-wider text-white">P/C Ratio</span>
+                                    <span className="text-[8px] text-white/40 font-medium">VOLUME</span>
+                                    <span className={`text-[9px] font-bold px-1 py-0.5 rounded ${isBullish ? 'bg-emerald-500/60 text-white' : isBearish ? 'bg-rose-500/60 text-white' : 'bg-slate-600/60 text-slate-300'}`}>
+                                        {label}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${color}`}>
+                                        {vpcr !== null ? vpcr.toFixed(2) : '—'}
+                                    </span>
+                                    {hasVolData && (
+                                        <span className="text-[10px] text-slate-400 font-mono">
+                                            C {(callVol / 1000).toFixed(0)}K / P {(putVol / 1000).toFixed(0)}K
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* GEX REGIME (Replaced 0DTE Impact) */}
                     {(() => {

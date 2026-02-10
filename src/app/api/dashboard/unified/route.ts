@@ -155,6 +155,10 @@ function buildResponseFromResults(
                 impliedMovePct: data.impliedMovePct ?? null,
                 impliedMoveDir: data.impliedMoveDir ?? null,
                 gammaConcentration: data.gammaConcentration ?? null,
+                // [P/C RATIO VOLUME] Volume-based P/C ratio from rawChain
+                volumePcr: data.volumePcr ?? null,
+                volumePcrCallVol: data.volumePcrCallVol ?? null,
+                volumePcrPutVol: data.volumePcrPutVol ?? null,
                 levels: data.levels,
                 expiration: data.expiration,
                 options_status: data.options_status,
@@ -763,6 +767,31 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
                 if (callMid > 0 && putMid > 0 && price > 0) {
                     structureData.impliedMovePct = parseFloat(((callMid + putMid) / price * 100).toFixed(1));
                     structureData.impliedMoveDir = callMid > putMid ? 'bullish' : callMid < putMid ? 'bearish' : 'neutral';
+                }
+
+                // [P/C RATIO VOLUME] Calculate call/put volume ratio (matches FlowRadar.tsx pcRatio)
+                // Uses 0-7 DTE options (short-term gamma, same as Flow page VOLUME mode)
+                const maxDTE = 7;
+                const todayDate = new Date();
+                todayDate.setHours(0, 0, 0, 0);
+                let callVol = 0, putVol = 0;
+                rawChain.forEach((o: any) => {
+                    const vol = o.day?.volume || 0;
+                    const type = o.details?.contract_type;
+                    const expStr = o.details?.expiration_date;
+                    if (!expStr || vol === 0) return;
+                    const parts = expStr.split('-');
+                    if (parts.length !== 3) return;
+                    const expDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                    const dte = (expDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24);
+                    if (dte < 0 || dte > maxDTE) return;
+                    if (type === 'call') callVol += vol;
+                    else if (type === 'put') putVol += vol;
+                });
+                if (callVol > 0 || putVol > 0) {
+                    structureData.volumePcr = putVol > 0 ? Math.round((callVol / putVol) * 100) / 100 : (callVol > 0 ? 10 : 0);
+                    structureData.volumePcrCallVol = callVol;
+                    structureData.volumePcrPutVol = putVol;
                 }
             }
         } catch (e) {
