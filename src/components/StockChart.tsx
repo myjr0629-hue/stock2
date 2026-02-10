@@ -63,7 +63,19 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     );
 
     // [S-76] Sync props data - now works for ALL ranges including 1D with complete data
+    // [FIX] Track previous ticker to detect changes and reset stale data
+    const prevTickerRef = useRef(ticker);
     useEffect(() => {
+        // [FIX] On ticker change: immediately clear stale chart data to prevent
+        // Y-axis stretching (old TSLA $420 data + new NVDA $189 currentPrice = huge range)
+        if (prevTickerRef.current !== ticker) {
+            setChartData([]);
+            setDataReady(false);
+            setRenderSettled(false);
+            setLoading(true);
+            prevTickerRef.current = ticker;
+        }
+
         if (data && data.length > 0) {
             const hasEtMinute = (data[0] as any)?.etMinute !== undefined;
 
