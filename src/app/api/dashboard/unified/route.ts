@@ -701,6 +701,7 @@ async function fetchTickerData(ticker: string, request: NextRequest, maxRetries:
             structureData.volumePcr = tickerData.flow?.volumePcr ?? null;
             structureData.volumePcrCallVol = tickerData.flow?.volumePcrCallVol ?? null;
             structureData.volumePcrPutVol = tickerData.flow?.volumePcrPutVol ?? null;
+            console.log(`[Dashboard PCR Debug] ${ticker}: volumePcr=${structureData.volumePcr}, callVol=${structureData.volumePcrCallVol}, putVol=${structureData.volumePcrPutVol}, tickerFlowKeys=${Object.keys(tickerData.flow || {}).join(',')}`);
         }
 
         // [DASHBOARD V2] Dark Pool % & Short Vol % from realtime-metrics
