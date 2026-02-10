@@ -303,6 +303,11 @@ function MainChartPanel() {
 
     // Fetch prevClose from ticker API
     useEffect(() => {
+        // Reset stale P/C ratio data immediately on ticker change
+        setLiveVolumePcr(null);
+        setLiveCallVol(null);
+        setLivePutVol(null);
+
         const fetchPrevClose = async () => {
             if (!selectedTicker) return;
             try {
