@@ -52,7 +52,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
     // [NEW] Realtime Metrics State (Dark Pool, Short Vol, Bid-Ask, Block Trade)
     const [realtimeMetrics, setRealtimeMetrics] = useState<{
-        darkPool: { percent: number; volume: number; totalVolume: number } | null;
+        darkPool: { percent: number; volume: number; totalVolume: number; buyPct?: number; sellPct?: number; buyVolume?: number; sellVolume?: number; buyVwap?: number; sellVwap?: number; netBuyValue?: number } | null;
         shortVolume: { percent: number; volume: number; totalVolume: number } | null;
         bidAsk: { spread: number; label: string } | null;
         blockTrade: { count: number; volume: number } | null;
@@ -1685,6 +1685,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         <div className="flex items-center gap-1.5 mb-1">
                             <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">Dark Pool %</span>
+                            <span className="text-[8px] text-slate-400 font-medium">기관비중</span>
                             {/* Session Label: PRE / REG / POST */}
                             {(() => {
                                 const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
@@ -1704,11 +1705,26 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         <span className="text-2xl font-black text-purple-400" style={{ textShadow: '0 0 20px rgba(168,85,247,0.7)' }}>
                             {realtimeMetrics.darkPool ? `${realtimeMetrics.darkPool.percent}%` : '--'}
                         </span>
-                        <span className="text-[9px] text-white font-medium">기관 비중</span>
                         {realtimeMetrics.darkPool && (
                             <span className="text-[10px] text-white mt-0.5 font-mono font-medium">
                                 DP {(realtimeMetrics.darkPool.volume / 1000).toFixed(1)}K / 전체 {(realtimeMetrics.darkPool.totalVolume / 1000).toFixed(1)}K
                             </span>
+                        )}
+                        {/* Buy/Sell Ratio Bar */}
+                        {realtimeMetrics.darkPool && (realtimeMetrics.darkPool.buyPct ?? 0) > 0 && (
+                            <div className="w-full mt-1.5 px-1">
+                                <div className="flex items-center justify-between text-[8px] font-bold mb-0.5">
+                                    <span className="text-emerald-400">매수 {realtimeMetrics.darkPool.buyPct}%</span>
+                                    <span className={`text-[7px] font-mono ${(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? '+' : ''}{((realtimeMetrics.darkPool.netBuyValue || 0) / 1e6).toFixed(1)}M
+                                    </span>
+                                    <span className="text-rose-400">{realtimeMetrics.darkPool.sellPct}% 매도</span>
+                                </div>
+                                <div className="flex h-[4px] rounded-full overflow-hidden bg-slate-700/50">
+                                    <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${realtimeMetrics.darkPool.buyPct}%` }} />
+                                    <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${realtimeMetrics.darkPool.sellPct}%` }} />
+                                </div>
+                            </div>
                         )}
                     </div>
                 </div>
