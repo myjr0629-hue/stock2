@@ -648,7 +648,7 @@ function MainChartPanel() {
 
                     {/* P/C Ratio (VOLUME) - matches Flow page */}
                     {(() => {
-                        const vpcr = data?.volumePcr ?? data?.pcr ?? null;
+                        const vpcr = data?.volumePcr ?? null;  // NEVER fall back to OI-based pcr
                         const isAlert = vpcr !== null && (vpcr >= 2.0 || vpcr <= 0.5);
                         const label = vpcr === null ? '—' : vpcr >= 2.0 ? '강한 콜 우위' : vpcr >= 1.3 ? '콜 우위' : vpcr <= 0.5 ? '강한 풋 우위' : vpcr <= 0.75 ? '풋 우위' : '균형';
                         const isBullish = vpcr !== null && vpcr >= 1.3;
