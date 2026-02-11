@@ -460,7 +460,7 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                                 return null;
                             })()}
                         </div>
-                        <div className="flex items-center justify-center gap-1.5 text-[10px] tabular-nums font-bold">
+                        <div className="flex items-center justify-center gap-1.5 text-[13px] tabular-nums font-bold">
                             <span className={isPositive ? 'text-emerald-400' : 'text-rose-400'}>
                                 {isPositive ? '+' : ''}{item.changePct.toFixed(2)}%
                             </span>
