@@ -80,12 +80,18 @@ export function useWatchlist() {
             });
         }
 
-        // Fast price data (10s polling)
+        // Fast price data (10s polling) — session-aware: use extended prices during pre/post market
         const priceMap: Record<string, { price: number; changePct: number }> = {};
         if (priceData?.data) {
             Object.entries(priceData.data).forEach(([ticker, d]: [string, any]) => {
                 if (d && d.price > 0) {
-                    priceMap[ticker] = { price: d.price, changePct: d.changePercent || 0 };
+                    // During pre/post market, show extended (live) price & change
+                    const hasExtended = d.extendedPrice && d.extendedPrice > 0;
+                    const displayPrice = hasExtended ? d.extendedPrice : d.price;
+                    const displayChangePct = hasExtended
+                        ? ((d.extendedPrice - (d.previousClose || d.prevClose || d.price)) / (d.previousClose || d.prevClose || d.price)) * 100
+                        : (d.changePercent || 0);
+                    priceMap[ticker] = { price: displayPrice, changePct: displayChangePct };
                 }
             });
         }
