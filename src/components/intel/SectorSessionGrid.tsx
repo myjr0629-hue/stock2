@@ -6,6 +6,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
+import { useLocale } from 'next-intl';
 import {
     Activity, Radio, RefreshCw, TrendingUp,
     DollarSign, Shield, Target, ChevronRight,
@@ -184,8 +185,16 @@ function getLogoUrl(ticker: string): string {
 // MAIN COMPONENT
 // ============================================================================
 
+// Disclaimer text per locale
+const DISCLAIMER: Record<string, string> = {
+    ko: 'AI 분석 참고자료 • 투자 권유가 아닙니다',
+    en: 'INTELLIGENCE ONLY • NOT FINANCIAL ADVICE',
+    ja: '情報提供のみ • 投資助言ではありません',
+};
+
 export function SectorSessionGrid({ config, quotes, loading, refreshing }: SectorSessionGridProps) {
     const router = useRouter();
+    const locale = useLocale();
     const accentColor = config.theme.accentHex;
 
     const sorted = useMemo(() =>
@@ -239,6 +248,9 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                     {config.icon} {config.shortName} SESSION GRID
                 </h3>
                 <div className="flex items-center gap-3">
+                    <span className="text-[10px] text-white/50 font-semibold tracking-wider hidden md:inline px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
+                        {DISCLAIMER[locale] || DISCLAIMER.en}
+                    </span>
                     {refreshing && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: `${accentColor}99` }} />}
                     <span className="text-[10px] uppercase flex items-center gap-1.5 font-bold tracking-wider px-2 py-1 rounded-full backdrop-blur-sm"
                         style={{
