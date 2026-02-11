@@ -1,10 +1,87 @@
 // Portfolio Batch API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
-// [One Pipe] Uses Full Engine (analyzeGemsTicker) for unified alpha calculation
+// [V3.2] Uses Alpha Engine V3 (calculateAlphaScore) - SAME engine as Watchlist
+// [PERF] Uses lightweight stock data (no chart/minute data) for faster response
 
 import { NextResponse } from 'next/server';
-import { getStockData, getOptionsData } from '@/services/stockApi';
-import { analyzeGemsTicker } from '@/services/stockTypes';
+import { getOptionsData } from '@/services/stockApi';
+import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
+import { getStructureData } from '@/services/structureService';
+import { fetchMassive } from '@/services/massiveClient';
+
+// [PERF] Lightweight stock data fetcher - same as watchlist batch
+async function getStockDataLight(symbol: string) {
+    const to = new Date().toISOString().split('T')[0];
+    const fromDate = new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0];
+
+    const [snapRes, rsiRes, dailyAggs] = await Promise.all([
+        fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`),
+        fetchMassive(`/v1/indicators/rsi/${symbol}`, { timespan: 'day', window: '14', limit: '1' }).catch(() => null),
+        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${fromDate}/${to}`, { limit: '5000', adjust: 'true', sort: 'asc' }).catch(() => null)
+    ]);
+
+    const t = snapRes?.ticker;
+    if (!t) return null;
+
+    // Session detection (same as watchlist batch)
+    const { getETNow } = await import('@/services/timezoneUtils');
+    const et = getETNow();
+    const etTime = et.hour + et.minute / 60;
+
+    let session: 'pre' | 'reg' | 'post' = 'reg';
+    if (!et.isWeekend) {
+        if (etTime >= 4 && etTime < 9.5) session = 'pre';
+        else if (etTime >= 16 && etTime < 20) session = 'post';
+        else if (etTime >= 9.5 && etTime < 16) session = 'reg';
+        else session = (etTime >= 20 || etTime < 4) ? 'post' : 'reg';
+    }
+
+    // Price calculation (same as watchlist batch)
+    const prevClose = t?.prevDay?.c || 0;
+    const todayClose = t?.day?.c || prevClose;
+    const latestPrice = t?.lastTrade?.p || t?.min?.c || t?.day?.c || t?.prevDay?.c || 0;
+
+    let changeBase = prevClose;
+    if (session === 'post') changeBase = todayClose;
+
+    const isExtended = session !== 'reg';
+    const extChange = isExtended ? (latestPrice - changeBase) : undefined;
+    const extChangePercent = isExtended ? (changeBase !== 0 ? ((latestPrice - changeBase) / changeBase) * 100 : 0) : undefined;
+    const regChange = t?.todaysChange || (todayClose - prevClose);
+    const regChangePercent = t?.todaysChangePerc || (prevClose !== 0 ? ((todayClose - prevClose) / prevClose) * 100 : 0);
+
+    const rsi = rsiRes?.results?.values?.[0]?.value ?? null;
+
+    const dailyResults = (dailyAggs?.results || []).map((r: any) => ({ close: r.c, volume: r.v || 0 }));
+    let return3d = 0;
+    if (dailyResults.length >= 4) {
+        const recentCandles = dailyResults.slice(-4);
+        const price3dAgo = recentCandles[0].close;
+        const currentClose = recentCandles[recentCandles.length - 1].close;
+        return3d = ((currentClose - price3dAgo) / price3dAgo) * 100;
+    }
+
+    const sparkline = dailyResults.slice(-20).map((d: any) => d.close);
+
+    return {
+        symbol,
+        price: latestPrice,
+        change: isExtended ? (extChange || 0) : (regChange || 0),
+        changePercent: isExtended ? (extChangePercent || 0) : (regChangePercent || 0),
+        volume: t?.day?.v,
+        prevClose,
+        prevDayVolume: t?.prevDay?.v || 0,
+        session,
+        isExtended,
+        extPrice: isExtended ? latestPrice : undefined,
+        extChangePercent: isExtended ? extChangePercent : undefined,
+        rsi,
+        return3d,
+        vwap: t?.day?.vw,
+        history: sparkline.map((close: number) => ({ close })),
+        dailyResults,
+    };
+}
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -24,85 +101,143 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Max 30 tickers per request' }, { status: 400 });
     }
 
+    const mode = searchParams.get('mode') || 'full'; // 'full' | 'price'
+
     const startTime = Date.now();
-    const baseUrl = request.url.split('/api/')[0];
 
     // Process all tickers in parallel
     const results = await Promise.all(tickers.map(async (ticker) => {
         try {
-            // Parallel fetch: stock data, options, and structure
+            // ── PRICE-ONLY MODE (fast, 5s interval) ──
+            if (mode === 'price') {
+                const stockData = await getStockDataLight(ticker).catch(() => null);
+                if (!stockData) return { ticker, error: 'Stock data unavailable' };
+
+                const dailyResults = stockData.dailyResults || [];
+                const { getETNow } = await import('@/services/timezoneUtils');
+                const et = getETNow();
+                const etTime = et.hour + et.minute / 60;
+                const isREG = !et.isWeekend && etTime >= 9.5 && etTime < 16;
+
+                let changePct = stockData.changePercent || 0;
+                if (!isREG && dailyResults.length >= 2) {
+                    const lastBar = dailyResults[dailyResults.length - 1];
+                    const prevBar = dailyResults[dailyResults.length - 2];
+                    if (lastBar?.close && prevBar?.close) {
+                        changePct = ((lastBar.close - prevBar.close) / prevBar.close) * 100;
+                    }
+                }
+
+                return {
+                    ticker,
+                    realtime: {
+                        price: stockData.price || 0,
+                        change: stockData.change || 0,
+                        changePct,
+                        session: stockData.session || 'reg',
+                        isExtended: stockData.isExtended,
+                        sparkline: stockData.history?.slice(-20).map((h: any) => h.close) || [],
+                    }
+                };
+            }
+
+            // ── FULL MODE (alpha/signal/action, 30s interval) ──
+            // Parallel fetch: lightweight stock data + options + structure
             const [stockData, optionsData, structureRes] = await Promise.all([
-                getStockData(ticker, '1d').catch(() => null),
+                getStockDataLight(ticker).catch(() => null),
                 getOptionsData(ticker).catch(() => null),
-                fetch(`${baseUrl}/api/live/options/structure?t=${ticker}`)
-                    .then(r => r.ok ? r.json() : null)
-                    .catch(() => null)
+                getStructureData(ticker).catch(() => null)
             ]);
 
             if (!stockData) {
                 return { ticker, error: 'Stock data unavailable' };
             }
 
-            // [One Pipe] Full Engine Alpha Score (5-factor: Momentum, Options, Structure, Regime, Risk)
-            const opts = optionsData as any;
-            const changePct = stockData.changePercent || 0;
+            // [V3.2] SESSION DATA RULE (same as watchlist)
+            const sessionMap: Record<string, AlphaSession> = { pre: 'PRE', reg: 'REG', post: 'POST' };
+            const alphaSession: AlphaSession = sessionMap[stockData.session] || 'CLOSED';
+            const isREG = alphaSession === 'REG';
+            const dailyResults = stockData.dailyResults || [];
 
-            // Prepare data for Full Engine
-            const rawTicker = {
-                ticker: ticker.toUpperCase(),
-                lastTrade: { p: stockData.price },
-                todaysChangePerc: changePct,
-                day: { v: stockData.volume },
-                prevDay: { c: stockData.prevClose, v: stockData.volume }
-            };
-
-            const optionsForEngine = opts ? {
-                currentPrice: stockData.price,
-                putCallRatio: opts.putCallRatio || 1,
-                gems: {
-                    gex: opts?.gems?.gex || opts?.gex || 0,
-                    gammaFlipLevel: opts?.gems?.gammaFlipLevel || null,
-                    gammaState: null,
-                    mmPos: '',
-                    edge: ''
-                },
-                maxPain: opts?.maxPain || null,
-                callWall: opts?.callWall || null,
-                putFloor: opts?.putFloor || null,
-                rsi14: 50,
-                options_status: 'OK' as const,
-                rawChain: opts?.rawChain || []
-            } : undefined;
-
-            // Call Full Engine
-            let score = 50;
-            let grade: 'A' | 'B' | 'C' | 'D' | 'F' = 'C';
-            let action: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH' = 'HOLD';
-            let confidence = 50;
-            let triggers: string[] = [];
-
-            try {
-                const result = analyzeGemsTicker(rawTicker, 'Neutral', optionsForEngine, false);
-                score = result.alphaScore;
-                grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
-                action = result.v71?.action === 'Enter' ? 'ADD'
-                    : result.v71?.action === 'Hold' ? 'HOLD'
-                        : result.v71?.action === 'Reduce' ? 'TRIM'
-                            : 'WATCH';
-                confidence = result.decisionSSOT?.confidence || 50;
-                triggers = result.decisionSSOT?.triggersKR || [];
-            } catch (e) {
-                console.error(`[Portfolio Batch] Full Engine failed for ${ticker}:`, e);
-                // Fallback to simple calculation
-                score = 50 + Math.round(changePct * 5);
-                score = Math.max(0, Math.min(100, score));
-                grade = score >= 80 ? 'A' : score >= 65 ? 'B' : score >= 50 ? 'C' : score >= 35 ? 'D' : 'F';
-                triggers = ['알파 계산 실패'];
+            let changePct = stockData.changePercent || 0;
+            if (!isREG && dailyResults.length >= 2) {
+                const lastBar = dailyResults[dailyResults.length - 1];
+                const prevBar = dailyResults[dailyResults.length - 2];
+                if (lastBar?.close && prevBar?.close) {
+                    changePct = ((lastBar.close - prevBar.close) / prevBar.close) * 100;
+                }
             }
+
+            // [V3.2] relVol: REG → real-time, NOT REG → last session
+            let relVol: number | null = null;
+            if (isREG) {
+                const dayVol = stockData.volume || 0;
+                const prevVol = stockData.prevDayVolume || 1;
+                relVol = dayVol > 0 ? dayVol / prevVol : null;
+            } else if (dailyResults.length >= 2) {
+                const lastVol = dailyResults[dailyResults.length - 1]?.volume || 0;
+                const prevVol = dailyResults[dailyResults.length - 2]?.volume || 1;
+                relVol = lastVol > 0 ? lastVol / prevVol : null;
+            }
+
+            // [V3.2] return3D: NOT REG → last session close
+            let return3D = stockData.return3d ?? null;
+            if (!isREG && dailyResults.length >= 4) {
+                const lastClose = dailyResults[dailyResults.length - 1]?.close;
+                const close4dAgo = dailyResults[dailyResults.length - 4]?.close;
+                if (lastClose && close4dAgo) {
+                    return3D = ((lastClose - close4dAgo) / close4dAgo) * 100;
+                }
+            }
+
+            const opts = optionsData as any;
+            const alphaGex = structureRes?.netGex ?? opts?.gems?.gex ?? opts?.gex ?? null;
+            const alphaPcr = opts?.putCallRatio ?? null;
+            const alphaCallWall = structureRes?.callWall ?? opts?.callWall ?? null;
+            const alphaPutFloor = structureRes?.putFloor ?? opts?.putFloor ?? null;
+            const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
+            const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
+
+            // [V3.2] Call SAME Alpha Engine as Watchlist
+            let alphaResult;
+            try {
+                alphaResult = calculateAlphaScore({
+                    ticker: ticker.toUpperCase(),
+                    session: alphaSession,
+                    price: stockData.price || 0,
+                    prevClose: stockData.prevClose || 0,
+                    changePct,
+                    vwap: stockData.vwap ?? null,
+                    return3D,
+                    rsi14: stockData.rsi ?? null,
+                    pcr: alphaPcr,
+                    gex: alphaGex,
+                    callWall: alphaCallWall,
+                    putFloor: alphaPutFloor,
+                    gammaFlipLevel: alphaGammaFlip,
+                    rawChain: opts?.rawChain || [],
+                    squeezeScore: alphaSqueezeScore,
+                    relVol,
+                    optionsDataAvailable: !!opts,
+                    preMarketChangePct: (stockData as any).extendedChangePct ?? null,
+                });
+            } catch (e) {
+                console.error(`[Portfolio Batch] V3.2 Engine failed for ${ticker}:`, e);
+                alphaResult = calculateAlphaScore({
+                    ticker: ticker.toUpperCase(),
+                    session: alphaSession,
+                    price: stockData.price || 0,
+                    prevClose: stockData.prevClose || 0,
+                    changePct,
+                    preMarketChangePct: (stockData as any).extendedChangePct ?? null,
+                });
+            }
+
+            const { score, grade, action, triggerCodes: triggers, dataCompleteness: confidence } = alphaResult;
 
             // === OPTIONS INDICATORS ===
             const currentPrice = stockData.price || 0;
-            const maxPain = structureRes?.maxPain || opts?.maxPain || null;
+            const maxPain = structureRes?.maxPain ?? opts?.maxPain ?? null;
             const maxPainDist = (maxPain && currentPrice)
                 ? Number(((maxPain - currentPrice) / currentPrice * 100).toFixed(2))
                 : null;
@@ -127,6 +262,7 @@ export async function GET(request: Request) {
                     action,
                     confidence: Math.round(confidence),
                     triggers,
+                    engineVersion: alphaResult.engineVersion,
                     capturedAt: new Date().toISOString()
                 },
                 realtime: {
@@ -136,10 +272,10 @@ export async function GET(request: Request) {
                     session: stockData.session || 'reg',
                     extPrice: stockData.extPrice,
                     extChangePercent: stockData.extChangePercent,
-                    isExtended: stockData.session !== 'reg',
-                    rvol: (stockData as any).rvol || 1.0,
+                    isExtended: stockData.isExtended,
+                    rvol: relVol || 1.0,
                     sparkline: stockData.history?.slice(-20).map((h: any) => h.close) || [],
-                    threeDay: stockData.return3d || 0,
+                    threeDay: return3D || 0,
                     rsi: stockData.rsi || null,
                     maxPain,
                     maxPainDist,
@@ -163,7 +299,7 @@ export async function GET(request: Request) {
         meta: {
             count: tickers.length,
             elapsed,
-            source: 'portfolio_batch_engine'
+            source: 'portfolio_batch_v3.2' // Now using same V3.2 engine as watchlist
         }
     });
 }

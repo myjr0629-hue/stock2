@@ -141,6 +141,7 @@ export default function WatchlistPage() {
                                 <div className="text-center">MaxPain</div>
                                 <div className="text-center">{t('gex')}</div>
                             </div>
+                            <div className="w-[40px] flex-shrink-0" />
                         </div>
                         {/* Cards */}
                         {sortedItems.map((item, i) => (
@@ -302,7 +303,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                     </span>
                 </div>
                 <div className="text-[13px] font-bold tabular-nums text-white/90 mt-1.5">{etInfo.etStr} <span className="text-[10px] text-slate-400 font-bold">ET</span></div>
-                <div className="text-[10px] text-slate-500 tabular-nums">{etInfo.etDateStr}</div>
+                <div className="text-[10px] text-white tabular-nums">{etInfo.etDateStr}</div>
                 <div className="mt-1 flex items-center gap-1.5">
                     <span className={`text-[10px] font-bold ${sc === 'emerald' ? 'text-emerald-400' : sc === 'cyan' ? 'text-cyan-400' : sc === 'amber' ? 'text-amber-400' : 'text-slate-400'
                         }`}>{etInfo.nextLabel}</span>
@@ -371,7 +372,7 @@ function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
 }
 
 // ─── GRID TEMPLATE (shared between header & cards) ──────────────────────
-const GRID_COLS = 'grid grid-cols-[1.5fr_1.2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr]';
+const GRID_COLS = 'grid grid-cols-[1.2fr_1.2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr]';
 
 // ─── GLASSMORPHISM TABLE-ROW CARD (Mockup 1 Layout + Mockup 2 Glass) ─────
 function WatchlistCard({ item, onRemove, locale, index }: {
@@ -518,16 +519,18 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                         <GexIndicator gexM={item.gexM} />
                     </div>
                 </Link>
-            </div>
 
-            {/* Delete (hover reveal) */}
-            <button
-                onClick={(e) => { e.stopPropagation(); onRemove(); }}
-                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-all duration-200 p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-600 hover:text-rose-400 z-10"
-                title={tCommon('delete')}
-            >
-                <Trash2 className="w-3.5 h-3.5" />
-            </button>
+                {/* Delete — fixed width column */}
+                <div className="flex-shrink-0 w-[40px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                    <button
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(); }}
+                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-600 hover:text-rose-400 transition-colors"
+                        title={tCommon('delete')}
+                    >
+                        <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            </div>
         </div>
     );
 }

@@ -112,29 +112,27 @@ export function usePortfolio() {
                     const rt = apiData.realtime;
                     const alpha = apiData.alphaSnapshot;
 
-                    // Calculate display price (extended hours aware)
-                    const isExtended = rt.isExtended;
-                    const displayPrice = isExtended && rt.extPrice ? rt.extPrice : rt.price;
-                    const displayChangePct = isExtended && rt.extChangePercent !== undefined
-                        ? rt.extChangePercent
-                        : rt.changePct;
+                    // [V3.2] Use price/changePct directly from batch API
+                    // The batch API already handles session-aware pricing (same as watchlist)
+                    const price = rt.price || 0;
+                    const changePct = rt.changePct || 0;
 
-                    const marketValue = holding.quantity * displayPrice;
+                    const marketValue = holding.quantity * price;
                     const costBasis = holding.quantity * holding.avgPrice;
                     const gainLoss = marketValue - costBasis;
                     const gainLossPct = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
 
                     return {
                         ...holding,
-                        currentPrice: displayPrice,
+                        currentPrice: price,
                         change: rt.change || 0,
-                        changePct: displayChangePct,
+                        changePct,
                         session: rt.session,
-                        isExtended,
+                        isExtended: rt.isExtended,
                         marketValue,
                         gainLoss,
                         gainLossPct,
-                        // Alpha data
+                        // Alpha data (from V3.2 engine)
                         alphaScore: alpha?.score,
                         alphaGrade: alpha?.grade,
                         action: alpha?.action,
@@ -188,6 +186,60 @@ export function usePortfolio() {
             setLoading(false);
             setIsRefreshing(false);
             isInitialLoad.current = false;
+        }
+    }, []);
+
+    // Price-only refresh (preserves alpha/signal/action from last full load)
+    const loadPricesOnly = useCallback(async () => {
+        try {
+            const data = getPortfolio();
+            const tickers = data.holdings.map(h => h.ticker);
+            if (tickers.length === 0) return;
+
+            setIsRefreshing(true);
+            const res = await fetch(`/api/portfolio/batch?tickers=${tickers.join(',')}&mode=price`);
+            if (!res.ok) return;
+            const batchData = await res.json();
+            const priceMap: Record<string, any> = {};
+            batchData.results?.forEach((r: any) => {
+                if (r && !r.error) priceMap[r.ticker] = r.realtime;
+            });
+
+            setHoldings(prev => {
+                const updated = prev.map(h => {
+                    const rt = priceMap[h.ticker];
+                    if (!rt) return h;
+                    const marketValue = h.quantity * rt.price;
+                    const costBasis = h.quantity * h.avgPrice;
+                    const gainLoss = marketValue - costBasis;
+                    const gainLossPct = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
+                    return {
+                        ...h,
+                        currentPrice: rt.price,
+                        change: rt.change || 0,
+                        changePct: rt.changePct,
+                        session: rt.session,
+                        isExtended: rt.isExtended,
+                        sparkline: rt.sparkline || h.sparkline,
+                        marketValue,
+                        gainLoss,
+                        gainLossPct
+                    };
+                });
+
+                // Also update summary
+                const totalValue = updated.reduce((sum, h) => sum + h.marketValue, 0);
+                const totalCost = updated.reduce((sum, h) => sum + (h.quantity * h.avgPrice), 0);
+                const totalGainLoss = totalValue - totalCost;
+                const totalGainLossPct = totalCost > 0 ? (totalGainLoss / totalCost) * 100 : 0;
+                setSummary({ totalValue, totalCost, totalGainLoss, totalGainLossPct, holdingsCount: updated.length });
+
+                return updated;
+            });
+        } catch (e) {
+            console.error('Price-only refresh failed:', e);
+        } finally {
+            setIsRefreshing(false);
         }
     }, []);
 
@@ -330,6 +382,7 @@ export function usePortfolio() {
         addHolding,
         addHoldingWithAlpha,
         removeHolding,
-        refresh
+        refresh,
+        refreshPriceOnly: loadPricesOnly
     };
 }
