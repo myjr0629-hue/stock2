@@ -1067,6 +1067,46 @@ const formatDateKey = (d: Date) => {
     return d.toISOString().split('T')[0];
 };
 
+
+// [PERF] Shared price-processing helper - used by both M7/PhysicalAI and Report fetch effects
+function processTickerData(data: any): any {
+    const session = data.session || 'CLOSED';
+    let displayPrice = data.display?.price || data.prices?.prevRegularClose || data.prevClose || 0;
+    let displayChangePct = data.display?.changePctPct || 0;
+    if (session === 'POST' || session === 'CLOSED') {
+        const regularClose = data.prices?.regularCloseToday;
+        const prevClose = data.prices?.prevRegularClose || data.prevClose;
+        if (regularClose && regularClose > 0) {
+            displayPrice = regularClose;
+            const isNewTradingDay = prevClose && Math.abs(regularClose - prevClose) > 0.001;
+            if (isNewTradingDay && prevClose > 0) {
+                displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
+            } else {
+                displayChangePct = data.prices?.prevChangePct || data.display?.changePctPct || 0;
+            }
+        }
+    }
+    if (session === 'PRE') {
+        const staticClose = data.prices?.prevRegularClose || data.prevClose;
+        if (staticClose) { displayPrice = staticClose; displayChangePct = data.prices?.prevChangePct ?? 0; }
+    }
+    let extendedPrice = 0, extendedChangePct = 0, extendedLabel = '';
+    if (session === 'PRE') {
+        extendedPrice = data.extended?.prePrice || data.prices?.prePrice || 0;
+        extendedLabel = 'PRE';
+        extendedChangePct = data.extended?.preChangePct ? data.extended.preChangePct * 100 : 0;
+    } else if (session === 'POST' || session === 'CLOSED') {
+        extendedPrice = data.extended?.postPrice || data.prices?.postPrice || 0;
+        extendedLabel = 'POST';
+        if (extendedPrice > 0 && displayPrice > 0) { extendedChangePct = ((extendedPrice - displayPrice) / displayPrice) * 100; }
+    }
+    return {
+        price: displayPrice, changePercent: displayChangePct,
+        prevClose: data.prices?.prevRegularClose || data.prevClose || 0,
+        volume: data.day?.v || 0, extendedPrice, extendedChangePct, extendedLabel,
+        session, relVol: data.relVol || 1, history3d: data.history3d || []
+    };
+}
 function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, locale?: string }) {
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -1187,19 +1227,14 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
         return () => { isMounted = false; };
     }, [currentDate]);
 
-    // [V4.6] Live Overlay - Use /api/live/ticker (SAME as Flow/Command pages)
+    // [PERF] M7 + Physical AI — 즉시 fetch (리포트 대기 안 함)
     useEffect(() => {
-        if (!report?.items) return;
+        const fixedTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS];
 
-        const fetchAllTickers = async () => {
+        const fetchFixed = async () => {
             try {
-                // Combine Report Items + M7 + Physical AI (Unique)
-                const reportTickers = report.items.map((i: any) => i.ticker);
-                const allTickers = Array.from(new Set([...reportTickers, ...M7_TICKERS, ...PHYSICAL_AI_TICKERS]));
-
-                // Fetch each ticker using /api/live/ticker (EXACT SAME as Flow page)
                 const results = await Promise.all(
-                    allTickers.map(async (ticker) => {
+                    fixedTickers.map(async (ticker: string) => {
                         try {
                             const res = await fetch(`/api/live/ticker?t=${ticker}`, { cache: 'no-store' });
                             if (!res.ok) return { ticker, data: null };
@@ -1211,82 +1246,58 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
                     })
                 );
 
-                // Process results with Flow page's EXACT session-aware logic
                 const newQuotes: Record<string, any> = {};
-
                 results.forEach(({ ticker, data }) => {
                     if (!data) return;
-
-                    const session = data.session || 'CLOSED';
-
-                    // Main Display Price (EXACT COPY from Flow page L59-78)
-                    let displayPrice = data.display?.price || data.prices?.prevRegularClose || data.prevClose || 0;
-                    let displayChangePct = data.display?.changePctPct || 0;
-
-                    // POST/CLOSED Override (Flow L65-78)
-                    if (session === 'POST' || session === 'CLOSED') {
-                        const regularClose = data.prices?.regularCloseToday;
-                        const prevClose = data.prices?.prevRegularClose || data.prevClose;
-
-                        if (regularClose && regularClose > 0) {
-                            displayPrice = regularClose;
-                            const isNewTradingDay = prevClose && Math.abs(regularClose - prevClose) > 0.001;
-
-                            if (isNewTradingDay && prevClose > 0) {
-                                displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
-                            } else {
-                                displayChangePct = data.prices?.prevChangePct || data.display?.changePctPct || 0;
-                            }
-                        }
-                    }
-
-                    // PRE Session Override (Flow L82-88)
-                    if (session === 'PRE') {
-                        const staticClose = data.prices?.prevRegularClose || data.prevClose;
-                        if (staticClose) {
-                            displayPrice = staticClose;
-                            displayChangePct = data.prices?.prevChangePct ?? 0;
-                        }
-                    }
-
-                    // Extended Session Data (Flow L91-108)
-                    let extendedPrice = 0;
-                    let extendedChangePct = 0;
-                    let extendedLabel = '';
-
-                    if (session === 'PRE') {
-                        extendedPrice = data.extended?.prePrice || data.prices?.prePrice || 0;
-                        extendedLabel = 'PRE';
-                        extendedChangePct = data.extended?.preChangePct ? data.extended.preChangePct * 100 : 0;
-                    } else if (session === 'POST' || session === 'CLOSED') {
-                        extendedPrice = data.extended?.postPrice || data.prices?.postPrice || 0;
-                        extendedLabel = session === 'CLOSED' ? 'POST' : 'POST';
-                        if (extendedPrice > 0 && displayPrice > 0) {
-                            extendedChangePct = ((extendedPrice - displayPrice) / displayPrice) * 100;
-                        }
-                    }
-
-                    newQuotes[ticker] = {
-                        price: displayPrice,
-                        changePercent: displayChangePct,
-                        prevClose: data.prices?.prevRegularClose || data.prevClose || 0,
-                        volume: data.day?.v || 0,
-                        extendedPrice,
-                        extendedChangePct,
-                        extendedLabel,
-                        session,
-                        relVol: data.relVol || 1,
-                        // Include history for sparklines
-                        history3d: data.history3d || []
-                    };
+                    newQuotes[ticker] = processTickerData(data);
                 });
-
                 setLiveQuotes(prev => ({ ...prev, ...newQuotes }));
-            } catch (e) { console.error("Live ticker poll failed", e); }
+            } catch (e) { console.error('[M7/PhysicalAI] Live ticker poll failed', e); }
         };
 
-        fetchAllTickers(); // Initial
-        const interval = setInterval(fetchAllTickers, 15000);
+        fetchFixed();
+        const interval = setInterval(fetchFixed, 15000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // [V4.6] Report-only tickers — fetch after report loads
+    useEffect(() => {
+        if (!report?.items) return;
+
+        // Filter out tickers already covered by the M7/PhysicalAI effect
+        const fixedSet = new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS]);
+        const reportOnlyTickers = report.items
+            .map((i: any) => i.ticker as string)
+            .filter((t: string) => !fixedSet.has(t));
+
+        if (reportOnlyTickers.length === 0) return; // all already covered
+
+        const fetchReport = async () => {
+            try {
+                const results = await Promise.all(
+                    reportOnlyTickers.map(async (ticker: string) => {
+                        try {
+                            const res = await fetch(`/api/live/ticker?t=${ticker}`, { cache: 'no-store' });
+                            if (!res.ok) return { ticker, data: null };
+                            const data = await res.json();
+                            return { ticker, data };
+                        } catch {
+                            return { ticker, data: null };
+                        }
+                    })
+                );
+
+                const newQuotes: Record<string, any> = {};
+                results.forEach(({ ticker, data }) => {
+                    if (!data) return;
+                    newQuotes[ticker] = processTickerData(data);
+                });
+                setLiveQuotes(prev => ({ ...prev, ...newQuotes }));
+            } catch (e) { console.error('[Report] Live ticker poll failed', e); }
+        };
+
+        fetchReport();
+        const interval = setInterval(fetchReport, 15000);
         return () => clearInterval(interval);
     }, [report]);
 
