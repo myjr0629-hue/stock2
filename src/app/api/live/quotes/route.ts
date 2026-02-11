@@ -1,6 +1,7 @@
 
 import { NextResponse } from 'next/server';
-import { CentralDataHub } from '@/services/centralDataHub';
+import { fetchMassive } from '@/services/massiveClient';
+import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
 
 export const dynamic = 'force-dynamic'; // No caching allowed
 
@@ -14,77 +15,88 @@ export async function GET(request: Request) {
 
     try {
         const tickers = symbolsParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
-
-        // [V4.4] Use CentralDataHub for session-aware pricing
-        // This matches /api/live/ticker logic exactly
-        const marketStatus = await CentralDataHub.getMarketStatus();
+        const marketStatus = await getMarketStatusSSOT();
         const session = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
 
+        // ── LIGHTWEIGHT: Polygon snapshot only (no cache, no options chain) ──
+        // Each ticker snapshot = 1 fast API call vs CentralDataHub's 5+ calls
         const results = await Promise.all(
             tickers.map(async ticker => {
                 try {
-                    const quote = await CentralDataHub.getUnifiedData(ticker, false);
-                    return { ticker, quote, error: null };
+                    const snapshotRes = await fetchMassive(
+                        `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
+                        {},
+                        false,                          // useCache = false (fresh data)
+                        undefined,
+                        { cache: 'no-store' as RequestCache }  // no HTTP cache
+                    );
+                    return { ticker, snapshot: snapshotRes?.ticker || {}, error: null };
                 } catch (e: any) {
-                    return { ticker, quote: null, error: e.message };
+                    return { ticker, snapshot: {}, error: e.message };
                 }
             })
         );
 
         const data: Record<string, any> = {};
 
-        results.forEach(({ ticker, quote, error }) => {
-            if (!quote || error) {
+        results.forEach(({ ticker, snapshot: S, error }) => {
+            if (error || !S) {
                 data[ticker] = { price: 0, changePercent: 0, error };
                 return;
             }
 
-            // [V4.4] Session-Aware Pricing from CentralDataHub
-            // Main Display = Regular Session Close (for changePct calculation)
-            // Extended = After-Hours or Pre-Market
-            const mainPrice = quote.price || 0;
-            const prevClose = quote.prevClose || 0;
-            let changePct = quote.finalChangePercent ?? quote.changePct ??
-                (mainPrice && prevClose ? ((mainPrice - prevClose) / prevClose) * 100 : 0);
+            const liveLast = S.lastTrade?.p || 0;
+            const dayClose = S.day?.c || 0;
+            const prevDayClose = S.prevDay?.c || 0;
+            const prevClose = prevDayClose;
 
-            // [V4.5] Rollover Fix: Show PREVIOUS session's change when current is 0%
-            // This happens during PRE session or when date rolled over
-            const history3d = quote.history3d || [];
-            if ((changePct === 0 || quote.isRollover) && history3d.length >= 2) {
-                const lastClose = history3d[0]?.c || 0;
-                const prevLastClose = history3d[1]?.c || 0;
-                if (lastClose > 0 && prevLastClose > 0) {
-                    changePct = ((lastClose - prevLastClose) / prevLastClose) * 100;
+            // Session-aware price selection
+            let price = 0;
+            let extendedPrice = 0;
+            let extendedLabel = '';
+
+            if (session === 'regular') {
+                // REG: show live last trade price
+                price = liveLast || dayClose || prevClose;
+            } else if (session === 'pre') {
+                // PRE: main = prev close, extended = pre-market live
+                price = prevClose;
+                extendedPrice = S.min?.c || liveLast || 0;
+                extendedLabel = 'PRE';
+            } else if (session === 'post') {
+                // POST: main = reg close, extended = post-market live
+                price = dayClose || prevClose;
+                extendedPrice = S.min?.c || liveLast || 0;
+                extendedLabel = 'POST';
+            } else {
+                // CLOSED
+                price = dayClose || prevClose;
+                if (S.afterHours?.p && S.afterHours.p > 0) {
+                    extendedPrice = S.afterHours.p;
+                    extendedLabel = 'POST';
                 }
             }
 
-            // Extended Price (separate from main price)
-            const extendedPrice = quote.extendedPrice || 0;
-            const extendedChangePct = (extendedPrice > 0 && mainPrice > 0)
-                ? ((extendedPrice - mainPrice) / mainPrice) * 100
+            const changePct = (price > 0 && prevClose > 0)
+                ? ((price - prevClose) / prevClose) * 100
+                : 0;
+
+            const extendedChangePct = (extendedPrice > 0 && price > 0)
+                ? ((extendedPrice - price) / price) * 100
                 : 0;
 
             data[ticker] = {
-                // Main Price (Regular Session Close)
-                price: mainPrice,
+                price,
                 previousClose: prevClose,
-                prevClose: prevClose,
-                change: mainPrice - prevClose,
+                prevClose,
+                change: price - prevClose,
                 changePercent: changePct,
-                // Extended Session (if different)
-                extendedPrice: extendedPrice > 0 && extendedPrice !== mainPrice ? extendedPrice : 0,
-                extendedChange: extendedPrice > 0 ? extendedPrice - mainPrice : 0,
+                extendedPrice: extendedPrice > 0 && extendedPrice !== price ? extendedPrice : 0,
+                extendedChange: extendedPrice > 0 ? extendedPrice - price : 0,
                 extendedChangePercent: extendedChangePct,
-                extendedLabel: quote.extendedLabel,
-                // Flow Data
-                volume: quote.volume || 0,
-                relVol: quote.relVol || 1,
-                // Session info
-                session: session,
-                priceSource: quote.priceSource,
-                // History for sparklines
-                history3d: quote.history3d || [],
-                // Timestamp
+                extendedLabel: extendedLabel || undefined,
+                volume: S.day?.v || 0,
+                session,
                 lastUpdate: Date.now()
             };
         });
