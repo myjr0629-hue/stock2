@@ -122,7 +122,7 @@ function ScoreRing({ score, size = 64, strokeWidth = 4 }: { score: number; size?
 }
 
 // =============================================================================
-// RANK BADGE (Premium)
+// RANK BADGE (Premium — M7 style)
 // =============================================================================
 
 function RankBadge({ rank }: { rank: number }) {
@@ -132,22 +132,22 @@ function RankBadge({ rank }: { rank: number }) {
         bg: 'bg-gradient-to-br from-amber-300 via-yellow-400 to-amber-500',
         text: 'text-amber-950',
         shadow: 'shadow-[0_0_12px_rgba(251,191,36,0.4)]',
-        size: 'w-8 h-8 text-sm',
+        size: 'w-7 h-7 text-xs',
     } : rank === 2 ? {
         bg: 'bg-gradient-to-br from-slate-200 via-slate-300 to-slate-400',
         text: 'text-slate-800',
         shadow: 'shadow-[0_0_8px_rgba(148,163,184,0.3)]',
-        size: 'w-7 h-7 text-xs',
+        size: 'w-6 h-6 text-[11px]',
     } : rank === 3 ? {
         bg: 'bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700',
         text: 'text-amber-100',
         shadow: 'shadow-[0_0_8px_rgba(217,119,6,0.3)]',
-        size: 'w-7 h-7 text-xs',
+        size: 'w-6 h-6 text-[11px]',
     } : {
         bg: 'bg-white/[0.08] border border-white/[0.12]',
         text: 'text-white/50',
         shadow: '',
-        size: 'w-6 h-6 text-[10px]',
+        size: 'w-5 h-5 text-[10px]',
     };
 
     return (
@@ -161,7 +161,7 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 // =============================================================================
-// ENTRY SIGNAL (No Emojis — Lucide Icons Only)
+// ENTRY SIGNAL
 // =============================================================================
 
 type EntryStatus = 'ENTRY_ZONE' | 'WAIT' | 'EXTENDED' | 'CUT_ZONE';
@@ -202,7 +202,7 @@ function getEntrySignal(
 }
 
 // =============================================================================
-// TRIGGER BADGE CONFIG (No Emojis — Icon-based)
+// TRIGGER BADGE CONFIG
 // =============================================================================
 
 const TRIGGER_CONFIG: Record<string, { label: string; icon: React.ReactNode; type: 'positive' | 'negative' | 'neutral' }> = {
@@ -232,23 +232,7 @@ const TRIGGER_CONFIG: Record<string, { label: string; icon: React.ReactNode; typ
 };
 
 // =============================================================================
-// FACTOR MAP
-// =============================================================================
-
-const FACTOR_DISPLAY: Record<string, string> = {
-    priceChange: '가격변동', vwapPosition: 'VWAP', trend3D: '3일추세',
-    smartDip: 'Smart DIP', oiHeat: 'OI집중', gammaSetup: '감마셋업',
-    wallSandwich: '옵션벽', pcrBalance: 'PCR균형', squeezePotential: '스퀴즈',
-    ivSkew: 'IV스큐', darkPool: '다크풀', darkPoolPct: '다크풀%',
-    whaleIndex: '고래지수', shortVolPct: '공매도%', shortVolume: '공매도',
-    relativeVolume: '상대거래량', relVol: '상대거래량', vixLevel: 'VIX',
-    sectorStrength: '섹터강도', marketTrend: '시장추세', breadth: '시장폭',
-    earningsProximity: '실적임박', sectorMomentum: '섹터', optionsData: '옵션',
-    lateMomentum: '후행모멘텀',
-};
-
-// =============================================================================
-// PILLAR HORIZONTAL BAR
+// PILLAR BAR CONFIG
 // =============================================================================
 
 const PILLAR_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -355,7 +339,6 @@ function InsightPanel({
 function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, callWall }: {
     price: number; entryLow: number; entryHigh: number; targetPrice: number; cutPrice: number; callWall?: number;
 }) {
-    // Compute relative positions
     const allLevels = [cutPrice, entryLow, entryHigh, targetPrice, price].filter(v => v > 0);
     if (callWall && callWall > 0) allLevels.push(callWall);
     const min = Math.min(...allLevels) * 0.98;
@@ -370,47 +353,43 @@ function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, call
         <div className="space-y-2">
             {/* Visual bar */}
             <div className="relative h-2 bg-white/[0.04] rounded-full overflow-visible">
-                {/* Entry zone highlight */}
                 {entryLow > 0 && entryHigh > 0 && (
                     <div
                         className="absolute top-0 h-full bg-emerald-500/15 rounded-full"
                         style={{ left: `${pos(entryLow)}%`, width: `${pos(entryHigh) - pos(entryLow)}%` }}
                     />
                 )}
-                {/* Cut price marker */}
                 {cutPrice > 0 && (
                     <div className="absolute top-0 w-0.5 h-full bg-rose-400/60 rounded-full"
                         style={{ left: `${pos(cutPrice)}%` }}
                     />
                 )}
-                {/* Target marker */}
                 {targetPrice > 0 && (
                     <div className="absolute top-0 w-0.5 h-full bg-emerald-400/60 rounded-full"
                         style={{ left: `${pos(targetPrice)}%` }}
                     />
                 )}
-                {/* Current price marker */}
                 <div
                     className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)] border border-white/80"
                     style={{ left: `${pos(price)}%`, transform: 'translate(-50%,-50%)' }}
                 />
             </div>
 
-            {/* Numeric labels */}
+            {/* Numeric labels — M7 style grid boxes */}
             <div className="grid grid-cols-3 gap-1">
-                <div className="bg-white/[0.03] rounded-lg py-1.5 px-2 border border-white/[0.05] text-center">
-                    <p className="text-[7px] text-white/25 uppercase tracking-[0.12em] font-semibold">STOP</p>
+                <div className="bg-white/[0.04] rounded-lg py-1.5 px-2 border border-white/[0.06] text-center">
+                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold">STOP</p>
                     <p className="text-[11px] font-bold text-rose-300/80 font-mono">${cutPrice.toFixed(0)}</p>
                     <p className="text-[8px] text-rose-400/50 font-mono">{downside.toFixed(1)}%</p>
                 </div>
-                <div className="bg-white/[0.05] rounded-lg py-1.5 px-2 border border-emerald-500/10 text-center">
-                    <p className="text-[7px] text-white/25 uppercase tracking-[0.12em] font-semibold">ENTRY</p>
+                <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-emerald-500/10 text-center">
+                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold">ENTRY</p>
                     <p className="text-[11px] font-bold text-white/80 font-mono">
                         ${entryLow.toFixed(0)}<span className="text-white/30">~</span>${entryHigh.toFixed(0)}
                     </p>
                 </div>
-                <div className="bg-white/[0.03] rounded-lg py-1.5 px-2 border border-white/[0.05] text-center">
-                    <p className="text-[7px] text-white/25 uppercase tracking-[0.12em] font-semibold">TARGET</p>
+                <div className="bg-white/[0.04] rounded-lg py-1.5 px-2 border border-white/[0.06] text-center">
+                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold">TARGET</p>
                     <p className="text-[11px] font-bold text-emerald-300/80 font-mono">${targetPrice.toFixed(0)}</p>
                     <p className="text-[8px] text-emerald-400/50 font-mono">+{upside.toFixed(1)}%</p>
                 </div>
@@ -420,7 +399,7 @@ function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, call
 }
 
 // =============================================================================
-// MAIN: AlphaCard (Premium Glassmorphism V2)
+// MAIN: AlphaCard (M7 Style — Glassmorphism Card)
 // =============================================================================
 
 export function AlphaCard({
@@ -434,149 +413,145 @@ export function AlphaCard({
     const [showInsight, setShowInsight] = useState(false);
 
     const entrySignal = getEntrySignal(price, entryLow, entryHigh, cutPrice, callWall);
-    const isHero = variant === 'hero';
     const logoUrl = `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;
 
     const upside = targetPrice > 0 && price > 0 ? ((targetPrice - price) / price * 100) : 0;
     const downside = cutPrice > 0 && price > 0 ? ((cutPrice - price) / price * 100) : 0;
     const rr = downside !== 0 ? Math.abs(upside / downside) : 0;
 
-    const handleClick = () => router.push(`/command?ticker=${ticker}`);
+    const handleClick = () => router.push(`/ticker?ticker=${ticker}`);
     const handleInsightToggle = (e: React.MouseEvent) => { e.stopPropagation(); setShowInsight(!showInsight); };
 
-    // Dynamic border glow for conviction level
-    const glowBorder = alphaScore >= 80 ? "border-cyan-400/25 hover:border-cyan-400/40 hover:shadow-[0_0_30px_rgba(34,211,238,0.08)]"
-        : alphaScore >= 65 ? "border-emerald-400/20 hover:border-emerald-400/35 hover:shadow-[0_0_30px_rgba(52,211,153,0.06)]"
-            : isHighRisk ? "border-rose-500/15 hover:border-rose-500/30 hover:shadow-[0_0_30px_rgba(244,63,94,0.06)]"
-                : "border-white/[0.08] hover:border-white/[0.15]";
+    // Dynamic border based on conviction
+    const borderColor = alphaScore >= 80
+        ? 'border-cyan-400/25 hover:border-cyan-400/40'
+        : alphaScore >= 65
+            ? 'border-emerald-400/20 hover:border-emerald-400/35'
+            : isHighRisk
+                ? 'border-rose-500/15 hover:border-rose-500/30'
+                : 'border-white/[0.10] hover:border-white/[0.18]';
+
+    const isUp = changePct >= 0;
 
     return (
         <div
             className={cn(
-                "group relative rounded-2xl border transition-all duration-300 cursor-pointer overflow-hidden",
-                // Glassmorphism core
-                "bg-gradient-to-br from-white/[0.06] via-white/[0.03] to-white/[0.01]",
-                "backdrop-blur-xl",
-                glowBorder,
-                isHero ? "p-5" : "p-4",
+                // ── M7 Style Card Shell ──
+                "relative flex flex-col rounded-xl border transition-all duration-300 overflow-hidden group cursor-pointer",
+                "bg-white/[0.02] backdrop-blur-md",
+                "hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)]",
+                borderColor,
             )}
             onClick={handleClick}
         >
-            {/* Subtle ambient shine on hover */}
-            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none bg-gradient-to-br from-white/[0.02] via-transparent to-transparent" />
+            {/* Glass shine — M7 signature */}
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
 
-            {/* ─── HEADER: Rank + Logo + Ticker + Price | Score Ring ─── */}
-            <div className="relative flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                    {/* Rank */}
+            {/* ─── HEADER: Rank + Logo + Ticker | Score Ring ─── */}
+            <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                <div className="flex items-center gap-2.5">
                     <RankBadge rank={rank} />
-
-                    {/* Logo */}
-                    <div className="w-10 h-10 rounded-xl bg-white/[0.05] border border-white/[0.08] overflow-hidden flex-shrink-0">
-                        <img src={logoUrl} alt={ticker} className="w-full h-full object-contain p-1.5"
+                    <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.08] overflow-hidden flex-shrink-0">
+                        <img src={logoUrl} alt={ticker} className="w-full h-full object-contain p-1"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     </div>
-
-                    {/* Ticker + Price */}
                     <div>
                         <div className="flex items-center gap-2">
-                            <h3 className={cn("font-black text-white tracking-tight", isHero ? "text-base" : "text-sm")}>{ticker}</h3>
+                            <h3 className="text-sm font-black text-white tracking-tight">{ticker}</h3>
                             {isHighRisk && (
                                 <span className="text-[7px] font-bold bg-rose-500/15 text-rose-300/80 px-1.5 py-0.5 rounded border border-rose-500/15 uppercase tracking-wider">
                                     SPEC
                                 </span>
                             )}
-                            {isLive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
                         </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <span className={cn("font-bold text-white/90 font-mono", isHero ? "text-lg" : "text-[15px]")}>
-                                ${price.toFixed(2)}
-                            </span>
-                            <span className={cn(
-                                "text-[11px] font-bold flex items-center gap-0.5 px-1.5 py-0.5 rounded-md",
-                                changePct >= 0
-                                    ? "text-emerald-300 bg-emerald-500/[0.08]"
-                                    : "text-rose-300 bg-rose-500/[0.08]"
+                    </div>
+                </div>
+                <ScoreRing score={alphaScore} size={52} strokeWidth={3.5} />
+            </div>
+
+            {/* ─── PRICE SECTION (M7 style — centered, large) ─── */}
+            <div className="flex flex-col items-center px-4 pb-2">
+                <div className="text-2xl font-black text-white tracking-tighter tabular-nums">
+                    ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </div>
+                <div className={cn(
+                    "flex items-center gap-0.5 text-sm font-bold mt-0.5",
+                    isUp ? "text-emerald-400" : "text-rose-400"
+                )}>
+                    {isUp
+                        ? <ArrowUpRight className="w-3.5 h-3.5" />
+                        : <ArrowDownRight className="w-3.5 h-3.5" />
+                    }
+                    {isUp ? '+' : ''}{changePct.toFixed(2)}%
+                </div>
+            </div>
+
+            {/* ─── ACTION VERDICT (M7 analysis text style) ─── */}
+            <div className="px-4 pb-3">
+                <div className={cn(
+                    "flex items-start gap-2 px-3 py-2 rounded-lg border",
+                    entrySignal.bgClass
+                )}>
+                    <span className={cn("mt-0.5 flex-shrink-0", entrySignal.color)}>{entrySignal.icon}</span>
+                    <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                            <span className={cn("text-xs font-bold", entrySignal.color)}>{entrySignal.label}</span>
+                            <span className={cn("text-[11px] font-mono", entrySignal.color)}>{entrySignal.detail}</span>
+                        </div>
+                        {actionKR && (
+                            <p className="text-[11px] text-white/50 mt-1 leading-relaxed">{actionKR}</p>
+                        )}
+                    </div>
+                </div>
+            </div>
+
+            {/* ─── PRICE LEVEL BAR ─── */}
+            {entryLow > 0 && (
+                <div className="px-4 pb-3">
+                    <PriceLevelBar
+                        price={price}
+                        entryLow={entryLow}
+                        entryHigh={entryHigh}
+                        targetPrice={targetPrice}
+                        cutPrice={cutPrice}
+                        callWall={callWall}
+                    />
+                </div>
+            )}
+
+            {/* ─── QUICK STATS (M7 grid style) ─── */}
+            <div className="px-4 pb-2">
+                <div className="flex items-center justify-between text-[10px] text-white/40">
+                    <div className="flex items-center gap-3">
+                        {callWall ? <span>CW <span className="text-white/60 font-mono font-medium">${callWall.toFixed(0)}</span></span> : null}
+                        {putFloor ? <span>PF <span className="text-white/60 font-mono font-medium">${putFloor.toFixed(0)}</span></span> : null}
+                        {whaleNetM !== undefined && whaleNetM !== 0 && (
+                            <span className={cn("font-bold flex items-center gap-0.5",
+                                whaleNetM >= 0 ? 'text-emerald-400/60' : 'text-rose-400/60'
                             )}>
-                                {changePct >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                                {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
+                                <Waves className="w-3 h-3" />
+                                {whaleNetM >= 0 ? '+' : ''}{whaleNetM.toFixed(1)}M
                             </span>
-                        </div>
+                        )}
                     </div>
-                </div>
-
-                {/* Score Ring */}
-                <ScoreRing score={alphaScore} size={isHero ? 68 : 56} strokeWidth={isHero ? 4 : 3.5} />
-            </div>
-
-            {/* ─── ACTION VERDICT ─── */}
-            <div className="mb-3 bg-white/[0.03] rounded-xl px-3 py-2.5 border border-white/[0.05]">
-                {actionKR ? (
-                    <div className="flex items-start gap-2">
-                        <Crosshair className={cn("w-3.5 h-3.5 mt-0.5 flex-shrink-0",
-                            alphaScore >= 65 ? "text-emerald-400" : alphaScore >= 50 ? "text-blue-400" : "text-slate-500"
-                        )} />
-                        <div>
-                            <span className={cn("text-xs font-bold",
-                                alphaScore >= 65 ? "text-emerald-300" :
-                                    alphaScore >= 50 ? "text-blue-300" : "text-slate-400"
-                            )}>{actionKR}</span>
-                            {whyKR && <p className="text-[11px] text-white/40 mt-1 leading-relaxed">{whyKR}</p>}
-                        </div>
-                    </div>
-                ) : (
-                    <span className="text-xs text-white/30">분석 대기중</span>
-                )}
-            </div>
-
-            {/* ─── ENTRY SIGNAL BANNER ─── */}
-            <div className={cn(
-                "flex items-center justify-between px-3 py-2 rounded-xl mb-3 border",
-                entrySignal.bgClass
-            )}>
-                <div className="flex items-center gap-2">
-                    <span className={entrySignal.color}>{entrySignal.icon}</span>
-                    <span className={cn("text-xs font-bold", entrySignal.color)}>{entrySignal.label}</span>
-                </div>
-                <span className={cn("text-[11px] font-mono", entrySignal.color)}>{entrySignal.detail}</span>
-            </div>
-
-            {/* ─── PRICE LEVEL INFOGRAPHIC ─── */}
-            <div className="mb-3">
-                <PriceLevelBar
-                    price={price}
-                    entryLow={entryLow}
-                    entryHigh={entryHigh}
-                    targetPrice={targetPrice}
-                    cutPrice={cutPrice}
-                    callWall={callWall}
-                />
-            </div>
-
-            {/* ─── QUICK STATS ─── */}
-            <div className="flex items-center justify-between text-[10px] text-white/35 mb-2.5 px-0.5">
-                <div className="flex items-center gap-3">
-                    {callWall ? <span>CW <span className="text-white/55 font-mono font-medium">${callWall.toFixed(0)}</span></span> : null}
-                    {putFloor ? <span>PF <span className="text-white/55 font-mono font-medium">${putFloor.toFixed(0)}</span></span> : null}
-                    {whaleNetM !== undefined && whaleNetM !== 0 && (
-                        <span className={cn("font-bold flex items-center gap-0.5",
-                            whaleNetM >= 0 ? 'text-emerald-400/60' : 'text-rose-400/60'
-                        )}>
-                            <Waves className="w-3 h-3" />
-                            {whaleNetM >= 0 ? '+' : ''}{whaleNetM.toFixed(1)}M
+                    {rr > 0 && (
+                        <span className="text-white/40 font-mono">
+                            R:R <span className={cn("font-bold", rr >= 2 ? 'text-emerald-300/70' : 'text-white/50')}>{rr.toFixed(1)}:1</span>
                         </span>
                     )}
                 </div>
-                {rr > 0 && (
-                    <span className="text-white/35 font-mono">
-                        R:R <span className={cn("font-bold", rr >= 2 ? 'text-emerald-300/70' : 'text-white/45')}>{rr.toFixed(1)}:1</span>
-                    </span>
-                )}
             </div>
 
-            {/* ─── TRIGGER BADGES (Icons only, no emojis) ─── */}
+            {/* ─── WHY (Analysis text — M7 card analysis style) ─── */}
+            {whyKR && (
+                <div className="px-4 pb-3">
+                    <p className="text-[11px] text-white/40 leading-relaxed line-clamp-3">{whyKR}</p>
+                </div>
+            )}
+
+            {/* ─── TRIGGER BADGES (M7 tag style) ─── */}
             {triggerCodes && triggerCodes.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-3">
+                <div className="px-4 pb-3 flex flex-wrap gap-1">
                     {triggerCodes.slice(0, 6).map(code => {
                         const t = TRIGGER_CONFIG[code];
                         if (!t) return null;
@@ -596,24 +571,26 @@ export function AlphaCard({
             )}
 
             {/* ─── ENGINE INSIGHT TOGGLE ─── */}
-            <button
-                onClick={handleInsightToggle}
-                className={cn(
-                    "w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-bold transition-all duration-300 border",
-                    showInsight
-                        ? "bg-white/[0.06] border-white/[0.12] text-white/60"
-                        : "bg-white/[0.02] border-white/[0.05] text-white/30 hover:text-white/50 hover:bg-white/[0.04]"
-                )}
-            >
-                <Gauge className="w-3.5 h-3.5" />
-                {showInsight ? '엔진 분석 접기' : '엔진 분석 보기'}
-                {showInsight ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-            </button>
+            <div className="px-4 pb-4">
+                <button
+                    onClick={handleInsightToggle}
+                    className={cn(
+                        "w-full flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-bold transition-all duration-300 border",
+                        showInsight
+                            ? "bg-white/[0.06] border-white/[0.12] text-white/60"
+                            : "bg-white/[0.02] border-white/[0.05] text-white/30 hover:text-white/50 hover:bg-white/[0.04]"
+                    )}
+                >
+                    <Gauge className="w-3.5 h-3.5" />
+                    {showInsight ? '엔진 분석 접기' : '엔진 분석 보기'}
+                    {showInsight ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
 
-            {/* ─── INSIGHT LAYER ─── */}
-            {showInsight && (
-                <InsightPanel pillars={pillars} gatesApplied={gatesApplied} dataCompleteness={dataCompleteness} />
-            )}
+                {/* INSIGHT LAYER */}
+                {showInsight && (
+                    <InsightPanel pillars={pillars} gatesApplied={gatesApplied} dataCompleteness={dataCompleteness} />
+                )}
+            </div>
         </div>
     );
 }
