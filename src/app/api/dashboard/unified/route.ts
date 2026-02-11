@@ -106,19 +106,107 @@ function calculateIvSkew(rawChain: any[], price: number): number | null {
     }
 }
 
-// [PERFORMANCE] Stale-While-Revalidate Cache
+// [PERFORMANCE] Server-side Auto Cache Warming
+// Instead of SWR (stale-while-revalidate) which causes cold-start delays after 5min expiry,
+// the server proactively refreshes the cache every WARM_INTERVAL_MS.
+// Users ALWAYS get cached data instantly; cache never "expires".
 interface CacheEntry {
     data: any;
     timestamp: number;
     isRevalidating?: boolean;
 }
-const CACHE_VERSION = 'v2'; // Bump to invalidate stale entries when response format changes
+const CACHE_VERSION = 'v3'; // Bumped: v2→v3 (cache warming architecture)
 const cache: Map<string, CacheEntry> = new Map();
-const CACHE_TTL_MS = 60000; // 60 seconds (fresh)
-const STALE_TTL_MS = 300000; // 5 minutes (stale but usable)
+const CACHE_TTL_MS = 120_000; // 120 seconds — data considered "fresh" (warmer runs every 90s)
+const WARM_INTERVAL_MS = 90_000; // 90 seconds — auto-refresh interval for default tickers
 
 // Default tickers for dashboard
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
+
+// ============================================================
+// [CACHE WARMER] Proactive background refresh — eliminates cold starts
+// ============================================================
+let _warmerStarted = false;
+let _warmerInterval: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Warm the cache for DEFAULT_TICKERS.
+ * Runs automatically every WARM_INTERVAL_MS, ensuring the cache is always fresh.
+ * Uses localhost self-fetch (same as the original fetchTickerData pattern).
+ */
+async function warmDefaultCache() {
+    const cacheKey = `${CACHE_VERSION}:${[...DEFAULT_TICKERS].sort().join(',')}`;
+    const existing = cache.get(cacheKey);
+
+    // Skip if already revalidating
+    if (existing?.isRevalidating) {
+        console.log('[CACHE WARMER] Skip — already revalidating');
+        return;
+    }
+
+    // Mark as revalidating
+    if (existing) {
+        cache.set(cacheKey, { ...existing, isRevalidating: true });
+    }
+
+    const startTs = Date.now();
+    console.log('[CACHE WARMER] Starting background warm...');
+
+    try {
+        // Determine base URL for internal API calls
+        const port = process.env.PORT || '3000';
+        const baseUrl = `http://localhost:${port}`;
+
+        const [marketData, ...tickerResults] = await Promise.all([
+            fetchMarketData(),
+            ...DEFAULT_TICKERS.map(async (ticker) => {
+                try {
+                    const data = await fetchTickerData(ticker, undefined, 3, baseUrl);
+                    return { ticker, data, error: null };
+                } catch (e: any) {
+                    return { ticker, data: null, error: e.message };
+                }
+            })
+        ]);
+
+        const response = buildResponseFromResults(tickerResults, marketData);
+        cache.set(cacheKey, { data: response, timestamp: Date.now() });
+
+        const elapsed = Date.now() - startTs;
+        console.log(`[CACHE WARMER] ✅ Warm complete (${elapsed}ms) — ${DEFAULT_TICKERS.length} tickers cached`);
+    } catch (error) {
+        console.error('[CACHE WARMER] ❌ Warm failed:', error);
+        // Restore non-revalidating state
+        if (existing) {
+            cache.set(cacheKey, { ...existing, isRevalidating: false });
+        }
+    }
+}
+
+/**
+ * Start the cache warmer. Safe to call multiple times (idempotent).
+ * First warm fires after a 5-second delay (let server boot complete),
+ * then repeats every WARM_INTERVAL_MS.
+ */
+function startCacheWarmer() {
+    if (_warmerStarted) return;
+    _warmerStarted = true;
+
+    console.log(`[CACHE WARMER] 🔥 Initializing (interval: ${WARM_INTERVAL_MS / 1000}s)`);
+
+    // Initial warm after 5 second delay (let Next.js finish booting)
+    setTimeout(() => {
+        warmDefaultCache();
+    }, 5_000);
+
+    // Periodic warm
+    _warmerInterval = setInterval(() => {
+        warmDefaultCache();
+    }, WARM_INTERVAL_MS);
+}
+
+// Auto-start on module load (Next.js server process lifecycle)
+startCacheWarmer();
 
 // [PERFORMANCE] Build response object from fetched results
 function buildResponseFromResults(
@@ -303,8 +391,8 @@ function buildResponseFromResults(
     };
 }
 
-// Background revalidation function
-async function revalidateCache(cacheKey: string, tickers: string[], request: NextRequest) {
+// Background revalidation function (used for both warmer and on-demand custom tickers)
+async function revalidateCache(cacheKey: string, tickers: string[], requestOrBaseUrl?: NextRequest | string) {
     const cached = cache.get(cacheKey);
     if (cached?.isRevalidating) return; // Already revalidating
 
@@ -314,11 +402,22 @@ async function revalidateCache(cacheKey: string, tickers: string[], request: Nex
     }
 
     try {
+        // Determine baseUrl from request or fallback to localhost
+        let baseUrl: string;
+        if (typeof requestOrBaseUrl === 'string') {
+            baseUrl = requestOrBaseUrl;
+        } else if (requestOrBaseUrl) {
+            baseUrl = new URL(requestOrBaseUrl.url).origin;
+        } else {
+            const port = process.env.PORT || '3000';
+            baseUrl = `http://localhost:${port}`;
+        }
+
         const marketData = await fetchMarketData();
         const tickerResults = await Promise.all(
             tickers.map(async (ticker) => {
                 try {
-                    const data = await fetchTickerData(ticker, request);
+                    const data = await fetchTickerData(ticker, undefined, 3, baseUrl);
                     return { ticker, data, error: null };
                 } catch (e: any) {
                     return { ticker, data: null, error: e.message };
@@ -328,9 +427,9 @@ async function revalidateCache(cacheKey: string, tickers: string[], request: Nex
 
         const response = buildResponseFromResults(tickerResults, marketData);
         cache.set(cacheKey, { data: response, timestamp: Date.now() });
-        console.log(`[SWR] Background revalidation complete for: ${cacheKey}`);
+        console.log(`[CACHE] Background revalidation complete for: ${cacheKey}`);
     } catch (error) {
-        console.error('[SWR] Background revalidation failed:', error);
+        console.error('[CACHE] Background revalidation failed:', error);
         if (cached) {
             cache.set(cacheKey, { ...cached, isRevalidating: false });
         }
@@ -347,8 +446,9 @@ export async function GET(request: NextRequest) {
     const cacheKey = `${CACHE_VERSION}:${tickers.sort().join(',')}`;
     const cached = cache.get(cacheKey);
     const now = Date.now();
+    const baseUrl = new URL(request.url).origin;
 
-    // [SWR] Fresh cache - return immediately
+    // [WARM] Fresh cache — return immediately
     if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
         return NextResponse.json({
             ...cached.data,
@@ -358,259 +458,48 @@ export async function GET(request: NextRequest) {
         });
     }
 
-    // [SWR] Stale cache - return immediately, revalidate in background
-    if (cached && (now - cached.timestamp) < STALE_TTL_MS) {
-        // Trigger background revalidation (non-blocking)
-        revalidateCache(cacheKey, tickers, request);
+    // [WARM] Stale cache exists — return immediately, trigger background refresh
+    // Unlike old SWR, there is NO expiry cutoff. Cache warmer keeps default tickers warm.
+    // Custom ticker sets also benefit: stale data is returned instantly while refreshing.
+    if (cached) {
+        // Non-blocking background revalidation
+        revalidateCache(cacheKey, tickers, baseUrl);
 
         return NextResponse.json({
             ...cached.data,
             _cached: true,
             _cacheAge: Math.round((now - cached.timestamp) / 1000),
-            _status: 'stale-while-revalidate'
+            _status: 'warming'
         });
     }
 
-    // [SWR] No cache or expired - must fetch synchronously
-
+    // [WARM] No cache at all — must fetch synchronously (only on very first request)
+    // After the cache warmer starts (~5s after boot), this branch is rarely hit.
     try {
-        // [PERF] Parallel fetch: market data AND all ticker data together
         const tickerPromises = tickers.map(async (ticker) => {
             try {
-                const data = await fetchTickerData(ticker, request);
+                const data = await fetchTickerData(ticker, undefined, 3, baseUrl);
                 return { ticker, data, error: null };
             } catch (e: any) {
                 return { ticker, data: null, error: e.message };
             }
         });
 
-        // Wait for both market and tickers in parallel
         const [marketData, ...tickerResults] = await Promise.all([
             fetchMarketData(),
             ...tickerPromises
         ]);
 
-        // Build unified response
-        const tickersData: Record<string, any> = {};
-        const signals: any[] = [];
-
-        tickerResults.forEach(({ ticker, data, error }) => {
-            if (data) {
-                tickersData[ticker] = {
-                    underlyingPrice: data.underlyingPrice,
-                    changePercent: data.changePercent,
-                    prevClose: data.prevClose,
-                    // [INTRADAY FIX] Today's regular session close for proper intraday display
-                    regularCloseToday: data.regularCloseToday || null,
-                    // [INTRADAY FIX] Intraday-only change (regularCloseToday vs prevClose)
-                    intradayChangePct: data.intradayChangePct || data.prevChangePct || null,
-                    // [S-78] Extended session data for Watchlist (Command style)
-                    extended: data.extended || null,
-                    session: data.session || 'CLOSED',
-                    netGex: data.netGex,
-                    maxPain: data.maxPain,
-                    pcr: data.pcr,
-                    isGammaSqueeze: data.isGammaSqueeze,
-                    gammaFlipLevel: data.gammaFlipLevel,
-                    atmIv: data.atmIv || null,  // [S-78] ATM IV for premium cards
-                    squeezeScore: data.squeezeScore ?? null,   // [SQUEEZE FIX] 0-100 score from structureService
-                    squeezeRisk: data.squeezeRisk ?? null,     // [SQUEEZE FIX] LOW/MEDIUM/HIGH/EXTREME
-                    // [DASHBOARD V2] New intraday indicators
-                    vwap: data.vwap ?? null,
-                    darkPoolPct: data.darkPoolPct ?? null,
-                    shortVolPct: data.shortVolPct ?? null,
-                    zeroDtePct: data.zeroDtePct ?? null,
-                    impliedMovePct: data.impliedMovePct ?? null,
-                    impliedMoveDir: data.impliedMoveDir ?? null,
-                    gammaConcentration: data.gammaConcentration ?? null,
-                    levels: data.levels,
-                    expiration: data.expiration,
-                    options_status: data.options_status
-                    // structure removed - FlowRadar fetches rawChain directly
-                };
-
-                // [V3.0] Alpha Engine V3 — Real-time absolute scoring
-                try {
-                    const sessionMap: Record<string, AlphaSession> = { PRE: 'PRE', REG: 'REG', POST: 'POST', CLOSED: 'CLOSED' };
-                    const alphaSession: AlphaSession = sessionMap[data.session || 'CLOSED'] || 'CLOSED';
-                    const whaleIndex = calculateWhaleIndex(data.netGex);
-                    const alphaResult = calculateAlphaScore({
-                        ticker,
-                        session: alphaSession,
-                        price: data.underlyingPrice || 0,
-                        prevClose: data.prevClose || 0,
-                        changePct: data.changePercent || 0,
-                        vwap: data.vwap ?? null,
-                        return3D: data._return3D ?? null, // [V4.1]
-                        sma20: data._sma20 ?? null, // [V4.1]
-                        rsi14: data._rsi14 ?? null, // [V4.1]
-                        pcr: data.pcr ?? null,
-                        gex: data.netGex ?? null,
-                        callWall: data.levels?.callWall ?? null,
-                        putFloor: data.levels?.putFloor ?? null,
-                        gammaFlipLevel: data.gammaFlipLevel ?? null,
-                        rawChain: data._rawChain ?? [],
-                        squeezeScore: data.squeezeScore ?? null,
-                        atmIv: data.atmIv ?? null,
-                        ivSkew: data._ivSkew ?? null, // [V4.1]
-                        darkPoolPct: data.darkPoolPct ?? null,
-                        shortVolPct: data.shortVolPct ?? null,
-                        whaleIndex,
-                        relVol: data._relVol ?? null, // [V4.1]
-                        netFlow: data._netPremium ?? null,
-                        ndxChangePct: marketData?.nq?.change ?? null,
-                        vixValue: marketData?.vix ?? null,
-                        impliedMovePct: data.impliedMovePct ?? null,
-                        blockTrades: data._blockTrades ?? null, // [V4.1]
-                        tltChangePct: marketData?.tltChangePct ?? null, // [V4.1]
-                        gldChangePct: marketData?.gldChangePct ?? null, // [V4.1]
-                        optionsDataAvailable: data.options_status === 'OK',
-                        // [V3.4] Pre-Market Validation
-                        preMarketChangePct: data._extendedChangePct ?? null,
-                    });
-                    tickersData[ticker].alpha = {
-                        score: alphaResult.score,
-                        grade: alphaResult.grade,
-                        action: alphaResult.action,
-                        actionKR: alphaResult.actionKR,
-                        whyKR: alphaResult.whyKR,
-                        pillars: {
-                            momentum: alphaResult.pillars.momentum.score,
-                            structure: alphaResult.pillars.structure.score,
-                            flow: alphaResult.pillars.flow.score,
-                            regime: alphaResult.pillars.regime.score,
-                            catalyst: alphaResult.pillars.catalyst.score,
-                        },
-                        gatesApplied: alphaResult.gatesApplied,
-                        dataCompleteness: alphaResult.dataCompleteness,
-                        engineVersion: alphaResult.engineVersion,
-                    };
-                } catch (e) {
-                    console.error(`[Dashboard V3] Alpha failed for ${ticker}:`, e);
-                }
-                // [LOCALIZATION] Use ISO timestamp - client will format based on locale
-                const timestamp = new Date().toISOString();
-                const price = data.underlyingPrice;
-                const callWall = data.levels?.callWall;
-                const putFloor = data.levels?.putFloor;
-                const gammaFlip = data.gammaFlipLevel;
-                const isLong = gammaFlip && price ? price > gammaFlip : null;
-
-                // [REG SESSION ONLY] Generate options signals only during regular market hours
-                const isRegularSession = marketData?.marketStatus === 'OPEN';
-
-                if (isRegularSession) {
-                    // === BUY SIGNALS ===
-                    // Put Floor support + positive GEX
-                    if (putFloor && price && data.netGex && price <= putFloor * 1.02 && data.netGex > 0) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'BUY',
-                            message: `지지선 매수 기회 (Put Floor $${putFloor})`
-                        });
-                    }
-                    // Gamma LONG transition
-                    if (isLong === true && data.netGex && data.netGex > 0) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'BUY',
-                            message: `Gamma LONG - 반등 구간 진입`
-                        });
-                    }
-                    // Strong call dominance (bullish)
-                    if (data.pcr && data.pcr < 0.7) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'BUY',
-                            message: `콜 강세 (PCR ${data.pcr.toFixed(2)}) - 상승 추세`
-                        });
-                    }
-
-                    // === SELL SIGNALS ===
-                    // Call Wall resistance + negative GEX
-                    if (callWall && price && data.netGex && price >= callWall * 0.98 && data.netGex < 0) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'SELL',
-                            message: `저항선 도달 - 익절 고려 (Call Wall $${callWall})`
-                        });
-                    }
-                    // Gamma SHORT - high volatility zone
-                    if (isLong === false) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'SELL',
-                            message: `Gamma SHORT - 하락 변동성 주의`
-                        });
-                    }
-                    // Strong put dominance (bearish)
-                    if (data.pcr && data.pcr > 1.3) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'SELL',
-                            message: `풋 헤징 증가 (PCR ${data.pcr.toFixed(2)}) - 하락 주의`
-                        });
-                    }
-
-                    // === WHALE SIGNALS ===
-                    if (data.netGex && Math.abs(data.netGex) > 100000000) {
-                        const size = Math.abs(data.netGex) > 500000000 ? '🐋🐋 초대형' : '🐋';
-                        signals.push({
-                            time: timestamp, ticker, type: 'WHALE',
-                            message: `${size} 고래 GEX ($${(data.netGex / 1e6).toFixed(0)}M)`
-                        });
-                    }
-
-                    // === ALERT SIGNALS ===
-                    // Gamma Squeeze
-                    if (data.isGammaSqueeze) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'ALERT',
-                            message: `🔥 감마 스퀴즈 - 급등 임박!`
-                        });
-                    }
-                    // High IV
-                    if (data.atmIv && data.atmIv > 60) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'ALERT',
-                            message: `📈 고변동성 (IV ${data.atmIv}%) - 큰 움직임 예상`
-                        });
-                    }
-                    // GEX negative flip
-                    if (data.netGex && data.netGex < 0) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'ALERT',
-                            message: `⚠️ GEX 음수 - 변동성 확대`
-                        });
-                    }
-                    // Call Wall breakout
-                    if (callWall && price && price > callWall) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'ALERT',
-                            message: `🚀 Call Wall 돌파 ($${callWall}) - 신규 고점`
-                        });
-                    }
-                    if (putFloor && price && price < putFloor) {
-                        signals.push({
-                            time: timestamp, ticker, type: 'ALERT',
-                            message: `💥 Put Floor 이탈 ($${putFloor}) - 손절 고려`
-                        });
-                    }
-                } // End of isRegularSession check
-            } else {
-                tickersData[ticker] = { error };
-            }
-        });
-
-        const response = {
-            timestamp: new Date().toISOString(),
-            market: marketData,
-            tickers: tickersData,
-            signals: signals.slice(0, 15), // Max 15 signals (reduced from 20)
-            meta: {
-                tickerCount: Object.keys(tickersData).length,
-                cacheTTL: CACHE_TTL_MS / 1000
-            }
-        };
+        const response = buildResponseFromResults(tickerResults, marketData);
 
         // Store in cache
         cache.set(cacheKey, { data: response, timestamp: Date.now() });
 
-        return NextResponse.json(response);
+        return NextResponse.json({
+            ...response,
+            _cached: false,
+            _status: 'cold-start'
+        });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -664,8 +553,8 @@ async function fetchMarketData() {
 
 // Fetch individual ticker data using structure + ticker API for extended prices
 // [DATA VALIDATION] Auto-retry when validation.confidence is LOW
-async function fetchTickerData(ticker: string, request: NextRequest, maxRetries: number = 3): Promise<any> {
-    const baseUrl = new URL(request.url).origin;
+async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries: number = 3, baseUrlOverride?: string): Promise<any> {
+    const baseUrl = baseUrlOverride || (request ? new URL(request.url).origin : `http://localhost:${process.env.PORT || '3000'}`);
     let retryCount = 0;
 
     const attemptFetch = async (): Promise<any> => {
