@@ -30,7 +30,7 @@ export function PhysicalAIEarningsCalendar() {
         return earnings
             .filter(e => e.date >= today)
             .sort((a, b) => a.date.localeCompare(b.date))
-            .slice(0, 5);
+            .slice(0, 3);
     }, [earnings]);
 
     const getLogoUrl = (ticker: string) => `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;

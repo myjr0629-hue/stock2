@@ -138,7 +138,12 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                         return { ticker, data: await res.json() };
                     } catch { return null; }
                 })),
-                fetch(`/api/watchlist/batch?tickers=${M7_TICKERS.join(',')}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+                fetch(`/api/watchlist/batch?tickers=${M7_TICKERS.join(',')}`, { cache: 'no-store' }).then(async r => {
+                    if (!r.ok) return null;
+                    const t = await r.text();
+                    if (!t) return null;
+                    try { return JSON.parse(t); } catch { return null; }
+                })
             ]);
 
             // Build watchlist lookup

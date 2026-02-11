@@ -1,36 +1,66 @@
-// M7 Analyst Consensus Component - Infographic bg + per-symbol compact detail
+// ============================================================================
+// Sector Analyst Consensus — Generic config-driven component
+// Works with any SectorConfig (M7, Physical AI, Bio, Crypto...)
+// Template: M7 design with infographic gauge background + per-symbol mini bars
+// ============================================================================
 'use client';
-import { useMemo } from 'react';
-import { TrendingUp, TrendingDown, Minus, Users } from 'lucide-react';
+import { useMemo, useEffect, useState } from 'react';
+import { Users, RefreshCw } from 'lucide-react';
 import { RecommendationTrend } from '@/services/finnhubClient';
+import type { SectorConfig } from '@/types/sector';
 
-interface M7AnalystConsensusProps {
-    recommendations: Record<string, RecommendationTrend>;
-}
-
-// SVG Infographic Background — scale/gauge pattern for analyst consensus
-function ConsensusBg() {
+// SVG Infographic Background — gauge pattern
+function GaugeBg() {
     return (
         <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
-            {/* Semi-circle gauge */}
             <path d="M30 140 A70 70 0 0 1 170 140" stroke="currentColor" strokeWidth="3" fill="none" />
             <path d="M45 140 A55 55 0 0 1 155 140" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            {/* Gauge needle */}
             <line x1="100" y1="140" x2="55" y2="85" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
             <circle cx="100" cy="140" r="4" fill="currentColor" />
-            {/* Scale marks */}
             <line x1="30" y1="140" x2="35" y2="130" stroke="currentColor" strokeWidth="1.5" />
             <line x1="50" y1="95" x2="58" y2="100" stroke="currentColor" strokeWidth="1.5" />
             <line x1="100" y1="70" x2="100" y2="78" stroke="currentColor" strokeWidth="1.5" />
             <line x1="150" y1="95" x2="142" y2="100" stroke="currentColor" strokeWidth="1.5" />
             <line x1="170" y1="140" x2="165" y2="130" stroke="currentColor" strokeWidth="1.5" />
-            {/* % watermark */}
             <text x="155" y="45" fontSize="32" fill="currentColor" opacity="0.25" fontWeight="bold">%</text>
         </svg>
     );
 }
 
-export function M7AnalystConsensus({ recommendations }: M7AnalystConsensusProps) {
+interface SectorAnalystConsensusProps {
+    config: SectorConfig;
+    /** Pass recommendations directly, or leave undefined to auto-fetch from config.apiEndpoints.calendar */
+    recommendations?: Record<string, RecommendationTrend>;
+}
+
+export function SectorAnalystConsensus({ config, recommendations: propRecs }: SectorAnalystConsensusProps) {
+    const [fetchedRecs, setFetchedRecs] = useState<Record<string, RecommendationTrend>>({});
+    const [loading, setLoading] = useState(!propRecs);
+
+    // Auto-fetch if no props provided
+    useEffect(() => {
+        if (propRecs) return;
+        const endpoint = config.apiEndpoints.calendar;
+        if (!endpoint) { setLoading(false); return; }
+
+        async function fetchData() {
+            try {
+                const res = await fetch(endpoint!, { cache: 'no-store' });
+                if (res.ok) {
+                    const data = await res.json();
+                    setFetchedRecs(data.recommendations || {});
+                }
+            } catch (e) {
+                console.error(`[${config.shortName}] Recommendations fetch failed:`, e);
+            } finally {
+                setLoading(false);
+            }
+        }
+        fetchData();
+    }, [propRecs, config]);
+
+    const recommendations = propRecs || fetchedRecs;
+
     const aggregated = useMemo(() => {
         const symbols = Object.keys(recommendations);
         if (symbols.length === 0) return null;
@@ -58,13 +88,21 @@ export function M7AnalystConsensus({ recommendations }: M7AnalystConsensusProps)
 
     const getLogoUrl = (ticker: string) => `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;
 
+    if (loading) {
+        return (
+            <div className="bg-[#0a0f18] border border-slate-800/50 rounded-lg p-3 flex items-center justify-center min-h-[120px] h-full">
+                <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
+            </div>
+        );
+    }
+
     if (!aggregated) {
         return (
             <div className="relative overflow-hidden bg-[#0a0f18] border border-slate-800/50 rounded-lg p-3 h-full">
-                <ConsensusBg />
+                <GaugeBg />
                 <div className="relative z-10 flex items-center gap-2">
                     <Users className="w-3.5 h-3.5 text-cyan-400" />
-                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">ANALYST CONSENSUS</span>
+                    <span className="text-xs font-bold text-white tracking-wider uppercase">ANALYST CONSENSUS</span>
                 </div>
                 <p className="relative z-10 text-xs text-white/70 mt-2">No data available</p>
             </div>
@@ -73,7 +111,7 @@ export function M7AnalystConsensus({ recommendations }: M7AnalystConsensusProps)
 
     return (
         <div className="relative overflow-hidden bg-[#0a0f18] border border-slate-800/50 rounded-lg p-3 shadow-md h-full">
-            <ConsensusBg />
+            <GaugeBg />
             {/* Top accent */}
             <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-cyan-400/40 to-transparent" />
 
@@ -124,7 +162,7 @@ export function M7AnalystConsensus({ recommendations }: M7AnalystConsensusProps)
                     </div>
                 </div>
 
-                {/* Per-Symbol compact: 2-column grid fills remaining space */}
+                {/* Per-Symbol compact: 2-column grid */}
                 <div className="border-t border-slate-800/50 pt-2">
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1">
                         {Object.entries(recommendations).map(([symbol, rec]) => {

@@ -73,7 +73,7 @@ export function PhysicalAIAnalystConsensus() {
     }
 
     return (
-        <div className="bg-[#1a1208] border border-orange-900/50 rounded-lg p-3 shadow-md">
+        <div className="bg-[#1a1208] border border-orange-900/50 rounded-lg p-3 shadow-md h-full">
             {/* Header */}
             <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-2">

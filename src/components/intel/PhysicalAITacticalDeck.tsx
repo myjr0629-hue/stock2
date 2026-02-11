@@ -135,7 +135,12 @@ export function PhysicalAITacticalDeck({ sharedData, sharedRefreshing }: Physica
                         return { ticker, data: await res.json() };
                     } catch { return null; }
                 })),
-                fetch(`/api/watchlist/batch?tickers=${PHYSICAL_AI_TICKERS.join(',')}`, { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
+                fetch(`/api/watchlist/batch?tickers=${PHYSICAL_AI_TICKERS.join(',')}`, { cache: 'no-store' }).then(async r => {
+                    if (!r.ok) return null;
+                    const t = await r.text();
+                    if (!t) return null;
+                    try { return JSON.parse(t); } catch { return null; }
+                })
             ]);
 
             const watchlistData: Record<string, any> = {};

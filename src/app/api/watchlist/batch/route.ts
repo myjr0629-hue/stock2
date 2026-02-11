@@ -294,7 +294,12 @@ export async function GET(request: Request) {
                     vwap: stockData.vwap || null,
                     vwapDist: (stockData.vwap && stockData.price)
                         ? Number(((stockData.price - stockData.vwap) / stockData.vwap * 100).toFixed(2))
-                        : null
+                        : null,
+                    // [FIX] Include callWall/putFloor for M7/PhysicalAI Session Grid
+                    callWall: structureRes?.levels?.callWall ?? null,
+                    putFloor: structureRes?.levels?.putFloor ?? null,
+                    // [RANKING] Net premium flow for Money Flow ranking
+                    netPremium: structureRes?.netPremium ?? null
                 }
             };
         } catch (error) {

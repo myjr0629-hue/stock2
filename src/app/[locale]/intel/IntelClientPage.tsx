@@ -33,6 +33,19 @@ import { M7EarningsCalendar } from "@/components/intel/M7EarningsCalendar";
 import { M7AnalystConsensus } from "@/components/intel/M7AnalystConsensus";
 import { EarningsEvent, RecommendationTrend } from "@/services/finnhubClient";
 
+// [V7.0] Sector Intelligence Platform - New Components
+import { SectorSessionGrid } from "@/components/intel/SectorSessionGrid";
+import { SectorPulseDashboard } from "@/components/intel/SectorPulseDashboard";
+import { SectorCommanderLog } from "@/components/intel/SectorCommanderLog";
+import { TacticalReportDeck } from "@/components/intel/TacticalReportDeck";
+import { M7RankingRow } from "@/components/intel/M7RankingRow";
+import { SectorRankingRow } from "@/components/intel/SectorRankingRow";
+import { SectorAnalystConsensus } from "@/components/intel/SectorAnalystConsensus";
+import { SectorEarningsCalendar } from "@/components/intel/SectorEarningsCalendar";
+import { m7Config } from "@/configs/m7.config";
+import { physicalAIConfig } from "@/configs/physicalai.config";
+import { useIntelSharedData } from "@/hooks/useIntelSharedData";
+
 
 
 
@@ -1113,6 +1126,8 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
     const isDebug = searchParams.get('debug') === '1';
 
     // [RESTORED] Components now fetch data independently (same as Flow/Command pages)
+    // [V7.0] Sector Intel shared data for new components
+    const sectorData = useIntelSharedData();
 
     // State
     const [report, setReport] = useState<any>(initialReport || null);
@@ -1171,7 +1186,9 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
                     // [VNext] Use GLOBAL resolver to find strictly latest report (e.g. EOD > Morning)
                     const resLatest = await fetch('/api/reports/latest?type=global', { cache: 'no-store' });
                     if (resLatest.ok) {
-                        const data = await resLatest.json();
+                        const text = await resLatest.text();
+                        const data = text ? (() => { try { return JSON.parse(text); } catch { return null; } })() : null;
+                        if (!data) { setIsLoading(false); return; }
                         if (isMounted) {
                             // [Safety] Only update if NEWER or SAME (Prevent rollback to stale cache)
                             const currentTs = new Date(report?.meta?.generatedAtET || 0).getTime();
@@ -1188,7 +1205,9 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
                         // If latest fails, try archive as fallback
                         const res = await fetch(url, { cache: 'no-store' });
                         if (res.ok) {
-                            const data = await res.json();
+                            const resText = await res.text();
+                            const data = resText ? (() => { try { return JSON.parse(resText); } catch { return null; } })() : null;
+                            if (!data) { if (isMounted && !isAutoRefresh) { setReport(null); setError('Empty response.'); } setIsLoading(false); return; }
                             if (isMounted) {
                                 setReport(data);
                                 setError(null);
@@ -1227,50 +1246,20 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
         return () => { isMounted = false; };
     }, [currentDate]);
 
-    // [PERF] M7 + Physical AI — 즉시 fetch (리포트 대기 안 함)
+    // [REMOVED] M7 + Physical AI liveQuotes polling — useIntelSharedData already handles this (30s)
+    // This duplicate 15s polling was causing unnecessary re-renders across all tabs
+
+    // [V4.6] Report-only tickers — fetch ONLY when FINAL tab is active
     useEffect(() => {
-        const fixedTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS];
+        if (!report?.items || activeTab !== 'FINAL') return;
 
-        const fetchFixed = async () => {
-            try {
-                const results = await Promise.all(
-                    fixedTickers.map(async (ticker: string) => {
-                        try {
-                            const res = await fetch(`/api/live/ticker?t=${ticker}`, { cache: 'no-store' });
-                            if (!res.ok) return { ticker, data: null };
-                            const data = await res.json();
-                            return { ticker, data };
-                        } catch {
-                            return { ticker, data: null };
-                        }
-                    })
-                );
-
-                const newQuotes: Record<string, any> = {};
-                results.forEach(({ ticker, data }) => {
-                    if (!data) return;
-                    newQuotes[ticker] = processTickerData(data);
-                });
-                setLiveQuotes(prev => ({ ...prev, ...newQuotes }));
-            } catch (e) { console.error('[M7/PhysicalAI] Live ticker poll failed', e); }
-        };
-
-        fetchFixed();
-        const interval = setInterval(fetchFixed, 15000);
-        return () => clearInterval(interval);
-    }, []);
-
-    // [V4.6] Report-only tickers — fetch after report loads
-    useEffect(() => {
-        if (!report?.items) return;
-
-        // Filter out tickers already covered by the M7/PhysicalAI effect
+        // Filter out tickers already covered by useIntelSharedData
         const fixedSet = new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS]);
         const reportOnlyTickers = report.items
             .map((i: any) => i.ticker as string)
             .filter((t: string) => !fixedSet.has(t));
 
-        if (reportOnlyTickers.length === 0) return; // all already covered
+        if (reportOnlyTickers.length === 0) return;
 
         const fetchReport = async () => {
             try {
@@ -1299,7 +1288,7 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
         fetchReport();
         const interval = setInterval(fetchReport, 15000);
         return () => clearInterval(interval);
-    }, [report]);
+    }, [report, activeTab]);
 
     // [M7 Calendar] Fetch Finnhub Earnings & Analyst Data
     useEffect(() => {
@@ -1307,7 +1296,9 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
             try {
                 const res = await fetch('/api/intel/m7-calendar', { cache: 'no-store' });
                 if (res.ok) {
-                    const data = await res.json();
+                    const calText = await res.text();
+                    const data = calText ? (() => { try { return JSON.parse(calText); } catch { return null; } })() : null;
+                    if (!data) return;
                     setM7CalendarData(data);
                 }
             } catch (e) {
@@ -1635,137 +1626,56 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
                         </div>
                     </div>
 
-                    {/* PHYSICAL AI CONTENT (The Iron Legion) - Same Layout as M7 */}
+                    {/* PHYSICAL AI CONTENT — V7.1 Unified Layout (Generic Template) */}
                     <div className={activeTab === 'PHYSICAL_AI' ? "space-y-4" : "hidden"}>
 
-                        {/* Zone A: Session Summary */}
+                        {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
                         <section>
-                            <PhysicalAISessionSummary />
+                            <SectorSessionGrid config={physicalAIConfig} quotes={sectorData.physicalAI} />
                         </section>
 
-                        {/* Zone B: Consensus + Options Pulse | Earnings Calendar (Same as M7) */}
+                        {/* Zone A-2: Ranking Row (Generic) */}
+                        <section>
+                            <SectorRankingRow config={physicalAIConfig} quotes={sectorData.physicalAI} />
+                        </section>
+
+                        {/* Zone B: Analyst Consensus + Earnings Calendar (Generic, auto-fetch) */}
                         <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {/* Left Column: Analyst Consensus + Options Pulse */}
-                            <div className="space-y-3">
-                                <PhysicalAIAnalystConsensus />
-                                <PhysicalAIOptionsPulse />
-                            </div>
-
-                            {/* Right: Earnings Calendar */}
-                            <PhysicalAIEarningsCalendar />
+                            <SectorAnalystConsensus config={physicalAIConfig} />
+                            <SectorEarningsCalendar config={physicalAIConfig} />
                         </section>
 
-                        {/* Zone D: Briefing Bar */}
+                        {/* Zone C: TacticalReportDeck (장마감 고정 보고서) */}
                         <section>
-                            <div className="mb-2 px-2 flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-orange-600/70 tracking-widest uppercase">
-                                    POST-MARKET FINAL ANALYSIS (장마감 정밀보고)
-                                </span>
-                                <span className="text-[10px] font-bold text-orange-600/70 tracking-widest uppercase">
-                                    COMPLETED AT 21:00 EST
-                                </span>
-                            </div>
-                            <PhysicalAIBriefingBar
-                                message={(() => {
-                                    if (physicalAiItems.length > 0) {
-                                        const ticker = physicalAiItems[0].ticker;
-                                        const isUp = physicalAiItems[0].evidence?.price?.changePct && physicalAiItems[0].evidence.price.changePct > 0;
-                                        if (locale === 'ko') {
-                                            return `${ticker}에서 대규모 자본 투입 감지. 섹터 모멘텀: ${isUp ? "가속 중" : "안정화 중"}.`;
-                                        } else if (locale === 'ja') {
-                                            return `${ticker}で大規模資本投入を検出。セクターモメンタム: ${isUp ? "加速中" : "安定化中"}。`;
-                                        } else {
-                                            return `DETECTING HEAVY CAPITAL DEPLOYMENT IN ${ticker}. SECTOR MOMENTUM: ${isUp ? "ACCELERATING" : "STABILIZING"}.`;
-                                        }
-                                    } else {
-                                        if (locale === 'ko') {
-                                            return "산업 그리드 연결 중...";
-                                        } else if (locale === 'ja') {
-                                            return "インダストリアルグリッドに接続中...";
-                                        } else {
-                                            return "ESTABLISHING UPLINK TO INDUSTRIAL GRID...";
-                                        }
-                                    }
-                                })()}
-                            />
-                        </section>
-
-                        {/* Zone E: Tactical Deck */}
-                        <section>
-                            <h2 className="text-sm font-bold text-orange-400 mb-4 px-2 flex items-center gap-2">
-                                <Bot className="w-4 h-4 text-orange-500" />
-                                TACTICAL DECK <span className="text-[10px] text-orange-600 uppercase tracking-wider">Sorted by Alpha Priority</span>
-                            </h2>
-                            <PhysicalAITacticalDeck />
+                            <TacticalReportDeck config={physicalAIConfig} />
                         </section>
 
                     </div>
 
 
 
-                    {/* M7 REPORT CONTENT - V3 Clean Layout (No Orbital) */}
+                    {/* M7 REPORT CONTENT — V7.1 Unified Layout (Generic Template) */}
                     <div className={activeTab === 'M7' ? "space-y-4" : "hidden"}>
 
-                        {/* Zone A: Session Summary (Full Width at Top) */}
+                        {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
                         <section>
-                            <M7SessionSummary />
+                            <SectorSessionGrid config={m7Config} quotes={sectorData.m7} />
                         </section>
 
-                        {/* Zone B: Consensus + Options Pulse | Earnings Calendar */}
+                        {/* Zone A-2: Ranking Row (Generic — Money Flow descending) */}
+                        <section>
+                            <SectorRankingRow config={m7Config} quotes={sectorData.m7} />
+                        </section>
+
+                        {/* Zone B: Analyst Consensus + Earnings Calendar (Generic, props pass-through) */}
                         <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            {/* Left Column: Analyst Consensus + Options Pulse */}
-                            <div className="space-y-3">
-                                <M7AnalystConsensus recommendations={m7CalendarData?.recommendations || {}} />
-                                <M7OptionsPulse items={m7Items} />
-                            </div>
-
-                            {/* Right: Earnings Calendar */}
-                            <M7EarningsCalendar earnings={m7CalendarData?.earnings || []} />
+                            <SectorAnalystConsensus config={m7Config} recommendations={m7CalendarData?.recommendations || {}} />
+                            <SectorEarningsCalendar config={m7Config} earnings={m7CalendarData?.earnings || []} />
                         </section>
 
-                        {/* Zone C: Briefing Bar */}
+                        {/* Zone C: TacticalReportDeck (장마감 고정 보고서) */}
                         <section>
-                            <div className="mb-2 px-2 flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase">
-                                    POST-MARKET FINAL ANALYSIS (장마감 정밀보고)
-                                </span>
-                                <span className="text-[10px] font-bold text-slate-600 tracking-widest uppercase">
-                                    COMPLETED AT 21:00 EST
-                                </span>
-                            </div>
-                            <M7BriefingBar
-                                message={(() => {
-                                    if (m7Items.length > 1) {
-                                        const sortedItems = m7Items.sort((a, b) => (b.alphaScore || 0) - (a.alphaScore || 0));
-                                        const ticker1 = sortedItems[0].ticker;
-                                        const ticker2 = sortedItems[1].ticker;
-                                        if (locale === 'ko') {
-                                            return `오늘의 자금 흐름은 ${ticker1}에 집중되고 있으며, ${ticker2}은(는) 방어적 포지셔닝을 보이고 있습니다.`;
-                                        } else if (locale === 'ja') {
-                                            return `本日の資金フローは${ticker1}に集中しており、${ticker2}はディフェンシブなポジショニングを示しています。`;
-                                        } else {
-                                            return `Today's capital flow is concentrating on ${ticker1}, while ${ticker2} shows defensive posturing.`;
-                                        }
-                                    } else {
-                                        if (locale === 'ko') {
-                                            return "M7 섹터 분석: 시장 데이터 대기 중...";
-                                        } else if (locale === 'ja') {
-                                            return "M7セクター分析: マーケットデータ待機中...";
-                                        } else {
-                                            return "M7 Sector Analysis: Waiting for Market Data...";
-                                        }
-                                    }
-                                })()}
-                            />
-                        </section>
-
-                        {/* Zone D: Tactical Deck */}
-                        <section>
-                            <h2 className="text-sm font-bold text-slate-400 mb-3 px-2 flex items-center gap-2">
-                                <Layers className="w-4 h-4 text-emerald-500" />
-                                TACTICAL DECK <span className="text-[10px] text-slate-600 uppercase tracking-wider">Sorted by Alpha Priority</span>
-                            </h2>
-                            <M7TacticalDeck />
+                            <TacticalReportDeck config={m7Config} />
                         </section>
 
                     </div>

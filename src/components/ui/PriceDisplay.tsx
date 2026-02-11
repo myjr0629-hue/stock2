@@ -212,13 +212,18 @@ export function PriceDisplayCard({
             {/* Extended Price (if available) */}
             {hasExtended && (
                 <div className="flex items-center justify-center gap-1.5 mb-1 animate-in fade-in slide-in-from-bottom-1">
-                    <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">
+                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${extendedLabel === 'POST'
+                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                            : extendedLabel === 'PRE' || extendedLabel === 'PRE CLOSE'
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                                : 'bg-slate-700/50 text-slate-400 border-slate-600/30'
+                        }`}>
                         {extendedLabel}
                     </span>
-                    <span className="text-xs font-mono font-bold text-slate-300">
+                    <span className="text-xs font-mono font-bold text-white/90">
                         ${extendedPrice.toFixed(2)}
                     </span>
-                    <span className={`text-[9px] font-bold ${extendedColor}`}>
+                    <span className={`text-[10px] font-bold ${extendedColor}`}>
                         {isExtendedUp ? '+' : ''}{extendedChangePct.toFixed(2)}%
                     </span>
                 </div>

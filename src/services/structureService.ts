@@ -455,6 +455,9 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
         let callWall = 0;
         let maxPutOi = -1;
         let putFloor = 0;
+        // [RANKING] Net Premium calculation: call premium - put premium
+        let callPremiumVol = 0;
+        let putPremiumVol = 0;
 
         cleanContracts.forEach(c => {
             const g = c.greeks?.gamma;
@@ -472,6 +475,14 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             if (c.type === 'put' && c.k < underlyingPrice && c.k >= minSupport && c.oi > maxPutOi) {
                 maxPutOi = c.oi;
                 putFloor = c.k;
+            }
+            // [RANKING] Accumulate premium volume (volume × lastPrice × 100 shares)
+            // Polygon Option Chain Snapshot uses full field names: day.volume, last_trade.price
+            const vol = c.day?.volume || c.day?.v || 0;
+            const lastPrice = c.last_trade?.price || c.last_trade?.p || c.last_quote?.midpoint || 0;
+            if (vol > 0 && lastPrice > 0) {
+                if (c.type === 'call') callPremiumVol += vol * lastPrice * 100;
+                else putPremiumVol += vol * lastPrice * 100;
             }
         });
 
@@ -687,6 +698,8 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
                 putFloor: putFloor || null,
                 pinZone: maxPain
             },
+            // [RANKING] Net Premium: positive = bullish call flow, negative = bearish put flow
+            netPremium: Math.round(callPremiumVol - putPremiumVol),
             validation, // [DATA VALIDATION] Include validation result
             sourceGrade: totalStatsContracts > 0 ? "A" : "B",
             debug: {

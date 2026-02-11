@@ -32,6 +32,7 @@ export interface M7Quote {
     pcr: number;
     gammaRegime: string;
     sparkline: number[];
+    netPremium: number;
 }
 
 export async function GET(request: Request) {
@@ -48,7 +49,9 @@ export async function GET(request: Request) {
                         cache: 'no-store'
                     });
                     if (!res.ok) return { ticker, data: null };
-                    return { ticker, data: await res.json() };
+                    const t = await res.text();
+                    if (!t) return { ticker, data: null };
+                    try { return { ticker, data: JSON.parse(t) }; } catch { return { ticker, data: null }; }
                 } catch {
                     return { ticker, data: null };
                 }
@@ -56,7 +59,12 @@ export async function GET(request: Request) {
             // Fetch watchlist batch data
             fetch(`${baseUrl}/api/watchlist/batch?tickers=${M7_TICKERS.join(',')}`, {
                 cache: 'no-store'
-            }).then(r => r.ok ? r.json() : null).catch(() => null)
+            }).then(async r => {
+                if (!r.ok) return null;
+                const t = await r.text();
+                if (!t) return null;
+                try { return JSON.parse(t); } catch { return null; }
+            }).catch(() => null)
         ]);
 
         // Build watchlist lookup map
@@ -89,7 +97,8 @@ export async function GET(request: Request) {
                     gex: 0,
                     pcr: 1,
                     gammaRegime: 'NEUTRAL',
-                    sparkline: []
+                    sparkline: [],
+                    netPremium: 0
                 });
                 return;
             }
@@ -165,7 +174,8 @@ export async function GET(request: Request) {
                 gex,
                 pcr: rt.pcr || 1,
                 gammaRegime,
-                sparkline: rt.sparkline || []
+                sparkline: rt.sparkline || [],
+                netPremium: rt.netPremium || 0
             });
         });
 
