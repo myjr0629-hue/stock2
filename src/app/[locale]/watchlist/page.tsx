@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import {
     Star, Plus, RefreshCw, Trash2, X, Loader2, Activity, Fish, Zap,
     Target, Shield, RefreshCcw, Crosshair, LayoutDashboard,
-    ArrowUpRight, ArrowDownRight, TrendingUp
+    ArrowUpRight, ArrowDownRight, TrendingUp, Search
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useLocale } from 'next-intl';
@@ -168,6 +168,7 @@ export default function WatchlistPage() {
                 <AddWatchlistModal
                     onClose={() => setShowAddModal(false)}
                     onAdd={addItem}
+                    existingTickers={items.map(i => i.ticker)}
                 />
             )}
         </div>
@@ -792,7 +793,7 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 }
 
 // ─── ADD MODAL ───────────────────────────────────────────────────────────
-function AddWatchlistModal({ onClose, onAdd }: { onClose: () => void; onAdd: (ticker: string, name: string) => Promise<void> }) {
+function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: () => void; onAdd: (ticker: string, name: string) => Promise<void>; existingTickers?: string[] }) {
     const [ticker, setTicker] = useState('');
     const [companyName, setCompanyName] = useState('');
     const [loading, setLoading] = useState(false);
@@ -800,6 +801,8 @@ function AddWatchlistModal({ onClose, onAdd }: { onClose: () => void; onAdd: (ti
     const [validated, setValidated] = useState(false);
     const t = useTranslations('watchlist');
     const tCommon = useTranslations('common');
+
+    const isDuplicate = ticker.length > 0 && existingTickers.includes(ticker.toUpperCase());
 
     const fetchTickerInfo = async (tickerInput: string) => {
         if (!tickerInput || tickerInput.length < 1) {
@@ -838,85 +841,130 @@ function AddWatchlistModal({ onClose, onAdd }: { onClose: () => void; onAdd: (ti
         }
     };
 
+    const popularTickers = ['AAPL', 'TSLA', 'NVDA', 'GOOGL', 'MSFT', 'AMZN', 'META'];
+
     return (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
             <div
-                className="relative rounded-2xl overflow-hidden max-w-md w-full"
+                className="relative rounded-2xl overflow-hidden max-w-sm w-full animate-in fade-in zoom-in-95 duration-200"
                 onClick={(e) => e.stopPropagation()}
             >
-                <div className="absolute inset-0 bg-gradient-to-br from-slate-900/95 via-[#0d1220]/95 to-slate-900/95 backdrop-blur-2xl border border-white/[0.08] rounded-2xl" />
+                {/* Background with subtle glow */}
+                <div className="absolute inset-0 bg-gradient-to-b from-[#0f1629] via-[#0d1220] to-[#0b0f1a] rounded-2xl" />
+                <div className="absolute inset-0 rounded-2xl border border-white/[0.12]" />
+                <div className="absolute -top-20 -right-20 w-40 h-40 bg-amber-500/[0.06] rounded-full blur-3xl pointer-events-none" />
+                <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-cyan-500/[0.04] rounded-full blur-3xl pointer-events-none" />
 
-                <div className="relative p-7">
-                    <div className="flex items-center justify-between mb-7">
-                        <div>
-                            <h2 className="text-xl font-black text-amber-400">{t('addToWatchlist')}</h2>
-                            <p className="text-[11px] text-slate-500 mt-0.5">{t('addToWatchlistDesc')}</p>
+                <div className="relative p-6">
+                    {/* Header */}
+                    <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/20 flex items-center justify-center">
+                                <Star className="w-4 h-4 text-amber-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-black text-white">{t('addToWatchlist')}</h2>
+                                <p className="text-[10px] text-white/70 mt-0.5">{t('addToWatchlistDesc')}</p>
+                            </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-white/[0.05] text-slate-400 hover:text-white transition-colors"
+                            className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/[0.06] text-slate-500 hover:text-white transition-all duration-200"
                         >
-                            <X className="w-5 h-5" />
+                            <X className="w-4 h-4" />
                         </button>
                     </div>
 
-                    <form onSubmit={handleSubmit} className="space-y-5">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        {/* Input */}
                         <div>
-                            <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-2 font-bold">
-                                {t('tickerSymbol')}
-                            </label>
                             <div className="relative">
+                                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-600">
+                                    <Search className="w-4 h-4" />
+                                </div>
                                 <input
                                     type="text"
                                     value={ticker}
                                     onChange={(e) => setTicker(e.target.value.toUpperCase())}
                                     placeholder="NVDA, AAPL, TSLA..."
-                                    className={`w-full bg-white/[0.03] border ${error ? 'border-rose-500/40' : validated ? 'border-amber-500/40' : 'border-white/[0.08]'} rounded-xl px-4 py-3.5 text-white text-lg font-bold focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/20 uppercase tracking-wider placeholder:text-slate-700 placeholder:font-normal transition-all`}
+                                    className={`w-full bg-white/[0.04] border ${error ? 'border-rose-500/50 focus:ring-rose-500/20' : validated ? 'border-emerald-500/40 focus:ring-emerald-500/20' : 'border-white/[0.08] focus:ring-amber-500/20'} rounded-xl pl-10 pr-10 py-3 text-white text-sm font-bold focus:border-amber-500/50 focus:outline-none focus:ring-2 uppercase tracking-widest placeholder:text-slate-600 placeholder:font-normal placeholder:tracking-normal placeholder:normal-case transition-all duration-200`}
                                     autoFocus
                                 />
-                                {loading && (
-                                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
-                                        <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />
-                                    </div>
-                                )}
-                                {validated && !loading && (
-                                    <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-amber-400 text-sm font-bold">✓</div>
-                                )}
+                                <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
+                                    {loading && <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />}
+                                    {validated && !loading && (
+                                        <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+                                            <span className="text-emerald-400 text-[10px] font-black">✓</span>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
-                            {error && <p className="text-rose-400 text-xs mt-1.5">{error}</p>}
-                            {companyName && !error && (
-                                <div className="flex items-center gap-2.5 mt-3 p-2.5 rounded-lg bg-white/[0.02] border border-white/[0.04]">
-                                    <div className="w-7 h-7 rounded-lg bg-slate-800/80 border border-white/[0.06] flex items-center justify-center overflow-hidden">
-                                        <img
-                                            src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
-                                            alt={ticker}
-                                            className="w-5 h-5 object-contain"
-                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                        />
-                                    </div>
-                                    <span className="text-sm text-slate-300 font-medium">{companyName}</span>
+                            {error && <p className="text-rose-400 text-[11px] mt-1.5 flex items-center gap-1"><span className="text-rose-400/60">⚠</span> {error}</p>}
+                            {isDuplicate && !error && (
+                                <div className="flex items-center gap-2 mt-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/[0.08] border border-amber-500/15">
+                                    <span className="text-amber-400/80 text-xs">⚠</span>
+                                    <span className="text-amber-400 text-[11px] font-semibold">{ticker.toUpperCase()} is already in your watchlist</span>
                                 </div>
                             )}
                         </div>
 
-                        <div className="flex gap-3 pt-1">
+                        {/* Company preview card */}
+                        {companyName && !error && (
+                            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] transition-all duration-300">
+                                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0 shadow-md">
+                                    <img
+                                        src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
+                                        alt={ticker}
+                                        className="w-6 h-6 object-contain"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                </div>
+                                <div className="min-w-0">
+                                    <div className="text-[13px] text-white font-bold truncate">{companyName}</div>
+                                    <div className="text-[10px] text-slate-500 font-medium tracking-wider">{ticker.toUpperCase()}</div>
+                                </div>
+                                <div className="ml-auto text-emerald-400/80 text-[10px] font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/10">READY</div>
+                            </div>
+                        )}
+
+                        {/* Quick picks */}
+                        {!validated && (
+                            <div>
+                                <div className="text-[9px] text-slate-600 uppercase tracking-widest font-bold mb-2">Popular</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {popularTickers.map(tk => (
+                                        <button
+                                            key={tk}
+                                            type="button"
+                                            onClick={() => setTicker(tk)}
+                                            className="px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[11px] text-slate-400 font-bold hover:bg-white/[0.08] hover:text-white hover:border-white/[0.12] transition-all duration-200 tracking-wide"
+                                        >
+                                            {tk}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div className="flex gap-2.5 pt-1">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="flex-1 px-4 py-3 bg-white/[0.03] text-slate-300 rounded-xl font-bold hover:bg-white/[0.06] transition-all border border-white/[0.06]"
+                                className="flex-1 px-4 py-2.5 bg-white/[0.03] text-slate-400 rounded-xl text-sm font-bold hover:bg-white/[0.06] hover:text-slate-200 transition-all duration-200 border border-white/[0.06]"
                             >
                                 {tCommon('cancel')}
                             </button>
                             <button
                                 type="submit"
-                                disabled={!validated || loading}
-                                className="flex-1 px-4 py-3 bg-gradient-to-r from-amber-500/80 to-orange-500/70 text-white rounded-xl font-bold hover:from-amber-500/90 hover:to-orange-500/80 transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-amber-500/10"
+                                disabled={!validated || loading || isDuplicate}
+                                className="flex-[1.3] px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-sm font-black hover:from-amber-400 hover:to-orange-400 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30"
                             >
                                 {loading ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
                                     <>
-                                        <Star className="w-4 h-4" />
+                                        <Plus className="w-4 h-4" />
                                         {tCommon('add')}
                                     </>
                                 )}
