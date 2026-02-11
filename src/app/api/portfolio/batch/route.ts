@@ -108,35 +108,39 @@ export async function GET(request: Request) {
     // Process all tickers in parallel
     const results = await Promise.all(tickers.map(async (ticker) => {
         try {
-            // ── PRICE-ONLY MODE (fast, 5s interval) ──
+            // ── PRICE-ONLY MODE (fast, 5s interval) — Polygon snapshot only, no cache ──
             if (mode === 'price') {
-                const stockData = await getStockDataLight(ticker).catch(() => null);
-                if (!stockData) return { ticker, error: 'Stock data unavailable' };
+                const snapRes = await fetchMassive(
+                    `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
+                    {},
+                    false,                          // useCache = false
+                    undefined,
+                    { cache: 'no-store' as RequestCache }
+                ).catch(() => null);
 
-                const dailyResults = stockData.dailyResults || [];
+                const t = snapRes?.ticker;
+                if (!t) return { ticker, error: 'Snapshot unavailable' };
+
+                const liveLast = t?.lastTrade?.p || 0;
+                const dayClose = t?.day?.c || 0;
+                const prevClose = t?.prevDay?.c || 0;
+
                 const { getETNow } = await import('@/services/timezoneUtils');
                 const et = getETNow();
                 const etTime = et.hour + et.minute / 60;
                 const isREG = !et.isWeekend && etTime >= 9.5 && etTime < 16;
 
-                let changePct = stockData.changePercent || 0;
-                if (!isREG && dailyResults.length >= 2) {
-                    const lastBar = dailyResults[dailyResults.length - 1];
-                    const prevBar = dailyResults[dailyResults.length - 2];
-                    if (lastBar?.close && prevBar?.close) {
-                        changePct = ((lastBar.close - prevBar.close) / prevBar.close) * 100;
-                    }
-                }
+                const price = isREG ? (liveLast || dayClose || prevClose) : (dayClose || prevClose);
+                const changePct = (price > 0 && prevClose > 0) ? ((price - prevClose) / prevClose) * 100 : 0;
 
                 return {
                     ticker,
                     realtime: {
-                        price: stockData.price || 0,
-                        change: stockData.change || 0,
+                        price,
+                        change: price - prevClose,
                         changePct,
-                        session: stockData.session || 'reg',
-                        isExtended: stockData.isExtended,
-                        sparkline: stockData.history?.slice(-20).map((h: any) => h.close) || [],
+                        session: isREG ? 'reg' : 'post',
+                        isExtended: !isREG,
                     }
                 };
             }
