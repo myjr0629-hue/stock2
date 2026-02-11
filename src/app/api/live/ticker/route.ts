@@ -697,6 +697,21 @@ export async function GET(req: NextRequest) {
         console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
     });
 
+    // [FIX] Persist pre/post prices separately — survives session transitions
+    // Only write when we have valid values (avoid overwriting with null)
+    const extPrices: Record<string, any> = {};
+    if (prePrice && prePrice > 0) {
+        extPrices.prePrice = prePrice;
+        extPrices.preChangePct = changePctFrac_PRE !== null ? changePctFrac_PRE * 100 : 0;
+    }
+    if (postPrice && postPrice > 0) {
+        extPrices.postPrice = postPrice;
+        extPrices.postChangePct = changePctFrac_POST !== null ? changePctFrac_POST * 100 : 0;
+    }
+    if (Object.keys(extPrices).length > 0) {
+        setInCache(`flow:extended:${ticker}`, extPrices, 86400).catch(() => { }); // 24h TTL
+    }
+
     return new Response(JSON.stringify(response), {
         status: 200,
         headers: {

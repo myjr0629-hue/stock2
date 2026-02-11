@@ -107,30 +107,34 @@ export function useIntelSharedData(): IntelSharedData & { refresh: () => void } 
         }
     }, []);
 
-    // ── Phase 2: Full API — complete data with options/alpha (~15s) ──
+    // ── Phase 2: Options/Alpha via watchlist/batch — much faster (~3-5s) ──
+    // Instead of calling /api/intel/m7 (which calls 7× /api/live/ticker individually),
+    // we call /api/watchlist/batch directly — it uses getStockDataLight + parallel options fetch
     const fetchFull = useCallback(async () => {
         if (isFullFetching.current) return;
         isFullFetching.current = true;
         setOptionsLoading(true);
 
         try {
-            const [m7Res, paiRes] = await Promise.all([
-                safeFetch('/api/intel/m7'),
-                safeFetch('/api/intel/physicalai')
+            const [m7Batch, paiBatch] = await Promise.all([
+                safeFetch(`/api/watchlist/batch?tickers=${M7_TICKERS.join(',')}`),
+                safeFetch(`/api/watchlist/batch?tickers=${PHYSICAL_AI_TICKERS.join(',')}`)
             ]);
 
-            if (m7Res?.data?.length > 0) {
-                setM7Data(m7Res.data);
+            // Merge batch results into existing Phase 1 data
+            if (m7Batch?.results) {
+                setM7Data(prev => mergeWatchlistBatchIntoQuotes(prev, m7Batch.results));
             }
 
-            if (paiRes?.data?.length > 0) {
-                setPhysicalAIData(paiRes.data);
+            if (paiBatch?.results) {
+                setPhysicalAIData(prev => mergeWatchlistBatchIntoQuotes(prev, paiBatch.results));
             }
 
             hasFullData.current = true;
             setOptionsLoading(false);
             setFetchedAt(new Date().toISOString());
-            console.log('[IntelSharedData] ✅ Full data loaded (options/alpha complete)');
+            const elapsed = m7Batch?.meta?.elapsed || 0;
+            console.log(`[IntelSharedData] ✅ Full data loaded via watchlist/batch (${elapsed}ms)`);
         } catch (e) {
             console.error('[IntelSharedData] Full fetch failed:', e);
             setOptionsLoading(false);
@@ -219,3 +223,38 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
 
 // Export ticker constants for components
 export { M7_TICKERS, PHYSICAL_AI_TICKERS };
+
+/**
+ * Merge watchlist/batch results (alpha + options) into existing Phase 1 quotes.
+ * Preserves Phase 1 prices while enriching with options/alpha data.
+ */
+function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResults: any[]): IntelQuote[] {
+    const batchMap = new Map<string, any>();
+    batchResults.forEach((r: any) => {
+        if (r.ticker && !r.error) batchMap.set(r.ticker, r);
+    });
+
+    return existingQuotes.map(existing => {
+        const batch = batchMap.get(existing.ticker);
+        if (!batch) return existing;
+
+        const rt = batch.realtime || {};
+        const alpha = batch.alphaSnapshot || {};
+        const gex = rt.gex || 0;
+
+        return {
+            ...existing,
+            // Options data from watchlist/batch
+            alphaScore: alpha.score || existing.alphaScore,
+            grade: alpha.grade || existing.grade,
+            maxPain: rt.maxPain || existing.maxPain,
+            callWall: rt.callWall || existing.callWall,
+            putFloor: rt.putFloor || existing.putFloor,
+            gex: gex || existing.gex,
+            pcr: rt.pcr || existing.pcr,
+            gammaRegime: gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : existing.gammaRegime,
+            sparkline: rt.sparkline?.length > 0 ? rt.sparkline : existing.sparkline,
+            netPremium: rt.netPremium || existing.netPremium,
+        };
+    });
+}

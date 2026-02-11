@@ -51,6 +51,12 @@ export interface TickerSnapshot {
     analysis_kr: string;              // 한줄 AI 요약
 }
 
+export interface BriefingData {
+    headline: string;                 // Bold 18px headline
+    bullets: string[];                // 3 bullet points (keywords wrapped in <mark>)
+    watchpoints: string[];            // Key levels to watch
+}
+
 export interface SectorSummary {
     avg_alpha: number;
     gainers: number;
@@ -59,7 +65,8 @@ export interface SectorSummary {
     avg_pcr: number;
     total_gex: number;
     outlook: string;                  // 'BULLISH' | 'BEARISH' | 'NEUTRAL'
-    next_day_briefing_kr: string;
+    next_day_briefing_kr: string;     // Legacy string (backward compat)
+    briefing?: BriefingData;          // Structured briefing (new)
 }
 
 export interface SnapshotData {

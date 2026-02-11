@@ -197,12 +197,13 @@ export function PriceDisplayCard({
     const isExtendedUp = extendedChangePct >= 0;
     const extendedColor = isExtendedUp ? 'text-emerald-400' : 'text-rose-400';
 
-    const hasExtended = extendedPrice && extendedPrice > 0 && extendedLabel;
+    // Show extended data even when session is over (user wants to see last known POST/PRE data)
+    const hasExtended = extendedPrice && extendedPrice > 0;
 
     return (
         <div className="flex flex-col items-center">
             {/* Main Price */}
-            <div className="text-xl font-black text-white tracking-tighter tabular-nums drop-shadow-sm">
+            <div className="text-2xl font-black text-white tracking-tighter tabular-nums drop-shadow-sm">
                 ${intradayPrice.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
@@ -212,13 +213,11 @@ export function PriceDisplayCard({
             {/* Extended Price (if available) */}
             {hasExtended && (
                 <div className="flex items-center justify-center gap-1.5 mb-1 animate-in fade-in slide-in-from-bottom-1">
-                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${extendedLabel === 'POST'
-                            ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
-                            : extendedLabel === 'PRE' || extendedLabel === 'PRE CLOSE'
-                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                                : 'bg-slate-700/50 text-slate-400 border-slate-600/30'
+                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${(extendedLabel || 'POST') === 'POST'
+                        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                         }`}>
-                        {extendedLabel}
+                        {extendedLabel || 'POST'}
                     </span>
                     <span className="text-xs font-mono font-bold text-white/90">
                         ${extendedPrice.toFixed(2)}
@@ -230,14 +229,14 @@ export function PriceDisplayCard({
             )}
 
             {/* Change Percentage */}
-            <div className={`flex items-center justify-center gap-0.5 text-[11px] font-bold tracking-tight ${intradayColor} ${isIntradayUp
+            <div className={`flex items-center justify-center gap-0.5 text-sm font-bold tracking-tight ${intradayColor} ${isIntradayUp
                 ? 'drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]'
                 : 'drop-shadow-[0_0_8px_rgba(251,113,133,0.3)]'
                 }`}>
                 {showArrows && (
                     isIntradayUp
-                        ? <ArrowUpRight className="w-3 h-3" />
-                        : <ArrowDownRight className="w-3 h-3" />
+                        ? <ArrowUpRight className="w-3.5 h-3.5" />
+                        : <ArrowDownRight className="w-3.5 h-3.5" />
                 )}
                 {isIntradayUp ? '+' : ''}{intradayChangePct.toFixed(2)}%
             </div>

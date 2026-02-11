@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
     try {
         // ── Phase 1: Parallel fetch — Polygon batch + Redis cache ──
-        const [snapshotData, marketStatus, ...cachedTickers] = await Promise.all([
+        const [snapshotData, marketStatus, ...interleaved] = await Promise.all([
             // 1. Polygon batch snapshot — single API call for all tickers (~500ms)
             fetchMassive(
                 `/v2/snapshot/locale/us/markets/stocks/tickers`,
@@ -49,9 +49,16 @@ export async function GET(request: Request) {
             // 2. Market status for session detection
             CentralDataHub.getMarketStatus().catch(() => ({ session: 'closed' })),
 
-            // 3. Redis cached data for each ticker (from /api/live/ticker cache)
-            ...tickers.map(t => getFromCache<any>(tickerCacheKey(t)).catch(() => null))
+            // 3. Redis cached data + persistent extended prices (interleaved)
+            ...tickers.flatMap(t => [
+                getFromCache<any>(tickerCacheKey(t)).catch(() => null),
+                getFromCache<any>(`flow:extended:${t}`).catch(() => null)
+            ])
         ]);
+
+        // De-interleave: [cached0, ext0, cached1, ext1, ...] → separate arrays
+        const cachedTickers = tickers.map((_, i) => interleaved[i * 2]);
+        const extendedCache = tickers.map((_, i) => interleaved[i * 2 + 1]);
 
         // Build snapshot lookup map
         const snapshotMap: Record<string, any> = {};
@@ -99,10 +106,12 @@ export async function GET(request: Request) {
                 }
             }
 
-            // Extended hours
+            // Extended hours — uses persistent Redis key (flow:extended:{ticker})
+            // This key only gets written when pre/post prices are valid (never overwritten with null)
             let extendedPrice = 0;
             let extendedChangePct = 0;
             let extendedLabel = '';
+            const persistedExt = extendedCache[i]; // from flow:extended:{ticker} (24h TTL)
 
             if (session === 'PRE') {
                 extendedPrice = latestPrice;
@@ -111,11 +120,19 @@ export async function GET(request: Request) {
                     extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
                 }
             } else if (session === 'POST' || session === 'CLOSED') {
-                // Post-market price from snapshot afterHours
-                extendedPrice = snap?.afterHours?.p || 0;
+                // Post-market: Polygon afterHours → persistent cache → ticker cache
+                extendedPrice = snap?.afterHours?.p || persistedExt?.postPrice || 0;
                 extendedLabel = 'POST';
                 if (extendedPrice > 0 && displayPrice > 0) {
-                    extendedChangePct = ((extendedPrice - displayPrice) / displayPrice) * 100;
+                    extendedChangePct = persistedExt?.postChangePct || ((extendedPrice - displayPrice) / displayPrice) * 100;
+                }
+            } else if (session === 'REG') {
+                // During REG: show pre-market close from persistent cache
+                const cachedPrePrice = persistedExt?.prePrice || 0;
+                if (cachedPrePrice > 0) {
+                    extendedPrice = cachedPrePrice;
+                    extendedLabel = 'PRE';
+                    extendedChangePct = persistedExt?.preChangePct || 0;
                 }
             }
 
