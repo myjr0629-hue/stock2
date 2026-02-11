@@ -43,7 +43,7 @@ interface Props {
     chartDiagnostics?: ChartDiagnostics; // [S-56.4.7] No-Silence UX
 }
 
-const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaData, newsScore, liveQuote }: any) => {
+const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaData, newsScore, liveQuote, analystData, fundamentalData, institutionalData }: any) => {
     const t = useTranslations('command');
 
     // === Data Completeness Check (only structure is required) ===
@@ -93,8 +93,9 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
     // === Integrated Scoring ===
     let bullScore = 0, bearScore = 0;
     const insights: { text: string; type: 'bull' | 'bear' | 'neutral' }[] = [];
+    const isREG = session === 'REG';
 
-    // 1. SMA Trend (replaces MACD)
+    // 1. SMA Trend — 항상 활성 (일봉 기반)
     if (smaData?.cross === 'GOLDEN') {
         bullScore += 25;
         insights.push({ text: 'GOLDEN Cross ✨', type: 'bull' });
@@ -103,8 +104,8 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         insights.push({ text: 'DEAD Cross ☠️', type: 'bear' });
     }
 
-    // 2. Price vs Max Pain
-    if (maxPain > 0) {
+    // 2. Price vs Max Pain — 본장만
+    if (isREG && maxPain > 0) {
         const mpDist = ((displayPrice - maxPain) / maxPain) * 100;
         if (mpDist > 3) {
             bullScore += 15;
@@ -117,25 +118,29 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         }
     }
 
-    // 3. GEX
-    if (netGex > 0) {
-        bullScore += 10;
-        insights.push({ text: '롱감마 (안정)', type: 'bull' });
-    } else if (netGex < 0) {
-        bearScore += 5;
-        insights.push({ text: '숏감마 (변동성↑)', type: 'bear' });
+    // 3. GEX — 본장만
+    if (isREG) {
+        if (netGex > 0) {
+            bullScore += 10;
+            insights.push({ text: '롱감마 (안정)', type: 'bull' });
+        } else if (netGex < 0) {
+            bearScore += 5;
+            insights.push({ text: '숏감마 (변동성↑)', type: 'bear' });
+        }
     }
 
-    // 4. Flow
-    if (netPremium > 500000) {
-        bullScore += 15;
-        insights.push({ text: '콜 플로우 우세', type: 'bull' });
-    } else if (netPremium < -500000) {
-        bearScore += 15;
-        insights.push({ text: '풋 플로우 우세', type: 'bear' });
+    // 4. Flow — 본장만
+    if (isREG) {
+        if (netPremium > 500000) {
+            bullScore += 15;
+            insights.push({ text: '콜 플로우 우세', type: 'bull' });
+        } else if (netPremium < -500000) {
+            bearScore += 15;
+            insights.push({ text: '풋 플로우 우세', type: 'bear' });
+        }
     }
 
-    // 5. News
+    // 5. News — 항상 활성
     if (newsScore && newsScore.score >= 70) {
         bullScore += 10;
         insights.push({ text: '뉴스 긍정적', type: 'bull' });
@@ -144,14 +149,68 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         insights.push({ text: '뉴스 부정적', type: 'bear' });
     }
 
-    // 6. Rumor penalty
+    // 6. Rumor penalty — 항상 활성
     if (hasRumor) {
         bearScore += 10;
         insights.push({ text: '⚠️ 루머 감지', type: 'bear' });
     }
 
-    // 7. 0DTE
-    if (zeroDteRatio > 0.3) {
+    // 7. VWAP — 본장만 (장중 거래량 가중 평균)
+    if (isREG) {
+        const vwap = liveQuote?.vwap || 0;
+        const price = displayPrice || 0;
+        if (vwap > 0 && price > 0) {
+            const vwapDiff = ((price - vwap) / vwap) * 100;
+            if (vwapDiff > 1) {
+                bullScore += 8;
+                insights.push({ text: `VWAP 상회 +${vwapDiff.toFixed(1)}%`, type: 'bull' });
+            } else if (vwapDiff < -1) {
+                bearScore += 8;
+                insights.push({ text: `VWAP 하회 ${vwapDiff.toFixed(1)}%`, type: 'bear' });
+            }
+        }
+    }
+
+    // 8. Analyst Consensus — 항상 활성 (정적 데이터)
+    if (analystData?.totalAnalysts > 0) {
+        const bd = analystData.breakdown;
+        const buyCount = bd ? bd.strongBuy + bd.buy : 0;
+        const buyPct = Math.round((buyCount / analystData.totalAnalysts) * 100);
+        if (buyPct >= 80) {
+            bullScore += 10;
+            insights.push({ text: `애널리스트 ${buyPct}% 매수`, type: 'bull' });
+        } else if (buyPct <= 30) {
+            bearScore += 10;
+            insights.push({ text: `애널리스트 ${buyPct}% 매수`, type: 'bear' });
+        }
+    }
+
+    // 9. Fundamental Grade — 항상 활성 (분기별 데이터)
+    if (fundamentalData?.score > 0) {
+        if (fundamentalData.grade?.startsWith('A')) {
+            bullScore += 5;
+            insights.push({ text: `재무 ${fundamentalData.grade}`, type: 'bull' });
+        } else if (fundamentalData.grade?.startsWith('D') || fundamentalData.grade === 'F') {
+            bearScore += 5;
+            insights.push({ text: `재무 ${fundamentalData.grade}`, type: 'bear' });
+        }
+    }
+
+    // 10. Dark Pool 방향 — 본장만 (실시간 체결 기반, 옵션 아님)
+    if (isREG && institutionalData?.darkPool) {
+        const dpBuyPct = institutionalData.darkPool.buyPct || 0;
+        const dpSellPct = institutionalData.darkPool.sellPct || 0;
+        if (dpBuyPct > 55) {
+            bullScore += 10;
+            insights.push({ text: `다크풀 매수 ${dpBuyPct}%`, type: 'bull' });
+        } else if (dpSellPct > 55) {
+            bearScore += 10;
+            insights.push({ text: `다크풀 매도 ${dpSellPct}%`, type: 'bear' });
+        }
+    }
+
+    // 11. 0DTE — 본장만
+    if (isREG && zeroDteRatio > 0.3) {
         insights.push({ text: '0DTE 고비중', type: 'neutral' });
     }
 
@@ -167,11 +226,23 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         verdictKR = '대기';
         briefing = '옵션 데이터 검증 중입니다.';
         subBriefing = '데이터 안정화 후 분석이 진행됩니다.';
-    } else if (session === 'CLOSED') {
-        verdict = 'NEUTRAL';
-        verdictKR = '마감';
-        briefing = '시장이 마감되었습니다.';
-        subBriefing = `${ticker}의 당일 분석이 종료되었습니다. 익일 개장 후 새로운 분석을 확인하세요.`;
+    } else if (!isREG) {
+        // PRE, POST, CLOSED — SMA + 뉴스 기반 부분 분석
+        const sessionLabel = session === 'PRE' ? '프리마켓' : session === 'POST' ? '애프터마켓' : '마감';
+        if (diff >= 15) {
+            verdict = 'BULLISH';
+            verdictKR = '상승 편향';
+        } else if (diff <= -15) {
+            verdict = 'BEARISH';
+            verdictKR = '하락 편향';
+        } else {
+            verdict = 'NEUTRAL';
+            verdictKR = '중립';
+        }
+        briefing = `${sessionLabel} 세션 — SMA·뉴스 기반 분석 (옵션 분석은 본장에만 제공)`;
+        subBriefing = insights.length > 0
+            ? `감지된 시그널: ${insights.map(i => i.text).join(', ')}`
+            : `${ticker}의 실시간 옵션 구조 분석은 정규장(9:30~16:00 ET) 개장 시 자동으로 시작됩니다.`;
     } else if (diff >= 25) {
         verdict = 'BULLISH';
         verdictKR = '상승';
@@ -513,7 +584,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         if (newsScore && newsScore.score >= 70) score += 10;
         else if (newsScore && newsScore.score < 40) score -= 10;
         // VWAP
-        const vwap = liveQuote?.prices?.vwap || initialStockData?.vwap || 0;
+        const vwap = liveQuote?.vwap || initialStockData?.vwap || 0;
         const price = displayPrice || 0;
         if (vwap > 0 && price > 0) {
             const vwapDiff = ((price - vwap) / vwap) * 100;
@@ -979,7 +1050,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                     {/* [1-3] VWAP */}
                     {(() => {
-                        const vwap = liveQuote?.prices?.vwap || initialStockData?.vwap || 0;
+                        const vwap = liveQuote?.vwap || initialStockData?.vwap || 0;
                         const price = displayPrice || 0;
                         const vwapDiff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
                         const vwapDesc = vwapDiff > 2 ? 'VWAP 상회 → 매수세 우위' : vwapDiff < -2 ? 'VWAP 하회 → 매도세 우위' : 'VWAP 근접 → 중립 구간';
@@ -1280,7 +1351,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             {relatedData?.topRelated && relatedData.topRelated.length > 0 ? (
                                 relatedData.topRelated.slice(0, 3).map((item, idx) => (
                                     <div key={idx} className="flex items-center justify-between">
-                                        <span className="text-[11px] font-bold text-white">{item.ticker}</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <img
+                                                src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
+                                                alt={item.ticker}
+                                                className="w-4 h-4 rounded-full object-cover bg-white/10"
+                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                            />
+                                            <span className="text-[11px] font-bold text-white">{item.ticker}</span>
+                                        </div>
                                         <span className={`text-[11px] font-bold tabular-nums ${item.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                             {item.change >= 0 ? '+' : ''}{item.change}%
                                         </span>
@@ -1879,6 +1958,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     smaData={smaData}
                                     newsScore={newsScore}
                                     liveQuote={liveQuote}
+                                    analystData={analystData}
+                                    fundamentalData={fundamentalData}
+                                    institutionalData={institutionalData}
                                 />
                             </div>
 
