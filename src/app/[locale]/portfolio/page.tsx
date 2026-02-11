@@ -14,28 +14,16 @@ import { Link } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
 
 export default function PortfolioPage() {
-    const { holdings, summary, loading, isRefreshing, refresh, refreshPriceOnly, removeHolding } = usePortfolio();
+    const { holdings, summary, loading, isRefreshing, refresh, removeHolding } = usePortfolio();
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingHolding, setEditingHolding] = useState<EnrichedHolding | null>(null);
     const t = useTranslations('portfolio');
     const tCommon = useTranslations('common');
     const locale = useLocale();
 
-    // Dual-interval polling:
+    // SWR handles dual-interval polling automatically:
     // - Price/P&L: every 5 seconds (lightweight, price-only API)
     // - Alpha/Signal/Action: every 30 seconds (full API with engine)
-    useEffect(() => {
-        const priceInterval = setInterval(() => {
-            refreshPriceOnly();
-        }, 5000); // 5 seconds
-        const fullInterval = setInterval(() => {
-            refresh();
-        }, 30000); // 30 seconds
-        return () => {
-            clearInterval(priceInterval);
-            clearInterval(fullInterval);
-        };
-    }, [refresh, refreshPriceOnly]);
 
     // Calculate portfolio score (average of all alpha scores)
     const portfolioScore = holdings.length > 0
