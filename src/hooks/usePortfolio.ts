@@ -104,12 +104,16 @@ export function usePortfolio() {
             const priceApi = priceResults[holding.ticker];
 
             // Use 5s fast price if available, else 30s full data
-            const rt = priceApi?.realtime || fullApi?.realtime;
+            // Merge: price from fast poll, sparkline/indicators from full data
+            const fullRt = fullApi?.realtime;
+            const priceRt = priceApi?.realtime;
+            const rt = fullRt || priceRt;
             const alpha = fullApi?.alphaSnapshot; // Alpha only from full data
 
             if (rt) {
-                const price = rt.price || 0;
-                const changePct = rt.changePct || 0;
+                // Price: prefer fast 5s poll, fallback to full 30s
+                const price = priceRt?.price || fullRt?.price || 0;
+                const changePct = priceRt?.changePct ?? fullRt?.changePct ?? 0;
                 const marketValue = holding.quantity * price;
                 const costBasis = holding.quantity * holding.avgPrice;
                 const gainLoss = marketValue - costBasis;
@@ -118,10 +122,10 @@ export function usePortfolio() {
                 return {
                     ...holding,
                     currentPrice: price,
-                    change: rt.change || 0,
+                    change: priceRt?.change ?? fullRt?.change ?? 0,
                     changePct,
-                    session: rt.session,
-                    isExtended: rt.isExtended,
+                    session: priceRt?.session || fullRt?.session,
+                    isExtended: priceRt?.isExtended ?? fullRt?.isExtended,
                     marketValue,
                     gainLoss,
                     gainLossPct,
@@ -131,15 +135,15 @@ export function usePortfolio() {
                     action: alpha?.action,
                     confidence: alpha?.confidence,
                     triggers: alpha?.triggers,
-                    // Realtime data
-                    sparkline: rt.sparkline,
-                    threeDay: rt.threeDay,
-                    rsi: rt.rsi,
-                    rvol: rt.rvol,
-                    maxPainDist: rt.maxPainDist,
-                    gex: rt.gex,
-                    gexM: rt.gexM,
-                    tripleA: rt.tripleA,
+                    // Sparkline & indicators from full data (30s) — preserved
+                    sparkline: fullRt?.sparkline,
+                    threeDay: fullRt?.threeDay,
+                    rsi: fullRt?.rsi,
+                    rvol: fullRt?.rvol,
+                    maxPainDist: fullRt?.maxPainDist,
+                    gex: fullRt?.gex,
+                    gexM: fullRt?.gexM,
+                    tripleA: fullRt?.tripleA,
                 };
             }
 
