@@ -896,7 +896,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </div>
                     <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter">{ticker}</h1>
                     <span className="text-xs text-slate-500 font-bold tracking-tight uppercase">{initialStockData.name}</span>
-                    <FavoriteToggle ticker={ticker} />
+                    <FavoriteToggle ticker={ticker} name={initialStockData.name} />
                     {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={12} />}
                 </div>
 

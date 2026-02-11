@@ -166,7 +166,7 @@ function FlowPageContent() {
                                 </div>
                                 <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter">{ticker}</h1>
                                 <span className="text-xs text-slate-500 font-bold tracking-tight uppercase">{liveQuote?.name || 'Loading...'}</span>
-                                <FavoriteToggle ticker={ticker} />
+                                <FavoriteToggle ticker={ticker} name={liveQuote?.name} />
                                 {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={12} />}
                             </div>
 
