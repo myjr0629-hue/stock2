@@ -412,3 +412,14 @@
   --card-glow-peak: 0 0 28px rgba(234, 179, 8, 0.3);
   animation: card-breathe 5s ease-in-out infinite;
 }
+
+/* [FLOW] Premium shimmer sweep for glass elements */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
+  }
+
+  100% {
+    background-position: -200% 0;
+  }
+}

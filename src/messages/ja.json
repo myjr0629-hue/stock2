@@ -411,8 +411,8 @@
     },
     "flowRadar": {
         "volumePreMarket": "⚡ Volume: プレマーケット待機中 - 本場開始時に有効化",
-        "volumeActive": "⚡ Volume: デイトレード/モメンタム - 本日のWhale戦場",
-        "oiSwing": "🏰 OI (Open Interest): Swing/Trend - MMが構築した真のS/R壁",
+        "volumeActive": "短期実戦 | ダークプール·機関約定·オプションフロー — 通常チャートでは見えないリアルタイム需給の実態",
+        "oiSwing": "中長期構造 | 累積建玉が形成した支持·抵抗 — 市場の表面下に隠された価格設計図",
         "putFlowDown": "Put Flow (弱気)",
         "callFlowUp": "Call Flow (強気)",
         "hiddenPositionDesc": "このチャートは一般投資家には見えないWhaleとMM（マーケットメイカー）の隠れたポジションとヘッジ構造を分析します",

@@ -411,8 +411,8 @@
     },
     "flowRadar": {
         "volumePreMarket": "⚡ Volume(거래량): 장전(Pre) 대기중 - 본장 시작 시 활성화",
-        "volumeActive": "⚡ Volume(거래량): '단타/모멘텀' - 오늘 고래들이 싸우는 현장",
-        "oiSwing": "🏰 OI(누적매물): '스윙/추세' - MM이 설계한 진짜 지지/저항 성벽",
+        "volumeActive": "단기 실전 | 다크풀·기관 체결·옵션 플로우 — 일반 차트에서는 보이지 않는 실시간 수급의 실체",
+        "oiSwing": "중장기 구조 | 누적 미결제약정이 형성한 지지·저항 — 시장 표면 아래 숨겨진 가격 설계도",
         "putFlowDown": "Put Flow (하락)",
         "callFlowUp": "Call Flow (상승)",
         "hiddenPositionDesc": "이 차트는 일반 투자자들은 볼 수 없는 \"고래(Whale)와 마켓메이커(MM)\"의 숨겨진 포지션과 헷징 구조를 실시간 분석합니다.",

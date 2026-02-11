@@ -1241,11 +1241,16 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                     </div>
                 </div>
 
-                {/* 2. Center: Strategy Tip */}
+                {/* 2. Center: Strategy Tip — Glass Pill */}
                 <div className="hidden md:flex flex-1 justify-center">
-                    <div className="flex items-center gap-2 px-4 py-1.5 bg-indigo-500/10 rounded-full border border-indigo-500/20">
-                        <Lightbulb size={12} className="text-indigo-300" />
-                        <span className="text-[10px] text-indigo-200 font-bold tracking-wide">
+                    <div
+                        className="relative flex items-center gap-2.5 px-5 py-2 rounded-full border border-cyan-500/25 bg-[#0d1117]/90 backdrop-blur-sm overflow-hidden"
+                        style={{ boxShadow: '0 0 12px rgba(34,211,238,0.08), inset 0 1px 0 rgba(255,255,255,0.04)' }}
+                    >
+                        {/* Shimmer sweep */}
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-transparent via-cyan-400/[0.06] to-transparent animate-[shimmer_4s_linear_infinite] pointer-events-none" style={{ backgroundSize: '200% 100%' }} />
+                        <Lightbulb size={13} className="text-cyan-400/70 relative z-10 shrink-0" />
+                        <span className="text-[10px] text-slate-300 font-medium tracking-wide relative z-10 leading-relaxed">
                             {effectiveViewMode === 'VOLUME'
                                 ? (isMarketClosed ? t('volumePreMarket') : t('volumeActive'))
                                 : t('oiSwing')}

@@ -411,8 +411,8 @@
     },
     "flowRadar": {
         "volumePreMarket": "⚡ Volume: Pre-market wait - Activates at market open",
-        "volumeActive": "⚡ Volume: Day trading/Momentum - Where whales fight today",
-        "oiSwing": "🏰 OI (Open Interest): Swing/Trend - Real S/R walls built by MM",
+        "volumeActive": "Short-Term Tactical | Dark Pool, Institutional Flow, Options — Real-time supply dynamics invisible on standard charts",
+        "oiSwing": "Mid/Long-Term Structure | Accumulated open interest reveals true support and resistance — The hidden blueprint beneath the surface",
         "putFlowDown": "Put Flow (Bearish)",
         "callFlowUp": "Call Flow (Bullish)",
         "hiddenPositionDesc": "This chart analyzes hidden positions and hedging structures of Whales and Market Makers (MM) that regular investors cannot see.",
