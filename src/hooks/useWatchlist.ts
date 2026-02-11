@@ -14,6 +14,10 @@ export interface EnrichedWatchlistItem extends WatchlistItem {
     currentPrice: number;
     changePct: number;
     session?: 'pre' | 'reg' | 'post';
+    // Session-aware price decomposition
+    regChangePct?: number;     // Regular session change % (from prevClose)
+    extChangePct?: number;     // Extended hours change % (from reg close)
+    extLabel?: 'PRE' | 'POST'; // Extended session label
     // Alpha
     alphaScore?: number;
     alphaGrade?: 'A' | 'B' | 'C' | 'D' | 'F';
@@ -81,17 +85,35 @@ export function useWatchlist() {
         }
 
         // Fast price data (10s polling) — session-aware: use extended prices during pre/post market
-        const priceMap: Record<string, { price: number; changePct: number }> = {};
+        interface FastPrice {
+            price: number;
+            changePct: number;
+            regChangePct: number;     // Regular session change
+            extChangePct?: number;    // Extended hours change (from reg close)
+            extLabel?: 'PRE' | 'POST';
+        }
+        const priceMap: Record<string, FastPrice> = {};
         if (priceData?.data) {
             Object.entries(priceData.data).forEach(([ticker, d]: [string, any]) => {
                 if (d && d.price > 0) {
-                    // During pre/post market, show extended (live) price & change
+                    const prevClose = d.previousClose || d.prevClose || 0;
+                    const regChangePct = d.changePercent || 0;
                     const hasExtended = d.extendedPrice && d.extendedPrice > 0;
+
+                    // Display price: extended if available, else regular
                     const displayPrice = hasExtended ? d.extendedPrice : d.price;
-                    const displayChangePct = hasExtended
-                        ? ((d.extendedPrice - (d.previousClose || d.prevClose || d.price)) / (d.previousClose || d.prevClose || d.price)) * 100
-                        : (d.changePercent || 0);
-                    priceMap[ticker] = { price: displayPrice, changePct: displayChangePct };
+                    // Total change from prevClose to current display price
+                    const totalChangePct = hasExtended && prevClose > 0
+                        ? ((d.extendedPrice - prevClose) / prevClose) * 100
+                        : regChangePct;
+
+                    priceMap[ticker] = {
+                        price: displayPrice,
+                        changePct: totalChangePct,
+                        regChangePct,
+                        extChangePct: hasExtended ? (d.extendedChangePercent || 0) : undefined,
+                        extLabel: hasExtended ? (d.extendedLabel || undefined) : undefined,
+                    };
                 }
             });
         }
@@ -105,6 +127,9 @@ export function useWatchlist() {
                     // Use 10s fast price if available, otherwise 30s batch
                     currentPrice: fastPrice?.price ?? apiData.realtime.price ?? 0,
                     changePct: fastPrice?.changePct ?? apiData.realtime.changePct ?? 0,
+                    regChangePct: fastPrice?.regChangePct,
+                    extChangePct: fastPrice?.extChangePct,
+                    extLabel: fastPrice?.extLabel,
                     session: apiData.realtime.session,
                     alphaScore: apiData.alphaSnapshot.score,
                     alphaGrade: apiData.alphaSnapshot.grade,
@@ -126,7 +151,14 @@ export function useWatchlist() {
             }
             // Even without batch data, show fast price
             if (fastPrice) {
-                return { ...item, currentPrice: fastPrice.price, changePct: fastPrice.changePct };
+                return {
+                    ...item,
+                    currentPrice: fastPrice.price,
+                    changePct: fastPrice.changePct,
+                    regChangePct: fastPrice.regChangePct,
+                    extChangePct: fastPrice.extChangePct,
+                    extLabel: fastPrice.extLabel,
+                };
             }
             return { ...item, currentPrice: 0, changePct: 0 };
         });

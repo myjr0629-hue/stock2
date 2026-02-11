@@ -104,6 +104,7 @@ export default function PortfolioPage() {
                             <div className={`flex-1 ${PORTFOLIO_GRID} px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider`}>
                                 <div className="pl-1">{t('ticker')}</div>
                                 <div className="text-center">Chart</div>
+                                <div className="text-center">{t('avgPrice') || '매입가'}</div>
                                 <div className="text-center">{t('currentPrice')}</div>
                                 <div className="text-center">{t('quantity')}</div>
                                 <div className="text-center">{t('profitLoss')}</div>
@@ -244,7 +245,7 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount }: { summary
 }
 
 // ─── GRID TEMPLATE (shared between header & cards) ──────────────────────
-const PORTFOLIO_GRID = 'grid grid-cols-[0.8fr_0.9fr_1.1fr_0.6fr_1fr_0.8fr_0.6fr_0.8fr_0.9fr_0.9fr]';
+const PORTFOLIO_GRID = 'grid grid-cols-[0.8fr_0.8fr_0.7fr_1.1fr_0.6fr_1fr_0.8fr_0.6fr_0.8fr_0.9fr_0.9fr]';
 
 // === PREMIUM HOLDING CARD (Watchlist-style) ===
 
@@ -333,7 +334,12 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0 }:
                         )}
                     </div>
 
-                    {/* Price / Change */}
+                    {/* Cost Basis (매입가) */}
+                    <div className="text-center">
+                        <span className="font-bold tabular-nums text-[13px] text-slate-400">${holding.avgPrice.toFixed(2)}</span>
+                    </div>
+
+                    {/* Price / Change — session-aware */}
                     <div className="text-center">
                         <div className="flex items-center justify-center gap-1">
                             <span className="font-bold tabular-nums text-sm text-white">${holding.currentPrice.toFixed(2)}</span>
@@ -349,9 +355,21 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0 }:
                                 return null;
                             })()}
                         </div>
-                        <div className={`text-[10px] tabular-nums font-bold ${holding.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                            {holding.changePct >= 0 ? '+' : ''}{holding.changePct.toFixed(2)}%
-                        </div>
+                        {/* Session-aware change: REG shows changePct, PRE/POST shows regChange + extChange */}
+                        {holding.extLabel && holding.extChangePct !== undefined ? (
+                            <div className="flex items-center justify-center gap-1 text-[12px] tabular-nums font-bold">
+                                <span className={holding.regChangePct !== undefined && holding.regChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                    {holding.regChangePct !== undefined && holding.regChangePct >= 0 ? '+' : ''}{(holding.regChangePct ?? 0).toFixed(2)}%
+                                </span>
+                                <span className={`text-[11px] font-bold opacity-70 ${holding.extChangePct >= 0 ? 'text-cyan-400' : 'text-rose-400/80'}`}>
+                                    {holding.extLabel} {holding.extChangePct >= 0 ? '+' : ''}{holding.extChangePct.toFixed(2)}%
+                                </span>
+                            </div>
+                        ) : (
+                            <div className={`text-[12px] tabular-nums font-bold ${holding.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {holding.changePct >= 0 ? '+' : ''}{holding.changePct.toFixed(2)}%
+                            </div>
+                        )}
                     </div>
 
                     {/* Quantity */}

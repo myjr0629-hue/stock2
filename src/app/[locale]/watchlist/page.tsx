@@ -460,14 +460,26 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                                 return null;
                             })()}
                         </div>
-                        <div className="flex items-center justify-center gap-1.5 text-[13px] tabular-nums font-bold">
-                            <span className={isPositive ? 'text-emerald-400' : 'text-rose-400'}>
-                                {isPositive ? '+' : ''}{item.changePct.toFixed(2)}%
-                            </span>
-                            {item.vwapDist !== undefined && item.vwapDist !== null && (
-                                <span className={`opacity-60 ${item.vwapDist > 0 ? 'text-amber-400' : 'text-cyan-400'}`}>V{item.vwapDist > 0 ? '+' : ''}{item.vwapDist.toFixed(1)}%</span>
-                            )}
-                        </div>
+                        {/* Session-aware change row: REG shows changePct+VWAP, PRE/POST shows regChange+extChange */}
+                        {item.extLabel && item.extChangePct !== undefined ? (
+                            <div className="flex items-center justify-center gap-1 text-[13px] tabular-nums font-bold">
+                                <span className={item.regChangePct !== undefined && item.regChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                    {item.regChangePct !== undefined && item.regChangePct >= 0 ? '+' : ''}{(item.regChangePct ?? 0).toFixed(2)}%
+                                </span>
+                                <span className={`text-[10px] font-bold opacity-70 ${item.extChangePct >= 0 ? 'text-cyan-400' : 'text-rose-400/80'}`}>
+                                    {item.extLabel} {item.extChangePct >= 0 ? '+' : ''}{item.extChangePct.toFixed(2)}%
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-center gap-1.5 text-[13px] tabular-nums font-bold">
+                                <span className={isPositive ? 'text-emerald-400' : 'text-rose-400'}>
+                                    {isPositive ? '+' : ''}{item.changePct.toFixed(2)}%
+                                </span>
+                                {item.vwapDist !== undefined && item.vwapDist !== null && (
+                                    <span className={`opacity-60 ${item.vwapDist > 0 ? 'text-amber-400' : 'text-cyan-400'}`}>V{item.vwapDist > 0 ? '+' : ''}{item.vwapDist.toFixed(1)}%</span>
+                                )}
+                            </div>
+                        )}
                     </div>
 
                     {/* Sparkline */}

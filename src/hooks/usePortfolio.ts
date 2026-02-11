@@ -20,6 +20,10 @@ export interface EnrichedHolding extends Holding {
     // Session info
     session?: 'pre' | 'reg' | 'post';
     isExtended?: boolean;
+    // Session-aware price decomposition
+    regChangePct?: number;     // Regular session change % (from prevClose)
+    extChangePct?: number;     // Extended hours change % (from reg close)
+    extLabel?: 'PRE' | 'POST'; // Extended session label
     // Alpha engine data (to be enriched)
     alphaScore?: number;
     alphaGrade?: 'A' | 'B' | 'C' | 'D' | 'F';
@@ -79,6 +83,17 @@ export function usePortfolio() {
         }
     );
 
+    // ── SWR: Live quotes for session-aware extended pricing (10s) ──
+    const { data: liveQuotes } = useSWR(
+        tickerString ? `/api/live/quotes?symbols=${tickerString}` : null,
+        fetcher,
+        {
+            refreshInterval: 10000,
+            revalidateOnFocus: false,
+            dedupingInterval: 3000,
+        }
+    );
+
     // ── Enrich portfolio holdings with API data + fast price overlay ──
     const holdings = useMemo<EnrichedHolding[]>(() => {
         if (portfolioData.holdings.length === 0) return [];
@@ -99,9 +114,18 @@ export function usePortfolio() {
             });
         }
 
+        // Live quotes for extended prices (10s)
+        const liveMap: Record<string, any> = {};
+        if (liveQuotes?.data) {
+            Object.entries(liveQuotes.data).forEach(([ticker, d]: [string, any]) => {
+                if (d && d.price > 0) liveMap[ticker] = d;
+            });
+        }
+
         return portfolioData.holdings.map((holding) => {
             const fullApi = fullResults[holding.ticker];
             const priceApi = priceResults[holding.ticker];
+            const liveQ = liveMap[holding.ticker];
 
             // Use 5s fast price if available, else 30s full data
             // Merge: price from fast poll, sparkline/indicators from full data
@@ -110,10 +134,29 @@ export function usePortfolio() {
             const rt = fullRt || priceRt;
             const alpha = fullApi?.alphaSnapshot; // Alpha only from full data
 
+            // Session-aware extended price decomposition from /api/live/quotes
+            let regChangePct: number | undefined;
+            let extChangePct: number | undefined;
+            let extLabel: 'PRE' | 'POST' | undefined;
+            let displayPrice: number | undefined;
+
+            if (liveQ) {
+                const hasExtended = liveQ.extendedPrice && liveQ.extendedPrice > 0;
+                regChangePct = liveQ.changePercent || 0;
+                if (hasExtended) {
+                    extChangePct = liveQ.extendedChangePercent || 0;
+                    extLabel = liveQ.extendedLabel || undefined;
+                    const prevClose = liveQ.previousClose || liveQ.prevClose || 0;
+                    displayPrice = liveQ.extendedPrice;
+                }
+            }
+
             if (rt) {
-                // Price: prefer fast 5s poll, fallback to full 30s
-                const price = priceRt?.price || fullRt?.price || 0;
-                const changePct = priceRt?.changePct ?? fullRt?.changePct ?? 0;
+                // Price: prefer extended live > fast 5s poll > full 30s
+                const price = displayPrice || priceRt?.price || fullRt?.price || 0;
+                const changePct = displayPrice && liveQ
+                    ? ((displayPrice - (liveQ.previousClose || liveQ.prevClose || price)) / (liveQ.previousClose || liveQ.prevClose || price)) * 100
+                    : (priceRt?.changePct ?? fullRt?.changePct ?? 0);
                 const marketValue = holding.quantity * price;
                 const costBasis = holding.quantity * holding.avgPrice;
                 const gainLoss = marketValue - costBasis;
@@ -126,6 +169,9 @@ export function usePortfolio() {
                     changePct,
                     session: priceRt?.session || fullRt?.session,
                     isExtended: priceRt?.isExtended ?? fullRt?.isExtended,
+                    regChangePct,
+                    extChangePct,
+                    extLabel,
                     marketValue,
                     gainLoss,
                     gainLossPct,
@@ -159,7 +205,7 @@ export function usePortfolio() {
                 gainLossPct: 0,
             };
         });
-    }, [fullData, priceData, portfolioData]);
+    }, [fullData, priceData, liveQuotes, portfolioData]);
 
     // ── Summary (derived from holdings) ──
     const summary = useMemo<PortfolioSummary>(() => {
