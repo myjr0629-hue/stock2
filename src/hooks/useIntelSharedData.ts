@@ -143,6 +143,47 @@ export function useIntelSharedData(): IntelSharedData & { refresh: () => void } 
         }
     }, []);
 
+    // ── Phase 0: Ultra-fast price-only polling (5s) via /api/live/quotes ──
+    const isPriceFetching = useRef(false);
+    const fetchPriceOnly = useCallback(async () => {
+        if (isPriceFetching.current) return;
+        isPriceFetching.current = true;
+
+        try {
+            const allTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS].join(',');
+            const res = await safeFetch(`/api/live/quotes?symbols=${allTickers}`);
+            if (!res?.data) return;
+
+            const priceMap = res.data as Record<string, any>;
+
+            const updateFn = (prev: IntelQuote[]) => {
+                if (prev.length === 0) return prev;
+                return prev.map(q => {
+                    const p = priceMap[q.ticker];
+                    if (!p || !p.price) return q;
+                    return {
+                        ...q,
+                        price: p.price,
+                        changePct: p.changePercent ?? q.changePct,
+                        prevClose: p.prevClose ?? q.prevClose,
+                        volume: p.volume ?? q.volume,
+                        extendedPrice: p.extendedPrice ?? q.extendedPrice,
+                        extendedChangePct: p.extendedChangePercent ?? q.extendedChangePct,
+                        extendedLabel: p.extendedLabel ?? q.extendedLabel,
+                        session: p.session ?? q.session,
+                    };
+                });
+            };
+
+            setM7Data(updateFn);
+            setPhysicalAIData(updateFn);
+        } catch (e) {
+            // silent fail — prices will refresh on next cycle
+        } finally {
+            isPriceFetching.current = false;
+        }
+    }, []);
+
     // Combined refresh: fast first, then full
     const refresh = useCallback(async () => {
         setRefreshing(true);
@@ -163,7 +204,14 @@ export function useIntelSharedData(): IntelSharedData & { refresh: () => void } 
         // Phase 2: Full data in background (non-blocking)
         fetchFull();
 
-        // Fast refresh every 30 seconds (prices stay fresh)
+        // Price-only refresh every 5 seconds (ultra-fast, lightweight snapshot)
+        const priceInterval = setInterval(() => {
+            if (!isPriceFetching.current) {
+                fetchPriceOnly();
+            }
+        }, 5000);
+
+        // Fast refresh every 30 seconds (sparklines, extended prices stay fresh)
         const fastInterval = setInterval(() => {
             if (!isFastFetching.current) {
                 fetchFast();
@@ -178,6 +226,7 @@ export function useIntelSharedData(): IntelSharedData & { refresh: () => void } 
         }, 120000);
 
         return () => {
+            clearInterval(priceInterval);
             clearInterval(fastInterval);
             clearInterval(fullInterval);
         };
