@@ -282,7 +282,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                     return (
                         <div
                             key={q.ticker}
-                            onClick={() => router.push(`/command?ticker=${q.ticker}`)}
+                            onClick={() => router.push(`/ticker?ticker=${q.ticker}`)}
                             className={`
                                 relative flex flex-col rounded-xl border transition-all duration-300 overflow-hidden group cursor-pointer
                                 bg-white/[0.02] backdrop-blur-md
