@@ -119,61 +119,48 @@ function FlowPageContent() {
                 {/* Content - pt adjusted for fixed header (nav 48px + ticker ~40px) */}
                 <main className="relative z-10 mx-auto max-w-[1400px] w-full px-4 sm:px-6 pb-48 min-h-screen">
 
-                    {/* Ticker Header - Sticky below main header */}
-                    <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                        <div className="flex items-end gap-x-6 flex-wrap">
-                            {/* Identity Group */}
-                            <div className="flex items-center gap-3">
-                                <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center">
-                                    <img
-                                        src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
-                                        alt={`${ticker} logo`}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                            (e.target as HTMLImageElement).style.display = 'none';
-                                        }}
-                                    />
-                                </div>
-                                <div>
-                                    <div className="flex items-center gap-3">
-                                        <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter">{ticker}</h1>
-                                        <FavoriteToggle ticker={ticker} />
-                                        {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={14} />}
-                                    </div>
-                                    <p className="text-sm text-slate-500 font-bold tracking-tight uppercase">
-                                        {liveQuote?.name || 'Loading...'}
-                                    </p>
-                                </div>
+                    <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+                        {/* Row 1: Identity (all inline) */}
+                        <div className="flex items-center gap-2.5">
+                            <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
+                                <img
+                                    src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                                    alt={`${ticker} logo`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                />
+                            </div>
+                            <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter">{ticker}</h1>
+                            <span className="text-xs text-slate-500 font-bold tracking-tight uppercase">{liveQuote?.name || 'Loading...'}</span>
+                            <FavoriteToggle ticker={ticker} />
+                            {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={12} />}
+                        </div>
+
+                        {/* Row 2: Price + Extended Badge (fixed position, independent of ticker) */}
+                        <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px]">
+                            <div className="text-2xl font-black text-white tracking-tighter tabular-nums leading-none">
+                                ${displayPrice?.toFixed(2) || '—'}
+                            </div>
+                            <div className={`text-sm font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
+                                {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
                             </div>
 
-                            {/* Main Price (EXACT COMMAND style L465-473) */}
-                            <div className="hidden sm:block pb-1">
-                                <div className="flex items-baseline gap-3">
-                                    <div className="text-2xl lg:text-3xl font-black text-white tracking-tighter tabular-nums">
-                                        ${displayPrice?.toFixed(2) || '—'}
-                                    </div>
-                                    <div className={`text-lg font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
-                                        {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Extended Session Badge (L477-497) */}
+                            {/* Extended Session Badge */}
                             {activeExtPrice > 0 && (
-                                <div className="hidden sm:block pb-1.5">
-                                    <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
-                                        <div className="flex items-baseline gap-2">
-                                            <span className={`text-[9px] font-black uppercase tracking-widest ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
-                                                {activeExtLabel}
-                                            </span>
-                                            <span className="text-xs font-bold text-slate-200 tabular-nums">
-                                                ${activeExtPrice.toFixed(2)}
-                                            </span>
-                                            <span className={`text-[10px] font-mono font-bold ${activeExtPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                {activeExtPct > 0 ? "+" : ""}{activeExtPct.toFixed(2)}%
-                                            </span>
-                                        </div>
+                                <div className="flex items-center gap-2 px-2.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
+                                    <div className="flex items-baseline gap-2">
+                                        <span className={`text-[9px] font-black uppercase tracking-widest ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                            {activeExtLabel}
+                                        </span>
+                                        <span className="text-xs font-bold text-slate-200 tabular-nums">
+                                            ${activeExtPrice.toFixed(2)}
+                                        </span>
+                                        <span className={`text-[10px] font-mono font-bold ${activeExtPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                            {activeExtPct > 0 ? "+" : ""}{activeExtPct.toFixed(2)}%
+                                        </span>
                                     </div>
                                 </div>
                             )}
