@@ -89,7 +89,7 @@ export function LandingHeader() {
                 </Link>
 
                 {/* 2. NAVIGATION (DASHBOARD / GUARDIAN / COMMAND / INTEL / PORTFOLIO / WATCHLIST) */}
-                <nav className="hidden md:flex items-center gap-1">
+                <nav className="hidden xl:flex items-center gap-0.5">
                     {[
                         { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: true },
                         { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", hasLive: false },
@@ -108,7 +108,7 @@ export function LandingHeader() {
                                 key={item.label}
                                 href={item.href}
                                 className={clsx(
-                                    "relative px-4 py-2 text-[11px] font-black tracking-widest uppercase rounded-lg transition-all group flex items-center gap-2",
+                                    "relative px-2.5 py-2 text-[10px] font-black tracking-widest uppercase rounded-lg transition-all group flex items-center gap-1.5",
                                     isActive ? "text-emerald-400 bg-emerald-950/30 border border-emerald-500/20" : "text-slate-400 hover:text-white hover:bg-white/5"
                                 )}
                             >
@@ -131,9 +131,9 @@ export function LandingHeader() {
                 </nav>
 
                 {/* 3. UTILITIES */}
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2.5">
                     {/* Search Bar with Neon Focus */}
-                    <div className="hidden lg:block relative group">
+                    <div className="hidden xl:block relative group">
                         <form onSubmit={handleSearch}>
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                             <input
@@ -151,16 +151,16 @@ export function LandingHeader() {
                         </form>
                     </div>
 
-                    <div className="w-px h-4 bg-slate-800 hidden md:block" />
+                    <div className="w-px h-4 bg-slate-800 hidden xl:block" />
 
                     {/* Language Switcher */}
-                    <div className="hidden md:block">
+                    <div className="hidden xl:block">
                         <LanguageSwitcher />
                     </div>
 
                     {/* Auth Button - Sign In / Sign Out */}
                     {user ? (
-                        <div className="hidden md:flex items-center gap-2">
+                        <div className="hidden xl:flex items-center gap-2">
                             <Link
                                 href="/settings"
                                 className="flex items-center gap-1.5 px-4 py-1.5 
@@ -189,7 +189,7 @@ export function LandingHeader() {
                     ) : (
                         <Link
                             href="/login"
-                            className="hidden md:flex items-center gap-1.5 px-5 py-1.5 
+                            className="hidden xl:flex items-center gap-1.5 px-5 py-1.5 
                                 text-[10px] font-bold text-cyan-400 
                                 border border-cyan-500/40 rounded-lg
                                 bg-transparent
@@ -201,7 +201,7 @@ export function LandingHeader() {
                     )}
 
                     {/* [Mobile Menu Toggle] */}
-                    <div className="md:hidden flex items-center">
+                    <div className="xl:hidden flex items-center">
                         <details className="group relative">
                             <summary className="list-none cursor-pointer p-2 text-slate-400 hover:text-white transition-colors">
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
