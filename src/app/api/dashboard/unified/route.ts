@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
+import { getStructureData } from '@/services/structureService';
+import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
 
 // [V4.1] Polygon API for technical indicators (return3D, sma20, rsi14, relVol)
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
@@ -558,19 +560,18 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
     let retryCount = 0;
 
     const attemptFetch = async (): Promise<any> => {
-        // [DASHBOARD V2] Parallel fetch: structure + ticker + realtime-metrics + technical indicators
-        const [structureRes, tickerRes, metricsRes, techIndicators] = await Promise.all([
-            fetch(`${baseUrl}/api/live/options/structure?t=${ticker}`),
+        // [PERF] Direct Import: structure + realtime-metrics called directly (no HTTP loopback)
+        // Only ticker API still uses HTTP (monolithic 700-line route with Redis caching)
+        const [structureData, tickerRes, metrics, techIndicators] = await Promise.all([
+            getStructureData(ticker),
             fetch(`${baseUrl}/api/live/ticker?t=${ticker}`),
-            fetch(`${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`).catch(() => null),
+            fetchRealtimeMetrics(ticker).catch(() => null),
             fetchTechnicalIndicators(ticker) // [V4.1] return3D, sma20, rsi14, relVol
         ]);
 
-        if (!structureRes.ok) {
-            throw new Error(`Failed to fetch ${ticker}: ${structureRes.status}`);
+        if (!structureData || !structureData.underlyingPrice) {
+            throw new Error(`Failed to fetch ${ticker}: no structure data`);
         }
-
-        const structureData = await structureRes.json();
 
         // [DATA VALIDATION] Auto-retry if confidence is LOW
         if (structureData.validation?.confidence === 'LOW' && retryCount < maxRetries) {
@@ -605,16 +606,11 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
             console.log(`[Dashboard PCR Debug] ${ticker}: volumePcr=${structureData.volumePcr}, callVol=${structureData.volumePcrCallVol}, putVol=${structureData.volumePcrPutVol}, tickerFlowKeys=${Object.keys(tickerData.flow || {}).join(',')}`);
         }
 
-        // [DASHBOARD V2] Dark Pool % & Short Vol % from realtime-metrics
-        if (metricsRes && metricsRes.ok) {
-            try {
-                const metrics = await metricsRes.json();
-                structureData.darkPoolPct = metrics.darkPool?.percent ?? null;
-                structureData.shortVolPct = metrics.shortVolume?.percent ?? null;
-                structureData._blockTrades = metrics.blockTrade?.count ?? null; // [V4.1] Block trades for AlphaEngine
-            } catch {
-                // Continue without metrics
-            }
+        // [PERF] Dark Pool % & Short Vol % — direct import (no HTTP loopback)
+        if (metrics) {
+            structureData.darkPoolPct = metrics.darkPool?.percent ?? null;
+            structureData.shortVolPct = metrics.shortVolume?.percent ?? null;
+            structureData._blockTrades = metrics.blockTrade?.count ?? null; // [V4.1] Block trades for AlphaEngine
         }
 
         // [DASHBOARD V2] 0DTE Impact & Implied Move from rawChain (ticker API)
