@@ -332,11 +332,11 @@ export default function GuardianPage() {
                                 Flow Topography Map v3.0
                             </h3>
                             {/* Session indicator — REG only feature */}
-                            <span className={`text-[8px] font-bold tracking-wider px-2 py-0.5 rounded border ${isMarketActive
-                                    ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30 animate-pulse'
-                                    : 'bg-slate-800/80 text-slate-500 border-slate-600/30'
+                            <span className={`text-[11px] font-black tracking-wide px-3 py-1 rounded-md border ${isMarketActive
+                                    ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+                                    : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
                                 }`}>
-                                {isMarketActive ? '● LIVE — 본장 진행 중' : '본장(09:30~16:00 ET) 전용'}
+                                {isMarketActive ? '● LIVE — 본장 진행 중' : '⏸ 본장(09:30~16:00 ET) 전용'}
                             </span>
                             {/* [V6.0] Rotation Regime Badge */}
                             {isMarketActive && data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
