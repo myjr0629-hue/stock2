@@ -3,6 +3,7 @@ import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationInte
 import { getMacroSnapshotSSOT, MacroSnapshot } from "@/services/macroHubProvider";
 import { IntelligenceNode } from "./intelligenceNode";
 import { RvolEngine, RvolProfile } from "./rvolEngine";
+import { fetchMassive } from "@/services/massiveClient";
 
 // === TYPES ===
 export interface SectorDensity {
@@ -248,11 +249,15 @@ export class GuardianDataHub {
             // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
             // [V5.0] Changed order: Sector first, then RLSI with RIS score
             console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
-            const [sectorResult, macro, rvolNdx, rvolDow] = await Promise.all([
+            const [sectorResult, macro, rvolNdx, rvolDow, marketNews] = await Promise.all([
                 SectorEngine.getSectorFlows(),
                 getMacroSnapshotSSOT(),
                 RvolEngine.getRvol("QQQ"),
-                RvolEngine.getRvol("DIA")
+                RvolEngine.getRvol("DIA"),
+                // [V8.0] Fetch market news for context-aware Gemini analysis
+                fetchMassive('/v2/reference/news', { ticker: 'SPY', limit: '5', order: 'desc', sort: 'published_utc' }, true)
+                    .then((res: any) => (res?.results || []).map((n: any) => n.title).filter(Boolean))
+                    .catch(() => [] as string[])
             ]);
 
             const { flows, vectors, source, target, sourceId, targetId, rotationIntensity } = sectorResult;
@@ -382,7 +387,9 @@ export class GuardianDataHub {
                         noiseWarning: ri.noiseFlags?.join(', ') || undefined,
                         trendVsToday: detectBounceWarning(),
                         rotationConviction: ri.conviction,
-                        signalConflict
+                        signalConflict,
+                        // [V8.0] Market News Headlines
+                        marketNewsHeadlines: marketNews.length > 0 ? marketNews : undefined
                     };
 
                     const [rotationText, realityText] = await Promise.all([

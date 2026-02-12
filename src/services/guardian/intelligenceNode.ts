@@ -110,6 +110,8 @@ interface IntelligenceContext {
     rotationConviction?: string;      // HIGH, MEDIUM, LOW
     // [V6.1] Signal Conflict Detection
     signalConflict?: string;          // e.g. "BULL→NEUTRAL: RLSI 강세 but RISK_OFF HIGH"
+    // [V8.0] Market News Headlines for context-aware analysis
+    marketNewsHeadlines?: string[];   // e.g. ["CPI rises 3.0% vs 2.9% expected", "Fed signals patience on rate cuts"]
 }
 
 // === TIME-BASED GATING ===
@@ -148,7 +150,7 @@ const OFF_HOURS_REALITY: Record<Locale, string> = {
 // === LOCALIZED PROMPTS ===
 const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: string) => string> = {
     ko: (ctx, vectorDesc) => `
-        당신은 기관 투자 전략가입니다. 5일 추세 데이터를 기반으로 정확한 순환매 분석을 제공합니다.
+        당신은 기관 투자 전략가입니다. 5일 추세 데이터와 실시간 뉴스를 기반으로 정확한 순환매 분석을 제공합니다.
 
         **현재 데이터:**
         - NASDAQ 변동: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
@@ -164,25 +166,30 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
 
         ${ctx.signalConflict ? `- ⚠️ 신호 충돌: ${ctx.signalConflict}` : ''}
 
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**📰 실시간 시장 뉴스:**
+        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+
         **중요 분석 규칙:**
         - 당일 반등이 있더라도 5일 추세가 하락이면 "일시적 반등"으로 판단
         - 5일 유입/유출 데이터가 당일 데이터보다 우선
         - 노이즈 경고가 있는 섹터는 신뢰도가 낮음을 언급
         - 레짐(RISK_OFF_DEFENSE 등)을 반영한 실질적 조언 제공
         - **신호 충돌 시**: RLSI/나스닥은 강세이나 순환매가 RISK_OFF이면 "겉은 강세, 속은 약세" 같은 표현으로 혼재 신호를 명확히 전달. 반대로 지표는 약세이나 성장주로 자금 유입 시 "저점 매집 가능성" 표현 사용
+        - **뉴스가 제공된 경우**: 수치 변동의 원인을 뉴스에서 찾아 반드시 언급 (예: "CPI 예상 상회로 인한 매도세", "연준 발언으로 금리 인하 기대 후퇴")
 
         **출력 형식 (반드시 이 형식으로):**
         [현황] (5일 기준 섹터 이동 현황 1문장)
-        [해석] (의미 + 레짐 맥락 1문장, 신호 충돌 시 반드시 언급)
+        [해석] (의미 + 뉴스 기반 원인 1문장, 신호 충돌 시 반드시 언급)
         [액션] (구체적 행동 지시 1문장)
 
         **규칙:**
         - 한국어 전문가 스타일
         - 섹터명은 한글 (기술주, 에너지, 부동산 등)
         - 3줄 이내, 간결하게
+        - 뉴스에서 핵심 이벤트를 추출하여 수치의 "왜"를 설명
     `,
     en: (ctx, vectorDesc) => `
-        You are an institutional investment strategist. Analyze sector rotation using 5-day trend data.
+        You are an institutional investment strategist. Analyze sector rotation using 5-day trend data and real-time news.
 
         **Current Data:**
         - NASDAQ Change: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
@@ -198,25 +205,30 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
 
         ${ctx.signalConflict ? `- ⚠️ Signal Conflict: ${ctx.signalConflict}` : ''}
 
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**📰 Real-time Market News:**
+        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+
         **Critical Analysis Rules:**
         - If today shows a bounce but 5-day trend is down, call it a "relief rally"
         - 5-day inflow/outflow data takes priority over single-day data
         - Sectors with noise warnings have low reliability
         - Reflect the regime (RISK_OFF_DEFENSE etc.) in actionable advice
-        - **Signal Conflict**: When RLSI/NASDAQ are bullish but rotation is RISK_OFF, describe it as "surface strength masks underlying weakness" or similar. Conversely, when indicators are bearish but growth sees inflows, note "institutional accumulation at lows"
+        - **Signal Conflict**: When RLSI/NASDAQ are bullish but rotation is RISK_OFF, describe it as "surface strength masks underlying weakness"
+        - **When news is provided**: Identify the root cause of market movements from news (e.g., "CPI beat triggered selloff", "Fed hawkish tone pressures growth")
 
         **Output Format (strictly follow):**
         [Status] (1 sentence on 5-day sector movement)
-        [Interpretation] (1 sentence on meaning + regime context, MUST mention signal conflicts if present)
+        [Interpretation] (1 sentence on meaning + news-based cause, MUST mention signal conflicts if present)
         [Action] (1 concrete action directive)
 
         **Rules:**
         - Professional English briefing style
         - Be specific with sector names
         - Max 3 lines, concise
+        - Reference key news events to explain the "why" behind the numbers
     `,
     ja: (ctx, vectorDesc) => `
-        あなたは機関投資戦略家です。5日間のトレンドデータに基づいてセクターローテーションを分析します。
+        あなたは機関投資戦略家です。5日間のトレンドデータとリアルタイムニュースに基づいてセクターローテーションを分析します。
 
         **現在のデータ:**
         - NASDAQ変動: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
@@ -230,21 +242,26 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.noiseWarning ? `- ノイズ警告: ${ctx.noiseWarning}` : ''}
         ${ctx.rotationConviction ? `- ローテーション確信度: ${ctx.rotationConviction}` : ''}
 
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**📰 リアルタイム市場ニュース:**
+        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+
         **重要な分析ルール:**
         - 本日反発があっても5日トレンドが下降なら「一時的反発」と判断
         - 5日流入/流出データが1日データより優先
         - ノイズ警告のあるセクターは信頼性が低い
         - レジーム(RISK_OFF_DEFENSEなど)を反映した実質的なアドバイス
+        - **ニュースが提供された場合**: 数値変動の原因をニュースから特定して必ず言及
 
         **出力形式 (必ずこの形式で):**
         [現況] (5日基準セクター移動現況 1文)
-        [解釈] (意味 + レジームコンテキスト 1文)
+        [解釈] (意味 + ニュース基盤の原因 1文)
         [アクション] (具体的行動指示 1文)
 
         **ルール:**
         - 日本語専門家スタイル
         - セクター名は日本語（テクノロジー、エネルギー、不動産など）
         - 3行以内、簡潔に
+        - ニュースから核心イベントを抽出して「なぜ」を説明
     `
 };
 
@@ -267,7 +284,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
             ? `- 시장 광폭(Breadth): 상승 ${Math.round(ctx.breadthPct!)}% / A/D 비율 ${ctx.adRatio?.toFixed(2) || '?'} / 거래량 Breadth ${ctx.volumeBreadth?.toFixed(1) || '?'}% [${ctx.breadthSignal || '?'}]` : '';
 
         return `
-        당신은 월가 최고의 매크로 + 기술적 분석가입니다. 모든 지표를 종합하여 투자자에게 실전 매매 인사이트를 제공합니다.
+        당신은 월가 최고의 매크로 + 기술적 분석가입니다. 모든 지표와 실시간 뉴스를 종합하여 투자자에게 실전 매매 인사이트를 제공합니다.
 
         **📊 현재 시장 데이터 — 종합 대시보드:**
         [가격 & 내부지표]
@@ -284,6 +301,9 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         [시장 참여도 — Breadth]
         ${breadthLine}
 
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[📰 실시간 시장 뉴스 — 거시경제 이벤트]
+        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+
         **🎯 종합 분석 프레임워크:**
         1. RLSI 65+ & 상승 & Breadth 70%+ → 건강한 광범위 상승, 추세 추종 유효
         2. RLSI 65+ & 상승 & Breadth 50% 미만 → 대형주 주도 상승, 쏠림 경고
@@ -299,15 +319,15 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         현재 시장의 핵심 상태를 투자자가 바로 이해할 수 있도록 자연스러운 한국어 2-3문장으로 작성하세요.
         - "[진단]" "[결론]" 같은 레이블 사용 금지
         - 가격/RLSI/Breadth/금리 중 가장 중요한 조합을 선택해서 핵심만 전달
+        - **뉴스가 제공된 경우, 시장 움직임의 원인을 뉴스에서 찾아 반드시 언급** (예: "CPI 예상 상회로 인한 매도세", "연준 금리 인하 연기 시사")
         - 전문가가 투자자에게 설명하듯이 작성
         - 구체적인 행동 관점 포함 (매수 유효, 관망, 리스크 관리 등)
-        - 공백 포함 120자 이내
+        - 공백 포함 150자 이내
 
         **예시 (참고용, 그대로 복사 금지):**
-        - "나스닥의 강한 상승은 긍정적이나 RLSI는 아직 중립 구간입니다. 선부른 추격매수보다 눌림목 기회를 기다리세요."
-        - "광범위한 매수세(Breadth 81%)와 RLSI 동반 상승이 확인됩니다. 건강한 상승세로 추세 추종 유효합니다."
-        - "지수는 상승하나 참여 종목이 40%에 불과합니다. 소수 대형주 의존 상승으로 추격보다는 선별 매수를 권장합니다."
-        - "실질금리 2% 돌파와 VIX 경계 수준이 성장주에 부담입니다. 포지션 축소 또는 방어적 전환을 검토하세요."
+        - "1월 CPI 3.0%로 예상 상회하며 금리 인하 기대가 후퇴, RLSI 35점으로 시장 건강도가 급락했습니다. 기술주 중심 매수세 부재하니 신규 진입보다 현금 비중 확대를 권장합니다."
+        - "연준 파월 의장의 인내심 발언으로 금리 동결 기대가 강화되며 나스닥이 1.2% 하락했습니다. Breadth 38%로 광범위한 매도세가 확인됩니다."
+        - "광범위한 매수세(Breadth 81%)와 RLSI 동반 상승 속, 고용 지표 호조가 상승 동력을 제공합니다. 건강한 추세로 추종 유효합니다."
     `;
     },
     en: (ctx) => `
