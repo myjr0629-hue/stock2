@@ -22,7 +22,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" className={plusJakarta.variable} suppressHydrationWarning>
+    <html lang="ko" suppressHydrationWarning>
       <head>
         {/* Pretendard from CDN */}
         <link
@@ -31,7 +31,8 @@ export default function RootLayout({
         />
       </head>
       <body
-        className="antialiased"
+        className={`${plusJakarta.variable} antialiased`}
+        style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif' }}
       >
         <GuardianProvider>
           {children}
