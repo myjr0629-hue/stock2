@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search } from "lucide-react";
+import { Search, LogOut } from "lucide-react";
 import { Link, useRouter, usePathname } from "@/i18n/routing";
 import { clsx } from 'clsx';
 import { useFavorites } from "@/hooks/useFavorites";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslations } from 'next-intl';
 import { TradingViewTicker } from "@/components/TradingViewTicker";
+import { createClient } from "@/lib/supabase/client";
 
 export function LandingHeader() {
     const t = useTranslations();
@@ -17,11 +18,37 @@ export function LandingHeader() {
     const searchParams = useSearchParams();
     const { favorites } = useFavorites();
     const [searchQuery, setSearchQuery] = useState("");
+    const [user, setUser] = useState<any>(null);
 
     // Get current ticker from URL params for cross-page sync
     const currentTicker = searchParams.get('ticker')?.toUpperCase()
         || searchParams.get('t')?.toUpperCase()
         || 'NVDA';
+
+    // Auth state detection
+    useEffect(() => {
+        const supabase = createClient();
+
+        // Check current session
+        supabase.auth.getUser().then(({ data: { user } }) => {
+            setUser(user);
+        });
+
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            setUser(session?.user ?? null);
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
+
+    const handleSignOut = async () => {
+        const supabase = createClient();
+        await supabase.auth.signOut();
+        setUser(null);
+        router.push('/');
+        router.refresh();
+    };
 
     const handleSearch = (e: FormEvent) => {
         e.preventDefault();
@@ -131,18 +158,33 @@ export function LandingHeader() {
                         <LanguageSwitcher />
                     </div>
 
-                    {/* Login Button - Border Glow Style */}
-                    <Link
-                        href="/login"
-                        className="hidden md:flex items-center gap-1.5 px-5 py-1.5 
-                            text-[10px] font-bold text-cyan-400 
-                            border border-cyan-500/40 rounded-lg
-                            bg-transparent
-                            hover:border-cyan-400/70 hover:shadow-[0_0_15px_rgba(34,211,238,0.15)]
-                            transition-all duration-300 uppercase tracking-wider"
-                    >
-                        {t('nav.signIn')}
-                    </Link>
+                    {/* Auth Button - Sign In / Sign Out */}
+                    {user ? (
+                        <button
+                            onClick={handleSignOut}
+                            className="hidden md:flex items-center gap-1.5 px-5 py-1.5 
+                                text-[10px] font-bold text-rose-400 
+                                border border-rose-500/40 rounded-lg
+                                bg-transparent
+                                hover:border-rose-400/70 hover:shadow-[0_0_15px_rgba(244,63,94,0.15)]
+                                transition-all duration-300 uppercase tracking-wider"
+                        >
+                            <LogOut className="w-3 h-3" />
+                            {t('nav.signOut')}
+                        </button>
+                    ) : (
+                        <Link
+                            href="/login"
+                            className="hidden md:flex items-center gap-1.5 px-5 py-1.5 
+                                text-[10px] font-bold text-cyan-400 
+                                border border-cyan-500/40 rounded-lg
+                                bg-transparent
+                                hover:border-cyan-400/70 hover:shadow-[0_0_15px_rgba(34,211,238,0.15)]
+                                transition-all duration-300 uppercase tracking-wider"
+                        >
+                            {t('nav.signIn')}
+                        </Link>
+                    )}
 
                     {/* [Mobile Menu Toggle] */}
                     <div className="md:hidden flex items-center">
@@ -171,9 +213,18 @@ export function LandingHeader() {
                                     </Link>
                                 ))}
                                 <div className="h-px bg-slate-800 my-1" />
-                                <Link href="/login" className="block px-4 py-3 text-xs font-black text-emerald-400 hover:bg-emerald-950/30 rounded-lg uppercase tracking-widest">
-                                    {t('nav.signIn')}
-                                </Link>
+                                {user ? (
+                                    <button
+                                        onClick={handleSignOut}
+                                        className="w-full text-left block px-4 py-3 text-xs font-black text-rose-400 hover:bg-rose-950/30 rounded-lg uppercase tracking-widest"
+                                    >
+                                        {t('nav.signOut')}
+                                    </button>
+                                ) : (
+                                    <Link href="/login" className="block px-4 py-3 text-xs font-black text-emerald-400 hover:bg-emerald-950/30 rounded-lg uppercase tracking-widest">
+                                        {t('nav.signIn')}
+                                    </Link>
+                                )}
                             </div>
                         </details>
                     </div>

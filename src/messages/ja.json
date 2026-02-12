@@ -21,7 +21,8 @@
         "portfolio": "ポートフォリオ",
         "watchlist": "ウォッチリスト",
         "howItWorks": "ガイド",
-        "signIn": "Log In"
+        "signIn": "Log In",
+        "signOut": "Log Out"
     },
     "common": {
         "loading": "読み込み中...",

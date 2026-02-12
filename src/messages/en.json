@@ -21,7 +21,8 @@
         "portfolio": "Portfolio",
         "watchlist": "Watchlist",
         "howItWorks": "Guide",
-        "signIn": "Log In"
+        "signIn": "Log In",
+        "signOut": "Log Out"
     },
     "common": {
         "loading": "Loading...",

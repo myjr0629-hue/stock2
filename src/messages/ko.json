@@ -21,7 +21,8 @@
         "portfolio": "포트폴리오",
         "watchlist": "관심종목",
         "howItWorks": "가이드",
-        "signIn": "Log In"
+        "signIn": "Log In",
+        "signOut": "Log Out"
     },
     "common": {
         "loading": "로딩 중...",
