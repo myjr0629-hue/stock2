@@ -841,26 +841,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         }
     }
 
-    // C. Change Percentages (Strict Baselines)
-    // [Fix] Trust API for Extended Change Percentages too
+    // C. Change Percentages — compute directly from prices (avoids fraction vs pct ambiguity)
     let activeExtPct = 0;
-    if (activeExtPrice > 0) {
-        if (activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') {
-            activeExtPct = liveQuote?.extended?.preChangePct !== undefined
-                ? (liveQuote.extended.preChangePct * 100) // API returns fraction
-                : 0;
-        } else if (activeExtType === 'POST') {
-            activeExtPct = liveQuote?.extended?.postChangePct !== undefined
-                ? (liveQuote.extended.postChangePct * 100)
-                : 0;
-            // If CLOSED and using POST Badge, we might need manual calc if API didn't flag it as POST session
-            if (effectiveSession === 'CLOSED' && activeExtType === 'POST') {
-                // displayPrice is Regular Close. activeExtPrice is Post Close.
-                if (displayPrice > 0) {
-                    activeExtPct = ((activeExtPrice - displayPrice) / displayPrice) * 100;
-                }
-            }
-        }
+    if (activeExtPrice > 0 && displayPrice > 0) {
+        activeExtPct = ((activeExtPrice - displayPrice) / displayPrice) * 100;
     }
 
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;
