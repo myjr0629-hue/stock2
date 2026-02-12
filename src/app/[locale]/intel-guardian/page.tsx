@@ -320,6 +320,7 @@ export default function GuardianPage() {
                             breadthSignal={data?.breadth?.signal ?? data?.rlsi.components?.breadthSignal ?? 'NEUTRAL'}
                             isDivergent={data?.breadth?.isDivergent ?? data?.rlsi.components?.breadthDivergent ?? false}
                             loading={loading}
+                            isMarketActive={isMarketActive}
                         />
                     </div>
 
@@ -333,8 +334,8 @@ export default function GuardianPage() {
                             </h3>
                             {/* Session indicator — REG only feature */}
                             <span className={`text-[11px] font-black tracking-wide px-3 py-1 rounded-md border ${isMarketActive
-                                    ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
-                                    : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
+                                ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+                                : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
                                 }`}>
                                 {isMarketActive ? '● LIVE — 본장 진행 중' : '⏸ 본장(09:30~16:00 ET) 전용'}
                             </span>
@@ -411,63 +412,75 @@ export default function GuardianPage() {
                                 </span>
                             </div>
 
-                            <div className="overflow-hidden mb-2">
-                                <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
-                                <div className="text-xs text-slate-300 font-sans leading-relaxed whitespace-pre-wrap opacity-90">
-                                    <TypewriterText text={verdict.desc} speed={10} />
-                                </div>
-                            </div>
-
-                            {/* COMPACT METRICS */}
-                            <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-3 gap-3">
-                                {/* ROTATION - V6.0 Conviction Bar */}
-                                <div>
-                                    <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">ROTATION</div>
-                                    <div className="flex items-center gap-1.5">
-                                        <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full rounded-full transition-all duration-700 ${(data?.rotationIntensity?.score || 0) >= 60 ? 'bg-emerald-400' :
-                                                    (data?.rotationIntensity?.score || 0) >= 35 ? 'bg-amber-400' : 'bg-rose-400'
-                                                    }`}
-                                                style={{ width: `${Math.min(100, data?.rotationIntensity?.score || 50)}%` }}
-                                            />
+                            {isMarketActive ? (
+                                <>
+                                    <div className="overflow-hidden mb-2">
+                                        <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
+                                        <div className="text-xs text-slate-300 font-sans leading-relaxed whitespace-pre-wrap opacity-90">
+                                            <TypewriterText text={verdict.desc} speed={10} />
                                         </div>
-                                        <span className="text-[10px] font-mono font-bold text-slate-300">
-                                            {(data?.rotationIntensity?.score || 50).toFixed(0)}%
-                                        </span>
                                     </div>
-                                    <div className={`text-[8px] font-bold mt-0.5 tracking-wide ${data?.rotationIntensity?.direction === 'RISK_ON' ? 'text-emerald-400' :
-                                        data?.rotationIntensity?.direction === 'RISK_OFF' ? 'text-rose-400' : 'text-slate-400'
-                                        }`}>
-                                        {data?.rotationIntensity?.direction || 'NEUTRAL'} · {data?.rotationIntensity?.conviction || 'LOW'}
-                                    </div>
-                                </div>
 
-                                <div>
-                                    <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">MOMENTUM</div>
-                                    <div className="text-sm font-mono font-bold text-emerald-400">
-                                        {((data?.rlsi.components.momentumRaw || 1) - 1) * 100 > 0 ? "+" : ""}
-                                        {(((data?.rlsi.components.momentumRaw || 1) - 1) * 100).toFixed(1)}%
+                                    {/* COMPACT METRICS */}
+                                    <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-3 gap-3">
+                                        {/* ROTATION - V6.0 Conviction Bar */}
+                                        <div>
+                                            <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">ROTATION</div>
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-700 ${(data?.rotationIntensity?.score || 0) >= 60 ? 'bg-emerald-400' :
+                                                            (data?.rotationIntensity?.score || 0) >= 35 ? 'bg-amber-400' : 'bg-rose-400'
+                                                            }`}
+                                                        style={{ width: `${Math.min(100, data?.rotationIntensity?.score || 50)}%` }}
+                                                    />
+                                                </div>
+                                                <span className="text-[10px] font-mono font-bold text-slate-300">
+                                                    {(data?.rotationIntensity?.score || 50).toFixed(0)}%
+                                                </span>
+                                            </div>
+                                            <div className={`text-[8px] font-bold mt-0.5 tracking-wide ${data?.rotationIntensity?.direction === 'RISK_ON' ? 'text-emerald-400' :
+                                                data?.rotationIntensity?.direction === 'RISK_OFF' ? 'text-rose-400' : 'text-slate-400'
+                                                }`}>
+                                                {data?.rotationIntensity?.direction || 'NEUTRAL'} · {data?.rotationIntensity?.conviction || 'LOW'}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">MOMENTUM</div>
+                                            <div className="text-sm font-mono font-bold text-emerald-400">
+                                                {((data?.rlsi.components.momentumRaw || 1) - 1) * 100 > 0 ? "+" : ""}
+                                                {(((data?.rlsi.components.momentumRaw || 1) - 1) * 100).toFixed(1)}%
+                                            </div>
+                                            <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">3-DAY VELOCITY</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">TARGET LOCK</div>
+                                            <div className={`text-sm font-mono font-bold ${data?.tripleA?.isTargetLock ? "text-amber-400 animate-pulse" : "text-white"}`}>
+                                                {data?.tripleA?.isTargetLock ? "LOCKED" : "SEARCHING"}
+                                            </div>
+                                            <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">
+                                                {data?.tripleA?.regime || "NEUTRAL"} REGIME
+                                            </div>
+                                            <div className={`text-[8px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
+                                                data?.tripleA?.regime === 'BEAR' ? "text-rose-400" : "text-white"
+                                                }`}>
+                                                {data?.tripleA?.regime === 'BULL' ? t('bullRegime') :
+                                                    data?.tripleA?.regime === 'BEAR' ? t('bearRegime') :
+                                                        t('neutralRegime')}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">3-DAY VELOCITY</div>
+                                </>
+                            ) : (
+                                <div className="flex-1 flex items-center justify-center py-6">
+                                    <div className="text-center">
+                                        <span className="text-amber-400 text-2xl block mb-2">⏸</span>
+                                        <span className="text-[13px] font-bold text-amber-400 block">본장에서 실시간 분석이 진행됩니다</span>
+                                        <span className="text-[11px] text-slate-500 block mt-1">09:30~16:00 ET</span>
+                                    </div>
                                 </div>
-                                <div>
-                                    <div className="text-[9px] text-white font-bold mb-0.5 tracking-wider">TARGET LOCK</div>
-                                    <div className={`text-sm font-mono font-bold ${data?.tripleA?.isTargetLock ? "text-amber-400 animate-pulse" : "text-white"}`}>
-                                        {data?.tripleA?.isTargetLock ? "LOCKED" : "SEARCHING"}
-                                    </div>
-                                    <div className="text-[9px] text-white font-bold mt-1 tracking-wide opacity-90">
-                                        {data?.tripleA?.regime || "NEUTRAL"} REGIME
-                                    </div>
-                                    <div className={`text-[8px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
-                                        data?.tripleA?.regime === 'BEAR' ? "text-rose-400" : "text-white"
-                                        }`}>
-                                        {data?.tripleA?.regime === 'BULL' ? t('bullRegime') :
-                                            data?.tripleA?.regime === 'BEAR' ? t('bearRegime') :
-                                                t('neutralRegime')}
-                                    </div>
-                                </div>
-                            </div>
+                            )}
                         </div>
 
                         {/* 2. SECTOR INTEL (Fill Rest, Bottom) */}

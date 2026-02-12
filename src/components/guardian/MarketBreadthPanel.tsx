@@ -12,6 +12,7 @@ interface RLSIInsightPanelProps {
     breadthSignal: string;
     isDivergent: boolean;
     loading?: boolean;
+    isMarketActive?: boolean;
 }
 
 /**
@@ -28,7 +29,8 @@ export default function RLSIInsightPanel({
     volumeBreadth,
     breadthSignal,
     isDivergent,
-    loading
+    loading,
+    isMarketActive = true
 }: RLSIInsightPanelProps) {
 
     const signalConfig: Record<string, { color: string; bg: string; label: string }> = {
@@ -108,14 +110,23 @@ export default function RLSIInsightPanel({
 
             {/* TACTICAL INSIGHT — Compact, 2-line max */}
             <div className={`rounded-lg bg-slate-900/30 border ${sentimentBorder} p-2.5 mb-3 flex-none`}>
-                <div className={`text-[10px] font-bold mb-1 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
-                    sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
-                    }`}>
-                    {insightTitle}
-                </div>
-                <div className="text-xs text-white/70 leading-[1.5] line-clamp-2" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                    {insightDesc}
-                </div>
+                {isMarketActive ? (
+                    <>
+                        <div className={`text-[10px] font-bold mb-1 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
+                            sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
+                            }`}>
+                            {insightTitle}
+                        </div>
+                        <div className="text-xs text-white/70 leading-[1.5] line-clamp-2" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                            {insightDesc}
+                        </div>
+                    </>
+                ) : (
+                    <div className="flex items-center gap-2 py-1">
+                        <span className="text-amber-400 text-sm">⏸</span>
+                        <span className="text-[12px] font-bold text-amber-400">본장에서 실시간 분석이 진행됩니다</span>
+                    </div>
+                )}
             </div>
 
             {/* ─── MARKET BREADTH — Enhanced Visual Section ─── */}
@@ -221,18 +232,27 @@ export default function RLSIInsightPanel({
 
                 {/* Interpretation — Easy to understand */}
                 <div className="rounded-lg bg-slate-800/20 border border-slate-700/20 p-2.5 flex-none">
-                    <div className="flex items-start gap-1.5">
-                        <Lightbulb className="w-3.5 h-3.5 text-amber-400/70 mt-0.5 flex-shrink-0" />
-                        <div className="text-[11px] text-white leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                            {getInterpretation()}
-                        </div>
-                    </div>
-                    {isDivergent && getDivergenceText() && (
-                        <div className="flex items-start gap-1.5 mt-1.5 pt-1.5 border-t border-rose-500/10">
-                            <AlertTriangle className="w-3 h-3 text-rose-400/70 mt-0.5 flex-shrink-0" />
-                            <div className="text-[10px] text-rose-300/70 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                {getDivergenceText()}
+                    {isMarketActive ? (
+                        <>
+                            <div className="flex items-start gap-1.5">
+                                <Lightbulb className="w-3.5 h-3.5 text-amber-400/70 mt-0.5 flex-shrink-0" />
+                                <div className="text-[11px] text-white leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    {getInterpretation()}
+                                </div>
                             </div>
+                            {isDivergent && getDivergenceText() && (
+                                <div className="flex items-start gap-1.5 mt-1.5 pt-1.5 border-t border-rose-500/10">
+                                    <AlertTriangle className="w-3 h-3 text-rose-400/70 mt-0.5 flex-shrink-0" />
+                                    <div className="text-[10px] text-rose-300/70 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                        {getDivergenceText()}
+                                    </div>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <div className="flex items-center gap-2 py-1">
+                            <span className="text-amber-400 text-sm">⏸</span>
+                            <span className="text-[12px] font-bold text-amber-400">본장에서 브레드스 분석이 진행됩니다</span>
                         </div>
                     )}
                 </div>
