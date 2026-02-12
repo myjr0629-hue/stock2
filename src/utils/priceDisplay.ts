@@ -82,7 +82,10 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
             // Badge = PRE price from extended data
             if (extended?.prePrice && extended.prePrice > 0) {
                 extPrice = extended.prePrice;
-                extChangePct = (extended.preChangePct || 0) * 100;
+                // Direct calculation from prices (avoids fraction vs pct ambiguity)
+                if (displayPrice > 0) {
+                    extChangePct = ((extended.prePrice - displayPrice) / displayPrice) * 100;
+                }
                 extLabel = 'PRE';
             }
             break;
@@ -101,7 +104,9 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
                 extLabel = 'PRE CLOSE';
             } else if (extended?.prePrice && extended.prePrice > 0) {
                 extPrice = extended.prePrice;
-                extChangePct = (extended.preChangePct || 0) * 100;
+                if (prevClose && prevClose > 0) {
+                    extChangePct = ((extended.prePrice - prevClose) / prevClose) * 100;
+                }
                 extLabel = 'PRE CLOSE';
             }
             break;
@@ -127,8 +132,8 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
                 extPrice = extended.postPrice;
                 if (displayPrice > 0) {
                     extChangePct = ((extended.postPrice - displayPrice) / displayPrice) * 100;
-                } else {
-                    extChangePct = (extended.postChangePct || 0) * 100;
+                } else if (prevClose && prevClose > 0) {
+                    extChangePct = ((extended.postPrice - prevClose) / prevClose) * 100;
                 }
                 extLabel = 'POST';
             }
@@ -153,8 +158,8 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
                 extPrice = extended.postPrice;
                 if (displayPrice > 0) {
                     extChangePct = ((extended.postPrice - displayPrice) / displayPrice) * 100;
-                } else {
-                    extChangePct = (extended.postChangePct || 0) * 100;
+                } else if (prevClose && prevClose > 0) {
+                    extChangePct = ((extended.postPrice - prevClose) / prevClose) * 100;
                 }
                 extLabel = 'POST';
             }

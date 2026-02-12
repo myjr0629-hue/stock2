@@ -104,14 +104,14 @@ function FlowPageContent() {
         activeExtPrice = liveQuote?.extended?.prePrice || liveQuote?.prices?.prePrice || 0;
         activeExtType = 'PRE';
         activeExtLabel = 'PRE';
-        activeExtPct = liveQuote?.extended?.preChangePct ? liveQuote.extended.preChangePct * 100 : 0;
+        activeExtPct = (activeExtPrice > 0 && displayPrice > 0) ? ((activeExtPrice - displayPrice) / displayPrice) * 100 : 0;
     } else if (session === 'REG') {
         // [FIX] Show PRE CLOSE badge during regular session (matches Command page)
         activeExtPrice = liveQuote?.extended?.preClose || liveQuote?.prices?.prePrice || 0;
         if (activeExtPrice > 0) {
             activeExtType = 'PRE_CLOSE';
             activeExtLabel = 'PRE CLOSE';
-            activeExtPct = liveQuote?.extended?.preChangePct ? liveQuote.extended.preChangePct * 100 : 0;
+            activeExtPct = (activeExtPrice > 0 && displayPrice > 0) ? ((activeExtPrice - displayPrice) / displayPrice) * 100 : 0;
         }
     } else if (session === 'POST' || session === 'CLOSED') {
         activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || 0;

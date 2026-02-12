@@ -1107,7 +1107,7 @@ function processTickerData(data: any): any {
     if (session === 'PRE') {
         extendedPrice = data.extended?.prePrice || data.prices?.prePrice || 0;
         extendedLabel = 'PRE';
-        extendedChangePct = data.extended?.preChangePct ? data.extended.preChangePct * 100 : 0;
+        extendedChangePct = (extendedPrice > 0 && displayPrice > 0) ? ((extendedPrice - displayPrice) / displayPrice) * 100 : 0;
     } else if (session === 'POST' || session === 'CLOSED') {
         extendedPrice = data.extended?.postPrice || data.prices?.postPrice || 0;
         extendedLabel = 'POST';
