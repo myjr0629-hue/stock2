@@ -1,5 +1,5 @@
 import React from "react";
-import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb } from "lucide-react";
+import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb, Clock, Radio } from "lucide-react";
 
 interface RLSIInsightPanelProps {
     alignmentStatus: string;
@@ -122,9 +122,14 @@ export default function RLSIInsightPanel({
                         </div>
                     </>
                 ) : (
-                    <div className="flex items-center gap-2 py-1">
-                        <span className="text-amber-400 text-sm">⏸</span>
-                        <span className="text-[12px] font-bold text-amber-400">본장에서 실시간 분석이 진행됩니다</span>
+                    <div className="flex items-center gap-3 py-1.5">
+                        <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                            <Clock size={14} className="text-amber-400" />
+                        </div>
+                        <div>
+                            <div className="text-[11px] font-bold text-white/80">본장에서 실시간 분석이 진행됩니다</div>
+                            <div className="text-[9px] text-slate-500 font-mono mt-0.5">Regular Session 09:30-16:00 ET</div>
+                        </div>
                     </div>
                 )}
             </div>
@@ -250,9 +255,14 @@ export default function RLSIInsightPanel({
                             )}
                         </>
                     ) : (
-                        <div className="flex items-center gap-2 py-1">
-                            <span className="text-amber-400 text-sm">⏸</span>
-                            <span className="text-[12px] font-bold text-amber-400">본장에서 브레드스 분석이 진행됩니다</span>
+                        <div className="flex items-center gap-3 py-1.5">
+                            <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                                <Radio size={14} className="text-amber-400" />
+                            </div>
+                            <div>
+                                <div className="text-[11px] font-bold text-white/80">본장에서 브레드스 분석이 진행됩니다</div>
+                                <div className="text-[9px] text-slate-500 font-mono mt-0.5">Market Breadth Analysis</div>
+                            </div>
                         </div>
                     )}
                 </div>

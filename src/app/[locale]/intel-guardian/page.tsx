@@ -4,7 +4,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslations } from 'next-intl';
 import { LandingHeader } from "@/components/landing/LandingHeader";
-import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio } from "lucide-react";
+import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock } from "lucide-react";
 import { TradingViewTicker } from "@/components/TradingViewTicker";
 import { Link } from "@/i18n/routing";
 
@@ -337,7 +337,7 @@ export default function GuardianPage() {
                                 ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
                                 : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
                                 }`}>
-                                {isMarketActive ? '● LIVE — 본장 진행 중' : '⏸ 본장(09:30~16:00 ET) 전용'}
+                                {isMarketActive ? '● LIVE' : 'STANDBY'}
                             </span>
                             {/* [V6.0] Rotation Regime Badge */}
                             {isMarketActive && data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
@@ -473,11 +473,15 @@ export default function GuardianPage() {
                                     </div>
                                 </>
                             ) : (
-                                <div className="flex-1 flex items-center justify-center py-6">
-                                    <div className="text-center">
-                                        <span className="text-amber-400 text-2xl block mb-2">⏸</span>
-                                        <span className="text-[13px] font-bold text-amber-400 block">본장에서 실시간 분석이 진행됩니다</span>
-                                        <span className="text-[11px] text-slate-500 block mt-1">09:30~16:00 ET</span>
+                                <div className="flex-1 flex items-center justify-center py-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+                                            <Clock size={20} className="text-amber-400" />
+                                        </div>
+                                        <div>
+                                            <div className="text-[13px] font-bold text-white/80">본장에서 실시간 분석이 진행됩니다</div>
+                                            <div className="text-[10px] text-slate-500 font-mono mt-1">Regular Session 09:30-16:00 ET</div>
+                                        </div>
                                     </div>
                                 </div>
                             )}
