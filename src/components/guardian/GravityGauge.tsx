@@ -127,7 +127,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                     <Activity className="w-3 h-3 text-white opacity-70" />
                     <span className="text-xs uppercase tracking-[0.2em] text-white font-black">Gravity Gauge</span>
                     {session && (
-                        <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ml-auto ${session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ml-auto ${session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                             session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
                                 session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
                                     'bg-slate-500/20 text-slate-400 border border-slate-500/30'
@@ -217,7 +217,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                         {loading ? "--" : Math.round(animatedScore)}
                     </span>
                     <span
-                        className="text-[9px] font-black uppercase tracking-widest mt-0.5 px-2 py-0.5 rounded border border-white/10"
+                        className="text-[11px] font-black uppercase tracking-widest mt-0.5 px-2 py-0.5 rounded border border-white/10"
                         style={{ color: statusColor, borderColor: `${statusColor}33`, backgroundColor: `${statusColor}11` }}
                     >
                         {statusText}
@@ -238,7 +238,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                 {/* Scale labels */}
                 <div className="flex justify-between mt-0.5 px-0.5">
                     {scaleZones.map(z => (
-                        <span key={z.label} className="text-[7px] font-mono text-slate-600">{z.label}</span>
+                        <span key={z.label} className="text-[11px] font-mono text-slate-600">{z.label}</span>
                     ))}
                 </div>
             </div>
@@ -255,7 +255,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                                 <Icon className="w-3 h-3 flex-shrink-0 opacity-60" style={{ color: item.color }} />
                                 {/* Label */}
                                 <div className="w-[52px] flex-shrink-0">
-                                    <div className="text-[9px] font-bold text-white/80 uppercase tracking-wide leading-tight truncate">
+                                    <div className="text-[11px] font-bold text-white/80 uppercase tracking-wide leading-tight truncate">
                                         {item.label}
                                     </div>
                                 </div>
@@ -274,10 +274,10 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                                 </div>
                                 {/* Score + Interpretation */}
                                 <div className="w-[68px] text-right flex-shrink-0 flex items-center justify-end gap-1">
-                                    <span className="text-[10px] font-mono font-bold" style={{ color: item.color }}>
+                                    <span className="text-[11px] font-mono font-bold" style={{ color: item.color }}>
                                         {Math.round(item.score)}
                                     </span>
-                                    <span className="text-[8px] font-bold" style={{ color: interp.color }}>
+                                    <span className="text-[11px] font-bold" style={{ color: interp.color }}>
                                         {interp.text}
                                     </span>
                                 </div>
@@ -291,7 +291,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                             {factorSummary.bull > 0 && (
                                 <div className="flex items-center gap-1">
                                     <ChevronUp className="w-3 h-3 text-emerald-400" />
-                                    <span className="text-[9px] font-bold text-emerald-400">
+                                    <span className="text-[11px] font-bold text-emerald-400">
                                         {t('bullish')} ×{factorSummary.bull}
                                     </span>
                                 </div>
@@ -299,7 +299,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                             {factorSummary.bear > 0 && (
                                 <div className="flex items-center gap-1">
                                     <ChevronDown className="w-3 h-3 text-red-400" />
-                                    <span className="text-[9px] font-bold text-red-400">
+                                    <span className="text-[11px] font-bold text-red-400">
                                         {t('bearish')} ×{factorSummary.bear}
                                     </span>
                                 </div>
@@ -307,7 +307,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                             {factorSummary.bull === 0 && factorSummary.bear === 0 && (
                                 <div className="flex items-center gap-1">
                                     <Minus className="w-3 h-3 text-slate-400" />
-                                    <span className="text-[9px] font-bold text-slate-400">
+                                    <span className="text-[11px] font-bold text-slate-400">
                                         {t('neutral')}
                                     </span>
                                 </div>
@@ -324,7 +324,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                         <div key={key} className="flex items-center gap-1.5">
                             <div className="w-3 h-3 rounded bg-slate-800 animate-pulse flex-shrink-0" />
                             <div className="w-[52px] flex-shrink-0">
-                                <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wide">
+                                <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
                                     {t(`gauge.${key}` as 'gauge.momentum')}
                                 </div>
                             </div>
@@ -332,7 +332,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                                 <div className="h-full w-0 rounded-full bg-slate-700" />
                             </div>
                             <div className="w-[68px] text-right flex-shrink-0">
-                                <span className="text-[10px] font-mono text-slate-600">--</span>
+                                <span className="text-[11px] font-mono text-slate-600">--</span>
                             </div>
                         </div>
                     ))}

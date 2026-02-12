@@ -178,10 +178,10 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMar
                     <div
                         className="absolute top-full mt-3 flex flex-col items-center whitespace-nowrap pointer-events-none"
                     >
-                        <span className={`text-white font-bold tracking-wider uppercase opacity-90 shadow-black drop-shadow-md ${isCenter ? 'text-[14px]' : 'text-[10px]'}`}>
+                        <span className={`text-white font-bold tracking-wider uppercase opacity-90 shadow-black drop-shadow-md ${isCenter ? 'text-[14px]' : 'text-[11px]'}`}>
                             {visual?.label || data.name}
                         </span>
-                        <span className={`font-mono drop-shadow-md ${isCenter ? 'text-[11px]' : 'text-[9px]'}`} style={{ color: changeColor }}>
+                        <span className={`font-mono drop-shadow-md ${isCenter ? 'text-[11px]' : 'text-[11px]'}`} style={{ color: changeColor }}>
                             {data.density > 0 ? "+" : ""}{(data.density).toFixed(2)}%
                         </span>
                     </div>

@@ -100,7 +100,7 @@ export default function RLSIInsightPanel({
                         RLSI INSIGHT
                     </span>
                 </div>
-                <div className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
+                <div className={`text-[11px] font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
                     ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
                     : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
                     }`}>
@@ -124,7 +124,7 @@ export default function RLSIInsightPanel({
                 }}>
                 {isMarketActive ? (
                     <>
-                        <div className={`text-[10px] font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
+                        <div className={`text-[11px] font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
                             sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
                             }`}>
                             {insightTitle}
@@ -140,7 +140,7 @@ export default function RLSIInsightPanel({
                         </div>
                         <div>
                             <div className="text-[11px] font-bold text-white/80">본장에서 실시간 분석이 진행됩니다</div>
-                            <div className="text-[9px] text-slate-500 font-mono mt-0.5">Regular Session 09:30-16:00 ET</div>
+                            <div className="text-[11px] text-slate-500 font-mono mt-0.5">Regular Session 09:30-16:00 ET</div>
                         </div>
                     </div>
                 )}
@@ -152,17 +152,17 @@ export default function RLSIInsightPanel({
                 <div className="flex items-center justify-between flex-none">
                     <div className="flex items-center gap-1.5">
                         <BarChart3 className="w-3.5 h-3.5" style={{ color: cfg.color }} />
-                        <span className="text-[10px] font-black text-white uppercase tracking-[0.15em]">MARKET BREADTH</span>
+                        <span className="text-[11px] font-black text-white uppercase tracking-[0.15em]">MARKET BREADTH</span>
                     </div>
                     <div className="flex items-center gap-2">
                         {isDivergent && (
                             <div className="flex items-center gap-1">
                                 <AlertTriangle className="w-3 h-3 text-rose-400" />
-                                <span className="text-[8px] font-black text-rose-400 tracking-wider">DIV</span>
+                                <span className="text-[11px] font-black text-rose-400 tracking-wider">DIV</span>
                             </div>
                         )}
                         <span
-                            className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded"
+                            className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded"
                             style={{
                                 color: cfg.color,
                                 backgroundColor: cfg.bg,
@@ -181,7 +181,7 @@ export default function RLSIInsightPanel({
                             {loading ? '--' : Math.round(breadthPct)}
                             <span className="text-sm text-slate-500 font-bold">%</span>
                         </span>
-                        <span className="text-[10px] text-white/50">상승 종목 비율</span>
+                        <span className="text-[11px] text-white/50">상승 종목 비율</span>
                     </div>
                     {/* Dual-tone progress bar */}
                     <div className="relative h-3 bg-slate-800/80 rounded-full overflow-hidden">
@@ -198,9 +198,9 @@ export default function RLSIInsightPanel({
                         <div className="absolute left-1/2 top-0 w-[1px] h-full bg-white/20" />
                     </div>
                     <div className="flex justify-between mt-1">
-                        <span className="text-[8px] text-emerald-400/60 font-bold">▲ 상승</span>
-                        <span className="text-[8px] text-white/30">50%</span>
-                        <span className="text-[8px] text-rose-400/60 font-bold">▼ 하락</span>
+                        <span className="text-[11px] text-emerald-400/60 font-bold">▲ 상승</span>
+                        <span className="text-[11px] text-white/30">50%</span>
+                        <span className="text-[11px] text-rose-400/60 font-bold">▼ 하락</span>
                     </div>
                 </div>
 
@@ -210,8 +210,8 @@ export default function RLSIInsightPanel({
                     <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5 shadow-lg">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-[9px] text-white font-bold uppercase tracking-wide">A/D 비율</span>
-                                <span className="text-[8px] text-white/50">상승 ÷ 하락</span>
+                                <span className="text-[11px] text-white font-bold uppercase tracking-wide">A/D 비율</span>
+                                <span className="text-[11px] text-white/50">상승 ÷ 하락</span>
                             </div>
                             {adRatio >= 1 ? (
                                 <TrendingUp className="w-3 h-3 text-emerald-400/70" />
@@ -222,9 +222,9 @@ export default function RLSIInsightPanel({
                         <div className="flex items-baseline justify-between">
                             <div className={`text-lg font-mono font-black tabular-nums ${adRatio >= 1.5 ? 'text-emerald-400' : adRatio >= 1 ? 'text-emerald-300' : adRatio >= 0.7 ? 'text-amber-400' : 'text-rose-400'}`}>
                                 {adRatio.toFixed(2)}
-                                <span className="text-[9px] text-white/40 font-medium ml-1">: 1</span>
+                                <span className="text-[11px] text-white/40 font-medium ml-1">: 1</span>
                             </div>
-                            <span className="text-[9px] text-white/60 font-medium">{getAdLabel(adRatio)}</span>
+                            <span className="text-[11px] text-white/60 font-medium">{getAdLabel(adRatio)}</span>
                         </div>
                     </div>
 
@@ -232,17 +232,17 @@ export default function RLSIInsightPanel({
                     <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5 shadow-lg">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-[9px] text-white font-bold uppercase tracking-wide">거래량 분석</span>
-                                <span className="text-[8px] text-white/50">매수량 비율</span>
+                                <span className="text-[11px] text-white font-bold uppercase tracking-wide">거래량 분석</span>
+                                <span className="text-[11px] text-white/50">매수량 비율</span>
                             </div>
                             <BarChart3 className="w-3 h-3 text-sky-400/70" />
                         </div>
                         <div className="flex items-baseline justify-between">
                             <div className={`text-lg font-mono font-black tabular-nums ${volumeBreadth >= 55 ? 'text-emerald-400' : volumeBreadth >= 45 ? 'text-white' : 'text-rose-400'}`}>
                                 {volumeBreadth.toFixed(1)}
-                                <span className="text-[9px] text-white/40 font-medium">%</span>
+                                <span className="text-[11px] text-white/40 font-medium">%</span>
                             </div>
-                            <span className="text-[9px] text-white/60 font-medium">{getVolLabel(volumeBreadth)}</span>
+                            <span className="text-[11px] text-white/60 font-medium">{getVolLabel(volumeBreadth)}</span>
                         </div>
                     </div>
                 </div>
@@ -260,7 +260,7 @@ export default function RLSIInsightPanel({
                             {isDivergent && getDivergenceText() && (
                                 <div className="flex items-start gap-1.5 mt-1.5 pt-1.5 border-t border-rose-500/10">
                                     <AlertTriangle className="w-3 h-3 text-rose-400/70 mt-0.5 flex-shrink-0" />
-                                    <div className="text-[10px] text-rose-300/70 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    <div className="text-[11px] text-rose-300/70 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                                         {getDivergenceText()}
                                     </div>
                                 </div>
@@ -273,7 +273,7 @@ export default function RLSIInsightPanel({
                             </div>
                             <div>
                                 <div className="text-[11px] font-bold text-white/80">본장에서 브레드스 분석이 진행됩니다</div>
-                                <div className="text-[9px] text-slate-500 font-mono mt-0.5">Market Breadth Analysis</div>
+                                <div className="text-[11px] text-slate-500 font-mono mt-0.5">Market Breadth Analysis</div>
                             </div>
                         </div>
                     )}

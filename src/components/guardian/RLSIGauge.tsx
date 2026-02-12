@@ -101,7 +101,7 @@ export default function RLSIGauge({ score, loading = false }: RLSIGaugeProps) {
 
             {/* VALUE DISPLAY */}
             <div className="absolute bottom-10 flex flex-col items-center">
-                <span className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">Health Index</span>
+                <span className="text-[11px] text-slate-500 uppercase tracking-[0.2em] font-bold">Health Index</span>
                 <span className={`text-4xl font-black tabular-nums tracking-tighter ${score >= 70 ? 'text-emerald-400' : score <= 30 ? 'text-rose-400' : 'text-amber-400'
                     }`}>
                     {score}/100

@@ -45,28 +45,28 @@ export function VitalsPanel({ marketStatus, mode = 'STANDARD', rvol, loading = f
             <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-3">
                 {/* 1. Market Status */}
                 <div>
-                    <div className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
                         <Shield className="w-3 h-3" />
                         MARKET PERMISSION
                     </div>
                     <div className={`text-xl font-black ${getStatusColor(marketStatus)}`}>
                         {loading ? "..." : marketStatus}
                     </div>
-                    <div className="text-[8px] text-slate-600 font-mono">
+                    <div className="text-[11px] text-slate-600 font-mono">
                         {marketStatus === 'GO' ? 'ALGO TRADING ACTIVE' : marketStatus === 'STOP' ? 'DEFENSIVE MODE' : 'AWAITING SIGNAL'}
                     </div>
                 </div>
 
                 {/* 2. Operation Mode */}
                 <div>
-                    <div className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
                         <Zap className="w-3 h-3" />
                         OPERATION MODE
                     </div>
                     <div className="text-xl font-black text-slate-300">
                         {mode}
                     </div>
-                    <div className="text-[8px] text-slate-600 font-mono">
+                    <div className="text-[11px] text-slate-600 font-mono">
                         RISK PROTOCOL: ALPHA
                     </div>
                 </div>
@@ -76,28 +76,28 @@ export function VitalsPanel({ marketStatus, mode = 'STANDARD', rvol, loading = f
             <div className="grid grid-cols-2 gap-4">
                 {/* NASDAQ RVOL */}
                 <div>
-                    <div className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
                         <Activity className="w-3 h-3 text-cyan-500" />
                         NASDAQ FLOW
                     </div>
                     <div className={`text-xl font-black font-mono ${ndxRvol.color}`}>
                         {loading ? "..." : ndxRvol.text}
                     </div>
-                    <div className={`text-[8px] font-bold tracking-wider ${ndxRvol.color}`}>
+                    <div className={`text-[11px] font-bold tracking-wider ${ndxRvol.color}`}>
                         [{ndxRvol.label}]
                     </div>
                 </div>
 
                 {/* DOW RVOL */}
                 <div>
-                    <div className="text-[9px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
+                    <div className="text-[11px] font-bold text-slate-500 uppercase flex items-center gap-1 mb-1">
                         <TrendingUp className="w-3 h-3 text-indigo-500" />
                         DOW JONES FLOW
                     </div>
                     <div className={`text-xl font-black font-mono ${dowRvol.color}`}>
                         {loading ? "..." : dowRvol.text}
                     </div>
-                    <div className={`text-[8px] font-bold tracking-wider ${dowRvol.color}`}>
+                    <div className={`text-[11px] font-bold tracking-wider ${dowRvol.color}`}>
                         [{dowRvol.label}]
                     </div>
                 </div>

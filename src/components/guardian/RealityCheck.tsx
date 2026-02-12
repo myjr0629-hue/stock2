@@ -64,7 +64,7 @@ export function RealityCheck({
                         REALITY CHECK
                     </h3>
                 </div>
-                <div className={`text-[9px] font-black uppercase ${statusColor} border border-current px-1.5 py-0.5 rounded`}>
+                <div className={`text-[11px] font-black uppercase ${statusColor} border border-current px-1.5 py-0.5 rounded`}>
                     {statusText}
                 </div>
             </div>
