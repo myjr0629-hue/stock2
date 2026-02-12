@@ -1024,7 +1024,7 @@ function MobileTabBar({ activeTab, setActiveTab }: { activeTab: string; setActiv
 // Main Dashboard Page
 export default function DashboardPage() {
     const searchParams = useSearchParams();
-    const { setSelectedTicker, fetchDashboardData, isLoading, dashboardTickers } = useDashboardStore();
+    const { setSelectedTicker, fetchDashboardData, fetchPriceOnly, isLoading, dashboardTickers } = useDashboardStore();
     const [initialized, setInitialized] = useState(false);
     const [mobileTab, setMobileTab] = useState('chart');
 
@@ -1045,13 +1045,23 @@ export default function DashboardPage() {
         const tickersToFetch = dashboardTickers.length > 0 ? dashboardTickers : undefined;
         fetchDashboardData(tickersToFetch);
 
-        const interval = setInterval(() => {
+        // Full data poll (options, signals, etc.) every 30s
+        const fullInterval = setInterval(() => {
             const currentTickers = dashboardTickers.length > 0 ? dashboardTickers : undefined;
             fetchDashboardData(currentTickers);
-        }, 30000); // Refresh every 30 seconds
+        }, 30000);
 
-        return () => clearInterval(interval);
-    }, [initialized, fetchDashboardData, dashboardTickers]);
+        // Fast price-only poll every 5s (lightweight /api/live/quotes)
+        const priceInterval = setInterval(() => {
+            const currentTickers = dashboardTickers.length > 0 ? dashboardTickers : undefined;
+            fetchPriceOnly(currentTickers);
+        }, 5000);
+
+        return () => {
+            clearInterval(fullInterval);
+            clearInterval(priceInterval);
+        };
+    }, [initialized, fetchDashboardData, fetchPriceOnly, dashboardTickers]);
 
     return (
         <div className="min-h-screen bg-[#050a14] text-white flex flex-col">

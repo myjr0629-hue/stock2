@@ -260,7 +260,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         verdict = 'BEARISH';
         verdictKR = '하락';
         if (smaData?.cross === 'DEAD' && netGex < 0) {
-            briefing = `${ticker}은 숙감마 환경에서 Dead Cross가 확인되었습니다.`;
+            briefing = `${ticker}은 숏감마 환경에서 Dead Cross가 확인되었습니다.`;
             subBriefing = `딜러들의 역방향 헷징으로 가격 변동이 증폭될 수 있습니다. Max Pain($${maxPain})으로의 수렴 압력이 있으며, 지지선($${putFloor}) 이탈 시 하락 가속 가능성이 있습니다.`;
         } else if (netPremium < -500000) {
             briefing = `${ticker}에 풋 옵션 매수세가 우위를 보이고 있습니다.`;
@@ -353,7 +353,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         changePercent: initialStockData.changePercent
     } : undefined, [initialStockData]);
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
-        refreshInterval: 15000,
+        refreshInterval: 5000,
     });
     // Use SWR data when available, SSR fallback otherwise — keeps 'liveQuote' name for compatibility
     const liveQuote = _swrQuote || ssrFallback || null;
@@ -1821,7 +1821,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     {/* MM Insight Footer (Simplified) */}
                                     <div className="px-3 py-2 border-t border-white/5 bg-slate-950/30">
                                         <p className="text-[10px] text-white/70 leading-relaxed">
-                                            {structure?.netGex > 0 ? t('shortGammaWarning') : t('longGammaStable')}
+                                            {structure?.netGex > 0 ? t('longGammaStable') : t('shortGammaWarning')}
                                         </p>
                                     </div>
                                 </div>

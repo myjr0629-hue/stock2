@@ -104,6 +104,8 @@ interface DashboardState {
 
     // Fetch all data
     fetchDashboardData: (tickerList?: string[]) => Promise<void>;
+    // Fast price-only update (lightweight)
+    fetchPriceOnly: (tickerList?: string[]) => Promise<void>;
 }
 
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
@@ -196,6 +198,51 @@ export const useDashboardStore = create<DashboardState>()(
                 } catch (error) {
                     console.error('Dashboard fetch error:', error);
                     set({ isLoading: false });
+                }
+            },
+
+            // ── Fast price-only update (5s) using /api/live/quotes ──
+            fetchPriceOnly: async (tickerList = DEFAULT_TICKERS) => {
+                try {
+                    const symbols = tickerList.slice(0, 10).join(',');
+                    const res = await fetch(`/api/live/quotes?symbols=${symbols}`);
+                    if (!res.ok) return;
+                    const json = await res.json();
+                    const quotes = json.data;
+                    if (!quotes) return;
+
+                    const currentTickers = { ...get().tickers };
+                    let changed = false;
+
+                    for (const [ticker, q] of Object.entries(quotes) as [string, any][]) {
+                        if (!q || !currentTickers[ticker]) continue;
+                        const existing = currentTickers[ticker];
+                        const newPrice = q.extendedPrice && q.extendedPrice > 0
+                            ? q.extendedPrice
+                            : q.price || q.latestPrice;
+                        if (newPrice && newPrice !== existing.underlyingPrice) {
+                            currentTickers[ticker] = {
+                                ...existing,
+                                underlyingPrice: newPrice,
+                                changePercent: q.changePercent ?? existing.changePercent,
+                                prevClose: q.previousClose ?? q.prevClose ?? existing.prevClose,
+                                extended: {
+                                    ...existing.extended,
+                                    postPrice: q.extendedPrice > 0 && q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
+                                    postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : existing.extended?.postChangePct,
+                                    prePrice: q.extendedPrice > 0 && q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
+                                    preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
+                                },
+                            };
+                            changed = true;
+                        }
+                    }
+
+                    if (changed) {
+                        set({ tickers: currentTickers });
+                    }
+                } catch (e) {
+                    // Silent fail — full poll will recover
                 }
             }
         }),

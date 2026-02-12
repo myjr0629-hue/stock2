@@ -24,7 +24,7 @@ function FlowPageContent() {
     // - Background refresh every 15s
     // - Deduplication prevents concurrent duplicate requests
     const { data: liveQuote, isLoading: loading, isValidating: quoteLoading } = useFlowData(ticker, {
-        refreshInterval: 15000,  // 15s polling (was 10s, but API takes 20s)
+        refreshInterval: 5000,  // 5s polling (matches Command page)
     });
 
     // Sparkline chart data
