@@ -50,6 +50,9 @@ export async function GET(request: Request) {
             const prevDayClose = S.prevDay?.c || 0;
             const prevClose = prevDayClose;
 
+            // Polygon's pre-computed change % for regular session (works in PRE/POST/CLOSED too)
+            const polygonChangePct = S.todaysChangePerc || 0;
+
             // Session-aware price selection
             let price = 0;
             let extendedPrice = 0;
@@ -77,9 +80,9 @@ export async function GET(request: Request) {
                 }
             }
 
-            const changePct = (price > 0 && prevClose > 0)
-                ? ((price - prevClose) / prevClose) * 100
-                : 0;
+            // Regular session change: use Polygon's todaysChangePerc (reliable across all sessions)
+            // This correctly shows last day's regular session performance even in PRE/POST/CLOSED
+            const regChangePct = polygonChangePct;
 
             const extendedChangePct = (extendedPrice > 0 && price > 0)
                 ? ((extendedPrice - price) / price) * 100
@@ -89,8 +92,9 @@ export async function GET(request: Request) {
                 price,
                 previousClose: prevClose,
                 prevClose,
-                change: price - prevClose,
-                changePercent: changePct,
+                change: S.todaysChange || 0,
+                changePercent: regChangePct,
+                regChangePct,
                 extendedPrice: extendedPrice > 0 && extendedPrice !== price ? extendedPrice : 0,
                 extendedChange: extendedPrice > 0 ? extendedPrice - price : 0,
                 extendedChangePercent: extendedChangePct,
