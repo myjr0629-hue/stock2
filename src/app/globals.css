@@ -127,6 +127,13 @@
   @apply bg-white/80 backdrop-blur-md border border-white/40 shadow-sm supports-[backdrop-filter]:bg-white/60;
 }
 
+/* ===== FONT SYSTEM ===== */
+
+/* Plus Jakarta Sans for English-only elements */
+@utility font-jakarta {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
 /* ===== [S-51.1] PREMIUM TYPOGRAPHY ===== */
 
 /* Minimum font size enforcement */

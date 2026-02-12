@@ -95,7 +95,7 @@ export function WatchlistGrid() {
         return (
             <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-200">
                 <Heart className="w-16 h-16 text-slate-200 mb-4" />
-                <h3 className="text-xl font-bold text-slate-700">Watchlist is Empty</h3>
+                <h3 className="text-xl font-bold text-slate-700 font-jakarta">Watchlist is Empty</h3>
                 <p className="text-slate-500 mt-2 text-sm">Add tickers to your favorites to see them here.</p>
                 <Button onClick={() => router.push('/ticker?ticker=NVDA')} variant="outline" className="mt-6">Go to Dashboard</Button>
             </div>
@@ -106,7 +106,7 @@ export function WatchlistGrid() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                    <h2 className="text-2xl font-bold text-slate-900 tracking-tight flex items-center gap-2 font-jakarta">
                         <Heart className="w-6 h-6 text-red-500 fill-red-500" />
                         Your Watchlist
                         <span className="text-sm font-medium text-slate-400 ml-2 bg-slate-100 px-2 py-0.5 rounded-full">{favorites.length} Tickers</span>
@@ -121,7 +121,7 @@ export function WatchlistGrid() {
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold tracking-wider">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-500 font-semibold tracking-wider font-jakarta">
                                 <tr>
                                     <th className="px-6 py-4">Symbol</th>
                                     <th className="px-6 py-4 text-right">Price</th>
@@ -138,8 +138,8 @@ export function WatchlistGrid() {
                                 {data.map((row) => (
                                     <tr key={row.symbol} className="hover:bg-slate-50/80 transition-colors group cursor-pointer" onClick={() => router.push(`/ticker?ticker=${row.symbol}`)}>
                                         <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-900 text-base">{row.symbol}</div>
-                                            <div className="text-[10px] text-slate-400 font-medium truncate max-w-[120px]">{row.name}</div>
+                                            <div className="font-bold text-slate-900 text-base font-jakarta">{row.symbol}</div>
+                                            <div className="text-[10px] text-slate-400 font-medium truncate max-w-[120px] font-jakarta">{row.name}</div>
                                         </td>
                                         <td className="px-6 py-4 text-right">
                                             <div className="flex flex-col items-end">
@@ -147,7 +147,7 @@ export function WatchlistGrid() {
                                                     ${row.price.toFixed(2)}
                                                 </div>
                                                 {row.session && row.session !== 'reg' && (
-                                                    <span className={`text-[9px] font-black uppercase tracking-wider px-1 rounded ${row.session === 'pre' ? "bg-blue-100 text-blue-600" : "bg-indigo-100 text-indigo-600"}`}>
+                                                    <span className={`text-[9px] font-black uppercase tracking-wider px-1 rounded font-jakarta ${row.session === 'pre' ? "bg-blue-100 text-blue-600" : "bg-indigo-100 text-indigo-600"}`}>
                                                         {row.session}-market
                                                     </span>
                                                 )}
@@ -162,7 +162,7 @@ export function WatchlistGrid() {
                                             {row.vwap !== undefined && row.vwap !== null ? (
                                                 <div className="flex flex-col items-end">
                                                     <span className="font-bold text-slate-700">${row.vwap.toFixed(2)}</span>
-                                                    <span className={`text-[9px] font-black uppercase tracking-wide ${row.price >= row.vwap ? "text-emerald-600" : "text-rose-500"}`}>
+                                                    <span className={`text-[9px] font-black uppercase tracking-wide font-jakarta ${row.price >= row.vwap ? "text-emerald-600" : "text-rose-500"}`}>
                                                         {row.price >= row.vwap ? "ABOVE" : "BELOW"}
                                                     </span>
                                                 </div>
@@ -175,7 +175,7 @@ export function WatchlistGrid() {
                                             {row.pcr ? (
                                                 <div className="inline-flex flex-col items-center">
                                                     <span className="font-bold text-slate-700">{row.pcr.toFixed(2)}</span>
-                                                    <span className="text-[9px] text-slate-400">{row.pcr > 1 ? "Bearish" : row.pcr < 0.7 ? "Bullish" : "Neutral"}</span>
+                                                    <span className="text-[9px] text-slate-400 font-jakarta">{row.pcr > 1 ? "Bearish" : row.pcr < 0.7 ? "Bullish" : "Neutral"}</span>
                                                 </div>
                                             ) : '-'}
                                         </td>

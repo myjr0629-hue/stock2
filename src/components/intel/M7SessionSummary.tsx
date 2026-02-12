@@ -170,13 +170,13 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
 
             {/* Header */}
             <div className="flex items-center justify-between mb-6 relative z-10">
-                <h3 className="text-sm font-bold text-cyan-400/90 uppercase tracking-[0.2em] flex items-center gap-2 drop-shadow-sm">
+                <h3 className="text-sm font-bold text-cyan-400/90 uppercase tracking-[0.2em] flex items-center gap-2 drop-shadow-sm font-jakarta">
                     <Activity className="w-4 h-4 text-cyan-400 animate-pulse" />
                     M7 Session Summary
                 </h3>
                 <div className="flex items-center gap-3">
                     {isRefreshing && <RefreshCw className="w-3 h-3 animate-spin text-cyan-500/60" />}
-                    <span className="text-[10px] text-cyan-300/80 uppercase flex items-center gap-1.5 font-bold tracking-wider px-2 py-1 rounded-full bg-cyan-500/5 border border-cyan-500/10 backdrop-blur-sm">
+                    <span className="text-[10px] text-cyan-300/80 uppercase flex items-center gap-1.5 font-bold tracking-wider px-2 py-1 rounded-full bg-cyan-500/5 border border-cyan-500/10 backdrop-blur-sm font-jakarta">
                         <Radio className="w-3 h-3 text-cyan-400 animate-pulse" />
                         LIVE
                     </span>
@@ -222,7 +222,7 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
                                     q.alphaScore >= 50 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
                                         'bg-slate-700/30 border-slate-600/30 text-slate-400'
                                     }`}>
-                                    <span className="text-[9px] font-bold opacity-70">ALPHA</span>
+                                    <span className="text-[9px] font-bold opacity-70 font-jakarta">ALPHA</span>
                                     <span className="text-xs font-black tracking-tight">
                                         {q.alphaScore > 0 ? q.alphaScore.toFixed(1) : '-'}
                                     </span>
@@ -250,7 +250,7 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
 
                             {/* Row 3: Ticker */}
                             <div className="text-center mb-1">
-                                <div className="text-sm font-black text-white tracking-tight drop-shadow-md group-hover:text-cyan-100 transition-colors">
+                                <div className="text-sm font-black text-white tracking-tight drop-shadow-md group-hover:text-cyan-100 transition-colors font-jakarta">
                                     {q.ticker}
                                 </div>
                             </div>
@@ -273,7 +273,7 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
             {/* Footer */}
             <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-500 relative z-10">
                 <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1.5 opacity-70 hover:opacity-100 transition-opacity">
+                    <span className="flex items-center gap-1.5 opacity-70 hover:opacity-100 transition-opacity font-jakarta">
                         <DollarSign className="w-3 h-3 text-slate-400" />
                         Total Volume: <span className="text-slate-300 font-mono">{(stats.totalVolume / 1e6).toFixed(0)}M</span>
                     </span>
@@ -286,14 +286,14 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
                     {stats.topGainer && (
                         <span className="flex items-center gap-1.5">
                             <TrendingUp className="w-3 h-3 text-emerald-500" />
-                            Top: <span className="font-bold text-emerald-400">{stats.topGainer.ticker}</span>
+                            Top: <span className="font-bold text-emerald-400 font-jakarta">{stats.topGainer.ticker}</span>
                             <span className="font-mono text-emerald-500/80">{stats.topGainer.changePct >= 0 ? '+' : ''}{stats.topGainer.changePct.toFixed(2)}%</span>
                         </span>
                     )}
                     {stats.topLoser && (
                         <span className="flex items-center gap-1.5">
                             <TrendingDown className="w-3 h-3 text-rose-500" />
-                            Bottom: <span className="font-bold text-rose-400">{stats.topLoser.ticker}</span>
+                            Bottom: <span className="font-bold text-rose-400 font-jakarta">{stats.topLoser.ticker}</span>
                             <span className="font-mono text-rose-500/80">{stats.topLoser.changePct.toFixed(2)}%</span>
                         </span>
                     )}

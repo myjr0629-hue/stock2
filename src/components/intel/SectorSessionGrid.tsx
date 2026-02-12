@@ -317,7 +317,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                                 className="w-full h-full object-cover"
                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                         </div>
-                                        <span className="text-base font-black text-white tracking-tight">{q.ticker}</span>
+                                        <span className="text-base font-black text-white tracking-tight font-jakarta">{q.ticker}</span>
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         {hasAlert && (

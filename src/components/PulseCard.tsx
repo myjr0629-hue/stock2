@@ -122,10 +122,10 @@ export function PulseCard({ ticker, price, change, whaleIndex, whaleConfidence, 
 
                             <div>
                                 <div className="flex items-center gap-2">
-                                    <h2 className="text-3xl font-black text-white tracking-tighter leading-none">{ticker}</h2>
+                                    <h2 className="text-3xl font-black text-white tracking-tighter leading-none font-jakarta">{ticker}</h2>
                                     {isHighWhale && <Activity className="w-4 h-4 text-fuchsia-500 animate-pulse" />}
                                 </div>
-                                <div className="text-[10px] font-bold text-slate-500 tracking-wide mt-0.5">
+                                <div className="text-[10px] font-bold text-slate-500 tracking-wide mt-0.5 font-jakarta">
                                     {rank ? `RANK #${rank}` : 'UNRANKED'}
                                 </div>
                             </div>
@@ -140,7 +140,7 @@ export function PulseCard({ ticker, price, change, whaleIndex, whaleConfidence, 
 
                     {/* Whale Confidence Badge */}
                     <div className={cn(
-                        "px-2 py-0.5 rounded-full text-[9px] font-bold w-fit uppercase tracking-wider border ml-1",
+                        "px-2 py-0.5 rounded-full text-[9px] font-bold w-fit uppercase tracking-wider border ml-1 font-jakarta",
                         isHighWhale
                             ? "bg-fuchsia-500/20 text-fuchsia-400 border-fuchsia-500/40"
                             : "bg-slate-800 text-slate-500 border-slate-700"

@@ -402,7 +402,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                         {rankings.moneyFlow.map((item, idx) => (
                             <div key={item.ticker} className="flex items-center gap-2">
                                 <RankBadge rank={idx + 1} color={item.color} />
-                                <span className="text-[11px] font-bold text-white w-10">{item.ticker}</span>
+                                <span className="text-[11px] font-bold text-white w-10 font-jakarta">{item.ticker}</span>
                                 <div className="flex-1 h-3 bg-white/[0.04] rounded-full overflow-hidden relative border border-white/[0.04]">
                                     <div
                                         className="h-full rounded-full transition-all duration-700"
@@ -464,7 +464,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                             return (
                                 <div key={item.ticker} className="flex items-center gap-2">
                                     <SeverityDot level={severity} />
-                                    <span className="text-[11px] font-bold text-white w-10">{item.ticker}</span>
+                                    <span className="text-[11px] font-bold text-white w-10 font-jakarta">{item.ticker}</span>
                                     <div className="flex-1 h-3 bg-white/[0.04] rounded-full overflow-hidden relative border border-white/[0.04]">
                                         <div
                                             className="h-full rounded-full transition-all duration-700"
@@ -529,7 +529,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                             return (
                                 <div key={item.ticker} className="flex items-center gap-2">
                                     <PainIndicator magnitude={mag} />
-                                    <span className="text-[11px] font-bold text-white w-10">{item.ticker}</span>
+                                    <span className="text-[11px] font-bold text-white w-10 font-jakarta">{item.ticker}</span>
                                     <div className="flex-1 h-3 bg-white/[0.04] rounded-full overflow-hidden relative border border-white/[0.04]">
                                         {/* Center line */}
                                         <div className="absolute left-1/2 top-0 w-px h-full bg-white/10" />

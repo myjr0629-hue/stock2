@@ -378,18 +378,18 @@ function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, call
             {/* Numeric labels — M7 style grid boxes */}
             <div className="grid grid-cols-3 gap-1">
                 <div className="bg-white/[0.04] rounded-lg py-1.5 px-2 border border-white/[0.06] text-center">
-                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold">STOP</p>
+                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold font-jakarta">STOP</p>
                     <p className="text-[11px] font-bold text-rose-300/80 font-mono">${cutPrice.toFixed(0)}</p>
                     <p className="text-[8px] text-rose-400/50 font-mono">{downside.toFixed(1)}%</p>
                 </div>
                 <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-emerald-500/10 text-center">
-                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold">ENTRY</p>
+                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold font-jakarta">ENTRY</p>
                     <p className="text-[11px] font-bold text-white/80 font-mono">
                         ${entryLow.toFixed(0)}<span className="text-white/30">~</span>${entryHigh.toFixed(0)}
                     </p>
                 </div>
                 <div className="bg-white/[0.04] rounded-lg py-1.5 px-2 border border-white/[0.06] text-center">
-                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold">TARGET</p>
+                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold font-jakarta">TARGET</p>
                     <p className="text-[11px] font-bold text-emerald-300/80 font-mono">${targetPrice.toFixed(0)}</p>
                     <p className="text-[8px] text-emerald-400/50 font-mono">+{upside.toFixed(1)}%</p>
                 </div>
@@ -457,9 +457,9 @@ export function AlphaCard({
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-black text-white tracking-tight">{ticker}</h3>
+                            <h3 className="text-sm font-black text-white tracking-tight font-jakarta">{ticker}</h3>
                             {isHighRisk && (
-                                <span className="text-[7px] font-bold bg-rose-500/15 text-rose-300/80 px-1.5 py-0.5 rounded border border-rose-500/15 uppercase tracking-wider">
+                                <span className="text-[7px] font-bold bg-rose-500/15 text-rose-300/80 px-1.5 py-0.5 rounded border border-rose-500/15 uppercase tracking-wider font-jakarta">
                                     SPEC
                                 </span>
                             )}

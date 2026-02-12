@@ -894,8 +894,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             }}
                         />
                     </div>
-                    <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter">{ticker}</h1>
-                    <span className="text-xs text-slate-500 font-bold tracking-tight uppercase">{initialStockData.name}</span>
+                    <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta">{ticker}</h1>
+                    <span className="text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta">{initialStockData.name}</span>
                     <FavoriteToggle ticker={ticker} name={initialStockData.name} />
                     {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={12} />}
                 </div>
@@ -914,7 +914,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="flex items-center gap-2 px-2.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
                             <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
                             <div className="flex items-baseline gap-2">
-                                <span className={`text-[9px] font-black uppercase tracking-widest ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                <span className={`text-[9px] font-black uppercase tracking-widest font-jakarta ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
                                     {activeExtLabel}
                                 </span>
                                 <span className="text-xs font-bold text-slate-200 tabular-nums">
@@ -945,7 +945,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md w-fit">
                             <div className={`w-1.5 h-1.5 rounded-full ${activeExtType === 'PRE' ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
                             <div className="flex items-baseline gap-2">
-                                <span className={`text-[10px] font-black uppercase tracking-widest ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                <span className={`text-[10px] font-black uppercase tracking-widest font-jakarta ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
                                     {activeExtType === 'PRE' ? 'Pre' : 'Post'}
                                 </span>
                                 <span className="text-sm font-bold text-slate-200 tabular-nums">
@@ -981,7 +981,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Zap className={`w-3.5 h-3.5 ${isHot ? 'text-amber-400' : 'text-cyan-400'}`} />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">VOL REGIME</span>
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">VOL REGIME</span>
                                     </div>
                                     <span className={`text-[11px] font-black px-1.5 py-px rounded ${isHot ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${regimeColor}`}>
                                         {r?.regime || '...'}
@@ -1016,7 +1016,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Target className="w-3.5 h-3.5 text-amber-400" />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">CONVICTION</span>
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">CONVICTION</span>
                                     </div>
                                     <span className={`text-[11px] font-black px-1.5 py-px rounded ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>{conviction?.grade || '...'}</span>
                                 </div>
@@ -1078,7 +1078,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <ShieldAlert className={`w-3.5 h-3.5 ${isCritical ? 'text-rose-400' : 'text-orange-400'}`} />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">SHORT SQUEEZE</span>
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">SHORT SQUEEZE</span>
                                     </div>
                                     <span className={`text-[11px] font-black px-1.5 py-px rounded ${isCritical ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${statusColor}`}>
                                         {s?.status || '...'}
@@ -1209,7 +1209,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">TREND PHASE</span>
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">TREND PHASE</span>
                                     </div>
                                     {smaData?.crossType === 'NEW' && (
                                         <span className="text-[7px] font-black px-1.5 py-px rounded bg-amber-500/30 text-amber-300 animate-pulse">NEW!</span>
@@ -1251,7 +1251,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Shield className={`w-3.5 h-3.5 ${hasData ? 'text-emerald-400' : 'text-amber-400'}`} />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">FUNDAMENTAL</span>
+                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">FUNDAMENTAL</span>
                                     </div>
                                     <span className={`text-[11px] font-black px-1.5 py-px rounded bg-slate-600/50 ${hasData ? gradeColor : 'text-slate-400'}`}>
                                         {hasData ? f?.grade : '수집중'}

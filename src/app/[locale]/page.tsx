@@ -337,14 +337,9 @@ export default function Page() {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-[0.15em]">
+              <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-[0.15em] font-jakarta">
                 ALPHA ENGINE LIVE
               </span>
-            </div>
-            <div className="w-px h-4 bg-white/10" />
-            <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
-              <Clock className="w-3 h-3" />
-              <span>업데이트: {getTimeAgo()}</span>
             </div>
           </div>
 
@@ -358,7 +353,7 @@ export default function Page() {
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-6xl md:text-[6rem] font-black tracking-tighter leading-[0.9] mb-6 drop-shadow-2xl">
+          <h1 className="text-6xl md:text-[6rem] font-black tracking-tighter leading-[0.9] mb-6 drop-shadow-2xl font-jakarta" style={{ wordSpacing: '0.15em' }}>
             <span className="block text-white mb-1">{t('home.headline1')}</span>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fbbf24] via-[#fde047] to-[#22d3ee]">{t('home.headline2')}</span>
           </h1>
@@ -372,14 +367,14 @@ export default function Page() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5 mb-8">
             <Link href="/ticker?ticker=NVDA"
               className="group px-10 py-4 bg-gradient-to-r from-[#d97706] to-[#b45309]
-                text-black rounded-md font-extrabold text-sm uppercase tracking-wider
+                text-black rounded-md font-extrabold text-sm uppercase tracking-wider font-jakarta
                 hover:brightness-110 transition-all 
                 flex items-center gap-2 shadow-[0_0_40px_rgba(217,119,6,0.3)] border border-[#f59e0b]/20">
               {t('home.enterCommand')} <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </Link>
             <Link href="/how-it-works"
               className="px-10 py-4 bg-[#0a1628]/50 border border-[#1e293b] 
-                text-[#38bdf8] rounded-md font-bold text-sm uppercase tracking-wider 
+                text-[#38bdf8] rounded-md font-bold text-sm uppercase tracking-wider font-jakarta
                 hover:bg-[#0a1628] hover:border-[#38bdf8]/30 transition-all">
               {t('home.howItWorks')}
             </Link>
@@ -388,7 +383,7 @@ export default function Page() {
           {/* Early Access CTA */}
           <div className="inline-flex items-center gap-2 text-sm text-slate-400">
             <Zap className="w-4 h-4 text-amber-400" />
-            <span>Early Access 멤버십 오픈</span>
+            <span className="font-jakarta">Early Access 멤버십 오픈</span>
             <span className="text-white/60">|</span>
             <span className="text-slate-300">정보를 선점할 것인가, 누군가의 수익률이 될 것인가</span>
           </div>
@@ -402,7 +397,7 @@ export default function Page() {
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
               {t('home.whySignumPrefix')}
-              <span className="text-cyan-400">SIGNUM HQ</span>
+              <span className="text-cyan-400 font-jakarta">SIGNUM HQ</span>
               {t('home.whySignumSuffix')}
             </h2>
             <p className="text-xs text-slate-500 uppercase tracking-[0.25em]">
@@ -520,7 +515,7 @@ export default function Page() {
                 </span>
                 <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-[0.2em]">{t('common.liveFeed')}</span>
               </div>
-              <h2 className="text-2xl font-black text-white">{t('home.signalDashboard')}</h2>
+              <h2 className="text-2xl font-black text-white font-jakarta">{t('home.signalDashboard')}</h2>
               <p className="text-xs text-slate-500 mt-1">실시간 Alpha Engine 분석 결과</p>
             </div>
             <Link href="/watchlist" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold transition-colors">
@@ -545,7 +540,7 @@ export default function Page() {
               <path d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-60" />
               <circle cx="24" cy="24" r="3" fill="currentColor" />
             </svg>
-            <span className="font-bold text-sm text-white/60">SIGNUM HQ</span>
+            <span className="font-bold text-sm text-white/60 font-jakarta">SIGNUM HQ</span>
           </div>
           <div className="flex items-center gap-6 text-[10px] text-white/70">
             <Link href="/privacy" className="hover:text-white transition-colors">{t('footer.privacy')}</Link>

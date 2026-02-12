@@ -104,7 +104,7 @@ export function LandingHeader() {
 
                 {/* 2. NAVIGATION + SEARCH (fill middle) */}
                 <div className="hidden xl:flex items-center gap-1 flex-1 min-w-0">
-                    <nav className="flex items-center gap-1" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+                    <nav className="flex items-center gap-1 font-jakarta">
                         {[
                             { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: true },
                             { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", hasLive: false },
