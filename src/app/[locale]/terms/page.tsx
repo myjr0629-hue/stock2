@@ -1,39 +1,40 @@
-import { useTranslations } from 'next-intl';
+'use client';
+
 import Link from 'next/link';
+import { useLocale } from 'next-intl';
 import { LandingHeader } from '@/components/landing/LandingHeader';
-import { ArrowLeft, AlertTriangle, Scale, CreditCard, Users, FileText } from 'lucide-react';
+import { ArrowLeft, AlertTriangle, Shield } from 'lucide-react';
+import { sections as koSections, meta as koMeta } from './_content-ko';
+import { sections as enSections, meta as enMeta } from './_content-en';
+import { sections as jaSections, meta as jaMeta } from './_content-ja';
+
+const contentMap = {
+    ko: { sections: koSections, meta: koMeta },
+    en: { sections: enSections, meta: enMeta },
+    ja: { sections: jaSections, meta: jaMeta },
+};
 
 export default function TermsPage() {
-    const t = useTranslations('legal');
-
-    const sections = [
-        { icon: AlertTriangle, titleKey: 'terms.investmentTitle', contentKey: 'terms.investmentContent', color: 'text-amber-400' },
-        { icon: Scale, titleKey: 'terms.dataTitle', contentKey: 'terms.dataContent', color: 'text-cyan-400' },
-        { icon: CreditCard, titleKey: 'terms.refundTitle', contentKey: 'terms.refundContent', color: 'text-emerald-400' },
-        { icon: Users, titleKey: 'terms.ageTitle', contentKey: 'terms.ageContent', color: 'text-rose-400' },
-        { icon: FileText, titleKey: 'terms.changesTitle', contentKey: 'terms.changesContent', color: 'text-indigo-400' },
-    ];
+    const locale = useLocale();
+    const { sections, meta } = contentMap[locale as keyof typeof contentMap] || contentMap.en;
 
     return (
-        <div className="min-h-screen bg-[#030712] flex flex-col overflow-hidden">
+        <div className="min-h-screen bg-[#030712] flex flex-col overflow-hidden antialiased">
             <LandingHeader />
 
             <div className="flex-1 py-16 px-4 relative">
                 {/* Animated Background Auras */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                    {/* Purple Aura - Top Right */}
                     <div
-                        className="absolute -top-32 -right-32 w-[600px] h-[600px] bg-violet-600/20 rounded-full blur-[150px] animate-pulse"
+                        className="absolute -top-32 -left-32 w-[550px] h-[550px] bg-cyan-600/15 rounded-full blur-[140px] animate-pulse"
                         style={{ animationDuration: '8s' }}
                     />
-                    {/* Cyan Aura - Bottom Left */}
                     <div
-                        className="absolute -bottom-32 -left-32 w-[500px] h-[500px] bg-cyan-600/15 rounded-full blur-[130px] animate-pulse"
+                        className="absolute -bottom-32 -right-32 w-[600px] h-[600px] bg-indigo-600/20 rounded-full blur-[150px] animate-pulse"
                         style={{ animationDuration: '10s', animationDelay: '2s' }}
                     />
-                    {/* Center Subtle Glow */}
                     <div
-                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] bg-indigo-600/5 rounded-full blur-[180px]"
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[350px] bg-violet-600/5 rounded-full blur-[160px]"
                     />
                 </div>
 
@@ -44,50 +45,71 @@ export default function TermsPage() {
                         {/* Header */}
                         <header className="mb-12">
                             <div className="flex items-center gap-4 mb-6">
-                                <Scale className="w-8 h-8 text-indigo-400 drop-shadow-[0_0_12px_rgba(129,140,248,0.6)]" />
+                                <Shield className="w-8 h-8 text-cyan-400 drop-shadow-[0_0_12px_rgba(34,211,238,0.6)]" />
                                 <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
-                                    {t('termsTitle')}
+                                    {meta.pageTitle}
                                 </h1>
                             </div>
-                            <p className="text-slate-500 text-sm tracking-wide">
-                                {t('lastUpdated')}: 2026-01-30
+                            <p className="text-slate-400 text-sm font-medium tracking-wide">
+                                {meta.lastUpdated}
                             </p>
-                            <p className="text-slate-300/90 text-base leading-[1.75] tracking-[-0.025em] mt-6">
-                                {t('terms.intro')}
+                            <p className="text-slate-300 text-base leading-[1.75] mt-6">
+                                {meta.intro}
                             </p>
                         </header>
 
                         {/* Content Sections */}
-                        <div className="space-y-0">
-                            {sections.map(({ icon: Icon, titleKey, contentKey, color }, index) => (
+                        <div className="space-y-4">
+                            {sections.map(({ icon: Icon, color, title, content, highlight }, index) => (
                                 <section
                                     key={index}
-                                    className={`py-8 ${index !== sections.length - 1 ? 'border-b border-white/[0.04]' : ''}`}
+                                    className={`rounded-2xl p-6 md:p-8 transition-colors ${highlight
+                                            ? 'bg-amber-500/[0.03] border border-amber-500/10'
+                                            : 'bg-white/[0.015] border border-white/[0.04] hover:border-white/[0.08]'
+                                        }`}
                                 >
+                                    {highlight && (
+                                        <div className="mb-4">
+                                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25 shadow-[0_0_12px_rgba(245,158,11,0.1)]">
+                                                <AlertTriangle className="w-3.5 h-3.5" />
+                                                {locale === 'ko' ? '중요 조항' : locale === 'ja' ? '重要条項' : 'IMPORTANT'}
+                                            </span>
+                                        </div>
+                                    )}
                                     <div className="flex items-start gap-4">
-                                        <Icon className={`w-5 h-5 ${color} shrink-0 mt-1 drop-shadow-[0_0_8px_currentColor]`} />
-                                        <div>
-                                            <h2 className="text-lg font-bold text-white mb-3 tracking-wide">
-                                                {t(titleKey)}
+                                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${highlight ? 'bg-amber-500/10' : 'bg-white/[0.04]'}`}>
+                                            <Icon className={`w-4.5 h-4.5 ${color} drop-shadow-[0_0_8px_currentColor]`} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h2 className="text-[15px] font-bold text-white mb-3 tracking-wide">
+                                                {title}
                                             </h2>
-                                            <p className="text-slate-400 text-sm leading-[1.75] tracking-[-0.025em]">
-                                                {t(contentKey)}
-                                            </p>
+                                            <div className="text-slate-300 text-sm leading-[1.9] [&_strong]:text-white [&_strong]:font-semibold [&_li]:mb-1">
+                                                {content}
+                                            </div>
                                         </div>
                                     </div>
                                 </section>
                             ))}
                         </div>
 
-                        {/* Footer with Neon Hover */}
-                        <footer className="mt-12 pt-8 border-t border-white/[0.04]">
+                        {/* Effective Date */}
+                        <div className="mt-10 py-6 border-t border-white/[0.08] text-center">
+                            <p className="text-slate-300 text-sm">
+                                {meta.effectiveDate}<strong className="text-white">{meta.effectiveDateBold}</strong>
+                                {locale === 'ko' ? '부터 시행됩니다.' : locale === 'ja' ? 'より施行されます。' : '.'}
+                            </p>
+                        </div>
+
+                        {/* Footer */}
+                        <footer className="mt-4 pt-6 border-t border-white/[0.04]">
                             <Link
                                 href="/login"
                                 className="group inline-flex items-center gap-2 text-sm font-medium text-cyan-400 transition-all duration-300 hover:text-cyan-300 relative"
                             >
                                 <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
                                 <span className="relative">
-                                    {t('backToLogin')}
+                                    {meta.backLink}
                                     <span className="absolute -bottom-1 left-0 w-0 h-px bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] transition-all duration-300 group-hover:w-full" />
                                 </span>
                             </Link>

@@ -18,7 +18,17 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
-    const [agreeToTerms, setAgreeToTerms] = useState(false);
+    const [agreeTerms, setAgreeTerms] = useState(false);
+    const [agreeRisk, setAgreeRisk] = useState(false);
+    const [agreeAge, setAgreeAge] = useState(false);
+
+    const allAgreed = agreeTerms && agreeRisk && agreeAge;
+
+    const handleSelectAll = (checked: boolean) => {
+        setAgreeTerms(checked);
+        setAgreeRisk(checked);
+        setAgreeAge(checked);
+    };
 
     const supabase = createClient();
 
@@ -195,36 +205,91 @@ export default function LoginPage() {
                                 />
                             </div>
 
-                            {/* Terms Checkbox - Signup only */}
+                            {/* Consent Checkboxes - Signup only */}
                             {!isLogin && (
-                                <label className="flex items-start gap-3 cursor-pointer group">
-                                    <div className="relative mt-0.5">
-                                        <input
-                                            type="checkbox"
-                                            checked={agreeToTerms}
-                                            onChange={(e) => setAgreeToTerms(e.target.checked)}
-                                            className="sr-only peer"
-                                        />
-                                        <div className="w-5 h-5 rounded border border-white/20 bg-white/5 peer-checked:bg-cyan-500 peer-checked:border-cyan-500 transition-all flex items-center justify-center group-hover:border-white/40">
-                                            {agreeToTerms && <Check className="w-3 h-3 text-white" />}
+                                <div className="space-y-3 py-2">
+                                    {/* Select All */}
+                                    <label className="flex items-center gap-3 cursor-pointer group pb-2 border-b border-white/[0.06]">
+                                        <div className="relative">
+                                            <input
+                                                type="checkbox"
+                                                checked={allAgreed}
+                                                onChange={(e) => handleSelectAll(e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-5 h-5 rounded border border-white/20 bg-white/5 peer-checked:bg-cyan-500 peer-checked:border-cyan-500 transition-all flex items-center justify-center group-hover:border-white/40">
+                                                {allAgreed && <Check className="w-3 h-3 text-white" />}
+                                            </div>
                                         </div>
-                                    </div>
-                                    <span className="text-xs text-slate-400 leading-relaxed">
-                                        <Link href="/terms" className="text-cyan-400 hover:underline">
-                                            {tLegal('termsLink')}
-                                        </Link>
-                                        {' '}{tLegal('and')}{' '}
-                                        <Link href="/privacy" className="text-cyan-400 hover:underline">
-                                            {tLegal('privacyLink')}
-                                        </Link>
-                                        에 동의합니다. (필수)
-                                    </span>
-                                </label>
+                                        <span className="text-sm font-semibold text-white">{tLegal('selectAll')}</span>
+                                    </label>
+
+                                    {/* 1. Terms & Privacy */}
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="relative mt-0.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={agreeTerms}
+                                                onChange={(e) => setAgreeTerms(e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-5 h-5 rounded border border-white/20 bg-white/5 peer-checked:bg-cyan-500 peer-checked:border-cyan-500 transition-all flex items-center justify-center group-hover:border-white/40">
+                                                {agreeTerms && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-slate-300 leading-relaxed">
+                                            <span className="text-amber-400 font-bold">{tLegal('required')}</span>{' '}
+                                            <Link href="/terms" className="text-cyan-400 hover:underline">{tLegal('termsName')}</Link>
+                                            {tLegal('andText')}
+                                            <Link href="/privacy" className="text-cyan-400 hover:underline">{tLegal('privacyName')}</Link>
+                                            {tLegal('agreeTermsPrivacy')}
+                                        </span>
+                                    </label>
+
+                                    {/* 2. Financial Risk Disclaimer */}
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="relative mt-0.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={agreeRisk}
+                                                onChange={(e) => setAgreeRisk(e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-5 h-5 rounded border border-white/20 bg-white/5 peer-checked:bg-cyan-500 peer-checked:border-cyan-500 transition-all flex items-center justify-center group-hover:border-white/40">
+                                                {agreeRisk && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-slate-300 leading-relaxed">
+                                            <span className="text-amber-400 font-bold">{tLegal('required')}</span>{' '}
+                                            <Link href="/terms#article-3" className="text-cyan-400 hover:underline">{tLegal('agreeRisk')}</Link>
+                                            {tLegal('agreeRiskSuffix')}
+                                        </span>
+                                    </label>
+
+                                    {/* 3. Age Verification */}
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="relative mt-0.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={agreeAge}
+                                                onChange={(e) => setAgreeAge(e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-5 h-5 rounded border border-white/20 bg-white/5 peer-checked:bg-cyan-500 peer-checked:border-cyan-500 transition-all flex items-center justify-center group-hover:border-white/40">
+                                                {agreeAge && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-slate-300 leading-relaxed">
+                                            <span className="text-amber-400 font-bold">{tLegal('required')}</span>{' '}
+                                            {tLegal('agreeAge')}
+                                        </span>
+                                    </label>
+                                </div>
                             )}
 
                             <button
                                 type="submit"
-                                disabled={loading || (!isLogin && !agreeToTerms)}
+                                disabled={loading || (!isLogin && !allAgreed)}
                                 className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-bold text-sm uppercase tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25"
                             >
                                 {loading ? (
@@ -264,7 +329,7 @@ export default function LoginPage() {
                             <button
                                 onClick={() => {
                                     setIsLogin(!isLogin);
-                                    setAgreeToTerms(false);
+                                    handleSelectAll(false);
                                     setError(null);
                                     setMessage(null);
                                 }}
