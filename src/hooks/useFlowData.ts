@@ -33,7 +33,7 @@ export function useFlowData(ticker: string | null, options: UseFlowDataOptions =
             revalidateOnFocus: true,       // Refresh when tab becomes active
             revalidateOnReconnect: true,    // Refresh on network reconnect
             dedupingInterval: 10000,        // Suppress duplicate requests within 10s
-            keepPreviousData: true,         // Keep stale data while fetching new ticker
+            keepPreviousData: false,        // [FIX] false: clear stale data on ticker switch (prevents Y-axis stretch from mismatched prices)
             errorRetryCount: 3,            // Retry up to 3 times on error
             errorRetryInterval: 5000,      // Wait 5s between retries
         }

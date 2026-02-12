@@ -344,7 +344,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // --- Live Data State ---
     // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
     // SSR data → SWR fallbackData → instant first render → background refresh
-    const ssrFallback = React.useMemo(() => initialStockData ? {
+    const ssrFallback = React.useMemo(() => (initialStockData && initialStockData.price > 0) ? {
         prices: {
             regularCloseToday: initialStockData.price,
             prevClose: initialStockData.prevClose || null
@@ -728,8 +728,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     }, [smaData, newsScore, liveQuotePrice, liveQuoteNetPremium, structure]);
 
     useEffect(() => {
-        // [FIX] Reset structure state when ticker changes to prevent stale data
+        // [FIX] Reset structure and chart data on ticker change to prevent stale data
         setStructure(null);
+        setLiveChartData(null);
         fetchOptions();
         // [V45.16] Poll options data every 30s for real-time Flow updates
         const optionsInterval = setInterval(fetchOptions, 30000);
@@ -875,6 +876,47 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const showOptionsTable = options && options.options_status !== 'PENDING' && options.atmSlice && options.atmSlice.length > 0;
     const optionsPending = !options || options.options_status === 'PENDING' || !options.atmSlice || options.atmSlice.length === 0;
     const showStructure = structure && structure.structure && structure.structure.strikes?.length > 0;
+
+    // === GLOBAL LOADING GATE ===
+    // Prevent rendering with zero/stale data (causes $0.00, Infinity%, distorted chart)
+    // Wait for: (1) liveQuote with real price, AND (2) chart data to arrive
+    const isInitialLoading = !liveQuote || displayPrice === 0 || !liveChartData || liveChartData.length === 0;
+
+    if (isInitialLoading) {
+        return (
+            <div className="w-full max-w-[1600px] mx-auto space-y-6 animate-pulse">
+                {/* Header Skeleton */}
+                <div className="bg-white/5 backdrop-blur-xl rounded-xl py-3 px-4 border border-white/10">
+                    <div className="flex items-center gap-3">
+                        <div className="w-12 h-12 rounded-full bg-slate-800/60" />
+                        <div className="space-y-2">
+                            <div className="h-7 w-28 bg-slate-800/60 rounded" />
+                            <div className="h-4 w-40 bg-slate-800/40 rounded" />
+                        </div>
+                    </div>
+                </div>
+                {/* Indicator Cards Skeleton */}
+                <div className="grid grid-cols-5 gap-2">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="h-24 bg-slate-800/40 rounded-xl border border-slate-700/30" />
+                    ))}
+                </div>
+                <div className="grid grid-cols-5 gap-2">
+                    {[...Array(5)].map((_, i) => (
+                        <div key={i} className="h-24 bg-slate-800/40 rounded-xl border border-slate-700/30" />
+                    ))}
+                </div>
+                {/* Chart + Sidebar Skeleton */}
+                <div className="grid grid-cols-12 gap-4">
+                    <div className="col-span-8 h-[520px] bg-slate-800/30 rounded-2xl border border-slate-700/20" />
+                    <div className="col-span-4 space-y-4">
+                        <div className="h-[200px] bg-slate-800/30 rounded-2xl border border-slate-700/20" />
+                        <div className="h-[200px] bg-slate-800/30 rounded-2xl border border-slate-700/20" />
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="w-full max-w-[1600px] mx-auto space-y-6">
@@ -1384,17 +1426,23 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-indigo-900/10 pointer-events-none" />
 
                                     <div className="flex-1 min-h-0 relative z-10 p-1 pb-12">
-                                        <StockChart
-                                            key={`${ticker}:${range}`}
-                                            data={liveChartData || initialStockData.history}
-                                            color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
-                                            ticker={ticker}
-                                            initialRange={range}
-                                            currentPrice={liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice}
-                                            prevClose={liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose}
-                                            rsi={initialStockData.rsi}
-                                            return3d={initialStockData.return3d}
-                                        />
+                                        {liveChartData && liveChartData.length > 0 ? (
+                                            <StockChart
+                                                key={`${ticker}:${range}`}
+                                                data={liveChartData}
+                                                color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
+                                                ticker={ticker}
+                                                initialRange={range}
+                                                currentPrice={liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice}
+                                                prevClose={liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose}
+                                                rsi={initialStockData.rsi}
+                                                return3d={initialStockData.return3d}
+                                            />
+                                        ) : (
+                                            <div className="h-full w-full flex items-center justify-center">
+                                                <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

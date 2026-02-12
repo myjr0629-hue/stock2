@@ -249,7 +249,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     useEffect(() => {
         if (dataReady && !renderSettled) {
             if (settledTimer.current) clearTimeout(settledTimer.current);
-            settledTimer.current = setTimeout(() => setRenderSettled(true), 0);
+            settledTimer.current = setTimeout(() => setRenderSettled(true), 400);
         }
         return () => { if (settledTimer.current) clearTimeout(settledTimer.current); };
     }, [dataReady, renderSettled]);
@@ -272,17 +272,16 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     // [FIX] Show loading if chart data not yet arrived (even if currentPrice exists)
     if (loading || (!processedData || processedData.length === 0)) {
         return (
-            <Card className="shadow-none border border-slate-200 bg-white rounded-md overflow-hidden">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-slate-100 bg-slate-50/30">
-                    <CardTitle className="text-sm font-bold text-slate-700 flex items-center gap-2">
+            <Card className="shadow-none border border-slate-800 bg-[#0b1219] rounded-md overflow-hidden relative h-full max-h-[520px]">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-slate-800 bg-[#0b1219]">
+                    <CardTitle className="text-sm font-bold text-slate-200 flex items-center gap-2">
                         <span className="w-1.5 h-4 bg-primary rounded-full"></span>
                         Price History
                     </CardTitle>
                     <Tabs defaultValue={range} onValueChange={handleRangeChange}>
-                        {/* Tabs content same as before ... */}
-                        <TabsList className="h-8 bg-slate-100 p-1 gap-1 rounded-lg">
+                        <TabsList className="h-8 bg-slate-800 p-1 gap-1 rounded-md">
                             {["1d", "1w", "1mo", "1y", "max"].map((r) => (
-                                <TabsTrigger key={r} value={r} className="h-6 px-3 text-xs font-medium rounded-sm data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all">
+                                <TabsTrigger key={r} value={r} className="h-6 px-3 text-xs font-medium rounded-sm text-slate-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white transition-all">
                                     {r.toUpperCase().replace('MAX', 'ALL')}
                                 </TabsTrigger>
                             ))}
@@ -290,7 +289,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                     </Tabs>
                 </CardHeader>
                 <CardContent className="pt-6">
-                    <div className="h-[360px] w-full flex flex-col items-center justify-center text-slate-400">
+                    <div className="h-[360px] w-full flex flex-col items-center justify-center">
                         {loading ? (
                             <>
                                 <Loader2 className="h-8 w-8 animate-spin text-indigo-400 mb-3" />
@@ -298,10 +297,10 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                             </>
                         ) : (
                             <>
-                                <div className="p-4 rounded-full bg-red-100 mb-3">
-                                    <AlertCircle className="h-8 w-8 text-red-500" />
+                                <div className="p-4 rounded-full bg-red-950/50 mb-3">
+                                    <AlertCircle className="h-8 w-8 text-red-400" />
                                 </div>
-                                <p className="font-semibold text-red-600">No Data Received from Server</p>
+                                <p className="font-semibold text-red-400">No Data Received from Server</p>
                                 <p className="text-xs mt-1 text-slate-500">Market might be closed or API is unavailable.</p>
                             </>
                         )}
