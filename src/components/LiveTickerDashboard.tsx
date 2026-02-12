@@ -868,34 +868,114 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     if (isInitialLoading) {
         return (
-            <div className="w-full max-w-[1600px] mx-auto space-y-6 animate-pulse">
-                {/* Header Skeleton */}
-                <div className="bg-white/5 backdrop-blur-xl rounded-xl py-3 px-4 border border-white/10">
+            <div className="w-full max-w-[1600px] mx-auto space-y-4">
+                {/* REAL Header — ticker name + logo visible immediately */}
+                <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-2 px-4 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-full bg-slate-800/60" />
-                        <div className="space-y-2">
-                            <div className="h-7 w-28 bg-slate-800/60 rounded" />
-                            <div className="h-4 w-40 bg-slate-800/40 rounded" />
+                        <div className="relative w-11 h-11 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
+                            <img
+                                src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                                alt={ticker}
+                                className="w-full h-full object-cover"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                            />
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl font-black text-white tracking-tight">{ticker}</span>
+                            <div className="flex items-center gap-2 animate-pulse">
+                                <div className="h-6 w-24 bg-slate-800/60 rounded" />
+                                <div className="h-4 w-16 bg-slate-800/40 rounded" />
+                            </div>
+                        </div>
+                        <div className="ml-auto flex items-center gap-2">
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                                <span className="text-[10px] font-mono text-indigo-300">CONNECTING</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-                {/* Indicator Cards Skeleton */}
-                <div className="grid grid-cols-5 gap-2">
-                    {[...Array(5)].map((_, i) => (
-                        <div key={i} className="h-24 bg-slate-800/40 rounded-xl border border-slate-700/30" />
+
+                {/* Indicator Cards Skeleton — labeled placeholders */}
+                <div className="grid grid-cols-5 gap-2 animate-pulse">
+                    {['NET GEX', 'GAMMA FLIP', 'SQUEEZE', 'VWAP', 'SHORT VOL %'].map((label, i) => (
+                        <div key={i} className="h-24 bg-slate-800/30 rounded-xl border border-slate-700/20 p-3 flex flex-col justify-between">
+                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">{label}</span>
+                            <div className="h-5 w-16 bg-slate-700/30 rounded" />
+                        </div>
                     ))}
                 </div>
-                <div className="grid grid-cols-5 gap-2">
-                    {[...Array(5)].map((_, i) => (
-                        <div key={i} className="h-24 bg-slate-800/40 rounded-xl border border-slate-700/30" />
+                <div className="grid grid-cols-5 gap-2 animate-pulse">
+                    {['MAX PAIN', 'ATM IV', 'P/C RATIO', 'GEX REGIME', 'IMPLIED MOVE'].map((label, i) => (
+                        <div key={i} className="h-24 bg-slate-800/30 rounded-xl border border-slate-700/20 p-3 flex flex-col justify-between">
+                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">{label}</span>
+                            <div className="h-5 w-16 bg-slate-700/30 rounded" />
+                        </div>
                     ))}
                 </div>
-                {/* Chart + Sidebar Skeleton */}
+
+                {/* Chart + Sidebar Skeleton — Premium */}
                 <div className="grid grid-cols-12 gap-4">
-                    <div className="col-span-8 h-[520px] bg-slate-800/30 rounded-2xl border border-slate-700/20" />
-                    <div className="col-span-4 space-y-4">
-                        <div className="h-[200px] bg-slate-800/30 rounded-2xl border border-slate-700/20" />
-                        <div className="h-[200px] bg-slate-800/30 rounded-2xl border border-slate-700/20" />
+                    {/* Chart area with premium skeleton */}
+                    <div className="col-span-8 h-[520px] rounded-2xl border border-white/10 bg-slate-900/60 overflow-hidden relative">
+                        {/* Decorative Label */}
+                        <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[9px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Price History
+                        </div>
+                        {/* Fake chart grid lines */}
+                        <div className="absolute inset-0 flex flex-col justify-between px-6 py-8 pointer-events-none">
+                            {[...Array(5)].map((_, i) => (
+                                <div key={i} className="w-full h-px bg-white/[0.03]" />
+                            ))}
+                        </div>
+                        {/* Animated fake chart line */}
+                        <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 200">
+                            <defs>
+                                <linearGradient id="skGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                    <stop offset="0%" stopColor="rgb(99,102,241)" stopOpacity="0" />
+                                    <stop offset="50%" stopColor="rgb(99,102,241)" stopOpacity="0.25" />
+                                    <stop offset="100%" stopColor="rgb(99,102,241)" stopOpacity="0" />
+                                </linearGradient>
+                                <linearGradient id="skFill" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="rgb(99,102,241)" stopOpacity="0.06" />
+                                    <stop offset="100%" stopColor="rgb(99,102,241)" stopOpacity="0" />
+                                </linearGradient>
+                            </defs>
+                            <path d="M0,120 Q50,100 100,110 T200,90 T300,100 T400,80" fill="none" stroke="url(#skGrad)" strokeWidth="2" className="animate-pulse" />
+                            <path d="M0,120 Q50,100 100,110 T200,90 T300,100 T400,80 L400,200 L0,200 Z" fill="url(#skFill)" className="animate-pulse" />
+                        </svg>
+                        {/* Shimmer */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent animate-[shimmer_2s_infinite] pointer-events-none" />
+                        {/* Center Label */}
+                        <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/50 backdrop-blur-sm">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                                <span className="text-[10px] font-mono text-slate-400 tracking-wider">LOADING CHART</span>
+                            </div>
+                        </div>
+                    </div>
+                    {/* Sidebar skeleton */}
+                    <div className="col-span-4 space-y-4 animate-pulse">
+                        <div className="h-[250px] bg-slate-800/20 rounded-2xl border border-slate-700/15 p-4">
+                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wider mb-3">SIGNAL FEED</div>
+                            <div className="space-y-2">
+                                {[...Array(4)].map((_, i) => (
+                                    <div key={i} className="h-4 bg-slate-700/20 rounded w-full" style={{ width: `${85 - i * 10}%` }} />
+                                ))}
+                            </div>
+                        </div>
+                        <div className="h-[250px] bg-slate-800/20 rounded-2xl border border-slate-700/15 p-4">
+                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wider mb-3">5-DAY HISTORY</div>
+                            <div className="space-y-2">
+                                {[...Array(5)].map((_, i) => (
+                                    <div key={i} className="flex justify-between">
+                                        <div className="h-3 w-12 bg-slate-700/20 rounded" />
+                                        <div className="h-3 w-16 bg-slate-700/20 rounded" />
+                                        <div className="h-3 w-10 bg-slate-700/20 rounded" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
