@@ -10,6 +10,7 @@ import { FlowRadar } from '@/components/FlowRadar';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
 import { useFlowData } from '@/hooks/useFlowData';
+import { useLivePrice } from '@/hooks/useLivePrice';
 import useSWR from 'swr';
 
 function FlowPageContent() {
@@ -57,16 +58,19 @@ function FlowPageContent() {
         };
     }, [chartRes]);
 
+    // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
+    const livePrice = useLivePrice(ticker);
+
     // =====================================================
     // PRICE DISPLAY LOGIC (EXACT COPY from LiveTickerDashboard L305-417)
     // =====================================================
     const session = liveQuote?.session || 'CLOSED';
 
-    // Main Display Price (L306)
-    let displayPrice = liveQuote?.display?.price || liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || 0;
+    // Main Display Price — use 5s live price when available (REG session)
+    let displayPrice = livePrice?.price || liveQuote?.display?.price || liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || 0;
 
-    // Display Change Percentage (L309)
-    let displayChangePct = liveQuote?.display?.changePctPct || 0;
+    // Display Change Percentage — use 5s live changePct when available
+    let displayChangePct = livePrice?.changePercent ?? liveQuote?.display?.changePctPct ?? 0;
 
     // POST/CLOSED Override (L312-340)
     if (session === 'POST' || session === 'CLOSED') {

@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
+import { useLivePrice } from '@/hooks/useLivePrice';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown, Crosshair, Radar, Shield } from "lucide-react";
@@ -355,6 +356,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
         refreshInterval: 5000,
     });
+    // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
+    const livePrice = useLivePrice(ticker);
     // Use SWR data when available, SSR fallback otherwise — keeps 'liveQuote' name for compatibility
     const liveQuote = _swrQuote || ssrFallback || null;
     const [options, setOptions] = useState<any>(null);
@@ -750,10 +753,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // Pre/Post prices must ONLY be shown in the badge.
 
     // [Fix] Trust API's display values normally, BUT enforce Regular Price for POST/CLOSED per user request.
-    let displayPrice = liveQuote?.display?.price || liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose || 0;
+    // [PERF] Use 5s livePrice as primary source when available (overrides 60s-cached ticker data)
+    let displayPrice = livePrice?.price || liveQuote?.display?.price || liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose || 0;
 
-    // [Fix] Use API's pre-calculated percentage (pct) directly
-    let displayChangePct = liveQuote?.display?.changePctPct; // e.g. -2.59
+    // [Fix] Use 5s live changePct, fallback to API's pre-calculated percentage
+    let displayChangePct = livePrice?.changePercent ?? liveQuote?.display?.changePctPct; // e.g. -2.59
 
     // [User Override] If POST/CLOSED, Main Display MUST be Regular Close (Intraday Final)
     if (effectiveSession === 'POST' || effectiveSession === 'CLOSED') {
