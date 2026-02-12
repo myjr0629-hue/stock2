@@ -1277,41 +1277,17 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
             {/* [PREMIUM] AI VERDICT - Flow Topography Map v3.0 Style */}
             {!isSystemReady ? (
-                /* Analyzing Skeleton — shown while whale trades & real-time metrics load */
-                <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-4 backdrop-blur-xl shadow-2xl">
-                    <div className="flex items-center gap-3 mb-4">
+                /* Compact analyzing indicator — inline next to AI VERDICT title */
+                <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-2xl">
+                    <div className="flex items-center gap-3">
                         <div className="relative">
                             <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
                                 <Target size={16} className="text-amber-400 animate-pulse" />
                             </div>
                             <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-ping" />
                         </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span>
-                            <span className="text-[10px] font-mono text-slate-500 animate-pulse">분석 데이터 수집 중...</span>
-                        </div>
-                    </div>
-                    {/* Progress indicators */}
-                    <div className="space-y-2.5">
-                        <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                            <span className="text-[10px] text-emerald-400/80 font-medium">옵션 체인 데이터</span>
-                            <span className="text-[9px] text-emerald-400/60 ml-auto">완료</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                            <span className="text-[10px] text-amber-400/80 font-medium">고래 거래 + 실시간 지표</span>
-                            <span className="text-[9px] text-amber-400/60 ml-auto animate-pulse">수집 중...</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
-                            <span className="text-[10px] text-slate-500 font-medium">종합 판정 생성</span>
-                            <span className="text-[9px] text-slate-600 ml-auto">대기</span>
-                        </div>
-                    </div>
-                    {/* Animated progress bar */}
-                    <div className="mt-3 h-1 bg-slate-800 rounded-full overflow-hidden">
-                        <div className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 rounded-full animate-[shimmer_2s_infinite]" style={{ width: '60%' }} />
+                        <span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span>
+                        <span className="text-[11px] font-medium text-slate-500 animate-pulse">분석 데이터 수집 중...</span>
                     </div>
                 </div>
             ) : analysis && (
