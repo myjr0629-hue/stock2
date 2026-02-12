@@ -1,13 +1,21 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import "./globals.css";
 import { GuardianProvider } from "@/components/guardian/GuardianProvider";
 
-// Plus Jakarta Sans for premium English/numeric typography
+// Plus Jakarta Sans for English UI text
 const plusJakarta = Plus_Jakarta_Sans({
   variable: "--font-plus-jakarta",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700", "800"],
+  adjustFontFallback: false,
+});
+
+// Inter for numeric/tabular data
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
   adjustFontFallback: false,
 });
 
@@ -31,7 +39,7 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${plusJakarta.variable} antialiased`}
+        className={`${plusJakarta.variable} ${inter.variable} antialiased`}
         style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif' }}
       >
         <GuardianProvider>
