@@ -3,10 +3,6 @@
 @plugin "tailwindcss-animate";
 
 @theme {
-  /* Override Tailwind default font to Plus Jakarta Sans */
-  --default-font-family: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --font-sans: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -115,6 +111,12 @@
   }
 }
 
+/* Override Tailwind font-sans with Plus Jakarta Sans + Pretendard fallback (runtime) */
+html {
+  --font-sans: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --default-font-family: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -122,7 +124,7 @@
 
   body {
     @apply bg-background text-foreground tracking-tight antialiased bg-gradient-to-b from-[#CFEBF8] via-[#F0F3F7] to-[#F1DCC9] min-h-screen;
-    font-family: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+    font-family: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
   }
 }
