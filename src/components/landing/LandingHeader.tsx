@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, FormEvent } from "react";
+import { useState, useEffect, useRef, FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, LogOut, Settings } from "lucide-react";
+import { Search, LogOut, Settings, ChevronDown } from "lucide-react";
 import { Link, useRouter, usePathname } from "@/i18n/routing";
 import { clsx } from 'clsx';
 import { useFavorites } from "@/hooks/useFavorites";
@@ -19,6 +19,8 @@ export function LandingHeader() {
     const { favorites } = useFavorites();
     const [searchQuery, setSearchQuery] = useState("");
     const [user, setUser] = useState<any>(null);
+    const [profileOpen, setProfileOpen] = useState(false);
+    const profileRef = useRef<HTMLDivElement>(null);
 
     // Get current ticker from URL params for cross-page sync
     const currentTicker = searchParams.get('ticker')?.toUpperCase()
@@ -42,10 +44,22 @@ export function LandingHeader() {
         return () => subscription.unsubscribe();
     }, []);
 
+    // Close profile dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+                setProfileOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
     const handleSignOut = async () => {
         const supabase = createClient();
         await supabase.auth.signOut();
         setUser(null);
+        setProfileOpen(false);
         router.push('/');
         router.refresh();
     };
@@ -54,7 +68,6 @@ export function LandingHeader() {
         e.preventDefault();
         if (searchQuery.trim()) {
             const ticker = searchQuery.toUpperCase();
-            // If on FLOW page, stay on FLOW. Otherwise go to COMMAND (ticker page)
             if (pathname?.startsWith('/flow')) {
                 router.push(`/flow?ticker=${ticker}`);
             } else {
@@ -63,12 +76,21 @@ export function LandingHeader() {
         }
     };
 
+    // Get user avatar URL (Google) or generate initials
+    const getAvatarUrl = () => user?.user_metadata?.avatar_url || null;
+    const getInitials = () => {
+        const name = user?.user_metadata?.full_name || user?.email || '';
+        if (!name) return '?';
+        const parts = name.split(/[\s@]+/);
+        return parts[0]?.[0]?.toUpperCase() || '?';
+    };
+
     return (
         <header className="sticky top-0 z-50 w-full bg-[#0a0f1a]/95 backdrop-blur-xl">
             {/* Navigation Row */}
             <div className="container flex h-12 items-center justify-between px-4 sm:px-6">
                 {/* 1. LOGO (SIGNUM HQ with Icon) */}
-                <Link href="/" className="flex items-center gap-2 group">
+                <Link href="/" className="flex items-center gap-2 group shrink-0">
                     {/* Logo Icon SVG */}
                     <svg width="24" height="24" viewBox="0 0 48 48" className="text-cyan-400">
                         <path
@@ -88,7 +110,7 @@ export function LandingHeader() {
                     </span>
                 </Link>
 
-                {/* 2. NAVIGATION (DASHBOARD / GUARDIAN / COMMAND / INTEL / PORTFOLIO / WATCHLIST) */}
+                {/* 2. NAVIGATION */}
                 <nav className="hidden xl:flex items-center gap-0.5">
                     {[
                         { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: true },
@@ -100,7 +122,6 @@ export function LandingHeader() {
                         { label: "WATCHLIST", href: "/watchlist", path: "/watchlist", hasLive: false },
                         { label: "GUIDE", href: "/how-it-works", path: "/how-it-works", hasLive: false }
                     ].map((item) => {
-                        // Use exact match for /intel to avoid matching /intel-guardian
                         const isActive = item.path
                             ? (item.path === "/intel" ? pathname === "/intel" : pathname?.startsWith(item.path))
                             : false;
@@ -133,7 +154,7 @@ export function LandingHeader() {
 
                 {/* 3. UTILITIES */}
                 <div className="flex items-center gap-2.5">
-                    {/* Search Bar with Neon Focus */}
+                    {/* Search Bar */}
                     <div className="hidden xl:block relative group">
                         <form onSubmit={handleSearch}>
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
@@ -152,40 +173,74 @@ export function LandingHeader() {
                         </form>
                     </div>
 
-                    <div className="w-px h-4 bg-slate-800 hidden xl:block" />
-
-                    {/* Language Switcher */}
-                    <div className="hidden xl:block">
-                        <LanguageSwitcher />
-                    </div>
-
-                    {/* Auth Button - Sign In / Sign Out */}
+                    {/* Profile Avatar Dropdown (logged in) */}
                     {user ? (
-                        <div className="hidden xl:flex items-center gap-2">
-                            <Link
-                                href="/settings"
-                                className="flex items-center gap-1.5 px-4 py-1.5 
-                                    text-[10px] font-bold text-slate-400 
-                                    border border-white/10 rounded-lg
-                                    bg-transparent
-                                    hover:border-white/20 hover:text-white
-                                    transition-all duration-300 uppercase tracking-wider"
-                            >
-                                <Settings className="w-3 h-3" />
-                                {t('nav.settings')}
-                            </Link>
+                        <div ref={profileRef} className="relative hidden xl:block">
                             <button
-                                onClick={handleSignOut}
-                                className="flex items-center gap-1.5 px-5 py-1.5 
-                                    text-[10px] font-bold text-rose-400 
-                                    border border-rose-500/40 rounded-lg
-                                    bg-transparent
-                                    hover:border-rose-400/70 hover:shadow-[0_0_15px_rgba(244,63,94,0.15)]
-                                    transition-all duration-300 uppercase tracking-wider"
+                                onClick={() => setProfileOpen(!profileOpen)}
+                                className="flex items-center gap-2 px-1.5 py-1 rounded-full hover:bg-white/5 transition-all group"
                             >
-                                <LogOut className="w-3 h-3" />
-                                {t('nav.signOut')}
+                                {getAvatarUrl() ? (
+                                    <img
+                                        src={getAvatarUrl()!}
+                                        alt="Profile"
+                                        className="w-7 h-7 rounded-full ring-2 ring-white/10 group-hover:ring-cyan-500/30 transition-all"
+                                        referrerPolicy="no-referrer"
+                                    />
+                                ) : (
+                                    <div className="w-7 h-7 rounded-full ring-2 ring-white/10 group-hover:ring-cyan-500/30 
+                                        bg-gradient-to-br from-cyan-500/20 to-indigo-500/20 
+                                        flex items-center justify-center text-[11px] font-bold text-white transition-all">
+                                        {getInitials()}
+                                    </div>
+                                )}
+                                <ChevronDown className={`w-3 h-3 text-slate-500 transition-transform ${profileOpen ? 'rotate-180' : ''}`} />
                             </button>
+
+                            {/* Dropdown Menu */}
+                            {profileOpen && (
+                                <div className="absolute right-0 top-full mt-2 w-52 rounded-xl bg-[#0d1424]/95 backdrop-blur-2xl border border-white/10 shadow-2xl shadow-black/50 overflow-hidden z-50">
+                                    {/* User info header */}
+                                    <div className="px-4 py-3 border-b border-white/5">
+                                        <p className="text-[11px] font-bold text-white truncate">
+                                            {user?.user_metadata?.full_name || user?.email}
+                                        </p>
+                                        {user?.user_metadata?.full_name && (
+                                            <p className="text-[10px] text-slate-500 truncate mt-0.5">{user?.email}</p>
+                                        )}
+                                    </div>
+
+                                    {/* Menu items */}
+                                    <div className="py-1.5">
+                                        <Link
+                                            href="/settings"
+                                            onClick={() => setProfileOpen(false)}
+                                            className="flex items-center gap-2.5 px-4 py-2 text-[11px] font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-colors"
+                                        >
+                                            <Settings className="w-3.5 h-3.5 text-slate-500" />
+                                            {t('nav.settings')}
+                                        </Link>
+                                    </div>
+
+                                    {/* Language */}
+                                    <div className="py-1.5 border-t border-white/5">
+                                        <div className="px-4 py-1.5">
+                                            <LanguageSwitcher />
+                                        </div>
+                                    </div>
+
+                                    {/* Sign out */}
+                                    <div className="py-1.5 border-t border-white/5">
+                                        <button
+                                            onClick={handleSignOut}
+                                            className="flex items-center gap-2.5 w-full px-4 py-2 text-[11px] font-medium text-rose-400/80 hover:text-rose-400 hover:bg-rose-950/20 transition-colors"
+                                        >
+                                            <LogOut className="w-3.5 h-3.5" />
+                                            {t('nav.signOut')}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
                         <Link
