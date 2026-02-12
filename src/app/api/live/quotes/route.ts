@@ -18,28 +18,44 @@ export async function GET(request: Request) {
         const marketStatus = await getMarketStatusSSOT();
         const session = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
 
-        // ── LIGHTWEIGHT: Polygon snapshot only (no cache, no options chain) ──
-        // Each ticker snapshot = 1 fast API call vs CentralDataHub's 5+ calls
+        // ── Fetch snapshot + 2-day historical bars in parallel for each ticker ──
+        // Historical bars needed for accurate regChangePct (same approach as /api/live/ticker)
+        const now = new Date();
+        const toDate = now.toISOString().split('T')[0]; // Today
+        const fromDate = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 10 days back (covers weekends/holidays)
+
         const results = await Promise.all(
             tickers.map(async ticker => {
                 try {
-                    const snapshotRes = await fetchMassive(
-                        `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
-                        {},
-                        false,                          // useCache = false (fresh data)
-                        undefined,
-                        { cache: 'no-store' as RequestCache }  // no HTTP cache
-                    );
-                    return { ticker, snapshot: snapshotRes?.ticker || {}, error: null };
+                    // Parallel: snapshot + 2-day historical bars
+                    const [snapshotRes, aggRes] = await Promise.all([
+                        fetchMassive(
+                            `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
+                            {},
+                            false,
+                            undefined,
+                            { cache: 'no-store' as RequestCache }
+                        ),
+                        fetchMassive(
+                            `/v2/aggs/ticker/${ticker}/range/1/day/${fromDate}/${toDate}`,
+                            { adjusted: 'true', sort: 'desc', limit: '2' },
+                            true  // cache OK for historical bars
+                        )
+                    ]);
+
+                    const snapshot = snapshotRes?.ticker || {};
+                    const bars = aggRes?.results || [];
+
+                    return { ticker, snapshot, bars, error: null };
                 } catch (e: any) {
-                    return { ticker, snapshot: {}, error: e.message };
+                    return { ticker, snapshot: {}, bars: [], error: e.message };
                 }
             })
         );
 
         const data: Record<string, any> = {};
 
-        results.forEach(({ ticker, snapshot: S, error }) => {
+        results.forEach(({ ticker, snapshot: S, bars, error }) => {
             if (error || !S) {
                 data[ticker] = { price: 0, changePercent: 0, error };
                 return;
@@ -50,24 +66,30 @@ export async function GET(request: Request) {
             const prevDayClose = S.prevDay?.c || 0;
             const prevClose = prevDayClose;
 
-            // Polygon's pre-computed change % for regular session (works in PRE/POST/CLOSED too)
-            const polygonChangePct = S.todaysChangePerc || 0;
+            // ── Baseline from historical bars (same as Command API) ──
+            // bars[0] = most recent trading day close (= prevRegularClose)
+            // bars[1] = day before (= prevPrevRegularClose)
+            const prevRegularClose = bars[0]?.c || prevDayClose || 0;
+            const prevPrevRegularClose = bars[1]?.c || 0;
 
-            // Session-aware price selection
+            // ── Regular session change: prevRegularClose vs prevPrevRegularClose ──
+            // This is the "본장 등락률" — doesn't change during PRE/POST
+            const regChangePct = (prevRegularClose > 0 && prevPrevRegularClose > 0)
+                ? ((prevRegularClose - prevPrevRegularClose) / prevPrevRegularClose) * 100
+                : 0;
+
+            // Session-aware price & extended price selection
             let price = 0;
             let extendedPrice = 0;
             let extendedLabel = '';
 
             if (session === 'regular') {
-                // REG: show live last trade price
                 price = liveLast || dayClose || prevClose;
             } else if (session === 'pre') {
-                // PRE: main = prev close, extended = pre-market live
                 price = prevClose;
                 extendedPrice = S.min?.c || liveLast || 0;
                 extendedLabel = 'PRE';
             } else if (session === 'post') {
-                // POST: main = reg close, extended = post-market live
                 price = dayClose || prevClose;
                 extendedPrice = S.min?.c || liveLast || 0;
                 extendedLabel = 'POST';
@@ -80,10 +102,6 @@ export async function GET(request: Request) {
                 }
             }
 
-            // Regular session change: use Polygon's todaysChangePerc (reliable across all sessions)
-            // This correctly shows last day's regular session performance even in PRE/POST/CLOSED
-            const regChangePct = polygonChangePct;
-
             const extendedChangePct = (extendedPrice > 0 && price > 0)
                 ? ((extendedPrice - price) / price) * 100
                 : 0;
@@ -92,7 +110,7 @@ export async function GET(request: Request) {
                 price,
                 previousClose: prevClose,
                 prevClose,
-                change: S.todaysChange || 0,
+                change: prevRegularClose - prevPrevRegularClose,
                 changePercent: regChangePct,
                 regChangePct,
                 extendedPrice: extendedPrice > 0 && extendedPrice !== price ? extendedPrice : 0,
