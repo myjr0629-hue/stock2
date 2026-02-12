@@ -111,10 +111,14 @@
   }
 }
 
-/* Override Tailwind font-sans with Plus Jakarta Sans + Pretendard fallback (runtime) */
+/* Override Tailwind font-sans with Plus Jakarta Sans + Pretendard fallback */
 html {
-  --font-sans: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-  --default-font-family: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+  --default-font-family: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+}
+
+.font-sans {
+  font-family: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
 }
 
 @layer base {
