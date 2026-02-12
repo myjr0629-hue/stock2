@@ -117,7 +117,7 @@ export default function RLSIInsightPanel({
                             }`}>
                             {insightTitle}
                         </div>
-                        <div className="text-xs text-white/70 leading-[1.5] line-clamp-2" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                        <div className="text-xs text-white/70 leading-[1.5] line-clamp-4" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                             {insightDesc}
                         </div>
                     </>
