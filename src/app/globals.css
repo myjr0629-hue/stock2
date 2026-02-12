@@ -122,11 +122,6 @@
   }
 }
 
-/* Plus Jakarta Sans for English, Pretendard for Korean/Japanese (outside @layer to override .font-sans) */
-body,
-.font-sans {
-  font-family: var(--font-plus-jakarta), Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-}
 
 @utility glass {
   @apply bg-white/80 backdrop-blur-md border border-white/40 shadow-sm supports-[backdrop-filter]:bg-white/60;

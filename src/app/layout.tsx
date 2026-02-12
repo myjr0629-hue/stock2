@@ -40,6 +40,7 @@ export default function RootLayout({
       </head>
       <body
         className={`${plusJakarta.variable} ${inter.variable} antialiased`}
+        style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif' }}
       >
         <GuardianProvider>
           {children}
