@@ -1,5 +1,6 @@
-// Watchlist LocalStorage Store
-// Simple ticker list without quantity/price (unlike Portfolio)
+// Watchlist Supabase Store
+// Server-persisted watchlist using Supabase (replaces localStorage)
+import { createClient } from '@/lib/supabase/client';
 
 export interface WatchlistItem {
     ticker: string;
@@ -12,92 +13,94 @@ export interface WatchlistData {
     updatedAt: string;
 }
 
-const STORAGE_KEY = 'alpha_watchlist_v1';
+// Get watchlist from Supabase
+export async function getWatchlist(): Promise<WatchlistData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { items: [], updatedAt: new Date().toISOString() };
 
-// Get watchlist from LocalStorage
-export function getWatchlist(): WatchlistData {
-    if (typeof window === 'undefined') {
+    const { data, error } = await supabase
+        .from('user_watchlist')
+        .select('ticker, name, added_at')
+        .eq('user_id', user.id)
+        .order('added_at', { ascending: true });
+
+    if (error) {
+        console.error('Failed to load watchlist:', error);
         return { items: [], updatedAt: new Date().toISOString() };
     }
 
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            return JSON.parse(stored);
-        }
-    } catch (e) {
-        console.error('Failed to load watchlist:', e);
-    }
-
-    return { items: [], updatedAt: new Date().toISOString() };
-}
-
-// Save watchlist to LocalStorage
-export function saveWatchlist(data: WatchlistData): void {
-    if (typeof window === 'undefined') return;
-
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            ...data,
-            updatedAt: new Date().toISOString()
-        }));
-    } catch (e) {
-        console.error('Failed to save watchlist:', e);
-    }
+    return {
+        items: (data || []).map(row => ({
+            ticker: row.ticker,
+            name: row.name,
+            addedAt: row.added_at,
+        })),
+        updatedAt: new Date().toISOString(),
+    };
 }
 
 // Add a ticker to watchlist
-export function addToWatchlist(ticker: string, name: string): WatchlistData {
-    const current = getWatchlist();
+export async function addToWatchlist(ticker: string, name: string): Promise<WatchlistData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { items: [], updatedAt: new Date().toISOString() };
 
-    // Check if ticker already exists
-    if (current.items.some(item => item.ticker === ticker)) {
-        return current; // Already in watchlist
-    }
+    const { error } = await supabase
+        .from('user_watchlist')
+        .upsert({
+            user_id: user.id,
+            ticker: ticker.toUpperCase(),
+            name,
+            added_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,ticker' });
 
-    current.items.push({
-        ticker: ticker.toUpperCase(),
-        name,
-        addedAt: new Date().toISOString()
-    });
-
-    saveWatchlist(current);
-    return current;
+    if (error) console.error('Failed to add to watchlist:', error);
+    return getWatchlist();
 }
 
 // Remove a ticker from watchlist
-export function removeFromWatchlist(ticker: string): WatchlistData {
-    const current = getWatchlist();
-    current.items = current.items.filter(item => item.ticker !== ticker);
-    saveWatchlist(current);
-    return current;
+export async function removeFromWatchlist(ticker: string): Promise<WatchlistData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { items: [], updatedAt: new Date().toISOString() };
+
+    const { error } = await supabase
+        .from('user_watchlist')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('ticker', ticker);
+
+    if (error) console.error('Failed to remove from watchlist:', error);
+    return getWatchlist();
 }
 
 // Check if ticker is in watchlist
-export function isInWatchlist(ticker: string): boolean {
-    const current = getWatchlist();
-    return current.items.some(item => item.ticker === ticker);
+export async function isInWatchlist(ticker: string): Promise<boolean> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const { data } = await supabase
+        .from('user_watchlist')
+        .select('ticker')
+        .eq('user_id', user.id)
+        .eq('ticker', ticker)
+        .maybeSingle();
+
+    return !!data;
 }
 
 // Clear all items
-export function clearWatchlist(): WatchlistData {
-    const empty: WatchlistData = { items: [], updatedAt: new Date().toISOString() };
-    saveWatchlist(empty);
-    return empty;
-}
+export async function clearWatchlist(): Promise<WatchlistData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { items: [], updatedAt: new Date().toISOString() };
 
-// Demo data for development
-export function loadDemoWatchlist(): WatchlistData {
-    const demo: WatchlistData = {
-        items: [
-            { ticker: 'NVDA', name: 'NVIDIA Corp', addedAt: '2024-01-15T00:00:00Z' },
-            { ticker: 'TSLA', name: 'Tesla Inc', addedAt: '2024-01-16T00:00:00Z' },
-            { ticker: 'AAPL', name: 'Apple Inc', addedAt: '2024-01-17T00:00:00Z' },
-            { ticker: 'AMD', name: 'Advanced Micro Devices', addedAt: '2024-01-18T00:00:00Z' },
-            { ticker: 'META', name: 'Meta Platforms', addedAt: '2024-01-19T00:00:00Z' },
-        ],
-        updatedAt: new Date().toISOString()
-    };
-    saveWatchlist(demo);
-    return demo;
+    await supabase
+        .from('user_watchlist')
+        .delete()
+        .eq('user_id', user.id);
+
+    return { items: [], updatedAt: new Date().toISOString() };
 }

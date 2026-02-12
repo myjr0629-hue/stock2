@@ -22,7 +22,8 @@
         "watchlist": "ウォッチリスト",
         "howItWorks": "ガイド",
         "signIn": "Log In",
-        "signOut": "Log Out"
+        "signOut": "Log Out",
+        "settings": "設定"
     },
     "common": {
         "loading": "読み込み中...",
@@ -826,5 +827,36 @@
             "contactTitle": "お問い合わせ",
             "contactContent": "個人情報に関するお問い合わせは、カスタマーサポートまでご連絡ください。"
         }
+    },
+    "settings": {
+        "title": "設定",
+        "profile": "プロフィール",
+        "email": "メール",
+        "displayName": "表示名",
+        "joinedVia": "登録方法",
+        "joinedAt": "登録日",
+        "save": "保存",
+        "saved": "保存されました",
+        "signOut": "ログアウト",
+        "dangerZone": "危険ゾーン",
+        "dangerDesc": "アカウントを削除すると、すべてのデータが永久に削除されます。この操作は元に戻せません。",
+        "deleteAccount": "アカウント削除",
+        "deleteWarning": "アカウントを削除すると、以下のデータが永久に削除され、復元できません。",
+        "portfolioItems": "ポートフォリオ銘柄",
+        "watchlistItems": "ウォッチリスト銘柄",
+        "aiAccess": "AIレポートアクセス権",
+        "dashboardConfig": "ダッシュボード設定",
+        "deleteConfirm": "アカウントは即座に無効化され、30日後に永久削除されます。30日以内にログインすればアカウントを復元できます。",
+        "confirmDelete": "削除を実行",
+        "cancel": "キャンセル",
+        "finalConfirmTitle": "最終確認",
+        "finalConfirmDesc": "アカウント削除を実行しますか？30日後にすべてのデータが永久削除されます。",
+        "goBack": "戻る",
+        "deleteForever": "アカウント削除",
+        "deactivatedTitle": "アカウントが無効化されました",
+        "deactivatedDesc": "アカウントは{date}に永久削除されます。アカウントを復元するには下のボタンを押してください。",
+        "reactivate": "アカウント復元",
+        "verified": "認証済み",
+        "irreversibleAction": "取り消し不可の操作"
     }
 }

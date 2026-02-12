@@ -22,7 +22,8 @@
         "watchlist": "Watchlist",
         "howItWorks": "Guide",
         "signIn": "Log In",
-        "signOut": "Log Out"
+        "signOut": "Log Out",
+        "settings": "Settings"
     },
     "common": {
         "loading": "Loading...",
@@ -826,5 +827,36 @@
             "contactTitle": "Contact",
             "contactContent": "For privacy-related inquiries, please contact our customer support."
         }
+    },
+    "settings": {
+        "title": "Settings",
+        "profile": "Profile",
+        "email": "Email",
+        "displayName": "Display Name",
+        "joinedVia": "Joined via",
+        "joinedAt": "Joined",
+        "save": "Save",
+        "saved": "Saved successfully",
+        "signOut": "Sign Out",
+        "dangerZone": "Danger Zone",
+        "dangerDesc": "Deleting your account will permanently remove all your data. This action cannot be undone.",
+        "deleteAccount": "Delete Account",
+        "deleteWarning": "Deleting your account will permanently destroy the following data and cannot be recovered.",
+        "portfolioItems": "portfolio holdings",
+        "watchlistItems": "watchlist items",
+        "aiAccess": "AI analysis report access",
+        "dashboardConfig": "Personalized dashboard configuration",
+        "deleteConfirm": "Your account will be deactivated immediately and permanently deleted after 30 days. You can recover your account by logging in within 30 days.",
+        "confirmDelete": "Proceed with deletion",
+        "cancel": "Cancel",
+        "finalConfirmTitle": "Final Confirmation",
+        "finalConfirmDesc": "Proceed with account deletion? All data will be permanently deleted after 30 days.",
+        "goBack": "Go Back",
+        "deleteForever": "Delete Account",
+        "deactivatedTitle": "Account Deactivated",
+        "deactivatedDesc": "Your account will be permanently deleted on {date}. Press the button below to recover your account.",
+        "reactivate": "Reactivate Account",
+        "verified": "Verified",
+        "irreversibleAction": "IRREVERSIBLE ACTION"
     }
 }

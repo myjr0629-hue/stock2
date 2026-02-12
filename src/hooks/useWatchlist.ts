@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
 import {
     getWatchlist,
@@ -44,8 +44,26 @@ const fetcher = (url: string) => fetch(url).then(res => {
 });
 
 export function useWatchlist() {
-    // Local watchlist from localStorage
-    const [watchlistData, setWatchlistData] = useState<WatchlistData>(() => getWatchlist());
+    // Server-side watchlist from Supabase
+    const [watchlistData, setWatchlistData] = useState<WatchlistData>({ items: [], updatedAt: new Date().toISOString() });
+    const [storeLoading, setStoreLoading] = useState(true);
+
+    // Load watchlist from Supabase on mount
+    useEffect(() => {
+        loadWatchlist();
+    }, []);
+
+    const loadWatchlist = async () => {
+        setStoreLoading(true);
+        try {
+            const data = await getWatchlist();
+            setWatchlistData(data);
+        } catch (e) {
+            console.error('Failed to load watchlist:', e);
+        } finally {
+            setStoreLoading(false);
+        }
+    };
 
     const tickerString = watchlistData.items.map(i => i.ticker).join(',');
 
@@ -165,14 +183,14 @@ export function useWatchlist() {
     }, [data, priceData, watchlistData]);
 
     const addItem = useCallback(async (ticker: string, name: string) => {
-        storeAdd(ticker, name);
-        setWatchlistData(getWatchlist());
+        const updated = await storeAdd(ticker, name);
+        setWatchlistData(updated);
         mutate();
     }, [mutate]);
 
-    const removeItem = useCallback((ticker: string) => {
-        storeRemove(ticker);
-        setWatchlistData(getWatchlist());
+    const removeItem = useCallback(async (ticker: string) => {
+        const updated = await storeRemove(ticker);
+        setWatchlistData(updated);
         mutate();
     }, [mutate]);
 
@@ -182,7 +200,7 @@ export function useWatchlist() {
 
     return {
         items,
-        loading: isLoading,
+        loading: isLoading || storeLoading,
         isRefreshing: isValidating && !isLoading,
         error: error?.message || null,
         addItem,

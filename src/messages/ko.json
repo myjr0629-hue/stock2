@@ -22,7 +22,8 @@
         "watchlist": "관심종목",
         "howItWorks": "가이드",
         "signIn": "Log In",
-        "signOut": "Log Out"
+        "signOut": "Log Out",
+        "settings": "설정"
     },
     "common": {
         "loading": "로딩 중...",
@@ -826,5 +827,36 @@
             "contactTitle": "문의",
             "contactContent": "개인정보 관련 문의사항은 고객 지원을 통해 연락해 주시기 바랍니다."
         }
+    },
+    "settings": {
+        "title": "설정",
+        "profile": "프로필",
+        "email": "이메일",
+        "displayName": "표시 이름",
+        "joinedVia": "가입 방법",
+        "joinedAt": "가입일",
+        "save": "저장",
+        "saved": "저장되었습니다",
+        "signOut": "로그아웃",
+        "dangerZone": "위험 구역",
+        "dangerDesc": "계정을 삭제하면 모든 데이터가 영구적으로 삭제됩니다. 이 작업은 되돌릴 수 없습니다.",
+        "deleteAccount": "계정 삭제",
+        "deleteWarning": "계정을 삭제하면 아래 데이터가 영구적으로 삭제되며 복구할 수 없습니다.",
+        "portfolioItems": "포트폴리오 종목",
+        "watchlistItems": "워치리스트 종목",
+        "aiAccess": "AI 분석 리포트 접근 권한",
+        "dashboardConfig": "개인화된 대시보드 설정",
+        "deleteConfirm": "계정은 즉시 비활성화되며, 30일 후 영구 삭제됩니다. 30일 내에 다시 로그인하시면 계정을 복구할 수 있습니다.",
+        "confirmDelete": "계정 삭제 진행",
+        "cancel": "취소",
+        "finalConfirmTitle": "최종 확인",
+        "finalConfirmDesc": "계정 삭제를 진행하시겠습니까? 30일 후 모든 데이터가 영구 삭제됩니다.",
+        "goBack": "돌아가기",
+        "deleteForever": "계정 삭제",
+        "deactivatedTitle": "계정이 비활성화되었습니다",
+        "deactivatedDesc": "계정이 {date}에 영구 삭제됩니다. 계정을 복구하시려면 아래 버튼을 눌러주세요.",
+        "reactivate": "계정 복구",
+        "verified": "인증됨",
+        "irreversibleAction": "되돌릴 수 없는 작업"
     }
 }

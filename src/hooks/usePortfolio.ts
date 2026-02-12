@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
 import {
     getPortfolio,
@@ -56,8 +56,26 @@ const fetcher = (url: string) => fetch(url).then(res => {
 });
 
 export function usePortfolio() {
-    // Local portfolio from localStorage
-    const [portfolioData, setPortfolioData] = useState<PortfolioData>(() => getPortfolio());
+    // Server-side portfolio from Supabase
+    const [portfolioData, setPortfolioData] = useState<PortfolioData>({ holdings: [], updatedAt: new Date().toISOString() });
+    const [storeLoading, setStoreLoading] = useState(true);
+
+    // Load portfolio from Supabase on mount
+    useEffect(() => {
+        loadPortfolio();
+    }, []);
+
+    const loadPortfolio = async () => {
+        setStoreLoading(true);
+        try {
+            const data = await getPortfolio();
+            setPortfolioData(data);
+        } catch (e) {
+            console.error('Failed to load portfolio:', e);
+        } finally {
+            setStoreLoading(false);
+        }
+    };
 
     const tickerString = portfolioData.holdings.map(h => h.ticker).join(',');
 
@@ -146,7 +164,6 @@ export function usePortfolio() {
                 if (hasExtended) {
                     extChangePct = liveQ.extendedChangePercent || 0;
                     extLabel = liveQ.extendedLabel || undefined;
-                    const prevClose = liveQ.previousClose || liveQ.prevClose || 0;
                     displayPrice = liveQ.extendedPrice;
                 }
             }
@@ -226,21 +243,21 @@ export function usePortfolio() {
     }, [holdings]);
 
     // ── Actions ──
-    const addHolding = useCallback((holding: Omit<Holding, 'addedAt'>) => {
-        storeAddHolding(holding);
-        setPortfolioData(getPortfolio());
+    const addHolding = useCallback(async (holding: Omit<Holding, 'addedAt'>) => {
+        const updated = await storeAddHolding(holding);
+        setPortfolioData(updated);
         mutate();
     }, [mutate]);
 
-    const addHoldingWithAlpha = useCallback((holding: Omit<Holding, 'addedAt'>) => {
-        storeAddHolding(holding);
-        setPortfolioData(getPortfolio());
+    const addHoldingWithAlpha = useCallback(async (holding: Omit<Holding, 'addedAt'>) => {
+        const updated = await storeAddHolding(holding);
+        setPortfolioData(updated);
         mutate();
     }, [mutate]);
 
-    const removeHolding = useCallback((ticker: string) => {
-        storeRemoveHolding(ticker);
-        setPortfolioData(getPortfolio());
+    const removeHolding = useCallback(async (ticker: string) => {
+        const updated = await storeRemoveHolding(ticker);
+        setPortfolioData(updated);
         mutate();
     }, [mutate]);
 
@@ -252,7 +269,7 @@ export function usePortfolio() {
         holdings,
         summary,
         portfolioScore,
-        loading: isLoading,
+        loading: isLoading || storeLoading,
         isRefreshing: isValidating && !isLoading,
         error: fullError?.message || null,
         addHolding,

@@ -1,5 +1,6 @@
-// Portfolio LocalStorage Store
-// Manages user's portfolio holdings with persistence
+// Portfolio Supabase Store
+// Server-persisted portfolio using Supabase (replaces localStorage)
+import { createClient } from '@/lib/supabase/client';
 
 export interface AlphaSnapshot {
     score: number;
@@ -23,110 +24,125 @@ export interface PortfolioData {
     updatedAt: string;
 }
 
-const STORAGE_KEY = 'alpha_portfolio_v1';
+// Get portfolio from Supabase
+export async function getPortfolio(): Promise<PortfolioData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { holdings: [], updatedAt: new Date().toISOString() };
 
-// Get portfolio from LocalStorage
-export function getPortfolio(): PortfolioData {
-    if (typeof window === 'undefined') {
+    const { data, error } = await supabase
+        .from('user_portfolio')
+        .select('ticker, name, quantity, avg_price, added_at')
+        .eq('user_id', user.id)
+        .order('added_at', { ascending: true });
+
+    if (error) {
+        console.error('Failed to load portfolio:', error);
         return { holdings: [], updatedAt: new Date().toISOString() };
     }
 
-    try {
-        const stored = localStorage.getItem(STORAGE_KEY);
-        if (stored) {
-            return JSON.parse(stored);
-        }
-    } catch (e) {
-        console.error('Failed to load portfolio:', e);
-    }
-
-    return { holdings: [], updatedAt: new Date().toISOString() };
+    return {
+        holdings: (data || []).map(row => ({
+            ticker: row.ticker,
+            name: row.name,
+            quantity: Number(row.quantity),
+            avgPrice: Number(row.avg_price),
+            addedAt: row.added_at,
+        })),
+        updatedAt: new Date().toISOString(),
+    };
 }
 
-// Save portfolio to LocalStorage
-export function savePortfolio(data: PortfolioData): void {
-    if (typeof window === 'undefined') return;
+// Add a new holding (upsert: if exists, average down/up)
+export async function addHolding(holding: Omit<Holding, 'addedAt'>): Promise<PortfolioData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { holdings: [], updatedAt: new Date().toISOString() };
 
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({
-            ...data,
-            updatedAt: new Date().toISOString()
-        }));
-    } catch (e) {
-        console.error('Failed to save portfolio:', e);
-    }
-}
+    // Check if holding already exists
+    const { data: existing } = await supabase
+        .from('user_portfolio')
+        .select('quantity, avg_price')
+        .eq('user_id', user.id)
+        .eq('ticker', holding.ticker)
+        .maybeSingle();
 
-// Add a new holding
-export function addHolding(holding: Omit<Holding, 'addedAt'>): PortfolioData {
-    const current = getPortfolio();
+    if (existing) {
+        // Average down/up
+        const totalShares = Number(existing.quantity) + holding.quantity;
+        const avgPrice = ((Number(existing.avg_price) * Number(existing.quantity)) + (holding.avgPrice * holding.quantity)) / totalShares;
 
-    // Check if ticker already exists
-    const existingIndex = current.holdings.findIndex(h => h.ticker === holding.ticker);
-
-    if (existingIndex >= 0) {
-        // Average down/up existing holding
-        const existing = current.holdings[existingIndex];
-        const totalShares = existing.quantity + holding.quantity;
-        const avgPrice = ((existing.avgPrice * existing.quantity) + (holding.avgPrice * holding.quantity)) / totalShares;
-
-        current.holdings[existingIndex] = {
-            ...existing,
-            quantity: totalShares,
-            avgPrice: Math.round(avgPrice * 100) / 100
-        };
+        await supabase
+            .from('user_portfolio')
+            .update({
+                quantity: totalShares,
+                avg_price: Math.round(avgPrice * 100) / 100,
+            })
+            .eq('user_id', user.id)
+            .eq('ticker', holding.ticker);
     } else {
-        // Add new holding
-        current.holdings.push({
-            ...holding,
-            addedAt: new Date().toISOString()
-        });
+        await supabase
+            .from('user_portfolio')
+            .insert({
+                user_id: user.id,
+                ticker: holding.ticker.toUpperCase(),
+                name: holding.name,
+                quantity: holding.quantity,
+                avg_price: holding.avgPrice,
+                added_at: new Date().toISOString(),
+            });
     }
 
-    savePortfolio(current);
-    return current;
+    return getPortfolio();
 }
 
 // Remove a holding
-export function removeHolding(ticker: string): PortfolioData {
-    const current = getPortfolio();
-    current.holdings = current.holdings.filter(h => h.ticker !== ticker);
-    savePortfolio(current);
-    return current;
+export async function removeHolding(ticker: string): Promise<PortfolioData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { holdings: [], updatedAt: new Date().toISOString() };
+
+    await supabase
+        .from('user_portfolio')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('ticker', ticker);
+
+    return getPortfolio();
 }
 
 // Update a holding
-export function updateHolding(ticker: string, updates: Partial<Holding>): PortfolioData {
-    const current = getPortfolio();
-    const index = current.holdings.findIndex(h => h.ticker === ticker);
+export async function updateHolding(ticker: string, updates: Partial<Holding>): Promise<PortfolioData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { holdings: [], updatedAt: new Date().toISOString() };
 
-    if (index >= 0) {
-        current.holdings[index] = { ...current.holdings[index], ...updates };
-        savePortfolio(current);
+    const updatePayload: Record<string, unknown> = {};
+    if (updates.name !== undefined) updatePayload.name = updates.name;
+    if (updates.quantity !== undefined) updatePayload.quantity = updates.quantity;
+    if (updates.avgPrice !== undefined) updatePayload.avg_price = updates.avgPrice;
+
+    if (Object.keys(updatePayload).length > 0) {
+        await supabase
+            .from('user_portfolio')
+            .update(updatePayload)
+            .eq('user_id', user.id)
+            .eq('ticker', ticker);
     }
 
-    return current;
+    return getPortfolio();
 }
 
 // Clear all holdings
-export function clearPortfolio(): PortfolioData {
-    const empty: PortfolioData = { holdings: [], updatedAt: new Date().toISOString() };
-    savePortfolio(empty);
-    return empty;
-}
+export async function clearPortfolio(): Promise<PortfolioData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { holdings: [], updatedAt: new Date().toISOString() };
 
-// Demo data for development - using tickers from report universe
-export function loadDemoPortfolio(): PortfolioData {
-    const demo: PortfolioData = {
-        holdings: [
-            { ticker: 'AMD', name: 'Advanced Micro Devices', quantity: 15, avgPrice: 135, addedAt: '2024-01-15T00:00:00Z' },
-            { ticker: 'INTC', name: 'Intel Corp', quantity: 40, avgPrice: 45, addedAt: '2024-02-01T00:00:00Z' },
-            { ticker: 'COIN', name: 'Coinbase Global', quantity: 8, avgPrice: 175, addedAt: '2024-01-20T00:00:00Z' },
-            { ticker: 'BA', name: 'Boeing Co', quantity: 10, avgPrice: 195, addedAt: '2024-02-10T00:00:00Z' },
-            { ticker: 'V', name: 'Visa Inc', quantity: 12, avgPrice: 270, addedAt: '2024-01-25T00:00:00Z' },
-        ],
-        updatedAt: new Date().toISOString()
-    };
-    savePortfolio(demo);
-    return demo;
+    await supabase
+        .from('user_portfolio')
+        .delete()
+        .eq('user_id', user.id);
+
+    return { holdings: [], updatedAt: new Date().toISOString() };
 }

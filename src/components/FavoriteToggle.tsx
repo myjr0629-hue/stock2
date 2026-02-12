@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { useFavorites } from "@/hooks/useFavorites";
 
 export function FavoriteToggle({ ticker, name }: { ticker: string; name?: string }) {
-    const { isFavorite, toggleFavorite } = useFavorites();
-    const active = isFavorite(ticker);
+    const { favorites, toggleFavorite } = useFavorites();
+    const active = favorites.includes(ticker.toUpperCase());
 
     return (
         <Button

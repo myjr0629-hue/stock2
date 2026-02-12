@@ -2,7 +2,7 @@
 
 import { useState, useEffect, FormEvent } from "react";
 import { useSearchParams } from "next/navigation";
-import { Search, LogOut } from "lucide-react";
+import { Search, LogOut, Settings } from "lucide-react";
 import { Link, useRouter, usePathname } from "@/i18n/routing";
 import { clsx } from 'clsx';
 import { useFavorites } from "@/hooks/useFavorites";
@@ -160,18 +160,32 @@ export function LandingHeader() {
 
                     {/* Auth Button - Sign In / Sign Out */}
                     {user ? (
-                        <button
-                            onClick={handleSignOut}
-                            className="hidden md:flex items-center gap-1.5 px-5 py-1.5 
-                                text-[10px] font-bold text-rose-400 
-                                border border-rose-500/40 rounded-lg
-                                bg-transparent
-                                hover:border-rose-400/70 hover:shadow-[0_0_15px_rgba(244,63,94,0.15)]
-                                transition-all duration-300 uppercase tracking-wider"
-                        >
-                            <LogOut className="w-3 h-3" />
-                            {t('nav.signOut')}
-                        </button>
+                        <div className="hidden md:flex items-center gap-2">
+                            <Link
+                                href="/settings"
+                                className="flex items-center gap-1.5 px-4 py-1.5 
+                                    text-[10px] font-bold text-slate-400 
+                                    border border-white/10 rounded-lg
+                                    bg-transparent
+                                    hover:border-white/20 hover:text-white
+                                    transition-all duration-300 uppercase tracking-wider"
+                            >
+                                <Settings className="w-3 h-3" />
+                                {t('nav.settings')}
+                            </Link>
+                            <button
+                                onClick={handleSignOut}
+                                className="flex items-center gap-1.5 px-5 py-1.5 
+                                    text-[10px] font-bold text-rose-400 
+                                    border border-rose-500/40 rounded-lg
+                                    bg-transparent
+                                    hover:border-rose-400/70 hover:shadow-[0_0_15px_rgba(244,63,94,0.15)]
+                                    transition-all duration-300 uppercase tracking-wider"
+                            >
+                                <LogOut className="w-3 h-3" />
+                                {t('nav.signOut')}
+                            </button>
+                        </div>
                     ) : (
                         <Link
                             href="/login"
@@ -214,12 +228,20 @@ export function LandingHeader() {
                                 ))}
                                 <div className="h-px bg-slate-800 my-1" />
                                 {user ? (
-                                    <button
-                                        onClick={handleSignOut}
-                                        className="w-full text-left block px-4 py-3 text-xs font-black text-rose-400 hover:bg-rose-950/30 rounded-lg uppercase tracking-widest"
-                                    >
-                                        {t('nav.signOut')}
-                                    </button>
+                                    <>
+                                        <Link
+                                            href="/settings"
+                                            className="block px-4 py-3 text-xs font-black text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors uppercase tracking-widest"
+                                        >
+                                            {t('nav.settings')}
+                                        </Link>
+                                        <button
+                                            onClick={handleSignOut}
+                                            className="w-full text-left block px-4 py-3 text-xs font-black text-rose-400 hover:bg-rose-950/30 rounded-lg uppercase tracking-widest"
+                                        >
+                                            {t('nav.signOut')}
+                                        </button>
+                                    </>
                                 ) : (
                                     <Link href="/login" className="block px-4 py-3 text-xs font-black text-emerald-400 hover:bg-emerald-950/30 rounded-lg uppercase tracking-widest">
                                         {t('nav.signIn')}
