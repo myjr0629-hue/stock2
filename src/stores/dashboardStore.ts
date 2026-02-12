@@ -226,6 +226,12 @@ export const useDashboardStore = create<DashboardState>()(
                                 underlyingPrice: newPrice,
                                 changePercent: q.changePercent ?? existing.changePercent,
                                 prevClose: q.previousClose ?? q.prevClose ?? existing.prevClose,
+                                // [FIX] Sync display object so getDisplayPrices uses fresh price (was stale 30s)
+                                display: {
+                                    ...existing.display,
+                                    price: newPrice,
+                                    changePctPct: q.changePercent ?? existing.display?.changePctPct,
+                                },
                                 extended: {
                                     ...existing.extended,
                                     postPrice: q.extendedPrice > 0 && q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
