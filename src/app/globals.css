@@ -3,6 +3,10 @@
 @plugin "tailwindcss-animate";
 
 @theme {
+  /* Override Tailwind default font to Plus Jakarta Sans */
+  --default-font-family: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-sans: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
