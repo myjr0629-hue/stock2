@@ -97,7 +97,8 @@ export function LandingHeader() {
                         { label: "FLOW", href: `/flow?ticker=${currentTicker}`, path: "/flow", hasLive: false },
                         { label: "INTEL", href: "/intel", path: "/intel", hasLive: false },
                         { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", hasLive: false },
-                        { label: "WATCHLIST", href: "/watchlist", path: "/watchlist", hasLive: false }
+                        { label: "WATCHLIST", href: "/watchlist", path: "/watchlist", hasLive: false },
+                        { label: "GUIDE", href: "/how-it-works", path: "/how-it-works", hasLive: false }
                     ].map((item) => {
                         // Use exact match for /intel to avoid matching /intel-guardian
                         const isActive = item.path
@@ -216,7 +217,8 @@ export function LandingHeader() {
                                     { label: "FLOW", href: `/flow?ticker=${currentTicker}` },
                                     { label: "INTEL", href: "/intel" },
                                     { label: "PORTFOLIO", href: "/portfolio" },
-                                    { label: "WATCHLIST", href: "/watchlist" }
+                                    { label: "WATCHLIST", href: "/watchlist" },
+                                    { label: "GUIDE", href: "/how-it-works" }
                                 ].map((item) => (
                                     <Link
                                         key={item.label}
