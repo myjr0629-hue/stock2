@@ -223,7 +223,7 @@ export default function GuardianPage() {
 
     // [V7.7] Session-based animation control — no blinking during off-hours
     const session = data?.rlsi?.session;
-    const isMarketActive = session === 'PRE' || session === 'REG';
+    const isMarketActive = session === 'REG';
 
     // Dynamic Map Border — no pulse animation when market is closed
     const mapBorderClass = isTargetLocked && isMarketActive
@@ -331,8 +331,15 @@ export default function GuardianPage() {
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block">
                                 Flow Topography Map v3.0
                             </h3>
+                            {/* Session indicator — REG only feature */}
+                            <span className={`text-[8px] font-bold tracking-wider px-2 py-0.5 rounded border ${isMarketActive
+                                    ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30 animate-pulse'
+                                    : 'bg-slate-800/80 text-slate-500 border-slate-600/30'
+                                }`}>
+                                {isMarketActive ? '● LIVE — 본장 진행 중' : '본장(09:30~16:00 ET) 전용'}
+                            </span>
                             {/* [V6.0] Rotation Regime Badge */}
-                            {data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
+                            {isMarketActive && data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
                                 <span className={`text-[9px] font-bold tracking-wider px-2 py-0.5 rounded border ${data.rotationIntensity.regime === 'RISK_ON_GROWTH' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' :
                                     data.rotationIntensity.regime === 'RISK_OFF_DEFENSE' ? 'bg-rose-950/80 text-rose-400 border-rose-500/30' :
                                         data.rotationIntensity.regime === 'CYCLICAL_RECOVERY' ? 'bg-amber-950/80 text-amber-400 border-amber-500/30' :
