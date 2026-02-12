@@ -863,8 +863,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     // === GLOBAL LOADING GATE ===
     // Prevent rendering with zero/stale data (causes $0.00, Infinity%, distorted chart)
-    // Wait for: (1) liveQuote with real price, AND (2) chart data to arrive
-    const isInitialLoading = !liveQuote || displayPrice === 0 || !liveChartData || liveChartData.length === 0;
+    // Wait for: (1) liveQuote with real price ONLY — chart loads independently with its own skeleton
+    const isInitialLoading = !liveQuote || displayPrice === 0;
 
     if (isInitialLoading) {
         return (
@@ -1423,8 +1423,48 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 return3d={initialStockData.return3d}
                                             />
                                         ) : (
-                                            <div className="h-full w-full flex items-center justify-center">
-                                                <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                                            /* Premium Chart Skeleton — shown while chart data loads */
+                                            <div className="h-full w-full flex flex-col items-center justify-center relative overflow-hidden">
+                                                {/* Fake chart grid lines */}
+                                                <div className="absolute inset-0 flex flex-col justify-between px-6 py-8 pointer-events-none">
+                                                    {[...Array(5)].map((_, i) => (
+                                                        <div key={i} className="w-full h-px bg-white/[0.03]" />
+                                                    ))}
+                                                </div>
+                                                {/* Animated fake chart line (SVG) */}
+                                                <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none" viewBox="0 0 400 200">
+                                                    <defs>
+                                                        <linearGradient id="chartSkeletonGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                                                            <stop offset="0%" stopColor="rgb(99,102,241)" stopOpacity="0" />
+                                                            <stop offset="50%" stopColor="rgb(99,102,241)" stopOpacity="0.3" />
+                                                            <stop offset="100%" stopColor="rgb(99,102,241)" stopOpacity="0" />
+                                                        </linearGradient>
+                                                        <linearGradient id="chartSkeletonFill" x1="0" y1="0" x2="0" y2="1">
+                                                            <stop offset="0%" stopColor="rgb(99,102,241)" stopOpacity="0.08" />
+                                                            <stop offset="100%" stopColor="rgb(99,102,241)" stopOpacity="0" />
+                                                        </linearGradient>
+                                                    </defs>
+                                                    <path
+                                                        d="M0,120 Q50,100 100,110 T200,90 T300,100 T400,80"
+                                                        fill="none"
+                                                        stroke="url(#chartSkeletonGrad)"
+                                                        strokeWidth="2"
+                                                        className="animate-pulse"
+                                                    />
+                                                    <path
+                                                        d="M0,120 Q50,100 100,110 T200,90 T300,100 T400,80 L400,200 L0,200 Z"
+                                                        fill="url(#chartSkeletonFill)"
+                                                        className="animate-pulse"
+                                                    />
+                                                </svg>
+                                                {/* Shimmer sweep */}
+                                                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.03] to-transparent animate-[shimmer_2s_infinite] pointer-events-none"
+                                                    style={{ animationTimingFunction: 'ease-in-out' }} />
+                                                {/* Loading indicator */}
+                                                <div className="relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/50 backdrop-blur-sm">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                                                    <span className="text-[10px] font-mono text-slate-400 tracking-wider">LOADING CHART DATA</span>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
