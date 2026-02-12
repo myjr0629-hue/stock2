@@ -104,7 +104,7 @@ export function LandingHeader() {
 
                 {/* 2. NAVIGATION + SEARCH (fill middle) */}
                 <div className="hidden xl:flex items-center gap-1 flex-1 min-w-0">
-                    <nav className="flex items-center gap-0.5">
+                    <nav className="flex items-center gap-1">
                         {[
                             { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: true },
                             { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", hasLive: false },
@@ -123,7 +123,7 @@ export function LandingHeader() {
                                     key={item.label}
                                     href={item.href}
                                     className={clsx(
-                                        "relative px-2.5 py-2 text-[13px] font-bold tracking-wider uppercase rounded-lg transition-all group flex items-center gap-1.5",
+                                        "relative px-3.5 py-2 text-[13px] font-bold tracking-wider uppercase rounded-lg transition-all group flex items-center gap-1.5",
                                         isActive ? "text-emerald-400 bg-emerald-950/30 border border-emerald-500/20" : "text-slate-400 hover:text-white hover:bg-white/5"
                                     )}
                                 >
@@ -146,7 +146,7 @@ export function LandingHeader() {
                     </nav>
 
                     {/* Search Bar - right after nav */}
-                    <div className="relative group ml-2">
+                    <div className="relative group ml-3">
                         <form onSubmit={handleSearch}>
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 group-focus-within:text-cyan-400 transition-colors" />
                             <input
