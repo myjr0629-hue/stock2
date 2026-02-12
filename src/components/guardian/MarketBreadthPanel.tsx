@@ -108,16 +108,28 @@ export default function RLSIInsightPanel({
                 </div>
             </div>
 
-            {/* TACTICAL INSIGHT — Compact, 2-line max */}
-            <div className={`rounded-lg bg-slate-900/30 border ${sentimentBorder} p-2.5 mb-3 flex-none`}>
+            {/* TACTICAL INSIGHT — Glassmorphism, news-enhanced */}
+            <div className={`rounded-lg backdrop-blur-sm border ${sentimentBorder} p-3 mb-3 flex-none`}
+                style={{
+                    background: sentiment === 'BULLISH'
+                        ? 'linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(15,23,42,0.4) 100%)'
+                        : sentiment === 'BEARISH'
+                            ? 'linear-gradient(135deg, rgba(244,63,94,0.06) 0%, rgba(15,23,42,0.4) 100%)'
+                            : 'linear-gradient(135deg, rgba(148,163,184,0.04) 0%, rgba(15,23,42,0.4) 100%)',
+                    boxShadow: sentiment === 'BULLISH'
+                        ? '0 0 20px rgba(16,185,129,0.04), inset 0 1px 0 rgba(255,255,255,0.03)'
+                        : sentiment === 'BEARISH'
+                            ? '0 0 20px rgba(244,63,94,0.04), inset 0 1px 0 rgba(255,255,255,0.03)'
+                            : 'inset 0 1px 0 rgba(255,255,255,0.03)'
+                }}>
                 {isMarketActive ? (
                     <>
-                        <div className={`text-[10px] font-bold mb-1 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
+                        <div className={`text-[10px] font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
                             sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
                             }`}>
                             {insightTitle}
                         </div>
-                        <div className="text-xs text-white/70 leading-[1.5] line-clamp-4" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                        <div className="text-[13px] text-white/80 leading-[1.6] line-clamp-4" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                             {insightDesc}
                         </div>
                     </>
