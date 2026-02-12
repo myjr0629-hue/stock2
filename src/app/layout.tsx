@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { GuardianProvider } from "@/components/guardian/GuardianProvider";
 
-// Inter for numeric data (dashboard numbers)
-const inter = Inter({
-  variable: "--font-inter",
+// Plus Jakarta Sans for premium English/numeric typography
+const plusJakarta = Plus_Jakarta_Sans({
+  variable: "--font-plus-jakarta",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["400", "500", "600", "700", "800"],
 });
 
 export const metadata: Metadata = {
@@ -30,8 +30,8 @@ export default function RootLayout({
         />
       </head>
       <body
-        className={`${inter.variable} antialiased`}
-        style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif' }}
+        className={`${plusJakarta.variable} antialiased`}
+        style={{ fontFamily: 'Pretendard, var(--font-plus-jakarta), -apple-system, BlinkMacSystemFont, system-ui, sans-serif' }}
       >
         <GuardianProvider>
           {children}
@@ -40,3 +40,4 @@ export default function RootLayout({
     </html>
   );
 }
+
