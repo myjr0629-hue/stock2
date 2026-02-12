@@ -118,6 +118,7 @@
 
   body {
     @apply bg-background text-foreground tracking-tight antialiased bg-gradient-to-b from-[#CFEBF8] via-[#F0F3F7] to-[#F1DCC9] min-h-screen;
+    font-family: var(--font-plus-jakarta), 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
   }
 }
