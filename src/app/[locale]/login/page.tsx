@@ -21,13 +21,16 @@ export default function LoginPage() {
     const [agreeTerms, setAgreeTerms] = useState(false);
     const [agreeRisk, setAgreeRisk] = useState(false);
     const [agreeAge, setAgreeAge] = useState(false);
+    const [agreeMarketing, setAgreeMarketing] = useState(false);
 
-    const allAgreed = agreeTerms && agreeRisk && agreeAge;
+    const allRequired = agreeTerms && agreeRisk && agreeAge;
+    const allAgreed = allRequired && agreeMarketing;
 
     const handleSelectAll = (checked: boolean) => {
         setAgreeTerms(checked);
         setAgreeRisk(checked);
         setAgreeAge(checked);
+        setAgreeMarketing(checked);
     };
 
     const supabase = createClient();
@@ -68,7 +71,7 @@ export default function LoginPage() {
                 router.refresh();
             }
         } else {
-            const { error } = await supabase.auth.signUp({
+            const { error, data } = await supabase.auth.signUp({
                 email,
                 password,
                 options: {
@@ -79,6 +82,17 @@ export default function LoginPage() {
             if (error) {
                 setError(error.message);
             } else {
+                // Save consent record for email signup users
+                if (data.user) {
+                    await supabase.from('user_consent').insert({
+                        user_id: data.user.id,
+                        terms_accepted_at: new Date().toISOString(),
+                        marketing_agreed: agreeMarketing,
+                        user_agent: navigator.userAgent,
+                    }).then(({ error: consentErr }) => {
+                        if (consentErr) console.error('Consent save error:', consentErr);
+                    });
+                }
                 setMessage(t('checkEmail'));
             }
         }
@@ -284,12 +298,31 @@ export default function LoginPage() {
                                             {tLegal('agreeAge')}
                                         </span>
                                     </label>
+
+                                    {/* 4. Marketing Consent (Optional) */}
+                                    <label className="flex items-start gap-3 cursor-pointer group">
+                                        <div className="relative mt-0.5">
+                                            <input
+                                                type="checkbox"
+                                                checked={agreeMarketing}
+                                                onChange={(e) => setAgreeMarketing(e.target.checked)}
+                                                className="sr-only peer"
+                                            />
+                                            <div className="w-5 h-5 rounded border border-white/20 bg-white/5 peer-checked:bg-cyan-500 peer-checked:border-cyan-500 transition-all flex items-center justify-center group-hover:border-white/40">
+                                                {agreeMarketing && <Check className="w-3 h-3 text-white" />}
+                                            </div>
+                                        </div>
+                                        <span className="text-xs text-slate-300 leading-relaxed">
+                                            <span className="text-slate-500 font-bold">{tLegal('optional')}</span>{' '}
+                                            {tLegal('consentMarketing')}
+                                        </span>
+                                    </label>
                                 </div>
                             )}
 
                             <button
                                 type="submit"
-                                disabled={loading || (!isLogin && !allAgreed)}
+                                disabled={loading || (!isLogin && !allRequired)}
                                 className="w-full py-3 rounded-xl bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white font-bold text-sm uppercase tracking-wider transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/25"
                             >
                                 {loading ? (
@@ -330,6 +363,7 @@ export default function LoginPage() {
                                 onClick={() => {
                                     setIsLogin(!isLogin);
                                     handleSelectAll(false);
+                                    setAgreeMarketing(false);
                                     setError(null);
                                     setMessage(null);
                                 }}

@@ -2,6 +2,7 @@ import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { locales, type Locale } from '@/i18n/routing';
+import { ConsentGuard } from '@/components/ConsentGuard';
 
 export function generateStaticParams() {
     return locales.map((locale) => ({ locale }));
@@ -25,7 +26,7 @@ export default async function LocaleLayout({ children, params }: Props) {
 
     return (
         <NextIntlClientProvider messages={messages}>
-            {children}
+            <ConsentGuard>{children}</ConsentGuard>
         </NextIntlClientProvider>
     );
 }
