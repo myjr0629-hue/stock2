@@ -3,6 +3,10 @@
 @plugin "tailwindcss-animate";
 
 @theme {
+  /* Hybrid Font System: Jakarta(text) + Inter(numbers) + Pretendard(Korean) */
+  --font-sans: 'Plus Jakarta Sans', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-numbers: 'Inter', sans-serif;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -118,6 +122,7 @@
 
   body {
     @apply bg-background text-foreground tracking-tight antialiased bg-gradient-to-b from-[#CFEBF8] via-[#F0F3F7] to-[#F1DCC9] min-h-screen;
+    font-family: 'Plus Jakarta Sans', 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
   }
 }
@@ -175,7 +180,7 @@
 
 /* Inter for numeric data (prices, percentages, scores) */
 @utility font-num {
-  font-family: var(--font-inter), ui-monospace, 'SF Mono', monospace;
+  font-family: 'Inter', sans-serif;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }

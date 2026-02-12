@@ -1,23 +1,6 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans, Inter } from "next/font/google";
 import "./globals.css";
 import { GuardianProvider } from "@/components/guardian/GuardianProvider";
-
-// Plus Jakarta Sans for English UI text
-const plusJakarta = Plus_Jakarta_Sans({
-  variable: "--font-plus-jakarta",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700", "800"],
-  adjustFontFallback: false,
-});
-
-// Inter for numeric/tabular data
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  adjustFontFallback: false,
-});
 
 export const metadata: Metadata = {
   title: "SIGNUM HQ",
@@ -32,16 +15,20 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
-        {/* Pretendard from CDN */}
+        {/* Google Fonts CDN: Plus Jakarta Sans + Inter */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet"
+        />
+        {/* Pretendard CDN for Korean */}
         <link
           rel="stylesheet"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
         />
       </head>
-      <body
-        className={`${plusJakarta.variable} ${inter.variable} antialiased`}
-        style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif' }}
-      >
+      <body className="antialiased">
         <GuardianProvider>
           {children}
         </GuardianProvider>
@@ -49,4 +36,3 @@ export default function RootLayout({
     </html>
   );
 }
-
