@@ -7,6 +7,12 @@ const nextConfig = {
     eslint: {
         ignoreDuringBuilds: true,
     },
+    outputFileTracingExcludes: {
+        '*': [
+            './snapshots/**',
+            './.next/cache/**',
+        ],
+    },
     async redirects() {
         return [
             {
