@@ -512,7 +512,7 @@ function MainChartPanel() {
                         <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q12 20 24 35 T48 25 T72 40 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><path d="M0 55 Q16 40 32 45 T64 35 T96 30" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-300" /></svg>
                         <div className="relative z-10 flex items-center gap-2 mb-2">
                             <Activity className="w-4 h-4 text-amber-400" />
-                            <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">Net GEX</span>
+                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Net GEX</span>
                         </div>
                         <div className="relative z-10 flex items-center gap-2">
                             <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
@@ -528,7 +528,7 @@ function MainChartPanel() {
                         <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
                         <div className="relative z-10 flex items-center gap-2 mb-2">
                             <Radio className="w-4 h-4 text-cyan-400" />
-                            <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">Gamma Flip</span>
+                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Gamma Flip</span>
                         </div>
                         <div className="relative z-10 flex items-center gap-2">
                             <span className="text-xl font-mono font-bold text-white">
@@ -555,7 +555,7 @@ function MainChartPanel() {
                                 <>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Zap className="w-4 h-4 text-indigo-400" />
-                                        <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">Squeeze</span>
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Squeeze</span>
                                         <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ${bgColor} text-white`}>{risk}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -581,7 +581,7 @@ function MainChartPanel() {
                                 <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="30" width="10" height="30" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="22" y="18" width="10" height="42" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="39" y="24" width="10" height="36" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="56" y="12" width="10" height="48" rx="2" fill="currentColor" className="text-cyan-400" /></svg>
                                 <div className="flex items-center gap-2 mb-2">
                                     <BarChart3 className="w-4 h-4 text-cyan-400" />
-                                    <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">VWAP 거리</span>
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">VWAP 거리</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white'}`}>
@@ -603,7 +603,7 @@ function MainChartPanel() {
                         <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><circle cx="40" cy="32" r="14" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" /><circle cx="40" cy="32" r="3" fill="currentColor" className="text-cyan-400" /></svg>
                         <div className="flex items-center gap-2 mb-2">
                             <Target className="w-4 h-4 text-cyan-400" />
-                            <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">Max Pain</span>
+                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Max Pain</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xl font-mono font-bold text-white">${data?.maxPain || "—"}</span>
@@ -621,8 +621,8 @@ function MainChartPanel() {
                         <div className="flex items-center gap-2 mb-2">
                             <TrendingUp className="w-4 h-4 text-emerald-400" />
                             <div className="flex flex-col leading-tight">
-                                <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">Call Wall</span>
-                                <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">Put Floor</span>
+                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Call Wall</span>
+                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Put Floor</span>
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -645,7 +645,7 @@ function MainChartPanel() {
                                 <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.06]" viewBox="0 0 80 56">{[0, 1, 2, 3, 4, 5].map(i => <circle key={i} cx={10 + i * 12} cy={10 + ((i * 17) % 30)} r="3" fill="currentColor" className="text-purple-400" />)}<path d="M10 10 L22 27 L34 20 L46 37 L58 14 L70 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-purple-300" /></svg>
                                 <div className="flex items-center gap-2 mb-2">
                                     <Activity className="w-4 h-4 text-purple-400" />
-                                    <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">Dark Pool %</span>
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Dark Pool %</span>
                                     {dp >= 55 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-purple-500/80 text-white">HIGH</span>}
                                     {sessionLabel && <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded border ${sessionColor}`}>{sessionLabel}</span>}
                                 </div>
@@ -669,7 +669,7 @@ function MainChartPanel() {
                                 <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="10" width="10" height="50" rx="2" fill="currentColor" className="text-rose-400" /><rect x="22" y="20" width="10" height="40" rx="2" fill="currentColor" className="text-rose-400" /><rect x="39" y="28" width="10" height="32" rx="2" fill="currentColor" className="text-rose-400" /><rect x="56" y="36" width="10" height="24" rx="2" fill="currentColor" className="text-rose-300" /></svg>
                                 <div className="flex items-center gap-2 mb-2">
                                     <TrendingDown className="w-4 h-4 text-rose-400" />
-                                    <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">Short Vol %</span>
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Short Vol %</span>
                                     {sv >= 50 && <span className="text-[8px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -691,8 +691,8 @@ function MainChartPanel() {
                         <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q12 10 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /><path d="M0 32 Q12 48 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
                         <div className="flex items-center gap-2 mb-2">
                             <Activity className="w-4 h-4 text-purple-400" />
-                            <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">ATM IV</span>
-                            <span className="text-[11px] text-slate-400">내재변동성</span>
+                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">ATM IV</span>
+                            <span className="text-[11px] text-white">내재변동성</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xl font-mono font-bold text-white">
@@ -725,8 +725,8 @@ function MainChartPanel() {
                                     ) : (
                                         <Activity className="w-4 h-4 text-slate-400" />
                                     )}
-                                    <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">P/C Ratio</span>
-                                    <span className="text-[8px] text-white/40 font-medium">VOLUME</span>
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">P/C Ratio</span>
+                                    <span className="text-[10px] text-cyan-400 font-medium">VOLUME</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${color}`}>
@@ -735,7 +735,7 @@ function MainChartPanel() {
                                     <span className={`text-sm font-bold ${color}`}>{label}</span>
                                 </div>
                                 {hasVolData && (
-                                    <span className="text-[11px] text-slate-400 font-mono mt-1 block">
+                                    <span className="text-[11px] text-white font-mono mt-1 block">
                                         C {(callVol / 1000).toFixed(0)}K / P {(putVol / 1000).toFixed(0)}K
                                     </span>
                                 )}
@@ -787,16 +787,20 @@ function MainChartPanel() {
                             <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500 animate-pulse" />}
                                 <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M48 58 A 38 38 0 0 1 10 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /><path d="M86 58 A 38 38 0 0 1 48 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><circle cx="48" cy="58" r="3" fill="currentColor" className="text-white" /></svg>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Zap className="w-4 h-4 text-amber-400" />
-                                    <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">GEX Regime</span>
+                                <div className="flex items-center gap-1.5 mb-2 whitespace-nowrap">
+                                    <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wide text-white">GEX Regime</span>
+                                    {expStr && (
+                                        <span className="text-[11px] text-white/70 font-mono">
+                                            {expStr.slice(5)}
+                                        </span>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${colors[regime]}`}>{pinStrength}%</span>
                                     <span className={`text-xs font-bold ${colors[regime]}`}>{labels[regime]}</span>
                                 </div>
-                                <span className="text-[11px] text-slate-400 font-mono block mt-0.5">
-                                    {expStr ? `${expStr.slice(5)}(${dte === 0 ? '당일' : dte === 1 ? '익일' : `${dte}일`})` : ''}{' | '}
+                                <span className="text-[11px] text-white font-mono block mt-0.5">
                                     {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? '롱 감마 환경' : '숏 감마 환경'}
                                 </span>
                             </div>
@@ -814,7 +818,7 @@ function MainChartPanel() {
                                 <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M30 32 L10 20 M30 32 L10 44 M66 32 L86 20 M66 32 L86 44" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-cyan-400" /><line x1="30" y1="32" x2="66" y2="32" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" className="text-cyan-300" /></svg>
                                 <div className="flex items-center gap-2 mb-2">
                                     <Activity className="w-4 h-4 text-cyan-400" />
-                                    <span className="text-[10px] font-jakarta uppercase tracking-wider text-white">Implied Move</span>
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Implied Move</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${im >= 5 ? 'text-cyan-400' : im >= 3 ? 'text-cyan-300' : 'text-white'}`}>
@@ -828,7 +832,7 @@ function MainChartPanel() {
                                         <span className="text-xs text-slate-400">안정</span>
                                     )}
                                 </div>
-                                <span className="text-[11px] text-slate-400 block mt-0.5">
+                                <span className="text-[11px] text-white block mt-0.5">
                                     {dir === 'bullish' ? '↗ 콜 프리미엄 우위 → 상승 기대' : dir === 'bearish' ? '↘ 풋 프리미엄 우위 → 하락 기대' : '⟷ 균형'}
                                 </span>
                             </div>
