@@ -410,10 +410,13 @@ export default function GuardianPage() {
                         {/* 1. TACTICAL VERDICT (Compact, Top) */}
                         <div className="bg-[#0a0e14] border border-slate-800 rounded-lg p-5 relative flex flex-col shadow-2xl flex-none">
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-400">
-                                    TACTICAL VERDICT
-                                </h3>
-                                <span className="text-[11px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-emerald-400">
+                                        TACTICAL VERDICT
+                                    </h3>
+                                    <span className="text-[12px] text-amber-500 font-mono">· Regular Session Only</span>
+                                </div>
+                                <span className="text-[12px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
                                     V.2.5 FLASH
                                 </span>
                             </div>
@@ -422,7 +425,7 @@ export default function GuardianPage() {
                                 <>
                                     <div className="overflow-hidden mb-2">
                                         <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
-                                        <div className="text-xs text-slate-300 font-sans leading-relaxed whitespace-pre-wrap opacity-90">
+                                        <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                                             <TypewriterText text={verdict.desc} speed={10} />
                                         </div>
                                     </div>
@@ -479,15 +482,15 @@ export default function GuardianPage() {
                                     </div>
                                 </>
                             ) : verdict.title ? (
-                                <div className="opacity-70">
+                                <>
                                     <div className="overflow-hidden mb-2">
                                         <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
-                                        <div className="text-xs text-slate-400 font-sans leading-relaxed whitespace-pre-wrap">
+                                        <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                                             {verdict.desc}
                                         </div>
                                     </div>
-                                    <div className="text-[11px] text-slate-600 font-mono mt-2">Last session analysis · Regular Session only</div>
-                                </div>
+                                    <div className="text-[12px] text-amber-500/50 font-mono mt-2">Last session analysis</div>
+                                </>
                             ) : (
                                 <div className="flex-1 flex items-center justify-center py-4">
                                     <div className="flex items-center gap-4">

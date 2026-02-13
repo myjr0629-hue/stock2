@@ -1,7 +1,6 @@
 
 import { fetchMassive } from "@/services/massiveClient";
 import { getTreasuryYields } from "@/services/fedApiClient";
-import { fetchStockNews, NewsItem } from "@/services/newsHubProvider";
 import { getMacroSnapshotSSOT } from "@/services/macroHubProvider";
 import { getMarketBreadth, BreadthSnapshot } from "./breadthEngine";
 
@@ -45,6 +44,7 @@ export interface RLSIResult {
         // News Sentiment
         sentimentRaw: number;      // -1 to 1
         sentimentScore: number;    // 0-100
+        sentimentSource?: string;  // [V8.2] CNN F&G or VIX Fallback
         // Momentum
         momentumRaw: number;       // ratio (e.g. 1.05)
         momentumScore: number;     // 0-100
@@ -128,28 +128,42 @@ async function getPriceActionSentiment(): Promise<number> {
     }
 }
 
-// === HELPER: News Sentiment Calculation ===
-// Returns -1.0 to 1.0
-function calculateNewsSentimentScore(news: NewsItem[]): number {
-    if (!news || news.length === 0) return 0;
+// === [V8.2] CNN Fear & Greed Index ===
+// Returns 0-100 (0=Extreme Fear, 100=Extreme Greed)
+let _fgCache: { score: number; rating: string; timestamp: number } | null = null;
+const FG_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
 
-    let score = 0;
-    let totalWeight = 0;
-
-    for (const item of news) {
-        const ageHours = item.catalystAge;
-        const weight = Math.max(0.1, 1 / (1 + ageHours / 24));
-
-        let itemScore = 0;
-        if (item.sentiment === 'positive') itemScore = 1;
-        if (item.sentiment === 'negative') itemScore = -1;
-
-        score += itemScore * weight;
-        totalWeight += weight;
+async function fetchFearGreedIndex(): Promise<{ score: number; rating: string }> {
+    // Check cache
+    if (_fgCache && (Date.now() - _fgCache.timestamp < FG_CACHE_TTL)) {
+        return { score: _fgCache.score, rating: _fgCache.rating };
     }
 
-    if (totalWeight === 0) return 0;
-    return Math.max(-1, Math.min(1, score / totalWeight));
+    try {
+        const res = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const fg = data.fear_and_greed;
+        if (fg && typeof fg.score === 'number') {
+            _fgCache = { score: fg.score, rating: fg.rating, timestamp: Date.now() };
+            console.log(`[RLSI V8.2] CNN Fear & Greed: ${fg.score.toFixed(1)} (${fg.rating})`);
+            return { score: fg.score, rating: fg.rating };
+        }
+        throw new Error('Invalid F&G response');
+    } catch (e) {
+        console.warn('[RLSI] CNN F&G fetch failed, using VIX fallback:', e);
+        return { score: -1, rating: 'fallback' }; // Signal to use VIX fallback
+    }
+}
+
+// VIX-based sentiment fallback (0-100)
+// VIX 12 = Extreme Greed (100), VIX 35+ = Extreme Fear (0)
+function vixToSentiment(vix: number): number {
+    if (vix <= 12) return 100;
+    if (vix >= 35) return 0;
+    return Math.round(100 - ((vix - 12) / 23) * 100);
 }
 
 // === HELPER: Momentum Calculation ===
@@ -219,9 +233,8 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
         }
 
         // Fetch other data (universal across sessions)
-        // [V6.0] Added breadth parallel fetch
-        const [news, yields, macro, breadth] = await Promise.all([
-            fetchStockNews(MARKET_CORE_10, 30).catch(() => []),
+        // [V8.2] Removed news fetch — sentiment now from CNN Fear & Greed Index
+        const [yields, macro, breadth] = await Promise.all([
             getTreasuryYields().catch(() => ({ us10y: 4.0 } as any)),
             getMacroSnapshotSSOT().catch(() => ({ vix: 15 } as any)),
             getMarketBreadth(0).catch(() => null as BreadthSnapshot | null)
@@ -236,8 +249,10 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
         const breadthScoreValue = breadth?.breadthScore ?? 50;
 
         // C. News Sentiment Score (0-100)
-        const sentimentRaw = calculateNewsSentimentScore(news);
-        const sentimentScore = (sentimentRaw + 1) * 50;
+        // [V8.2] CNN Fear & Greed Index (replaces news keyword sentiment)
+        const fg = await fetchFearGreedIndex();
+        const sentimentRaw = fg.score >= 0 ? (fg.score / 50) - 1 : 0; // Convert 0-100 to -1~+1
+        const sentimentScore = fg.score >= 0 ? fg.score : vixToSentiment(macro?.vix || 15);
 
         // D. Momentum Score (0-100)
         let momentumScore = 50 + (momentumRaw - 1) * 1000;
@@ -295,6 +310,7 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
                 // News
                 sentimentRaw: Number(sentimentRaw.toFixed(2)),
                 sentimentScore: Number(sentimentScore.toFixed(1)),
+                sentimentSource: fg.score >= 0 ? `CNN F&G: ${fg.rating}` : 'VIX Fallback',
                 momentumRaw: Number(momentumRaw.toFixed(3)),
                 momentumScore: Number(momentumScore.toFixed(1)),
                 rotationScore: Number(rotationScoreNorm.toFixed(1)),

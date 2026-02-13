@@ -51,7 +51,14 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
             const res = await fetch(`/api/debug/guardian?force=${force}&locale=${validLocale}`);
             const json = await res.json();
             if (json.success && json.data) {
-                setData(json.data);
+                // [V8.1] Preserve last AI verdict if new data doesn't have one
+                const newData = json.data;
+                if (newData.verdict && !newData.verdict.realityInsight && data?.verdict?.realityInsight) {
+                    newData.verdict.realityInsight = data.verdict.realityInsight;
+                    newData.verdict.title = data.verdict.title || newData.verdict.title;
+                    newData.verdict.description = data.verdict.description || newData.verdict.description;
+                }
+                setData(newData);
             }
         } catch (err) {
             console.error("GuardianProvider fetch error:", err);
@@ -61,12 +68,19 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
     };
 
     useEffect(() => {
-        refresh();
-        // Poll every 5 minutes (matches server-side CACHE_TTL_MS)
-        // Stock prices are updated independently via /api/live/prices (30s)
-        const interval = setInterval(refresh, 5 * 60 * 1000);
-        return () => clearInterval(interval);
-    }, [validLocale]); // Re-fetch when locale changes
+        refresh(true); // [V8.2] Force fetch on mount to get fresh CNN F&G data
+    }, [validLocale]);
+
+    // [V8.1] Only poll during regular session (REG)
+    useEffect(() => {
+        const session = data?.rlsi?.session;
+        if (session === 'REG') {
+            // Regular session: poll every 5 minutes
+            const interval = setInterval(refresh, 5 * 60 * 1000);
+            return () => clearInterval(interval);
+        }
+        // After hours: no polling (data is static)
+    }, [data?.rlsi?.session, validLocale]);
 
     const value = {
         data,

@@ -87,6 +87,29 @@ let _cachedContext: GuardianContext | null = null;
 let _lastFetchTime = 0;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
+// [V8.1] Persistent AI verdict cache — file-based to survive server restarts
+// Stores last successful Gemini analysis so it can be shown after market hours
+import * as fs from 'fs';
+import * as path from 'path';
+const AI_VERDICT_CACHE_PATH = path.join(process.cwd(), '.next', 'cache', 'guardian_ai_verdict.json');
+
+function saveAiVerdict(verdict: GuardianVerdict) {
+    try {
+        const dir = path.dirname(AI_VERDICT_CACHE_PATH);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(AI_VERDICT_CACHE_PATH, JSON.stringify(verdict), 'utf-8');
+    } catch (e) { /* ignore write errors */ }
+}
+
+function loadAiVerdict(): GuardianVerdict | null {
+    try {
+        if (fs.existsSync(AI_VERDICT_CACHE_PATH)) {
+            return JSON.parse(fs.readFileSync(AI_VERDICT_CACHE_PATH, 'utf-8'));
+        }
+    } catch (e) { /* ignore read errors */ }
+    return null;
+}
+
 // === LOCALIZED TEXT FOR VERDICTS ===
 type Locale = 'ko' | 'en' | 'ja';
 
@@ -327,13 +350,16 @@ export class GuardianDataHub {
             // === STEP 4: GENERATE VERDICT NARRATIVE (AI + Templates) ===
             let verdict: GuardianVerdict;
 
-            if (divCase.isDivergent) {
-                // Priority: Divergence Overrides AI
+            if (divCase.isDivergent && rlsi.session === 'REG') {
+                // Priority: Divergence Overrides AI (only during regular session)
                 verdict = {
                     title: divCase.verdictTitle,
                     description: divCase.verdictDesc,
                     sentiment: divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH'
                 };
+            } else if (rlsi.session !== 'REG' && loadAiVerdict()) {
+                // [V8.1] After hours with cached AI verdict: use it
+                verdict = loadAiVerdict()!;
             } else {
                 // Standard Market: Use Dual Stream AI
                 const staticVerdict: GuardianVerdict = {
@@ -411,6 +437,8 @@ export class GuardianDataHub {
                             sentiment: 'NEUTRAL',
                             realityInsight: realityText // Center
                         };
+                        // [V8.1] Persist AI verdict to file for after-hours display
+                        saveAiVerdict(verdict);
                     }
                 } catch (e) {
                     console.warn("[Guardian] AI Verdict Failed, using fallback:", e);

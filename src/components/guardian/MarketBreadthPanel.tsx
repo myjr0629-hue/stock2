@@ -99,8 +99,9 @@ export default function RLSIInsightPanel({
                     <span className="text-xs uppercase tracking-[0.2em] text-white font-black">
                         RLSI INSIGHT
                     </span>
+                    <span className="text-[12px] text-amber-500 font-mono">· Regular Session Only</span>
                 </div>
-                <div className={`text-[11px] font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
+                <div className={`text-[12px] font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
                     ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
                     : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
                     }`}>
@@ -135,15 +136,15 @@ export default function RLSIInsightPanel({
                     </>
                 ) : (insightTitle || insightDesc) ? (
                     <>
-                        <div className={`text-[11px] font-bold mb-1.5 uppercase tracking-wide opacity-70 ${sentiment === 'BULLISH' ? 'text-emerald-300' :
+                        <div className={`text-[11px] font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
                             sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
                             }`}>
                             {insightTitle}
                         </div>
-                        <div className="text-[13px] text-white/60 leading-[1.6] line-clamp-4" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                        <div className="text-[13px] text-white/80 leading-[1.6] line-clamp-4" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                             {insightDesc}
                         </div>
-                        <div className="text-[11px] text-slate-600 font-mono mt-1.5">Last session analysis · Regular Session only</div>
+                        <div className="text-[12px] text-amber-500/50 font-mono mt-1.5">Last session analysis</div>
                     </>
                 ) : (
                     <div className="flex items-center gap-3 py-1.5">
@@ -285,7 +286,6 @@ export default function RLSIInsightPanel({
                             </div>
                             <div>
                                 <div className="text-[11px] font-bold text-white/80">본장에서 브레드스 분석이 진행됩니다</div>
-                                <div className="text-[11px] text-slate-500 font-mono mt-0.5">Market Breadth Analysis</div>
                             </div>
                         </div>
                     )}
