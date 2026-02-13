@@ -217,9 +217,12 @@ export const useDashboardStore = create<DashboardState>()(
                     for (const [ticker, q] of Object.entries(quotes) as [string, any][]) {
                         if (!q || !currentTickers[ticker]) continue;
                         const existing = currentTickers[ticker];
-                        const newPrice = q.extendedPrice && q.extendedPrice > 0
-                            ? q.extendedPrice
-                            : q.price || q.latestPrice;
+                        // [FIX] During POST/CLOSED, keep regular close as underlyingPrice (prevents flickering)
+                        // extendedPrice goes only into the badge — not into the main price
+                        const isAfterHours = q.session === 'post' || q.session === 'closed';
+                        const newPrice = isAfterHours
+                            ? (q.price || q.latestPrice)
+                            : (q.extendedPrice && q.extendedPrice > 0 ? q.extendedPrice : q.price || q.latestPrice);
                         if (newPrice && newPrice !== existing.underlyingPrice) {
                             currentTickers[ticker] = {
                                 ...existing,

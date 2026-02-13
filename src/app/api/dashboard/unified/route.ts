@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 // [V4.1] Polygon API for technical indicators (return3D, sma20, rsi14, relVol)
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
@@ -117,13 +118,44 @@ interface CacheEntry {
     timestamp: number;
     isRevalidating?: boolean;
 }
-const CACHE_VERSION = 'v3'; // Bumped: v2→v3 (cache warming architecture)
+const CACHE_VERSION = 'v4'; // Bumped: v3→v4 (Redis hybrid cache)
 const cache: Map<string, CacheEntry> = new Map();
 const CACHE_TTL_MS = 120_000; // 120 seconds — data considered "fresh" (warmer runs every 90s)
 const WARM_INTERVAL_MS = 90_000; // 90 seconds — auto-refresh interval for default tickers
+const REDIS_TTL_SECONDS = 180; // Redis TTL: 180s (slightly longer than in-memory)
+const REDIS_PREFIX = 'dashboard:unified:'; // Redis key prefix
 
 // Default tickers for dashboard
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
+
+// ── Redis cache helpers ──
+function redisKey(cacheKey: string): string {
+    return `${REDIS_PREFIX}${cacheKey}`;
+}
+
+async function getFromRedisCache(cacheKey: string): Promise<CacheEntry | null> {
+    try {
+        const entry = await getFromCache<CacheEntry>(redisKey(cacheKey));
+        if (entry && entry.data && entry.timestamp) {
+            // Check freshness (Redis TTL handles expiry, but double-check)
+            const age = Date.now() - entry.timestamp;
+            if (age < REDIS_TTL_SECONDS * 1000) {
+                return entry;
+            }
+        }
+        return null;
+    } catch {
+        return null;
+    }
+}
+
+async function writeToRedisCache(cacheKey: string, data: any, timestamp: number): Promise<void> {
+    try {
+        await setInCache(redisKey(cacheKey), { data, timestamp }, REDIS_TTL_SECONDS);
+    } catch {
+        // Redis write failure is non-critical — in-memory cache still works
+    }
+}
 
 // ============================================================
 // [CACHE WARMER] Proactive background refresh — eliminates cold starts
@@ -172,7 +204,10 @@ async function warmDefaultCache() {
         ]);
 
         const response = buildResponseFromResults(tickerResults, marketData);
-        cache.set(cacheKey, { data: response, timestamp: Date.now() });
+        const ts = Date.now();
+        cache.set(cacheKey, { data: response, timestamp: ts });
+        // [REDIS] Also write to Redis for cross-instance sharing
+        writeToRedisCache(cacheKey, response, ts);
 
         const elapsed = Date.now() - startTs;
         console.log(`[CACHE WARMER] ✅ Warm complete (${elapsed}ms) — ${DEFAULT_TICKERS.length} tickers cached`);
@@ -428,7 +463,10 @@ async function revalidateCache(cacheKey: string, tickers: string[], requestOrBas
         );
 
         const response = buildResponseFromResults(tickerResults, marketData);
-        cache.set(cacheKey, { data: response, timestamp: Date.now() });
+        const ts = Date.now();
+        cache.set(cacheKey, { data: response, timestamp: ts });
+        // [REDIS] Also write to Redis for cross-instance sharing
+        writeToRedisCache(cacheKey, response, ts);
         console.log(`[CACHE] Background revalidation complete for: ${cacheKey}`);
     } catch (error) {
         console.error('[CACHE] Background revalidation failed:', error);
@@ -460,9 +498,7 @@ export async function GET(request: NextRequest) {
         });
     }
 
-    // [WARM] Stale cache exists — return immediately, trigger background refresh
-    // Unlike old SWR, there is NO expiry cutoff. Cache warmer keeps default tickers warm.
-    // Custom ticker sets also benefit: stale data is returned instantly while refreshing.
+    // [WARM] Stale in-memory cache exists — return immediately, trigger background refresh
     if (cached) {
         // Non-blocking background revalidation
         revalidateCache(cacheKey, tickers, baseUrl);
@@ -475,8 +511,26 @@ export async function GET(request: NextRequest) {
         });
     }
 
-    // [WARM] No cache at all — must fetch synchronously (only on very first request)
-    // After the cache warmer starts (~5s after boot), this branch is rarely hit.
+    // [REDIS FALLBACK] In-memory miss — check Redis (shared across Vercel instances)
+    const redisCached = await getFromRedisCache(cacheKey);
+    if (redisCached) {
+        // Hydrate in-memory cache from Redis
+        cache.set(cacheKey, { data: redisCached.data, timestamp: redisCached.timestamp });
+        console.log(`[CACHE] ✅ Redis hit for ${cacheKey} (age: ${Math.round((now - redisCached.timestamp) / 1000)}s)`);
+
+        // Non-blocking background revalidation to keep data fresh
+        revalidateCache(cacheKey, tickers, baseUrl);
+
+        return NextResponse.json({
+            ...redisCached.data,
+            _cached: true,
+            _cacheAge: Math.round((now - redisCached.timestamp) / 1000),
+            _status: 'redis-hit'
+        });
+    }
+
+    // [COLD START] No cache anywhere — must fetch synchronously
+    console.log(`[CACHE] ❄️ Cold start for ${cacheKey}`);
     try {
         const tickerPromises = tickers.map(async (ticker) => {
             try {
@@ -494,8 +548,10 @@ export async function GET(request: NextRequest) {
 
         const response = buildResponseFromResults(tickerResults, marketData);
 
-        // Store in cache
-        cache.set(cacheKey, { data: response, timestamp: Date.now() });
+        // Store in BOTH in-memory and Redis
+        const ts = Date.now();
+        cache.set(cacheKey, { data: response, timestamp: ts });
+        writeToRedisCache(cacheKey, response, ts);
 
         return NextResponse.json({
             ...response,
