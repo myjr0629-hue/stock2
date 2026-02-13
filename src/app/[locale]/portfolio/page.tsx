@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { usePortfolio, type EnrichedHolding } from '@/hooks/usePortfolio';
 import { LandingHeader } from '@/components/landing/LandingHeader';
-import { TradingViewTicker } from '@/components/TradingViewTicker';
+
 import { useTranslations, useLocale } from 'next-intl';
 import {
     TrendingUp, TrendingDown, Plus, RefreshCw, Briefcase, ChevronRight,

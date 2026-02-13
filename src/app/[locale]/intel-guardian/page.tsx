@@ -5,7 +5,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslations, useLocale } from 'next-intl';
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock } from "lucide-react";
-import { TradingViewTicker } from "@/components/TradingViewTicker";
+
 import { Link } from "@/i18n/routing";
 
 import SmartMoneyMap from "@/components/guardian/SmartMoneyMap";

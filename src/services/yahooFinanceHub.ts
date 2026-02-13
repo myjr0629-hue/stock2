@@ -24,6 +24,10 @@ export const YAHOO_CACHE_KEYS = {
     VIX: 'yahoo:vix',
     NQ: 'yahoo:nq',
     TNX: 'yahoo:tnx',
+    SPX: 'yahoo:spx',
+    BTC: 'yahoo:btc',
+    GOLD: 'yahoo:gold',
+    OIL: 'yahoo:oil',
     LAST_FETCH: 'yahoo:last_fetch'
 };
 
@@ -35,11 +39,19 @@ let memoryCache: {
     vix: YahooQuote | null;
     nq: YahooQuote | null;
     tnx: YahooQuote | null;
+    spx: YahooQuote | null;
+    btc: YahooQuote | null;
+    gold: YahooQuote | null;
+    oil: YahooQuote | null;
     lastFetch: number;
 } = {
     vix: null,
     nq: null,
     tnx: null,
+    spx: null,
+    btc: null,
+    gold: null,
+    oil: null,
     lastFetch: 0
 };
 
@@ -106,7 +118,7 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuo
  * Get Yahoo data with rate limiting and Redis persistence
  * Returns both VIX and NQ in single call
  */
-export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQuote; tnx: YahooQuote }> {
+export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQuote; tnx: YahooQuote; spx: YahooQuote; btc: YahooQuote; gold: YahooQuote; oil: YahooQuote }> {
     const now = Date.now();
     const timeSinceLastFetch = now - memoryCache.lastFetch;
 
@@ -114,11 +126,15 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
     if (timeSinceLastFetch >= RATE_LIMIT_MS) {
         console.log(`[Yahoo] Fetching fresh data (${Math.floor(timeSinceLastFetch / 1000)}s since last fetch)`);
 
-        const quotes = await fetchYahooQuotes(['^VIX', 'NQ=F', '^TNX']);
+        const quotes = await fetchYahooQuotes(['^VIX', 'NQ=F', '^TNX', '^GSPC', 'BTC-USD', 'GC=F', 'CL=F']);
 
         const vixQuote = quotes.get('^VIX');
         const nqQuote = quotes.get('NQ=F');
         const tnxQuote = quotes.get('^TNX');
+        const spxQuote = quotes.get('^GSPC');
+        const btcQuote = quotes.get('BTC-USD');
+        const goldQuote = quotes.get('GC=F');
+        const oilQuote = quotes.get('CL=F');
 
         if (vixQuote) {
             memoryCache.vix = vixQuote;
@@ -135,7 +151,27 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
             setInCache(YAHOO_CACHE_KEYS.TNX, tnxQuote).catch(() => { });
         }
 
-        if (vixQuote || nqQuote || tnxQuote) {
+        if (spxQuote) {
+            memoryCache.spx = spxQuote;
+            setInCache(YAHOO_CACHE_KEYS.SPX, spxQuote).catch(() => { });
+        }
+
+        if (btcQuote) {
+            memoryCache.btc = btcQuote;
+            setInCache(YAHOO_CACHE_KEYS.BTC, btcQuote).catch(() => { });
+        }
+
+        if (goldQuote) {
+            memoryCache.gold = goldQuote;
+            setInCache(YAHOO_CACHE_KEYS.GOLD, goldQuote).catch(() => { });
+        }
+
+        if (oilQuote) {
+            memoryCache.oil = oilQuote;
+            setInCache(YAHOO_CACHE_KEYS.OIL, oilQuote).catch(() => { });
+        }
+
+        if (vixQuote || nqQuote || tnxQuote || spxQuote || btcQuote || goldQuote || oilQuote) {
             memoryCache.lastFetch = now;
         }
     } else {
@@ -148,17 +184,25 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
         return {
             vix: cacheSource(memoryCache.vix),
             nq: cacheSource(memoryCache.nq),
-            tnx: memoryCache.tnx ? cacheSource(memoryCache.tnx) : getDefaultQuote('^TNX', 4.2)
+            tnx: memoryCache.tnx ? cacheSource(memoryCache.tnx) : getDefaultQuote('^TNX', 4.2),
+            spx: memoryCache.spx ? cacheSource(memoryCache.spx) : getDefaultQuote('^GSPC', 6000),
+            btc: memoryCache.btc ? cacheSource(memoryCache.btc) : getDefaultQuote('BTC-USD', 97000),
+            gold: memoryCache.gold ? cacheSource(memoryCache.gold) : getDefaultQuote('GC=F', 2900),
+            oil: memoryCache.oil ? cacheSource(memoryCache.oil) : getDefaultQuote('CL=F', 70)
         };
     }
 
     // 3. Try Redis cache (survives server restarts)
     console.log('[Yahoo] Memory cache empty, trying Redis...');
 
-    const [redisVix, redisNq, redisTnx] = await Promise.all([
+    const [redisVix, redisNq, redisTnx, redisSpx, redisBtc, redisGold, redisOil] = await Promise.all([
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.NQ),
-        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.TNX)
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.TNX),
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.SPX),
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.BTC),
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.GOLD),
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.OIL)
     ]);
 
     if (redisVix) {
@@ -176,11 +220,35 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
         console.log(`[Yahoo] TNX (US10Y) from Redis: ${redisTnx.price}`);
     }
 
+    if (redisSpx) {
+        memoryCache.spx = redisSpx;
+        console.log(`[Yahoo] SPX from Redis: ${redisSpx.price}`);
+    }
+
+    if (redisBtc) {
+        memoryCache.btc = redisBtc;
+        console.log(`[Yahoo] BTC from Redis: ${redisBtc.price}`);
+    }
+
+    if (redisGold) {
+        memoryCache.gold = redisGold;
+        console.log(`[Yahoo] GOLD from Redis: ${redisGold.price}`);
+    }
+
+    if (redisOil) {
+        memoryCache.oil = redisOil;
+        console.log(`[Yahoo] OIL from Redis: ${redisOil.price}`);
+    }
+
     // 4. Return what we have (with defaults for missing)
     return {
         vix: memoryCache.vix || getDefaultQuote('^VIX', 15),
         nq: memoryCache.nq || getDefaultQuote('NQ=F', 21000),
-        tnx: memoryCache.tnx || getDefaultQuote('^TNX', 4.2)
+        tnx: memoryCache.tnx || getDefaultQuote('^TNX', 4.2),
+        spx: memoryCache.spx || getDefaultQuote('^GSPC', 6000),
+        btc: memoryCache.btc || getDefaultQuote('BTC-USD', 97000),
+        gold: memoryCache.gold || getDefaultQuote('GC=F', 2900),
+        oil: memoryCache.oil || getDefaultQuote('CL=F', 70)
     };
 }
 

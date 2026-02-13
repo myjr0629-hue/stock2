@@ -34,6 +34,10 @@ export interface MacroSnapshot {
         vix: MacroFactor;
         us10y: MacroFactor;
         dxy: MacroFactor;
+        spx: MacroFactor;
+        btc: MacroFactor;
+        gold: MacroFactor;
+        oil: MacroFactor;
     };
     // [V45.0] Advanced Macro Indicators
     yieldCurve?: YieldCurveData;
@@ -58,7 +62,11 @@ const INITIAL_SNAPSHOT: MacroSnapshot = {
         nasdaq100: { level: null, label: "NASDAQ 100", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
         vix: { level: null, label: "VIX", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
         us10y: { level: null, label: "US10Y", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
-        dxy: { level: null, label: "DXY", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" }
+        dxy: { level: null, label: "DXY", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
+        spx: { level: null, label: "S&P 500", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
+        btc: { level: null, label: "Bitcoin", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
+        gold: { level: null, label: "Gold", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
+        oil: { level: null, label: "Oil", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" }
     }
 };
 

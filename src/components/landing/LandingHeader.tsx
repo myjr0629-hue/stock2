@@ -8,7 +8,7 @@ import { clsx } from 'clsx';
 import { useFavorites } from "@/hooks/useFavorites";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslations } from 'next-intl';
-import { TradingViewTicker } from "@/components/TradingViewTicker";
+import { CustomTickerBar } from "@/components/CustomTickerBar";
 import { createClient } from "@/lib/supabase/client";
 
 export function LandingHeader() {
@@ -106,7 +106,7 @@ export function LandingHeader() {
                 <div className="hidden xl:flex items-center gap-1 flex-1 min-w-0">
                     <nav className="flex items-center gap-1 font-jakarta">
                         {[
-                            { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: true },
+                            { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: false },
                             { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", hasLive: false },
                             { label: "COMMAND", href: `/ticker?ticker=${currentTicker}`, path: "/ticker", hasLive: false },
                             { label: "FLOW", href: `/flow?ticker=${currentTicker}`, path: "/flow", hasLive: false },
@@ -304,7 +304,7 @@ export function LandingHeader() {
                 </div>
             </div>
             {/* Global Market Ticker */}
-            <TradingViewTicker />
+            <CustomTickerBar />
         </header>
     );
 }

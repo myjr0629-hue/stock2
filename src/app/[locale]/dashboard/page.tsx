@@ -47,6 +47,74 @@ const PHASE_LABELS: Record<string, string> = {
     UNKNOWN: "—"
 };
 
+// Market Countdown Component
+function MarketCountdown({ marketStatus }: { marketStatus?: string }) {
+    const [countdown, setCountdown] = useState('');
+    const [nextLabel, setNextLabel] = useState('');
+
+    useEffect(() => {
+        const calcCountdown = () => {
+            const now = new Date();
+            // Convert to ET (UTC-5 standard, UTC-4 DST)
+            const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+            const et = new Date(etStr);
+            const hours = et.getHours();
+            const minutes = et.getMinutes();
+            const currentMinutes = hours * 60 + minutes;
+
+            // Market sessions in ET minutes
+            const PRE_OPEN = 4 * 60;       // 04:00
+            const REG_OPEN = 9 * 60 + 30;  // 09:30
+            const REG_CLOSE = 16 * 60;     // 16:00
+            const AFTER_CLOSE = 20 * 60;   // 20:00
+
+            let targetMinutes = 0;
+            let label = '';
+
+            if (currentMinutes < PRE_OPEN) {
+                // Before pre-market
+                targetMinutes = PRE_OPEN;
+                label = 'Pre-Market Open';
+            } else if (currentMinutes < REG_OPEN) {
+                // During pre-market
+                targetMinutes = REG_OPEN;
+                label = 'Market Open';
+            } else if (currentMinutes < REG_CLOSE) {
+                // During regular hours
+                targetMinutes = REG_CLOSE;
+                label = 'Market Close';
+            } else if (currentMinutes < AFTER_CLOSE) {
+                // During after-hours
+                targetMinutes = AFTER_CLOSE;
+                label = 'After-Hours Close';
+            } else {
+                // After all sessions — next day pre-market
+                targetMinutes = PRE_OPEN + 24 * 60;
+                label = 'Pre-Market Open';
+            }
+
+            const diffMin = targetMinutes - currentMinutes;
+            const h = Math.floor(diffMin / 60);
+            const m = diffMin % 60;
+
+            setCountdown(h > 0 ? `${h}h ${m}m` : `${m}m`);
+            setNextLabel(label);
+        };
+
+        calcCountdown();
+        const interval = setInterval(calcCountdown, 60000); // Update every minute
+        return () => clearInterval(interval);
+    }, [marketStatus]);
+
+    if (!countdown) return null;
+
+    return (
+        <span style={{ fontSize: '11px' }} className="text-slate-400 ml-2">
+            {nextLabel} <span className="text-cyan-400 font-medium">{countdown}</span>
+        </span>
+    );
+}
+
 // Alpha Status Bar Component
 function AlphaStatusBar() {
     const { market, lastUpdated, isLoading, fetchDashboardData } = useDashboardStore();
@@ -57,31 +125,10 @@ function AlphaStatusBar() {
 
     return (
         <div className="flex items-center justify-between px-4 py-2 bg-[#0a0f1a] border-b border-white/5">
-            {/* Left: Market Status */}
-            <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-wider text-slate-500">NQ 100</span>
-                    <span className="font-mono text-sm text-white">
-                        {market?.nq?.price ? market.nq.price.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"}
-                    </span>
-                    {market?.nq?.change !== undefined && (
-                        <span className={`text-xs font-medium ${market.nq.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                            {market.nq.change >= 0 ? "+" : ""}{market.nq.change.toFixed(2)}%
-                        </span>
-                    )}
-                </div>
+            {/* Left: intentionally empty — NQ/Phase info moved to global ticker bar */}
+            <div />
 
-                <div className="h-4 w-px bg-white/10" />
-
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-wider text-slate-500">Phase</span>
-                    <span className="text-sm text-cyan-400 font-medium">
-                        {PHASE_LABELS[market?.phase || "UNKNOWN"]}
-                    </span>
-                </div>
-            </div>
-
-            {/* Center: LIVE Indicator */}
+            {/* Center: LIVE Indicator + Countdown */}
             <div className="flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -94,6 +141,8 @@ function AlphaStatusBar() {
                         {market.marketStatus}
                     </span>
                 )}
+
+                <MarketCountdown marketStatus={market?.marketStatus} />
             </div>
 
             {/* Right: Last Updated & Refresh */}
@@ -244,7 +293,7 @@ function WatchlistPanel() {
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-white/5">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Watchlist</h2>
-                <span className="text-[10px] text-slate-500">{tickerList.length} 종목</span>
+                <span style={{ fontSize: '11px' }} className="text-white">{dashboardTickers.length} / 10</span>
             </div>
             {/* Add Ticker Input */}
             <div className="p-2 border-b border-white/5">

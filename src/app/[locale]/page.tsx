@@ -16,7 +16,7 @@ import {
   Target,
   Clock
 } from "lucide-react";
-import { TradingViewTicker } from "@/components/TradingViewTicker";
+
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 

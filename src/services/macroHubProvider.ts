@@ -29,6 +29,10 @@ export interface MacroSnapshot {
         vix: MacroFactor;
         us10y: MacroFactor;
         dxy: MacroFactor;
+        spx: MacroFactor;
+        btc: MacroFactor;
+        gold: MacroFactor;
+        oil: MacroFactor;
     };
     // Legacy fields
     nq?: number;
@@ -298,6 +302,54 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         symbolUsed: vixData.source === "YAHOO" ? "^VIX" : vixData.source
     };
 
+    // S&P 500 from Yahoo ^GSPC
+    const spxData = yahooData.spx;
+    const spx: MacroFactor = {
+        level: spxData.price,
+        chgPct: spxData.changePct,
+        chgAbs: spxData.change,
+        label: "S&P 500",
+        source: spxData.source === "YAHOO" ? "MASSIVE" : spxData.source === "REDIS" ? "FRED" : "FAIL",
+        status: spxData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
+        symbolUsed: "^GSPC"
+    };
+
+    // Bitcoin from Yahoo BTC-USD
+    const btcData = yahooData.btc;
+    const btc: MacroFactor = {
+        level: btcData.price,
+        chgPct: btcData.changePct,
+        chgAbs: btcData.change,
+        label: "Bitcoin",
+        source: btcData.source === "YAHOO" ? "MASSIVE" : btcData.source === "REDIS" ? "FRED" : "FAIL",
+        status: btcData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
+        symbolUsed: "BTC-USD"
+    };
+
+    // Gold from Yahoo GC=F
+    const goldData = yahooData.gold;
+    const gold: MacroFactor = {
+        level: goldData.price,
+        chgPct: goldData.changePct,
+        chgAbs: goldData.change,
+        label: "Gold",
+        source: goldData.source === "YAHOO" ? "MASSIVE" : goldData.source === "REDIS" ? "FRED" : "FAIL",
+        status: goldData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
+        symbolUsed: "GC=F"
+    };
+
+    // Oil (WTI) from Yahoo CL=F
+    const oilData = yahooData.oil;
+    const oil: MacroFactor = {
+        level: oilData.price,
+        chgPct: oilData.changePct,
+        chgAbs: oilData.change,
+        label: "Oil",
+        source: oilData.source === "YAHOO" ? "MASSIVE" : oilData.source === "REDIS" ? "FRED" : "FAIL",
+        status: oilData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
+        symbolUsed: "CL=F"
+    };
+
     // [V7.0] US10Y: Yahoo ^TNX real-time, fallback to FED daily
     const tnxData = yahooData.tnx;
     const us10y: MacroFactor = tnxData.source !== "DEFAULT" ? {
@@ -365,7 +417,7 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         fetchedAtET,
         ageSeconds: 0,
         marketStatus,
-        factors: { nasdaq100: qqq, vix: vixy, us10y, dxy },
+        factors: { nasdaq100: qqq, vix: vixy, us10y, dxy, spx, btc, gold, oil },
         // Legacy fields
         nq: qqq.level ?? 0,
         nqChangePercent: qqq.chgPct ?? 0,
