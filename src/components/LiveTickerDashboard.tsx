@@ -845,10 +845,20 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         }
     }
 
-    // C. Change Percentages — compute directly from prices (avoids fraction vs pct ambiguity)
+    // C. Change Percentages — [FIX] Session-aware denominator
+    // PRE / PRE_CLOSE: change vs prevClose (yesterday's close)
+    // POST: change vs displayPrice (today's regular close)
     let activeExtPct = 0;
-    if (activeExtPrice > 0 && displayPrice > 0) {
-        activeExtPct = ((activeExtPrice - displayPrice) / displayPrice) * 100;
+    if (activeExtPrice > 0) {
+        if (activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') {
+            const extRefClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose || 0;
+            if (extRefClose > 0) {
+                activeExtPct = ((activeExtPrice - extRefClose) / extRefClose) * 100;
+            }
+        } else if (displayPrice > 0) {
+            // POST: change vs today's regular close (displayPrice)
+            activeExtPct = ((activeExtPrice - displayPrice) / displayPrice) * 100;
+        }
     }
 
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;

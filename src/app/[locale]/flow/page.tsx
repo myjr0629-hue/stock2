@@ -108,20 +108,29 @@ function FlowPageContent() {
         activeExtPrice = liveQuote?.extended?.prePrice || liveQuote?.prices?.prePrice || 0;
         activeExtType = 'PRE';
         activeExtLabel = 'PRE';
-        activeExtPct = (activeExtPrice > 0 && displayPrice > 0) ? ((activeExtPrice - displayPrice) / displayPrice) * 100 : 0;
     } else if (session === 'REG') {
         // [FIX] Show PRE CLOSE badge during regular session (matches Command page)
         activeExtPrice = liveQuote?.extended?.preClose || liveQuote?.prices?.prePrice || 0;
         if (activeExtPrice > 0) {
             activeExtType = 'PRE_CLOSE';
             activeExtLabel = 'PRE CLOSE';
-            activeExtPct = (activeExtPrice > 0 && displayPrice > 0) ? ((activeExtPrice - displayPrice) / displayPrice) * 100 : 0;
         }
     } else if (session === 'POST' || session === 'CLOSED') {
         activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || 0;
         activeExtType = 'POST';
         activeExtLabel = session === 'CLOSED' ? 'POST (CLOSED)' : 'POST';
-        if (activeExtPrice > 0 && displayPrice > 0) {
+    }
+
+    // [FIX] Session-aware changePct denominator
+    // PRE / PRE_CLOSE: change vs prevClose (yesterday's close)
+    // POST: change vs displayPrice (today's regular close)
+    if (activeExtPrice > 0) {
+        if (activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') {
+            const extRefClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || 0;
+            if (extRefClose > 0) {
+                activeExtPct = ((activeExtPrice - extRefClose) / extRefClose) * 100;
+            }
+        } else if (displayPrice > 0) {
             activeExtPct = ((activeExtPrice - displayPrice) / displayPrice) * 100;
         }
     }
