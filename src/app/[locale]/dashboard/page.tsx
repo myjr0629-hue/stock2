@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useCallback, useState } from "react";
+import React, { useEffect, useCallback, useState, useRef } from "react";
 import { useLocale } from "next-intl";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
@@ -416,22 +416,25 @@ function MainChartPanel() {
         // Silent background refresh every 30s
         const interval = setInterval(() => fetchChartData(false), 30000);
 
-        // Re-fetch when user returns to this tab/page (visibilitychange)
+        // [P2 FIX] Debounced handler for visibility + focus events
+        // Without debounce, tab switch triggers BOTH visibilitychange + focus → 2x fetch
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const debouncedRefresh = () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => fetchChartData(false), 500);
+        };
+
         const handleVisibility = () => {
-            if (document.visibilityState === 'visible') {
-                fetchChartData(false);
-            }
+            if (document.visibilityState === 'visible') debouncedRefresh();
         };
         document.addEventListener('visibilitychange', handleVisibility);
-
-        // Re-fetch on window focus (covers alt-tab and navigation back)
-        const handleFocus = () => fetchChartData(false);
-        window.addEventListener('focus', handleFocus);
+        window.addEventListener('focus', debouncedRefresh);
 
         return () => {
             clearInterval(interval);
+            if (debounceTimer) clearTimeout(debounceTimer);
             document.removeEventListener('visibilitychange', handleVisibility);
-            window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('focus', debouncedRefresh);
         };
     }, [selectedTicker, fetchChartData]);
 
@@ -1091,6 +1094,12 @@ export default function DashboardPage() {
     const [initialized, setInitialized] = useState(false);
     const [mobileTab, setMobileTab] = useState('chart');
 
+    // ── [P0 FIX] Ref to always read latest dashboardTickers inside intervals ──
+    // Without this, dashboardTickers array reference changes (e.g. Zustand persist hydration)
+    // would cause useEffect to re-run → clearInterval → re-fetch → data flicker
+    const tickersRef = useRef(dashboardTickers);
+    useEffect(() => { tickersRef.current = dashboardTickers; }, [dashboardTickers]);
+
     // Initialize from URL params
     useEffect(() => {
         const ticker = searchParams.get('t');
@@ -1100,31 +1109,30 @@ export default function DashboardPage() {
         setInitialized(true);
     }, [searchParams, setSelectedTicker]);
 
-    // Fetch data on mount and set up auto-refresh
+    // Fetch data on mount and set up stable auto-refresh intervals
     useEffect(() => {
         if (!initialized) return;
 
-        // Use dashboardTickers if available, otherwise use default
-        const tickersToFetch = dashboardTickers.length > 0 ? dashboardTickers : undefined;
-        fetchDashboardData(tickersToFetch);
+        // Initial fetch with current tickers
+        const getTickerList = () => tickersRef.current.length > 0 ? tickersRef.current : undefined;
+        fetchDashboardData(getTickerList());
 
         // Full data poll (options, signals, etc.) every 30s
         const fullInterval = setInterval(() => {
-            const currentTickers = dashboardTickers.length > 0 ? dashboardTickers : undefined;
-            fetchDashboardData(currentTickers);
+            fetchDashboardData(getTickerList());
         }, 30000);
 
         // Fast price-only poll every 5s (lightweight /api/live/quotes)
         const priceInterval = setInterval(() => {
-            const currentTickers = dashboardTickers.length > 0 ? dashboardTickers : undefined;
-            fetchPriceOnly(currentTickers);
+            fetchPriceOnly(getTickerList());
         }, 5000);
 
         return () => {
             clearInterval(fullInterval);
             clearInterval(priceInterval);
         };
-    }, [initialized, fetchDashboardData, fetchPriceOnly, dashboardTickers]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [initialized]);
 
     return (
         <div className="min-h-screen bg-[#050a14] text-white flex flex-col">

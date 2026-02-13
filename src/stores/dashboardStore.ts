@@ -106,9 +106,14 @@ interface DashboardState {
     fetchDashboardData: (tickerList?: string[]) => Promise<void>;
     // Fast price-only update (lightweight)
     fetchPriceOnly: (tickerList?: string[]) => Promise<void>;
+    // [P0] Immediate single-ticker fetch on click
+    fetchSingleTicker: (ticker: string) => Promise<void>;
 }
 
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
+
+// [P1 FIX] Abort controller for fetchDashboardData race condition prevention
+let _dashboardAbort: AbortController | null = null;
 
 export const useDashboardStore = create<DashboardState>()(
     persist(
@@ -128,6 +133,12 @@ export const useDashboardStore = create<DashboardState>()(
                     const url = new URL(window.location.href);
                     url.searchParams.set('t', ticker);
                     window.history.replaceState({}, '', url.toString());
+                }
+                // [P0 FIX] If this ticker's data is not in the store, fetch it immediately
+                // This prevents the "click ticker → blank data → need refresh" issue
+                const existing = get().tickers[ticker];
+                if (!existing || existing.underlyingPrice == null) {
+                    get().fetchSingleTicker(ticker);
                 }
             },
 
@@ -151,6 +162,11 @@ export const useDashboardStore = create<DashboardState>()(
             isDashboardTicker: (ticker) => get().dashboardTickers.includes(ticker),
 
             fetchDashboardData: async (tickerList = DEFAULT_TICKERS) => {
+                // [P1 FIX] Abort previous in-flight request to prevent race conditions
+                if (_dashboardAbort) _dashboardAbort.abort();
+                _dashboardAbort = new AbortController();
+                const signal = _dashboardAbort.signal;
+
                 // Only show loading skeleton on initial load, not on refreshes
                 const hasExistingData = Object.keys(get().tickers).length > 0;
                 if (!hasExistingData) {
@@ -158,8 +174,11 @@ export const useDashboardStore = create<DashboardState>()(
                 }
 
                 try {
-                    const tickersParam = tickerList.slice(0, 10).join(','); // Max 10 for prefetch (matches toggle limit)
-                    const res = await fetch(`/api/dashboard/unified?tickers=${tickersParam}`);
+                    const tickersParam = tickerList.slice(0, 10).join(',');
+                    const res = await fetch(`/api/dashboard/unified?tickers=${tickersParam}`, { signal });
+
+                    // If aborted by a newer request, exit silently
+                    if (signal.aborted) return;
 
                     if (!res.ok) {
                         throw new Error('Failed to fetch dashboard data');
@@ -211,7 +230,9 @@ export const useDashboardStore = create<DashboardState>()(
                         lastUpdated: new Date(),
                         isLoading: false
                     });
-                } catch (error) {
+                } catch (error: any) {
+                    // AbortError is expected when a newer request cancels this one
+                    if (error?.name === 'AbortError') return;
                     console.error('Dashboard fetch error:', error);
                     set({ isLoading: false });
                 }
@@ -290,6 +311,27 @@ export const useDashboardStore = create<DashboardState>()(
                     }
                 } catch (e) {
                     // Silent fail — full poll will recover
+                }
+            },
+
+            // ── [P0] Immediate single-ticker fetch ──
+            // Called by setSelectedTicker when ticker data is missing from the store.
+            // Fetches ONE ticker via unified API and merges into existing data.
+            fetchSingleTicker: async (ticker: string) => {
+                try {
+                    const res = await fetch(`/api/dashboard/unified?tickers=${ticker}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    const newTickers = data.tickers || {};
+                    if (!newTickers[ticker]) return;
+
+                    const existing = get().tickers;
+                    set({
+                        tickers: { ...existing, [ticker]: newTickers[ticker] },
+                        market: data.market || get().market,
+                    });
+                } catch (e) {
+                    console.error(`[BOARD] fetchSingleTicker(${ticker}) error:`, e);
                 }
             }
         }),

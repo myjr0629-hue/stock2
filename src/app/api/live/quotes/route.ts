@@ -18,44 +18,31 @@ export async function GET(request: Request) {
         const marketStatus = await getMarketStatusSSOT();
         const session = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
 
-        // ── Fetch snapshot + 2-day historical bars in parallel for each ticker ──
-        // Historical bars needed for accurate regChangePct (same approach as /api/live/ticker)
-        const now = new Date();
-        const toDate = now.toISOString().split('T')[0]; // Today
-        const fromDate = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 10 days back (covers weekends/holidays)
-
+        // ── [P1 FIX] Fetch snapshot ONLY — no daily aggs ──
+        // Previous version fetched snapshot + 2-day historical bars per ticker (2 API calls each).
+        // For a 5-second poll this was too heavy. The full 30s poll handles regChangePct accurately.
+        // Here we only need live price + prevDay for display.
         const results = await Promise.all(
             tickers.map(async ticker => {
                 try {
-                    // Parallel: snapshot + 2-day historical bars
-                    const [snapshotRes, aggRes] = await Promise.all([
-                        fetchMassive(
-                            `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
-                            {},
-                            false,
-                            undefined,
-                            { cache: 'no-store' as RequestCache }
-                        ),
-                        fetchMassive(
-                            `/v2/aggs/ticker/${ticker}/range/1/day/${fromDate}/${toDate}`,
-                            { adjusted: 'true', sort: 'desc', limit: '2' },
-                            true  // cache OK for historical bars
-                        )
-                    ]);
-
+                    const snapshotRes = await fetchMassive(
+                        `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
+                        {},
+                        false,
+                        undefined,
+                        { cache: 'no-store' as RequestCache }
+                    );
                     const snapshot = snapshotRes?.ticker || {};
-                    const bars = aggRes?.results || [];
-
-                    return { ticker, snapshot, bars, error: null };
+                    return { ticker, snapshot, error: null };
                 } catch (e: any) {
-                    return { ticker, snapshot: {}, bars: [], error: e.message };
+                    return { ticker, snapshot: {}, error: e.message };
                 }
             })
         );
 
         const data: Record<string, any> = {};
 
-        results.forEach(({ ticker, snapshot: S, bars, error }) => {
+        results.forEach(({ ticker, snapshot: S, error }) => {
             if (error || !S) {
                 data[ticker] = { price: 0, changePercent: 0, error };
                 return;
@@ -66,16 +53,11 @@ export async function GET(request: Request) {
             const prevDayClose = S.prevDay?.c || 0;
             const prevClose = prevDayClose;
 
-            // ── Baseline from historical bars (same as Command API) ──
-            // bars[0] = most recent trading day close (= prevRegularClose)
-            // bars[1] = day before (= prevPrevRegularClose)
-            const prevRegularClose = bars[0]?.c || prevDayClose || 0;
-            const prevPrevRegularClose = bars[1]?.c || 0;
-
-            // ── Regular session change: prevRegularClose vs prevPrevRegularClose ──
-            // This is the "본장 등락률" — doesn't change during PRE/POST
-            const regChangePct = (prevRegularClose > 0 && prevPrevRegularClose > 0)
-                ? ((prevRegularClose - prevPrevRegularClose) / prevPrevRegularClose) * 100
+            // changePercent from snapshot: today's close vs yesterday's close
+            // This is slightly less precise than the 2-day bars approach but
+            // perfectly adequate for 5-second live display. Full poll corrects it.
+            const changePercent = (dayClose > 0 && prevDayClose > 0)
+                ? ((dayClose - prevDayClose) / prevDayClose) * 100
                 : 0;
 
             // Session-aware price & extended price selection
@@ -110,9 +92,9 @@ export async function GET(request: Request) {
                 price,
                 previousClose: prevClose,
                 prevClose,
-                change: prevRegularClose - prevPrevRegularClose,
-                changePercent: regChangePct,
-                regChangePct,
+                change: dayClose - prevDayClose,
+                changePercent,
+                regChangePct: changePercent,
                 extendedPrice: extendedPrice > 0 && extendedPrice !== price ? extendedPrice : 0,
                 extendedChange: extendedPrice > 0 ? extendedPrice - price : 0,
                 extendedChangePercent: extendedChangePct,
