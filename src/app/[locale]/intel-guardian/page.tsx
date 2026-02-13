@@ -10,7 +10,7 @@ import { Link } from "@/i18n/routing";
 
 import SmartMoneyMap from "@/components/guardian/SmartMoneyMap";
 import GravityGauge from "@/components/guardian/GravityGauge";
-import { TypewriterText } from "@/components/guardian/TypewriterText";
+import { TypewriterText, renderColoredText } from "@/components/guardian/TypewriterText";
 import { RealityCheck } from "@/components/guardian/RealityCheck";
 import { useGuardian } from "@/components/guardian/GuardianProvider";
 import { EconomicCalendarWidget } from "@/components/guardian/EconomicCalendarWidget";
@@ -486,7 +486,7 @@ export default function GuardianPage() {
                                     <div className="overflow-hidden mb-2">
                                         <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
                                         <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                            {verdict.desc}
+                                            {renderColoredText(verdict.desc)}
                                         </div>
                                     </div>
                                     <div className="text-[12px] text-amber-500/50 font-mono mt-2">Last session analysis</div>

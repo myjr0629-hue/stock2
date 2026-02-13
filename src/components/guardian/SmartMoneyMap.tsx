@@ -114,11 +114,11 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMar
 
     // Dynamic Sizing based on Weight (Height)
     // Central Hub gets massive boost
-    let baseSize = 70;
+    let baseSize = 90;
     if (isCenter) baseSize = 140; // 2x base
 
-    // Weight Modifier: 0.8 ... 1.2
-    let weightMod = 0.8 + (data.height * 0.4);
+    // Weight Modifier: 0.9 ... 1.5
+    let weightMod = 0.9 + (data.height * 0.4);
     if (isCenter) weightMod = 1.0; // Fixed large scale for center
 
     const sizePx = baseSize * weightMod;
