@@ -103,11 +103,15 @@ export function getDisplayPrices(input: PriceDisplayInput): PriceDisplayOutput {
                 }
                 extLabel = 'PRE CLOSE';
             } else if (extended?.prePrice && extended.prePrice > 0) {
-                extPrice = extended.prePrice;
-                if (prevClose && prevClose > 0) {
-                    extChangePct = ((extended.prePrice - prevClose) / prevClose) * 100;
+                // [FIX] Skip if prePrice === prevClose (stale OC.preMarket, meaningless 0% badge)
+                const isMeaningful = prevClose ? Math.abs(extended.prePrice - prevClose) > 0.01 : true;
+                if (isMeaningful) {
+                    extPrice = extended.prePrice;
+                    if (prevClose && prevClose > 0) {
+                        extChangePct = ((extended.prePrice - prevClose) / prevClose) * 100;
+                    }
+                    extLabel = 'PRE CLOSE';
                 }
-                extLabel = 'PRE CLOSE';
             }
             break;
 

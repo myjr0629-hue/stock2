@@ -53,11 +53,11 @@ export async function GET(request: Request) {
             const prevDayClose = S.prevDay?.c || 0;
             const prevClose = prevDayClose;
 
-            // changePercent from snapshot: today's close vs yesterday's close
-            // This is slightly less precise than the 2-day bars approach but
-            // perfectly adequate for 5-second live display. Full poll corrects it.
-            const changePercent = (dayClose > 0 && prevDayClose > 0)
-                ? ((dayClose - prevDayClose) / prevDayClose) * 100
+            // [FIX] changePercent: during REG use liveLast (real-time), otherwise dayClose
+            // dayClose can be stale during intraday trading
+            const priceForChange = (session === 'regular' && liveLast > 0) ? liveLast : dayClose;
+            const changePercent = (priceForChange > 0 && prevDayClose > 0)
+                ? ((priceForChange - prevDayClose) / prevDayClose) * 100
                 : 0;
 
             // Session-aware price & extended price selection

@@ -216,11 +216,12 @@ export const useDashboardStore = create<DashboardState>()(
                     const newTickers = data.tickers || {};
                     const mergedTickers = { ...existingTickers };
 
-                    // Only update tickers that have actual data in the response
+                    // Only update tickers that have actual VALID data (not error objects)
                     for (const [key, value] of Object.entries(newTickers)) {
-                        if (value && typeof value === 'object') {
+                        if (value && typeof value === 'object' && !(value as any).error) {
                             mergedTickers[key] = value as TickerData;
                         }
+                        // If value has error, keep existing data (mergedTickers[key] already has it)
                     }
 
                     set({
@@ -290,7 +291,8 @@ export const useDashboardStore = create<DashboardState>()(
                             const newPrice = q.extendedPrice && q.extendedPrice > 0
                                 ? q.extendedPrice
                                 : q.price || q.latestPrice;
-                            const refClose = q.previousClose ?? q.prevClose ?? existing.prevClose;
+                            // [FIX] Prefer existing prevClose (from 30s ticker API — more accurate) over quotes snapshot
+                            const refClose = existing.prevClose ?? q.previousClose ?? q.prevClose;
                             if ((newPrice && newPrice !== existing.underlyingPrice) || sessionChanged) {
                                 // [FIX] Calculate changePct directly — API's changePercent is unreliable
                                 const calculatedChangePct = (newPrice && refClose && refClose > 0)

@@ -296,7 +296,11 @@ function WatchlistPanel() {
     const selectedTicker = useDashboardStore(s => s.selectedTicker);
     const toggleDashboardTicker = useDashboardStore(s => s.toggleDashboardTicker);
     const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
-    const tickerList = tickerKeys;
+    // [FIX] Use dashboardTickers as primary list (always shows all selected tickers)
+    // Fall back to tickerKeys only for tickers not in dashboardTickers
+    const tickerList = dashboardTickers.length > 0
+        ? [...dashboardTickers, ...tickerKeys.filter(t => !dashboardTickers.includes(t))]
+        : tickerKeys;
     const [newTicker, setNewTicker] = useState('');
 
     const handleAddTicker = () => {
