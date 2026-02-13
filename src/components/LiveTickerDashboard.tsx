@@ -1510,7 +1510,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
                                                 ticker={ticker}
                                                 initialRange={range}
-                                                currentPrice={liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice}
+                                                currentPrice={livePrice?.price || liveQuote?.prices?.lastTrade || displayPrice}
                                                 prevClose={liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose}
                                                 rsi={initialStockData.rsi}
                                                 return3d={initialStockData.return3d}
