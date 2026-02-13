@@ -151,7 +151,11 @@ export const useDashboardStore = create<DashboardState>()(
             isDashboardTicker: (ticker) => get().dashboardTickers.includes(ticker),
 
             fetchDashboardData: async (tickerList = DEFAULT_TICKERS) => {
-                set({ isLoading: true });
+                // Only show loading skeleton on initial load, not on refreshes
+                const hasExistingData = Object.keys(get().tickers).length > 0;
+                if (!hasExistingData) {
+                    set({ isLoading: true });
+                }
 
                 try {
                     const tickersParam = tickerList.slice(0, 10).join(','); // Max 10 for prefetch (matches toggle limit)
