@@ -180,7 +180,6 @@ function FlowPageContent() {
                                 <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta">{ticker}</h1>
                                 <span className="text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta">{liveQuote?.name || 'Loading...'}</span>
                                 <FavoriteToggle ticker={ticker} name={liveQuote?.name} />
-                                {quoteLoading && <RefreshCw className="animate-spin text-slate-500" size={12} />}
                             </div>
 
                             {/* Row 2: Price + Extended Badge (fixed position, independent of ticker) */}
@@ -188,7 +187,7 @@ function FlowPageContent() {
                                 <div className="text-2xl font-black text-white tracking-tighter tabular-nums leading-none">
                                     ${displayPrice?.toFixed(2) || '—'}
                                 </div>
-                                <div className={`text-sm font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
+                                <div className={`text-sm font-bold tabular-nums tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
                                     {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
                                 </div>
 
@@ -197,13 +196,13 @@ function FlowPageContent() {
                                     <div className="flex items-center gap-2 px-2.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
                                         <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
                                         <div className="flex items-baseline gap-2">
-                                            <span className={`text-[9px] font-black uppercase tracking-widest ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                            <span className={`text-[11px] font-black uppercase tracking-widest ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
                                                 {activeExtLabel}
                                             </span>
                                             <span className="text-xs font-bold text-slate-200 tabular-nums">
                                                 ${activeExtPrice.toFixed(2)}
                                             </span>
-                                            <span className={`text-[10px] font-mono font-bold ${activeExtPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                            <span className={`text-[11px] tabular-nums font-bold ${activeExtPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                 {activeExtPct > 0 ? "+" : ""}{activeExtPct.toFixed(2)}%
                                             </span>
                                         </div>
