@@ -216,7 +216,7 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                             (e.target as HTMLImageElement).className = 'w-5 h-5 rounded bg-slate-700 hidden';
                         }}
                     />
-                    <span className={`font-bold text-xs ${isSelected ? "text-cyan-400" : "text-white"}`}>
+                    <span className={`font-jakarta font-bold text-xs ${isSelected ? "text-cyan-400" : "text-white"}`}>
                         {ticker}
                     </span>
                     {hasGammaSqueeze && (
@@ -251,9 +251,9 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
                         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/60 border border-slate-700/50">
                             <div className={`w-1.5 h-1.5 rounded-full ${displayExtLabel === 'PRE' ? 'bg-amber-500' : displayExtLabel === 'POST' ? 'bg-indigo-500' : 'bg-cyan-500'
                                 } animate-pulse`} />
-                            <span className={`text-[8px] font-black uppercase tracking-wider ${extColor}`}>{displayExtLabel}</span>
+                            <span className={`text-[11px] font-black uppercase tracking-wider ${extColor}`}>{displayExtLabel}</span>
                             <span className="text-[11px] text-slate-200 font-mono font-bold">${extPrice.toFixed(2)}</span>
-                            <span className={`text-[9px] font-mono font-bold ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                            <span className={`text-[11px] font-mono font-bold ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                 {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
                             </span>
                         </div>
@@ -292,7 +292,7 @@ function WatchlistPanel() {
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-white/5">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Watchlist</h2>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-jakarta">Watchlist</h2>
                 <span style={{ fontSize: '11px' }} className="text-white">{dashboardTickers.length} / 10</span>
             </div>
             {/* Add Ticker Input */}
