@@ -217,33 +217,55 @@ export const useDashboardStore = create<DashboardState>()(
                     for (const [ticker, q] of Object.entries(quotes) as [string, any][]) {
                         if (!q || !currentTickers[ticker]) continue;
                         const existing = currentTickers[ticker];
-                        // [FIX] During POST/CLOSED, keep regular close as underlyingPrice (prevents flickering)
-                        // extendedPrice goes only into the badge — not into the main price
                         const isAfterHours = q.session === 'post' || q.session === 'closed';
-                        const newPrice = isAfterHours
-                            ? (q.price || q.latestPrice)
-                            : (q.extendedPrice && q.extendedPrice > 0 ? q.extendedPrice : q.price || q.latestPrice);
-                        if (newPrice && newPrice !== existing.underlyingPrice) {
-                            currentTickers[ticker] = {
-                                ...existing,
-                                underlyingPrice: newPrice,
-                                changePercent: q.changePercent ?? existing.changePercent,
-                                prevClose: q.previousClose ?? q.prevClose ?? existing.prevClose,
-                                // [FIX] Sync display object so getDisplayPrices uses fresh price (was stale 30s)
-                                display: {
-                                    ...existing.display,
-                                    price: newPrice,
-                                    changePctPct: q.changePercent ?? existing.display?.changePctPct,
-                                },
-                                extended: {
-                                    ...existing.extended,
-                                    postPrice: q.extendedPrice > 0 && q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
-                                    postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : existing.extended?.postChangePct,
-                                    prePrice: q.extendedPrice > 0 && q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
-                                    preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
-                                },
-                            };
-                            changed = true;
+
+                        if (isAfterHours) {
+                            // [FIX v2] POST/CLOSED: Do NOT touch underlyingPrice or display.price
+                            // Full poll sets underlyingPrice from Polygon snapshot (may include post-market),
+                            // and display.price from /api/live/ticker (regularClose).
+                            // Overwriting either causes oscillation between the two sources.
+                            // Only update extended badge fields here.
+                            const hasNewExtended = q.extendedPrice > 0;
+                            if (hasNewExtended) {
+                                currentTickers[ticker] = {
+                                    ...existing,
+                                    extended: {
+                                        ...existing.extended,
+                                        postPrice: q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
+                                        postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : existing.extended?.postChangePct,
+                                        prePrice: q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
+                                        preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
+                                    },
+                                };
+                                changed = true;
+                            }
+                            // No underlyingPrice/display update → no flickering
+                        } else {
+                            // REG/PRE: Update everything (live price matters)
+                            const newPrice = q.extendedPrice && q.extendedPrice > 0
+                                ? q.extendedPrice
+                                : q.price || q.latestPrice;
+                            if (newPrice && newPrice !== existing.underlyingPrice) {
+                                currentTickers[ticker] = {
+                                    ...existing,
+                                    underlyingPrice: newPrice,
+                                    changePercent: q.changePercent ?? existing.changePercent,
+                                    prevClose: q.previousClose ?? q.prevClose ?? existing.prevClose,
+                                    display: {
+                                        ...existing.display,
+                                        price: newPrice,
+                                        changePctPct: q.changePercent ?? existing.display?.changePctPct,
+                                    },
+                                    extended: {
+                                        ...existing.extended,
+                                        postPrice: q.extendedPrice > 0 && q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
+                                        postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : existing.extended?.postChangePct,
+                                        prePrice: q.extendedPrice > 0 && q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
+                                        preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
+                                    },
+                                };
+                                changed = true;
+                            }
                         }
                     }
 
