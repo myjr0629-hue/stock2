@@ -290,17 +290,22 @@ export const useDashboardStore = create<DashboardState>()(
                             const newPrice = q.extendedPrice && q.extendedPrice > 0
                                 ? q.extendedPrice
                                 : q.price || q.latestPrice;
+                            const refClose = q.previousClose ?? q.prevClose ?? existing.prevClose;
                             if ((newPrice && newPrice !== existing.underlyingPrice) || sessionChanged) {
+                                // [FIX] Calculate changePct directly — API's changePercent is unreliable
+                                const calculatedChangePct = (newPrice && refClose && refClose > 0)
+                                    ? ((newPrice - refClose) / refClose) * 100
+                                    : (q.changePercent ?? existing.changePercent);
                                 currentTickers[ticker] = {
                                     ...existing,
                                     underlyingPrice: newPrice || existing.underlyingPrice,
-                                    changePercent: q.changePercent ?? existing.changePercent,
-                                    prevClose: q.previousClose ?? q.prevClose ?? existing.prevClose,
+                                    changePercent: calculatedChangePct,
+                                    prevClose: refClose ?? existing.prevClose,
                                     session: mappedSession as any,
                                     display: {
                                         ...existing.display,
                                         price: newPrice || existing.display?.price,
-                                        changePctPct: q.changePercent ?? existing.display?.changePctPct,
+                                        changePctPct: calculatedChangePct,
                                     },
                                     extended: {
                                         ...existing.extended,
