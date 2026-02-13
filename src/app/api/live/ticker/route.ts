@@ -323,9 +323,27 @@ export async function GET(req: NextRequest) {
     const hasMarketClosed = session === "POST" || session === "CLOSED";
     const regularCloseToday = hasMarketClosed ? (S.day?.c || OC.close || null) : null;
 
-    const prePrice = (session === "PRE" ? liveLast : null)
-        || OC.preMarket
-        || S.preMarket?.p;
+    // [FIX] Pre-market price: during PRE session use live price, otherwise use today's OC.preMarket
+    // If OC.preMarket === prevRegularClose, it's yesterday's stale data → read from Redis cache instead
+    let prePrice: number | null = null;
+    if (session === "PRE") {
+        prePrice = liveLast;
+    } else {
+        // Try today's OC preMarket first
+        const ocPre = OC.preMarket || S.preMarket?.p || null;
+        if (ocPre && prevRegularClose && Math.abs(ocPre - prevRegularClose) > 0.01) {
+            // OC.preMarket is different from prevClose → it's a real pre-market price
+            prePrice = ocPre;
+        } else {
+            // OC.preMarket is same as prevClose or missing → use Redis cache from PRE session
+            try {
+                const cachedExt = await getFromCache<any>(`flow:extended:${ticker}`);
+                if (cachedExt?.prePrice && cachedExt.prePrice > 0) {
+                    prePrice = cachedExt.prePrice;
+                }
+            } catch { /* ignore */ }
+        }
+    }
 
     const postPrice = (session === "POST" ? liveLast : null)
         || OC.afterHoursClose
