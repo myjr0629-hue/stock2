@@ -306,8 +306,9 @@ export const useDashboardStore = create<DashboardState>()(
                                         ...existing.extended,
                                         postPrice: q.extendedPrice > 0 && q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
                                         postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : existing.extended?.postChangePct,
-                                        prePrice: q.extendedPrice > 0 && q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
-                                        preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
+                                        // [FIX] During REG, clear stale PRE data so "PRE CLOSE" badge doesn't show
+                                        prePrice: q.extendedPrice > 0 && q.extendedLabel === 'PRE' ? q.extendedPrice : (mappedSession === 'REG' ? undefined : existing.extended?.prePrice),
+                                        preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : (mappedSession === 'REG' ? undefined : existing.extended?.preChangePct),
                                     },
                                 };
                                 changed = true;
