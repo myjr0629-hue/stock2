@@ -478,6 +478,16 @@ export default function GuardianPage() {
                                         </div>
                                     </div>
                                 </>
+                            ) : verdict.title ? (
+                                <div className="opacity-70">
+                                    <div className="overflow-hidden mb-2">
+                                        <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
+                                        <div className="text-xs text-slate-400 font-sans leading-relaxed whitespace-pre-wrap">
+                                            {verdict.desc}
+                                        </div>
+                                    </div>
+                                    <div className="text-[11px] text-slate-600 font-mono mt-2">Last session analysis · Regular Session only</div>
+                                </div>
                             ) : (
                                 <div className="flex-1 flex items-center justify-center py-4">
                                     <div className="flex items-center gap-4">

@@ -133,6 +133,18 @@ export default function RLSIInsightPanel({
                             {insightDesc}
                         </div>
                     </>
+                ) : (insightTitle || insightDesc) ? (
+                    <>
+                        <div className={`text-[11px] font-bold mb-1.5 uppercase tracking-wide opacity-70 ${sentiment === 'BULLISH' ? 'text-emerald-300' :
+                            sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
+                            }`}>
+                            {insightTitle}
+                        </div>
+                        <div className="text-[13px] text-white/60 leading-[1.6] line-clamp-4" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                            {insightDesc}
+                        </div>
+                        <div className="text-[11px] text-slate-600 font-mono mt-1.5">Last session analysis · Regular Session only</div>
+                    </>
                 ) : (
                     <div className="flex items-center gap-3 py-1.5">
                         <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
