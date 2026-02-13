@@ -68,7 +68,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
     };
 
     useEffect(() => {
-        refresh(true); // [V8.2] Force fetch on mount to get fresh CNN F&G data
+        refresh(); // Initial fetch uses cached data (force=false to avoid SSG issues)
     }, [validLocale]);
 
     // [V8.1] Only poll during regular session (REG)
