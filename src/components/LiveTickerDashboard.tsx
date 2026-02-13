@@ -4,6 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown, Crosshair, Radar, Shield } from "lucide-react";
@@ -744,122 +745,22 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     if (!initialStockData) return <div>Data Unavailable</div>;
 
-    // Derived Display Values (Truth Table from API)
-    // [User Requirement] Main Price = Official Intraday Close ONLY.
-    // Pre/Post prices must ONLY be shown in the badge.
-
-    // Derived Display Values (Truth Table from API)
-    // [User Requirement] Main Price = Official Intraday Close ONLY.
-    // Pre/Post prices must ONLY be shown in the badge.
-
-    // [Fix] Trust API's display values normally, BUT enforce Regular Price for POST/CLOSED per user request.
-    // [PERF] Use 5s livePrice as primary source when available (overrides 60s-cached ticker data)
-    let displayPrice = livePrice?.price || liveQuote?.display?.price || liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose || 0;
-
-    // [Fix] Use 5s live changePct, fallback to API's pre-calculated percentage
-    let displayChangePct = livePrice?.changePercent ?? liveQuote?.display?.changePctPct; // e.g. -2.59
-
-    // [User Override] If POST/CLOSED, Main Display MUST be Regular Close (Intraday Final)
-    if (effectiveSession === 'POST' || effectiveSession === 'CLOSED') {
-        const regularClose = liveQuote?.prices?.regularCloseToday;
-        const prevClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose;
-
-        // Only override if we have a valid regular close
-        if (regularClose && regularClose > 0) {
-            displayPrice = regularClose;
-
-            // [FIX] Detect "No New Trading Day" scenario:
-            // If regularCloseToday === prevRegularClose, it means today's regular session hasn't happened yet.
-            // In this case, we should show the LAST session's change (prevChangePct), NOT 0.00%.
-            const isNewTradingDay = Math.abs(regularClose - prevClose) > 0.001; // Tolerance for floating point
-
-            if (isNewTradingDay && prevClose > 0) {
-                // Normal case: calculate today's change
-                displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
-            } else {
-                // [FIX] No new trading day yet (weekend/holiday/pre-open)
-                // Show the PREVIOUS session's change percentage
-                const prevDayChange = liveQuote?.prices?.prevChangePct;
-                if (prevDayChange !== undefined && prevDayChange !== null) {
-                    displayChangePct = prevDayChange;
-                } else {
-                    // Ultimate fallback: use initialStockData
-                    displayChangePct = initialStockData.changePercent || 0;
-                }
-            }
-        }
-    }
-
-    if (displayChangePct === undefined || displayChangePct === null) {
-        // Fallback for initial load
-        displayChangePct = initialStockData.changePercent || 0;
-    }
-
-    // [User Requirement] IF SESSION IS 'PRE', Main Price (= Intraday) should be STATIC (Prev Close).
-    // The "Pre-market Price" is shown in the badge only.
-    if (effectiveSession === 'PRE') {
-        const staticClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose;
-        if (staticClose) {
-            displayPrice = staticClose;
-            // [Fix-Requested] Show Yesterday's change (Intraday Standard) until market opens.
-            // Do NOT reset to 0.00%. Show "Last Regular Session Change".
-            const prevDayChange = liveQuote?.prices?.prevChangePct ?? initialStockData.prevChangePercent;
-            displayChangePct = prevDayChange ?? 0;
-        }
-    }
-
-    // A. Main Display Price (White Big Number) - Fallback Logic
-    if (!displayPrice || displayPrice === 0) {
-        // ... existing fallbacks if needed ...
-        if (effectiveSession === 'REG' || effectiveSession === 'RTH' || effectiveSession === 'MARKET') {
-            displayPrice = liveQuote?.prices?.lastTrade || liveQuote?.price || displayPrice;
-        }
-    }
-
-    // B. Sub-Badge (Extended Session Info)
-    let activeExtPrice = 0;
-    let activeExtType = ""; // 'PRE', 'PRE_CLOSE', 'POST'
-    let activeExtLabel = "";
-
-    if (effectiveSession === 'PRE') {
-        activeExtPrice = liveQuote?.extended?.prePrice || liveQuote?.prices?.prePrice || 0;
-        activeExtType = 'PRE';
-        activeExtLabel = 'PRE';
-    } else if (effectiveSession === 'REG' || effectiveSession === 'RTH' || effectiveSession === 'MARKET') {
-        // Show Pre-Market Close if we are in Regular Session
-        activeExtPrice = liveQuote?.extended?.preClose || liveQuote?.prices?.prePrice || 0;
-        if (activeExtPrice > 0) {
-            activeExtType = 'PRE_CLOSE';
-            activeExtLabel = 'PRE CLOSE';
-        }
-    } else if (effectiveSession === 'POST') {
-        activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || 0;
-        activeExtType = 'POST';
-        activeExtLabel = 'POST';
-    } else if (effectiveSession === 'CLOSED') {
-        // [Fix] Allow Post-Market display even when CLOSED (e.g. Weekend)
-        activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || 0;
-        if (activeExtPrice > 0) {
-            activeExtType = 'POST';
-            activeExtLabel = 'POST (CLOSED)';
-        }
-    }
-
-    // C. Change Percentages — [FIX] Session-aware denominator
-    // PRE / PRE_CLOSE: change vs prevClose (yesterday's close)
-    // POST: change vs displayPrice (today's regular close)
-    let activeExtPct = 0;
-    if (activeExtPrice > 0) {
-        if (activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') {
-            const extRefClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || initialStockData.prevClose || 0;
-            if (extRefClose > 0) {
-                activeExtPct = ((activeExtPrice - extRefClose) / extRefClose) * 100;
-            }
-        } else if (displayPrice > 0) {
-            // POST: change vs today's regular close (displayPrice)
-            activeExtPct = ((activeExtPrice - displayPrice) / displayPrice) * 100;
-        }
-    }
+    // [UNIFIED] All price display logic via shared calcPriceDisplay()
+    const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct } = calcPriceDisplay({
+        livePrice: livePrice?.price,
+        liveChangePct: livePrice?.changePercent,
+        apiDisplayPrice: liveQuote?.display?.price,
+        apiDisplayChangePct: liveQuote?.display?.changePctPct,
+        session: effectiveSession,
+        prevRegularClose: liveQuote?.prices?.prevRegularClose,
+        prevClose: liveQuote?.prevClose || initialStockData.prevClose,
+        regularCloseToday: liveQuote?.prices?.regularCloseToday,
+        prevChangePct: liveQuote?.prices?.prevChangePct,
+        fallbackChangePct: initialStockData.changePercent || 0,
+        lastTrade: liveQuote?.prices?.lastTrade || liveQuote?.price,
+        extended: liveQuote?.extended,
+        prices: liveQuote?.prices,
+    });
 
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;
     let pTag = "";

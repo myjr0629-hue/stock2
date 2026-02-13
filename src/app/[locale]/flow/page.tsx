@@ -11,6 +11,7 @@ import { Loader2, RefreshCw } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import useSWR from 'swr';
 
 function FlowPageContent() {
@@ -61,79 +62,22 @@ function FlowPageContent() {
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
     const livePrice = useLivePrice(ticker);
 
-    // =====================================================
-    // PRICE DISPLAY LOGIC (EXACT COPY from LiveTickerDashboard L305-417)
-    // =====================================================
-    const session = liveQuote?.session || 'CLOSED';
-
-    // Main Display Price — use 5s live price when available (REG session)
-    let displayPrice = livePrice?.price || liveQuote?.display?.price || liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || 0;
-
-    // Display Change Percentage — use 5s live changePct when available
-    let displayChangePct = livePrice?.changePercent ?? liveQuote?.display?.changePctPct ?? 0;
-
-    // POST/CLOSED Override (L312-340)
-    if (session === 'POST' || session === 'CLOSED') {
-        const regularClose = liveQuote?.prices?.regularCloseToday;
-        const prevClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose;
-
-        if (regularClose && regularClose > 0) {
-            displayPrice = regularClose;
-            const isNewTradingDay = prevClose && Math.abs(regularClose - prevClose) > 0.001;
-
-            if (isNewTradingDay && prevClose > 0) {
-                displayChangePct = ((regularClose - prevClose) / prevClose) * 100;
-            } else {
-                displayChangePct = liveQuote?.prices?.prevChangePct || liveQuote?.display?.changePctPct || 0;
-            }
-        }
-    }
-
-    // PRE Session Override (L347-358)
-    if (session === 'PRE') {
-        const staticClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose;
-        if (staticClose) {
-            displayPrice = staticClose;
-            displayChangePct = liveQuote?.prices?.prevChangePct ?? 0;
-        }
-    }
-
-    // Extended Session Badge (L368-417)
-    let activeExtPrice = 0;
-    let activeExtType = "";
-    let activeExtLabel = "";
-    let activeExtPct = 0;
-
-    if (session === 'PRE') {
-        activeExtPrice = liveQuote?.extended?.prePrice || liveQuote?.prices?.prePrice || 0;
-        activeExtType = 'PRE';
-        activeExtLabel = 'PRE';
-    } else if (session === 'REG') {
-        // [FIX] Show PRE CLOSE badge during regular session (matches Command page)
-        activeExtPrice = liveQuote?.extended?.preClose || liveQuote?.prices?.prePrice || 0;
-        if (activeExtPrice > 0) {
-            activeExtType = 'PRE_CLOSE';
-            activeExtLabel = 'PRE CLOSE';
-        }
-    } else if (session === 'POST' || session === 'CLOSED') {
-        activeExtPrice = liveQuote?.extended?.postPrice || liveQuote?.prices?.postPrice || 0;
-        activeExtType = 'POST';
-        activeExtLabel = session === 'CLOSED' ? 'POST (CLOSED)' : 'POST';
-    }
-
-    // [FIX] Session-aware changePct denominator
-    // PRE / PRE_CLOSE: change vs prevClose (yesterday's close)
-    // POST: change vs displayPrice (today's regular close)
-    if (activeExtPrice > 0) {
-        if (activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') {
-            const extRefClose = liveQuote?.prices?.prevRegularClose || liveQuote?.prevClose || 0;
-            if (extRefClose > 0) {
-                activeExtPct = ((activeExtPrice - extRefClose) / extRefClose) * 100;
-            }
-        } else if (displayPrice > 0) {
-            activeExtPct = ((activeExtPrice - displayPrice) / displayPrice) * 100;
-        }
-    }
+    // [UNIFIED] All price display logic via shared calcPriceDisplay()
+    const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct } = calcPriceDisplay({
+        livePrice: livePrice?.price,
+        liveChangePct: livePrice?.changePercent,
+        apiDisplayPrice: liveQuote?.display?.price,
+        apiDisplayChangePct: liveQuote?.display?.changePctPct,
+        session: liveQuote?.session || 'CLOSED',
+        prevRegularClose: liveQuote?.prices?.prevRegularClose,
+        prevClose: liveQuote?.prevClose,
+        regularCloseToday: liveQuote?.prices?.regularCloseToday,
+        prevChangePct: liveQuote?.prices?.prevChangePct,
+        fallbackChangePct: liveQuote?.changePercent || 0,
+        lastTrade: liveQuote?.prices?.lastTrade || liveQuote?.price,
+        extended: liveQuote?.extended,
+        prices: liveQuote?.prices,
+    });
 
     const isPositive = displayChangePct >= 0;
 
