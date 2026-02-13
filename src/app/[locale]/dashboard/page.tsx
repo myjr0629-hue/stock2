@@ -8,7 +8,7 @@ import { useDashboardStore } from "@/stores/dashboardStore";
 import { useShallow } from "zustand/react/shallow";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { PriceDisplay } from "@/components/ui/PriceDisplay";
-import { getDisplayPrices } from "@/utils/priceDisplay";
+import { calcPriceDisplay } from "@/utils/calcPriceDisplay";
 
 // Dynamic import for StockChart (no SSR for chart component)
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -187,21 +187,28 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
     const hasGammaSqueeze = data?.isGammaSqueeze;
     const hasWhale = data?.netGex && Math.abs(data.netGex) > 500000000;
 
-    // [CENTRALIZED] Use shared price display utility
-    const priceInfo = getDisplayPrices({
-        underlyingPrice: data?.underlyingPrice || null,
-        prevClose: data?.prevClose || null,
-        regularCloseToday: data?.regularCloseToday || null,
-        intradayChangePct: data?.intradayChangePct || null,
-        changePercent: data?.changePercent || null,
+    // [UNIFIED] Use shared calcPriceDisplay
+    const priceResult = calcPriceDisplay({
+        livePrice: data?.display?.price || data?.underlyingPrice,
+        liveChangePct: data?.display?.changePctPct ?? data?.changePercent,
+        apiDisplayPrice: data?.display?.price || data?.underlyingPrice,
+        apiDisplayChangePct: data?.display?.changePctPct ?? data?.intradayChangePct ?? data?.changePercent,
         session: data?.session || 'CLOSED',
+        prevRegularClose: data?.prevRegularClose,
+        prevClose: data?.prevClose,
+        regularCloseToday: data?.regularCloseToday,
+        prevChangePct: data?.prevChangePct,
+        fallbackChangePct: data?.intradayChangePct ?? data?.changePercent ?? 0,
+        lastTrade: data?.underlyingPrice,
         extended: data?.extended,
-        display: data?.display || null,
-        prevChangePct: data?.prevChangePct ?? null,
-        prevRegularClose: data?.prevRegularClose ?? null
+        prices: { prePrice: data?.extended?.prePrice, postPrice: data?.extended?.postPrice },
     });
 
-    const { mainPrice, mainChangePct, extPrice, extChangePct, extLabel } = priceInfo;
+    const mainPrice = priceResult.displayPrice;
+    const mainChangePct = priceResult.displayChangePct;
+    const extPrice = priceResult.activeExtPrice;
+    const extChangePct = priceResult.activeExtPct;
+    const extLabel = priceResult.activeExtLabel;
     const isPositive = mainChangePct >= 0;
     const extColor = extLabel === 'PRE' ? 'text-amber-400' : extLabel === 'POST' ? 'text-purple-400' : 'text-indigo-400';
     // Simplify labels: PRE CLOSE -> PRE
@@ -473,29 +480,32 @@ function MainChartPanel() {
                     <h2 className="text-2xl font-bold text-white">{selectedTicker}</h2>
                     {/* [CENTRALIZED] Main Price Display (Command style) */}
                     {(() => {
-                        const priceInfo = getDisplayPrices({
-                            underlyingPrice: data?.underlyingPrice || null,
-                            prevClose: data?.prevClose || null,
-                            regularCloseToday: data?.regularCloseToday || null,
-                            intradayChangePct: data?.intradayChangePct || null,
-                            changePercent: data?.changePercent || null,
+                        const p = calcPriceDisplay({
+                            livePrice: data?.display?.price || data?.underlyingPrice,
+                            liveChangePct: data?.display?.changePctPct ?? data?.changePercent,
+                            apiDisplayPrice: data?.display?.price || data?.underlyingPrice,
+                            apiDisplayChangePct: data?.display?.changePctPct ?? data?.intradayChangePct ?? data?.changePercent,
                             session: data?.session || 'CLOSED',
+                            prevRegularClose: data?.prevRegularClose,
+                            prevClose: data?.prevClose,
+                            regularCloseToday: data?.regularCloseToday,
+                            prevChangePct: data?.prevChangePct,
+                            fallbackChangePct: data?.intradayChangePct ?? data?.changePercent ?? 0,
+                            lastTrade: data?.underlyingPrice,
                             extended: data?.extended,
-                            display: data?.display || null,
-                            prevChangePct: data?.prevChangePct ?? null,
-                            prevRegularClose: data?.prevRegularClose ?? null
+                            prices: { prePrice: data?.extended?.prePrice, postPrice: data?.extended?.postPrice },
                         });
 
                         return (
                             <PriceDisplay
-                                intradayPrice={priceInfo.mainPrice}
-                                intradayChangePct={priceInfo.mainChangePct}
-                                extendedPrice={priceInfo.extPrice}
-                                extendedChangePct={priceInfo.extChangePct}
-                                extendedLabel={priceInfo.extLabel}
+                                intradayPrice={p.displayPrice}
+                                intradayChangePct={p.displayChangePct}
+                                extendedPrice={p.activeExtPrice}
+                                extendedChangePct={p.activeExtPct}
+                                extendedLabel={p.activeExtLabel}
                                 sessionStatus={data?.session === 'CLOSED' ? 'CLOSED' : ''}
                                 size="md"
-                                showExtended={priceInfo.showExtended}
+                                showExtended={p.activeExtPrice > 0}
                             />
                         );
                     })()}
