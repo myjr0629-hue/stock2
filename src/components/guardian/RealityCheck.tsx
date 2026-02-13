@@ -20,8 +20,8 @@ interface RealityCheckProps {
 }
 
 /**
- * RealityCheck V7.7
- * 3×2 uniform grid — all gauges balanced, compact layout
+ * RealityCheck v8.0 — Flow Map Glassmorphic Style
+ * 3×2 premium gauge grid with unified visual language
  */
 export function RealityCheck({
     nasdaqChange,
@@ -32,8 +32,10 @@ export function RealityCheck({
 }: RealityCheckProps) {
     const t = useTranslations('guardian');
     const isDivergent = divergenceCase === 'A' || divergenceCase === 'B';
-    const statusText = isDivergent ? "DIVERGENCE" : t('alignment');
-    const statusColor = isDivergent ? "text-rose-400" : "text-emerald-400";
+    const statusText = isDivergent ? "DIVERGENCE" : "ALIGNED";
+    const statusColor = isDivergent
+        ? "text-rose-400 border-rose-500/30 bg-rose-500/10"
+        : "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
 
     const { snapshot } = useMacroSnapshot();
     const yieldCurve = snapshot?.yieldCurve;
@@ -56,21 +58,21 @@ export function RealityCheck({
 
     return (
         <div className="h-full flex flex-col p-3">
-            {/* HEADER */}
-            <div className="flex justify-between items-center mb-2 border-b border-slate-800 pb-2 flex-none">
+            {/* HEADER — minimal, premium */}
+            <div className="flex justify-between items-center mb-3 flex-none">
                 <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-cyan-400" />
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-white">
+                    <Activity className="w-3.5 h-3.5 text-cyan-400/60" />
+                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 font-jakarta">
                         REALITY CHECK
                     </h3>
                 </div>
-                <div className={`text-[11px] font-black uppercase ${statusColor} border border-current px-1.5 py-0.5 rounded`}>
+                <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border ${statusColor}`}>
                     {statusText}
-                </div>
+                </span>
             </div>
 
-            {/* 3×2 UNIFORM GRID */}
-            <div className="flex-1 grid grid-cols-3 gap-x-1 gap-y-1 place-items-center content-center">
+            {/* 3×2 GAUGE GRID */}
+            <div className="flex-1 grid grid-cols-3 gap-x-2 gap-y-3 place-items-center content-center">
                 {/* Row 1 */}
                 <DualGauge
                     priceValue={nasdaqChange}
@@ -105,9 +107,9 @@ export function RealityCheck({
                     fillPercent={50 + us10yChangePct * 10}
                 />
                 <MiniGauge
-                    label="2s10s"
+                    label="2S10S"
                     value={yieldCurve ? `${yieldCurve.spread2s10s > 0 ? '+' : ''}${yieldCurve.spread2s10s.toFixed(2)}%` : '—'}
-                    subLabel={yieldCurve ? (yieldCurve.spread2s10s < 0 ? '역전' : yieldCurve.spread2s10s < 0.25 ? '둔화' : '정상') : '—'}
+                    subLabel={yieldCurve ? (yieldCurve.spread2s10s < 0 ? '금리역전' : yieldCurve.spread2s10s < 0.25 ? '금리둔화' : '금리정상') : '—'}
                     colorClass={yieldCurve ? getSpreadColor(yieldCurve.spread2s10s) : 'text-slate-400'}
                     size="lg"
                     fillPercent={yieldCurve ? Math.min((yieldCurve.spread2s10s + 1) * 50, 100) : 50}

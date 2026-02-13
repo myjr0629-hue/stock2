@@ -14,8 +14,9 @@ interface MiniGaugeProps {
 }
 
 /**
- * MiniGauge V45.5 - SVG Only, NO frame
- * 완전히 투명한 배경, SVG 링만 표시
+ * MiniGauge v51 - Flow Map Glassmorphic Style
+ * Premium circular gauge with glassmorphism, thin arc indicator, and glow
+ * Labels: 12px, Plus Jakarta Sans, white
  */
 export function MiniGauge({
     value,
@@ -27,73 +28,100 @@ export function MiniGauge({
     fillPercent,
     secondaryValue
 }: MiniGaugeProps) {
-    // Size configurations
+    // Sizes tuned for 12px Jakarta labels
     const sizeConfig = {
-        sm: { px: 64, value: 'text-sm', label: 'text-[11px]', subLabel: 'text-[11px]', desc: 'text-[11px]', secondary: 'text-[11px]', stroke: 3 },
-        md: { px: 80, value: 'text-base', label: 'text-[11px]', subLabel: 'text-[11px]', desc: 'text-[11px]', secondary: 'text-[11px]', stroke: 3.5 },
-        lg: { px: 96, value: 'text-lg', label: 'text-[11px]', subLabel: 'text-[11px]', desc: 'text-[11px]', secondary: 'text-xs', stroke: 4 },
-        xl: { px: 112, value: 'text-xl', label: 'text-xs', subLabel: 'text-[11px]', desc: 'text-[11px]', secondary: 'text-[11px]', stroke: 4.5 }
+        sm: { px: 68, valueCls: 'text-[14px]', secCls: 'text-[10px]', subCls: 'text-[10px]', stroke: 2 },
+        md: { px: 78, valueCls: 'text-[15px]', secCls: 'text-[10px]', subCls: 'text-[10px]', stroke: 2.5 },
+        lg: { px: 88, valueCls: 'text-[16px]', secCls: 'text-[11px]', subCls: 'text-[11px]', stroke: 2.5 },
+        xl: { px: 100, valueCls: 'text-lg', secCls: 'text-[11px]', subCls: 'text-[11px]', stroke: 3 }
     };
     const cfg = sizeConfig[size];
-    const radius = (cfg.px / 2) - 8;
-    const circumference = 2 * Math.PI * radius;
-    const dasharray = fillPercent !== undefined
-        ? `${(fillPercent / 100) * circumference} ${circumference}`
-        : `${circumference} ${circumference}`;
+    const r = (cfg.px / 2) - 7;
+    const circ = 2 * Math.PI * r;
+    const dash = fillPercent !== undefined
+        ? `${(fillPercent / 100) * circ} ${circ}`
+        : `${circ} ${circ}`;
 
-    // Ring color
-    const getRingColor = () => {
+    const resolveColor = (): string => {
         if (colorClass.includes('rose') || colorClass.includes('red')) return '#f43f5e';
         if (colorClass.includes('emerald') || colorClass.includes('green')) return '#10b981';
         if (colorClass.includes('amber') || colorClass.includes('yellow')) return '#f59e0b';
         if (colorClass.includes('cyan') || colorClass.includes('blue') || colorClass.includes('sky')) return '#06b6d4';
         if (colorClass.includes('orange')) return '#f97316';
-        return '#64748b';
+        return '#94a3b8'; // slate-400 — brighter default
     };
+    const color = resolveColor();
 
     return (
-        <div className="flex flex-col items-center gap-1">
-            {/* SVG Gauge - completely transparent background */}
-            <div style={{ width: cfg.px, height: cfg.px, position: 'relative' }}>
-                <svg width={cfg.px} height={cfg.px} style={{ position: 'absolute', top: 0, left: 0 }}>
-                    {/* Background ring */}
+        <div className="group flex flex-col items-center gap-1.5">
+            {/* Gauge circle */}
+            <div
+                className="relative transition-transform duration-300 ease-out group-hover:scale-110"
+                style={{ width: cfg.px, height: cfg.px }}
+            >
+                {/* Glassmorphic base circle — brighter */}
+                <div
+                    className="absolute inset-0 rounded-full backdrop-blur-md transition-shadow duration-300"
+                    style={{
+                        backgroundColor: 'rgba(255,255,255,0.08)',
+                        border: `1.5px solid rgba(255,255,255,0.18)`,
+                        boxShadow: `0 0 24px ${color}30, inset 0 0 12px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.1)`
+                    }}
+                />
+
+                {/* SVG arc indicator — thin, elegant */}
+                <svg width={cfg.px} height={cfg.px} className="absolute inset-0" style={{ transform: 'rotate(-90deg)' }}>
+                    {/* Track */}
                     <circle
-                        cx={cfg.px / 2}
-                        cy={cfg.px / 2}
-                        r={radius}
-                        fill="none"
-                        stroke="rgba(255,255,255,0.1)"
-                        strokeWidth={cfg.stroke}
+                        cx={cfg.px / 2} cy={cfg.px / 2} r={r}
+                        fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={cfg.stroke}
                     />
-                    {/* Fill ring */}
+                    {/* Active arc */}
                     <circle
-                        cx={cfg.px / 2}
-                        cy={cfg.px / 2}
-                        r={radius}
-                        fill="none"
-                        stroke={getRingColor()}
-                        strokeWidth={cfg.stroke}
-                        strokeLinecap="round"
-                        strokeDasharray={dasharray}
-                        transform={`rotate(-90 ${cfg.px / 2} ${cfg.px / 2})`}
-                        style={{ filter: `drop-shadow(0 0 6px ${getRingColor()})`, opacity: 0.7, transition: 'stroke-dasharray 1s' }}
+                        cx={cfg.px / 2} cy={cfg.px / 2} r={r}
+                        fill="none" stroke={color} strokeWidth={cfg.stroke}
+                        strokeLinecap="round" strokeDasharray={dash}
+                        style={{
+                            filter: `drop-shadow(0 0 5px ${color})`,
+                            opacity: 0.7,
+                            transition: 'stroke-dasharray 1.2s cubic-bezier(0.4,0,0.2,1)'
+                        }}
                     />
                 </svg>
+
                 {/* Content */}
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <span className={`${cfg.label} font-bold text-white uppercase tracking-wider`}>{label}</span>
-                    <span className={`${cfg.value} font-black tabular-nums ${colorClass}`} style={{ textShadow: `0 0 10px currentColor` }}>{value}</span>
-                    {secondaryValue && <span className={`${cfg.secondary} font-medium ${colorClass} opacity-80`}>{secondaryValue}</span>}
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    {/* Label: 12px, Jakarta Sans, White */}
+                    <span className="text-[12px] font-bold text-white uppercase tracking-[0.12em] font-jakarta leading-none">
+                        {label}
+                    </span>
+                    {/* Value */}
+                    <span
+                        className={`${cfg.valueCls} font-black tabular-nums leading-tight ${colorClass}`}
+                        style={{ textShadow: '0 0 14px currentColor' }}
+                    >
+                        {value}
+                    </span>
+                    {secondaryValue && (
+                        <span className={`${cfg.secCls} font-medium tabular-nums ${colorClass} opacity-80`}>
+                            {secondaryValue}
+                        </span>
+                    )}
                 </div>
             </div>
-            {/* Labels below - transparent */}
+
+            {/* Labels below circle */}
             <div className="flex flex-col items-center">
-                {description && <span className={`${cfg.desc} text-white/70 uppercase tracking-wide`}>{description}</span>}
-                {subLabel && <span className={`${cfg.subLabel} font-bold text-white uppercase tracking-wider`}>{subLabel}</span>}
+                {description && <span className="text-[10px] text-white/60 uppercase tracking-wide font-jakarta">{description}</span>}
+                {subLabel && <span className={`${cfg.subCls} font-bold ${colorClass} uppercase tracking-wider font-jakarta`}>{subLabel}</span>}
             </div>
         </div>
     );
 }
+
+// ─────────────────────────────────────────────────────────────────
+// DualGauge — Dual concentric rings for PRICE + FLOW
+// ─────────────────────────────────────────────────────────────────
 
 interface DualGaugeProps {
     priceValue: number;
@@ -101,62 +129,101 @@ interface DualGaugeProps {
     size?: 'lg' | 'xl' | '2xl';
 }
 
+/**
+ * DualGauge v51 - Flow Map Premium Dual-Ring
+ * Larger glassmorphic circle with two concentric arc indicators
+ * Labels: 12px, Plus Jakarta Sans, white
+ */
 export function DualGauge({ priceValue, flowValue, size = 'xl' }: DualGaugeProps) {
     const sizeConfig = {
-        lg: { px: 112, value: 'text-lg', label: 'text-[11px]' },
-        xl: { px: 128, value: 'text-xl', label: 'text-[11px]' },
-        '2xl': { px: 144, value: 'text-2xl', label: 'text-xs' }
+        lg: { px: 112, valueCls: 'text-[16px]' },
+        xl: { px: 124, valueCls: 'text-lg' },
+        '2xl': { px: 140, valueCls: 'text-xl' }
     };
     const cfg = sizeConfig[size];
     const outerR = (cfg.px / 2) - 6;
-    const innerR = outerR - 12;
-    const outerCircum = 2 * Math.PI * outerR;
-    const innerCircum = 2 * Math.PI * innerR;
+    const innerR = outerR - 11;
+    const outerC = 2 * Math.PI * outerR;
+    const innerC = 2 * Math.PI * innerR;
 
     const priceColor = priceValue >= 0 ? '#10b981' : '#f43f5e';
     const flowColor = flowValue >= 50 ? '#06b6d4' : '#f97316';
 
+    // Overall sentiment
+    const isBullish = priceValue >= 0 && flowValue >= 50;
+    const isBearish = priceValue < 0 && flowValue < 50;
+    const sentimentColor = isBullish ? '#10b981' : isBearish ? '#f43f5e' : '#94a3b8';
+    const sentimentText = isBullish ? '상승 모멘텀' : isBearish ? '하락 압력' : '혼조세';
+
     return (
-        <div className="flex flex-col items-center gap-2">
-            {/* SVG Dual Gauge - transparent */}
-            <div style={{ width: cfg.px, height: cfg.px, position: 'relative' }}>
-                <svg width={cfg.px} height={cfg.px} style={{ position: 'absolute', top: 0, left: 0 }}>
-                    {/* Outer ring - PRICE */}
-                    <circle cx={cfg.px / 2} cy={cfg.px / 2} r={outerR} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={3} />
+        <div className="group flex flex-col items-center gap-2">
+            <div
+                className="relative transition-transform duration-300 ease-out group-hover:scale-105"
+                style={{ width: cfg.px, height: cfg.px }}
+            >
+                {/* Glassmorphic base — brighter */}
+                <div
+                    className="absolute inset-0 rounded-full backdrop-blur-md transition-shadow duration-300"
+                    style={{
+                        backgroundColor: 'rgba(255,255,255,0.08)',
+                        border: '1.5px solid rgba(255,255,255,0.18)',
+                        boxShadow: `0 0 30px ${sentimentColor}25, inset 0 0 12px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.1)`
+                    }}
+                />
+
+                {/* SVG dual arcs */}
+                <svg width={cfg.px} height={cfg.px} className="absolute inset-0" style={{ transform: 'rotate(-90deg)' }}>
+                    {/* Outer track + arc (PRICE) */}
+                    <circle cx={cfg.px / 2} cy={cfg.px / 2} r={outerR} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={2.5} />
                     <circle
                         cx={cfg.px / 2} cy={cfg.px / 2} r={outerR} fill="none"
-                        stroke={priceColor} strokeWidth={3.5} strokeLinecap="round"
-                        strokeDasharray={`${Math.abs(priceValue) * 10 + 50} ${outerCircum}`}
-                        transform={`rotate(-90 ${cfg.px / 2} ${cfg.px / 2})`}
-                        style={{ filter: `drop-shadow(0 0 4px ${priceColor})`, opacity: 0.7 }}
+                        stroke={priceColor} strokeWidth={2.5} strokeLinecap="round"
+                        strokeDasharray={`${Math.abs(priceValue) * 8 + 40} ${outerC}`}
+                        style={{ filter: `drop-shadow(0 0 4px ${priceColor})`, opacity: 0.65 }}
                     />
-                    {/* Inner ring - FLOW */}
-                    <circle cx={cfg.px / 2} cy={cfg.px / 2} r={innerR} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth={3} />
+                    {/* Inner track + arc (FLOW) */}
+                    <circle cx={cfg.px / 2} cy={cfg.px / 2} r={innerR} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={2.5} />
                     <circle
                         cx={cfg.px / 2} cy={cfg.px / 2} r={innerR} fill="none"
-                        stroke={flowColor} strokeWidth={3.5} strokeLinecap="round"
-                        strokeDasharray={`${flowValue * (innerCircum / 100)} ${innerCircum}`}
-                        transform={`rotate(-90 ${cfg.px / 2} ${cfg.px / 2})`}
-                        style={{ filter: `drop-shadow(0 0 4px ${flowColor})`, opacity: 0.7 }}
+                        stroke={flowColor} strokeWidth={2.5} strokeLinecap="round"
+                        strokeDasharray={`${flowValue * (innerC / 100)} ${innerC}`}
+                        style={{ filter: `drop-shadow(0 0 4px ${flowColor})`, opacity: 0.65 }}
                     />
                 </svg>
+
                 {/* Content */}
-                <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                    <span className={`${cfg.label} font-bold text-white uppercase tracking-wider`}>PRICE</span>
-                    <span className={`${cfg.value} font-black tabular-nums`} style={{ color: priceColor, textShadow: `0 0 8px ${priceColor}` }}>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    {/* PRICE label: 12px Jakarta white */}
+                    <span className="text-[12px] font-bold text-white uppercase tracking-[0.12em] font-jakarta leading-none">
+                        PRICE
+                    </span>
+                    <span
+                        className={`${cfg.valueCls} font-black tabular-nums leading-none`}
+                        style={{ color: priceColor, textShadow: `0 0 12px ${priceColor}` }}
+                    >
                         {priceValue >= 0 ? '+' : ''}{priceValue.toFixed(1)}%
                     </span>
-                    <div className="w-10 h-px bg-white/30 my-1" />
-                    <span className={`${cfg.label} font-bold text-white uppercase tracking-wider`}>FLOW</span>
-                    <span className={`${cfg.value} font-black tabular-nums`} style={{ color: flowColor, textShadow: `0 0 8px ${flowColor}` }}>
+                    <div className="h-px bg-white/15 my-0.5" style={{ width: 30 }} />
+                    {/* FLOW label: 12px Jakarta white */}
+                    <span className="text-[12px] font-bold text-white uppercase tracking-[0.12em] font-jakarta leading-none">
+                        FLOW
+                    </span>
+                    <span
+                        className={`${cfg.valueCls} font-black tabular-nums leading-none`}
+                        style={{ color: flowColor, textShadow: `0 0 12px ${flowColor}` }}
+                    >
                         {flowValue.toFixed(0)}
                     </span>
                 </div>
             </div>
-            {/* Interpretation */}
-            <span className="text-[11px] font-bold text-white uppercase tracking-wide flex items-center gap-1.5">
-                <span className={`inline-block w-1.5 h-1.5 rounded-full ${priceValue >= 0 && flowValue >= 50 ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : priceValue < 0 && flowValue < 50 ? 'bg-rose-400 shadow-[0_0_6px_#f43f5e]' : 'bg-slate-400'}`} />
-                {priceValue >= 0 && flowValue >= 50 ? '상승 모멘텀' : priceValue < 0 && flowValue < 50 ? '하락 압력' : '혼조세'}
+
+            {/* Sentiment indicator */}
+            <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5 font-jakarta">
+                <span
+                    className="inline-block w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: sentimentColor, boxShadow: `0 0 6px ${sentimentColor}` }}
+                />
+                {sentimentText}
             </span>
         </div>
     );
