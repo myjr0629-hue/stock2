@@ -192,9 +192,21 @@ export const useDashboardStore = create<DashboardState>()(
                     // Keep max 20 signals (newest first, already sorted by time)
                     const finalSignals = validSignals.slice(0, 20);
 
+                    // Merge new data with existing — never replace with empty
+                    const existingTickers = get().tickers;
+                    const newTickers = data.tickers || {};
+                    const mergedTickers = { ...existingTickers };
+
+                    // Only update tickers that have actual data in the response
+                    for (const [key, value] of Object.entries(newTickers)) {
+                        if (value && typeof value === 'object') {
+                            mergedTickers[key] = value as TickerData;
+                        }
+                    }
+
                     set({
-                        tickers: data.tickers || {},
-                        market: data.market || null,
+                        tickers: mergedTickers,
+                        market: data.market || get().market,
                         signals: finalSignals,
                         lastUpdated: new Date(),
                         isLoading: false
