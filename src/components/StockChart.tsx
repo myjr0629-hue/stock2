@@ -460,10 +460,10 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             </CardHeader>
             <CardContent className="pt-6">
                 {/* [P0-2] Key-based remount for stability */}
-                <div key={`${ticker}-${range}`} className={`h-[360px] w-full flex flex-col min-w-0 min-h-0 relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
+                <div key={`${ticker}-${range}`} className={`h-[360px] w-full flex flex-col min-w-[200px] min-h-[200px] relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
                     {mounted && dataReady && processedData.length > 0 ? (
                         <>
-                            <ResponsiveContainer width="99%" height="100%">
+                            <ResponsiveContainer width="99%" height="100%" minWidth={200} minHeight={200}>
                                 <LineChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="2 2" vertical={true} horizontal={true} stroke={chartConfig.gridColor} />
                                     <XAxis

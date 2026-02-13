@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useEffect, useCallback, useState, useRef } from "react";
+import React, { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { useLocale } from "next-intl";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
+import { useShallow } from "zustand/react/shallow";
 import { LandingHeader } from "@/components/landing/LandingHeader";
 import { PriceDisplay } from "@/components/ui/PriceDisplay";
 import { getDisplayPrices } from "@/utils/priceDisplay";
@@ -117,7 +118,10 @@ function MarketCountdown({ marketStatus }: { marketStatus?: string }) {
 
 // Alpha Status Bar Component
 function AlphaStatusBar() {
-    const { market, lastUpdated, isLoading, fetchDashboardData } = useDashboardStore();
+    const market = useDashboardStore(s => s.market);
+    const lastUpdated = useDashboardStore(s => s.lastUpdated);
+    const isLoading = useDashboardStore(s => s.isLoading);
+    const fetchDashboardData = useDashboardStore(s => s.fetchDashboardData);
 
     const handleRefresh = useCallback(() => {
         fetchDashboardData();
@@ -175,9 +179,10 @@ function AlphaStatusBar() {
 }
 
 // Watchlist Item Component (Command-style price display)
-function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boolean }) {
-    const { tickers, setSelectedTicker, toggleDashboardTicker } = useDashboardStore();
-    const data = tickers[ticker];
+const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boolean }) {
+    const data = useDashboardStore(s => s.tickers[ticker]);
+    const setSelectedTicker = useDashboardStore(s => s.setSelectedTicker);
+    const toggleDashboardTicker = useDashboardStore(s => s.toggleDashboardTicker);
 
     const hasGammaSqueeze = data?.isGammaSqueeze;
     const hasWhale = data?.netGex && Math.abs(data.netGex) > 500000000;
@@ -283,12 +288,15 @@ function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boo
             </button>
         </div>
     );
-}
+});
 
 // Watchlist Panel
 function WatchlistPanel() {
-    const { tickers, selectedTicker, toggleDashboardTicker, dashboardTickers } = useDashboardStore();
-    const tickerList = Object.keys(tickers);
+    const tickerKeys = useDashboardStore(s => Object.keys(s.tickers));
+    const selectedTicker = useDashboardStore(s => s.selectedTicker);
+    const toggleDashboardTicker = useDashboardStore(s => s.toggleDashboardTicker);
+    const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
+    const tickerList = tickerKeys;
     const [newTicker, setNewTicker] = useState('');
 
     const handleAddTicker = () => {
@@ -341,8 +349,9 @@ function WatchlistPanel() {
 
 // Main Chart Panel (GEX & Max Pain) - Uses FlowRadar and StockChart
 function MainChartPanel() {
-    const { selectedTicker, tickers } = useDashboardStore();
-    const data = tickers[selectedTicker];
+    const selectedTicker = useDashboardStore(s => s.selectedTicker);
+    // [PERF FIX] Subscribe only to the selected ticker's data, not all tickers
+    const data = useDashboardStore(s => s.tickers[s.selectedTicker]);
 
     // Fetch chart history for StockChart
     const [chartHistory, setChartHistory] = useState<{ date: string; close: number }[]>([]);
@@ -1005,10 +1014,9 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
 // [LOCALIZATION] Uses locale for time formatting, [SORTING] Newest signals first
 // [MARKET HOURS] Only active during regular trading session (OPEN)
 function SignalFeedPanel() {
-    const { signals, selectedTicker, tickers } = useDashboardStore();
+    const signals = useDashboardStore(s => s.signals);
+    const session = useDashboardStore(s => s.tickers[s.selectedTicker]?.session || 'CLOSED');
     const locale = useLocale();
-    const data = tickers[selectedTicker];
-    const session = data?.session || 'CLOSED';
     const isOpen = session === 'REG';
 
     // Sort signals by time - newest first, limit to 15
@@ -1052,7 +1060,7 @@ function SignalFeedPanel() {
 
 // Mobile Tab Component
 function MobileTabBar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
-    const { signals } = useDashboardStore();
+    const signals = useDashboardStore(s => s.signals);
 
     const tabs = [
         { id: 'chart', label: '차트', icon: BarChart3 },
@@ -1090,7 +1098,11 @@ function MobileTabBar({ activeTab, setActiveTab }: { activeTab: string; setActiv
 // Main Dashboard Page
 export default function DashboardPage() {
     const searchParams = useSearchParams();
-    const { setSelectedTicker, fetchDashboardData, fetchPriceOnly, isLoading, dashboardTickers } = useDashboardStore();
+    const setSelectedTicker = useDashboardStore(s => s.setSelectedTicker);
+    const fetchDashboardData = useDashboardStore(s => s.fetchDashboardData);
+    const fetchPriceOnly = useDashboardStore(s => s.fetchPriceOnly);
+    const isLoading = useDashboardStore(s => s.isLoading);
+    const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
     const [initialized, setInitialized] = useState(false);
     const [mobileTab, setMobileTab] = useState('chart');
 
