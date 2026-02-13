@@ -292,7 +292,7 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
 
 // Watchlist Panel
 function WatchlistPanel() {
-    const tickerKeys = useDashboardStore(s => Object.keys(s.tickers));
+    const tickerKeys = useDashboardStore(useShallow(s => Object.keys(s.tickers)));
     const selectedTicker = useDashboardStore(s => s.selectedTicker);
     const toggleDashboardTicker = useDashboardStore(s => s.toggleDashboardTicker);
     const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
