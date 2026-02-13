@@ -1571,438 +1571,446 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
                 <div className="max-w-[1920px] mx-auto px-8 py-8 space-y-8 relative z-10">
 
                     {/* TRACK RECORD CONTENT */}
-                    <div className={activeTab === 'TRACK_RECORD' ? "space-y-8" : "hidden"}>
-                        <TrackRecord />
-                    </div>
+                    {activeTab === 'TRACK_RECORD' && (
+                        <div className="space-y-8">
+                            <TrackRecord />
+                        </div>
+                    )}
 
                     {/* HYPER DISCOVERY CONTENT (HUNTER CORPS) */}
-                    <div className={activeTab === 'DISCOVERY' ? "space-y-8" : "hidden"}>
-                        <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pt-4">
-                            <div>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[10px] font-bold text-amber-500 tracking-widest uppercase flex items-center gap-2">
-                                        <Zap className="w-3 h-3" />
-                                        MOMENTUM SCANNERS
-                                    </span>
-                                </div>
-                                <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter flex items-center gap-4">
-                                    PROJECT: <span className="text-amber-500">HYPER DISCOVERY</span>
-                                </h1>
-                                <p className="text-slate-400 font-mono text-xs mt-2">
-                                    HUNTER CORPS • HIGH VOLATILITY • TIGHT STOPS
-                                </p>
-                            </div>
-                        </section>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                            {isLoading ? (
-                                [1, 2, 3, 4].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
-                            ) : (
-                                hunters.length > 0 ? (
-                                    hunters.map((item, idx) => (
-                                        <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
-                                            <TacticalCard
-                                                ticker={item.ticker}
-                                                rank={idx + 1}
-                                                price={item.evidence.price.last}
-                                                change={item.evidence.price.changePct}
-                                                entryBand={item.decisionSSOT?.entryBand}
-                                                cutPrice={item.decisionSSOT?.cutPrice}
-                                                isLocked={true} // Hunters are locked targets
-                                                name={item.symbol}
-                                                rsi={item.evidence.price.rsi14}
-                                                score={item.alphaScore}
-                                                isDayTradeOnly={true} // Default for Hunters
-                                                reasonKR={`[Hunter] RVol ${item.evidence.flow?.relVol?.toFixed(1)}x • Momentum Scalp`}
-                                            />
-                                        </div>
-                                    ))
-                                ) : (
-                                    <div className="col-span-full py-20 text-center text-slate-500">
-                                        <p>No high-probability Hunter targets detected today.</p>
+                    {activeTab === 'DISCOVERY' && (
+                        <div className="space-y-8">
+                            <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pt-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[10px] font-bold text-amber-500 tracking-widest uppercase flex items-center gap-2">
+                                            <Zap className="w-3 h-3" />
+                                            MOMENTUM SCANNERS
+                                        </span>
                                     </div>
-                                )
-                            )}
+                                    <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter flex items-center gap-4">
+                                        PROJECT: <span className="text-amber-500">HYPER DISCOVERY</span>
+                                    </h1>
+                                    <p className="text-slate-400 font-mono text-xs mt-2">
+                                        HUNTER CORPS • HIGH VOLATILITY • TIGHT STOPS
+                                    </p>
+                                </div>
+                            </section>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                {isLoading ? (
+                                    [1, 2, 3, 4].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
+                                ) : (
+                                    hunters.length > 0 ? (
+                                        hunters.map((item, idx) => (
+                                            <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
+                                                <TacticalCard
+                                                    ticker={item.ticker}
+                                                    rank={idx + 1}
+                                                    price={item.evidence.price.last}
+                                                    change={item.evidence.price.changePct}
+                                                    entryBand={item.decisionSSOT?.entryBand}
+                                                    cutPrice={item.decisionSSOT?.cutPrice}
+                                                    isLocked={true} // Hunters are locked targets
+                                                    name={item.symbol}
+                                                    rsi={item.evidence.price.rsi14}
+                                                    score={item.alphaScore}
+                                                    isDayTradeOnly={true} // Default for Hunters
+                                                    reasonKR={`[Hunter] RVol ${item.evidence.flow?.relVol?.toFixed(1)}x • Momentum Scalp`}
+                                                />
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="col-span-full py-20 text-center text-slate-500">
+                                            <p>No high-probability Hunter targets detected today.</p>
+                                        </div>
+                                    )
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* PHYSICAL AI CONTENT — V7.1 Unified Layout (Generic Template) */}
-                    <div className={activeTab === 'PHYSICAL_AI' ? "space-y-4" : "hidden"}>
+                    {activeTab === 'PHYSICAL_AI' && (
+                        <div className="space-y-4">
 
-                        {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
-                        <section>
-                            <SectorSessionGrid config={physicalAIConfig} quotes={sectorData.physicalAI} />
-                        </section>
+                            {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
+                            <section>
+                                <SectorSessionGrid config={physicalAIConfig} quotes={sectorData.physicalAI} />
+                            </section>
 
-                        {/* Zone A-2: Ranking Row (Generic) */}
-                        <section>
-                            <SectorRankingRow config={physicalAIConfig} quotes={sectorData.physicalAI} />
-                        </section>
+                            {/* Zone A-2: Ranking Row (Generic) */}
+                            <section>
+                                <SectorRankingRow config={physicalAIConfig} quotes={sectorData.physicalAI} />
+                            </section>
 
-                        {/* Zone B: Analyst Consensus + Earnings Calendar (Generic, auto-fetch) */}
-                        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <SectorAnalystConsensus config={physicalAIConfig} />
-                            <SectorEarningsCalendar config={physicalAIConfig} />
-                        </section>
+                            {/* Zone B: Analyst Consensus + Earnings Calendar (Generic, auto-fetch) */}
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={physicalAIConfig} />
+                                <SectorEarningsCalendar config={physicalAIConfig} />
+                            </section>
 
-                        {/* Zone C: TacticalReportDeck (장마감 고정 보고서) */}
-                        <section>
-                            <TacticalReportDeck config={physicalAIConfig} />
-                        </section>
+                            {/* Zone C: TacticalReportDeck (장마감 고정 보고서) */}
+                            <section>
+                                <TacticalReportDeck config={physicalAIConfig} />
+                            </section>
 
-                    </div>
-
-
+                        </div>
+                    )}
 
                     {/* M7 REPORT CONTENT — V7.1 Unified Layout (Generic Template) */}
-                    <div className={activeTab === 'M7' ? "space-y-4" : "hidden"}>
+                    {activeTab === 'M7' && (
+                        <div className="space-y-4">
 
-                        {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
-                        <section>
-                            <SectorSessionGrid config={m7Config} quotes={sectorData.m7} />
-                        </section>
+                            {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
+                            <section>
+                                <SectorSessionGrid config={m7Config} quotes={sectorData.m7} />
+                            </section>
 
-                        {/* Zone A-2: Ranking Row (Generic — Money Flow descending) */}
-                        <section>
-                            <SectorRankingRow config={m7Config} quotes={sectorData.m7} />
-                        </section>
+                            {/* Zone A-2: Ranking Row (Generic — Money Flow descending) */}
+                            <section>
+                                <SectorRankingRow config={m7Config} quotes={sectorData.m7} />
+                            </section>
 
-                        {/* Zone B: Analyst Consensus + Earnings Calendar (Generic, props pass-through) */}
-                        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <SectorAnalystConsensus config={m7Config} recommendations={m7CalendarData?.recommendations || {}} />
-                            <SectorEarningsCalendar config={m7Config} earnings={m7CalendarData?.earnings || []} />
-                        </section>
+                            {/* Zone B: Analyst Consensus + Earnings Calendar (Generic, props pass-through) */}
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={m7Config} recommendations={m7CalendarData?.recommendations || {}} />
+                                <SectorEarningsCalendar config={m7Config} earnings={m7CalendarData?.earnings || []} />
+                            </section>
 
-                        {/* Zone C: TacticalReportDeck (장마감 고정 보고서) */}
-                        <section>
-                            <TacticalReportDeck config={m7Config} />
-                        </section>
+                            {/* Zone C: TacticalReportDeck (장마감 고정 보고서) */}
+                            <section>
+                                <TacticalReportDeck config={m7Config} />
+                            </section>
 
-                    </div>
+                        </div>
+                    )}
 
                     {/* FINAL BATTLE CONTENT */}
-                    <div className={activeTab === 'FINAL' ? "space-y-8" : "hidden"}>
+                    {activeTab === 'FINAL' && (
+                        <div className="space-y-8">
 
-                        {/* 1. HERO HEADER (Premium Open Design) */}
-                        <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 pt-4">
-                            <div>
-                                <div className="flex items-center gap-2 mb-1">
-                                    <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
-                                        <Activity className="w-3 h-3 text-emerald-500" />
-                                        SIGNUM INTELLIGENCE
-                                    </span>
+                            {/* 1. HERO HEADER (Premium Open Design) */}
+                            <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 pt-4">
+                                <div>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
+                                            <Activity className="w-3 h-3 text-emerald-500" />
+                                            SIGNUM INTELLIGENCE
+                                        </span>
+                                    </div>
+                                    <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                                        <span className="text-emerald-500">ALPHA REPORT</span>
+                                        <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded border border-opacity-20 flex items-center gap-1.5 align-middle ${getRegimeColor(regime)}`}>
+                                            {getRegimeText(regime)}
+                                        </span>
+                                    </h1>
+                                    <p className="text-slate-400 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
+                                        AI 엔진이 선별한 <span className="text-slate-300 font-bold">오늘의 최적 진입 종목 12선</span>
+                                    </p>
                                 </div>
-                                <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                                    <span className="text-emerald-500">ALPHA REPORT</span>
-                                    <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded border border-opacity-20 flex items-center gap-1.5 align-middle ${getRegimeColor(regime)}`}>
-                                        {getRegimeText(regime)}
-                                    </span>
-                                </h1>
-                                <p className="text-slate-400 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
-                                    AI 엔진이 선별한 <span className="text-slate-300 font-bold">오늘의 최적 진입 종목 12선</span>
-                                </p>
-                            </div>
-                            <div className="text-right">
-                                <p className="text-slate-500 font-mono text-[10px] mt-2 bg-slate-800/50 px-2 py-1 rounded inline-block">
-                                    ID: {report?.meta?.id?.toUpperCase() || "SYNC"} • {report?.meta?.generatedAtET || "WAITING"}
-                                </p>
-                            </div>
+                                <div className="text-right">
+                                    <p className="text-slate-500 font-mono text-[10px] mt-2 bg-slate-800/50 px-2 py-1 rounded inline-block">
+                                        ID: {report?.meta?.id?.toUpperCase() || "SYNC"} • {report?.meta?.generatedAtET || "WAITING"}
+                                    </p>
+                                </div>
 
-                            {/* Summary Stats */}
-                            <div className="flex flex-col sm:flex-row items-center gap-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded">
-                                        <span className="text-[10px] text-slate-500 block">분석 종목</span>
-                                        <span className="text-sm font-mono font-bold text-white">{alphaItems?.length || 0}개</span>
-                                    </div>
-                                    <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded">
-                                        <span className="text-[10px] text-slate-500 block">옵션 커버리지</span>
-                                        <span className="text-sm font-mono font-bold text-emerald-400">{report?.meta?.optionsStatus?.coveragePct || 0}%</span>
-                                    </div>
-                                    <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded">
-                                        <span className="text-[10px] text-slate-500 block">생성 시각</span>
-                                        <span className="text-sm font-mono font-bold text-slate-300">{report?.meta?.generatedAtET?.split(' ')[1]?.slice(0, 5) || '—'}</span>
+                                {/* Summary Stats */}
+                                <div className="flex flex-col sm:flex-row items-center gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded">
+                                            <span className="text-[10px] text-slate-500 block">분석 종목</span>
+                                            <span className="text-sm font-mono font-bold text-white">{alphaItems?.length || 0}개</span>
+                                        </div>
+                                        <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded">
+                                            <span className="text-[10px] text-slate-500 block">옵션 커버리지</span>
+                                            <span className="text-sm font-mono font-bold text-emerald-400">{report?.meta?.optionsStatus?.coveragePct || 0}%</span>
+                                        </div>
+                                        <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded">
+                                            <span className="text-[10px] text-slate-500 block">생성 시각</span>
+                                            <span className="text-sm font-mono font-bold text-slate-300">{report?.meta?.generatedAtET?.split(' ')[1]?.slice(0, 5) || '—'}</span>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        </section>
+                            </section>
 
-                        {/* [V6.0] PREMIUM ALPHA CARD GRID */}
-                        <FinalBattleSection
-                            items={alphaItems}
-                            isLoading={isLoading}
-                            onItemClick={(item) => {
-                                const tickerItem = sortedItems.find(t => t.ticker === item.ticker);
-                                if (tickerItem) setSelectedTicker(tickerItem);
-                            }}
-                        />
+                            {/* [V6.0] PREMIUM ALPHA CARD GRID */}
+                            <FinalBattleSection
+                                items={alphaItems}
+                                isLoading={isLoading}
+                                onItemClick={(item) => {
+                                    const tickerItem = sortedItems.find(t => t.ticker === item.ticker);
+                                    if (tickerItem) setSelectedTicker(tickerItem);
+                                }}
+                            />
 
-                        {/* NOTE: Legacy sections below can be removed once Premium Cards are validated */}
-                        {false && (
-                            <>
-                                {/* 2. MAIN CORPS (Top 3) */}
-                                <section>
-                                    <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
-                                        <Zap className="w-5 h-5 text-emerald-500" />
-                                        MAIN CORPS (주력군)
-                                        <span className="text-[10px] text-slate-500 font-normal uppercase tracking-widest ml-2">Data Verified • High Probability</span>
-                                    </h2>
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                                        {isLoading ? (
-                                            [1, 2, 3].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
-                                        ) : (
-                                            top3.map((item, idx) => (
-                                                <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
-                                                    <TacticalCard
-                                                        ticker={item.ticker}
-                                                        rank={idx + 1}
-                                                        price={item.evidence.price.last}
-                                                        // [Fix] Calculate implied absolute change from changePct if absolute change is missing
-                                                        // changePct is e.g. 2.25. Last is 445.61.
-                                                        // Prev = Last / (1 + Pct/100) -> 435.80
-                                                        // Change = Last - Prev -> 9.81
-                                                        change={
-                                                            (item.evidence.price.last && item.evidence.price.changePct
-                                                                ? item.evidence.price.last - (item.evidence.price.last / (1 + (item.evidence.price.changePct / 100)))
-                                                                : 0)
-                                                        }
-                                                        entryBand={
-                                                            item.entryBand
-                                                                ? { min: item.entryBand.low, max: item.entryBand.high }
-                                                                : (item.decisionSSOT?.entryBand || undefined)
-                                                        }
-                                                        cutPrice={item.decisionSSOT?.cutPrice}
-                                                        isLocked={item.decisionSSOT?.isLocked}
-                                                        name={item.symbol}
-                                                        rsi={item.evidence.price.rsi14}
-                                                        score={item.alphaScore}
-                                                        isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
-                                                        reasonKR={item.decisionSSOT?.whaleReasonKR || item.qualityReasonKR}
-                                                        extendedPrice={item.evidence.price.extendedPrice}
-                                                        extendedChange={item.evidence.price.extendedChangePct}
-                                                        extendedLabel={item.evidence.price.extendedLabel}
-                                                        // [V4.1] Sniper Data Injection
-                                                        whaleTargetLevel={item.decisionSSOT?.whaleTargetLevel}
-                                                        whaleConfidence={item.decisionSSOT?.whaleConfidence}
-                                                        dominantContract={item.decisionSSOT?.dominantContract}
-                                                        triggers={item.decisionSSOT?.triggersKR}
-                                                        // [V4.2] Market Status Override
-                                                        isClosed={report?.marketState?.session === 'CLOSED' || report?.marketState?.session === 'PRE'}
-                                                    />
-                                                </div>
-                                            ))
-                                        )}
-                                    </div>
-                                </section>
-
-                                {/* 3. ALPHA 12 SCAN TABLE (Places 4-10) */}
-                                <section>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-                                            <Search className="w-5 h-5 text-slate-400" />
-                                            Live Scan (Core)
+                            {/* NOTE: Legacy sections below can be removed once Premium Cards are validated */}
+                            {false && (
+                                <>
+                                    {/* 2. MAIN CORPS (Top 3) */}
+                                    <section>
+                                        <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
+                                            <Zap className="w-5 h-5 text-emerald-500" />
+                                            MAIN CORPS (주력군)
+                                            <span className="text-[10px] text-slate-500 font-normal uppercase tracking-widest ml-2">Data Verified • High Probability</span>
                                         </h2>
-                                    </div>
+                                        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                                            {isLoading ? (
+                                                [1, 2, 3].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
+                                            ) : (
+                                                top3.map((item, idx) => (
+                                                    <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
+                                                        <TacticalCard
+                                                            ticker={item.ticker}
+                                                            rank={idx + 1}
+                                                            price={item.evidence.price.last}
+                                                            // [Fix] Calculate implied absolute change from changePct if absolute change is missing
+                                                            // changePct is e.g. 2.25. Last is 445.61.
+                                                            // Prev = Last / (1 + Pct/100) -> 435.80
+                                                            // Change = Last - Prev -> 9.81
+                                                            change={
+                                                                (item.evidence.price.last && item.evidence.price.changePct
+                                                                    ? item.evidence.price.last - (item.evidence.price.last / (1 + (item.evidence.price.changePct / 100)))
+                                                                    : 0)
+                                                            }
+                                                            entryBand={
+                                                                item.entryBand
+                                                                    ? { min: item.entryBand.low, max: item.entryBand.high }
+                                                                    : (item.decisionSSOT?.entryBand || undefined)
+                                                            }
+                                                            cutPrice={item.decisionSSOT?.cutPrice}
+                                                            isLocked={item.decisionSSOT?.isLocked}
+                                                            name={item.symbol}
+                                                            rsi={item.evidence.price.rsi14}
+                                                            score={item.alphaScore}
+                                                            isDayTradeOnly={(item as any).risk?.isDayTradeOnly}
+                                                            reasonKR={item.decisionSSOT?.whaleReasonKR || item.qualityReasonKR}
+                                                            extendedPrice={item.evidence.price.extendedPrice}
+                                                            extendedChange={item.evidence.price.extendedChangePct}
+                                                            extendedLabel={item.evidence.price.extendedLabel}
+                                                            // [V4.1] Sniper Data Injection
+                                                            whaleTargetLevel={item.decisionSSOT?.whaleTargetLevel}
+                                                            whaleConfidence={item.decisionSSOT?.whaleConfidence}
+                                                            dominantContract={item.decisionSSOT?.dominantContract}
+                                                            triggers={item.decisionSSOT?.triggersKR}
+                                                            // [V4.2] Market Status Override
+                                                            isClosed={report?.marketState?.session === 'CLOSED' || report?.marketState?.session === 'PRE'}
+                                                        />
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    </section>
 
-                                    <div className="bg-white/5 backdrop-blur-[12px] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                                        <div className="overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                                            <style jsx>{`
+                                    {/* 3. ALPHA 12 SCAN TABLE (Places 4-10) */}
+                                    <section>
+                                        <div className="flex justify-between items-center mb-4">
+                                            <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+                                                <Search className="w-5 h-5 text-slate-400" />
+                                                Live Scan (Core)
+                                            </h2>
+                                        </div>
+
+                                        <div className="bg-white/5 backdrop-blur-[12px] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                                            <div className="overflow-x-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                                                <style jsx>{`
                                         div::-webkit-scrollbar {
                                             display: none;
                                         }
                                     `}</style>
-                                            <table className="w-full text-left border-collapse">
-                                                <thead>
-                                                    <tr className="bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                                        <th className="p-4 w-[60px] text-center">Rank</th>
-                                                        <th className="p-4 w-[120px]">Ticker</th>
-                                                        <th className="p-4 text-right">Score</th>
-                                                        <th className="p-4 text-right">Price</th>
-                                                        <th className="p-4 text-right">Flow</th>
-                                                        <th className="p-4 text-center">Options</th>
-                                                        <th className="p-4 hidden md:table-cell">Triggers</th>
-                                                        <th className="p-4 text-center">Action</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y-0">
-                                                    {isLoading ? (
-                                                        [1, 2, 3].map(i => (
-                                                            <tr key={i}><td colSpan={8} className="p-4"><Skeleton className="h-12 w-full bg-white/5" /></td></tr>
-                                                        ))
-                                                    ) : (
-                                                        middle7.map((item, idx) => {
-                                                            const ev = item.evidence;
-                                                            if (!ev) return null;
-                                                            const optStatus = getOptionsStatus(ev.options?.status);
-                                                            const actStyle = getActionStyle(item.decisionSSOT?.action);
-                                                            const realRank = (item as any).rank || (idx + 4);
+                                                <table className="w-full text-left border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                            <th className="p-4 w-[60px] text-center">Rank</th>
+                                                            <th className="p-4 w-[120px]">Ticker</th>
+                                                            <th className="p-4 text-right">Score</th>
+                                                            <th className="p-4 text-right">Price</th>
+                                                            <th className="p-4 text-right">Flow</th>
+                                                            <th className="p-4 text-center">Options</th>
+                                                            <th className="p-4 hidden md:table-cell">Triggers</th>
+                                                            <th className="p-4 text-center">Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y-0">
+                                                        {isLoading ? (
+                                                            [1, 2, 3].map(i => (
+                                                                <tr key={i}><td colSpan={8} className="p-4"><Skeleton className="h-12 w-full bg-white/5" /></td></tr>
+                                                            ))
+                                                        ) : (
+                                                            middle7.map((item, idx) => {
+                                                                const ev = item.evidence;
+                                                                if (!ev) return null;
+                                                                const optStatus = getOptionsStatus(ev.options?.status);
+                                                                const actStyle = getActionStyle(item.decisionSSOT?.action);
+                                                                const realRank = (item as any).rank || (idx + 4);
 
-                                                            return (
-                                                                <tr key={item.ticker}
-                                                                    onClick={() => setSelectedTicker(item)}
-                                                                    className={`cursor-pointer transition-all duration-200 hover:bg-white/10 hover:backdrop-blur-md border-b border-white/5 last:border-0 group`}
-                                                                >
-                                                                    <td className="p-4 text-center font-mono text-xs text-slate-400 font-bold group-hover:text-white transition-colors">
-                                                                        {realRank}
-                                                                    </td>
-                                                                    <td className="p-4">
-                                                                        <div className="flex items-center gap-3">
-                                                                            <div>
-                                                                                <span className="block text-sm font-black text-slate-100 group-hover:text-cyan-300 transition-colors tracking-tight">{item.ticker}</span>
-                                                                                <span className="block text-[10px] text-slate-400 group-hover:text-slate-300">{item.symbol || item.ticker}</span>
+                                                                return (
+                                                                    <tr key={item.ticker}
+                                                                        onClick={() => setSelectedTicker(item)}
+                                                                        className={`cursor-pointer transition-all duration-200 hover:bg-white/10 hover:backdrop-blur-md border-b border-white/5 last:border-0 group`}
+                                                                    >
+                                                                        <td className="p-4 text-center font-mono text-xs text-slate-400 font-bold group-hover:text-white transition-colors">
+                                                                            {realRank}
+                                                                        </td>
+                                                                        <td className="p-4">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div>
+                                                                                    <span className="block text-sm font-black text-slate-100 group-hover:text-cyan-300 transition-colors tracking-tight">{item.ticker}</span>
+                                                                                    <span className="block text-[10px] text-slate-400 group-hover:text-slate-300">{item.symbol || item.ticker}</span>
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="p-4 text-right">
-                                                                        <div className="flex items-center justify-end gap-2">
-                                                                            <div className="w-16 bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
-                                                                                <div className="h-full bg-indigo-500" style={{ width: `${item.alphaScore || 0}%` }} />
+                                                                        </td>
+                                                                        <td className="p-4 text-right">
+                                                                            <div className="flex items-center justify-end gap-2">
+                                                                                <div className="w-16 bg-slate-800/50 rounded-full h-1.5 overflow-hidden">
+                                                                                    <div className="h-full bg-indigo-500" style={{ width: `${item.alphaScore || 0}%` }} />
+                                                                                </div>
+                                                                                <span className="font-mono font-bold text-sm text-white">{item.alphaScore?.toFixed(0) || "-"}</span>
                                                                             </div>
-                                                                            <span className="font-mono font-bold text-sm text-white">{item.alphaScore?.toFixed(0) || "-"}</span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="p-4 text-right">
-                                                                        <div className="flex flex-col items-end">
-                                                                            <span className="text-sm font-mono font-bold text-slate-200">${ev.price.last.toFixed(2)}</span>
-                                                                            <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                                                {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
-                                                                            </span>
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="p-4 text-right">
-                                                                        <div className="flex flex-col items-end">
-                                                                            {ev.flow.complete ? (
-                                                                                <>
-                                                                                    <span className={`text-xs font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-400"}`}>
-                                                                                        {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1000000).toFixed(1)}M` : "-"}
-                                                                                    </span>
-                                                                                </>
-                                                                            ) : (
-                                                                                <span className="text-[10px] font-mono text-slate-500">
-                                                                                    Waiting...
+                                                                        </td>
+                                                                        <td className="p-4 text-right">
+                                                                            <div className="flex flex-col items-end">
+                                                                                <span className="text-sm font-mono font-bold text-slate-200">${ev.price.last.toFixed(2)}</span>
+                                                                                <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                                    {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
                                                                                 </span>
-                                                                            )}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="p-4 text-center">
-                                                                        <span className={`inline-flex w-2.5 h-2.5 rounded-full ring-2 ring-white/10 ${optStatus.color}`} title={optStatus.label} />
-                                                                    </td>
-                                                                    <td className="p-4 hidden md:table-cell">
-                                                                        <div className="flex flex-wrap gap-1 justify-end md:justify-start">
-                                                                            {(item.decisionSSOT?.triggersKR || []).length > 0 ? (
-                                                                                (item.decisionSSOT?.triggersKR || []).slice(0, 2).map((code, i) => {
-                                                                                    return (
-                                                                                        <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/5 border border-white/10 text-slate-300">
-                                                                                            {code}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-4 text-right">
+                                                                            <div className="flex flex-col items-end">
+                                                                                {ev.flow.complete ? (
+                                                                                    <>
+                                                                                        <span className={`text-xs font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-400"}`}>
+                                                                                            {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1000000).toFixed(1)}M` : "-"}
                                                                                         </span>
-                                                                                    );
-                                                                                })
-                                                                            ) : (
-                                                                                <span className="text-[9px] text-slate-500 italic">장 마감</span>
-                                                                            )}
-                                                                        </div>
-                                                                    </td>
-                                                                    <td className="p-4 text-center">
-                                                                        <span className={`px-2 py-1 rounded text-[10px] font-bold border border-opacity-30 backdrop-blur-sm ${actStyle}`}>
-                                                                            {item.decisionSSOT?.action || "WATCH"}
-                                                                        </span>
-                                                                    </td>
-                                                                </tr>
-                                                            );
-                                                        })
-                                                    )}
-                                                </tbody>
-                                            </table>
+                                                                                    </>
+                                                                                ) : (
+                                                                                    <span className="text-[10px] font-mono text-slate-500">
+                                                                                        Waiting...
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-4 text-center">
+                                                                            <span className={`inline-flex w-2.5 h-2.5 rounded-full ring-2 ring-white/10 ${optStatus.color}`} title={optStatus.label} />
+                                                                        </td>
+                                                                        <td className="p-4 hidden md:table-cell">
+                                                                            <div className="flex flex-wrap gap-1 justify-end md:justify-start">
+                                                                                {(item.decisionSSOT?.triggersKR || []).length > 0 ? (
+                                                                                    (item.decisionSSOT?.triggersKR || []).slice(0, 2).map((code, i) => {
+                                                                                        return (
+                                                                                            <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/5 border border-white/10 text-slate-300">
+                                                                                                {code}
+                                                                                            </span>
+                                                                                        );
+                                                                                    })
+                                                                                ) : (
+                                                                                    <span className="text-[9px] text-slate-500 italic">장 마감</span>
+                                                                                )}
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="p-4 text-center">
+                                                                            <span className={`px-2 py-1 rounded text-[10px] font-bold border border-opacity-30 backdrop-blur-sm ${actStyle}`}>
+                                                                                {item.decisionSSOT?.action || "WATCH"}
+                                                                            </span>
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </section>
+
+                                    {/* 4. MOONSHOT SECTION (10+2) */}
+                                    {moonshot.length > 0 && (
+                                        <section>
+                                            <h2 className="text-lg font-bold text-rose-200 mb-4 flex items-center gap-2">
+                                                <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
+                                                Moonshot Zone (High Risk)
+                                            </h2>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                {moonshot.map((item, idx) => (
+                                                    <div key={item.ticker}
+                                                        onClick={() => setSelectedTicker(item)}
+                                                        className="cursor-pointer bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-xl p-6 relative overflow-hidden group hover:border-rose-500/50 transition-colors">
+
+                                                        <div className="absolute top-0 right-0 p-2 opacity-50">
+                                                            <Activity className="w-12 h-12 text-rose-900/20" />
+                                                        </div>
+
+                                                        <div className="flex justify-between items-start mb-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-8 h-8 rounded-full bg-rose-950 flex items-center justify-center border border-rose-900 text-rose-500 font-bold font-mono">
+                                                                    {(item as any).rank || (idx + 11)}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-xl font-black text-white">{item.ticker}</div>
+                                                                    <div className="text-[10px] text-rose-400/80 font-bold uppercase tracking-wider">Gamma Play</div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="text-lg font-mono text-rose-200">${item.evidence.price.last.toFixed(2)}</div>
+                                                                <div className={`text-xs font-bold ${item.evidence.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                    {item.evidence.price.changePct > 0 ? "+" : ""}{item.evidence.price.changePct.toFixed(2)}%
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            <div className="flex justify-between text-xs border-t border-rose-900/30 pt-2">
+                                                                <span className="text-slate-500">RSI (14)</span>
+                                                                <span className="text-slate-300 font-mono">
+                                                                    {item.evidence.price.rsi14 && item.evidence.price.rsi14 !== 50
+                                                                        ? item.evidence.price.rsi14.toFixed(0)
+                                                                        : "--"}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex justify-between text-xs">
+                                                                <span className="text-slate-500">Target</span>
+                                                                <span className="text-rose-300 font-mono">${(item.evidence.price.last * 1.15).toFixed(2)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </section>
+                                    )}
+
+                                </>
+                            )}
+
+
+                            {isDebug && report && (
+                                <section className="bg-slate-900 p-4 rounded border border-indigo-500/30 overflow-x-auto">
+                                    <h3 className="text-xs font-bold text-indigo-400 mb-2 font-mono">DEBUG INSPECTOR (?debug=1)</h3>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div>
+                                            <h4 className="text-[10px] font-bold text-slate-500 uppercase">Engine Stats</h4>
+                                            <pre className="text-[10px] text-slate-400 font-mono mt-1">
+                                                {JSON.stringify(report.engine?.counts || {}, null, 2)}
+                                            </pre>
+                                        </div>
+                                        <div>
+                                            <h4 className="text-[10px] font-bold text-slate-500 uppercase">Options Status</h4>
+                                            <pre className="text-[10px] text-slate-400 font-mono mt-1">
+                                                {JSON.stringify(report.meta?.optionsStatus || {}, null, 2)}
+                                            </pre>
                                         </div>
                                     </div>
                                 </section>
+                            )}
 
-                                {/* 4. MOONSHOT SECTION (10+2) */}
-                                {moonshot.length > 0 && (
-                                    <section>
-                                        <h2 className="text-lg font-bold text-rose-200 mb-4 flex items-center gap-2">
-                                            <AlertTriangle className="w-5 h-5 text-rose-500 animate-pulse" />
-                                            Moonshot Zone (High Risk)
-                                        </h2>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            {moonshot.map((item, idx) => (
-                                                <div key={item.ticker}
-                                                    onClick={() => setSelectedTicker(item)}
-                                                    className="cursor-pointer bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-xl p-6 relative overflow-hidden group hover:border-rose-500/50 transition-colors">
+                            <footer className="text-center pb-8 pt-4">
+                                <p suppressHydrationWarning className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">
+                                    GEMS v8.1 Unified Engine • Iron Man HUD Active ({new Date().toLocaleTimeString()})
+                                </p>
+                            </footer>
 
-                                                    <div className="absolute top-0 right-0 p-2 opacity-50">
-                                                        <Activity className="w-12 h-12 text-rose-900/20" />
-                                                    </div>
-
-                                                    <div className="flex justify-between items-start mb-4">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="w-8 h-8 rounded-full bg-rose-950 flex items-center justify-center border border-rose-900 text-rose-500 font-bold font-mono">
-                                                                {(item as any).rank || (idx + 11)}
-                                                            </div>
-                                                            <div>
-                                                                <div className="text-xl font-black text-white">{item.ticker}</div>
-                                                                <div className="text-[10px] text-rose-400/80 font-bold uppercase tracking-wider">Gamma Play</div>
-                                                            </div>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <div className="text-lg font-mono text-rose-200">${item.evidence.price.last.toFixed(2)}</div>
-                                                            <div className={`text-xs font-bold ${item.evidence.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                                {item.evidence.price.changePct > 0 ? "+" : ""}{item.evidence.price.changePct.toFixed(2)}%
-                                                            </div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="space-y-2">
-                                                        <div className="flex justify-between text-xs border-t border-rose-900/30 pt-2">
-                                                            <span className="text-slate-500">RSI (14)</span>
-                                                            <span className="text-slate-300 font-mono">
-                                                                {item.evidence.price.rsi14 && item.evidence.price.rsi14 !== 50
-                                                                    ? item.evidence.price.rsi14.toFixed(0)
-                                                                    : "--"}
-                                                            </span>
-                                                        </div>
-                                                        <div className="flex justify-between text-xs">
-                                                            <span className="text-slate-500">Target</span>
-                                                            <span className="text-rose-300 font-mono">${(item.evidence.price.last * 1.15).toFixed(2)}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </section>
-                                )}
-
-                            </>
-                        )}
-
-
-                        {isDebug && report && (
-                            <section className="bg-slate-900 p-4 rounded border border-indigo-500/30 overflow-x-auto">
-                                <h3 className="text-xs font-bold text-indigo-400 mb-2 font-mono">DEBUG INSPECTOR (?debug=1)</h3>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <h4 className="text-[10px] font-bold text-slate-500 uppercase">Engine Stats</h4>
-                                        <pre className="text-[10px] text-slate-400 font-mono mt-1">
-                                            {JSON.stringify(report.engine?.counts || {}, null, 2)}
-                                        </pre>
-                                    </div>
-                                    <div>
-                                        <h4 className="text-[10px] font-bold text-slate-500 uppercase">Options Status</h4>
-                                        <pre className="text-[10px] text-slate-400 font-mono mt-1">
-                                            {JSON.stringify(report.meta?.optionsStatus || {}, null, 2)}
-                                        </pre>
-                                    </div>
-                                </div>
-                            </section>
-                        )}
-
-                        <footer className="text-center pb-8 pt-4">
-                            <p suppressHydrationWarning className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">
-                                GEMS v8.1 Unified Engine • Iron Man HUD Active ({new Date().toLocaleTimeString()})
-                            </p>
-                        </footer>
-
-                    </div> {/* End Final Battle Wrapper */}
+                        </div>
+                    )} {/* End Final Battle Wrapper */}
 
                 </div>
 

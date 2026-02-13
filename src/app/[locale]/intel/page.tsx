@@ -7,59 +7,12 @@ interface PageProps {
     params: Promise<{ locale: string }>;
 }
 
-// [PERF] SSR prefetch — load report on server, slim down payload for fast initial render
-async function prefetchReport() {
-    try {
-        const { getGlobalLatestReport } = await import('@/services/reportScheduler');
-        const report = await getGlobalLatestReport();
-        if (!report) return null;
-
-        // Slim down: keep structure but strip heavy evidence blobs from items
-        // Client will re-fetch full data if needed for detail views
-        const slimItems = (report.items || []).map((item: any) => {
-            const evidence = item.evidence || {};
-            return {
-                ...item,
-                evidence: {
-                    price: evidence.price ? {
-                        last: evidence.price.last,
-                        prevClose: evidence.price.prevClose,
-                        changePct: evidence.price.changePct,
-                        priceSource: evidence.price.priceSource,
-                    } : undefined,
-                    options: evidence.options ? {
-                        callWall: evidence.options.callWall,
-                        putFloor: evidence.options.putFloor,
-                    } : undefined,
-                    flow: evidence.flow ? {
-                        vol: evidence.flow.vol,
-                        netPremium: evidence.flow.netPremium,
-                        netFlow: evidence.flow.netFlow,
-                        largeTradesUsd: evidence.flow.largeTradesUsd,
-                    } : undefined,
-                },
-            };
-        });
-
-        return {
-            ...report,
-            items: slimItems,
-            // Strip heavy raw data arrays that aren't needed for card rendering
-            _rawGainers: undefined,
-            _rawActives: undefined,
-            _rawSectors: undefined,
-        };
-    } catch (e) {
-        console.error('[Intel SSR] Failed to prefetch report:', e);
-        return null;
-    }
-}
+// [PERF v2] SSR prefetch REMOVED — was blocking HTML delivery for 2-3s.
+// Client-side useIntelSharedData + fetchReport already loads data in parallel.
+// Removing SSR prefetch lets Next.js send HTML instantly (no server-side await).
 
 export default async function IntelPage({ params }: PageProps) {
     const { locale } = await params;
-
-    // Fetch report data during SSR — data is embedded in HTML, no client-side wait
-    const initialReport = await prefetchReport();
 
     return (
         <div className="flex flex-col min-h-screen bg-[#05090f]">
@@ -75,7 +28,7 @@ export default async function IntelPage({ params }: PageProps) {
                         </div>
                     </div>
                 }>
-                    <IntelClientPage initialReport={initialReport} locale={locale} />
+                    <IntelClientPage initialReport={null} locale={locale} />
                 </Suspense>
             </div>
         </div>
