@@ -251,21 +251,29 @@ export const useDashboardStore = create<DashboardState>()(
                     const currentTickers = { ...get().tickers };
                     let changed = false;
 
+                    // Map API session strings to store session format
+                    const sessionMap: Record<string, string> = {
+                        'pre': 'PRE', 'regular': 'REG', 'post': 'POST', 'closed': 'CLOSED',
+                        'PRE': 'PRE', 'REG': 'REG', 'POST': 'POST', 'CLOSED': 'CLOSED'
+                    };
+
                     for (const [ticker, q] of Object.entries(quotes) as [string, any][]) {
                         if (!q || !currentTickers[ticker]) continue;
                         const existing = currentTickers[ticker];
                         const isAfterHours = q.session === 'post' || q.session === 'closed';
+                        const mappedSession = sessionMap[q.session] || existing.session || 'CLOSED';
+
+                        // [FIX] Always update session if it changed (critical for PRE→REG transitions)
+                        const sessionChanged = mappedSession !== existing.session;
 
                         if (isAfterHours) {
                             // [FIX v2] POST/CLOSED: Do NOT touch underlyingPrice or display.price
-                            // Full poll sets underlyingPrice from Polygon snapshot (may include post-market),
-                            // and display.price from /api/live/ticker (regularClose).
-                            // Overwriting either causes oscillation between the two sources.
                             // Only update extended badge fields here.
                             const hasNewExtended = q.extendedPrice > 0;
-                            if (hasNewExtended) {
+                            if (hasNewExtended || sessionChanged) {
                                 currentTickers[ticker] = {
                                     ...existing,
+                                    session: mappedSession as any,
                                     extended: {
                                         ...existing.extended,
                                         postPrice: q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
@@ -282,15 +290,16 @@ export const useDashboardStore = create<DashboardState>()(
                             const newPrice = q.extendedPrice && q.extendedPrice > 0
                                 ? q.extendedPrice
                                 : q.price || q.latestPrice;
-                            if (newPrice && newPrice !== existing.underlyingPrice) {
+                            if ((newPrice && newPrice !== existing.underlyingPrice) || sessionChanged) {
                                 currentTickers[ticker] = {
                                     ...existing,
-                                    underlyingPrice: newPrice,
+                                    underlyingPrice: newPrice || existing.underlyingPrice,
                                     changePercent: q.changePercent ?? existing.changePercent,
                                     prevClose: q.previousClose ?? q.prevClose ?? existing.prevClose,
+                                    session: mappedSession as any,
                                     display: {
                                         ...existing.display,
-                                        price: newPrice,
+                                        price: newPrice || existing.display?.price,
                                         changePctPct: q.changePercent ?? existing.display?.changePctPct,
                                     },
                                     extended: {
