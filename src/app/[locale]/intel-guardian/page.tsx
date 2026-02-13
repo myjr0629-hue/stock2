@@ -426,7 +426,7 @@ export default function GuardianPage() {
                                     <div className="overflow-hidden mb-2">
                                         <h4 className={`text-sm font-bold mb-2 uppercase tracking-wide ${verdict.color}`}>{verdict.title}</h4>
                                         <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                            <TypewriterText text={verdict.desc} speed={10} />
+                                            {renderColoredText(verdict.desc)}
                                         </div>
                                     </div>
 

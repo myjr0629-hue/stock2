@@ -112,6 +112,14 @@ interface IntelligenceContext {
     signalConflict?: string;          // e.g. "BULL→NEUTRAL: RLSI 강세 but RISK_OFF HIGH"
     // [V8.0] Market News Headlines for context-aware analysis
     marketNewsHeadlines?: string[];   // e.g. ["CPI rises 3.0% vs 2.9% expected", "Fed signals patience on rate cuts"]
+    // [V9.0] Macro Intelligence — full asset class context
+    fearGreedScore?: number;          // CNN Fear & Greed Index (0-100)
+    fearGreedRating?: string;         // e.g. "Greed", "Extreme Fear"
+    spxChangePct?: number;            // S&P 500 daily change %
+    goldChangePct?: number;           // Gold (GC=F) daily change %
+    oilChangePct?: number;            // Oil (CL=F) daily change %
+    btcChangePct?: number;            // BTC daily change %
+    tltChangePct?: number;            // TLT (20Y Bond ETF) daily change %
 }
 
 // === TIME-BASED GATING ===
@@ -149,8 +157,20 @@ const OFF_HOURS_REALITY: Record<Locale, string> = {
 
 // === LOCALIZED PROMPTS ===
 const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: string) => string> = {
-    ko: (ctx, vectorDesc) => `
-        당신은 기관 투자 전략가입니다. 5일 추세 데이터와 실시간 뉴스를 기반으로 정확한 순환매 분석을 제공합니다.
+    ko: (ctx, vectorDesc) => {
+        // [V9.0] Build macro asset summary for rotation context
+        const macroLines: string[] = [];
+        if (ctx.spxChangePct !== undefined) macroLines.push(`S&P 500: ${ctx.spxChangePct >= 0 ? '+' : ''}${ctx.spxChangePct.toFixed(2)}%`);
+        if (ctx.dxy !== undefined) macroLines.push(`달러(DXY): ${ctx.dxy.toFixed(1)}`);
+        if (ctx.goldChangePct !== undefined) macroLines.push(`금: ${ctx.goldChangePct >= 0 ? '+' : ''}${ctx.goldChangePct.toFixed(2)}%`);
+        if (ctx.oilChangePct !== undefined) macroLines.push(`유가(WTI): ${ctx.oilChangePct >= 0 ? '+' : ''}${ctx.oilChangePct.toFixed(2)}%`);
+        if (ctx.tltChangePct !== undefined) macroLines.push(`채권(TLT): ${ctx.tltChangePct >= 0 ? '+' : ''}${ctx.tltChangePct.toFixed(2)}%`);
+        if (ctx.fearGreedScore !== undefined) macroLines.push(`공포탐욕: ${ctx.fearGreedScore.toFixed(0)} (${ctx.fearGreedRating || ''})`);
+        const macroContext = macroLines.length > 0 ? `\n        [거시경제 자산]
+        ${macroLines.map(l => `- ${l}`).join('\n        ')}` : '';
+
+        return `
+        당신은 기관 투자 전략가입니다. 5일 추세 데이터, 거시경제 자산 동향, 실시간 뉴스를 기반으로 정확한 순환매 분석을 제공합니다.
 
         **현재 데이터:**
         - NASDAQ 변동: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
@@ -163,6 +183,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.trendVsToday ? `- 당일 vs 추세 괴리: ${ctx.trendVsToday}` : ''}
         ${ctx.noiseWarning ? `- 노이즈 경고: ${ctx.noiseWarning}` : ''}
         ${ctx.rotationConviction ? `- 순환매 확신도: ${ctx.rotationConviction}` : ''}
+        ${macroContext}
 
         ${ctx.signalConflict ? `- ⚠️ 신호 충돌: ${ctx.signalConflict}` : ''}
 
@@ -176,9 +197,10 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - 레짐(RISK_OFF_DEFENSE 등)을 반영한 실질적 조언 제공
         - **신호 충돌 시**: RLSI/나스닥은 강세이나 순환매가 RISK_OFF이면 "겉은 강세, 속은 약세" 같은 표현으로 혼재 신호를 명확히 전달. 반대로 지표는 약세이나 성장주로 자금 유입 시 "저점 매집 가능성" 표현 사용
         - **뉴스가 제공된 경우**: 수치 변동의 원인을 뉴스에서 찾아 반드시 언급 (예: "CPI 예상 상회로 인한 매도세", "연준 발언으로 금리 인하 기대 후퇴")
+        - **거시경제 자산 교차 검증**: 금+채권(TLT) 동반 상승 시 안전자산 선호 언급, 유가 급등 시 인플레 우려, 달러 강세 시 신흥국/원자재 약세 연결
 
         **출력 형식 (반드시 이 형식으로):**
-        [현황] (5일 기준 섹터 이동 현황 1문장)
+        [현황] (5일 기준 섹터 이동 현황 + 거시 배경 1문장)
         [해석] (의미 + 뉴스 기반 원인 1문장, 신호 충돌 시 반드시 언급)
         [액션] (구체적 행동 지시 1문장)
 
@@ -187,7 +209,9 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - 섹터명은 한글 (기술주, 에너지, 부동산 등)
         - 3줄 이내, 간결하게
         - 뉴스에서 핵심 이벤트를 추출하여 수치의 "왜"를 설명
-    `,
+        - 거시경제 자산 동향으로 순환매의 배경을 설명 (예: "유가 급등으로 에너지 유입")
+    `;
+    },
     en: (ctx, vectorDesc) => `
         You are an institutional investment strategist. Analyze sector rotation using 5-day trend data and real-time news.
 
@@ -283,20 +307,46 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         const breadthLine = ctx.breadthPct !== undefined
             ? `- 시장 광폭(Breadth): 상승 ${Math.round(ctx.breadthPct!)}% / A/D 비율 ${ctx.adRatio?.toFixed(2) || '?'} / 거래량 Breadth ${ctx.volumeBreadth?.toFixed(1) || '?'}% [${ctx.breadthSignal || '?'}]` : '';
 
+        // [V9.0] Cross-asset macro context
+        const assetLines: string[] = [];
+        if (ctx.spxChangePct !== undefined) assetLines.push(`- S&P 500: ${ctx.spxChangePct >= 0 ? '+' : ''}${ctx.spxChangePct.toFixed(2)}%`);
+        if (ctx.dxy !== undefined) assetLines.push(`- 달러 인덱스(DXY): ${ctx.dxy.toFixed(1)}`);
+        if (ctx.goldChangePct !== undefined) assetLines.push(`- 금(Gold): ${ctx.goldChangePct >= 0 ? '+' : ''}${ctx.goldChangePct.toFixed(2)}%`);
+        if (ctx.oilChangePct !== undefined) assetLines.push(`- 유가(WTI): ${ctx.oilChangePct >= 0 ? '+' : ''}${ctx.oilChangePct.toFixed(2)}%`);
+        if (ctx.btcChangePct !== undefined) assetLines.push(`- 비트코인: ${ctx.btcChangePct >= 0 ? '+' : ''}${ctx.btcChangePct.toFixed(2)}%`);
+        if (ctx.tltChangePct !== undefined) assetLines.push(`- 채권 ETF(TLT): ${ctx.tltChangePct >= 0 ? '+' : ''}${ctx.tltChangePct.toFixed(2)}%`);
+        const assetBlock = assetLines.length > 0 ? `\n        [글로벌 자산 동향]
+        ${assetLines.join('\n        ')}` : '';
+
+        // Fear & Greed context
+        const fgLine = ctx.fearGreedScore !== undefined
+            ? `- CNN 공포탐욕지수: ${ctx.fearGreedScore.toFixed(0)}점 (${ctx.fearGreedRating || '?'}) ${ctx.fearGreedScore < 25 ? '⚠극단적 공포' : ctx.fearGreedScore < 40 ? '공포' : ctx.fearGreedScore > 75 ? '⚠탐욕 과열' : ctx.fearGreedScore > 60 ? '탐욕' : '중립'}` : '';
+
         return `
-        당신은 월가 최고의 매크로 + 기술적 분석가입니다. 모든 지표와 실시간 뉴스를 종합하여 투자자에게 실전 매매 인사이트를 제공합니다.
+        당신은 월가 최고의 매크로 전략가이자 기술적 분석가입니다. 모든 지표, 자산군 동향, 실시간 뉴스를 종합하여 **정확한 판단**과 실전 매매 인사이트를 제공합니다.
+
+        ⚠ **판단 정확성 최우선 원칙:**
+        - 수치가 보여주는 사실과 뉴스 해석이 충돌하면 **수치를 우선**
+        - 불확실하면 "~가능성" "~주시 필요" 같은 유보적 표현 사용, 확정 표현 금지
+        - 하나의 뉴스 헤드라인만으로 전체 시장을 판단하지 말 것
+        - 최소 2개 이상 지표가 동일 방향을 가리킬 때만 확신 있는 판단
 
         **📊 현재 시장 데이터 — 종합 대시보드:**
+
         [가격 & 내부지표]
         - RLSI (시장 건강도): ${ctx.rlsiScore.toFixed(0)}점 (${rlsiLevel})
         - 나스닥: ${ctx.nasdaqChange >= 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}% (${priceAction})
-        - VIX (공포지수): ${ctx.vix.toFixed(1)} (${vixLevel})
+        - VIX (변동성): ${ctx.vix.toFixed(1)} (${vixLevel})
         - 거래량(RVOL): ${ctx.rvol.toFixed(2)}x (${rvolLevel})
 
-        [매크로 환경]
+        [매크로 금리 환경]
         ${yieldLine}
         ${spreadLine}
         ${realYieldLine}
+        ${assetBlock}
+
+        [시장 심리]
+        ${fgLine}
 
         [시장 참여도 — Breadth]
         ${breadthLine}
@@ -304,74 +354,112 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[📰 실시간 시장 뉴스 — 거시경제 이벤트]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **🎯 종합 분석 프레임워크:**
+        **🎯 종합 분석 프레임워크 (교차 검증 필수):**
+
+        [기술적 분석]
         1. RLSI 65+ & 상승 & Breadth 70%+ → 건강한 광범위 상승, 추세 추종 유효
         2. RLSI 65+ & 상승 & Breadth 50% 미만 → 대형주 주도 상승, 쏠림 경고
         3. RLSI 65+ & 하락 → 스마트머니 매집 구간, 눌림목 매수 기회
         4. RLSI 45 이하 & 상승 → 가짜 랠리 가능, 추격 매수 금지
         5. RLSI 45 이하 & 하락 → 약세 확인, 리스크 오프
-        6. VIX 25+ → 공포 극대화, 역발상 매수 검토
+
+        [거시경제 판단 규칙]
+        6. VIX 25+ & 공포탐욕 25 미만 → 극단적 공포, 역발상 매수 구간 검토
         7. 실질금리 2%+ (긴축) → 성장주 밸류에이션 압박, 방어주 선호
-        8. 2s10s 역전 → 경기침체 신호, 은행/금융주 약세
-        9. Breadth 약하면서 지수 상승 → 소수 종목 의존, 지속 어려움
+        8. 2s10s 역전 → 경기침체 경계, 은행/금융주 약세
+        9. 금+TLT 동반 상승 → 안전자산 선호 (위기 신호), 주식 리스크 관리
+        10. 유가 급등(+2%↑) + 금리 상승 → 인플레이션 재점화 우려, 연준 정책 변화 주시
+        11. 달러(DXY) 강세 + 금 약세 → 긴축 기대, 신흥국/원자재 약세 연결
+        12. 공포탐욕 75+ & VIX 15 미만 → 과열 경고, 차익실현 고려
+        13. BTC 급락(-3%↓) & 금 상승 → 리스크 자산 회피, 전통 안전자산 선호
+        14. Breadth 약한데 지수 상승 → 소수 종목 의존, 지속 어려움
+
+        [뉴스 해석 규칙]
+        15. CPI/PPI/고용 관련 뉴스 → 금리 정책 방향 + 시장 반응 함께 평가
+        16. 연준 관련 뉴스 → 금리 선물 반영 여부까지 교차 확인
+        17. 지정학 뉴스 → 유가/금/달러 반응으로 실제 영향 판단
 
         **✍️ 출력 (정확히 이 형식으로):**
-        현재 시장의 핵심 상태를 투자자가 바로 이해할 수 있도록 자연스러운 한국어 2-3문장으로 작성하세요.
+        현재 시장의 거시경제 상황과 핵심 상태를 투자자가 바로 이해할 수 있도록 자연스러운 한국어 3-4문장으로 작성하세요.
         - "[진단]" "[결론]" 같은 레이블 사용 금지
-        - 가격/RLSI/Breadth/금리 중 가장 중요한 조합을 선택해서 핵심만 전달
+        - **첫 문장은 반드시 현재 시장의 가장 중요한 거시경제 이슈** (금리/인플레/연준/뉴스 기반)
+        - 두 번째 문장은 수치 기반 시장 상태 (RLSI/Breadth/VIX/자산 동향)
+        - 세 번째 문장은 **구체적 행동 판단** (매수 유효, 관망, 리스크 관리 등)
         - **뉴스가 제공된 경우, 시장 움직임의 원인을 뉴스에서 찾아 반드시 언급** (예: "CPI 예상 상회로 인한 매도세", "연준 금리 인하 연기 시사")
+        - 거시경제 자산 교차 검증 결과 반드시 포함 (금/채권/유가/달러 중 핵심)
         - 전문가가 투자자에게 설명하듯이 작성
-        - 구체적인 행동 관점 포함 (매수 유효, 관망, 리스크 관리 등)
-        - 공백 포함 150자 이내
+        - 공백 포함 250자 이내
 
         **예시 (참고용, 그대로 복사 금지):**
-        - "1월 CPI 3.0%로 예상 상회하며 금리 인하 기대가 후퇴, RLSI 35점으로 시장 건강도가 급락했습니다. 기술주 중심 매수세 부재하니 신규 진입보다 현금 비중 확대를 권장합니다."
-        - "연준 파월 의장의 인내심 발언으로 금리 동결 기대가 강화되며 나스닥이 1.2% 하락했습니다. Breadth 38%로 광범위한 매도세가 확인됩니다."
-        - "광범위한 매수세(Breadth 81%)와 RLSI 동반 상승 속, 고용 지표 호조가 상승 동력을 제공합니다. 건강한 추세로 추종 유효합니다."
+        - "1월 CPI 3.0%로 예상 상회하며 금리 인하 기대가 후퇴, 10Y 금리 4.63%로 급등하며 달러도 동반 강세를 보이고 있습니다. RLSI 35점에 Breadth 38%로 광범위한 매도세이며, 금과 TLT가 동반 상승해 안전자산 선호가 뚜렷합니다. 기술주 신규 진입은 보류하고 현금 비중 확대를 권장합니다."
+        - "FOMC 의사록에서 인내심 기조가 재확인되며 금리 동결 기대가 강화, 나스닥이 견조한 흐름을 보이고 있습니다. RLSI 72점에 공포탐욕지수 68(탐욕)로 강세 신호지만, 유가 급등(+3.2%)에 인플레 재점화 우려가 있어 추가 상승 여력은 제한적입니다. 추세 추종은 유효하나 포지션 크기는 보수적으로 운영하세요."
     `;
     },
-    en: (ctx) => `
-        You are a market analyst. Compare price and internal indicators to analyze market essence.
+    en: (ctx) => {
+        const assetLines: string[] = [];
+        if (ctx.spxChangePct !== undefined) assetLines.push(`S&P 500: ${ctx.spxChangePct >= 0 ? '+' : ''}${ctx.spxChangePct.toFixed(2)}%`);
+        if (ctx.dxy !== undefined) assetLines.push(`DXY: ${ctx.dxy.toFixed(1)}`);
+        if (ctx.goldChangePct !== undefined) assetLines.push(`Gold: ${ctx.goldChangePct >= 0 ? '+' : ''}${ctx.goldChangePct.toFixed(2)}%`);
+        if (ctx.oilChangePct !== undefined) assetLines.push(`Oil: ${ctx.oilChangePct >= 0 ? '+' : ''}${ctx.oilChangePct.toFixed(2)}%`);
+        if (ctx.tltChangePct !== undefined) assetLines.push(`TLT: ${ctx.tltChangePct >= 0 ? '+' : ''}${ctx.tltChangePct.toFixed(2)}%`);
+        if (ctx.fearGreedScore !== undefined) assetLines.push(`Fear & Greed: ${ctx.fearGreedScore.toFixed(0)} (${ctx.fearGreedRating || '?'})`);
+        const assetBlock = assetLines.length > 0 ? `\n        [Cross-Asset]
+        ${assetLines.map(l => `- ${l}`).join('\n        ')}` : '';
+
+        return `
+        You are a top macro strategist and market analyst. Synthesize all indicators, cross-asset flows, and news for accurate market assessment.
+
+        **Accuracy Rules:**
+        - Data overrides narrative. If numbers contradict news interpretation, trust numbers.
+        - Require 2+ confirming signals before making confident calls.
+        - Use hedging language ("potential", "watch for") when uncertain.
 
         **Current Data:**
-        - RLSI (internal indicator): ${ctx.rlsiScore.toFixed(0)} points
-        - NASDAQ Change: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
-        - RVOL: ${ctx.rvol.toFixed(2)}x
+        - RLSI: ${ctx.rlsiScore.toFixed(0)} points
+        - NASDAQ: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - VIX: ${ctx.vix.toFixed(1)}, RVOL: ${ctx.rvol.toFixed(2)}x
+        ${ctx.us10y !== undefined ? `- US10Y: ${ctx.us10y.toFixed(2)}%` : ''}
+        ${ctx.breadthPct !== undefined ? `- Breadth: ${Math.round(ctx.breadthPct)}% [${ctx.breadthSignal || '?'}]` : ''}
+        ${assetBlock}
 
-        **Analysis Criteria:**
-        - High RLSI with falling price → Accumulation zone (buying opportunity)
-        - Low RLSI with rising price → Overheated/Suspicious (chase risk)
-        - Both aligned → Trend valid
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[News]
+        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **Output Format:**
-        [Diagnosis] Current state in 1 line (price vs RLSI comparison)
-        [Conclusion] Market essence in 1 line (truth or fiction)
+        **Output:** 2-3 sentences. Lead with the key macro driver, follow with market state, end with actionable guidance. Max 200 chars.
+    `;
+    },
+    ja: (ctx) => {
+        const assetLines: string[] = [];
+        if (ctx.spxChangePct !== undefined) assetLines.push(`S&P 500: ${ctx.spxChangePct >= 0 ? '+' : ''}${ctx.spxChangePct.toFixed(2)}%`);
+        if (ctx.dxy !== undefined) assetLines.push(`DXY: ${ctx.dxy.toFixed(1)}`);
+        if (ctx.goldChangePct !== undefined) assetLines.push(`金: ${ctx.goldChangePct >= 0 ? '+' : ''}${ctx.goldChangePct.toFixed(2)}%`);
+        if (ctx.oilChangePct !== undefined) assetLines.push(`原油: ${ctx.oilChangePct >= 0 ? '+' : ''}${ctx.oilChangePct.toFixed(2)}%`);
+        if (ctx.tltChangePct !== undefined) assetLines.push(`TLT: ${ctx.tltChangePct >= 0 ? '+' : ''}${ctx.tltChangePct.toFixed(2)}%`);
+        if (ctx.fearGreedScore !== undefined) assetLines.push(`恐怖貪欲: ${ctx.fearGreedScore.toFixed(0)} (${ctx.fearGreedRating || '?'})`);
+        const assetBlock = assetLines.length > 0 ? `\n        [グローバル資産]
+        ${assetLines.map(l => `- ${l}`).join('\n        ')}` : '';
 
-        **Rules:**
-        - English, clear and concise
-        - 2 lines max
-    `,
-    ja: (ctx) => `
-        あなたは市場アナリストです。価格と内部指標を比較して市場の本質を分析します。
+        return `
+        あなたはトップマクロ戦略家です。全指標、クロスアセット、ニュースを総合して正確な市場分析を提供します。
+
+        **精度ルール:**
+        - データはナラティブに優先。数値とニュース解釈が矛盾する場合、数値を信頼。
+        - 2つ以上の確認シグナルがある場合のみ確信ある判断。
 
         **現在のデータ:**
-        - RLSI (内部指標): ${ctx.rlsiScore.toFixed(0)}点
-        - NASDAQ変動: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
-        - RVOL: ${ctx.rvol.toFixed(2)}x
+        - RLSI: ${ctx.rlsiScore.toFixed(0)}点
+        - NASDAQ: ${ctx.nasdaqChange > 0 ? '+' : ''}${ctx.nasdaqChange.toFixed(2)}%
+        - VIX: ${ctx.vix.toFixed(1)}, RVOL: ${ctx.rvol.toFixed(2)}x
+        ${ctx.us10y !== undefined ? `- US10Y: ${ctx.us10y.toFixed(2)}%` : ''}
+        ${ctx.breadthPct !== undefined ? `- Breadth: ${Math.round(ctx.breadthPct)}% [${ctx.breadthSignal || '?'}]` : ''}
+        ${assetBlock}
 
-        **分析基準:**
-        - RLSI高いのに価格下落 → 買い集め区間（低価買いチャンス）
-        - RLSI低いのに価格上昇 → 過熱/疑惑（追撃買いリスク）
-        - 両方整列 → トレンド有効
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[ニュース]
+        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **出力形式:**
-        [診断] 現在状態 1行（価格とRLSI比較）
-        [結論] 市場本質 1行（真実か虚構か）
-
-        **ルール:**
-        - 日本語、明確で簡潔に
-        - 2行以内
-    `
+        **出力:** 2-3文。マクロ要因→市場状態→アクション。250字以内。
+    `;
+    }
 };
 
 export class IntelligenceNode {

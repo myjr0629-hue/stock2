@@ -278,7 +278,7 @@ export class GuardianDataHub {
                 RvolEngine.getRvol("QQQ"),
                 RvolEngine.getRvol("DIA"),
                 // [V8.0] Fetch market news for context-aware Gemini analysis
-                fetchMassive('/v2/reference/news', { ticker: 'SPY', limit: '5', order: 'desc', sort: 'published_utc' }, true)
+                fetchMassive('/v2/reference/news', { ticker: 'SPY', limit: '10', order: 'desc', sort: 'published_utc' }, true)
                     .then((res: any) => (res?.results || []).map((n: any) => n.title).filter(Boolean))
                     .catch(() => [] as string[])
             ]);
@@ -415,7 +415,16 @@ export class GuardianDataHub {
                         rotationConviction: ri.conviction,
                         signalConflict,
                         // [V8.0] Market News Headlines
-                        marketNewsHeadlines: marketNews.length > 0 ? marketNews : undefined
+                        marketNewsHeadlines: marketNews.length > 0 ? marketNews : undefined,
+                        // [V9.0] Macro Intelligence — full asset class context
+                        fearGreedScore: rlsi.components?.sentimentScore ?? undefined,
+                        fearGreedRating: rlsi.components?.sentimentSource?.replace('CNN F&G: ', '') ?? undefined,
+                        spxChangePct: macro?.factors?.spx?.chgPct ?? undefined,
+                        dxy: macro?.dxy ?? undefined,
+                        goldChangePct: macro?.factors?.gold?.chgPct ?? undefined,
+                        oilChangePct: macro?.factors?.oil?.chgPct ?? undefined,
+                        btcChangePct: macro?.factors?.btc?.chgPct ?? undefined,
+                        tltChangePct: macro?.tltChangePct ?? undefined
                     };
 
                     const [rotationText, realityText] = await Promise.all([
