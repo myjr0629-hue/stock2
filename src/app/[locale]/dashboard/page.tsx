@@ -1116,6 +1116,7 @@ export default function DashboardPage() {
     const fetchPriceOnly = useDashboardStore(s => s.fetchPriceOnly);
     const isLoading = useDashboardStore(s => s.isLoading);
     const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
+    const loadDashboardTickers = useDashboardStore(s => s.loadDashboardTickers);
     const [initialized, setInitialized] = useState(false);
     const [mobileTab, setMobileTab] = useState('chart');
 
@@ -1125,14 +1126,16 @@ export default function DashboardPage() {
     const tickersRef = useRef(dashboardTickers);
     useEffect(() => { tickersRef.current = dashboardTickers; }, [dashboardTickers]);
 
-    // Initialize from URL params
+    // Initialize from URL params + load tickers from Supabase
     useEffect(() => {
         const ticker = searchParams.get('t');
         if (ticker) {
             setSelectedTicker(ticker.toUpperCase());
         }
+        // Load user's dashboard tickers from Supabase (overrides localStorage)
+        loadDashboardTickers();
         setInitialized(true);
-    }, [searchParams, setSelectedTicker]);
+    }, [searchParams, setSelectedTicker, loadDashboardTickers]);
 
     // Fetch data on mount and set up stable auto-refresh intervals
     useEffect(() => {

@@ -1,5 +1,9 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import {
+    getDashboardTickers as fetchDbTickers,
+    toggleDashboardTicker as toggleDbTicker,
+} from '@/lib/storage/dashboardTickerStore';
 
 interface TickerData {
     underlyingPrice: number | null;
@@ -101,6 +105,7 @@ interface DashboardState {
     // Dashboard ticker management
     toggleDashboardTicker: (ticker: string) => void;
     isDashboardTicker: (ticker: string) => boolean;
+    loadDashboardTickers: () => Promise<void>;
 
     // Fetch all data
     fetchDashboardData: (tickerList?: string[]) => Promise<void>;
@@ -149,17 +154,34 @@ export const useDashboardStore = create<DashboardState>()(
 
             toggleDashboardTicker: (ticker) => {
                 console.log('[BOARD] toggleDashboardTicker called:', ticker);
+                // Optimistic update
                 const current = get().dashboardTickers;
-                console.log('[BOARD] current dashboardTickers:', current);
-                const isIn = current.includes(ticker);
-                const newList = isIn
-                    ? current.filter(t => t !== ticker)
-                    : [...current, ticker].slice(0, 10); // Max 10 tickers
-                console.log('[BOARD] newList:', newList);
-                set({ dashboardTickers: newList });
+                const isIn = current.includes(ticker.toUpperCase());
+                const optimistic = isIn
+                    ? current.filter(t => t !== ticker.toUpperCase())
+                    : [...current, ticker.toUpperCase()].slice(0, 10);
+                set({ dashboardTickers: optimistic });
+                // Persist to Supabase (fire-and-forget with sync-back)
+                toggleDbTicker(ticker).then(serverList => {
+                    set({ dashboardTickers: serverList });
+                }).catch(err => {
+                    console.error('[BOARD] Supabase toggle failed, reverting:', err);
+                    set({ dashboardTickers: current }); // revert on error
+                });
             },
 
-            isDashboardTicker: (ticker) => get().dashboardTickers.includes(ticker),
+            isDashboardTicker: (ticker) => get().dashboardTickers.includes(ticker.toUpperCase()),
+
+            loadDashboardTickers: async () => {
+                try {
+                    const tickers = await fetchDbTickers();
+                    if (tickers.length > 0) {
+                        set({ dashboardTickers: tickers });
+                    }
+                } catch (err) {
+                    console.error('[BOARD] Failed to load dashboard tickers from Supabase:', err);
+                }
+            },
 
             fetchDashboardData: async (tickerList = DEFAULT_TICKERS) => {
                 // [P1 FIX] Abort previous in-flight request to prevent race conditions
@@ -355,6 +377,8 @@ export const useDashboardStore = create<DashboardState>()(
         {
             name: 'dashboard-storage',
             partialize: (state) => ({ dashboardTickers: state.dashboardTickers }),
+            // Note: localStorage is now fallback only.
+            // Primary persistence is via Supabase (loadDashboardTickers on mount).
         }
     )
 );
