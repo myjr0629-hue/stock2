@@ -23,8 +23,52 @@ interface TickerItem {
 export const CustomTickerBar = memo(() => {
     const { snapshot, loading } = useMacroSnapshot();
 
-    // Assets that trade outside regular US hours (futures + crypto)
-    const ALWAYS_LIVE_KEYS = new Set(['nq', 'btc', 'gold', 'oil']);
+    /**
+     * isMarketLive — checks if a given market is currently in a live trading session.
+     * All times are evaluated in US Eastern Time (ET).
+     *
+     * Trading hours by asset type:
+     *   CME Futures (NQ, ES, ZN, GC, CL): Sun 18:00 ET → Fri 17:00 ET (daily break 17:00-18:00)
+     *   CBOE/Cash Index (VIX, SPX):        Mon-Fri 09:30-16:15 ET
+     *   Crypto (BTC):                       24/7/365
+     */
+    const isMarketLive = (key: string): boolean => {
+        // Bitcoin trades 24/7
+        if (key === 'btc') return true;
+
+        // Get current time in ET
+        const now = new Date();
+        const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+        const et = new Date(etStr);
+        const day = et.getDay();   // 0=Sun, 1=Mon, ..., 6=Sat
+        const h = et.getHours();
+        const m = et.getMinutes();
+        const timeDecimal = h + m / 60; // e.g. 9:30 = 9.5
+
+        // VIX, SPX (Cash index / CBOE) — Mon-Fri 09:30-16:15 ET only
+        if (key === 'vix' || key === 'spx') {
+            if (day === 0 || day === 6) return false; // Weekend
+            return timeDecimal >= 9.5 && timeDecimal < 16.25; // 09:30 to 16:15
+        }
+
+        // CME Futures (NQ, US10Y, Gold, Oil) — Sun 18:00 ET to Fri 17:00 ET
+        // Daily maintenance break: 17:00-18:00 ET (Mon-Thu)
+        // Saturday: completely closed
+        if (day === 6) return false; // Saturday = closed
+
+        if (day === 0) {
+            // Sunday: open from 18:00 ET
+            return timeDecimal >= 18;
+        }
+
+        if (day === 5) {
+            // Friday: open until 17:00 ET
+            return timeDecimal < 17;
+        }
+
+        // Mon-Thu: open except 17:00-18:00 maintenance window
+        return timeDecimal < 17 || timeDecimal >= 18;
+    };
 
     const items: TickerItem[] = [
         {
@@ -33,7 +77,7 @@ export const CustomTickerBar = memo(() => {
             logoUrl: 'https://s3-symbol-logo.tradingview.com/indices/nasdaq-100.svg',
             value: snapshot.factors.nasdaq100.level,
             change: snapshot.factors.nasdaq100.chgPct ?? null,
-            isLive: snapshot.factors.nasdaq100.status === 'OK' && ALWAYS_LIVE_KEYS.has('nq')
+            isLive: snapshot.factors.nasdaq100.status === 'OK' && isMarketLive('nq')
         },
         {
             key: 'spx',
@@ -41,7 +85,7 @@ export const CustomTickerBar = memo(() => {
             logoUrl: 'https://s3-symbol-logo.tradingview.com/indices/s-and-p-500.svg',
             value: snapshot.factors.spx.level,
             change: snapshot.factors.spx.chgPct ?? null,
-            isLive: snapshot.factors.spx.status === 'OK' && ALWAYS_LIVE_KEYS.has('spx')
+            isLive: snapshot.factors.spx.status === 'OK' && isMarketLive('spx')
         },
         {
             key: 'us10y',
@@ -50,7 +94,7 @@ export const CustomTickerBar = memo(() => {
             value: snapshot.factors.us10y.level,
             change: snapshot.factors.us10y.chgPct ?? null,
             isYield: true,
-            isLive: snapshot.factors.us10y.status === 'OK' && ALWAYS_LIVE_KEYS.has('us10y')
+            isLive: snapshot.factors.us10y.status === 'OK' && isMarketLive('us10y')
         },
         {
             key: 'vix',
@@ -58,7 +102,7 @@ export const CustomTickerBar = memo(() => {
             logoUrl: 'https://s3-symbol-logo.tradingview.com/cboe-global-markets.svg',
             value: snapshot.factors.vix.level,
             change: snapshot.factors.vix.chgPct ?? null,
-            isLive: snapshot.factors.vix.status === 'OK' && ALWAYS_LIVE_KEYS.has('vix')
+            isLive: snapshot.factors.vix.status === 'OK' && isMarketLive('vix')
         },
         {
             key: 'btc',
@@ -66,7 +110,7 @@ export const CustomTickerBar = memo(() => {
             logoUrl: 'https://s3-symbol-logo.tradingview.com/crypto/XTVCBTC.svg',
             value: snapshot.factors.btc.level,
             change: snapshot.factors.btc.chgPct ?? null,
-            isLive: snapshot.factors.btc.status === 'OK' && ALWAYS_LIVE_KEYS.has('btc')
+            isLive: snapshot.factors.btc.status === 'OK' && isMarketLive('btc')
         },
         {
             key: 'gold',
@@ -74,7 +118,7 @@ export const CustomTickerBar = memo(() => {
             logoUrl: 'https://s3-symbol-logo.tradingview.com/metal/gold.svg',
             value: snapshot.factors.gold.level,
             change: snapshot.factors.gold.chgPct ?? null,
-            isLive: snapshot.factors.gold.status === 'OK' && ALWAYS_LIVE_KEYS.has('gold')
+            isLive: snapshot.factors.gold.status === 'OK' && isMarketLive('gold')
         },
         {
             key: 'oil',
@@ -82,7 +126,7 @@ export const CustomTickerBar = memo(() => {
             logoUrl: 'https://s3-symbol-logo.tradingview.com/crude-oil.svg',
             value: snapshot.factors.oil.level,
             change: snapshot.factors.oil.chgPct ?? null,
-            isLive: snapshot.factors.oil.status === 'OK' && ALWAYS_LIVE_KEYS.has('oil')
+            isLive: snapshot.factors.oil.status === 'OK' && isMarketLive('oil')
         }
     ];
 
