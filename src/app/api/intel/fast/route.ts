@@ -122,8 +122,7 @@ export async function GET(request: Request) {
             } else if (session === 'POST' || session === 'CLOSED') {
                 // Post-market: Polygon afterHours → lastTrade → persistent cache → ticker cache
                 const postExt = snap?.afterHours?.p || latestPrice || persistedExt?.postPrice || 0;
-                // Only show extended if it differs from regular close (actual after-hours movement)
-                if (postExt > 0 && displayPrice > 0 && Math.abs(postExt - displayPrice) > 0.01) {
+                if (postExt > 0 && displayPrice > 0) {
                     extendedPrice = postExt;
                     extendedLabel = 'POST';
                     extendedChangePct = persistedExt?.postChangePct || ((extendedPrice - displayPrice) / displayPrice) * 100;

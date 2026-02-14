@@ -265,7 +265,7 @@ export const CentralDataHub = {
                     // Polygon's afterHours object becomes unavailable late at night,
                     // but lastTrade.p always has the last traded price
                     const postPrice = S.afterHours?.p || liveLast || 0;
-                    if (postPrice > 0 && prevClose > 0 && Math.abs(postPrice - regClose) > 0.01) {
+                    if (postPrice > 0 && prevClose > 0) {
                         extendedPrice = postPrice;
                         extendedLabel = 'POST';
                     }
