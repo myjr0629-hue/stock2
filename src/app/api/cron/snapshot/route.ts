@@ -37,7 +37,13 @@ export async function GET(request: Request) {
 
             const res = await fetch(`${baseUrl}/api/intel/snapshot`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Bypass Vercel Deployment Protection for internal server-to-server calls
+                    ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+                        ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+                        : {}),
+                },
                 body: JSON.stringify({ sector }),
             });
 
