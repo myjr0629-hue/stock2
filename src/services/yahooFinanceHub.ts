@@ -63,55 +63,112 @@ let memoryCache: {
 // ============================================================
 
 /**
- * Fetch multiple quotes from Yahoo Finance in single call
+ * Fetch accurate previous close from daily candle data.
+ * The chart API's `previousClose` for 24h instruments (BTC, futures) returns
+ * the intraday start price, NOT the true previous session close.
+ * Using range=5d&interval=1d gives us daily candle closes; the second-to-last
+ * non-null close is the accurate previous close (matches Yahoo Finance website).
  */
-async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuote>> {
-    const results = new Map<string, YahooQuote>();
-    const now = new Date().toISOString();
+async function fetchTruePreviousCloses(symbols: string[]): Promise<Map<string, number>> {
+    const prevCloses = new Map<string, number>();
 
-    for (const symbol of symbols) {
+    const fetches = symbols.map(async (symbol) => {
         try {
             const encodedSymbol = encodeURIComponent(symbol);
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1m&range=1d`;
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1d&range=5d`;
 
             const res = await fetch(url, {
                 headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
                 signal: AbortSignal.timeout(5000)
             });
 
-            if (!res.ok) {
-                console.warn(`[Yahoo] ${symbol} returned ${res.status}`);
-                continue;
-            }
+            if (!res.ok) return;
 
             const data = await res.json();
-            const meta = data?.chart?.result?.[0]?.meta;
+            const result = data?.chart?.result?.[0];
+            const closes = result?.indicators?.quote?.[0]?.close as (number | null)[] | undefined;
 
-            if (!meta?.regularMarketPrice) {
-                console.warn(`[Yahoo] ${symbol} missing market price`);
-                continue;
+            if (closes && closes.length >= 2) {
+                // Filter out null (today's incomplete candle)
+                const nonNullCloses = closes.filter((c): c is number => c !== null);
+                if (nonNullCloses.length >= 2) {
+                    prevCloses.set(symbol, nonNullCloses[nonNullCloses.length - 2]);
+                }
             }
-
-            const price = meta.regularMarketPrice;
-            const prevClose = meta.previousClose || price;
-            const change = price - prevClose;
-            const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
-
-            results.set(symbol, {
-                symbol,
-                price,
-                prevClose,
-                change,
-                changePct,
-                updatedAt: now,
-                source: "YAHOO",
-                isStale: false
-            });
-
-            console.log(`[Yahoo] ${symbol}: ${price.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`);
         } catch (e) {
-            console.warn(`[Yahoo] ${symbol} fetch failed:`, e);
+            // Silently fail — will fall back to chart API's previousClose
         }
+    });
+
+    await Promise.all(fetches);
+    return prevCloses;
+}
+
+/**
+ * Fetch multiple quotes from Yahoo Finance with accurate change%
+ * Step 1: Fetch real-time prices from chart API (interval=1m, range=1d)
+ * Step 2: Fetch true previous close from daily candles (interval=1d, range=5d)
+ * Step 3: Calculate change% using true previous close
+ */
+async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuote>> {
+    const results = new Map<string, YahooQuote>();
+    const now = new Date().toISOString();
+
+    // Parallel: fetch real-time prices + accurate previous closes
+    const [, truePrevCloses] = await Promise.all([
+        (async () => {
+            // Fetch real-time prices sequentially (avoid rate limiting)
+            for (const symbol of symbols) {
+                try {
+                    const encodedSymbol = encodeURIComponent(symbol);
+                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1m&range=1d`;
+
+                    const res = await fetch(url, {
+                        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
+                        signal: AbortSignal.timeout(5000)
+                    });
+
+                    if (!res.ok) {
+                        console.warn(`[Yahoo] ${symbol} returned ${res.status}`);
+                        continue;
+                    }
+
+                    const data = await res.json();
+                    const meta = data?.chart?.result?.[0]?.meta;
+
+                    if (!meta?.regularMarketPrice) {
+                        console.warn(`[Yahoo] ${symbol} missing market price`);
+                        continue;
+                    }
+
+                    results.set(symbol, {
+                        symbol,
+                        price: meta.regularMarketPrice,
+                        prevClose: meta.previousClose || meta.regularMarketPrice,
+                        change: 0,
+                        changePct: 0,
+                        updatedAt: now,
+                        source: "YAHOO",
+                        isStale: false
+                    });
+                } catch (e) {
+                    console.warn(`[Yahoo] ${symbol} fetch failed:`, e);
+                }
+            }
+        })(),
+        fetchTruePreviousCloses(symbols)
+    ]);
+
+    // Apply true previous close and recalculate change%
+    for (const [symbol, quote] of results) {
+        const truePrevClose = truePrevCloses.get(symbol);
+        if (truePrevClose && truePrevClose > 0) {
+            quote.prevClose = truePrevClose;
+        }
+        quote.change = quote.price - quote.prevClose;
+        quote.changePct = quote.prevClose > 0 ? (quote.change / quote.prevClose) * 100 : 0;
+
+        console.log(`[Yahoo] ${symbol}: ${quote.price.toFixed(2)} (${quote.changePct >= 0 ? '+' : ''}${quote.changePct.toFixed(2)}%) [prevClose=${quote.prevClose.toFixed(2)}]`);
     }
 
     return results;
