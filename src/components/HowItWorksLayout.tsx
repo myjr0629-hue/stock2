@@ -2,7 +2,6 @@
 
 import React from 'react';
 import { HowItWorksSidebar } from './HowItWorksSidebar';
-import { LandingHeader } from '@/components/landing/LandingHeader';
 
 interface HowItWorksLayoutProps {
     children: React.ReactNode;
@@ -13,8 +12,6 @@ interface HowItWorksLayoutProps {
 export function HowItWorksLayout({ children, title, subtitle }: HowItWorksLayoutProps) {
     return (
         <div className="min-h-screen bg-[#060a12]">
-            {/* Top Header */}
-            <LandingHeader />
 
             <div className="flex pt-12">
                 {/* Sidebar - Compact */}

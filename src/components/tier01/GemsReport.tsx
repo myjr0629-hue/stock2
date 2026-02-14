@@ -4,7 +4,7 @@ import { Link } from "@/i18n/routing";
 import { useState } from "react";
 import { Tier01Data, GemsTicker } from "@/services/stockApi";
 import { Activity, Shield, Zap, TrendingUp, AlertTriangle, Cpu, Globe, Database, ChevronDown, ChevronUp, Lock, CheckCircle2, Server, Eye, ArrowRightLeft, LockKeyhole } from "lucide-react";
-import { LandingHeader } from "@/components/landing/LandingHeader";
+
 import { useTranslations } from 'next-intl';
 import { StockDetailExpanded } from "@/components/trade";
 
@@ -144,7 +144,7 @@ export function GemsReport({ data }: Props) {
 
     return (
         <div className="min-h-screen bg-[#F1F5F9] font-sans text-slate-900">
-            <LandingHeader />
+
             <div className="p-4 md:p-8 pb-32 max-w-[1800px] mx-auto space-y-6">
                 <div className="flex flex-col md:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-300">
                     <div className="flex items-center gap-4">
