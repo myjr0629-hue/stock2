@@ -41,7 +41,8 @@ export const CustomTickerBar = memo(() => {
         const m = et.getMinutes();
         const timeDecimal = h + m / 60;
 
-        if (key === 'vix' || key === 'spx') {
+        // VIX, SPX, RUT (Cash index / CBOE) — Mon-Fri 09:30-16:15 ET only
+        if (key === 'vix' || key === 'spx' || key === 'rut') {
             if (day === 0 || day === 6) return false;
             return timeDecimal >= 9.5 && timeDecimal < 16.25;
         }
@@ -85,6 +86,14 @@ export const CustomTickerBar = memo(() => {
             value: snapshot.factors.vix.level,
             change: snapshot.factors.vix.chgPct ?? null,
             isLive: snapshot.factors.vix.status === 'OK' && isMarketLive('vix')
+        },
+        {
+            key: 'rut',
+            label: 'Russell 2K',
+            logoUrl: 'https://s3-symbol-logo.tradingview.com/indices/russell-2000.svg',
+            value: snapshot.factors.rut.level,
+            change: snapshot.factors.rut.chgPct ?? null,
+            isLive: snapshot.factors.rut.status === 'OK' && isMarketLive('rut')
         },
         {
             key: 'btc',
@@ -180,7 +189,7 @@ export const CustomTickerBar = memo(() => {
         return (
             <div className="w-full h-[30px] bg-[#131722] flex items-center justify-center">
                 <div className="flex items-center gap-10">
-                    {[1, 2, 3, 4, 5, 6, 7].map(i => (
+                    {[1, 2, 3, 4, 5, 6, 7, 8].map(i => (
                         <div key={i} className="flex items-center gap-2">
                             <div className="w-[18px] h-[18px] rounded-full bg-[#2a2e39] animate-pulse" />
                             <div className="w-14 h-3 bg-[#2a2e39] rounded animate-pulse" />
