@@ -7,15 +7,18 @@ import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock 
 
 import { Link } from "@/i18n/routing";
 
-import SmartMoneyMap from "@/components/guardian/SmartMoneyMap";
-import GravityGauge from "@/components/guardian/GravityGauge";
+import dynamic from 'next/dynamic';
 import { TypewriterText, renderColoredText } from "@/components/guardian/TypewriterText";
 import { RealityCheck } from "@/components/guardian/RealityCheck";
 import { useGuardian } from "@/components/guardian/GuardianProvider";
 import { EconomicCalendarWidget } from "@/components/guardian/EconomicCalendarWidget";
-import { VitalsPanel } from "@/components/guardian/VitalsPanel";
-import { OracleHeader } from "@/components/guardian/OracleHeader";
-import RLSIInsightPanel from "@/components/guardian/MarketBreadthPanel";
+
+// [PERF] Lazy-loaded heavy components — reduces initial JS bundle
+const SmartMoneyMap = dynamic(() => import("@/components/guardian/SmartMoneyMap"), { ssr: false });
+const GravityGauge = dynamic(() => import("@/components/guardian/GravityGauge"), { ssr: false });
+const VitalsPanel = dynamic(() => import("@/components/guardian/VitalsPanel").then(m => m.VitalsPanel), { ssr: false });
+const OracleHeader = dynamic(() => import("@/components/guardian/OracleHeader").then(m => m.OracleHeader), { ssr: false });
+const RLSIInsightPanel = dynamic(() => import("@/components/guardian/MarketBreadthPanel"), { ssr: false });
 
 
 // === TYPES ===

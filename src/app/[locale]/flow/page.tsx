@@ -5,13 +5,16 @@
 
 import React, { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { FlowRadar } from '@/components/FlowRadar';
+import dynamic from 'next/dynamic';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import useSWR from 'swr';
+
+// [PERF] Lazy-loaded — FlowRadar includes recharts (~100KB)
+const FlowRadar = dynamic(() => import('@/components/FlowRadar').then(m => m.FlowRadar), { ssr: false });
 
 function FlowPageContent() {
     const searchParams = useSearchParams();

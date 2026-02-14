@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import dynamic from 'next/dynamic';
 import {
     AlertCircle, TrendingUp, TrendingDown, Activity,
     ChevronRight, Shield, Clock, Zap, DollarSign,
@@ -11,40 +12,44 @@ import {
     Orbit,
     Bot
 } from "lucide-react";
-import { ReportArchive } from "@/components/ReportArchive";
-import { TrackRecord } from "@/components/intel/TrackRecord";
-import { TacticalCard } from "@/components/TacticalCard";
-import { TacticalSidebar } from "@/components/TacticalSidebar"; // [NEW]
-import { PremiumBlur } from "@/components/PremiumBlur";
-import { TacticalBoard } from "@/components/intel/TacticalBoard"; // [NEW]
-import { M7BriefingBar } from "@/components/intel/M7BriefingBar";
-import { M7TacticalDeck } from "@/components/intel/M7TacticalDeck";
-import { M7SessionSummary } from "@/components/intel/M7SessionSummary";
-import { M7OptionsPulse } from "@/components/intel/M7OptionsPulse";
-import { PhysicalAIOrbitalMap } from "@/components/intel/PhysicalAIOrbitalMap";
-import { PhysicalAIBriefingBar, PhysicalAITacticalDeck as PhysicalAITacticalDeckOld } from "@/components/intel/PhysicalAIComponents";
-import { PhysicalAISessionSummary } from "@/components/intel/PhysicalAISessionSummary";
-import { PhysicalAITacticalDeck } from "@/components/intel/PhysicalAITacticalDeck";
-import { PhysicalAIAnalystConsensus } from "@/components/intel/PhysicalAIAnalystConsensus";
-import { PhysicalAIEarningsCalendar } from "@/components/intel/PhysicalAIEarningsCalendar";
-import { PhysicalAIOptionsPulse } from "@/components/intel/PhysicalAIOptionsPulse";
-import { FinalBattleSection, AlphaItem } from "@/components/intel/FinalBattleSection";
-import { M7EarningsCalendar } from "@/components/intel/M7EarningsCalendar";
-import { M7AnalystConsensus } from "@/components/intel/M7AnalystConsensus";
-import { EarningsEvent, RecommendationTrend } from "@/services/finnhubClient";
 
-// [V7.0] Sector Intelligence Platform - New Components
-import { SectorSessionGrid } from "@/components/intel/SectorSessionGrid";
-import { SectorPulseDashboard } from "@/components/intel/SectorPulseDashboard";
-import { SectorCommanderLog } from "@/components/intel/SectorCommanderLog";
-import { TacticalReportDeck } from "@/components/intel/TacticalReportDeck";
-import { M7RankingRow } from "@/components/intel/M7RankingRow";
-import { SectorRankingRow } from "@/components/intel/SectorRankingRow";
-import { SectorAnalystConsensus } from "@/components/intel/SectorAnalystConsensus";
-import { SectorEarningsCalendar } from "@/components/intel/SectorEarningsCalendar";
+// Static imports — lightweight or needed immediately
+import { TacticalCard } from "@/components/TacticalCard";
+import { TacticalSidebar } from "@/components/TacticalSidebar";
+import { PremiumBlur } from "@/components/PremiumBlur";
+import { AlphaItem } from "@/components/intel/FinalBattleSection";
+import { EarningsEvent, RecommendationTrend } from "@/services/finnhubClient";
 import { m7Config } from "@/configs/m7.config";
 import { physicalAIConfig } from "@/configs/physicalai.config";
 import { useIntelSharedData } from "@/hooks/useIntelSharedData";
+
+// [PERF] Lazy-loaded heavy components — reduces initial JS bundle by ~150KB
+const ReportArchive = dynamic(() => import("@/components/ReportArchive").then(m => m.ReportArchive), { ssr: false });
+const TrackRecord = dynamic(() => import("@/components/intel/TrackRecord").then(m => m.TrackRecord), { ssr: false });
+const TacticalBoard = dynamic(() => import("@/components/intel/TacticalBoard").then(m => m.TacticalBoard), { ssr: false });
+const M7BriefingBar = dynamic(() => import("@/components/intel/M7BriefingBar").then(m => m.M7BriefingBar), { ssr: false });
+const M7TacticalDeck = dynamic(() => import("@/components/intel/M7TacticalDeck").then(m => m.M7TacticalDeck), { ssr: false });
+const M7SessionSummary = dynamic(() => import("@/components/intel/M7SessionSummary").then(m => m.M7SessionSummary), { ssr: false });
+const M7OptionsPulse = dynamic(() => import("@/components/intel/M7OptionsPulse").then(m => m.M7OptionsPulse), { ssr: false });
+const M7EarningsCalendar = dynamic(() => import("@/components/intel/M7EarningsCalendar").then(m => m.M7EarningsCalendar), { ssr: false });
+const M7AnalystConsensus = dynamic(() => import("@/components/intel/M7AnalystConsensus").then(m => m.M7AnalystConsensus), { ssr: false });
+const M7RankingRow = dynamic(() => import("@/components/intel/M7RankingRow").then(m => m.M7RankingRow), { ssr: false });
+const PhysicalAIOrbitalMap = dynamic(() => import("@/components/intel/PhysicalAIOrbitalMap").then(m => m.PhysicalAIOrbitalMap), { ssr: false });
+const PhysicalAIBriefingBar = dynamic(() => import("@/components/intel/PhysicalAIComponents").then(m => m.PhysicalAIBriefingBar), { ssr: false });
+const PhysicalAITacticalDeckOld = dynamic(() => import("@/components/intel/PhysicalAIComponents").then(m => m.PhysicalAITacticalDeck), { ssr: false });
+const PhysicalAISessionSummary = dynamic(() => import("@/components/intel/PhysicalAISessionSummary").then(m => m.PhysicalAISessionSummary), { ssr: false });
+const PhysicalAITacticalDeck = dynamic(() => import("@/components/intel/PhysicalAITacticalDeck").then(m => m.PhysicalAITacticalDeck), { ssr: false });
+const PhysicalAIAnalystConsensus = dynamic(() => import("@/components/intel/PhysicalAIAnalystConsensus").then(m => m.PhysicalAIAnalystConsensus), { ssr: false });
+const PhysicalAIEarningsCalendar = dynamic(() => import("@/components/intel/PhysicalAIEarningsCalendar").then(m => m.PhysicalAIEarningsCalendar), { ssr: false });
+const PhysicalAIOptionsPulse = dynamic(() => import("@/components/intel/PhysicalAIOptionsPulse").then(m => m.PhysicalAIOptionsPulse), { ssr: false });
+const FinalBattleSection = dynamic(() => import("@/components/intel/FinalBattleSection").then(m => m.FinalBattleSection), { ssr: false });
+const SectorSessionGrid = dynamic(() => import("@/components/intel/SectorSessionGrid").then(m => m.SectorSessionGrid), { ssr: false });
+const SectorPulseDashboard = dynamic(() => import("@/components/intel/SectorPulseDashboard").then(m => m.SectorPulseDashboard), { ssr: false });
+const SectorCommanderLog = dynamic(() => import("@/components/intel/SectorCommanderLog").then(m => m.SectorCommanderLog), { ssr: false });
+const TacticalReportDeck = dynamic(() => import("@/components/intel/TacticalReportDeck").then(m => m.TacticalReportDeck), { ssr: false });
+const SectorRankingRow = dynamic(() => import("@/components/intel/SectorRankingRow").then(m => m.SectorRankingRow), { ssr: false });
+const SectorAnalystConsensus = dynamic(() => import("@/components/intel/SectorAnalystConsensus").then(m => m.SectorAnalystConsensus), { ssr: false });
+const SectorEarningsCalendar = dynamic(() => import("@/components/intel/SectorEarningsCalendar").then(m => m.SectorEarningsCalendar), { ssr: false });
 
 
 
@@ -448,9 +453,9 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
     );
 }
 
-import { PulseCard } from "@/components/PulseCard";
-import { ExecutionDial } from "@/components/ExecutionDial";
-import { GammaVoid } from "@/components/GammaVoid";
+const PulseCard = dynamic(() => import("@/components/PulseCard").then(m => m.PulseCard), { ssr: false });
+const ExecutionDial = dynamic(() => import("@/components/ExecutionDial").then(m => m.ExecutionDial), { ssr: false });
+const GammaVoid = dynamic(() => import("@/components/GammaVoid").then(m => m.GammaVoid), { ssr: false });
 import { cn } from "@/lib/utils";
 
 // ... existing imports ...
