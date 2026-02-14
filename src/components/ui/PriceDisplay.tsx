@@ -76,7 +76,9 @@ const SIZE_CONFIG = {
 
 const EXT_LABEL_COLORS: Record<string, string> = {
     POST: 'text-indigo-400',
+    'POST (CLOSED)': 'text-indigo-400',
     PRE: 'text-amber-400',
+    'PRE (CLOSED)': 'text-amber-400',
     'PRE CLOSE': 'text-amber-400',
     '': 'text-slate-400',
 };
@@ -140,7 +142,6 @@ export function PriceDisplay({
                     <div className="flex items-baseline gap-1.5">
                         <span className={`text-[9px] font-black uppercase tracking-widest ${EXT_LABEL_COLORS[extendedLabel]}`}>
                             {extendedLabel}
-                            {sessionStatus && <span className="text-slate-500 ml-1">({sessionStatus})</span>}
                         </span>
                         <span className="text-xs font-mono font-bold text-slate-200">
                             ${extendedPrice.toLocaleString(undefined, {
