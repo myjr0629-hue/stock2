@@ -126,10 +126,12 @@ export async function GET() {
                         displayChangePct = ((displayPrice - prevClose) / prevClose) * 100;
                     }
 
-                    // After hours as extended
-                    extendedPrice = afterHoursPrice || 0;
-                    extendedLabel = 'POST';
-                    if (extendedPrice > 0 && displayPrice > 0) {
+                    // After hours as extended — use lastTrade as fallback (same pattern as PRE)
+                    const postExt = afterHoursPrice || lastTrade;
+                    // Only show extended if it differs from regular close (actual after-hours movement)
+                    if (postExt > 0 && displayPrice > 0 && Math.abs(postExt - displayPrice) > 0.01) {
+                        extendedPrice = postExt;
+                        extendedLabel = 'POST';
                         extendedChangePct = ((extendedPrice - displayPrice) / displayPrice) * 100;
                     }
                     break;

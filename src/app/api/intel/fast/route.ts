@@ -120,10 +120,12 @@ export async function GET(request: Request) {
                     extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
                 }
             } else if (session === 'POST' || session === 'CLOSED') {
-                // Post-market: Polygon afterHours → persistent cache → ticker cache
-                extendedPrice = snap?.afterHours?.p || persistedExt?.postPrice || 0;
-                extendedLabel = 'POST';
-                if (extendedPrice > 0 && displayPrice > 0) {
+                // Post-market: Polygon afterHours → lastTrade → persistent cache → ticker cache
+                const postExt = snap?.afterHours?.p || latestPrice || persistedExt?.postPrice || 0;
+                // Only show extended if it differs from regular close (actual after-hours movement)
+                if (postExt > 0 && displayPrice > 0 && Math.abs(postExt - displayPrice) > 0.01) {
+                    extendedPrice = postExt;
+                    extendedLabel = 'POST';
                     extendedChangePct = persistedExt?.postChangePct || ((extendedPrice - displayPrice) / displayPrice) * 100;
                 }
             } else if (session === 'REG') {

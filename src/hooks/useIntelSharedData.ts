@@ -167,9 +167,9 @@ export function useIntelSharedData(): IntelSharedData & { refresh: () => void } 
                         changePct: p.changePercent ?? q.changePct,
                         prevClose: p.prevClose ?? q.prevClose,
                         volume: p.volume ?? q.volume,
-                        extendedPrice: p.extendedPrice ?? q.extendedPrice,
-                        extendedChangePct: p.extendedChangePercent ?? q.extendedChangePct,
-                        extendedLabel: p.extendedLabel ?? q.extendedLabel,
+                        extendedPrice: (p.extendedPrice && p.extendedPrice > 0) ? p.extendedPrice : q.extendedPrice,
+                        extendedChangePct: (p.extendedPrice && p.extendedPrice > 0) ? (p.extendedChangePercent ?? q.extendedChangePct) : q.extendedChangePct,
+                        extendedLabel: (p.extendedPrice && p.extendedPrice > 0) ? (p.extendedLabel ?? q.extendedLabel) : q.extendedLabel,
                         session: p.session ?? q.session,
                     };
                 });
@@ -261,9 +261,9 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
             changePct: updated.changePct,
             prevClose: updated.prevClose,
             volume: updated.volume,
-            extendedPrice: updated.extendedPrice,
-            extendedChangePct: updated.extendedChangePct,
-            extendedLabel: updated.extendedLabel,
+            extendedPrice: (updated.extendedPrice && updated.extendedPrice > 0) ? updated.extendedPrice : existing.extendedPrice,
+            extendedChangePct: (updated.extendedPrice && updated.extendedPrice > 0) ? updated.extendedChangePct : existing.extendedChangePct,
+            extendedLabel: (updated.extendedPrice && updated.extendedPrice > 0) ? updated.extendedLabel : existing.extendedLabel,
             session: updated.session,
             // Keep options/alpha from full data (don't overwrite with 0s)
         };

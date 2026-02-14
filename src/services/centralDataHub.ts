@@ -261,8 +261,12 @@ export const CentralDataHub = {
                     extendedPrice = S.min?.c || liveLast || 0;
                     extendedLabel = 'POST';
                 } else if (session === 'CLOSED') {
-                    if (S.afterHours?.p && S.afterHours.p > 0) {
-                        extendedPrice = S.afterHours.p;
+                    // [FIX] Use afterHours first, then lastTrade as fallback
+                    // Polygon's afterHours object becomes unavailable late at night,
+                    // but lastTrade.p always has the last traded price
+                    const postPrice = S.afterHours?.p || liveLast || 0;
+                    if (postPrice > 0 && prevClose > 0 && Math.abs(postPrice - regClose) > 0.01) {
+                        extendedPrice = postPrice;
                         extendedLabel = 'POST';
                     }
                 }
