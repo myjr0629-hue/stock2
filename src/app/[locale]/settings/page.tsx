@@ -6,7 +6,6 @@ import { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import { Pencil, Check, LogOut, AlertTriangle, ChevronRight, Sparkles, Shield, Globe, Calendar, Mail, TrendingUp, BarChart3, Activity } from 'lucide-react';
-import LandingHeader from '@/components/landing/LandingHeader';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 
 export default function SettingsPage() {
@@ -63,12 +62,11 @@ export default function SettingsPage() {
     const getInitials = () => (displayName || user?.email || 'U').charAt(0).toUpperCase();
 
     if (loading) {
-        return (<><LandingHeader /><div className="min-h-screen bg-[#060910] flex items-center justify-center pt-20"><div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div></>);
+        return (<div className="min-h-screen bg-[#060910] flex items-center justify-center pt-20"><div className="w-6 h-6 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin" /></div>);
     }
 
     return (
         <>
-            <LandingHeader />
             <main className="min-h-screen bg-[#060910] pt-28 pb-20 px-4 relative overflow-hidden">
 
                 {/* ═══ INFOGRAPHIC BACKGROUND ═══ */}

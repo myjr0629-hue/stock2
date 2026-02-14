@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { LandingHeader } from "@/components/landing/LandingHeader";
 import {
   ArrowRight,
   X,
@@ -302,8 +301,6 @@ export default function Page() {
 
   return (
     <div className="min-h-screen bg-[#060a12] text-slate-200 font-sans">
-      <LandingHeader />
-
       {/* HERO SECTION */}
       <section className="relative pt-20 pb-16 px-6 overflow-hidden">
         {/* Layer 1: Light Grid */}

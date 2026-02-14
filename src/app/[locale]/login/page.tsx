@@ -6,8 +6,6 @@ import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
 import { Mail, Lock, Loader2, AlertCircle, User, Check } from 'lucide-react';
 import Link from 'next/link';
-import { LandingHeader } from '@/components/landing/LandingHeader';
-
 export default function LoginPage() {
     const t = useTranslations('auth');
     const tLegal = useTranslations('legal');
@@ -103,8 +101,6 @@ export default function LoginPage() {
     return (
         <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
             {/* Header Navigation */}
-            <LandingHeader />
-
             {/* Login Content */}
             <div className="flex-1 flex items-center justify-center p-4 relative overflow-hidden">
                 {/* Background Effects */}

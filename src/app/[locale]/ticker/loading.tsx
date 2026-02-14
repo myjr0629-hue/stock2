@@ -1,10 +1,6 @@
-import { LandingHeader } from "@/components/landing/LandingHeader";
-
 export default function Loading() {
     return (
         <div className="min-h-screen font-sans bg-slate-950 text-slate-200 selection:bg-emerald-500/30 selection:text-emerald-200">
-            <LandingHeader />
-
             <main className="mx-auto max-w-7xl px-6 lg:px-8 pt-8 pb-12 space-y-6">
                 {/* 1. Header Skeleton */}
                 <div className="flex flex-col gap-4 pb-6 border-b border-white/10 animate-pulse">

@@ -5,6 +5,7 @@ import { locales, type Locale } from '@/i18n/routing';
 import { ConsentGuard } from '@/components/ConsentGuard';
 import { AuthGuard } from '@/components/AuthGuard';
 import { DeactivationGuard } from '@/components/DeactivationGuard';
+import { LandingHeader } from '@/components/landing/LandingHeader';
 
 export function generateStaticParams() {
     return locales.map((locale) => ({ locale }));
@@ -31,6 +32,7 @@ export default async function LocaleLayout({ children, params }: Props) {
             <ConsentGuard>
                 <AuthGuard>
                     <DeactivationGuard>
+                        <LandingHeader />
                         {children}
                     </DeactivationGuard>
                 </AuthGuard>

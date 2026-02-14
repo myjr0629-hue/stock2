@@ -2,7 +2,6 @@
 
 import Link from 'next/link';
 import { useLocale } from 'next-intl';
-import { LandingHeader } from '@/components/landing/LandingHeader';
 import { ArrowLeft, AlertTriangle, Shield } from 'lucide-react';
 import { sections as koSections, meta as koMeta } from './_content-ko';
 import { sections as enSections, meta as enMeta } from './_content-en';
@@ -20,8 +19,6 @@ export default function PrivacyPage() {
 
     return (
         <div className="min-h-screen bg-[#030712] flex flex-col overflow-hidden antialiased">
-            <LandingHeader />
-
             <div className="flex-1 py-16 px-4 relative">
                 {/* Animated Background Auras */}
                 <div className="absolute inset-0 overflow-hidden pointer-events-none">

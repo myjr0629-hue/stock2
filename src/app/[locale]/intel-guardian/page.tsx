@@ -3,7 +3,6 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslations, useLocale } from 'next-intl';
-import { LandingHeader } from "@/components/landing/LandingHeader";
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock } from "lucide-react";
 
 import { Link } from "@/i18n/routing";
@@ -241,10 +240,6 @@ export default function GuardianPage() {
 
     return (
         <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30">
-            <LandingHeader />
-
-            {/* [Removed] MACRO TICKER - Now global in LandingHeader */}
-
             {/* ORACLE HEADER (Below fixed nav+ticker) */}
             <div>
                 <OracleHeader

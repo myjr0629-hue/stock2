@@ -1,6 +1,5 @@
 
 import React, { Suspense } from 'react';
-import { LandingHeader } from '@/components/landing/LandingHeader';
 import IntelClientPage from './IntelClientPage';
 
 interface PageProps {
@@ -17,7 +16,6 @@ export default async function IntelPage({ params }: PageProps) {
     return (
         <div className="flex flex-col min-h-screen bg-[#05090f]">
             <Suspense fallback={null}>
-                <LandingHeader />
             </Suspense>
             <div className="flex-1 relative">
                 <Suspense fallback={

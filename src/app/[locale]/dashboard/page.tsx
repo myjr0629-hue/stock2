@@ -6,7 +6,6 @@ import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
 import { useShallow } from "zustand/react/shallow";
-import { LandingHeader } from "@/components/landing/LandingHeader";
 import { PriceDisplay } from "@/components/ui/PriceDisplay";
 import { calcPriceDisplay } from "@/utils/calcPriceDisplay";
 
@@ -1163,8 +1162,6 @@ export default function DashboardPage() {
     return (
         <div className="min-h-screen bg-[#050a14] text-white flex flex-col">
             {/* Site Header */}
-            <LandingHeader />
-
             {/* Alpha Status Bar */}
             <AlphaStatusBar />
 

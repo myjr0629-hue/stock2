@@ -2,8 +2,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { usePortfolio, type EnrichedHolding } from '@/hooks/usePortfolio';
-import { LandingHeader } from '@/components/landing/LandingHeader';
-
 import { useTranslations, useLocale } from 'next-intl';
 import {
     TrendingUp, TrendingDown, Plus, RefreshCw, Briefcase, ChevronRight,
@@ -33,8 +31,6 @@ export default function PortfolioPage() {
     return (
         <div className="min-h-screen bg-[#0c1220] text-slate-100">
             {/* Global Header */}
-            <LandingHeader />
-
             {/* Page Header - Minimal & Premium */}
             <div className="border-b border-white/5">
                 <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">

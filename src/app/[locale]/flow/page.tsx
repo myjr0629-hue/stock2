@@ -5,7 +5,6 @@
 
 import React, { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { LandingHeader } from '@/components/landing/LandingHeader';
 import { FlowRadar } from '@/components/FlowRadar';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
@@ -92,8 +91,6 @@ function FlowPageContent() {
             {/* Fixed dark background to cover body gradient */}
             <div className="fixed inset-0 bg-[#0a0f1a] -z-50" />
             {/* Header Navigation */}
-            <LandingHeader />
-
             {/* Main Content Container */}
             <div className="flex-1 relative">
                 {/* Background Effects */}

@@ -2,7 +2,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useWatchlist, type EnrichedWatchlistItem } from '@/hooks/useWatchlist';
-import { LandingHeader } from '@/components/landing/LandingHeader';
 import { useTranslations } from 'next-intl';
 import {
     Star, Plus, RefreshCw, Trash2, X, Loader2, Activity, Fish, Zap,
@@ -51,8 +50,6 @@ export default function WatchlistPage() {
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#0b1120] via-[#0d1424] to-[#0b1120] text-slate-100">
             <GlobalStyles />
-            <LandingHeader />
-
             {/* ── Gradient Accent Line ── */}
             <div className="h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
 
