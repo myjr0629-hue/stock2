@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useCallback, useState, useRef, useMemo } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
@@ -12,7 +12,7 @@ import { calcPriceDisplay } from "@/utils/calcPriceDisplay";
 // Dynamic import for StockChart (no SSR for chart component)
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
     ssr: false,
-    loading: () => <div className="h-full flex items-center justify-center text-slate-500">차트 로딩...</div>
+    loading: () => <div className="h-full flex items-center justify-center text-slate-500">Loading...</div>
 });
 import {
     Activity,
@@ -117,6 +117,7 @@ function MarketCountdown({ marketStatus }: { marketStatus?: string }) {
 
 // Alpha Status Bar Component
 function AlphaStatusBar() {
+    const locale = useLocale();
     const market = useDashboardStore(s => s.market);
     const lastUpdated = useDashboardStore(s => s.lastUpdated);
     const isLoading = useDashboardStore(s => s.isLoading);
@@ -162,7 +163,7 @@ function AlphaStatusBar() {
             <div className="flex items-center gap-3">
                 {lastUpdated && (
                     <span className="text-[10px] text-slate-500">
-                        Updated: {lastUpdated.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        Updated: {lastUpdated.toLocaleTimeString(locale === 'ja' ? 'ja-JP' : locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
                 )}
                 <button
@@ -359,6 +360,7 @@ function WatchlistPanel() {
 
 // Main Chart Panel (GEX & Max Pain) - Uses FlowRadar and StockChart
 function MainChartPanel() {
+    const td = useTranslations('dashboard');
     const selectedTicker = useDashboardStore(s => s.selectedTicker);
     // [PERF FIX] Subscribe only to the selected ticker's data, not all tickers
     const data = useDashboardStore(s => s.tickers[s.selectedTicker]);
@@ -678,7 +680,7 @@ function MainChartPanel() {
                                     <span className={`text-xl font-mono font-bold ${dp >= 55 ? 'text-purple-400' : dp >= 45 ? 'text-purple-300' : 'text-white'}`}>
                                         {dp > 0 ? `${dp.toFixed(1)}%` : '—'}
                                     </span>
-                                    <span className="text-xs text-white">{dp >= 55 ? '기관 집중' : dp >= 45 ? '기관 활동' : '보통'}</span>
+                                    <span className="text-xs text-white">{dp >= 55 ? td('dpInstitutionalHigh') : dp >= 45 ? td('dpInstitutionalActive') : td('dpNormal')}</span>
                                 </div>
                             </div>
                         );
@@ -701,7 +703,7 @@ function MainChartPanel() {
                                     <span className={`text-xl font-mono font-bold ${sv >= 50 ? 'text-rose-400' : sv >= 40 ? 'text-amber-400' : 'text-white'}`}>
                                         {sv > 0 ? `${sv.toFixed(1)}%` : '—'}
                                     </span>
-                                    <span className="text-xs text-white">{sv >= 50 ? '공매도 집중' : sv >= 40 ? '공매도 활동' : '보통'}</span>
+                                    <span className="text-xs text-white">{sv >= 50 ? td('svShortHigh') : sv >= 40 ? td('svShortActive') : td('svNormal')}</span>
                                 </div>
                             </div>
                         );
@@ -717,13 +719,13 @@ function MainChartPanel() {
                         <div className="flex items-center gap-2 mb-2">
                             <Activity className="w-4 h-4 text-purple-400" />
                             <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">ATM IV</span>
-                            <span className="text-[11px] text-white">내재변동성</span>
+                            <span className="text-[11px] text-white">{td('impliedVol')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <span className="text-xl font-mono font-bold text-white">
                                 {data?.atmIv ? `${data.atmIv}%` : "—"}
                             </span>
-                            <span className="text-xs text-white">{(data?.atmIv || 0) > 50 ? "고변동" : "저변동"}</span>
+                            <span className="text-xs text-white">{(data?.atmIv || 0) > 50 ? td('highVol') : td('lowVol')}</span>
                         </div>
                     </div>
 
@@ -731,7 +733,7 @@ function MainChartPanel() {
                     {(() => {
                         const vpcr = data?.volumePcr ?? null;  // Instant from unified API cache
                         const isAlert = vpcr !== null && (vpcr >= 2.0 || vpcr <= 0.5);
-                        const label = vpcr === null ? '—' : vpcr >= 2.0 ? '강한 콜 우위' : vpcr >= 1.3 ? '콜 우위' : vpcr <= 0.5 ? '강한 풋 우위' : vpcr <= 0.75 ? '풋 우위' : '균형';
+                        const label = vpcr === null ? '—' : vpcr >= 2.0 ? td('pcrStrongCall') : vpcr >= 1.3 ? td('pcrCall') : vpcr <= 0.5 ? td('pcrStrongPut') : vpcr <= 0.75 ? td('pcrPut') : td('pcrBalanced');
                         const isBullish = vpcr !== null && vpcr >= 1.3;
                         const isBearish = vpcr !== null && vpcr <= 0.75;
                         const color = isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white';
@@ -803,7 +805,7 @@ function MainChartPanel() {
                         // pinStrength = ATM concentration × flip weight × DTE weight (matches FlowRadar)
                         const pinStrength = Math.min(100, Math.round(atmConc * flipDistWeight * dteWeight));
 
-                        const labels: Record<string, string> = { STABLE: '안정 핀닝', TRANSITION: '전환 임박', FLIP_ZONE: '플립 구간', EXPLOSIVE: '폭발 대기' };
+                        const labels: Record<string, string> = { STABLE: td('gexStable'), TRANSITION: td('gexTransition'), FLIP_ZONE: td('gexFlipZone'), EXPLOSIVE: td('gexExplosive') };
                         const colors: Record<string, string> = { STABLE: 'text-emerald-400', TRANSITION: 'text-amber-400', FLIP_ZONE: 'text-orange-400', EXPLOSIVE: 'text-rose-400' };
                         const isAlert = regime === 'EXPLOSIVE' || regime === 'FLIP_ZONE';
                         const absDist = Math.abs(flipDist).toFixed(1);
@@ -826,7 +828,7 @@ function MainChartPanel() {
                                     <span className={`text-xs font-bold ${colors[regime]}`}>{labels[regime]}</span>
                                 </div>
                                 <span className="text-[11px] text-white font-mono block mt-0.5">
-                                    {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? '롱 감마 환경' : '숏 감마 환경'}
+                                    {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? td('gexLongGamma') : td('gexShortGamma')}
                                 </span>
                             </div>
                         );
@@ -850,15 +852,15 @@ function MainChartPanel() {
                                         {im > 0 ? `±${im}%` : '—'}
                                     </span>
                                     {im >= 5 ? (
-                                        <span className="text-[11px] font-bold px-1 py-0.5 rounded bg-cyan-500/80 text-white">급등/급락</span>
+                                        <span className="text-[11px] font-bold px-1 py-0.5 rounded bg-cyan-500/80 text-white">{td('imSpike')}</span>
                                     ) : im >= 3 ? (
-                                        <span className="text-xs text-cyan-300">변동 예고</span>
+                                        <span className="text-xs text-cyan-300">{td('imVolatility')}</span>
                                     ) : (
-                                        <span className="text-xs text-slate-400">안정</span>
+                                        <span className="text-xs text-slate-400">{td('imStable')}</span>
                                     )}
                                 </div>
                                 <span className="text-[11px] text-white block mt-0.5">
-                                    {dir === 'bullish' ? '↗ 콜 프리미엄 우위 → 상승 기대' : dir === 'bearish' ? '↘ 풋 프리미엄 우위 → 하락 기대' : '⟷ 균형'}
+                                    {dir === 'bullish' ? td('imBullish') : dir === 'bearish' ? td('imBearish') : td('imNeutral')}
                                 </span>
                             </div>
                         );
@@ -895,7 +897,7 @@ function MainChartPanel() {
                             </div>
                         ) : (
                             <div className="h-full flex items-center justify-center text-slate-500 text-sm">
-                                차트 데이터 없음
+                                {td('noChartData')}
                             </div>
                         )}
                     </div>

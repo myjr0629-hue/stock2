@@ -7,12 +7,13 @@ import { Link, useRouter, usePathname } from "@/i18n/routing";
 import { clsx } from 'clsx';
 import { useFavorites } from "@/hooks/useFavorites";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { CustomTickerBar } from "@/components/CustomTickerBar";
 import { createClient } from "@/lib/supabase/client";
 
 export function LandingHeader() {
     const t = useTranslations();
+    const locale = useLocale();
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -237,17 +238,47 @@ export function LandingHeader() {
                             )}
                         </div>
                     ) : (
-                        <Link
-                            href="/login"
-                            className="hidden xl:flex items-center gap-1.5 px-5 py-1.5 
-                                text-[11px] font-bold text-cyan-400 
-                                border border-cyan-500/40 rounded-lg
-                                bg-transparent
-                                hover:border-cyan-400/70 hover:shadow-[0_0_15px_rgba(34,211,238,0.15)]
-                                transition-all duration-300 uppercase tracking-wider"
-                        >
-                            {t('nav.signIn')}
-                        </Link>
+                        <>
+                            {/* Language Toggle for non-logged-in users */}
+                            <div className="hidden xl:flex items-center gap-0.5 font-jakarta">
+                                {([
+                                    { code: 'ko', label: 'KO' },
+                                    { code: 'en', label: 'EN' },
+                                    { code: 'ja', label: 'JA' },
+                                ] as const).map((loc, idx) => {
+                                    const isActive = locale === loc.code;
+                                    return (
+                                        <span key={loc.code} className="flex items-center">
+                                            {idx > 0 && <span className="text-slate-600 text-[11px] mx-0.5">|</span>}
+                                            <button
+                                                onClick={() => {
+                                                    const queryString = searchParams.toString();
+                                                    const newPath = queryString ? `${pathname}?${queryString}` : pathname;
+                                                    router.replace(newPath, { locale: loc.code });
+                                                }}
+                                                className={`text-[11px] font-bold tracking-wider px-1 py-0.5 rounded transition-all ${isActive
+                                                    ? 'text-cyan-400'
+                                                    : 'text-slate-400 hover:text-white'
+                                                    }`}
+                                            >
+                                                {loc.label}
+                                            </button>
+                                        </span>
+                                    );
+                                })}
+                            </div>
+                            <Link
+                                href="/login"
+                                className="hidden xl:flex items-center gap-1.5 px-5 py-1.5 
+                                    text-[11px] font-bold text-cyan-400 
+                                    border border-cyan-500/40 rounded-lg
+                                    bg-transparent
+                                    hover:border-cyan-400/70 hover:shadow-[0_0_15px_rgba(34,211,238,0.15)]
+                                    transition-all duration-300 uppercase tracking-wider"
+                            >
+                                {t('nav.signIn')}
+                            </Link>
+                        </>
                     )}
 
                     {/* [Mobile Menu Toggle] */}
