@@ -211,9 +211,9 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
     const extChangePct = priceResult.activeExtPct;
     const extLabel = priceResult.activeExtLabel;
     const isPositive = mainChangePct >= 0;
-    const extColor = extLabel === 'PRE' ? 'text-amber-400' : extLabel === 'POST' ? 'text-purple-400' : 'text-indigo-400';
-    // Simplify labels: PRE CLOSE -> PRE
-    const displayExtLabel = extLabel === 'PRE CLOSE' ? 'PRE' : extLabel;
+    const extColor = extLabel?.includes('PRE') ? 'text-amber-400' : extLabel?.includes('POST') ? 'text-purple-400' : 'text-indigo-400';
+    // Simplify labels: "PRE CLOSE" -> "PRE", "POST (CLOSED)" -> "POST", etc.
+    const displayExtLabel = extLabel?.replace(/\s*\(.*\)/, '').replace(/\s*(CLOSE|CLOSED)$/i, '').trim() || extLabel;
 
     return (
         <div className="group relative">
