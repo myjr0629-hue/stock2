@@ -1181,7 +1181,9 @@
         "imBearish": "↘ プットプレミアム優位 → 下落期待",
         "imNeutral": "⟷ 均衡",
         "searchPlaceholder": "ティッカー追加...",
-        "tickerSearch": "ティッカー検索..."
+        "tickerSearch": "ティッカー検索...",
+        "signalClosedMsg": "本場の取引時間のみ有効",
+        "signalWaiting": "シグナル待機中..."
     },
     "commandInsight": {
         "longGamma": "Long Gamma",

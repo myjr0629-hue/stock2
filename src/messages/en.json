@@ -1181,7 +1181,9 @@
         "imBearish": "↘ Put Premium Bias → Downside Expected",
         "imNeutral": "⟷ Balanced",
         "searchPlaceholder": "Add ticker...",
-        "tickerSearch": "Search ticker..."
+        "tickerSearch": "Search ticker...",
+        "signalClosedMsg": "Active during regular trading hours only",
+        "signalWaiting": "Waiting for signals..."
     },
     "commandInsight": {
         "longGamma": "Long Gamma",

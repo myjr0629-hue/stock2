@@ -1181,7 +1181,9 @@
         "imBearish": "↘ 풋 프리미엄 우위 → 하락 기대",
         "imNeutral": "⟷ 균형",
         "searchPlaceholder": "티커 추가...",
-        "tickerSearch": "티커 검색..."
+        "tickerSearch": "티커 검색...",
+        "signalClosedMsg": "본장 시간에만 활성화",
+        "signalWaiting": "시그널 대기 중..."
     },
     "commandInsight": {
         "longGamma": "Long Gamma",

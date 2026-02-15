@@ -1032,6 +1032,7 @@ function SignalFeedPanel() {
     const signals = useDashboardStore(s => s.signals);
     const session = useDashboardStore(s => s.tickers[s.selectedTicker]?.session || 'CLOSED');
     const locale = useLocale();
+    const td = useTranslations('dashboard');
     const isOpen = session === 'REG';
 
     // Sort signals by time - newest first, limit to 15
@@ -1044,20 +1045,20 @@ function SignalFeedPanel() {
             <div className="flex items-center justify-between p-3 border-b border-white/5">
                 <div className="flex items-center gap-2">
                     <Radio className={`w-3.5 h-3.5 ${isOpen ? 'text-cyan-400 animate-pulse' : 'text-slate-600'}`} />
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">Signal Feed</h2>
+                    <h2 className="text-xs font-jakarta font-bold uppercase tracking-wider text-slate-300">Signal Feed</h2>
                 </div>
                 {isOpen ? (
-                    <span className="text-[10px] text-slate-500">{signals.length}</span>
+                    <span className="text-[10px] text-slate-400">{signals.length}</span>
                 ) : (
-                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-500">CLOSED</span>
+                    <span className="text-[11px] font-jakarta font-bold px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400">CLOSED</span>
                 )}
             </div>
             <div className="overflow-y-auto p-2 space-y-2 max-h-[calc(100vh-200px)]">
                 {!isOpen ? (
                     <div className="flex flex-col items-center justify-center h-32 gap-2">
                         <Radio className="w-5 h-5 text-slate-600" />
-                        <p className="text-slate-500 text-xs text-center">본장 시간에만 활성화</p>
-                        <p className="text-slate-600 text-[10px]">9:30 AM ~ 4:00 PM ET</p>
+                        <p className="text-slate-400 text-xs text-center">{td('signalClosedMsg')}</p>
+                        <p className="text-slate-500 text-[10px]">9:30 AM ~ 4:00 PM ET</p>
                     </div>
                 ) : sortedSignals.length > 0 ? (
                     sortedSignals.map((signal, i) => (
@@ -1065,7 +1066,7 @@ function SignalFeedPanel() {
                     ))
                 ) : (
                     <div className="flex items-center justify-center h-full">
-                        <p className="text-slate-500 text-xs">시그널 대기 중...</p>
+                        <p className="text-slate-400 text-xs">{td('signalWaiting')}</p>
                     </div>
                 )}
             </div>
