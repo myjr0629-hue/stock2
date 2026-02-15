@@ -27,9 +27,10 @@ interface GravityGaugeProps {
     loading?: boolean;
     session?: 'PRE' | 'REG' | 'POST' | 'CLOSED';
     components?: RLSIComponents;
+    rlsiHistory?: { time: string; score: number }[];
 }
 
-export default function GravityGauge({ score, loading, session, components }: GravityGaugeProps) {
+export default function GravityGauge({ score, loading, session, components, rlsiHistory }: GravityGaugeProps) {
     const [animatedScore, setAnimatedScore] = useState(0);
     const t = useTranslations('guardian');
 
@@ -254,8 +255,8 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                                 {/* Icon */}
                                 <Icon className="w-3 h-3 flex-shrink-0 opacity-60" style={{ color: item.color }} />
                                 {/* Label */}
-                                <div className="w-[52px] flex-shrink-0">
-                                    <div className="text-[11px] font-bold text-white/80 uppercase tracking-wide leading-tight truncate">
+                                <div className="w-[88px] flex-shrink-0">
+                                    <div className="text-[11px] font-bold text-white/80 uppercase tracking-wide leading-tight whitespace-nowrap">
                                         {item.label}
                                     </div>
                                 </div>
@@ -273,7 +274,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                                     <div className="absolute top-0 bottom-0 left-1/2 w-px bg-slate-600/30" />
                                 </div>
                                 {/* Score + Interpretation */}
-                                <div className="w-[68px] text-right flex-shrink-0 flex items-center justify-end gap-1">
+                                <div className="w-[90px] text-right flex-shrink-0 flex items-center justify-end gap-1 whitespace-nowrap">
                                     <span className="text-[11px] font-mono font-bold" style={{ color: item.color }}>
                                         {Math.round(item.score)}
                                     </span>
@@ -323,21 +324,114 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                     {['momentum', 'breadth', 'priceAction', 'rotation', 'sentiment'].map((key) => (
                         <div key={key} className="flex items-center gap-1.5">
                             <div className="w-3 h-3 rounded bg-slate-800 animate-pulse flex-shrink-0" />
-                            <div className="w-[52px] flex-shrink-0">
-                                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                            <div className="flex-shrink-0">
+                                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
                                     {t(`gauge.${key}` as 'gauge.momentum')}
                                 </div>
                             </div>
                             <div className="flex-1 h-[5px] bg-slate-800/80 rounded-full overflow-hidden">
                                 <div className="h-full w-0 rounded-full bg-slate-700" />
                             </div>
-                            <div className="w-[68px] text-right flex-shrink-0">
+                            <div className="w-[90px] text-right flex-shrink-0">
                                 <span className="text-[11px] font-mono text-slate-500">--</span>
                             </div>
                         </div>
                     ))}
                 </div>
             )}
+
+            {/* [V9.0] RLSI Intraday Sparkline */}
+            {rlsiHistory && rlsiHistory.length >= 2 && !loading && (
+                <div className="w-full max-w-[290px] border-t border-slate-800/50 pt-2 mt-1">
+                    <div className="flex items-center justify-between mb-1">
+                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500 font-jakarta">INTRADAY TREND</span>
+                        <span className="text-[9px] font-mono text-slate-500 font-jakarta">{rlsiHistory.length} pts</span>
+                    </div>
+                    <RlsiSparkline history={rlsiHistory} currentScore={animatedScore} />
+                </div>
+            )}
         </div>
+    );
+}
+
+// [V9.0] Sparkline Sub-Component
+function RlsiSparkline({ history, currentScore }: { history: { time: string; score: number }[]; currentScore: number }) {
+    const W = 280; // chart width
+    const H = 48;  // chart height — compact to fit in empty space
+    const PAD_TOP = 4;
+    const PAD_BOT = 12; // room for time labels
+    const drawH = H - PAD_TOP - PAD_BOT;
+
+    const scores = history.map(h => h.score);
+    const minScore = Math.max(0, Math.min(...scores) - 5);
+    const maxScore = Math.min(100, Math.max(...scores) + 5);
+    const range = maxScore - minScore || 1;
+
+    // Build SVG path points
+    const points = history.map((h, i) => {
+        const x = (i / (history.length - 1)) * W;
+        const y = PAD_TOP + drawH - ((h.score - minScore) / range) * drawH;
+        return { x, y, score: h.score, time: h.time };
+    });
+
+    // Line path
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+    // Fill path (closed polygon for gradient)
+    const fillPath = `${linePath} L${W},${PAD_TOP + drawH} L0,${PAD_TOP + drawH} Z`;
+
+    // Score color
+    const getColor = (s: number) => {
+        if (s >= 60) return '#34d399';
+        if (s <= 40) return '#f87171';
+        return '#94a3b8';
+    };
+    const lastPoint = points[points.length - 1];
+    const lineColor = getColor(currentScore);
+
+    // Time labels: show first, middle, last
+    const formatTime = (iso: string) => {
+        const d = new Date(iso);
+        return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+    };
+
+    const timeLabels = [
+        { x: 0, label: formatTime(history[0].time) },
+        ...(history.length > 10 ? [{ x: W / 2, label: formatTime(history[Math.floor(history.length / 2)].time) }] : []),
+        { x: W, label: 'NOW' },
+    ];
+
+    return (
+        <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
+            <defs>
+                <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor={lineColor} stopOpacity="0.15" />
+                    <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
+                </linearGradient>
+            </defs>
+            {/* Grid lines */}
+            <line x1="0" y1={PAD_TOP} x2={W} y2={PAD_TOP} stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" />
+            <line x1="0" y1={PAD_TOP + drawH / 2} x2={W} y2={PAD_TOP + drawH / 2} stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" strokeDasharray="2 4" />
+            <line x1="0" y1={PAD_TOP + drawH} x2={W} y2={PAD_TOP + drawH} stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" />
+            {/* Min/Max labels */}
+            <text x={W + 2} y={PAD_TOP + 3} fill="rgba(148,163,184,0.4)" fontSize="7" fontFamily="monospace">{maxScore}</text>
+            <text x={W + 2} y={PAD_TOP + drawH + 1} fill="rgba(148,163,184,0.4)" fontSize="7" fontFamily="monospace">{minScore}</text>
+            {/* Gradient fill */}
+            <path d={fillPath} fill="url(#sparkFill)" />
+            {/* Line */}
+            <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            {/* Current dot */}
+            {lastPoint && (
+                <>
+                    <circle cx={lastPoint.x} cy={lastPoint.y} r="3" fill={lineColor} />
+                    <circle cx={lastPoint.x} cy={lastPoint.y} r="5" fill="none" stroke={lineColor} strokeWidth="0.5" opacity="0.5" />
+                </>
+            )}
+            {/* Time labels */}
+            {timeLabels.map((tl, i) => (
+                <text key={i} x={tl.x} y={H - 1} fill="rgba(148,163,184,0.5)" fontSize="7" fontFamily="monospace" textAnchor={i === 0 ? 'start' : i === timeLabels.length - 1 ? 'end' : 'middle'}>
+                    {tl.label}
+                </text>
+            ))}
+        </svg>
     );
 }

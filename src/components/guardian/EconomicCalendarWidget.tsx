@@ -197,13 +197,25 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 3 }: Props) 
     };
 
     return (
-        <div className="border border-slate-800 rounded-lg p-4 relative flex flex-col shadow-2xl flex-none"
+        <div className="border border-slate-800 rounded-lg p-4 relative flex flex-col shadow-2xl flex-none overflow-hidden"
             style={{
-                background: 'linear-gradient(90deg, rgba(249,115,22,0.04) 0%, transparent 30%), linear-gradient(135deg, rgba(15,23,42,0.95), rgba(10,14,20,0.98))',
+                background: 'linear-gradient(90deg, rgba(249,115,22,0.12) 0%, rgba(249,115,22,0.03) 30%, transparent 60%), linear-gradient(135deg, rgba(15,23,42,0.95), rgba(10,14,20,0.98))',
                 backdropFilter: 'blur(20px)',
-                borderLeft: '2px solid rgba(249,115,22,0.15)',
+                borderLeft: '3px solid rgba(249,115,22,0.25)',
             }}
         >
+            {/* Infographic: Timeline Pattern */}
+            <svg className="absolute left-2 top-0 w-[20px] h-full pointer-events-none" preserveAspectRatio="none">
+                <line x1="10" y1="0" x2="10" y2="100%" stroke="rgba(249,115,22,0.15)" strokeWidth="1.5" strokeDasharray="3 6" />
+                <circle cx="10" cy="20%" r="3" fill="rgba(249,115,22,0.30)" />
+                <circle cx="10" cy="40%" r="2.5" fill="rgba(249,115,22,0.25)" />
+                <circle cx="10" cy="60%" r="3" fill="rgba(249,115,22,0.35)" />
+                <circle cx="10" cy="80%" r="2.5" fill="rgba(249,115,22,0.20)" />
+                <line x1="4" y1="20%" x2="16" y2="20%" stroke="rgba(249,115,22,0.20)" strokeWidth="1" />
+                <line x1="4" y1="40%" x2="16" y2="40%" stroke="rgba(249,115,22,0.15)" strokeWidth="1" />
+                <line x1="4" y1="60%" x2="16" y2="60%" stroke="rgba(249,115,22,0.20)" strokeWidth="1" />
+                <line x1="4" y1="80%" x2="16" y2="80%" stroke="rgba(249,115,22,0.15)" strokeWidth="1" />
+            </svg>
             {/* Header */}
             <div className="flex justify-between items-center mb-3">
                 <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1.5 font-jakarta">

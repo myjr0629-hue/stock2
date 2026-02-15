@@ -133,6 +133,8 @@ interface GuardianContext {
         signal: string;
         isDivergent: boolean;
     };
+    // [V9.0] RLSI Intraday History
+    rlsiHistory?: { time: string; score: number }[];
     timestamp: string;
 }
 
@@ -334,25 +336,42 @@ export default function GuardianPage() {
                 <div className="flex-1 grid grid-cols-12 grid-rows-[auto_1fr_30px] gap-4 min-h-0">
 
                     {/* BLOCK A: GAUGE (4 cols) */}
-                    <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center"
-                        style={{ background: 'radial-gradient(circle at 50% 60%, rgba(52,211,153,0.04) 0%, transparent 60%), rgba(10,14,20,0.8)' }}
+                    <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center overflow-hidden"
+                        style={{ background: 'radial-gradient(circle at 50% 70%, rgba(52,211,153,0.12) 0%, transparent 50%), radial-gradient(circle at 20% 30%, rgba(6,182,212,0.06) 0%, transparent 40%), rgba(10,14,20,0.85)' }}
                     >
+                        {/* Infographic: Concentric Radar Circles */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
+                            <circle cx="150" cy="170" r="40" fill="none" stroke="rgba(52,211,153,0.20)" strokeWidth="1" strokeDasharray="4 4" />
+                            <circle cx="150" cy="170" r="80" fill="none" stroke="rgba(52,211,153,0.15)" strokeWidth="1" strokeDasharray="4 4" />
+                            <circle cx="150" cy="170" r="120" fill="none" stroke="rgba(52,211,153,0.10)" strokeWidth="1" strokeDasharray="4 4" />
+                            <circle cx="150" cy="170" r="160" fill="none" stroke="rgba(52,211,153,0.07)" strokeWidth="0.8" />
+                            <line x1="150" y1="10" x2="150" y2="290" stroke="rgba(52,211,153,0.08)" strokeWidth="0.8" strokeDasharray="2 6" />
+                            <line x1="10" y1="170" x2="290" y2="170" stroke="rgba(52,211,153,0.08)" strokeWidth="0.8" strokeDasharray="2 6" />
+                        </svg>
                         {/* Sci-Fi Corner Decors */}
                         <div className="absolute top-2 left-2 w-2 h-2 border-t border-l border-slate-600"></div>
                         <div className="absolute top-2 right-2 w-2 h-2 border-t border-r border-slate-600"></div>
                         <div className="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-slate-600"></div>
                         <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-slate-600"></div>
 
-                        <GravityGauge score={data?.rlsi.score || 0} loading={loading} session={data?.rlsi.session} components={data?.rlsi.components} />
+                        <GravityGauge score={data?.rlsi.score || 0} loading={loading} session={data?.rlsi.session} components={data?.rlsi.components} rlsiHistory={data?.rlsiHistory} />
 
                         {/* Scanline Overlay */}
                         <div className="absolute inset-0 bg-[url('/scanline.png')] opacity-5 pointer-events-none"></div>
                     </div>
 
                     {/* BLOCK B: REALITY CHECK (4 cols) */}
-                    <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center"
-                        style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.03) 0%, transparent 50%), rgba(10,14,20,0.8)' }}
+                    <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center overflow-hidden"
+                        style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.10) 0%, rgba(6,182,212,0.03) 40%, transparent 70%), rgba(10,14,20,0.85)' }}
                     >
+                        {/* Infographic: Dot Matrix Grid */}
+                        <div className="absolute inset-0 pointer-events-none"
+                            style={{
+                                backgroundImage: 'radial-gradient(circle, rgba(6,182,212,0.22) 1.2px, transparent 1.2px)',
+                                backgroundSize: '20px 20px',
+                                backgroundPosition: '10px 10px',
+                            }}
+                        />
                         <RealityCheck
                             nasdaqChange={data?.market?.nqChangePercent || 0}
                             guardianScore={data?.rlsi.score || 0}
@@ -368,9 +387,18 @@ export default function GuardianPage() {
                     </div>
 
                     {/* BLOCK C: RLSI INSIGHT + BREADTH COMPACT (4 cols) */}
-                    <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col"
-                        style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.04) 0%, transparent 40%), rgba(10,14,20,0.8)' }}
+                    <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col overflow-hidden"
+                        style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.03) 30%, transparent 50%), rgba(10,14,20,0.85)' }}
                     >
+                        {/* Infographic: Horizontal Data Bars */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none">
+                            <rect x="0" y="15%" width="35%" height="3" fill="rgba(16,185,129,0.18)" rx="1.5" />
+                            <rect x="0" y="30%" width="55%" height="3" fill="rgba(16,185,129,0.14)" rx="1.5" />
+                            <rect x="0" y="45%" width="25%" height="3" fill="rgba(16,185,129,0.10)" rx="1.5" />
+                            <rect x="0" y="60%" width="45%" height="3" fill="rgba(16,185,129,0.16)" rx="1.5" />
+                            <rect x="0" y="75%" width="65%" height="3" fill="rgba(16,185,129,0.12)" rx="1.5" />
+                            <rect x="0" y="90%" width="20%" height="3" fill="rgba(16,185,129,0.08)" rx="1.5" />
+                        </svg>
                         <RLSIInsightPanel
                             alignmentStatus={data?.divergence?.isDivergent ? 'DIVERGENCE' : 'ALIGNMENT OK'}
                             insightTitle={verdict.title}
@@ -467,15 +495,24 @@ export default function GuardianPage() {
                         <EconomicCalendarWidget locale={locale} />
 
                         {/* 1. TACTICAL VERDICT (Compact, Top) */}
-                        <div className="border border-slate-800 rounded-lg p-5 relative flex flex-col shadow-2xl flex-none"
+                        <div className="border border-slate-800 rounded-lg p-5 relative flex flex-col shadow-2xl flex-none overflow-hidden"
                             style={{
                                 background: verdict.sentiment === 'BULLISH'
-                                    ? 'linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(10,14,20,1) 60%)'
+                                    ? 'linear-gradient(135deg, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0.04) 40%, rgba(10,14,20,1) 70%)'
                                     : verdict.sentiment === 'BEARISH'
-                                        ? 'linear-gradient(135deg, rgba(244,63,94,0.06) 0%, rgba(10,14,20,1) 60%)'
-                                        : 'rgba(10,14,20,1)'
+                                        ? 'linear-gradient(135deg, rgba(244,63,94,0.15) 0%, rgba(244,63,94,0.04) 40%, rgba(10,14,20,1) 70%)'
+                                        : 'linear-gradient(135deg, rgba(148,163,184,0.06) 0%, rgba(10,14,20,1) 50%)'
                             }}
                         >
+                            {/* Infographic: Crosshair Target Pattern */}
+                            <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-[140px] h-[140px] pointer-events-none" viewBox="0 0 120 120">
+                                <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(148,163,184,0.12)" strokeWidth="1" />
+                                <circle cx="60" cy="60" r="35" fill="none" stroke="rgba(148,163,184,0.18)" strokeWidth="1" strokeDasharray="3 3" />
+                                <circle cx="60" cy="60" r="20" fill="none" stroke="rgba(148,163,184,0.22)" strokeWidth="1" />
+                                <circle cx="60" cy="60" r="4" fill="rgba(16,185,129,0.30)" />
+                                <line x1="60" y1="5" x2="60" y2="115" stroke="rgba(148,163,184,0.10)" strokeWidth="0.8" strokeDasharray="2 4" />
+                                <line x1="5" y1="60" x2="115" y2="60" stroke="rgba(148,163,184,0.10)" strokeWidth="0.8" strokeDasharray="2 4" />
+                            </svg>
                             <div className="flex justify-between items-center mb-4">
                                 <div className="flex items-center gap-2">
                                     <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-emerald-400 font-jakarta">
@@ -574,9 +611,27 @@ export default function GuardianPage() {
                         </div>
 
                         {/* 2. SECTOR INTEL (Fill Rest, Bottom) */}
-                        <div className="flex-1 border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col min-h-0"
-                            style={{ background: 'radial-gradient(circle at 80% 20%, rgba(6,182,212,0.04) 0%, transparent 50%), rgba(10,14,20,1)' }}
+                        <div className="flex-1 border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col min-h-0 overflow-hidden"
+                            style={{ background: 'radial-gradient(circle at 85% 15%, rgba(6,182,212,0.12) 0%, transparent 45%), radial-gradient(circle at 10% 80%, rgba(16,185,129,0.06) 0%, transparent 40%), rgba(10,14,20,1)' }}
                         >
+                            {/* Infographic: Hexagonal Network Pattern */}
+                            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice">
+                                <polygon points="320,40 340,50 340,70 320,80 300,70 300,50" fill="none" stroke="rgba(6,182,212,0.18)" strokeWidth="1" />
+                                <polygon points="360,60 380,70 380,90 360,100 340,90 340,70" fill="none" stroke="rgba(6,182,212,0.14)" strokeWidth="1" />
+                                <polygon points="320,80 340,90 340,110 320,120 300,110 300,90" fill="none" stroke="rgba(6,182,212,0.16)" strokeWidth="1" />
+                                <polygon points="280,60 300,70 300,90 280,100 260,90 260,70" fill="none" stroke="rgba(6,182,212,0.12)" strokeWidth="1" />
+                                <polygon points="360,100 380,110 380,130 360,140 340,130 340,110" fill="none" stroke="rgba(6,182,212,0.14)" strokeWidth="1" />
+                                <polygon points="320,120 340,130 340,150 320,160 300,150 300,130" fill="none" stroke="rgba(6,182,212,0.10)" strokeWidth="1" />
+                                <circle cx="320" cy="40" r="3" fill="rgba(6,182,212,0.25)" />
+                                <circle cx="360" cy="60" r="2" fill="rgba(6,182,212,0.20)" />
+                                <circle cx="280" cy="60" r="2" fill="rgba(6,182,212,0.18)" />
+                                <circle cx="320" cy="120" r="3" fill="rgba(6,182,212,0.22)" />
+                                <line x1="320" y1="40" x2="360" y2="60" stroke="rgba(6,182,212,0.15)" strokeWidth="1" />
+                                <line x1="320" y1="40" x2="280" y2="60" stroke="rgba(6,182,212,0.12)" strokeWidth="1" />
+                                <line x1="360" y1="60" x2="360" y2="100" stroke="rgba(6,182,212,0.10)" strokeWidth="1" />
+                                <line x1="280" y1="60" x2="320" y2="80" stroke="rgba(6,182,212,0.12)" strokeWidth="1" />
+                                <line x1="320" y1="80" x2="320" y2="120" stroke="rgba(6,182,212,0.15)" strokeWidth="1" />
+                            </svg>
                             <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 border-b border-cyan-900/30 pb-2 flex-none font-jakarta">
                                 SECTOR INTEL {selectedSector && <span className="text-slate-500 font-mono opacity-50 ml-2">:: {selectedSector.id}</span>}
                             </h3>
@@ -715,7 +770,7 @@ export default function GuardianPage() {
                     </div>
 
                 </div>
-            </main>
-        </div>
+            </main >
+        </div >
     );
 }

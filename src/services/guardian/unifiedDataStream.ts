@@ -79,6 +79,8 @@ export interface GuardianContext {
         signal: string;
         isDivergent: boolean;
     };
+    // [V9.0] RLSI Intraday History — 5-min interval sparkline data
+    rlsiHistory?: { time: string; score: number }[];
     timestamp: string;
 }
 
@@ -92,6 +94,69 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 import * as fs from 'fs';
 import * as path from 'path';
 const AI_VERDICT_CACHE_PATH = path.join(process.cwd(), '.next', 'cache', 'guardian_ai_verdict.json');
+const RLSI_HISTORY_PATH = path.join(process.cwd(), '.next', 'cache', 'rlsi_history.json');
+
+// [V9.0] RLSI Intraday History — stores 5-min snapshots during REG session
+interface RlsiHistoryEntry { time: string; score: number; }
+
+function loadRlsiHistory(): RlsiHistoryEntry[] {
+    try {
+        if (fs.existsSync(RLSI_HISTORY_PATH)) {
+            const raw = fs.readFileSync(RLSI_HISTORY_PATH, 'utf-8');
+            return JSON.parse(raw) as RlsiHistoryEntry[];
+        }
+    } catch { }
+    return [];
+}
+
+function saveRlsiHistory(history: RlsiHistoryEntry[]) {
+    try {
+        const dir = path.dirname(RLSI_HISTORY_PATH);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(RLSI_HISTORY_PATH, JSON.stringify(history), 'utf-8');
+    } catch (e) {
+        console.error('[Guardian] Failed to save RLSI history:', e);
+    }
+}
+
+function appendRlsiHistory(score: number, session: string): RlsiHistoryEntry[] {
+    let history = loadRlsiHistory();
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+    // Auto-reset if it's a new trading day
+    if (history.length > 0) {
+        const lastDate = history[0].time.split('T')[0];
+        if (lastDate !== todayStr) {
+            console.log(`[Guardian V9.0] New trading day detected (${lastDate} → ${todayStr}), resetting RLSI history`);
+            history = [];
+        }
+    }
+
+    // Only record during REG session (or keep last session's data)
+    if (session === 'REG') {
+        // Avoid duplicate entries (within 2 min window)
+        const lastEntry = history[history.length - 1];
+        if (lastEntry) {
+            const lastTime = new Date(lastEntry.time).getTime();
+            if (now.getTime() - lastTime < 2 * 60 * 1000) {
+                return history; // Too recent, skip
+            }
+        }
+
+        history.push({ time: now.toISOString(), score: Math.round(score) });
+
+        // Cap at 78 entries (6.5h REG session / 5 min = 78)
+        if (history.length > 78) {
+            history = history.slice(-78);
+        }
+
+        saveRlsiHistory(history);
+        console.log(`[Guardian V9.0] RLSI History: ${history.length} entries, latest=${Math.round(score)}`);
+    }
+
+    return history;
+}
 
 function saveAiVerdict(verdict: GuardianVerdict) {
     try {
@@ -618,6 +683,9 @@ export class GuardianDataHub {
 
             console.log(`[Guardian V6.0] RuleVerdict: ${ruleVerdict.headline}, Action: ${ruleVerdict.action}`);
 
+            // [V9.0] Append RLSI history for intraday sparkline
+            const rlsiHistory = appendRlsiHistory(rlsi.score, rlsi.session);
+
             const context: GuardianContext = {
                 rlsi,
                 market: macro,
@@ -643,6 +711,7 @@ export class GuardianDataHub {
                     signal: rlsi.components?.breadthSignal ?? 'NEUTRAL',
                     isDivergent: rlsi.components?.breadthDivergent ?? false
                 },
+                rlsiHistory,  // [V9.0] Intraday sparkline data
                 timestamp: new Date().toISOString()
             };
 

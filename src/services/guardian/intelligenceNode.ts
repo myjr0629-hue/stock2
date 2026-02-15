@@ -462,6 +462,33 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
     }
 };
 
+// [V9.1] Translation helper — translates cached Korean insight to target locale
+const LOCALE_NAMES: Record<Locale, string> = { ko: 'Korean', en: 'English', ja: 'Japanese' };
+
+async function translateInsight(koreanText: string, targetLocale: Locale, type: 'rotation' | 'reality'): Promise<string | null> {
+    try {
+        const apiKey = getApiKey();
+        if (!apiKey) return null;
+
+        const prompt = type === 'rotation'
+            ? `Translate the following Korean market rotation analysis to ${LOCALE_NAMES[targetLocale]}. Keep the same format ([Status]/[Interpretation]/[Action] for English, [現況]/[解釈]/[アクション] for Japanese). Keep it concise, 3 lines max. Maintain financial terminology accuracy.\n\nKorean text:\n${koreanText}`
+            : `Translate the following Korean market analysis to natural ${LOCALE_NAMES[targetLocale]}. Do NOT use labels like [Diagnosis] or [Conclusion]. Write 2-3 natural sentences as a professional market strategist. Keep financial terms accurate. Max 200 characters for English, 250 characters for Japanese.\n\nKorean text:\n${koreanText}`;
+
+        const result = await genAI.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+        });
+        const text = result.text?.trim();
+        if (text && text.length > 10) {
+            console.log(`[IntelligenceNode V9.1] Translated ${type} ko→${targetLocale} (${text.length} chars)`);
+            return text;
+        }
+    } catch (e) {
+        console.warn(`[IntelligenceNode V9.1] Translation failed (${type} → ${targetLocale}):`, e);
+    }
+    return null;
+}
+
 export class IntelligenceNode {
 
     static async generateRotationInsight(ctx: IntelligenceContext): Promise<string> {
@@ -480,6 +507,19 @@ export class IntelligenceNode {
             if (redisCache) {
                 _cachedRotation[locale] = redisCache;
                 return redisCache;
+            }
+            // [V9.1] Fallback: translate from Korean cache
+            if (locale !== 'ko') {
+                const koCache = _cachedRotation['ko'] || await loadInsightFromRedis(getRedisKey('rotation', 'ko'));
+                if (koCache) {
+                    const translated = await translateInsight(koCache, locale, 'rotation');
+                    if (translated) {
+                        _cachedRotation[locale] = translated;
+                        _lastRotationTime[locale] = Date.now();
+                        saveInsightToRedis(getRedisKey('rotation', locale), translated);
+                        return translated;
+                    }
+                }
             }
             return OFF_HOURS_ROTATION[locale];
         }
@@ -518,6 +558,19 @@ export class IntelligenceNode {
             if (redisCache) {
                 _cachedReality[locale] = redisCache;
                 return redisCache;
+            }
+            // [V9.1] Fallback: translate from Korean cache
+            if (locale !== 'ko') {
+                const koCache = _cachedReality['ko'] || await loadInsightFromRedis(getRedisKey('reality', 'ko'));
+                if (koCache) {
+                    const translated = await translateInsight(koCache, locale, 'reality');
+                    if (translated) {
+                        _cachedReality[locale] = translated;
+                        _lastRealityTime[locale] = Date.now();
+                        saveInsightToRedis(getRedisKey('reality', locale), translated);
+                        return translated;
+                    }
+                }
             }
             return OFF_HOURS_REALITY[locale];
         }
