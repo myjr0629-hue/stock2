@@ -140,7 +140,7 @@ export function PriceDisplay({
                     <div className={`w-1.5 h-1.5 rounded-full ${extendedLabel.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'
                         } animate-pulse`} />
                     <div className="flex items-baseline gap-1.5">
-                        <span className={`text-[9px] font-black uppercase tracking-widest ${EXT_LABEL_COLORS[extendedLabel]}`}>
+                        <span className={`text-[11px] font-black uppercase tracking-widest ${EXT_LABEL_COLORS[extendedLabel]}`}>
                             {extendedLabel}
                         </span>
                         <span className="text-xs font-mono font-bold text-slate-200">
@@ -149,7 +149,7 @@ export function PriceDisplay({
                                 maximumFractionDigits: 2
                             })}
                         </span>
-                        <span className={`text-[10px] font-mono font-bold ${extendedColor}`}>
+                        <span className={`text-[12px] font-mono font-bold ${extendedColor}`}>
                             {isExtendedUp ? '+' : ''}{extendedChangePct.toFixed(2)}%
                         </span>
                     </div>

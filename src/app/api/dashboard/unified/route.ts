@@ -568,7 +568,11 @@ async function fetchMarketData() {
     try {
         // [PERF] Direct import instead of HTTP call - faster and more reliable
         const { getMacroSnapshotSSOT } = await import('@/services/macroHubProvider');
-        const macro = await getMacroSnapshotSSOT();
+        const { getMarketStatusSSOT } = await import('@/services/marketStatusProvider');
+        const [macro, marketStatusSSOT] = await Promise.all([
+            getMacroSnapshotSSOT(),
+            getMarketStatusSSOT().catch(() => null)
+        ]);
 
         const nqChange = macro?.nqChangePercent || 0;
         const nqPrice = macro?.nq || null;
@@ -595,6 +599,9 @@ async function fetchMarketData() {
             vix,
             phase,
             marketStatus: getMarketStatus(),
+            // Holiday info from Massive/Polygon API
+            isHoliday: marketStatusSSOT?.isHoliday || false,
+            holidayName: marketStatusSSOT?.holidayName || undefined,
             // [V4.1] Safe Haven ETFs for AlphaEngine regime scoring
             tltChangePct: (macro as any)?.tltChangePct ?? null,
             gldChangePct: (macro as any)?.gldChangePct ?? null,
@@ -604,7 +611,8 @@ async function fetchMarketData() {
             nq: { price: null, change: 0 },
             vix: null,
             phase: 'UNKNOWN',
-            marketStatus: getMarketStatus()
+            marketStatus: getMarketStatus(),
+            isHoliday: false,
         };
     }
 }

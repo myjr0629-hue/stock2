@@ -48,9 +48,10 @@ const PHASE_LABELS_KEY: Record<string, string> = {
 };
 
 // Market Countdown Component
-function MarketCountdown({ marketStatus }: { marketStatus?: string }) {
+function MarketCountdown({ marketStatus, isHoliday }: { marketStatus?: string; isHoliday?: boolean }) {
     const [countdown, setCountdown] = useState('');
     const [nextLabel, setNextLabel] = useState('');
+    const [isNonTradingDay, setIsNonTradingDay] = useState(false);
 
     useEffect(() => {
         const calcCountdown = () => {
@@ -58,9 +59,19 @@ function MarketCountdown({ marketStatus }: { marketStatus?: string }) {
             // Convert to ET (UTC-5 standard, UTC-4 DST)
             const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
             const et = new Date(etStr);
+            const day = et.getDay();
             const hours = et.getHours();
             const minutes = et.getMinutes();
             const currentMinutes = hours * 60 + minutes;
+
+            // Skip countdown on weekends and holidays
+            if (day === 0 || day === 6 || isHoliday) {
+                setIsNonTradingDay(true);
+                setCountdown('');
+                setNextLabel('');
+                return;
+            }
+            setIsNonTradingDay(false);
 
             // Market sessions in ET minutes
             const PRE_OPEN = 4 * 60;       // 04:00
@@ -104,13 +115,13 @@ function MarketCountdown({ marketStatus }: { marketStatus?: string }) {
         calcCountdown();
         const interval = setInterval(calcCountdown, 60000); // Update every minute
         return () => clearInterval(interval);
-    }, [marketStatus]);
+    }, [marketStatus, isHoliday]);
 
-    if (!countdown) return null;
+    if (!countdown || isNonTradingDay) return null;
 
     return (
-        <span style={{ fontSize: '11px' }} className="text-slate-400 ml-2">
-            {nextLabel} <span className="text-cyan-400 font-medium">{countdown}</span>
+        <span style={{ fontSize: '12px' }} className="text-slate-300 ml-2">
+            {nextLabel} <span className="text-cyan-400 font-semibold">{countdown}</span>
         </span>
     );
 }
@@ -137,32 +148,53 @@ function AlphaStatusBar() {
                 {market?.marketStatus && market.marketStatus !== 'CLOSED' ? (
                     <>
                         {/* LIVE — Pre-Market, Regular, After-Hours */}
-                        <span className="relative flex h-2 w-2">
+                        <span className="relative flex h-2.5 w-2.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
                         </span>
-                        <span className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">LIVE</span>
-                        <span className={`ml-1 px-2 py-0.5 text-[9px] uppercase font-bold rounded border ${STATUS_COLORS[market.marketStatus]}`}>
+                        <span className="text-[12px] uppercase tracking-wider text-emerald-400 font-bold">LIVE</span>
+                        <span className={`ml-1 px-2 py-0.5 text-[10px] uppercase font-bold rounded border ${STATUS_COLORS[market.marketStatus]}`}>
                             {market.marketStatus}
                         </span>
                     </>
                 ) : (
                     <>
                         {/* CLOSED — no pulse */}
-                        <span className="relative flex h-2 w-2">
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-500" />
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${market?.isHoliday ? 'bg-amber-500' : 'bg-slate-400'}`} />
                         </span>
-                        <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">CLOSED</span>
+                        {market?.isHoliday ? (
+                            <>
+                                <span className="text-[12px] uppercase tracking-wider text-amber-400 font-bold">HOLIDAY</span>
+                                {market.holidayName && (
+                                    <span className="text-[12px] text-amber-300 font-semibold">· {market.holidayName}</span>
+                                )}
+                            </>
+                        ) : (() => {
+                            // Check if weekend (client-side ET calculation)
+                            const now = new Date();
+                            const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+                            const etDay = new Date(etStr).getDay();
+                            const isWeekend = etDay === 0 || etDay === 6;
+                            return isWeekend ? (
+                                <>
+                                    <span className="text-[12px] uppercase tracking-wider text-slate-300 font-bold">CLOSED</span>
+                                    <span className="text-[12px] text-slate-400 font-semibold">· Weekend</span>
+                                </>
+                            ) : (
+                                <span className="text-[12px] uppercase tracking-wider text-slate-300 font-bold">CLOSED</span>
+                            );
+                        })()}
                     </>
                 )}
 
-                <MarketCountdown marketStatus={market?.marketStatus} />
+                <MarketCountdown marketStatus={market?.marketStatus} isHoliday={market?.isHoliday} />
             </div>
 
             {/* Right: Last Updated & Refresh */}
             <div className="flex items-center gap-3">
                 {lastUpdated && (
-                    <span className="text-[10px] text-slate-500">
+                    <span className="text-[11px] text-slate-400">
                         Updated: {lastUpdated.toLocaleTimeString(locale === 'ja' ? 'ja-JP' : locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                     </span>
                 )}
@@ -243,10 +275,10 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                         {ticker}
                     </span>
                     {hasGammaSqueeze && (
-                        <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-indigo-500/20 text-indigo-400 rounded">SQ</span>
+                        <span className="px-1 py-0.5 text-[8px] font-bold uppercase bg-indigo-500/20 text-indigo-400 rounded">SQ</span>
                     )}
                     {hasWhale && !hasGammaSqueeze && (
-                        <span className="px-1 py-0.5 text-[6px] font-bold uppercase bg-amber-500/20 text-amber-400 rounded">WH</span>
+                        <span className="px-1 py-0.5 text-[8px] font-bold uppercase bg-amber-500/20 text-amber-400 rounded">WH</span>
                     )}
                 </div>
 
@@ -271,10 +303,10 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                     )}
                     {/* Extended Session Badge (Command-style pill) */}
                     {extPrice > 0 && (
-                        <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/60 border border-slate-700/50">
+                        <div className="flex items-baseline gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/60 border border-slate-700/50">
                             <div className={`w-1.5 h-1.5 rounded-full ${displayExtLabel === 'PRE' ? 'bg-amber-500' : displayExtLabel === 'POST' ? 'bg-indigo-500' : 'bg-cyan-500'
                                 } animate-pulse`} />
-                            <span className={`text-[12px] font-black uppercase tracking-wider ${extColor}`}>{displayExtLabel}</span>
+                            <span className={`text-[11px] font-black uppercase tracking-wider ${extColor}`}>{displayExtLabel}</span>
                             <span className="text-[12px] text-slate-200 font-mono font-bold">${extPrice.toFixed(2)}</span>
                             <span className={`text-[12px] font-mono font-bold ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                 {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
@@ -1058,9 +1090,9 @@ function SignalFeedPanel() {
             <div className="overflow-y-auto p-2 space-y-2 max-h-[calc(100vh-200px)]">
                 {!isOpen ? (
                     <div className="flex flex-col items-center justify-center h-32 gap-2">
-                        <Radio className="w-5 h-5 text-slate-600" />
-                        <p className="text-slate-400 text-xs text-center">{td('signalClosedMsg')}</p>
-                        <p className="text-slate-500 text-[10px]">9:30 AM ~ 4:00 PM ET</p>
+                        <Radio className="w-5 h-5 text-slate-500" />
+                        <p className="text-slate-300 text-sm text-center font-medium">{td('signalClosedMsg')}</p>
+                        <p className="text-slate-400 text-xs">9:30 AM ~ 4:00 PM ET</p>
                     </div>
                 ) : sortedSignals.length > 0 ? (
                     sortedSignals.map((signal, i) => (

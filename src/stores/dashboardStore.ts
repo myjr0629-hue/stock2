@@ -66,6 +66,8 @@ interface MarketData {
     vix: number | null;
     phase: string;
     marketStatus: 'PRE' | 'OPEN' | 'AFTER' | 'CLOSED';
+    isHoliday?: boolean;
+    holidayName?: string;
 }
 
 interface Signal {
