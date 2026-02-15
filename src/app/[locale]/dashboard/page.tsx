@@ -299,6 +299,7 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
 
 // Watchlist Panel
 function WatchlistPanel() {
+    const td = useTranslations('dashboard');
     const tickerKeys = useDashboardStore(useShallow(s => Object.keys(s.tickers)));
     const selectedTicker = useDashboardStore(s => s.selectedTicker);
     const toggleDashboardTicker = useDashboardStore(s => s.toggleDashboardTicker);
@@ -321,8 +322,8 @@ function WatchlistPanel() {
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-white/5">
-                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-jakarta">Watchlist</h2>
-                <span style={{ fontSize: '11px' }} className="text-white">{dashboardTickers.length} / 10</span>
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300 font-jakarta">Watchlist</h2>
+                <span style={{ fontSize: '11px' }} className="text-slate-300 font-jakarta font-bold">{dashboardTickers.length} / 10</span>
             </div>
             {/* Add Ticker Input */}
             <div className="p-2 border-b border-white/5">
@@ -332,14 +333,14 @@ function WatchlistPanel() {
                         value={newTicker}
                         onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddTicker()}
-                        placeholder="티커 추가..."
+                        placeholder={td('searchPlaceholder')}
                         className="flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border border-white/10 rounded text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
                         maxLength={6}
                     />
                     <button
                         onClick={handleAddTicker}
                         className="px-2 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded transition-colors"
-                        title="티커 추가"
+                        title={td('searchPlaceholder')}
                     >
                         <Plus className="w-4 h-4" />
                     </button>
