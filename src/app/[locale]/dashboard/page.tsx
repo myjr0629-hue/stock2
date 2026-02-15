@@ -38,12 +38,12 @@ const STATUS_COLORS = {
     CLOSED: "bg-slate-500/20 text-slate-400 border-slate-500/30"
 };
 
-const PHASE_LABELS: Record<string, string> = {
-    BULLISH_EXPANSION: "상승 확장",
-    BULLISH: "상승세",
-    NEUTRAL: "중립",
-    BEARISH: "하락세",
-    BEARISH_DECLINE: "하락 확장",
+const PHASE_LABELS_KEY: Record<string, string> = {
+    BULLISH_EXPANSION: "phaseBullExpansion",
+    BULLISH: "phaseBullish",
+    NEUTRAL: "phaseNeutral",
+    BEARISH: "phaseBearish",
+    BEARISH_DECLINE: "phaseBearDecline",
     UNKNOWN: "—"
 };
 
@@ -180,6 +180,7 @@ function AlphaStatusBar() {
 
 // Watchlist Item Component (Command-style price display)
 const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: { ticker: string; isSelected: boolean }) {
+    const td = useTranslations('dashboard');
     const data = useDashboardStore(s => s.tickers[ticker]);
     const setSelectedTicker = useDashboardStore(s => s.setSelectedTicker);
     const toggleDashboardTicker = useDashboardStore(s => s.toggleDashboardTicker);
@@ -289,7 +290,7 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                     toggleDashboardTicker(ticker);
                 }}
                 className="absolute right-1 top-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-rose-500/20 rounded text-rose-400 z-10"
-                title="대시보드에서 제거"
+                title={td('removeFromDashboard')}
             >
                 <X className="w-3 h-3" />
             </button>
@@ -546,7 +547,7 @@ function MainChartPanel() {
                             <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                 {gexDisplay}
                             </span>
-                            <span className="text-xs text-white">{(data?.netGex || 0) > 0 ? "안정적" : "변동성 ↑"}</span>
+                            <span className="text-xs text-white">{(data?.netGex || 0) > 0 ? td('gexStableInterpret') : td('gexVolatileInterpret')}</span>
                         </div>
                     </div>
 
@@ -589,7 +590,7 @@ function MainChartPanel() {
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xl font-mono font-bold ${color}`}>{score}%</span>
                                         <span className="text-[11px] text-white">
-                                            {score >= 70 ? '급등/급락 가능' : score >= 50 ? '변동성 주의' : score >= 30 ? '보통' : '안정'}
+                                            {score >= 70 ? td('sqzExtreme') : score >= 50 ? td('sqzCaution') : score >= 30 ? td('sqzNormal') : td('sqzStable')}
                                         </span>
                                     </div>
                                 </>
@@ -609,7 +610,7 @@ function MainChartPanel() {
                                 <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="30" width="10" height="30" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="22" y="18" width="10" height="42" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="39" y="24" width="10" height="36" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="56" y="12" width="10" height="48" rx="2" fill="currentColor" className="text-cyan-400" /></svg>
                                 <div className="flex items-center gap-2 mb-2">
                                     <BarChart3 className="w-4 h-4 text-cyan-400" />
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">VWAP 거리</span>
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">{td('vwapDistance')}</span>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white'}`}>
@@ -1077,12 +1078,13 @@ function SignalFeedPanel() {
 
 // Mobile Tab Component
 function MobileTabBar({ activeTab, setActiveTab }: { activeTab: string; setActiveTab: (tab: string) => void }) {
+    const td = useTranslations('dashboard');
     const signals = useDashboardStore(s => s.signals);
 
     const tabs = [
-        { id: 'chart', label: '차트', icon: BarChart3 },
-        { id: 'list', label: '종목', icon: List },
-        { id: 'signal', label: '시그널', icon: Radio, badge: signals.length }
+        { id: 'chart', label: td('mobileTabChart'), icon: BarChart3 },
+        { id: 'list', label: td('mobileTabList'), icon: List },
+        { id: 'signal', label: td('mobileTabSignal'), icon: Radio, badge: signals.length }
     ];
 
     return (
