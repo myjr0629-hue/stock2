@@ -199,21 +199,22 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 3 }: Props) 
     return (
         <div className="border border-slate-800 rounded-lg p-4 relative flex flex-col shadow-2xl flex-none"
             style={{
-                background: 'linear-gradient(135deg, rgba(15,23,42,0.95), rgba(10,14,20,0.98))',
+                background: 'linear-gradient(90deg, rgba(249,115,22,0.04) 0%, transparent 30%), linear-gradient(135deg, rgba(15,23,42,0.95), rgba(10,14,20,0.98))',
                 backdropFilter: 'blur(20px)',
+                borderLeft: '2px solid rgba(249,115,22,0.15)',
             }}
         >
             {/* Header */}
             <div className="flex justify-between items-center mb-3">
-                <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1.5">
+                <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1.5 font-jakarta">
                     <Calendar className="w-3.5 h-3.5" />
                     ECONOMIC CALENDAR
                 </h3>
                 <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] bg-blue-950/50 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20 font-bold">
+                    <span className="text-[11px] bg-blue-950/50 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20 font-bold font-jakarta">
                         US
                     </span>
-                    <span className="text-[11px] bg-rose-950/50 text-rose-300 px-2 py-0.5 rounded border border-rose-500/20 font-bold">
+                    <span className="text-[11px] bg-rose-950/50 text-rose-300 px-2 py-0.5 rounded border border-rose-500/20 font-bold font-jakarta">
                         HIGH
                     </span>
                 </div>
@@ -223,9 +224,9 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 3 }: Props) 
             {nextEvent && (
                 <div className="flex items-center gap-2 mb-3 bg-slate-900/60 rounded-lg px-3 py-2 border border-slate-700/30">
                     <Clock className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-[11px] text-white font-bold">Next Impact:</span>
+                    <span className="text-[11px] text-white font-bold font-jakarta">Next Impact:</span>
                     <span className="text-[13px] font-mono font-black text-amber-400">{countdown}</span>
-                    <span className="text-[11px] text-slate-400 truncate ml-auto">{nextEvent.event}</span>
+                    <span className="text-[11px] text-slate-400 truncate ml-auto font-jakarta">{nextEvent.event}</span>
                 </div>
             )}
 
@@ -241,9 +242,9 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 3 }: Props) 
                         <div className="flex-1 min-w-0">
                             {group.events.map((event, ei) => (
                                 <div key={ei} className="flex items-center gap-1.5">
-                                    <span className={`text-[11px] font-mono font-black px-1 py-0.5 rounded ${CATEGORY_COLORS[event.category] || 'text-white'} bg-white/5`}>{CATEGORY_ICONS[event.category] || 'ETC'}</span>
+                                    <span className={`text-[11px] font-mono font-black px-1 py-0.5 rounded ${CATEGORY_COLORS[event.category] || 'text-white'} bg-white/5 font-jakarta`}>{CATEGORY_ICONS[event.category] || 'ETC'}</span>
                                     <span className="text-[11px] font-mono text-slate-500 flex-shrink-0">{convertTime(event.time)}</span>
-                                    <span className={`text-[13px] font-semibold truncate ${CATEGORY_COLORS[event.category] || 'text-white'}`}>
+                                    <span className={`text-[13px] font-semibold truncate ${CATEGORY_COLORS[event.category] || 'text-white'} font-jakarta`}>
                                         {event.event}
                                     </span>
                                     <span className={`ml-auto flex-shrink-0 w-2 h-2 rounded-full ${event.impact === 'HIGH' ? 'bg-rose-500' : 'bg-amber-500'}`} />
@@ -256,17 +257,17 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 3 }: Props) 
 
             {/* Footer */}
             <div className="mt-2 pt-2 border-t border-slate-800/40 flex items-center justify-between">
-                <span className="text-[11px] text-slate-600 font-mono">
+                <span className="text-[11px] text-slate-500 font-mono font-jakarta">
                     {upcomingEvents.length} events tracked · {tzLabel}
                 </span>
                 <div className="flex items-center gap-2">
                     <span className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-rose-500" />
-                        <span className="text-[11px] text-slate-500">HIGH</span>
+                        <span className="text-[11px] text-slate-400 font-jakarta">HIGH</span>
                     </span>
                     <span className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-amber-500" />
-                        <span className="text-[11px] text-slate-500">MED</span>
+                        <span className="text-[11px] text-slate-400 font-jakarta">MED</span>
                     </span>
                 </div>
             </div>

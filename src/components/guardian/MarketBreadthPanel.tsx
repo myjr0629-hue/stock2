@@ -98,10 +98,10 @@ export default function RLSIInsightPanel({
             <div className="flex items-center justify-between mb-2 border-b border-slate-800 pb-2 flex-none">
                 <div className="flex items-center gap-2">
                     <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-xs uppercase tracking-[0.2em] text-white font-black">
+                    <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">
                         RLSI INSIGHT
                     </span>
-                    <span className="text-[12px] text-amber-500 font-mono">· Regular Session Only</span>
+                    <span className="text-[12px] text-amber-500 font-mono font-jakarta">· Regular Session Only</span>
                 </div>
                 <div className={`text-[12px] font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
                     ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
@@ -146,7 +146,7 @@ export default function RLSIInsightPanel({
                         <div className="text-[13px] text-white/80 leading-[1.6] line-clamp-4" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                             {insightDesc}
                         </div>
-                        <div className="text-[12px] text-amber-500/50 font-mono mt-1.5">Last session analysis</div>
+                        <div className="text-[12px] text-amber-500/50 font-mono mt-1.5 font-jakarta">Last session analysis</div>
                     </>
                 ) : (
                     <div className="flex items-center gap-3 py-1.5">
@@ -155,7 +155,7 @@ export default function RLSIInsightPanel({
                         </div>
                         <div>
                             <div className="text-[11px] font-bold text-white/80">{t('insightPending')}</div>
-                            <div className="text-[11px] text-slate-500 font-mono mt-0.5">Regular Session 09:30-16:00 ET</div>
+                            <div className="text-[11px] text-slate-400 font-mono mt-0.5 font-jakarta">Regular Session 09:30-16:00 ET</div>
                         </div>
                     </div>
                 )}
@@ -167,17 +167,17 @@ export default function RLSIInsightPanel({
                 <div className="flex items-center justify-between flex-none">
                     <div className="flex items-center gap-1.5">
                         <BarChart3 className="w-3.5 h-3.5" style={{ color: cfg.color }} />
-                        <span className="text-[11px] font-black text-white uppercase tracking-[0.15em]">MARKET BREADTH</span>
+                        <span className="text-[11px] font-black text-white uppercase tracking-[0.15em] font-jakarta">MARKET BREADTH</span>
                     </div>
                     <div className="flex items-center gap-2">
                         {isDivergent && (
                             <div className="flex items-center gap-1">
                                 <AlertTriangle className="w-3 h-3 text-rose-400" />
-                                <span className="text-[11px] font-black text-rose-400 tracking-wider">DIV</span>
+                                <span className="text-[11px] font-black text-rose-400 tracking-wider font-jakarta">DIV</span>
                             </div>
                         )}
                         <span
-                            className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded"
+                            className="text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded font-jakarta"
                             style={{
                                 color: cfg.color,
                                 backgroundColor: cfg.bg,

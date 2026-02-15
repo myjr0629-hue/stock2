@@ -125,7 +125,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
             <div className="w-full px-2 mb-1">
                 <div className="flex items-center gap-2">
                     <Activity className="w-3 h-3 text-white opacity-70" />
-                    <span className="text-xs uppercase tracking-[0.2em] text-white font-black">Gravity Gauge</span>
+                    <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">Gravity Gauge</span>
                     {session && (
                         <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ml-auto ${session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                             session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
@@ -206,7 +206,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                     />
 
                     {/* RLSI Label — centered above the arc */}
-                    <text x="100" y="14" textAnchor="middle" className="fill-white text-[12px] font-black uppercase" letterSpacing="4">
+                    <text x="100" y="14" textAnchor="middle" className="fill-white text-[12px] font-black uppercase" letterSpacing="4" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                         RLSI
                     </text>
                 </svg>
@@ -217,7 +217,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                         {loading ? "--" : Math.round(animatedScore)}
                     </span>
                     <span
-                        className="text-[11px] font-black uppercase tracking-widest mt-0.5 px-2 py-0.5 rounded border border-white/10"
+                        className="text-[11px] font-black uppercase tracking-widest mt-0.5 px-2 py-0.5 rounded border border-white/10 font-jakarta"
                         style={{ color: statusColor, borderColor: `${statusColor}33`, backgroundColor: `${statusColor}11` }}
                     >
                         {statusText}
@@ -238,7 +238,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                 {/* Scale labels */}
                 <div className="flex justify-between mt-0.5 px-0.5">
                     {scaleZones.map(z => (
-                        <span key={z.label} className="text-[11px] font-mono text-slate-600">{z.label}</span>
+                        <span key={z.label} className="text-[11px] font-mono text-slate-500">{z.label}</span>
                     ))}
                 </div>
             </div>
@@ -324,7 +324,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                         <div key={key} className="flex items-center gap-1.5">
                             <div className="w-3 h-3 rounded bg-slate-800 animate-pulse flex-shrink-0" />
                             <div className="w-[52px] flex-shrink-0">
-                                <div className="text-[11px] font-bold text-slate-600 uppercase tracking-wide">
+                                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
                                     {t(`gauge.${key}` as 'gauge.momentum')}
                                 </div>
                             </div>
@@ -332,7 +332,7 @@ export default function GravityGauge({ score, loading, session, components }: Gr
                                 <div className="h-full w-0 rounded-full bg-slate-700" />
                             </div>
                             <div className="w-[68px] text-right flex-shrink-0">
-                                <span className="text-[11px] font-mono text-slate-600">--</span>
+                                <span className="text-[11px] font-mono text-slate-500">--</span>
                             </div>
                         </div>
                     ))}

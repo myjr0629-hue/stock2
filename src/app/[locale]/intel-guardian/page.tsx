@@ -334,7 +334,9 @@ export default function GuardianPage() {
                 <div className="flex-1 grid grid-cols-12 grid-rows-[auto_1fr_30px] gap-4 min-h-0">
 
                     {/* BLOCK A: GAUGE (4 cols) */}
-                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14]/80 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center">
+                    <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center"
+                        style={{ background: 'radial-gradient(circle at 50% 60%, rgba(52,211,153,0.04) 0%, transparent 60%), rgba(10,14,20,0.8)' }}
+                    >
                         {/* Sci-Fi Corner Decors */}
                         <div className="absolute top-2 left-2 w-2 h-2 border-t border-l border-slate-600"></div>
                         <div className="absolute top-2 right-2 w-2 h-2 border-t border-r border-slate-600"></div>
@@ -348,7 +350,9 @@ export default function GuardianPage() {
                     </div>
 
                     {/* BLOCK B: REALITY CHECK (4 cols) */}
-                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14]/80 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center">
+                    <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center"
+                        style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.03) 0%, transparent 50%), rgba(10,14,20,0.8)' }}
+                    >
                         <RealityCheck
                             nasdaqChange={data?.market?.nqChangePercent || 0}
                             guardianScore={data?.rlsi.score || 0}
@@ -364,7 +368,9 @@ export default function GuardianPage() {
                     </div>
 
                     {/* BLOCK C: RLSI INSIGHT + BREADTH COMPACT (4 cols) */}
-                    <div className="col-span-12 lg:col-span-4 bg-[#0a0e14]/80 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col">
+                    <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col"
+                        style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.04) 0%, transparent 40%), rgba(10,14,20,0.8)' }}
+                    >
                         <RLSIInsightPanel
                             alignmentStatus={data?.divergence?.isDivergent ? 'DIVERGENCE' : 'ALIGNMENT OK'}
                             insightTitle={verdict.title}
@@ -385,11 +391,11 @@ export default function GuardianPage() {
                     {/* LEFT: MAP (Cols 1-8) */}
                     <div className={`col-span-12 lg:col-span-8 bg-[#0a0e14] border rounded-lg relative overflow-hidden group flex flex-col transition-all duration-500 ${mapBorderClass}`}>
                         <div className="absolute top-6 left-6 z-10 flex items-center gap-3">
-                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block">
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block font-jakarta">
                                 Flow Topography Map v3.0
                             </h3>
                             {/* Session indicator — REG only feature */}
-                            <span className={`text-[11px] font-black tracking-wide px-3 py-1 rounded-md border ${isMarketActive
+                            <span className={`text-[11px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta ${isMarketActive
                                 ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
                                 : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
                                 }`}>
@@ -397,7 +403,7 @@ export default function GuardianPage() {
                             </span>
                             {/* [V6.0] Rotation Regime Badge */}
                             {isMarketActive && data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
-                                <span className={`text-[11px] font-bold tracking-wider px-2 py-0.5 rounded border ${data.rotationIntensity.regime === 'RISK_ON_GROWTH' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' :
+                                <span className={`text-[11px] font-bold tracking-wider px-2 py-0.5 rounded border font-jakarta ${data.rotationIntensity.regime === 'RISK_ON_GROWTH' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' :
                                     data.rotationIntensity.regime === 'RISK_OFF_DEFENSE' ? 'bg-rose-950/80 text-rose-400 border-rose-500/30' :
                                         data.rotationIntensity.regime === 'CYCLICAL_RECOVERY' ? 'bg-amber-950/80 text-amber-400 border-amber-500/30' :
                                             data.rotationIntensity.regime === 'BROAD_RALLY' ? 'bg-emerald-950/80 text-emerald-300 border-emerald-400/30' :
@@ -461,15 +467,23 @@ export default function GuardianPage() {
                         <EconomicCalendarWidget locale={locale} />
 
                         {/* 1. TACTICAL VERDICT (Compact, Top) */}
-                        <div className="bg-[#0a0e14] border border-slate-800 rounded-lg p-5 relative flex flex-col shadow-2xl flex-none">
+                        <div className="border border-slate-800 rounded-lg p-5 relative flex flex-col shadow-2xl flex-none"
+                            style={{
+                                background: verdict.sentiment === 'BULLISH'
+                                    ? 'linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(10,14,20,1) 60%)'
+                                    : verdict.sentiment === 'BEARISH'
+                                        ? 'linear-gradient(135deg, rgba(244,63,94,0.06) 0%, rgba(10,14,20,1) 60%)'
+                                        : 'rgba(10,14,20,1)'
+                            }}
+                        >
                             <div className="flex justify-between items-center mb-4">
                                 <div className="flex items-center gap-2">
-                                    <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-emerald-400">
+                                    <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-emerald-400 font-jakarta">
                                         TACTICAL VERDICT
                                     </h3>
-                                    <span className="text-[12px] text-amber-500 font-mono">· Regular Session Only</span>
+                                    <span className="text-[12px] text-amber-500 font-mono font-jakarta">· Regular Session Only</span>
                                 </div>
-                                <span className="text-[12px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold">
+                                <span className="text-[12px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold font-jakarta">
                                     V.2.5 FLASH
                                 </span>
                             </div>
@@ -487,7 +501,7 @@ export default function GuardianPage() {
                                     <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-3 gap-3">
                                         {/* ROTATION - V6.0 Conviction Bar */}
                                         <div>
-                                            <div className="text-[11px] text-white font-bold mb-0.5 tracking-wider">ROTATION</div>
+                                            <div className="text-[11px] text-white font-bold mb-0.5 tracking-wider font-jakarta">ROTATION</div>
                                             <div className="flex items-center gap-1.5">
                                                 <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                                                     <div
@@ -509,19 +523,19 @@ export default function GuardianPage() {
                                         </div>
 
                                         <div>
-                                            <div className="text-[11px] text-white font-bold mb-0.5 tracking-wider">MOMENTUM</div>
+                                            <div className="text-[11px] text-white font-bold mb-0.5 tracking-wider font-jakarta">MOMENTUM</div>
                                             <div className="text-sm font-mono font-bold text-emerald-400">
                                                 {((data?.rlsi.components.momentumRaw || 1) - 1) * 100 > 0 ? "+" : ""}
                                                 {(((data?.rlsi.components.momentumRaw || 1) - 1) * 100).toFixed(1)}%
                                             </div>
-                                            <div className="text-[11px] text-white font-bold mt-1 tracking-wide opacity-90">3-DAY VELOCITY</div>
+                                            <div className="text-[11px] text-white font-bold mt-1 tracking-wide opacity-90 font-jakarta">3-DAY VELOCITY</div>
                                         </div>
                                         <div>
-                                            <div className="text-[11px] text-white font-bold mb-0.5 tracking-wider">TARGET LOCK</div>
+                                            <div className="text-[11px] text-white font-bold mb-0.5 tracking-wider font-jakarta">TARGET LOCK</div>
                                             <div className={`text-sm font-mono font-bold ${data?.tripleA?.isTargetLock ? "text-amber-400 animate-pulse" : "text-white"}`}>
                                                 {data?.tripleA?.isTargetLock ? "LOCKED" : "SEARCHING"}
                                             </div>
-                                            <div className="text-[11px] text-white font-bold mt-1 tracking-wide opacity-90">
+                                            <div className="text-[11px] text-white font-bold mt-1 tracking-wide opacity-90 font-jakarta">
                                                 {data?.tripleA?.regime || "NEUTRAL"} REGIME
                                             </div>
                                             <div className={`text-[11px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
@@ -542,7 +556,7 @@ export default function GuardianPage() {
                                             {renderColoredText(verdict.desc)}
                                         </div>
                                     </div>
-                                    <div className="text-[12px] text-amber-500/50 font-mono mt-2">Last session analysis</div>
+                                    <div className="text-[12px] text-amber-500/50 font-mono mt-2 font-jakarta">Last session analysis</div>
                                 </>
                             ) : (
                                 <div className="flex-1 flex items-center justify-center py-4">
@@ -552,7 +566,7 @@ export default function GuardianPage() {
                                         </div>
                                         <div>
                                             <div className="text-[13px] font-bold text-white/80">본장에서 실시간 분석이 진행됩니다</div>
-                                            <div className="text-[11px] text-slate-500 font-mono mt-1">Regular Session 09:30-16:00 ET</div>
+                                            <div className="text-[11px] text-slate-400 font-mono mt-1 font-jakarta">Regular Session 09:30-16:00 ET</div>
                                         </div>
                                     </div>
                                 </div>
@@ -560,8 +574,10 @@ export default function GuardianPage() {
                         </div>
 
                         {/* 2. SECTOR INTEL (Fill Rest, Bottom) */}
-                        <div className="flex-1 bg-[#0a0e14] border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col min-h-0">
-                            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 border-b border-cyan-900/30 pb-2 flex-none">
+                        <div className="flex-1 border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col min-h-0"
+                            style={{ background: 'radial-gradient(circle at 80% 20%, rgba(6,182,212,0.04) 0%, transparent 50%), rgba(10,14,20,1)' }}
+                        >
+                            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 border-b border-cyan-900/30 pb-2 flex-none font-jakarta">
                                 SECTOR INTEL {selectedSector && <span className="text-slate-500 font-mono opacity-50 ml-2">:: {selectedSector.id}</span>}
                             </h3>
 
@@ -590,7 +606,7 @@ export default function GuardianPage() {
                                                 <div className="mb-3 flex-none">
                                                     {/* Header */}
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{st.trendAnalysis}</span>
+                                                        <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-jakarta">{st.trendAnalysis}</span>
                                                         <span className={`text-xs font-mono font-bold ${td.cumReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                             {td.cumReturn > 0 ? '▲' : '▼'} {td.cumReturn > 0 ? '+' : ''}{td.cumReturn.toFixed(2)}%
                                                         </span>
