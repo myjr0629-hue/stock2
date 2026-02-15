@@ -216,10 +216,10 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
     const displayExtLabel = extLabel?.replace(/\s*\(.*\)/, '').replace(/\s*(CLOSE|CLOSED)$/i, '').trim() || extLabel;
 
     return (
-        <div className="group relative">
+        <div className="group relative flex items-center">
             <button
                 onClick={() => setSelectedTicker(ticker)}
-                className={`w-full flex items-center justify-between p-3 rounded-lg transition-all duration-200
+                className={`flex-1 flex items-center justify-between p-3 rounded-lg transition-all duration-200
                     ${isSelected
                         ? "bg-cyan-500/10 border border-cyan-500/30"
                         : "bg-[#0d1829]/60 border border-white/5 hover:border-white/10"
@@ -259,7 +259,7 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                             <span className="font-mono text-sm text-white">
                                 ${mainPrice.toFixed(2)}
                             </span>
-                            <span className={`text-[10px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                            <span className={`text-[12px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
                                 {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
                             </span>
                         </div>
@@ -274,25 +274,25 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/60 border border-slate-700/50">
                             <div className={`w-1.5 h-1.5 rounded-full ${displayExtLabel === 'PRE' ? 'bg-amber-500' : displayExtLabel === 'POST' ? 'bg-indigo-500' : 'bg-cyan-500'
                                 } animate-pulse`} />
-                            <span className={`text-[11px] font-black uppercase tracking-wider ${extColor}`}>{displayExtLabel}</span>
-                            <span className="text-[11px] text-slate-200 font-mono font-bold">${extPrice.toFixed(2)}</span>
-                            <span className={`text-[11px] font-mono font-bold ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                            <span className={`text-[12px] font-black uppercase tracking-wider ${extColor}`}>{displayExtLabel}</span>
+                            <span className="text-[12px] text-slate-200 font-mono font-bold">${extPrice.toFixed(2)}</span>
+                            <span className={`text-[12px] font-mono font-bold ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                 {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
                             </span>
                         </div>
                     )}
                 </div>
             </button>
-            {/* Remove Button - appears on hover */}
+            {/* Remove Button - inline on the right, appears on hover */}
             <button
                 onClick={(e) => {
                     e.stopPropagation();
                     toggleDashboardTicker(ticker);
                 }}
-                className="absolute right-1 top-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-rose-500/20 rounded text-rose-400 z-10"
+                className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400 flex-shrink-0"
                 title={td('removeFromDashboard')}
             >
-                <X className="w-3 h-3" />
+                <X className="w-3.5 h-3.5" />
             </button>
         </div>
     );
