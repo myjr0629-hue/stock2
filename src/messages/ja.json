@@ -1151,19 +1151,7 @@
         "gexBearish": "ボラ拡大 (加速区間)",
         "gexNeutral": "中立 (方向感なし)",
         "gexSafeZone": "(+) 安全圏",
-        "gexAccelZone": "(-) 加速区間"
-    },
-    "commandInsight": {
-        "longGamma": "Long Gamma",
-        "shortGamma": "Short Gamma",
-        "inRange": "レンジ内",
-        "aboveResistance": "抵抗突破",
-        "belowSupport": "サポート割れ",
-        "newsPositive": "ニュース好材料",
-        "newsNegative": "ニュース悪材料",
-        "callDominant": "Call優勢",
-        "putDominant": "Put優勢",
-        "marketClosedBriefing": "市場がクローズしました。明日の寄り付きで{ticker}の方向性を再確認してください。",
+        "gexAccelZone": "(-) 加速区間",
         "chartLoading": "チャート読込中...",
         "noChartData": "チャートデータなし",
         "dpInstitutionalHigh": "機関集中",
@@ -1194,6 +1182,18 @@
         "imNeutral": "⟷ 均衡",
         "searchPlaceholder": "ティッカー追加...",
         "tickerSearch": "ティッカー検索..."
+    },
+    "commandInsight": {
+        "longGamma": "Long Gamma",
+        "shortGamma": "Short Gamma",
+        "inRange": "レンジ内",
+        "aboveResistance": "抵抗突破",
+        "belowSupport": "サポート割れ",
+        "newsPositive": "ニュース好材料",
+        "newsNegative": "ニュース悪材料",
+        "callDominant": "Call優勢",
+        "putDominant": "Put優勢",
+        "marketClosedBriefing": "市場がクローズしました。明日の寄り付きで{ticker}の方向性を再確認してください。"
     },
     "flowRadarMetrics": {
         "analyzing": "分析中",

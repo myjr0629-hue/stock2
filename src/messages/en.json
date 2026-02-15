@@ -1151,19 +1151,7 @@
         "gexBearish": "Volatility Expanding (Acceleration)",
         "gexNeutral": "Neutral (No Direction)",
         "gexSafeZone": "(+) Safe Zone",
-        "gexAccelZone": "(-) Accel Zone"
-    },
-    "commandInsight": {
-        "longGamma": "Long Gamma",
-        "shortGamma": "Short Gamma",
-        "inRange": "In Range",
-        "aboveResistance": "Above Resistance",
-        "belowSupport": "Below Support",
-        "newsPositive": "News Positive",
-        "newsNegative": "News Negative",
-        "callDominant": "Call Dominant",
-        "putDominant": "Put Dominant",
-        "marketClosedBriefing": "Market is closed. Check {ticker} direction at tomorrow's open.",
+        "gexAccelZone": "(-) Accel Zone",
         "chartLoading": "Loading chart...",
         "noChartData": "No chart data",
         "dpInstitutionalHigh": "Institutional Focus",
@@ -1194,6 +1182,18 @@
         "imNeutral": "⟷ Balanced",
         "searchPlaceholder": "Add ticker...",
         "tickerSearch": "Search ticker..."
+    },
+    "commandInsight": {
+        "longGamma": "Long Gamma",
+        "shortGamma": "Short Gamma",
+        "inRange": "In Range",
+        "aboveResistance": "Above Resistance",
+        "belowSupport": "Below Support",
+        "newsPositive": "News Positive",
+        "newsNegative": "News Negative",
+        "callDominant": "Call Dominant",
+        "putDominant": "Put Dominant",
+        "marketClosedBriefing": "Market is closed. Check {ticker} direction at tomorrow's open."
     },
     "flowRadarMetrics": {
         "analyzing": "Analyzing",

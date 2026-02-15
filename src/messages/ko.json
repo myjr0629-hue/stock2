@@ -1151,19 +1151,7 @@
         "gexBearish": "변동성 확대 (가속 구간)",
         "gexNeutral": "중립 (방향성 부재)",
         "gexSafeZone": "(+) 안전지대",
-        "gexAccelZone": "(-) 가속구간"
-    },
-    "commandInsight": {
-        "longGamma": "Long Gamma",
-        "shortGamma": "Short Gamma",
-        "inRange": "범위 내",
-        "aboveResistance": "저항 돌파",
-        "belowSupport": "지지 이탈",
-        "newsPositive": "뉴스 긍정",
-        "newsNegative": "뉴스 부정",
-        "callDominant": "Call 우위",
-        "putDominant": "Put 우위",
-        "marketClosedBriefing": "시장이 마감되었습니다. {ticker}은 내일 개장 시 방향성을 다시 확인하세요.",
+        "gexAccelZone": "(-) 가속구간",
         "chartLoading": "차트 로딩...",
         "noChartData": "차트 데이터 없음",
         "dpInstitutionalHigh": "기관 집중",
@@ -1194,6 +1182,18 @@
         "imNeutral": "⟷ 균형",
         "searchPlaceholder": "티커 추가...",
         "tickerSearch": "티커 검색..."
+    },
+    "commandInsight": {
+        "longGamma": "Long Gamma",
+        "shortGamma": "Short Gamma",
+        "inRange": "범위 내",
+        "aboveResistance": "저항 돌파",
+        "belowSupport": "지지 이탈",
+        "newsPositive": "뉴스 긍정",
+        "newsNegative": "뉴스 부정",
+        "callDominant": "Call 우위",
+        "putDominant": "Put 우위",
+        "marketClosedBriefing": "시장이 마감되었습니다. {ticker}은 내일 개장 시 방향성을 다시 확인하세요."
     },
     "flowRadarMetrics": {
         "analyzing": "분석 중",
