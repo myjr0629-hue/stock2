@@ -172,6 +172,25 @@ const SECTOR_INTEL_TEXTS: Record<SectorLocale, {
     }
 };
 
+// === SECTOR NAME i18n ===
+const SECTOR_NAME_I18N: Record<string, Record<SectorLocale, string>> = {
+    '기술주': { ko: '기술주', en: 'Technology', ja: 'テクノロジー' },
+    '커뮤니케이션': { ko: '커뮤니케이션', en: 'Communication', ja: 'コミュニケーション' },
+    '임의소비재': { ko: '임의소비재', en: 'Cons. Disc.', ja: '一般消費財' },
+    '에너지': { ko: '에너지', en: 'Energy', ja: 'エネルギー' },
+    '금융': { ko: '금융', en: 'Financials', ja: '金融' },
+    '헬스케어': { ko: '헬스케어', en: 'Healthcare', ja: 'ヘルスケア' },
+    '산업재': { ko: '산업재', en: 'Industrials', ja: '資本財' },
+    '소재': { ko: '소재', en: 'Materials', ja: '素材' },
+    '필수소비재': { ko: '필수소비재', en: 'Cons. Staples', ja: '生活必需品' },
+    '부동산': { ko: '부동산', en: 'Real Estate', ja: '不動産' },
+    '유틸리티': { ko: '유틸리티', en: 'Utilities', ja: 'ユーティリティ' },
+    'AI 전력망': { ko: 'AI 전력망', en: 'AI Power Grid', ja: 'AI電力網' },
+};
+function getSectorName(name: string, locale: string): string {
+    return SECTOR_NAME_I18N[name]?.[(locale as SectorLocale) || 'ko'] || name;
+}
+
 export default function GuardianPage() {
     const { data: globalData, loading, refresh } = useGuardian();
     const t = useTranslations('guardian');
@@ -550,7 +569,7 @@ export default function GuardianPage() {
                                 {selectedSector ? (
                                     <div className="h-full flex flex-col">
                                         <div className="flex justify-between items-baseline mb-3 flex-none">
-                                            <span className="text-lg font-bold text-white">{selectedSector.name}</span>
+                                            <span className="text-lg font-bold text-white">{getSectorName(selectedSector.name, locale)}</span>
                                             <span className={`text-xl font-mono ${selectedSector.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                 {selectedSector.change > 0 ? "+" : ""}{selectedSector.change.toFixed(2)}%
                                             </span>
