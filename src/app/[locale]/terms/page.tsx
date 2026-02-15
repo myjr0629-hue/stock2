@@ -61,15 +61,15 @@ export default function TermsPage() {
                                 <section
                                     key={index}
                                     className={`rounded-2xl p-6 md:p-8 transition-colors ${highlight
-                                            ? 'bg-amber-500/[0.03] border border-amber-500/10'
-                                            : 'bg-white/[0.015] border border-white/[0.04] hover:border-white/[0.08]'
+                                        ? 'bg-amber-500/[0.03] border border-amber-500/10'
+                                        : 'bg-white/[0.015] border border-white/[0.04] hover:border-white/[0.08]'
                                         }`}
                                 >
                                     {highlight && (
                                         <div className="mb-4">
                                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-amber-500/15 text-amber-400 border border-amber-500/25 shadow-[0_0_12px_rgba(245,158,11,0.1)]">
                                                 <AlertTriangle className="w-3.5 h-3.5" />
-                                                {locale === 'ko' ? '중요 조항' : locale === 'ja' ? '重要条項' : 'IMPORTANT'}
+                                                {meta.importantBadge}
                                             </span>
                                         </div>
                                     )}
@@ -93,8 +93,7 @@ export default function TermsPage() {
                         {/* Effective Date */}
                         <div className="mt-10 py-6 border-t border-white/[0.08] text-center">
                             <p className="text-slate-300 text-sm">
-                                {meta.effectiveDate}<strong className="text-white">{meta.effectiveDateBold}</strong>
-                                {locale === 'ko' ? '부터 시행됩니다.' : locale === 'ja' ? 'より施行されます。' : '.'}
+                                {meta.effectiveDate}<strong className="text-white">{meta.effectiveDateBold}</strong>{meta.effectiveDateSuffix}
                             </p>
                         </div>
 

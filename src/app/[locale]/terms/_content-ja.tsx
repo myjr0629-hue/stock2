@@ -12,7 +12,9 @@ export const meta: TermsMeta = {
     intro: '本利用規約（以下「本規約」）は、SIGNUM HQ（以下「サービス」）の利用に関して、当社とユーザー（以下「会員」）との間の権利、義務および責任事項を定めることを目的とします。サービスを利用することにより、本規約に同意したものとみなされます。',
     effectiveDate: '本規約は',
     effectiveDateBold: '2026年2月12日',
+    effectiveDateSuffix: 'より施行されます。',
     backLink: '← ログインに戻る',
+    importantBadge: '重要条項',
 };
 
 export const sections: TermsSection[] = [

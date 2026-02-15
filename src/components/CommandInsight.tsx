@@ -1,6 +1,7 @@
 'use client';
 
 import { Zap, TrendingUp, TrendingDown, AlertTriangle, Shield, Activity } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 interface CommandInsightProps {
     ticker: string;
@@ -29,6 +30,8 @@ export function CommandInsight({
     smaData,
     session
 }: CommandInsightProps) {
+    const t = useTranslations('commandInsight');
+    const td = useTranslations('dashboard');
 
     // === Data Extraction ===
     const netGex = structure?.netGex || 0;
@@ -50,35 +53,35 @@ export function CommandInsight({
         const mpDist = ((displayPrice - maxPain) / maxPain) * 100;
         if (mpDist > 2) {
             bullScore += 15;
-            factors.push({ label: 'Max Pain 위', status: 'positive' });
+            factors.push({ label: td('insight.maxPainAbove'), status: 'positive' });
         } else if (mpDist < -2) {
             bearScore += 15;
-            factors.push({ label: 'Max Pain 아래', status: 'negative' });
+            factors.push({ label: td('insight.maxPainBelow'), status: 'negative' });
         } else {
-            factors.push({ label: 'Max Pain 근접', status: 'neutral' });
+            factors.push({ label: td('insight.maxPainNear'), status: 'neutral' });
         }
     }
 
     // 2. Gamma Zone
     if (netGex > 0) {
         bullScore += 10; // Long gamma = stable, slightly bullish
-        factors.push({ label: '롱감마', status: 'positive' });
+        factors.push({ label: t('longGamma'), status: 'positive' });
     } else if (netGex < 0) {
         // Short gamma = volatile, can go either way
-        factors.push({ label: '숏감마', status: 'neutral' });
+        factors.push({ label: t('shortGamma'), status: 'neutral' });
     }
 
     // 3. Price vs Support/Resistance
     if (callWall > 0 && putFloor > 0) {
         if (displayPrice >= putFloor && displayPrice <= callWall) {
             bullScore += 10;
-            factors.push({ label: '범위 내', status: 'positive' });
+            factors.push({ label: t('inRange'), status: 'positive' });
         } else if (displayPrice > callWall) {
             bearScore += 10; // Extended above resistance
-            factors.push({ label: '저항 돌파', status: 'neutral' });
+            factors.push({ label: t('aboveResistance'), status: 'neutral' });
         } else if (displayPrice < putFloor) {
             bearScore += 15;
-            factors.push({ label: '지지 이탈', status: 'negative' });
+            factors.push({ label: t('belowSupport'), status: 'negative' });
         }
     }
 
@@ -97,26 +100,26 @@ export function CommandInsight({
     if (newsScore) {
         if (newsScore.score >= 70) {
             bullScore += 15;
-            factors.push({ label: '뉴스 긍정', status: 'positive' });
+            factors.push({ label: t('newsPositive'), status: 'positive' });
         } else if (newsScore.score < 40) {
             bearScore += 15;
-            factors.push({ label: '뉴스 부정', status: 'negative' });
+            factors.push({ label: t('newsNegative'), status: 'negative' });
         }
     }
 
     // 6. Flow Direction
     if (netPremium > 100000) {
         bullScore += 10;
-        factors.push({ label: '콜 우위', status: 'positive' });
+        factors.push({ label: t('callDominant'), status: 'positive' });
     } else if (netPremium < -100000) {
         bearScore += 10;
-        factors.push({ label: '풋 우위', status: 'negative' });
+        factors.push({ label: t('putDominant'), status: 'negative' });
     }
 
     // 7. 0DTE Risk
     if (zeroDteRatio > 0.3) {
         // High 0DTE = more volatility
-        factors.push({ label: '0DTE 높음', status: 'neutral' });
+        factors.push({ label: '0DTE High', status: 'neutral' });
     }
 
     // === Determine Verdict ===
@@ -139,30 +142,30 @@ export function CommandInsight({
     let briefing = '';
 
     if (optionsStatus !== 'OK') {
-        briefing = `${ticker} 옵션 데이터 검증 중입니다. 데이터 안정화 후 분석이 가능합니다.`;
+        briefing = `${ticker} — ${td('briefing.dataValidating')}`;
     } else if (verdict === 'BULLISH') {
         if (smaData?.cross === 'GOLDEN' && netGex > 0) {
-            briefing = `${ticker}은 Golden Cross와 롱감마 환경에서 안정적 상승 흐름입니다. 저항선($${callWall || '---'}) 테스트 가능성이 있습니다.`;
+            briefing = td('briefing.bullishGoldenCross', { ticker });
         } else if (displayPrice > maxPain && netPremium > 0) {
-            briefing = `${ticker}은 Max Pain($${maxPain}) 위에서 콜 플로우 우위로 상승 모멘텀이 유지되고 있습니다.`;
+            briefing = td('briefing.bullishCallFlow', { ticker });
         } else {
-            briefing = `${ticker}은 복합 지표상 상승 편향입니다. 지지선($${putFloor || '---'})이 하방 방어 역할을 합니다.`;
+            briefing = td('briefing.bullishComposite', { ticker });
         }
     } else if (verdict === 'BEARISH') {
         if (smaData?.cross === 'DEAD' && displayPrice < putFloor) {
-            briefing = `${ticker}은 Dead Cross와 함께 지지선($${putFloor}) 하단에서 거래 중입니다. 추가 하락 압력이 있습니다.`;
+            briefing = td('briefing.bearishDeadCross', { ticker });
         } else if (netGex < 0 && zeroDteRatio > 0.3) {
-            briefing = `${ticker}은 숏감마 + 0DTE 고비중으로 변동성 확대 구간입니다. 급격한 움직임에 주의하세요.`;
+            briefing = td('briefing.bearishComposite', { ticker });
         } else {
-            briefing = `${ticker}은 복합 지표상 하락 편향입니다. Max Pain($${maxPain || '---'}) 수렴 가능성을 고려하세요.`;
+            briefing = td('briefing.bearishComposite', { ticker });
         }
     } else {
         if (session === 'CLOSED') {
-            briefing = `시장이 마감되었습니다. ${ticker}은 내일 개장 시 방향성을 다시 확인하세요.`;
+            briefing = t('marketClosedBriefing', { ticker });
         } else if (Math.abs(displayPrice - maxPain) / maxPain < 0.01) {
-            briefing = `${ticker}은 Max Pain($${maxPain}) 근처에서 균형 상태입니다. 방향성 결정 대기 중입니다.`;
+            briefing = td('briefing.neutralDirection', { ticker });
         } else {
-            briefing = `${ticker}은 현재 혼조세입니다. 주요 레벨 돌파 또는 이탈 시 포지션을 결정하세요.`;
+            briefing = td('briefing.neutralDirection', { ticker });
         }
     }
 

@@ -18,6 +18,7 @@ export interface PrivacyMeta {
     intro: string;
     effectiveDate: string;
     effectiveDateBold: string;
+    effectiveDateSuffix: string;
     backLink: string;
     importantBadge: string;
 }
@@ -28,6 +29,7 @@ export const meta: PrivacyMeta = {
     intro: 'SIGNUM HQ ("Service") is committed to protecting your personal information and respects your privacy. This Privacy Policy explains how we collect, use, store, and delete your personal data in compliance with applicable privacy laws.',
     effectiveDate: 'This Privacy Policy is effective as of ',
     effectiveDateBold: 'February 12, 2026',
+    effectiveDateSuffix: '.',
     backLink: '← Back to Login',
     importantBadge: 'IMPORTANT',
 };

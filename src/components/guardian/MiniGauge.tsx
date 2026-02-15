@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { useTranslations } from 'next-intl';
 
 interface MiniGaugeProps {
     value: string | number;
@@ -135,6 +136,7 @@ interface DualGaugeProps {
  * Labels: 12px, Plus Jakarta Sans, white
  */
 export function DualGauge({ priceValue, flowValue, size = 'xl' }: DualGaugeProps) {
+    const t = useTranslations('guardian');
     const sizeConfig = {
         lg: { px: 112, valueCls: 'text-[16px]' },
         xl: { px: 124, valueCls: 'text-lg' },
@@ -153,7 +155,7 @@ export function DualGauge({ priceValue, flowValue, size = 'xl' }: DualGaugeProps
     const isBullish = priceValue >= 0 && flowValue >= 50;
     const isBearish = priceValue < 0 && flowValue < 50;
     const sentimentColor = isBullish ? '#10b981' : isBearish ? '#f43f5e' : '#94a3b8';
-    const sentimentText = isBullish ? '상승 모멘텀' : isBearish ? '하락 압력' : '혼조세';
+    const sentimentText = isBullish ? t('bullMomentum') : isBearish ? t('bearPressure') : t('mixedSignal');
 
     return (
         <div className="group flex flex-col items-center gap-2">

@@ -82,7 +82,7 @@ export function RealityCheck({
                 <MiniGauge
                     label="NDX 20D"
                     value={`${Math.round(rvolNdx * 100)}%`}
-                    subLabel={rvolNdx > 1.5 ? '활발' : rvolNdx > 1.0 ? '보통' : '저조'}
+                    subLabel={rvolNdx > 1.5 ? t('rvolActive') : rvolNdx > 1.0 ? t('rvolNormal') : t('rvolLow')}
                     colorClass={getRvolColor(rvolNdx)}
                     size="lg"
                     fillPercent={Math.min(rvolNdx * 50, 100)}
@@ -90,7 +90,7 @@ export function RealityCheck({
                 <MiniGauge
                     label="DOW 20D"
                     value={`${Math.round(rvolDow * 100)}%`}
-                    subLabel={rvolDow > 1.5 ? '활발' : rvolDow > 1.0 ? '보통' : '저조'}
+                    subLabel={rvolDow > 1.5 ? t('rvolActive') : rvolDow > 1.0 ? t('rvolNormal') : t('rvolLow')}
                     colorClass={rvolDow > 1.0 ? 'text-orange-400' : 'text-slate-400'}
                     size="lg"
                     fillPercent={Math.min(rvolDow * 50, 100)}
@@ -101,7 +101,7 @@ export function RealityCheck({
                     label="US10Y"
                     value={yieldCurve ? `${yieldCurve.us10y.toFixed(2)}%` : '—'}
                     secondaryValue={`${us10yChangePct >= 0 ? '+' : ''}${us10yChangePct.toFixed(2)}%`}
-                    subLabel={us10yChangePct > 0 ? '상승' : us10yChangePct < 0 ? '하락' : '보합'}
+                    subLabel={us10yChangePct > 0 ? t('yieldUp') : us10yChangePct < 0 ? t('yieldDown') : t('yieldFlat')}
                     colorClass={get10YColor(us10yChangePct)}
                     size="lg"
                     fillPercent={50 + us10yChangePct * 10}
@@ -109,7 +109,7 @@ export function RealityCheck({
                 <MiniGauge
                     label="2S10S"
                     value={yieldCurve ? `${yieldCurve.spread2s10s > 0 ? '+' : ''}${yieldCurve.spread2s10s.toFixed(2)}%` : '—'}
-                    subLabel={yieldCurve ? (yieldCurve.spread2s10s < 0 ? '금리역전' : yieldCurve.spread2s10s < 0.25 ? '금리둔화' : '금리정상') : '—'}
+                    subLabel={yieldCurve ? (yieldCurve.spread2s10s < 0 ? t('yieldInverted') : yieldCurve.spread2s10s < 0.25 ? t('yieldFlattening') : t('yieldNormal')) : '—'}
                     colorClass={yieldCurve ? getSpreadColor(yieldCurve.spread2s10s) : 'text-slate-400'}
                     size="lg"
                     fillPercent={yieldCurve ? Math.min((yieldCurve.spread2s10s + 1) * 50, 100) : 50}
@@ -117,7 +117,7 @@ export function RealityCheck({
                 <MiniGauge
                     label="REAL"
                     value={realYield ? `${realYield.realYield > 0 ? '+' : ''}${realYield.realYield.toFixed(2)}%` : '—'}
-                    subLabel={realYield?.stance === 'TIGHT' ? '긴축' : realYield?.stance === 'LOOSE' ? '완화' : '중립'}
+                    subLabel={realYield?.stance === 'TIGHT' ? t('stanceTight') : realYield?.stance === 'LOOSE' ? t('stanceLoose') : t('stanceNeutral')}
                     colorClass={realYield ? getRealColor(realYield.stance) : 'text-slate-400'}
                     size="lg"
                     fillPercent={realYield ? Math.min((realYield.realYield + 2) * 25, 100) : 50}

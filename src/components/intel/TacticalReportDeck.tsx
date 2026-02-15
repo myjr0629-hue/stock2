@@ -7,6 +7,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslations } from 'next-intl';
 import {
     Lock, Camera, TrendingUp, TrendingDown, Shield,
     Target, BarChart3, Brain, RefreshCw, Clock, AlertCircle,
@@ -36,29 +37,29 @@ const VERDICT_GROUPS = {
     ATTACK: {
         verdicts: ['BUY_DIP'],
         icon: Swords,
-        label: '공격',
+        label: 'ATTACK_LABEL',
         labelEN: 'BUY',
         color: '#10b981',
         borderGlow: 'rgba(16, 185, 129, 0.3)',
-        emptyMsg: '공격 진입 종목 없음',
+        emptyMsg: 'ATTACK_EMPTY',
     },
     DEFEND: {
         verdicts: ['HOLD'],
         icon: ShieldCheck,
-        label: '수비',
+        label: 'DEFEND_LABEL',
         labelEN: 'HOLD',
         color: '#f59e0b',
         borderGlow: 'rgba(245, 158, 11, 0.3)',
-        emptyMsg: '보유 종목 없음',
+        emptyMsg: 'DEFEND_EMPTY',
     },
     RETREAT: {
         verdicts: ['HEDGE', 'TRIM'],
         icon: ArrowDownRight,
-        label: '후퇴',
+        label: 'RETREAT_LABEL',
         labelEN: 'SELL',
         color: '#f43f5e',
         borderGlow: 'rgba(244, 63, 94, 0.3)',
-        emptyMsg: '청산/헷지 대상 없음',
+        emptyMsg: 'RETREAT_EMPTY',
     },
 };
 
@@ -193,7 +194,7 @@ function TacticalTickerCard({ t }: { t: TickerSnapshot }) {
 
 
 // ── Client-side briefing generator (for legacy snapshots without structured briefing) ──
-function generateClientBriefing(sorted: TickerSnapshot[], summary: any): BriefingData {
+function generateClientBriefing(sorted: TickerSnapshot[], summary: any, tr: any): BriefingData {
     const topGainer = sorted[0];
     const topLoser = sorted[sorted.length - 1];
     const gainers = summary.gainers || 0;
@@ -202,50 +203,52 @@ function generateClientBriefing(sorted: TickerSnapshot[], summary: any): Briefin
     const allUp = losers === 0;
     const allDown = gainers === 0;
     const pcr = summary.avg_pcr || 0;
-    const outlookKR = summary.outlook === 'BULLISH' ? '강세 편향' : summary.outlook === 'BEARISH' ? '약세 편향' : '중립';
+    const outlookKR = summary.outlook === 'BULLISH' ? tr('bullishBias') : summary.outlook === 'BEARISH' ? tr('bearishBias') : tr('neutral');
 
     // Headline
     let headline = '';
     if (allUp) {
-        headline = `전 종목 상승 마감 — ${topGainer.ticker} +${topGainer.change_pct.toFixed(2)}% 선도`;
+        headline = tr('allUpHeadline', { ticker: topGainer.ticker, pct: topGainer.change_pct.toFixed(2) });
     } else if (allDown) {
-        headline = `전 종목 하락 마감 — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% 최대 낙폭`;
+        headline = tr('allDownHeadline', { ticker: topLoser.ticker, pct: topLoser.change_pct.toFixed(2) });
     } else if (gainers >= losers) {
-        headline = `${gainers}종 상승 vs ${losers}종 하락 — ${topGainer.ticker} 주도 혼조세`;
+        headline = tr('mixedUpHeadline', { gainers: String(gainers), losers: String(losers), ticker: topGainer.ticker });
     } else {
-        headline = `${losers}종 하락 우위 — ${topLoser.ticker} 주도 하방, 방어 모드`;
+        headline = tr('mixedDownHeadline', { losers: String(losers), ticker: topLoser.ticker });
     }
 
     // Bullets — 5 detailed items
     const bullets: string[] = [];
     const leaderPct = topGainer.change_pct >= 0 ? '+' : '';
-    bullets.push(`📈 주도주: <mark>${topGainer.ticker} ${leaderPct}${topGainer.change_pct.toFixed(2)}%</mark> — $${topGainer.close_price.toFixed(2)} 마감${gainers > 1 ? `, 외 ${gainers - 1}종 동반 상승` : ''}`);
-    bullets.push(`📉 약세주: <mark>${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}%</mark> — $${topLoser.close_price.toFixed(2)} 마감${losers > 1 ? `, 외 ${losers - 1}종 동반 하락` : ''}`);
+    const leaderExtra = gainers > 1 ? tr('leadingStockExtra', { count: String(gainers - 1) }) : '';
+    bullets.push(tr('leadingStock', { ticker: `${topGainer.ticker} ${leaderPct}${topGainer.change_pct.toFixed(2)}`, pct: '', price: topGainer.close_price.toFixed(2), extra: leaderExtra }));
+    const loserExtra = losers > 1 ? tr('weakStockExtra', { count: String(losers - 1) }) : '';
+    bullets.push(tr('weakStock', { ticker: `${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}`, pct: '', price: topLoser.close_price.toFixed(2), extra: loserExtra }));
 
     const gammaLong = sorted.filter(t => t.gamma_regime === 'LONG').length;
     const gammaShort = total - gammaLong;
     if (gammaLong === total) {
-        bullets.push(`🛡️ 감마 환경: 전 종목 <mark>Long Gamma</mark> — 변동성 억제 구간, 큰 움직임 제한적`);
+        bullets.push(tr('gammaAllLong'));
     } else if (gammaShort === total) {
-        bullets.push(`⚡ 감마 환경: 전 종목 <mark>Short Gamma</mark> — 변동성 확대 구간, 급등/급락 주의`);
+        bullets.push(tr('gammaAllShort'));
     } else {
-        bullets.push(`⚡ 감마 환경: <mark>${gammaShort}/${total}종 Short Gamma</mark> — 변동성 확대 가능, ${gammaLong}종은 Long Gamma로 안정적`);
+        bullets.push(tr('gammaMixed', { short: String(gammaShort), total: String(total), long: String(gammaLong) }));
     }
 
     const pcrEmoji = pcr < 0.8 ? '🟢' : pcr > 1.2 ? '🔴' : '🟡';
-    const pcrComment = pcr < 0.7 ? '콜 매수 강세, 상방 기대감 형성'
-        : pcr < 0.8 ? '콜 약간 우위, 완만한 상승 기대'
-            : pcr > 1.3 ? '풋 매수 과열, 패닉 또는 헷지 수요 급증'
-                : pcr > 1.2 ? '풋 우위, 하방 압력 감지'
-                    : '콜/풋 균형, 방향성 탐색 중';
-    bullets.push(`${pcrEmoji} PCR 평균 <mark>${pcr.toFixed(2)}</mark> → ${outlookKR}. ${pcrComment}`);
+    const pcrComment = pcr < 0.7 ? tr('pcrCallStrong')
+        : pcr < 0.8 ? tr('pcrCallSlight')
+            : pcr > 1.3 ? tr('pcrPutPanic')
+                : pcr > 1.2 ? tr('pcrPutDominant')
+                    : tr('pcrBalanced');
+    bullets.push(`${pcrEmoji} PCR ${tr('alphaAvg', { score: pcr.toFixed(2) }).replace('📊 ', '').replace('Sector avg Alpha', '').replace('セクター平均Alpha', '').trim()} → ${outlookKR}. ${pcrComment}`);
 
     const avgAlpha = summary.avg_alpha || 0;
     const highAlpha = sorted.filter(t => t.alpha_score >= 60);
     const lowAlpha = sorted.filter(t => t.alpha_score < 40);
-    let alphaComment = `📊 섹터 평균 Alpha <mark>${avgAlpha.toFixed(1)}</mark>`;
-    if (highAlpha.length > 0) alphaComment += ` — ${highAlpha.map(t => t.ticker).join(', ')} 고점수(60+)`;
-    if (lowAlpha.length > 0) alphaComment += `, ${lowAlpha.map(t => t.ticker).join(', ')} 저점수(40-)`;
+    let alphaComment = tr('alphaAvg', { score: avgAlpha.toFixed(1) });
+    if (highAlpha.length > 0) alphaComment += tr('alphaHigh', { tickers: highAlpha.map(t => t.ticker).join(', ') });
+    if (lowAlpha.length > 0) alphaComment += tr('alphaLow', { tickers: lowAlpha.map(t => t.ticker).join(', ') });
     bullets.push(alphaComment);
 
     // Watchpoints
@@ -254,18 +257,18 @@ function generateClientBriefing(sorted: TickerSnapshot[], summary: any): Briefin
         if (t.call_wall > 0 && t.close_price > 0) {
             const dist = ((t.call_wall - t.close_price) / t.close_price * 100);
             if (dist > 0 && dist < 3) {
-                watchpoints.push(`🎯 ${t.ticker} Call Wall $${t.call_wall} 근접 (${dist.toFixed(1)}%), 돌파 시 감마 스퀴즈 가능`);
+                watchpoints.push(tr('callWallNear', { ticker: t.ticker, wall: String(t.call_wall), dist: dist.toFixed(1) }));
             }
         }
         if (t.put_floor > 0 && t.close_price > 0) {
             const dist = ((t.close_price - t.put_floor) / t.close_price * 100);
             if (dist > 0 && dist < 3) {
-                watchpoints.push(`🛡️ ${t.ticker} Put Floor $${t.put_floor} 근접 (${dist.toFixed(1)}%), 하방 지지 예상`);
+                watchpoints.push(tr('putFloorNear', { ticker: t.ticker, floor: String(t.put_floor), dist: dist.toFixed(1) }));
             }
         }
     });
     if (watchpoints.length === 0) {
-        watchpoints.push(`📊 주요 옵션 레벨 근접 종목 없음 — 레인지 내 등락 예상`);
+        watchpoints.push(tr('noKeyLevels'));
     }
 
     return { headline, bullets, watchpoints };
@@ -277,6 +280,7 @@ function generateClientBriefing(sorted: TickerSnapshot[], summary: any): Briefin
 // ============================================================================
 
 export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
+    const tr = useTranslations('tacticalReport');
     const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
     const [snapshotDate, setSnapshotDate] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -289,27 +293,27 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
             const res = await fetch(config.apiEndpoints.snapshot, { cache: 'no-store' });
             if (!res.ok) {
                 if (res.status === 404) {
-                    setError('아직 스냅샷이 생성되지 않았습니다. 장마감 후 자동 생성됩니다.');
+                    setError(tr('snapshotNotReady'));
                 } else {
-                    setError('스냅샷 로드 실패');
+                    setError(tr('snapshotLoadFail'));
                 }
                 setLoading(false);
                 return;
             }
             const text = await res.text();
-            if (!text) { setError('빈 응답'); setLoading(false); return; }
+            if (!text) { setError(tr('emptyResponse')); setLoading(false); return; }
             let data: any;
-            try { data = JSON.parse(text); } catch { setError('JSON 파싱 오류'); setLoading(false); return; }
+            try { data = JSON.parse(text); } catch { setError(tr('jsonParseError')); setLoading(false); return; }
 
             if (data.success && data.snapshot) {
                 setSnapshot(data.snapshot);
                 setSnapshotDate(data.snapshot_date);
                 setError(null);
             } else {
-                setError('스냅샷 데이터가 없습니다.');
+                setError(tr('noSnapshotData'));
             }
         } catch (e: any) {
-            setError('네트워크 오류');
+            setError(tr('networkError'));
         } finally {
             setLoading(false);
         }
@@ -345,10 +349,10 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-white/50">
                         <AlertCircle className="w-4 h-4" />
-                        <span>{error || '스냅샷 데이터가 없습니다.'}</span>
+                        <span>{error || tr('noSnapshotData')}</span>
                     </div>
                     <p className="text-[11px] text-white/25 mt-3">
-                        장마감 후 POST /api/intel/snapshot 호출 시 자동 생성됩니다.
+                        {tr('snapshotAutoGenNote')}
                     </p>
                 </div>
             </div>
@@ -372,7 +376,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
         summary.outlook === 'BEARISH' ? '#f43f5e' : '#64748b';
 
     // Generate briefing data (from structured or client-side fallback)
-    const briefing: BriefingData = summary.briefing || generateClientBriefing(sorted, summary);
+    const briefing: BriefingData = summary.briefing || generateClientBriefing(sorted, summary, tr);
 
     // Group tickers by verdict
     const groups: Record<GroupKey, TickerSnapshot[]> = {
@@ -582,7 +586,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                                             color: count > 0 ? g.color : 'rgba(255,255,255,0.2)',
                                             border: `1px solid ${count > 0 ? `${g.color}25` : 'rgba(255,255,255,0.05)'}`,
                                         }}>
-                                        {g.label} {count}
+                                        {g.label === 'ATTACK_LABEL' ? tr('attackLabel') : g.label === 'DEFEND_LABEL' ? tr('defendLabel') : g.label === 'RETREAT_LABEL' ? tr('retreatLabel') : g.label} {count}
                                     </span>
                                 );
                             })}
@@ -606,14 +610,14 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                                             <Icon className="w-3.5 h-3.5" style={{ color: g.color }} />
                                         </div>
                                         <span className="text-sm font-black" style={{ color: g.color }}>
-                                            {g.label}
+                                            {g.label === 'ATTACK_LABEL' ? tr('attackLabel') : g.label === 'DEFEND_LABEL' ? tr('defendLabel') : g.label === 'RETREAT_LABEL' ? tr('retreatLabel') : g.label}
                                         </span>
                                         <span className="text-xs text-white/30 font-bold ml-1">
                                             {g.labelEN}
                                         </span>
                                         <span className="text-xs font-bold ml-auto px-2 py-0.5 rounded-md"
                                             style={{ backgroundColor: `${g.color}15`, color: g.color }}>
-                                            {items.length}종목
+                                            {tr('tickerCount', { count: String(items.length) })}
                                         </span>
                                     </div>
 
@@ -638,9 +642,9 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                                     <div key={key} className="flex items-center gap-2 bg-white/[0.02] rounded-lg px-4 py-2.5 border border-white/[0.04] flex-1">
                                         <Icon className="w-3.5 h-3.5" style={{ color: `${g.color}60` }} />
                                         <span className="text-[11px] font-bold" style={{ color: `${g.color}60` }}>
-                                            {g.label}
+                                            {g.label === 'ATTACK_LABEL' ? tr('attackLabel') : g.label === 'DEFEND_LABEL' ? tr('defendLabel') : g.label === 'RETREAT_LABEL' ? tr('retreatLabel') : g.label}
                                         </span>
-                                        <span className="text-[11px] text-white/30 ml-auto">{g.emptyMsg}</span>
+                                        <span className="text-[11px] text-white/30 ml-auto">{g.emptyMsg === 'ATTACK_EMPTY' ? tr('attackEmpty') : g.emptyMsg === 'DEFEND_EMPTY' ? tr('defendEmpty') : g.emptyMsg === 'RETREAT_EMPTY' ? tr('retreatEmpty') : g.emptyMsg}</span>
                                     </div>
                                 );
                             })}
@@ -654,7 +658,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                 <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between">
                     <div className="flex items-center gap-2.5 text-[10px] text-white/25">
                         <Clock className="w-3.5 h-3.5" />
-                        <span>스냅샷: {snapshotDate}</span>
+                        <span>{tr('snapshotLabel')}: {snapshotDate}</span>
                         {isLocked && (
                             <span className="flex items-center gap-1 ml-2">
                                 <Lock className="w-2.5 h-2.5" /> Locked until next close

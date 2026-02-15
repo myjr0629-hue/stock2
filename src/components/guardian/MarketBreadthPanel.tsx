@@ -1,5 +1,6 @@
 import React from "react";
 import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb, Clock, Radio } from "lucide-react";
+import { useTranslations } from 'next-intl';
 
 interface RLSIInsightPanelProps {
     alignmentStatus: string;
@@ -32,13 +33,14 @@ export default function RLSIInsightPanel({
     loading,
     isMarketActive = true
 }: RLSIInsightPanelProps) {
+    const t = useTranslations('guardian');
 
     const signalConfig: Record<string, { color: string; bg: string; label: string }> = {
-        STRONG: { color: "#34d399", bg: "rgba(52,211,153,0.08)", label: "강세" },
-        HEALTHY: { color: "#6ee7b7", bg: "rgba(110,231,183,0.08)", label: "건강" },
-        NEUTRAL: { color: "#94a3b8", bg: "rgba(148,163,184,0.08)", label: "중립" },
-        WEAK: { color: "#fb923c", bg: "rgba(251,146,60,0.08)", label: "약세" },
-        CRITICAL: { color: "#f43f5e", bg: "rgba(244,63,94,0.08)", label: "위험" }
+        STRONG: { color: "#34d399", bg: "rgba(52,211,153,0.08)", label: t('signalStrong') },
+        HEALTHY: { color: "#6ee7b7", bg: "rgba(110,231,183,0.08)", label: t('signalHealthy') },
+        NEUTRAL: { color: "#94a3b8", bg: "rgba(148,163,184,0.08)", label: t('signalNeutral') },
+        WEAK: { color: "#fb923c", bg: "rgba(251,146,60,0.08)", label: t('signalWeak') },
+        CRITICAL: { color: "#f43f5e", bg: "rgba(244,63,94,0.08)", label: t('signalCritical') }
     };
 
     const cfg = signalConfig[breadthSignal] || signalConfig.NEUTRAL;
@@ -48,20 +50,20 @@ export default function RLSIInsightPanel({
 
     // A/D Ratio 해석
     const getAdLabel = (ratio: number) => {
-        if (ratio >= 3) return '압도적 매수';
-        if (ratio >= 1.5) return '매수 우위';
-        if (ratio >= 1) return '균형';
-        if (ratio >= 0.7) return '매도 우위';
-        return '압도적 매도';
+        if (ratio >= 3) return t('adOverwhelm');
+        if (ratio >= 1.5) return t('adBuyDom');
+        if (ratio >= 1) return t('adBalanced');
+        if (ratio >= 0.7) return t('adSellDom');
+        return t('adOverwhelmSell');
     };
 
     // Volume Breadth 해석
     const getVolLabel = (vol: number) => {
-        if (vol >= 70) return '강한 매수세';
-        if (vol >= 55) return '매수세 우위';
-        if (vol >= 45) return '균형';
-        if (vol >= 30) return '매도세 우위';
-        return '강한 매도세';
+        if (vol >= 70) return t('volStrongBuy');
+        if (vol >= 55) return t('volBuyDom');
+        if (vol >= 45) return t('volBalanced');
+        if (vol >= 30) return t('volSellDom');
+        return t('volStrongSell');
     };
 
     // 자동 해석 문구
@@ -70,24 +72,24 @@ export default function RLSIInsightPanel({
         const declining = 100 - advancing;
 
         if (breadthPct >= 70 && adRatio >= 2) {
-            return `상승 ${advancing}% vs 하락 ${declining}% — 시장 전반이 동반 상승 중. 광범위한 매수세가 확인되어 상승 신뢰도가 높습니다.`;
+            return t('interpBullStrong', { adv: String(advancing), dec: String(declining) });
         }
         if (breadthPct >= 55) {
-            return `상승 ${advancing}% vs 하락 ${declining}% — 과반 이상 종목이 상승하고 있어 전반적으로 건강한 시장입니다.`;
+            return t('interpHealthy', { adv: String(advancing), dec: String(declining) });
         }
         if (breadthPct >= 45) {
-            return `상승 ${advancing}% vs 하락 ${declining}% — 상승·하락이 혼재. 특정 섹터 쏠림 가능성이 있어 주의가 필요합니다.`;
+            return t('interpMixed', { adv: String(advancing), dec: String(declining) });
         }
         if (breadthPct >= 30) {
-            return `상승 ${advancing}% vs 하락 ${declining}% — 하락 종목이 우세. 지수 상승이 소수 대형주에 의존할 수 있습니다.`;
+            return t('interpWeak', { adv: String(advancing), dec: String(declining) });
         }
-        return `상승 ${advancing}% vs 하락 ${declining}% — 광범위한 매도세. 시장 전반의 약세 신호로 리스크 관리가 필요합니다.`;
+        return t('interpBearStrong', { adv: String(advancing), dec: String(declining) });
     };
 
     // Divergence 해석
     const getDivergenceText = () => {
         if (!isDivergent) return null;
-        return '⚠ 지수는 상승하나 대부분 종목이 하락 — 소수 종목이 지수를 끌어올리고 있어 상승 지속력에 의문이 있습니다.';
+        return t('divergenceWarning');
     };
 
     return (
@@ -152,7 +154,7 @@ export default function RLSIInsightPanel({
                             <Clock size={14} className="text-amber-400" />
                         </div>
                         <div>
-                            <div className="text-[11px] font-bold text-white/80">본장에서 실시간 분석이 진행됩니다</div>
+                            <div className="text-[11px] font-bold text-white/80">{t('insightPending')}</div>
                             <div className="text-[11px] text-slate-500 font-mono mt-0.5">Regular Session 09:30-16:00 ET</div>
                         </div>
                     </div>
@@ -194,7 +196,7 @@ export default function RLSIInsightPanel({
                             {loading ? '--' : Math.round(breadthPct)}
                             <span className="text-sm text-slate-500 font-bold">%</span>
                         </span>
-                        <span className="text-[11px] text-white/50">상승 종목 비율</span>
+                        <span className="text-[11px] text-white/50">{t('advancingRatio')}</span>
                     </div>
                     {/* Dual-tone progress bar */}
                     <div className="relative h-3 bg-slate-800/80 rounded-full overflow-hidden">
@@ -211,9 +213,9 @@ export default function RLSIInsightPanel({
                         <div className="absolute left-1/2 top-0 w-[1px] h-full bg-white/20" />
                     </div>
                     <div className="flex justify-between mt-1">
-                        <span className="text-[11px] text-emerald-400/60 font-bold">▲ 상승</span>
+                        <span className="text-[11px] text-emerald-400/60 font-bold">{t('advancing')}</span>
                         <span className="text-[11px] text-white/30">50%</span>
-                        <span className="text-[11px] text-rose-400/60 font-bold">▼ 하락</span>
+                        <span className="text-[11px] text-rose-400/60 font-bold">{t('declining')}</span>
                     </div>
                 </div>
 
@@ -223,8 +225,8 @@ export default function RLSIInsightPanel({
                     <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5 shadow-lg">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-[11px] text-white font-bold uppercase tracking-wide">A/D 비율</span>
-                                <span className="text-[11px] text-white/50">상승 ÷ 하락</span>
+                                <span className="text-[11px] text-white font-bold uppercase tracking-wide">{t('adRatioLabel')}</span>
+                                <span className="text-[11px] text-white/50">{t('adRatioDesc')}</span>
                             </div>
                             {adRatio >= 1 ? (
                                 <TrendingUp className="w-3 h-3 text-emerald-400/70" />
@@ -245,8 +247,8 @@ export default function RLSIInsightPanel({
                     <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5 shadow-lg">
                         <div className="flex items-center justify-between mb-1">
                             <div className="flex items-baseline gap-1.5">
-                                <span className="text-[11px] text-white font-bold uppercase tracking-wide">거래량 분석</span>
-                                <span className="text-[11px] text-white/50">매수량 비율</span>
+                                <span className="text-[11px] text-white font-bold uppercase tracking-wide">{t('volAnalysis')}</span>
+                                <span className="text-[11px] text-white/50">{t('volBuyRatio')}</span>
                             </div>
                             <BarChart3 className="w-3 h-3 text-sky-400/70" />
                         </div>
@@ -285,7 +287,7 @@ export default function RLSIInsightPanel({
                                 <Radio size={14} className="text-amber-400" />
                             </div>
                             <div>
-                                <div className="text-[11px] font-bold text-white/80">본장에서 브레드스 분석이 진행됩니다</div>
+                                <div className="text-[11px] font-bold text-white/80">{t('breadthAnalysisPending')}</div>
                             </div>
                         </div>
                     )}

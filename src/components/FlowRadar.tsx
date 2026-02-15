@@ -21,6 +21,7 @@ interface FlowRadarProps {
 
 export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
+    const fm = useTranslations('flowRadarMetrics');
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const currentPriceLineRef = useRef<HTMLDivElement>(null);
@@ -125,7 +126,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     // [PREMIUM] Options Pressure Index (OPI) - Unique to SIGNUM
     // OPI = Σ(Call Delta × Call OI) - Σ(Put Delta × Put OI)
     const opi = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400' };
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400' };
 
         let callPressure = 0;
         let putPressure = 0;
@@ -150,19 +151,19 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             : 0;
         // Result: -100 (full put dominance) ~ +100 (full call dominance)
 
-        let label = '중립';
+        let label = fm('neutral');
         let color = 'text-white';
-        if (normalized > 50) { label = '강한 콜 우위'; color = 'text-emerald-400'; }
-        else if (normalized > 20) { label = '콜 우위'; color = 'text-emerald-300'; }
-        else if (normalized < -50) { label = '강한 풋 우위'; color = 'text-rose-400'; }
-        else if (normalized < -20) { label = '풋 우위'; color = 'text-rose-300'; }
+        if (normalized > 50) { label = fm('strongCallDominant'); color = 'text-emerald-400'; }
+        else if (normalized > 20) { label = fm('callDominant'); color = 'text-emerald-300'; }
+        else if (normalized < -50) { label = fm('strongPutDominant'); color = 'text-rose-400'; }
+        else if (normalized < -20) { label = fm('putDominant'); color = 'text-rose-300'; }
 
         return { value: Math.round(normalized), label, color, callPressure, putPressure };
     }, [rawChain]);
 
     // [PREMIUM] IV Percentile - ATM Implied Volatility Ranking
     const ivPercentile = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400' };
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400' };
 
         // Find ATM options (closest to current price)
         const atmOptions = rawChain
@@ -179,7 +180,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             })
             .slice(0, 4); // Get 4 closest strikes
 
-        if (atmOptions.length === 0) return { value: 0, label: '데이터 없음', color: 'text-white' };
+        if (atmOptions.length === 0) return { value: 0, label: fm('noData'), color: 'text-white' };
 
         // Average ATM IV (check multiple paths)
         const avgIV = atmOptions.reduce((sum, opt) => {
@@ -189,20 +190,20 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const ivPercent = Math.round(avgIV * 100);
 
         // Determine percentile rank (simplified: IV 20-80% typical range)
-        let label = '보통';
+        let label = fm('moderate');
         let color = 'text-white';
-        if (ivPercent >= 60) { label = '매우 높음'; color = 'text-rose-400'; }
-        else if (ivPercent >= 45) { label = '높음'; color = 'text-amber-400'; }
-        else if (ivPercent >= 30) { label = '보통'; color = 'text-white'; }
-        else if (ivPercent >= 20) { label = '낮음'; color = 'text-cyan-400'; }
-        else { label = '매우 낮음'; color = 'text-emerald-400'; }
+        if (ivPercent >= 60) { label = fm('veryHigh'); color = 'text-rose-400'; }
+        else if (ivPercent >= 45) { label = fm('high'); color = 'text-amber-400'; }
+        else if (ivPercent >= 30) { label = fm('moderate'); color = 'text-white'; }
+        else if (ivPercent >= 20) { label = fm('low'); color = 'text-cyan-400'; }
+        else { label = fm('veryLow'); color = 'text-emerald-400'; }
 
         return { value: ivPercent, label, color };
     }, [rawChain, currentPrice]);
 
     // [PREMIUM] Smart Money Score - Institutional-level trade ratio
     const smartMoney = useMemo(() => {
-        if (!whaleTrades || whaleTrades.length === 0) return { score: 0, label: '분석 중', color: 'text-white' };
+        if (!whaleTrades || whaleTrades.length === 0) return { score: 0, label: fm('analyzing'), color: 'text-white' };
 
         // Calculate based on whale trade characteristics
         const largeTrades = whaleTrades.filter((t: any) => (t.premium || t.size * 100) >= 50000);
@@ -216,23 +217,23 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             score = Math.min(100, Math.round(largeRatio + veryLargeRatio));
         }
 
-        let label = '보통';
+        let label = fm('moderate');
         let color = 'text-white';
-        if (score >= 80) { label = '매우 활발'; color = 'text-emerald-400'; }
-        else if (score >= 60) { label = '활발'; color = 'text-emerald-300'; }
-        else if (score >= 40) { label = '보통'; color = 'text-white'; }
-        else if (score >= 20) { label = '약함'; color = 'text-amber-400'; }
-        else { label = '매우 약함'; color = 'text-rose-400'; }
+        if (score >= 80) { label = fm('veryActive'); color = 'text-emerald-400'; }
+        else if (score >= 60) { label = fm('active'); color = 'text-emerald-300'; }
+        else if (score >= 40) { label = fm('moderate'); color = 'text-white'; }
+        else if (score >= 20) { label = fm('weak'); color = 'text-amber-400'; }
+        else { label = fm('veryWeak'); color = 'text-rose-400'; }
 
         // Rationale: detailed breakdown
-        const rationale = `$50K+ ${largeTrades.length}건 / $100K+ ${veryLargeTrades.length}건`;
+        const rationale = fm('smartMoneyRationale', { large: String(largeTrades.length), veryLarge: String(veryLargeTrades.length) });
 
         return { score, label, color, rationale };
     }, [whaleTrades]);
 
     // [PREMIUM] IV Skew - Put vs Call IV difference (fear gauge)
     const ivSkew = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-white' };
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-white' };
 
         // Find OTM puts and calls near current price for skew calculation
         const otmPuts = rawChain
@@ -255,7 +256,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             .sort((a, b) => (a.details?.strike_price || a.strike_price) - (b.details?.strike_price || b.strike_price))
             .slice(0, 3);
 
-        if (otmPuts.length === 0 || otmCalls.length === 0) return { value: 0, label: '데이터 없음', color: 'text-white' };
+        if (otmPuts.length === 0 || otmCalls.length === 0) return { value: 0, label: fm('noData'), color: 'text-white' };
 
         const avgPutIV = otmPuts.reduce((sum, opt) => sum + (opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0), 0) / otmPuts.length;
         const avgCallIV = otmCalls.reduce((sum, opt) => sum + (opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0), 0) / otmCalls.length;
@@ -263,16 +264,16 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         // Skew = Put IV - Call IV (positive = fear, negative = greed)
         const skewValue = Math.round((avgPutIV - avgCallIV) * 100 * 10) / 10; // in percentage points
 
-        let label = '중립';
+        let label = fm('neutral');
         let color = 'text-white';
-        if (skewValue >= 5) { label = '공포'; color = 'text-rose-400'; }
-        else if (skewValue >= 2) { label = '경계'; color = 'text-amber-400'; }
-        else if (skewValue >= -2) { label = '중립'; color = 'text-white'; }
-        else if (skewValue >= -5) { label = '낙관'; color = 'text-cyan-400'; }
-        else { label = '탐욕'; color = 'text-emerald-400'; }
+        if (skewValue >= 5) { label = fm('fear'); color = 'text-rose-400'; }
+        else if (skewValue >= 2) { label = fm('caution'); color = 'text-amber-400'; }
+        else if (skewValue >= -2) { label = fm('neutral'); color = 'text-white'; }
+        else if (skewValue >= -5) { label = fm('optimism'); color = 'text-cyan-400'; }
+        else { label = fm('greed'); color = 'text-emerald-400'; }
 
         // Rationale: Put IV vs Call IV
-        const rationale = `풋IV ${Math.round(avgPutIV * 100)}% / 콜IV ${Math.round(avgCallIV * 100)}%`;
+        const rationale = fm('putIvCallIv', { putIv: String(Math.round(avgPutIV * 100)), callIv: String(Math.round(avgCallIV * 100)) });
 
         return { value: skewValue, label, color, rationale };
     }, [rawChain, currentPrice]);
@@ -299,7 +300,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const isLoading = !rawChain || rawChain.length === 0 || currentPrice === 0;
 
         if (isLoading) {
-            return { value: 0, label: '분석 중', color: 'text-slate-400', factors: [], debug: {}, isLoading: true };
+            return { value: 0, label: fm('analyzing'), color: 'text-slate-400', factors: [], debug: {}, isLoading: true };
         }
 
         // [S-124.5] Filter for 0-7 DTE options only (Weekly expiry)
@@ -321,7 +322,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
         // If no weekly options, fall back to showing loading state
         if (weeklyOptions.length === 0) {
-            return { value: 0, label: '주간 데이터 없음', color: 'text-slate-400', factors: [], debug: { weeklyCount: 0 }, isLoading: false };
+            return { value: 0, label: fm('weeklyNoData'), color: 'text-slate-400', factors: [], debug: { weeklyCount: 0 }, isLoading: false };
         }
 
         const factors: { name: string; contribution: number; active: boolean }[] = [];
@@ -365,12 +366,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         if (isShortGamma) {
             const gexScore = Math.min(35, Math.round(gexIntensity * 5));
             score += gexScore;
-            factors.push({ name: `숏감마 ${(totalGex / 1e6).toFixed(1)}M`, contribution: gexScore, active: true });
+            factors.push({ name: fm('shortGammaFactor', { val: (totalGex / 1e6).toFixed(1) }), contribution: gexScore, active: true });
         } else {
             // Long Gamma = Stability (dealers sell into rallies, buy dips)
             const stabilityPenalty = Math.min(10, Math.round(gexIntensity * 2));
             score += stabilityPenalty;
-            factors.push({ name: `롱감마 (억제)`, contribution: stabilityPenalty, active: true });
+            factors.push({ name: fm('longGammaSuppress'), contribution: stabilityPenalty, active: true });
         }
 
         // ============================================
@@ -381,7 +382,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         if (atmRatio > 0.3) {
             const atmScore = Math.min(20, Math.round(atmRatio * 30));
             score += atmScore;
-            factors.push({ name: `ATM 집중 ${Math.round(atmRatio * 100)}%`, contribution: atmScore, active: true });
+            factors.push({ name: `ATM ${Math.round(atmRatio * 100)}%`, contribution: atmScore, active: true });
         }
 
         // ============================================
@@ -426,7 +427,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         if (nearAtmBets.length >= 1) {
             const flowScore = Math.min(10, nearAtmBets.length * 3);
             score += flowScore;
-            factors.push({ name: `$100K+ ATM ${nearAtmBets.length}건`, contribution: flowScore, active: true });
+            factors.push({ name: fm('whaleAtmBets', { count: String(nearAtmBets.length) }), contribution: flowScore, active: true });
         }
 
         // ============================================
@@ -452,7 +453,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
     // [NEW] DEX (Delta Exposure) - Dealer Delta Hedging Direction
     const dex = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', rationale: '' };
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', rationale: '' };
 
         let totalDex = 0;
         let callDex = 0;
@@ -481,21 +482,21 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
         // Interpretation: Positive = Dealers need to sell on price rise (resistance)
         //                 Negative = Dealers need to buy on price drop (support)
-        let label = '중립';
+        let label = fm('neutral');
         let color = 'text-white';
-        if (dexMillions > 5) { label = '강한 저항'; color = 'text-rose-400'; }
-        else if (dexMillions > 2) { label = '저항 압력'; color = 'text-amber-400'; }
-        else if (dexMillions < -5) { label = '강한 지지'; color = 'text-emerald-400'; }
-        else if (dexMillions < -2) { label = '지지 형성'; color = 'text-cyan-400'; }
+        if (dexMillions > 5) { label = fm('strongResistance'); color = 'text-rose-400'; }
+        else if (dexMillions > 2) { label = fm('resistancePressure'); color = 'text-amber-400'; }
+        else if (dexMillions < -5) { label = fm('strongSupport'); color = 'text-emerald-400'; }
+        else if (dexMillions < -2) { label = fm('supportForming'); color = 'text-cyan-400'; }
 
-        const rationale = `콜Δ ${callDexM.toFixed(1)}M / 풋Δ ${putDexM.toFixed(1)}M`;
+        const rationale = `CallΔ ${callDexM.toFixed(1)}M / PutΔ ${putDexM.toFixed(1)}M`;
 
         return { value: dexMillions, label, color, rationale };
     }, [rawChain]);
 
     // [NEW] UOA Score (Unusual Options Activity) - Abnormal Volume Detection
     const uoa = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { score: 0, label: '분석 중', color: 'text-slate-400', rationale: '' };
+        if (!rawChain || rawChain.length === 0) return { score: 0, label: fm('analyzing'), color: 'text-slate-400', rationale: '' };
 
         // Calculate today's total volume
         let todayVolume = 0;
@@ -515,20 +516,20 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const uoaScore = avgOI > 0 ? (todayVolume / avgOI) * 10 : 0; // Multiply by 10 for readability
         const normalizedScore = Math.min(10, uoaScore); // Cap at 10x
 
-        let label = '정상';
+        let label = fm('uoaNormal');
         let color = 'text-white';
-        if (normalizedScore >= 5) { label = '극심'; color = 'text-rose-400'; }
-        else if (normalizedScore >= 3) { label = '이상'; color = 'text-amber-400'; }
-        else if (normalizedScore >= 1.5) { label = '활발'; color = 'text-cyan-400'; }
+        if (normalizedScore >= 5) { label = fm('uoaExtreme'); color = 'text-rose-400'; }
+        else if (normalizedScore >= 3) { label = fm('uoaAbnormal'); color = 'text-amber-400'; }
+        else if (normalizedScore >= 1.5) { label = fm('uoaActive'); color = 'text-cyan-400'; }
 
-        const rationale = `거래량 ${(todayVolume / 1000).toFixed(0)}K / OI ${(avgOI / 1000).toFixed(0)}K`;
+        const rationale = fm('uoaVolOi', { vol: (todayVolume / 1000).toFixed(0), oi: (avgOI / 1000).toFixed(0) });
 
         return { score: Math.round(normalizedScore * 10) / 10, label, color, rationale };
     }, [rawChain]);
 
     // [NEW] P/C Ratio - Call/Put Volume Ratio (Market Sentiment Gauge)
     const pcRatio = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', callVol: 0, putVol: 0 };
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', callVol: 0, putVol: 0 };
 
         let callVol = 0;
         let putVol = 0;
@@ -555,7 +556,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
     // [NEW] P/C Ratio (OI-based) - switches with VOLUME/OI toggle
     const pcRatioOI = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: '분석 중', color: 'text-slate-400', callOI: 0, putOI: 0 };
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', callOI: 0, putOI: 0 };
 
         let callOI = 0;
         let putOI = 0;
@@ -570,12 +571,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const ratio = putOI > 0 ? callOI / putOI : callOI > 0 ? 10 : 0;
         const roundedRatio = Math.round(ratio * 100) / 100;
 
-        let label = '균형';
+        let label = fm('pcBalance');
         let color = 'text-white';
-        if (ratio >= 2.0) { label = '강한 콜 우위'; color = 'text-emerald-400'; }
-        else if (ratio >= 1.3) { label = '콜 우위'; color = 'text-emerald-300'; }
-        else if (ratio <= 0.5) { label = '강한 풋 우위'; color = 'text-rose-400'; }
-        else if (ratio <= 0.75) { label = '풋 우위'; color = 'text-rose-300'; }
+        if (ratio >= 2.0) { label = fm('strongCallDominant'); color = 'text-emerald-400'; }
+        else if (ratio >= 1.3) { label = fm('callDominant'); color = 'text-emerald-300'; }
+        else if (ratio <= 0.5) { label = fm('strongPutDominant'); color = 'text-rose-400'; }
+        else if (ratio <= 0.75) { label = fm('putDominant'); color = 'text-rose-300'; }
 
         return { value: roundedRatio, label, color, callOI, putOI };
     }, [rawChain]);
@@ -584,7 +585,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     // Combines: ATM concentration (rawChain) + Gamma Flip distance + DTE weighting
     const gexRegime = useMemo(() => {
         if (!rawChain || rawChain.length === 0 || !currentPrice) return {
-            pinStrength: 0, label: '분석 중', color: 'text-slate-400',
+            pinStrength: 0, label: fm('analyzing'), color: 'text-slate-400',
             regime: 'LOADING' as const, regimeColor: 'text-slate-400',
             nearestExpiry: '', dte: -1, weeklyExpiry: '', weeklyLabel: '', expiryLabel: '',
             atmConcentration: 0, gammaShare: 0,
@@ -684,13 +685,13 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
         // Label and color (driven by regime)
         let label: string, color: string;
-        const regimeLabels = { STABLE: '안정 핀닝', TRANSITION: '전환 임박', FLIP_ZONE: '플립 구간', EXPLOSIVE: '폭발 대기', LOADING: '분석 중' };
+        const regimeLabels = { STABLE: fm('gexStablePinning'), TRANSITION: fm('gexTransitionImminent'), FLIP_ZONE: fm('gexFlipZone'), EXPLOSIVE: fm('gexExplosiveStandby'), LOADING: fm('analyzing') };
         const regimeColors = { STABLE: 'text-emerald-400', TRANSITION: 'text-amber-400', FLIP_ZONE: 'text-orange-400', EXPLOSIVE: 'text-rose-400', LOADING: 'text-slate-400' };
         label = regimeLabels[regime];
         color = regimeColors[regime];
 
-        const expiryLabel = nearestExpiry === todayStr ? '오늘 만기' : `${nearestExpiry.substring(5).replace('-', '/')} 만기`;
-        const weeklyLabel = weeklyExpiry === todayStr ? '오늘' : weeklyExpiry ? `${weeklyExpiry.substring(5).replace('-', '/')}(주간)` : '';
+        const expiryLabel = nearestExpiry === todayStr ? fm('gexExpiryToday') : fm('gexExpiryDate', { date: nearestExpiry.substring(5).replace('-', '/') });
+        const weeklyLabel = weeklyExpiry === todayStr ? fm('gexWeeklyToday') : weeklyExpiry ? fm('gexWeeklyDate', { date: weeklyExpiry.substring(5).replace('-', '/') }) : '';
 
         return {
             pinStrength, label, color,
@@ -755,14 +756,14 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const straddle = callPrice + putPrice;
         const movePercent = currentPrice > 0 ? (straddle / currentPrice) * 100 : 0;
         const direction = callPrice > putPrice ? 'bullish' as const : callPrice < putPrice ? 'bearish' as const : 'neutral' as const;
-        const expiryLabel = `${nearestExpiry.substring(5).replace('-', '/')} 만기`;
+        const expiryLabel = fm('gexExpiryDate', { date: nearestExpiry.substring(5).replace('-', '/') });
 
         let color = 'text-white';
-        let label = '보통';
-        if (movePercent >= 5) { color = 'text-rose-400'; label = '고변동'; }
-        else if (movePercent >= 3) { color = 'text-amber-400'; label = '주의'; }
-        else if (movePercent >= 1) { color = 'text-cyan-400'; label = '보통'; }
-        else { color = 'text-emerald-400'; label = '안정'; }
+        let label = fm('impliedModerate');
+        if (movePercent >= 5) { color = 'text-rose-400'; label = fm('impliedHighVol'); }
+        else if (movePercent >= 3) { color = 'text-amber-400'; label = fm('impliedCaution'); }
+        else if (movePercent >= 1) { color = 'text-cyan-400'; label = fm('impliedModerate'); }
+        else { color = 'text-emerald-400'; label = fm('impliedStable'); }
 
         return { value: Math.round(movePercent * 10) / 10, direction, color, label, straddle: straddle.toFixed(2), expiryLabel };
     }, [rawChain, currentPrice]);

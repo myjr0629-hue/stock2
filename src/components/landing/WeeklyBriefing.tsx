@@ -4,19 +4,20 @@ import { Calendar, Flag, Clock } from "lucide-react";
 
 import { getEconomicEvents } from "@/services/stockApi";
 
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 
 export async function WeeklyBriefing() {
     const t = await getTranslations('landing.weeklyBriefing');
+    const locale = await getLocale();
     // Live Data: US Economic Calendar (ForexFactory)
     const economicEvents = await getEconomicEvents();
 
-    // Mock Data: Trump Schedule (Translated to Korean)
+    // Mock Data: Trump Schedule (Multilingual)
     const trumpSchedule = [
-        { date: "12/23 (Mon)", time: "10:00 AM", event: "Meeting with Tech CEOs on AI Regulation", eventKo: "AI 규제 관련 기술 기업 CEO 회동", location: "White House (백악관)" },
-        { date: "12/24 (Tue)", time: "02:00 PM", event: "Christmas Eve Address to the Nation", eventKo: "크리스마스 이브 대국민 담화", location: "Oval Office (집무실)" },
-        { date: "12/26 (Thu)", time: "11:00 AM", event: "Cabinet Meeting on Trade Tariffs", eventKo: "무역 관세 관련 국무회의 주재", location: "Cabinet Room (국무회의실)" },
-        { date: "12/27 (Fri)", time: "05:00 PM", event: "Departure for Mar-a-Lago Summit", eventKo: "미·중 정상회담 위해 마라라고 출발", location: "Andrews AFB (앤드루스 공군기지)" },
+        { date: "12/23 (Mon)", time: "10:00 AM", event: "Meeting with Tech CEOs on AI Regulation", eventKo: "AI 규제 관련 기술 기업 CEO 회동", eventJa: "AI規制に関するテック企業CEO会合", location: "White House" },
+        { date: "12/24 (Tue)", time: "02:00 PM", event: "Christmas Eve Address to the Nation", eventKo: "크리스마스 이브 대국민 담화", eventJa: "クリスマスイブ国民向け演説", location: "Oval Office" },
+        { date: "12/26 (Thu)", time: "11:00 AM", event: "Cabinet Meeting on Trade Tariffs", eventKo: "무역 관세 관련 국무회의 주재", eventJa: "貿易関税に関する閣議", location: "Cabinet Room" },
+        { date: "12/27 (Fri)", time: "05:00 PM", event: "Departure for Mar-a-Lago Summit", eventKo: "미·중 정상회담 위해 마라라고 출발", eventJa: "米中首脳会談のためマーラ・ラーゴへ出発", location: "Andrews AFB" },
     ];
 
     return (
@@ -63,9 +64,9 @@ export async function WeeklyBriefing() {
                                         <div className="flex flex-col gap-0.5">
                                             <div className="flex items-center gap-2">
                                                 <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${item.impact === 'high' ? 'bg-rose-500' : item.impact === 'medium' ? 'bg-amber-400' : 'bg-slate-300'}`} />
-                                                <span className="font-bold text-slate-800 leading-tight">{item.eventKo}</span>
+                                                <span className="font-bold text-slate-800 leading-tight">{locale === 'ko' ? item.eventKo : item.event}</span>
                                             </div>
-                                            <span className="text-[10px] text-slate-400 pl-3.5 tracking-tight">{item.event}</span>
+                                            <span className="text-[10px] text-slate-400 pl-3.5 tracking-tight">{locale === 'ko' ? item.event : (locale === 'ja' ? item.eventKo : '')}</span>
                                         </div>
                                     </td>
                                     <td className="px-2 py-2 text-slate-500">{item.forecast}</td>
@@ -97,7 +98,7 @@ export async function WeeklyBriefing() {
                                 {/* Title Row with Time Badge next to it */}
                                 <div className="flex items-start justify-between gap-2">
                                     <h3 className="text-sm font-bold text-slate-800 leading-tight">
-                                        {item.eventKo}
+                                        {locale === 'ko' ? item.eventKo : locale === 'ja' ? item.eventJa : item.event}
                                     </h3>
                                     <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded ml-auto whitespace-nowrap">
                                         <Clock className="w-2.5 h-2.5" />

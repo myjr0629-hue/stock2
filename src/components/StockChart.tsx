@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useTranslations } from 'next-intl';
 import {
     Line,
     LineChart,
@@ -43,6 +44,7 @@ const formatEtMinute = (etMinute: number): string => {
 };
 
 export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels }: StockChartProps & { initialRange?: string }) {
+    const td = useTranslations('dashboard');
     // [S-76] Check if SSR data has complete fields (etMinute/session)
     const ssrHasCompleteData = data && data.length > 0 && (data[0] as any)?.etMinute !== undefined;
 
@@ -424,7 +426,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                 {rsi.toFixed(1)}
                             </span>
                             <span className={`text-[10px] ${rsi > 70 ? 'text-rose-500' : rsi < 30 ? 'text-emerald-500' : 'text-slate-500'}`}>
-                                {rsi > 70 ? '과매수' : rsi < 30 ? '과매도' : '중립'}
+                                {rsi > 70 ? td('overbought') : rsi < 30 ? td('oversold') : td('rsiNeutral')}
                             </span>
                         </div>
                     )}

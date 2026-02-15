@@ -11,6 +11,7 @@ export const meta: PrivacyMeta = {
     intro: 'SIGNUM HQ（以下「サービス」）は、利用者の個人情報を重視し、「個人情報の保護に関する法律（個人情報保護法）」および関連法令を遵守します。本ポリシーでは、利用者の個人情報の収集・利用・保管・廃棄について説明します。',
     effectiveDate: '本プライバシーポリシーは',
     effectiveDateBold: '2026年2月12日',
+    effectiveDateSuffix: 'より施行されます。',
     backLink: '← ログインに戻る',
     importantBadge: '重要項目',
 };

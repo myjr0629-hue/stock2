@@ -6,7 +6,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useMemo } from 'react';
-import { useLocale } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
     Activity, Radio, RefreshCw, TrendingUp,
     DollarSign, Shield, Target, ChevronRight,
@@ -83,13 +83,13 @@ function PricePositionBar({ price, maxPain, putFloor, callWall }: {
 }
 
 // ── Flow indicator (thin bar from Flow Dashboard) ──
-function FlowBar({ pcr, changePct }: { pcr: number; changePct: number }) {
+function FlowBar({ pcr, changePct, ss }: { pcr: number; changePct: number; ss: any }) {
     const flowScore = (1 - Math.min(pcr || 1, 2)) + (changePct / 5);
     const isCall = flowScore > 0.2;
     const isPut = flowScore < -0.2;
     const barColor = isCall ? '#10b981' : isPut ? '#f43f5e' : '#475569';
     const width = Math.max(10, Math.min(100, Math.abs(flowScore) * 60 + 10));
-    const label = isCall ? '콜 유입' : isPut ? '풋 우세' : '중립';
+    const label = isCall ? ss('callInflow') : isPut ? ss('putDominant') : ss('searchingDirection');
 
     return (
         <div className="flex items-center gap-2">
@@ -105,9 +105,9 @@ function FlowBar({ pcr, changePct }: { pcr: number; changePct: number }) {
 }
 
 // ── AI Analysis Generator (from TACTICAL DECK) ──
-function generateAnalysis(q: IntelQuote): string {
+function generateAnalysis(q: IntelQuote, ss: any): string {
     const { price, maxPain, callWall, putFloor, gex, pcr, gammaRegime, changePct } = q;
-    if (!price || price === 0) return '데이터 대기 중...';
+    if (!price || price === 0) return ss('dataWaiting');
 
     const parts: string[] = [];
 
@@ -115,15 +115,15 @@ function generateAnalysis(q: IntelQuote): string {
     if (maxPain > 0) {
         const diff = ((price - maxPain) / maxPain * 100);
         if (Math.abs(diff) < 1) {
-            parts.push(`Max Pain($${maxPain.toFixed(0)}) 근처, 변동성 축소 예상.`);
+            parts.push(ss('nearMaxPain', { mp: maxPain.toFixed(0) }));
         } else if (diff > 2.5) {
-            parts.push(`Max Pain($${maxPain.toFixed(0)}) 대비 +${diff.toFixed(1)}% 괴리, 하방 압력 존재.`);
+            parts.push(ss('aboveMaxPain', { mp: maxPain.toFixed(0), diff: diff.toFixed(1) }));
         } else if (diff > 0) {
-            parts.push(`Max Pain($${maxPain.toFixed(0)}) 소폭 상회, 안정적 흐름.`);
+            parts.push(ss('slightAboveMaxPain', { mp: maxPain.toFixed(0) }));
         } else if (diff < -2.5) {
-            parts.push(`Max Pain($${maxPain.toFixed(0)}) 대비 ${diff.toFixed(1)}% 하회, 반등 가능성.`);
+            parts.push(ss('belowMaxPain', { mp: maxPain.toFixed(0), diff: diff.toFixed(1) }));
         } else {
-            parts.push(`Max Pain($${maxPain.toFixed(0)}) 소폭 하회, 관망세.`);
+            parts.push(ss('slightBelowMaxPain', { mp: maxPain.toFixed(0) }));
         }
     }
 
@@ -133,39 +133,39 @@ function generateAnalysis(q: IntelQuote): string {
         const toPutFloor = ((price - putFloor) / price * 100);
 
         if (toCallWall < 1.5) {
-            parts.push(`Call Wall($${callWall.toFixed(0)}) 근접 → 강한 저항, 돌파 시 급등.`);
+            parts.push(ss('callWallNearBreak', { cw: callWall.toFixed(0) }));
         } else if (toPutFloor < 1.5) {
-            parts.push(`Put Floor($${putFloor.toFixed(0)}) 근접 → 강한 지지, 이탈 시 급락.`);
+            parts.push(ss('putFloorNearBreak', { pf: putFloor.toFixed(0) }));
         } else if (toCallWall < toPutFloor) {
-            parts.push(`저항($${callWall.toFixed(0)})이 지지($${putFloor.toFixed(0)})보다 가까움, 상단 제한적.`);
+            parts.push(ss('resistanceNearerThanSupport', { cw: callWall.toFixed(0), pf: putFloor.toFixed(0) }));
         } else {
-            parts.push(`지지($${putFloor.toFixed(0)})~저항($${callWall.toFixed(0)}) 중간 구간, 방향 탐색.`);
+            parts.push(ss('midRange', { pf: putFloor.toFixed(0), cw: callWall.toFixed(0) }));
         }
     } else if (callWall > 0 && price > 0) {
         const toCallWall = ((callWall - price) / price * 100);
-        if (toCallWall < 2) parts.push(`Call Wall($${callWall.toFixed(0)}) 근접 저항.`);
+        if (toCallWall < 2) parts.push(ss('callWallNearResist', { callWall: callWall.toFixed(0) }));
     } else if (putFloor > 0 && price > 0) {
         const toPutFloor = ((price - putFloor) / price * 100);
-        if (toPutFloor < 2) parts.push(`Put Floor($${putFloor.toFixed(0)}) 지지 테스트.`);
+        if (toPutFloor < 2) parts.push(ss('putFloorSupport', { putFloor: putFloor.toFixed(0) }));
     }
 
     // 3. GEX + PCR 종합 포지셔닝 (2개를 결합하여 시장 심리 판단)
     const gexM = gex / 1e6;
     if (gammaRegime === 'SHORT' && pcr > 1.2) {
-        parts.push('숏감마+풋 과다 → 급변동 리스크.');
+        parts.push(ss('shortGammaPutRisk'));
     } else if (gammaRegime === 'SHORT' && pcr < 0.7) {
-        parts.push('숏감마+콜 과다 → 상방 스퀴즈 가능.');
+        parts.push(ss('shortGammaCallSqueeze'));
     } else if (gammaRegime === 'LONG' && pcr < 0.8) {
-        parts.push('롱감마+콜 우세 → 안정적 상승 흐름.');
+        parts.push(ss('longGammaCallStable'));
     } else if (gammaRegime === 'LONG' && pcr > 1.2) {
-        parts.push('롱감마+풋 헤지 → 하락 제한, 횡보.');
+        parts.push(ss('longGammaPutHedge'));
     } else if (pcr < 0.5) {
-        parts.push('극단적 콜 편향 → 과열 경계.');
+        parts.push(ss('extremeCallBias'));
     } else if (pcr > 1.5) {
-        parts.push('극단적 풋 편향 → 공포 심리.');
+        parts.push(ss('extremePutBias'));
     }
 
-    return parts.join(' ') || '분석 데이터 수집 중...';
+    return parts.join(' ') || ss('collectingData');
 }
 
 // ── Format helpers ──
@@ -193,6 +193,7 @@ const DISCLAIMER: Record<string, string> = {
 };
 
 export function SectorSessionGrid({ config, quotes, loading, refreshing }: SectorSessionGridProps) {
+    const ss = useTranslations('sectorSession');
     const router = useRouter();
     const locale = useLocale();
     const accentColor = config.theme.accentHex;
@@ -215,13 +216,13 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
 
         // Korean insight
         const gexInsight = totalGex > 0
-            ? '딜러 롱감마 → 안정'
-            : '딜러 숏감마 → 변동성↑';
+            ? ss('dealerLongGamma')
+            : ss('dealerShortGamma');
         const pcrInsight = avgPcr < 0.8
-            ? '콜 우세 (강세)'
+            ? ss('callDomBullish')
             : avgPcr > 1.1
-                ? '풋 우세 (약세)'
-                : '방향 탐색 중';
+                ? ss('putDomBearish')
+                : ss('searchingDirection');
 
         return { totalGex, avgPcr, gammaLong, gammaShort, callDom, gexInsight, pcrInsight };
     }, [sorted]);
@@ -271,10 +272,10 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                     const isUp = q.changePct >= 0;
                     const regimeColor = q.gammaRegime === 'LONG' ? '#06b6d4' :
                         q.gammaRegime === 'SHORT' ? '#f59e0b' : '#64748b';
-                    const regimeLabel = q.gammaRegime === 'LONG' ? '안정적 흐름' :
-                        q.gammaRegime === 'SHORT' ? '변동성 확대' : '중립';
+                    const regimeLabel = q.gammaRegime === 'LONG' ? ss('stableFlow') :
+                        q.gammaRegime === 'SHORT' ? ss('volExpansion') : ss('searchingDirection');
                     const sparkColor = isUp ? '#10b981' : '#f43f5e';
-                    const analysis = generateAnalysis(q);
+                    const analysis = generateAnalysis(q, ss);
                     const isHighGex = Math.abs(q.gex) > 50e6;
                     const isExtremePcr = q.pcr < 0.5 || q.pcr > 1.5;
                     const hasAlert = isHighGex || isExtremePcr;
@@ -385,7 +386,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
 
                                 {/* Row 5: Flow Indicator */}
                                 <div className="mb-2">
-                                    <FlowBar pcr={q.pcr} changePct={q.changePct} />
+                                    <FlowBar pcr={q.pcr} changePct={q.changePct} ss={ss} />
                                 </div>
 
                                 {/* Row 6: Sparkline */}
@@ -459,7 +460,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                 </div>
                             </div>
                             <p className="text-[11px] text-white/60">
-                                {stats.gammaShort > stats.gammaLong ? '숏감마 우세 → 급변동' : stats.gammaLong > 0 ? '롱감마 우세 → 안정' : '중립'}
+                                {stats.gammaShort > stats.gammaLong ? ss('shortGammaDomMoveRisk') : stats.gammaLong > 0 ? ss('longGammaDomStable') : ss('searchingDirection')}
                             </p>
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
@@ -472,7 +473,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                 </div>
                             </div>
                             <p className="text-[11px] text-white/60">
-                                {stats.callDom > sorted.length / 2 ? '콜 자금 유입 우세' : '풋 헷지 우세'}
+                                {stats.callDom > sorted.length / 2 ? ss('callInflowDom') : ss('putHedgeDom')}
                             </p>
                         </div>
                     </div>

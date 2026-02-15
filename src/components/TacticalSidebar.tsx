@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { cn } from "@/lib/utils";
 import {
     Archive,
@@ -75,6 +76,7 @@ export interface TacticalSidebarProps {
 }
 
 export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps) {
+    const td = useTranslations('dashboard');
     const [winRate, setWinRate] = useState<number | null>(null);
     const [totalTrades, setTotalTrades] = useState(0);
 
@@ -128,7 +130,7 @@ export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps
                 <SidebarItem
                     icon={<BarChart3 />}
                     label="ALPHA REPORT"
-                    subLabel="오늘의 진입 종목 12선"
+                    subLabel={td('todayPicks')}
                     isActive={activeTab === 'FINAL'}
                     onClick={() => onTabChange('FINAL')}
                     accentColor="text-emerald-400"

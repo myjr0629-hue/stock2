@@ -296,7 +296,7 @@ export default function Page() {
 
   const getTimeAgo = () => {
     const seconds = Math.floor((new Date().getTime() - lastUpdate.getTime()) / 1000);
-    return seconds < 5 ? '방금 전' : `${seconds}초 전`;
+    return seconds < 5 ? t('home.justNow') : `${seconds}${t('home.secondsAgo')}`;
   };
 
   return (
@@ -357,7 +357,7 @@ export default function Page() {
 
           {/* FOMO Subheadline */}
           <p className="text-base md:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed mb-10 font-medium">
-            당신의 경쟁자는 <span className="text-cyan-400 font-bold">이미 이 시그널을 보고 있습니다</span>
+            {t('home.fomoSubheadline')}<span className="text-cyan-400 font-bold">{t('home.fomoHighlight')}</span>
           </p>
 
           {/* CTA Buttons */}
@@ -380,9 +380,9 @@ export default function Page() {
           {/* Early Access CTA */}
           <div className="inline-flex items-center gap-2 text-sm text-slate-400">
             <Zap className="w-4 h-4 text-amber-400" />
-            <span className="font-jakarta">Early Access 멤버십 오픈</span>
+            <span className="font-jakarta">{t('home.earlyAccessLabel')}</span>
             <span className="text-white/60">|</span>
-            <span className="text-slate-300">정보를 선점할 것인가, 누군가의 수익률이 될 것인가</span>
+            <span className="text-slate-300">{t('home.earlyAccessCta')}</span>
           </div>
         </div>
       </section>
@@ -492,7 +492,7 @@ export default function Page() {
           {/* Consolidated Pricing Badge */}
           <div className="mt-16 flex justify-center">
             <div className="inline-flex items-center gap-3 px-8 py-3 rounded-full bg-[#0a1628] border border-[#1e293b]">
-              <span className="text-sm text-slate-500 line-through">$450+/월</span>
+              <span className="text-sm text-slate-500 line-through">{t('home.priceStrikethrough')}</span>
               <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">{t('home.consolidatedPricing')}</span>
             </div>
           </div>
@@ -513,7 +513,7 @@ export default function Page() {
                 <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-[0.2em]">{t('common.liveFeed')}</span>
               </div>
               <h2 className="text-2xl font-black text-white font-jakarta">{t('home.signalDashboard')}</h2>
-              <p className="text-xs text-slate-500 mt-1">실시간 Alpha Engine 분석 결과</p>
+              <p className="text-xs text-slate-500 mt-1">{t('home.signalDashboardDesc')}</p>
             </div>
             <Link href="/watchlist" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold transition-colors">
               {t('common.viewAll')} <ChevronRight size={14} />

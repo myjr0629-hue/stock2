@@ -19,7 +19,9 @@ export interface TermsMeta {
     intro: string;
     effectiveDate: string;
     effectiveDateBold: string;
+    effectiveDateSuffix: string;
     backLink: string;
+    importantBadge: string;
 }
 
 export const meta: TermsMeta = {
@@ -28,7 +30,9 @@ export const meta: TermsMeta = {
     intro: 'These Terms of Service ("Terms") govern your access to and use of the SIGNUM HQ platform and services. By accessing or using the Service, you agree to be bound by these Terms.',
     effectiveDate: 'These Terms are effective as of ',
     effectiveDateBold: 'February 12, 2026',
+    effectiveDateSuffix: '.',
     backLink: '← Back to Login',
+    importantBadge: 'IMPORTANT',
 };
 
 export const sections: TermsSection[] = [

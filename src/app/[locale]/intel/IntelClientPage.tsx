@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { useTranslations } from 'next-intl';
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from 'next/dynamic';
 import {
@@ -55,49 +56,49 @@ const SectorEarningsCalendar = dynamic(() => import("@/components/intel/SectorEa
 
 
 // ============================================================================
-// [V4.6] Stealth Tag Translator (Korean)
+// [V4.6] Stealth Tag → i18n key mapping
 // ============================================================================
-const STEALTH_TAG_MAP: Record<string, string> = {
-    'GammaSqueeze': '감마 스퀴즈 (폭등 전조)',
-    'WhaleAccumulation': '기관 매집 (바닥 다지기)',
-    'AI_Momentum': 'AI 모멘텀 (주도주 강세)',
-    'SectorLeader': '섹터 대장주 (수급 쏠림)',
-    'SafeHaven': '안전 자산 (방어적 매수)',
-    'TechRotation': '기술주 순환매 (자금 이동)',
-    'SemiSemi': '반도체 동조화 (동반 상승)',
-    'CatchUp': '기맞추기 반등 (후발 주자)',
-    'Consolidation': '기간 조정 (매물 소화)',
-    'CloudGrowth': '클라우드 성장성 (실적 기대)',
-    'ValueTech': '가치주 성격 부각 (저평가)',
-    'AdRev': '광고 매출 회복 (펀더멘털)',
-    'Efficiency': '효율화 달성 (비용 절감)',
-    'Social': '소셜 미디어 지배력',
-    'Prime': 'Prime 구독 락인 효과',
-    'AWS': '클라우드 점유율 1위',
-    'Streaming': '스트리밍 지배력',
-    'Content': '컨텐츠 경쟁력',
-    'GovTech': '정부 수주 독점력',
-    'AI_Defense': '국방 AI 수혜',
-    'CryptoVol': '코인 변동성 연동',
-    'Exchange': '거래소 수수료 수익',
-    'BitcoinLev': '비트코인 레버리지',
-    'HighBeta': '고베타 (높은 변동성)'
+const STEALTH_TAG_I18N: Record<string, string> = {
+    'GammaSqueeze': 'stealthGammaSqueeze',
+    'WhaleAccumulation': 'stealthWhaleAccumulation',
+    'AI_Momentum': 'stealthAIMomentum',
+    'SectorLeader': 'stealthSectorLeader',
+    'SafeHaven': 'stealthSafeHaven',
+    'TechRotation': 'stealthTechRotation',
+    'SemiSemi': 'stealthSemiSemi',
+    'CatchUp': 'stealthCatchUp',
+    'Consolidation': 'stealthConsolidation',
+    'CloudGrowth': 'stealthCloudGrowth',
+    'ValueTech': 'stealthValueTech',
+    'AdRev': 'stealthAdRev',
+    'Efficiency': 'stealthEfficiency',
+    'Social': 'stealthSocial',
+    'Prime': 'stealthPrime',
+    'AWS': 'stealthAWS',
+    'Streaming': 'stealthStreaming',
+    'Content': 'stealthContent',
+    'GovTech': 'stealthGovTech',
+    'AI_Defense': 'stealthAIDefense',
+    'CryptoVol': 'stealthCryptoVol',
+    'Exchange': 'stealthExchange',
+    'BitcoinLev': 'stealthBitcoinLev',
+    'HighBeta': 'stealthHighBeta'
 };
 
-// [V4.6] Structure State Translator (Korean)
-const STRUCTURE_MAP: Record<string, string> = {
-    'Breakout': '강력한 상승 돌파 (매수 기회)',
-    'BullFlag': '상승 깃발형 (추세 지속)',
-    'Consolidation': '기간 조정 (에너지 응축)',
-    'Rebound': '기술적 반등 (단기)',
-    'Bottoming': '바닥 다지기 (저점 확인)',
-    'BoxRange': '박스권 횡보 (방향 탐색)',
-    'TrendUp': '상승 추세 (우상향)',
-    'SlowGrind': '완만한 상승 (매물 소화)',
-    'Weakness': '추세 약화 (주의)',
-    'VolExpansion': '변동성 확대 (방향성 결정)',
-    'Correction': '건전한 조정 (눌림목)',
-    'DeepPullback': '과도한 하락 (저가 매수)'
+// [V4.6] Structure State → i18n key mapping
+const STRUCTURE_I18N: Record<string, string> = {
+    'Breakout': 'structBreakout',
+    'BullFlag': 'structBullFlag',
+    'Consolidation': 'structConsolidation',
+    'Rebound': 'structRebound',
+    'Bottoming': 'structBottoming',
+    'BoxRange': 'structBoxRange',
+    'TrendUp': 'structTrendUp',
+    'SlowGrind': 'structSlowGrind',
+    'Weakness': 'structWeakness',
+    'VolExpansion': 'structVolExpansion',
+    'Correction': 'structCorrection',
+    'DeepPullback': 'structDeepPullback'
 };
 
 // [V4.7] M7 Watchlist
@@ -392,6 +393,7 @@ function GateBadge({ label, pass }: { label: string; pass: boolean }) {
 
 // Evidence Card: Professional Header + Grid Layout
 function EvidenceCardUI({ card }: { card: EvidenceCard }) {
+    const ti = useTranslations('intel');
     const statusColor = {
         BULLISH: "text-emerald-400",
         BEARISH: "text-rose-400",
@@ -433,17 +435,17 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
             {/* Body: 3-Row Data Grid */}
             <div className="flex-1 space-y-3 z-10 relative">
                 <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
-                    <span className="text-[10px] text-slate-500 font-medium text-right">의미</span>
+                    <span className="text-[10px] text-slate-500 font-medium text-right">{ti('labelMeaning')}</span>
                     <span className="text-[11px] text-slate-400 leading-tight">{card.meaning}</span>
                 </div>
                 <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
-                    <span className="text-[10px] text-slate-500 font-medium text-right">해석</span>
+                    <span className="text-[10px] text-slate-500 font-medium text-right">{ti('labelInterpretation')}</span>
                     <span className="text-[12px] text-slate-200 font-medium tabular-nums leading-tight tracking-tight">
                         {card.interpretation}
                     </span>
                 </div>
                 <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
-                    <span className="text-[10px] text-slate-500 font-medium text-right">행동</span>
+                    <span className="text-[10px] text-slate-500 font-medium text-right">{ti('labelAction')}</span>
                     <span className={`text-[12px] font-bold ${statusColor}`}>
                         {card.action}
                     </span>
@@ -609,6 +611,7 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
 // ============================================================================
 function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; onClose: () => void; liveQuote?: any }) {
     const ev = item?.evidence; // Defensive access
+    const ti = useTranslations('intel');
     const router = useRouter();
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
@@ -790,12 +793,12 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                         <div key={i} className="group flex items-start gap-3 p-2 rounded border border-transparent hover:border-slate-800 hover:bg-slate-900/50 transition-all">
                                             {/* Badge */}
                                             <div className={`shrink-0 px-2 py-1 rounded text-[10px] font-bold border ${def.color} shadow-sm w-20 text-center flex items-center justify-center`}>
-                                                {def.label}
+                                                {ti(def.labelKey)}
                                             </div>
                                             {/* Description */}
                                             <div className="flex-1">
                                                 <p className="text-[11px] text-slate-400 leading-relaxed font-medium group-hover:text-slate-300 transition-colors">
-                                                    {def.desc}
+                                                    {ti(def.descKey)}
                                                 </p>
                                             </div>
                                         </div>
@@ -871,7 +874,7 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                 <div className="flex flex-col">
                                     <span className="text-xs font-bold text-indigo-400">{ev.price.structureState}</span>
                                     <span className="text-[9px] text-slate-500 font-medium">
-                                        {STRUCTURE_MAP[ev.price.structureState || ''] || ''}
+                                        {ti(STRUCTURE_I18N[ev.price.structureState || ''] || 'structBreakout')}
                                     </span>
                                 </div>
                             </div>
@@ -901,7 +904,7 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                                         {displayOffExPct > 0 ? `${displayOffExPct.toFixed(1)}%` : `VOL: ${(liveQuote.volume / 1000).toFixed(0)}K`}
                                                     </span>
                                                     <span className="text-[9px] text-slate-500 font-medium">
-                                                        {isFromSnapshot ? '보고서 생성 시점 데이터' : '기관 비공개 거래소 물량'}
+                                                        {isFromSnapshot ? ti('snapshotTimeData') : ti('offExFlowDesc')}
                                                     </span>
                                                     {isLive && <span className="text-[9px] text-emerald-500 font-bold animate-pulse mt-0.5">● LIVE FLOW</span>}
                                                 </div>
@@ -946,11 +949,11 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                                         )}
                                                     </div>
                                                     {displayNetPremium === 0 ? (
-                                                        <span className="text-[9px] text-slate-500 font-medium italic">장 마감 - 기관 매수/매도 없음</span>
+                                                        <span className="text-[9px] text-slate-500 font-medium italic">{ti('marketClosedNoFlow')}</span>
                                                     ) : isFromSnapshot ? (
-                                                        <span className="text-[9px] text-slate-500 font-medium">보고서 생성 시점 데이터</span>
+                                                        <span className="text-[9px] text-slate-500 font-medium">{ti('snapshotTimeData')}</span>
                                                     ) : (
-                                                        <span className="text-[9px] text-slate-500 font-medium">실질적 매수 압력 강도</span>
+                                                        <span className="text-[9px] text-slate-500 font-medium">{ti('netBuyPressure')}</span>
                                                     )}
                                                 </>
                                             );
@@ -974,7 +977,7 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                     {(ev.stealth?.tags || []).map((tag, i) => (
                                         <span key={i} className="text-[10px] px-1.5 py-1 bg-slate-800 text-slate-300 rounded border border-slate-700/50 flex items-center gap-1.5">
                                             <span className="w-1 h-1 rounded-full bg-emerald-500" />
-                                            {STEALTH_TAG_MAP[tag] || `#${tag}`}
+                                            {ti(STEALTH_TAG_I18N[tag] || 'stealthGammaSqueeze') || `#${tag}`}
                                         </span>
                                     ))}
                                     {(!ev.stealth?.tags || ev.stealth.tags.length === 0) && <span className="text-[9px] text-slate-600">No signals detected</span>}
@@ -993,7 +996,7 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                             {ev.macro?.ndx?.changePct?.toFixed(2)}%
                                         </span>
                                     ) : (
-                                        <span className="text-[10px] text-slate-500 italic">장 마감</span>
+                                        <span className="text-[10px] text-slate-500 italic">{ti('marketClosed')}</span>
                                     )}
                                 </div>
                                 <div className="flex justify-between items-center">
@@ -1003,7 +1006,7 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                             {(ev.macro?.vix?.value ?? ev.macro?.vix?.level)?.toFixed(2)}
                                         </span>
                                     ) : (
-                                        <span className="text-[10px] text-slate-500 italic">장 마감</span>
+                                        <span className="text-[10px] text-slate-500 italic">{ti('marketClosed')}</span>
                                     )}
                                 </div>
                             </div>
@@ -1015,63 +1018,21 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
     );
 }
 
-// [V3.7.3] Trigger Definitions for UI Tooltips
-const TRIGGER_DEFINITIONS: Record<string, { label: string; desc: string; color: string }> = {
+// [V3.7.3] Trigger Definitions — i18n key mapping (label/desc) + static color
+const TRIGGER_DEFINITIONS: Record<string, { labelKey: string; descKey: string; color: string }> = {
     // 1. High Impact (Purple/Pink)
-    'GEX_SQZ': {
-        label: '감마스퀴즈',
-        desc: '옵션 시장의 쏠림(Short Gamma)으로 인해 주가 변동성이 폭발적으로 확대되는 현상',
-        color: 'text-fuchsia-400 border-fuchsia-500/30 bg-fuchsia-500/10'
-    },
-    'WHALE_IN': {
-        label: '고래유입',
-        desc: '500만 달러 이상의 대규모 매수 자금이 포착됨 (스마트머니 진입)',
-        color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-    },
-    'WALL_BREAK': {
-        label: '저항돌파',
-        desc: '콜 옵션 매도벽(Call Wall)을 강한 거래량으로 뚫어내는 강력한 상승 신호',
-        color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10'
-    },
-
+    'GEX_SQZ': { labelKey: 'trigGexSqzLabel', descKey: 'trigGexSqzDesc', color: 'text-fuchsia-400 border-fuchsia-500/30 bg-fuchsia-500/10' },
+    'WHALE_IN': { labelKey: 'trigWhaleInLabel', descKey: 'trigWhaleInDesc', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+    'WALL_BREAK': { labelKey: 'trigWallBreakLabel', descKey: 'trigWallBreakDesc', color: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10' },
     // 2. Warning/Bearish (Red/Orange)
-    'SELL_DOM': {
-        label: '매도우위',
-        desc: '500만 달러 이상의 대규모 매도세가 우세함',
-        color: 'text-rose-400 border-rose-500/30 bg-rose-500/10'
-    },
-    'ACCEL_DROP': {
-        label: '가속하락',
-        desc: '풋 옵션 매수 급증과 숏 감마가 결합되어 하락 속도가 빨라짐',
-        color: 'text-orange-400 border-orange-500/30 bg-orange-500/10'
-    },
-    'SUPPRESSED': {
-        label: '상방억제',
-        desc: '상승 하려는 힘은 있으나 과도한 콜 옵션 매도로 인해 상승폭이 제한됨',
-        color: 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-    },
-
+    'SELL_DOM': { labelKey: 'trigSellDomLabel', descKey: 'trigSellDomDesc', color: 'text-rose-400 border-rose-500/30 bg-rose-500/10' },
+    'ACCEL_DROP': { labelKey: 'trigAccelDropLabel', descKey: 'trigAccelDropDesc', color: 'text-orange-400 border-orange-500/30 bg-orange-500/10' },
+    'SUPPRESSED': { labelKey: 'trigSuppressedLabel', descKey: 'trigSuppressedDesc', color: 'text-amber-400 border-amber-500/30 bg-amber-500/10' },
     // 3. Neutral/Technical (Blue/Slate)
-    'GEX_SAFE': {
-        label: '안전지대',
-        desc: '롱 감마(Long Gamma) 구간으로 진입하여 주가 변동성이 줄어들고 지지력이 강해짐',
-        color: 'text-sky-400 border-sky-500/30 bg-sky-500/10'
-    },
-    'CORRECTION': {
-        label: '건전조정',
-        desc: '상승 추세 중 일시적인 매물 소화 과정 (지지력 확인 시 재매수 기회)',
-        color: 'text-slate-300 border-slate-500/30 bg-slate-500/10'
-    },
-    'WHALE_DRIVER': {
-        label: '고래주도',
-        desc: '고래 평단가가 진입 구간을 지지하며, 목표가(손익분기)까지 상승 여력이 확보된 상태 (정밀 타격)',
-        color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-    },
-    'WALL_TEST': {
-        label: '저항테스트',
-        desc: '현재 주가가 주요 저항벽(Call Wall) 근처에 도달하여 돌파 시도 중',
-        color: 'text-violet-400 border-violet-500/30 bg-violet-500/10'
-    }
+    'GEX_SAFE': { labelKey: 'trigGexSafeLabel', descKey: 'trigGexSafeDesc', color: 'text-sky-400 border-sky-500/30 bg-sky-500/10' },
+    'CORRECTION': { labelKey: 'trigCorrectionLabel', descKey: 'trigCorrectionDesc', color: 'text-slate-300 border-slate-500/30 bg-slate-500/10' },
+    'WHALE_DRIVER': { labelKey: 'trigWhaleDriverLabel', descKey: 'trigWhaleDriverDesc', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' },
+    'WALL_TEST': { labelKey: 'trigWallTestLabel', descKey: 'trigWallTestDesc', color: 'text-violet-400 border-violet-500/30 bg-violet-500/10' }
 };
 
 // ============================================================================

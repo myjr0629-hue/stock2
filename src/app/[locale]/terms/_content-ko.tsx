@@ -11,7 +11,9 @@ export const meta: TermsMeta = {
     intro: '본 약관은 SIGNUM HQ 서비스의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임사항을 규정합니다. 서비스를 이용함으로써 본 약관에 동의하신 것으로 간주됩니다.',
     effectiveDate: '부칙: 본 약관은 ',
     effectiveDateBold: '2026년 2월 12일',
+    effectiveDateSuffix: '부터 시행됩니다.',
     backLink: '← 로그인으로 돌아가기',
+    importantBadge: '중요 조항',
 };
 
 export const sections: TermsSection[] = [

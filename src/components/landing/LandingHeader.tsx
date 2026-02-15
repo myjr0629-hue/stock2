@@ -153,7 +153,7 @@ export function LandingHeader() {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="분석할 Ticker..."
+                                placeholder={t('landing.searchPlaceholder')}
                                 className="pl-8 pr-3 h-8 w-36 focus:w-48 
                                     bg-slate-900/60 border border-slate-700/50 rounded-lg 
                                     text-[11px] font-bold text-white placeholder:text-slate-500 

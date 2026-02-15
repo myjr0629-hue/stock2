@@ -47,6 +47,7 @@ interface Props {
 
 const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaData, newsScore, liveQuote, analystData, fundamentalData, institutionalData }: any) => {
     const t = useTranslations('command');
+    const td = useTranslations('dashboard');
 
     // === Data Completeness Check (only structure is required) ===
     const hasStructure = structure && structure.options_status === 'OK';
@@ -111,12 +112,12 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         const mpDist = ((displayPrice - maxPain) / maxPain) * 100;
         if (mpDist > 3) {
             bullScore += 15;
-            insights.push({ text: `Max Pain 상단`, type: 'bull' });
+            insights.push({ text: td('insight.maxPainAbove'), type: 'bull' });
         } else if (mpDist < -3) {
             bearScore += 15;
-            insights.push({ text: `Max Pain 하단`, type: 'bear' });
+            insights.push({ text: td('insight.maxPainBelow'), type: 'bear' });
         } else {
-            insights.push({ text: `Max Pain 근접`, type: 'neutral' });
+            insights.push({ text: td('insight.maxPainNear'), type: 'neutral' });
         }
     }
 
@@ -124,10 +125,10 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
     if (isREG) {
         if (netGex > 0) {
             bullScore += 10;
-            insights.push({ text: '롱감마 (안정)', type: 'bull' });
+            insights.push({ text: td('insight.longGammaStable'), type: 'bull' });
         } else if (netGex < 0) {
             bearScore += 5;
-            insights.push({ text: '숏감마 (변동성↑)', type: 'bear' });
+            insights.push({ text: td('insight.shortGammaVolatile'), type: 'bear' });
         }
     }
 
@@ -135,26 +136,26 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
     if (isREG) {
         if (netPremium > 500000) {
             bullScore += 15;
-            insights.push({ text: '콜 플로우 우세', type: 'bull' });
+            insights.push({ text: td('insight.callFlowDominant'), type: 'bull' });
         } else if (netPremium < -500000) {
             bearScore += 15;
-            insights.push({ text: '풋 플로우 우세', type: 'bear' });
+            insights.push({ text: td('insight.putFlowDominant'), type: 'bear' });
         }
     }
 
     // 5. News — 항상 활성
     if (newsScore && newsScore.score >= 70) {
         bullScore += 10;
-        insights.push({ text: '뉴스 긍정적', type: 'bull' });
+        insights.push({ text: td('insight.newsPositive'), type: 'bull' });
     } else if (newsScore && newsScore.score < 40) {
         bearScore += 10;
-        insights.push({ text: '뉴스 부정적', type: 'bear' });
+        insights.push({ text: td('insight.newsNegative'), type: 'bear' });
     }
 
     // 6. Rumor penalty — 항상 활성
     if (hasRumor) {
         bearScore += 10;
-        insights.push({ text: '⚠️ 루머 감지', type: 'bear' });
+        insights.push({ text: td('insight.rumorDetected'), type: 'bear' });
     }
 
     // 7. VWAP — 본장만 (장중 거래량 가중 평균)
@@ -165,10 +166,10 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
             const vwapDiff = ((price - vwap) / vwap) * 100;
             if (vwapDiff > 1) {
                 bullScore += 8;
-                insights.push({ text: `VWAP 상회 +${vwapDiff.toFixed(1)}%`, type: 'bull' });
+                insights.push({ text: td('insight.vwapAbove', { pct: vwapDiff.toFixed(1) }), type: 'bull' });
             } else if (vwapDiff < -1) {
                 bearScore += 8;
-                insights.push({ text: `VWAP 하회 ${vwapDiff.toFixed(1)}%`, type: 'bear' });
+                insights.push({ text: td('insight.vwapBelow', { pct: vwapDiff.toFixed(1) }), type: 'bear' });
             }
         }
     }
@@ -180,10 +181,10 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         const buyPct = Math.round((buyCount / analystData.totalAnalysts) * 100);
         if (buyPct >= 80) {
             bullScore += 10;
-            insights.push({ text: `애널리스트 ${buyPct}% 매수`, type: 'bull' });
+            insights.push({ text: td('insight.analystBuy', { pct: String(buyPct) }), type: 'bull' });
         } else if (buyPct <= 30) {
             bearScore += 10;
-            insights.push({ text: `애널리스트 ${buyPct}% 매수`, type: 'bear' });
+            insights.push({ text: td('insight.analystBuy', { pct: String(buyPct) }), type: 'bear' });
         }
     }
 
@@ -191,10 +192,10 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
     if (fundamentalData?.score > 0) {
         if (fundamentalData.grade?.startsWith('A')) {
             bullScore += 5;
-            insights.push({ text: `재무 ${fundamentalData.grade}`, type: 'bull' });
+            insights.push({ text: td('insight.fundamentalGrade', { grade: fundamentalData.grade }), type: 'bull' });
         } else if (fundamentalData.grade?.startsWith('D') || fundamentalData.grade === 'F') {
             bearScore += 5;
-            insights.push({ text: `재무 ${fundamentalData.grade}`, type: 'bear' });
+            insights.push({ text: td('insight.fundamentalGrade', { grade: fundamentalData.grade }), type: 'bear' });
         }
     }
 
@@ -204,81 +205,81 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         const dpSellPct = institutionalData.darkPool.sellPct || 0;
         if (dpBuyPct > 55) {
             bullScore += 10;
-            insights.push({ text: `다크풀 매수 ${dpBuyPct}%`, type: 'bull' });
+            insights.push({ text: td('insight.darkPoolBuy', { pct: String(dpBuyPct) }), type: 'bull' });
         } else if (dpSellPct > 55) {
             bearScore += 10;
-            insights.push({ text: `다크풀 매도 ${dpSellPct}%`, type: 'bear' });
+            insights.push({ text: td('insight.darkPoolSell', { pct: String(dpSellPct) }), type: 'bear' });
         }
     }
 
     // 11. 0DTE — 본장만
     if (isREG && zeroDteRatio > 0.3) {
-        insights.push({ text: '0DTE 고비중', type: 'neutral' });
+        insights.push({ text: td('insight.zeroDteHigh'), type: 'neutral' });
     }
 
     // === Verdict ===
     const diff = bullScore - bearScore;
     let verdict: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'CAUTION' = 'NEUTRAL';
-    let verdictKR = '중립';
+    let verdictKR = td('verdict.neutral');
     let briefing = '';
     let subBriefing = '';
 
     if (isFail) {
         verdict = 'CAUTION';
-        verdictKR = '대기';
-        briefing = '옵션 데이터 검증 중입니다.';
-        subBriefing = '데이터 안정화 후 분석이 진행됩니다.';
+        verdictKR = td('verdict.caution');
+        briefing = td('briefing.dataValidating');
+        subBriefing = td('briefing.dataStabilizing');
     } else if (!isREG) {
         // PRE, POST, CLOSED — SMA + 뉴스 기반 부분 분석
-        const sessionLabel = session === 'PRE' ? '프리마켓' : session === 'POST' ? '애프터마켓' : '마감';
+        const sessionLabel = session === 'PRE' ? td('session.preMarket') : session === 'POST' ? td('session.afterMarket') : td('session.closed');
         if (diff >= 15) {
             verdict = 'BULLISH';
-            verdictKR = '상승 편향';
+            verdictKR = td('verdict.bullishBias');
         } else if (diff <= -15) {
             verdict = 'BEARISH';
-            verdictKR = '하락 편향';
+            verdictKR = td('verdict.bearishBias');
         } else {
             verdict = 'NEUTRAL';
-            verdictKR = '중립';
+            verdictKR = td('verdict.neutral');
         }
-        briefing = `${sessionLabel} 세션 — SMA·뉴스 기반 분석 (옵션 분석은 본장에만 제공)`;
+        briefing = td('briefing.sessionAnalysis', { session: sessionLabel });
         subBriefing = insights.length > 0
-            ? `감지된 시그널: ${insights.map(i => i.text).join(', ')}`
-            : `${ticker}의 실시간 옵션 구조 분석은 정규장(9:30~16:00 ET) 개장 시 자동으로 시작됩니다.`;
+            ? td('briefing.detectedSignals', { signals: insights.map(i => i.text).join(', ') })
+            : td('briefing.waitForRegular', { ticker });
     } else if (diff >= 25) {
         verdict = 'BULLISH';
-        verdictKR = '상승';
+        verdictKR = td('verdict.bullish');
         if (netGex > 0 && smaData?.cross === 'GOLDEN') {
-            briefing = `${ticker}은 롱감마 환경에서 Golden Cross가 확인되었습니다.`;
-            subBriefing = `딜러들의 감마 헷징으로 변동성이 억제되어 안정적인 상승 흐름이 예상됩니다. 저항선($${callWall})까지 상승 여력이 있으며, 지지선($${putFloor})이 하방을 방어합니다.`;
+            briefing = td('briefing.bullishGoldenCross', { ticker });
+            subBriefing = td('briefing.bullishGoldenCrossSub', { cw: `$${callWall}`, pf: `$${putFloor}` });
         } else if (netPremium > 500000) {
-            briefing = `${ticker}에 콜 옵션 매수세가 우위를 보이고 있습니다.`;
-            subBriefing = `기관 플로우가 상승 방향으로 정렬되어 있으며, Max Pain($${maxPain}) 위에서 거래 중입니다. 저항선($${callWall}) 테스트 가능성이 높습니다.`;
+            briefing = td('briefing.bullishCallFlow', { ticker });
+            subBriefing = td('briefing.bullishCallFlowSub', { mp: `$${maxPain}`, cw: `$${callWall}` });
         } else {
-            briefing = `${ticker}은 복합 지표상 상승 우위입니다.`;
-            subBriefing = `SMA, 옵션 구조, 플로우 데이터가 전반적으로 상승 편향을 보이고 있습니다. 지지선($${putFloor})이 견고하며 추가 상승 여력이 있습니다.`;
+            briefing = td('briefing.bullishComposite', { ticker });
+            subBriefing = td('briefing.bullishCompositeSub', { pf: `$${putFloor}` });
         }
     } else if (diff <= -25) {
         verdict = 'BEARISH';
-        verdictKR = '하락';
+        verdictKR = td('verdict.bearish');
         if (smaData?.cross === 'DEAD' && netGex < 0) {
-            briefing = `${ticker}은 숏감마 환경에서 Dead Cross가 확인되었습니다.`;
-            subBriefing = `딜러들의 역방향 헷징으로 가격 변동이 증폭될 수 있습니다. Max Pain($${maxPain})으로의 수렴 압력이 있으며, 지지선($${putFloor}) 이탈 시 하락 가속 가능성이 있습니다.`;
+            briefing = td('briefing.bearishDeadCross', { ticker });
+            subBriefing = td('briefing.bearishDeadCrossSub', { mp: `$${maxPain}`, pf: `$${putFloor}` });
         } else if (netPremium < -500000) {
-            briefing = `${ticker}에 풋 옵션 매수세가 우위를 보이고 있습니다.`;
-            subBriefing = `기관 플로우가 하락 방향으로 정렬되어 있습니다. 지지선($${putFloor}) 하단 이탈 시 추가 하락이 예상되며, Max Pain($${maxPain}) 수렴을 주시하세요.`;
+            briefing = td('briefing.bearishPutFlow', { ticker });
+            subBriefing = td('briefing.bearishPutFlowSub', { pf: `$${putFloor}`, mp: `$${maxPain}` });
         } else {
-            briefing = `${ticker}은 복합 지표상 하락 우위입니다.`;
-            subBriefing = `MACD, 옵션 구조, 플로우 데이터가 전반적으로 하락 편향을 보이고 있습니다. 지지선($${putFloor}) 테스트 가능성이 있으며 신중한 접근이 필요합니다.`;
+            briefing = td('briefing.bearishComposite', { ticker });
+            subBriefing = td('briefing.bearishCompositeSub', { pf: `$${putFloor}` });
         }
     } else {
         verdict = 'NEUTRAL';
-        verdictKR = '관망';
-        briefing = `${ticker}은 현재 방향성이 불명확합니다.`;
+        verdictKR = td('verdict.watch');
+        briefing = td('briefing.neutralDirection', { ticker });
         if (Math.abs(displayPrice - maxPain) / maxPain < 0.02) {
-            subBriefing = `현재가가 Max Pain($${maxPain}) 근처에서 거래 중이며 균형 상태입니다. 저항선($${callWall}) 또는 지지선($${putFloor}) 돌파 확인 후 방향 결정을 권장합니다.`;
+            subBriefing = td('briefing.neutralNearMaxPain', { mp: `$${maxPain}`, cw: `$${callWall}`, pf: `$${putFloor}` });
         } else {
-            subBriefing = `상승과 하락 요인이 혼재되어 있습니다. 주요 레벨(저항: $${callWall}, 지지: $${putFloor}) 돌파 시 추세 방향이 결정될 것으로 예상됩니다.`;
+            subBriefing = td('briefing.neutralMixed', { cw: `$${callWall}`, pf: `$${putFloor}` });
         }
     }
 
@@ -318,7 +319,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 
                 {/* Key Insights Grid */}
                 <div className="space-y-2">
-                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">핵심 지표</div>
+                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{td('keyMetrics')}</div>
                     <div className="flex flex-wrap gap-1.5">
                         {insights.slice(0, 6).map((item, i) => (
                             <span
@@ -389,6 +390,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     // i18n translations
     const t = useTranslations('command');
+    const td = useTranslations('dashboard');
     const tIntel = useTranslations('intel');
     const locale = useLocale();
 
@@ -422,7 +424,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 if (data.sentiment) {
                     setNewsScore({
                         score: data.sentiment.score || 50,
-                        label: data.sentiment.label || '중립',
+                        label: data.sentiment.label || td('sentimentNeutral'),
                         breakdown: data.sentiment.breakdown
                     });
                 } else {
@@ -435,7 +437,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         else neutral++;
                     });
                     score = Math.max(0, Math.min(100, score));
-                    const label = score >= 70 ? '양호' : score >= 40 ? '중립' : '주의';
+                    const label = score >= 70 ? td('sentimentPositive') : score >= 40 ? td('sentimentNeutral') : td('sentimentCaution');
                     setNewsScore({ score, label, breakdown: { positive, negative, neutral } });
                 }
             }
@@ -518,7 +520,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 if (data.sentiment) {
                     setNewsScore({
                         score: data.sentiment.score || 50,
-                        label: data.sentiment.label || '중립',
+                        label: data.sentiment.label || td('sentimentNeutral'),
                         breakdown: data.sentiment.breakdown
                     });
                 } else {
@@ -532,7 +534,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         else neutral++;
                     });
                     score = Math.max(0, Math.min(100, score));
-                    const label = score >= 70 ? '양호' : score >= 40 ? '중립' : '주의';
+                    const label = score >= 70 ? td('sentimentPositive') : score >= 40 ? td('sentimentNeutral') : td('sentimentCaution');
                     setNewsScore({ score, label, breakdown: { positive, negative, neutral } });
                 }
             }
@@ -567,7 +569,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 setSmaData({
                     cross: data.cross || 'UNKNOWN',
                     crossType: data.crossType || '',
-                    label: data.label || '데이터없음',
+                    label: data.label || td('noData'),
                     sma50: data.sma50 || 0,
                     sma200: data.sma200 || 0,
                     distance: data.distance || 0,
@@ -609,14 +611,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         else if (netPrem < -500000) score -= 5;
         // Clamp
         score = Math.max(0, Math.min(100, score));
-        let label = '관망'; let grade = 'C';
-        if (score >= 80) { label = '강한 확신'; grade = 'A'; }
-        else if (score >= 65) { label = '상승 우위'; grade = 'B+'; }
-        else if (score >= 55) { label = '약간 상승'; grade = 'B'; }
-        else if (score >= 45) { label = '관망'; grade = 'C'; }
-        else if (score >= 35) { label = '약간 하락'; grade = 'D'; }
-        else if (score >= 20) { label = '하락 우위'; grade = 'D-'; }
-        else { label = '강한 하락'; grade = 'F'; }
+        let label = td('convNeutral'); let grade = 'C';
+        if (score >= 80) { label = td('convStrong'); grade = 'A'; }
+        else if (score >= 65) { label = td('convBullish'); grade = 'B+'; }
+        else if (score >= 55) { label = td('convSlightUp'); grade = 'B'; }
+        else if (score >= 45) { label = td('convNeutral'); grade = 'C'; }
+        else if (score >= 35) { label = td('convSlightDown'); grade = 'D'; }
+        else if (score >= 20) { label = td('convBearish'); grade = 'D-'; }
+        else { label = td('convStrongDown'); grade = 'F'; }
         setConviction({ score, label, grade });
     };
 
@@ -993,7 +995,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
                         const regimeColor = r?.regime === 'ERUPTING' ? 'text-rose-400' : r?.regime === 'LOADED' ? 'text-amber-400' : r?.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400';
                         const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
-                        const regimeDesc = r?.regime === 'ERUPTING' ? '극단적 변동성 주의' : r?.regime === 'LOADED' ? '변동성 축적, 폭발 대기' : r?.regime === 'COILING' ? '에너지 응축 중' : '시장 안정';
+                        const regimeDesc = r?.regime === 'ERUPTING' ? td('volErupting') : r?.regime === 'LOADED' ? td('volLoaded') : r?.regime === 'COILING' ? td('volCoiling') : td('volStable');
                         return (
                             <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${regimeBg}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1028,7 +1030,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {(() => {
                         const isBull = conviction && conviction.score >= 60;
                         const isBear = conviction && conviction.score <= 40;
-                        const convDesc = conviction ? (conviction.score >= 70 ? '강한 매수 시그널' : conviction.score >= 55 ? '매수 우위' : conviction.score <= 30 ? '매도 시그널' : conviction.score <= 45 ? '약세 우위' : '방향성 탐색 중') : '계산중...';
+                        const convDesc = conviction ? (conviction.score >= 70 ? td('convDescStrongBuy') : conviction.score >= 55 ? td('convDescBuy') : conviction.score <= 30 ? td('convDescSell') : conviction.score <= 45 ? td('convDescBearish') : td('convDescSearching')) : td('convDescCalc');
                         return (
                             <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1047,7 +1049,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                                 <div className="relative z-10 text-[11px] text-white/70 mt-0.5">{conviction?.label || ''}</div>
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">SMA + VWAP + PCR + GEX + Flow 종합</span>
+                                    <span className="text-[11px] text-white">{td('convComposite')}</span>
                                 </div>
                             </div>
                         );
@@ -1058,7 +1060,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const vwap = liveQuote?.vwap || initialStockData?.vwap || 0;
                         const price = displayPrice || 0;
                         const vwapDiff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
-                        const vwapDesc = vwapDiff > 2 ? 'VWAP 상회 → 매수세 우위' : vwapDiff < -2 ? 'VWAP 하회 → 매도세 우위' : 'VWAP 근접 → 중립 구간';
+                        const vwapDesc = vwapDiff > 2 ? td('vwapAbove') : vwapDiff < -2 ? td('vwapBelow') : td('vwapNear');
                         return (
                             <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${vwapDiff > 2 ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : vwapDiff < -2 ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1076,9 +1078,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <span className={`text-lg font-black font-mono tabular-nums leading-none ${vwapDiff > 0 ? 'text-emerald-400' : vwapDiff < 0 ? 'text-rose-400' : 'text-white'}`}>${vwap.toFixed(2)}</span>
                                 </div>
                                 <div className="relative z-10 text-[11px] text-white mt-0.5">{vwapDesc}</div>
-                                <div className="relative z-10 text-[11px] text-white/70 mt-px">현재가 대비 {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(2)}% 괴리</div>
+                                <div className="relative z-10 text-[11px] text-white/70 mt-px">{td('vwapDeviation')} {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(2)}{td('vwapDeviationSuffix')}</div>
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">장중 거래량 가중 평균</span>
+                                    <span className="text-[11px] text-white">{td('vwapFullDesc')}</span>
                                 </div>
                             </div>
                         );
@@ -1090,7 +1092,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const isCritical = s?.status === 'CRITICAL' || s?.status === 'HIGH';
                         const statusColor = s?.status === 'CRITICAL' ? 'text-rose-400' : s?.status === 'HIGH' ? 'text-amber-400' : s?.status === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400';
                         const statusBg = s?.status === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : s?.status === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
-                        const sqDesc = s?.status === 'CRITICAL' ? '숏커버 폭발 위험' : s?.status === 'HIGH' ? '숏커버 가능성 높음' : s?.status === 'MEDIUM' ? '공매도 보통' : '공매도 위험 낮음';
+                        const sqDesc = s?.status === 'CRITICAL' ? td('sqCritical') : s?.status === 'HIGH' ? td('sqHigh') : s?.status === 'MEDIUM' ? td('sqMedium') : td('sqLow');
                         return (
                             <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${statusBg}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1110,8 +1112,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <span className="text-[11px] text-white ml-0.5">{sqDesc}</span>
                                 </div>
                                 <div className="relative z-10 flex gap-3 mt-0.5 text-[10px] tabular-nums">
-                                    <span className="text-white/60">상환 <span className="font-bold text-white/90">{s?.daysToCover?.toFixed(1) ?? '--'}일</span></span>
-                                    <span className="text-white/60">공매도비 <span className="font-bold text-white/90">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></span>
+                                    <span className="text-white/60">{td('sqDaysToCover')} <span className="font-bold text-white/90">{s?.daysToCover?.toFixed(1) ?? '--'}{td('sqDays')}</span></span>
+                                    <span className="text-white/60">{td('sqShortRatio')} <span className="font-bold text-white/90">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></span>
                                 </div>
                                 <div className="relative z-10 mt-0.5">
                                     <span className="text-[11px] text-white">SI% + Days to Cover + Short Vol</span>
@@ -1129,7 +1131,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                         const buyCount = bd ? bd.strongBuy + bd.buy : 0;
                         const buyPct = total > 0 ? Math.round((buyCount / total) * 100) : 0;
-                        const consensusKr = analystData?.consensus === 'STRONG BUY' ? '적극 매수' : analystData?.consensus === 'BUY' ? '매수' : analystData?.consensus === 'HOLD' ? '보유' : analystData?.consensus === 'SELL' ? '매도' : analystData?.consensus === 'STRONG SELL' ? '적극 매도' : '...';
+                        const consensusKr = analystData?.consensus === 'STRONG BUY' ? td('analystStrongBuy') : analystData?.consensus === 'BUY' ? td('analystBuy') : analystData?.consensus === 'HOLD' ? td('analystHold') : analystData?.consensus === 'SELL' ? td('analystSell') : analystData?.consensus === 'STRONG SELL' ? td('analystStrongSell') : '...';
                         return (
                             <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isBullish ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBearish ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1143,8 +1145,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
                                     <span className={`text-lg font-black tabular-nums leading-none ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span>
-                                    <span className="text-[11px] text-white font-bold">매수 추천</span>
-                                    <span className="text-[11px] text-white">{total}명 중</span>
+                                    <span className="text-[11px] text-white font-bold">{td('analystBuyReco')}</span>
+                                    <span className="text-[11px] text-white">{total} {td('analystOfTotal')}</span>
                                 </div>
                                 {bd && total > 0 && (
                                     <div className="relative z-10 mt-1">
@@ -1168,7 +1170,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <div className="bg-rose-400/60" style={{ width: `${(bd.sell / total) * 100}%` }} />
                                             <div className="bg-rose-500" style={{ width: `${(bd.strongSell / total) * 100}%` }} />
                                         </div>
-                                        <div className="text-[11px] text-white mt-0.5">→ {total}명 중 <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> 매수 추천</div>
+                                        <div className="text-[11px] text-white mt-0.5">→ {total} {td('analystOfTotal')} <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> {td('analystBuyReco')}</div>
                                     </div>
                                 )}
                                 <div className="relative z-10 mt-0.5">
@@ -1189,7 +1191,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
                         const sigColor = isAccumulation ? 'text-emerald-400' : isDistribution ? 'text-rose-400' : 'text-slate-400';
                         const sigBg = isAccumulation ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isDistribution ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50';
-                        const instDesc = isAccumulation ? '기관 매집 시그널' : isDistribution ? '기관 이탈 시그널' : '기관 거래 정상 범위';
+                        const instDesc = isAccumulation ? td('instAccum') : isDistribution ? td('instDist') : td('instNormal');
                         return (
                             <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${sigBg}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1205,12 +1207,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
                                     <span className={`text-lg font-black tabular-nums leading-none ${dp > 35 ? 'text-indigo-400' : 'text-white/80'}`}>{dp.toFixed(1)}%</span>
-                                    <span className="text-[11px] text-white font-bold">다크풀</span>
+                                    <span className="text-[11px] text-white font-bold">{td('instDarkPool')}</span>
                                     <span className="text-[11px] text-white ml-0.5">{instDesc}</span>
                                 </div>
                                 <div className="relative z-10 flex gap-3 mt-0.5 text-[10px] tabular-nums">
-                                    <span className="text-white/60">블록 <span className="font-bold text-white/90">{blockCount}건</span></span>
-                                    <span className="text-white/60">공매도비 <span className="font-bold text-white/90">{institutionalData?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
+                                    <span className="text-white/60">{td('instBlock')} <span className="font-bold text-white/90">{blockCount}{td('instTrades')}</span></span>
+                                    <span className="text-white/60">{td('sqShortRatio')} <span className="font-bold text-white/90">{institutionalData?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
                                 </div>
                                 <div className="relative z-10 mt-0.5">
                                     <span className="text-[11px] text-white">Dark Pool + Block Trade + Short Vol</span>
@@ -1221,7 +1223,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                     {/* [2-2] TREND PHASE™ */}
                     {(() => {
-                        const phase = smaData?.cross === 'GOLDEN' ? '강세 전환' : smaData?.cross === 'DEAD' ? '약세 전환' : smaData?.label === 'ABOVE' ? '상승 추세' : smaData?.label === 'BELOW' ? '하락 추세' : '...';
+                        const phase = smaData?.cross === 'GOLDEN' ? td('smaGolden') : smaData?.cross === 'DEAD' ? td('smaDead') : smaData?.label === 'ABOVE' ? td('smaAbove') : smaData?.label === 'BELOW' ? td('smaBelow') : '...';
                         return (
                             <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${smaData?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : smaData?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1243,8 +1245,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                                 {smaData && smaData.distance !== null && (
                                     <div className={`relative z-10 text-[11px] font-bold mt-0.5 ${smaData.distance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        SMA 괴리 {smaData.distance > 0 ? '+' : ''}{smaData.distance}%
-                                        {smaData.isImminent && <span className="ml-1 text-amber-400">⚡ 교차 임박</span>}
+                                        {td('smaDeviation')} {smaData.distance > 0 ? '+' : ''}{smaData.distance}%
+                                        {smaData.isImminent && <span className="ml-1 text-amber-400">⚡ {td('smaCrossImminent')}</span>}
                                     </div>
                                 )}
                                 <div className="relative z-10 mt-0.5">
@@ -1261,7 +1263,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const gradeColor = f?.grade?.startsWith('A') ? 'text-emerald-400' : f?.grade?.startsWith('B') ? 'text-cyan-400' : f?.grade?.startsWith('C') ? 'text-amber-400' : 'text-slate-400';
                         const gradeBg = f?.grade?.startsWith('A') ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : f?.grade?.startsWith('B') ? 'bg-cyan-950/40 border-cyan-500/30' : 'bg-slate-800/40 border-slate-700/50';
                         const bd = f?.breakdown;
-                        const fundDesc = !hasData ? '데이터 수집 중' : f?.grade?.startsWith('A') ? '재무 우수' : f?.grade?.startsWith('B') ? '재무 양호' : f?.grade?.startsWith('C') ? '재무 보통' : '주의 필요';
+                        const fundDesc = !hasData ? td('fundCollecting') : f?.grade?.startsWith('A') ? td('fundExcellent') : f?.grade?.startsWith('B') ? td('fundGood') : f?.grade?.startsWith('C') ? td('fundAvg') : td('fundCaution');
                         // Display raw values even when score is 0
                         const pe = f?.pe; const de = f?.de; const roe = f?.roe; const rev = f?.revenueGrowth; const margin = f?.netMargin;
                         return (
@@ -1274,7 +1276,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">FUNDAMENTAL</span>
                                     </div>
                                     <span className={`text-[11px] font-black px-1.5 py-px rounded bg-slate-600/50 ${hasData ? gradeColor : 'text-slate-400'}`}>
-                                        {hasData ? f?.grade : '수집중'}
+                                        {hasData ? f?.grade : td('fundGradeCollecting')}
                                     </span>
                                 </div>
                                 {hasData ? (
@@ -1291,10 +1293,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex flex-wrap gap-x-2 mt-1 text-[10px] tabular-nums">
                                     {pe !== null && pe !== undefined && <span className="text-white/60">PE <span className="font-bold text-white/90">{pe}</span></span>}
                                     {roe !== null && roe !== undefined && <span className="text-white/60">ROE <span className="font-bold text-white/90">{roe}%</span></span>}
-                                    {rev !== null && rev !== undefined && <span className="text-white/60">매출 <span className="font-bold text-white/90">{rev > 0 ? '+' : ''}{rev}%</span></span>}
-                                    {margin !== null && margin !== undefined && <span className="text-white/60">마진 <span className="font-bold text-white/90">{margin}%</span></span>}
+                                    {rev !== null && rev !== undefined && <span className="text-white/60">{td('fundRevenue')} <span className="font-bold text-white/90">{rev > 0 ? '+' : ''}{rev}%</span></span>}
+                                    {margin !== null && margin !== undefined && <span className="text-white/60">{td('fundMargin')} <span className="font-bold text-white/90">{margin}%</span></span>}
                                     {de !== null && de !== undefined && <span className="text-white/60">D/E <span className="font-bold text-white/90">{de}</span></span>}
-                                    {!pe && !roe && !rev && !margin && !de && <span className="text-white/40">Financial API 연결 대기</span>}
+                                    {!pe && !roe && !rev && !margin && !de && <span className="text-white/40">{td('fundApiWaiting')}</span>}
                                 </div>
                                 <div className="relative z-10 mt-0.5">
                                     <span className="text-[11px] text-white">PE + FCF + Rev + Margin + DE</span>
@@ -1309,7 +1311,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const daysNum = parseInt(rawDays.replace(/\D/g, ''));
                         const isValidDays = !isNaN(daysNum);
                         const isImminent = isValidDays && daysNum >= 0 && daysNum <= 7;
-                        const earnDesc = isValidDays ? (daysNum === 0 ? '오늘 실적 발표!' : daysNum <= 3 ? `실적 발표 임박` : daysNum <= 14 ? `${daysNum}일 후 실적` : `${daysNum}일 후`) : '';
+                        const earnDesc = isValidDays ? (daysNum === 0 ? td('earnToday') : daysNum <= 3 ? td('earnImminent') : daysNum <= 14 ? `${daysNum}${td('earnDaysLater')}` : `${daysNum}${td('earnDaysAfter')}`) : '';
                         return (
                             <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isImminent ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1330,7 +1332,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                                 {earningsData?.epsEstimate !== null && earningsData?.epsEstimate !== undefined && (
                                     <div className="relative z-10 text-[11px] text-white mt-0.5">
-                                        예상 EPS <span className="font-bold text-white/90">${earningsData.epsEstimate.toFixed(2)}</span>
+                                        {td('estEps')} <span className="font-bold text-white/90">${earningsData.epsEstimate.toFixed(2)}</span>
                                         {earningsData?.quarter && earningsData?.year && <span className="text-white/40 ml-1">Q{earningsData.quarter} FY{earningsData.year}</span>}
                                     </div>
                                 )}
@@ -1350,7 +1352,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <Layers className="w-3.5 h-3.5 text-violet-400" />
                                 <span className="text-[12px] font-bold text-white uppercase tracking-wider">RELATED</span>
                             </div>
-                            <span className="text-[11px] text-white">동종업종</span>
+                            <span className="text-[11px] text-white">{td('relatedSector')}</span>
                         </div>
                         <div className="relative z-10 flex flex-col gap-1">
                             {relatedData?.topRelated && relatedData.topRelated.length > 0 ? (
@@ -1371,7 +1373,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-[11px] text-white/70 text-center py-1">로딩중...</div>
+                                <div className="text-[11px] text-white/70 text-center py-1">{td('loading')}</div>
                             )}
                         </div>
                         <div className="relative z-10 mt-0.5">
@@ -1804,9 +1806,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                                 // Trading interpretation for ALL_LONG / ALL_SHORT
                                                 const interpretation = gammaFlipType === 'ALL_LONG'
-                                                    ? "→ 변동성 축소, 레인지 예상"
+                                                    ? td('volShrink')
                                                     : gammaFlipType === 'ALL_SHORT'
-                                                        ? "→ 변동성 확대, 추세 가속 주의"
+                                                        ? td('volExpand')
                                                         : "";
 
                                                 return (
@@ -1840,15 +1842,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             {/* Gamma Concentration */}
                                             <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[9px] text-white font-bold uppercase">GAMMA CONC. 감마 집중도</span>
+                                                    <span className="text-[9px] text-white font-bold uppercase">GAMMA CONC. {td('gammaConc')}</span>
                                                 </div>
                                                 {(() => {
                                                     const concentration = structure?.gammaConcentration ?? 0;
                                                     const label = structure?.gammaConcentrationLabel ?? 'NORMAL';
                                                     const color = label === 'STICKY' ? 'text-amber-400'
                                                         : label === 'LOOSE' ? 'text-emerald-400' : 'text-slate-300';
-                                                    const desc = label === 'STICKY' ? '가격 움직임 억제'
-                                                        : label === 'LOOSE' ? '자유로운 움직임' : '균형 상태';
+                                                    const desc = label === 'STICKY' ? td('gammaSticky')
+                                                        : label === 'LOOSE' ? td('gammaLoose') : td('gammaBalanced');
                                                     return (
                                                         <div>
                                                             <div className="flex items-baseline gap-1">
@@ -1903,7 +1905,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         </h4>
                                         {(structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone) && (
                                             <span className="text-[10px] text-amber-500 font-black">
-                                                Max Pain (최대고통): ${structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone}
+                                                Max Pain ({td('maxPainLabel')}): ${structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone}
                                             </span>
                                         )}
                                     </div>
@@ -1933,8 +1935,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                     {structure?.netGex ? (structure.netGex > 0 ? "+" : "") + (structure.netGex / 1000000).toFixed(2) + "M" : "—"}
                                                 </div>
                                                 <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1 flex items-center justify-center gap-1">
-                                                    순 감마 에너지 (Net GEX)
-                                                    <span title={`시장 조성자(MM)들의 포지션에 따른 변동성 성향입니다.\n(+) 양수: 주가 변동 억제 (안정/지루함)\n(-) 음수: 주가 변동 증폭 (급등락/스퀴즈 위험)`}>
+                                                    {td('netGexLabel')}
+                                                    <span title={td('gexTooltip')}>
                                                         <Info size={10} className="text-slate-600 hover:text-slate-400 cursor-help" />
                                                     </span>
                                                 </div>
@@ -1957,16 +1959,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                                 {/* Expert Interpretation */}
                                                 <div className={`mt-4 text-[10px] font-bold px-2 py-1 rounded inline-block ${structure?.netGex > 0 ? "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" : structure?.netGex < 0 ? "bg-rose-950/30 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400"}`}>
-                                                    {structure?.netGex > 0 ? "지지력 강화 (변동성 축소)" : structure?.netGex < 0 ? "변동성 확대 (가속 구간)" : "중립 (방향성 부재)"}
+                                                    {structure?.netGex > 0 ? td('gexBullish') : structure?.netGex < 0 ? td('gexBearish') : td('gexNeutral')}
                                                 </div>
                                                 <div className="mt-4 flex justify-center gap-4 text-[9px] font-medium text-slate-500 border-t border-white/5 pt-2">
                                                     <div className="flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
-                                                        <span>(+) 안전지대</span>
+                                                        <span>{td('gexSafeZone')}</span>
                                                     </div>
                                                     <div className="flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 bg-rose-500 rounded-full"></span>
-                                                        <span>(-) 가속구간</span>
+                                                        <span>{td('gexAccelZone')}</span>
                                                     </div>
                                                 </div>
                                             </div>
