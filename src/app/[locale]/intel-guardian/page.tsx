@@ -136,6 +136,42 @@ interface GuardianContext {
     timestamp: string;
 }
 
+// === SECTOR INTEL i18n ===
+type SectorLocale = 'ko' | 'en' | 'ja';
+const SECTOR_INTEL_TEXTS: Record<SectorLocale, {
+    trendAnalysis: string;
+    volumeIntensity: string;
+    trendConsistency: string;
+    rvolSurging: string; rvolActive: string; rvolNormal: string; rvolLow: string;
+    consistencyStrong: string; consistencyMixed: string; consistencyUnstable: string;
+    noiseBounce: (todayChange: number, cumReturn: number) => string;
+}> = {
+    ko: {
+        trendAnalysis: '5일 추세 분석',
+        volumeIntensity: '거래량 강도',
+        trendConsistency: '추세 일관성',
+        rvolSurging: '급증', rvolActive: '활발', rvolNormal: '보통', rvolLow: '저조',
+        consistencyStrong: '강한 추세', consistencyMixed: '혼조', consistencyUnstable: '불안정',
+        noiseBounce: (today, cum) => `노이즈 반등 — 오늘 ${today > 0 ? '+' : ''}${today.toFixed(1)}% 이나 5일간 ${cum > 0 ? '+' : ''}${cum.toFixed(1)}% 추세`
+    },
+    en: {
+        trendAnalysis: '5-Day Trend Analysis',
+        volumeIntensity: 'Volume Intensity',
+        trendConsistency: 'Trend Consistency',
+        rvolSurging: 'Surging', rvolActive: 'Active', rvolNormal: 'Normal', rvolLow: 'Low',
+        consistencyStrong: 'Strong', consistencyMixed: 'Mixed', consistencyUnstable: 'Unstable',
+        noiseBounce: (today, cum) => `Noise bounce — Today ${today > 0 ? '+' : ''}${today.toFixed(1)}% but 5-day trend ${cum > 0 ? '+' : ''}${cum.toFixed(1)}%`
+    },
+    ja: {
+        trendAnalysis: '5日トレンド分析',
+        volumeIntensity: '出来高強度',
+        trendConsistency: 'トレンド一貫性',
+        rvolSurging: '急増', rvolActive: '活発', rvolNormal: '普通', rvolLow: '低調',
+        consistencyStrong: '強いトレンド', consistencyMixed: '混在', consistencyUnstable: '不安定',
+        noiseBounce: (today, cum) => `ノイズ反発 — 本日 ${today > 0 ? '+' : ''}${today.toFixed(1)}% しかし5日間 ${cum > 0 ? '+' : ''}${cum.toFixed(1)}% トレンド`
+    }
+};
+
 export default function GuardianPage() {
     const { data: globalData, loading, refresh } = useGuardian();
     const t = useTranslations('guardian');
@@ -525,16 +561,17 @@ export default function GuardianPage() {
                                             const td = data.rotationIntensity.fiveDayData![selectedSectorId!];
                                             const dayLabels = ['D-4', 'D-3', 'D-2', 'D-1'];
                                             const maxAbs = Math.max(...td.changes.map(Math.abs), 0.5);
-                                            const rvolLabel = td.rvol >= 1.5 ? '급증' : td.rvol >= 1.0 ? '활발' : td.rvol >= 0.7 ? '보통' : '저조';
+                                            const st = SECTOR_INTEL_TEXTS[(locale as SectorLocale) || 'ko'];
+                                            const rvolLabel = td.rvol >= 1.5 ? st.rvolSurging : td.rvol >= 1.0 ? st.rvolActive : td.rvol >= 0.7 ? st.rvolNormal : st.rvolLow;
                                             const rvolColor = td.rvol >= 1.5 ? 'text-emerald-400' : td.rvol >= 1.0 ? 'text-cyan-400' : td.rvol >= 0.7 ? 'text-slate-400' : 'text-rose-400';
-                                            const consistencyLabel = td.consistency >= 0.75 ? '강한 추세' : td.consistency >= 0.5 ? '혼조' : '불안정';
+                                            const consistencyLabel = td.consistency >= 0.75 ? st.consistencyStrong : td.consistency >= 0.5 ? st.consistencyMixed : st.consistencyUnstable;
                                             const consistencyColor = td.consistency >= 0.75 ? 'text-emerald-400' : td.consistency >= 0.5 ? 'text-amber-400' : 'text-rose-400';
 
                                             return (
                                                 <div className="mb-3 flex-none">
                                                     {/* Header */}
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">5일 추세 분석</span>
+                                                        <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">{st.trendAnalysis}</span>
                                                         <span className={`text-xs font-mono font-bold ${td.cumReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                             {td.cumReturn > 0 ? '▲' : '▼'} {td.cumReturn > 0 ? '+' : ''}{td.cumReturn.toFixed(2)}%
                                                         </span>
@@ -569,7 +606,7 @@ export default function GuardianPage() {
                                                     <div className="grid grid-cols-2 gap-2">
                                                         {/* Volume Intensity */}
                                                         <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
-                                                            <div className="text-[11px] text-slate-500 font-bold tracking-wider mb-1">거래량 강도</div>
+                                                            <div className="text-[11px] text-slate-500 font-bold tracking-wider mb-1">{st.volumeIntensity}</div>
                                                             <div className="flex items-baseline gap-1.5">
                                                                 <span className={`text-sm font-mono font-bold ${rvolColor}`}>{td.rvol.toFixed(2)}x</span>
                                                                 <span className={`text-[11px] font-medium ${rvolColor}`}>{rvolLabel}</span>
@@ -577,7 +614,7 @@ export default function GuardianPage() {
                                                         </div>
                                                         {/* Trend Consistency */}
                                                         <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
-                                                            <div className="text-[11px] text-slate-500 font-bold tracking-wider mb-1">추세 일관성</div>
+                                                            <div className="text-[11px] text-slate-500 font-bold tracking-wider mb-1">{st.trendConsistency}</div>
                                                             <div className="flex items-baseline gap-1.5">
                                                                 <span className={`text-sm font-mono font-bold ${consistencyColor}`}>{(td.consistency * 100).toFixed(0)}%</span>
                                                                 <span className={`text-[11px] font-medium ${consistencyColor}`}>{consistencyLabel}</span>
@@ -590,7 +627,7 @@ export default function GuardianPage() {
                                                         <div className="mt-2 flex items-center gap-2 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2">
                                                             <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                                                             <span className="text-[11px] text-amber-300 font-medium">
-                                                                노이즈 반등 — 오늘 {td.todayChange > 0 ? '+' : ''}{td.todayChange.toFixed(1)}% 이나 5일간 {td.cumReturn > 0 ? '+' : ''}{td.cumReturn.toFixed(1)}% 추세
+                                                                {st.noiseBounce(td.todayChange, td.cumReturn)}
                                                             </span>
                                                         </div>
                                                     )}
