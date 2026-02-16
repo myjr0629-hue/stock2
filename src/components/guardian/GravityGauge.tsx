@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Activity, TrendingUp, TrendingDown, BarChart3, Radio, Globe, ShieldAlert, Minus, ChevronUp, ChevronDown } from "lucide-react";
 import { useTranslations } from 'next-intl';
+import { useMarketStatus } from '@/hooks/useMarketStatus';
 
 interface RLSIComponents {
     priceActionRaw: number;
@@ -33,6 +34,8 @@ interface GravityGaugeProps {
 export default function GravityGauge({ score, loading, session, components, rlsiHistory }: GravityGaugeProps) {
     const [animatedScore, setAnimatedScore] = useState(0);
     const t = useTranslations('guardian');
+    const { status: marketStatus } = useMarketStatus();
+    const isHoliday = marketStatus.isHoliday;
 
     useEffect(() => {
         const timer = setTimeout(() => setAnimatedScore(score), 100);
@@ -128,14 +131,16 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                     <Activity className="w-3 h-3 text-white opacity-70" />
                     <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">Gravity Gauge</span>
                     {session && (
-                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ml-auto ${session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
-                            session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                                session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
-                                    'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ml-auto ${isHoliday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                            session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                                session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                    session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
+                                        'bg-slate-500/20 text-slate-400 border border-slate-500/30'
                             }`}>
-                            {session === 'PRE' ? 'PRE-MKT' :
-                                session === 'REG' ? 'LIVE' :
-                                    session === 'POST' ? 'AFTER' : 'CLOSED'}
+                            {isHoliday ? 'HOLIDAY' :
+                                session === 'PRE' ? 'PRE-MKT' :
+                                    session === 'REG' ? 'LIVE' :
+                                        session === 'POST' ? 'AFTER' : 'CLOSED'}
                         </span>
                     )}
                 </div>
@@ -344,8 +349,8 @@ export default function GravityGauge({ score, loading, session, components, rlsi
             {rlsiHistory && rlsiHistory.length >= 2 && !loading && (
                 <div className="w-full max-w-[290px] border-t border-slate-800/50 pt-2 mt-1">
                     <div className="flex items-center justify-between mb-1">
-                        <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500 font-jakarta">INTRADAY TREND</span>
-                        <span className="text-[9px] font-mono text-slate-500 font-jakarta">{rlsiHistory.length} pts</span>
+                        <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 font-jakarta">INTRADAY TREND</span>
+                        <span className="text-[11px] font-mono text-slate-400 font-jakarta">{rlsiHistory.length} pts</span>
                     </div>
                     <RlsiSparkline history={rlsiHistory} currentScore={animatedScore} />
                 </div>
@@ -357,9 +362,9 @@ export default function GravityGauge({ score, loading, session, components, rlsi
 // [V9.0] Sparkline Sub-Component
 function RlsiSparkline({ history, currentScore }: { history: { time: string; score: number }[]; currentScore: number }) {
     const W = 280; // chart width
-    const H = 48;  // chart height — compact to fit in empty space
+    const H = 50;  // chart height (SVG-only area, no text)
     const PAD_TOP = 4;
-    const PAD_BOT = 12; // room for time labels
+    const PAD_BOT = 4;
     const drawH = H - PAD_TOP - PAD_BOT;
 
     const scores = history.map(h => h.score);
@@ -394,44 +399,47 @@ function RlsiSparkline({ history, currentScore }: { history: { time: string; sco
         return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
     };
 
-    const timeLabels = [
-        { x: 0, label: formatTime(history[0].time) },
-        ...(history.length > 10 ? [{ x: W / 2, label: formatTime(history[Math.floor(history.length / 2)].time) }] : []),
-        { x: W, label: 'NOW' },
-    ];
-
     return (
-        <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
-            <defs>
-                <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={lineColor} stopOpacity="0.15" />
-                    <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
-                </linearGradient>
-            </defs>
-            {/* Grid lines */}
-            <line x1="0" y1={PAD_TOP} x2={W} y2={PAD_TOP} stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" />
-            <line x1="0" y1={PAD_TOP + drawH / 2} x2={W} y2={PAD_TOP + drawH / 2} stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" strokeDasharray="2 4" />
-            <line x1="0" y1={PAD_TOP + drawH} x2={W} y2={PAD_TOP + drawH} stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" />
-            {/* Min/Max labels */}
-            <text x={W + 2} y={PAD_TOP + 3} fill="rgba(148,163,184,0.4)" fontSize="7" fontFamily="monospace">{maxScore}</text>
-            <text x={W + 2} y={PAD_TOP + drawH + 1} fill="rgba(148,163,184,0.4)" fontSize="7" fontFamily="monospace">{minScore}</text>
-            {/* Gradient fill */}
-            <path d={fillPath} fill="url(#sparkFill)" />
-            {/* Line */}
-            <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            {/* Current dot */}
-            {lastPoint && (
-                <>
-                    <circle cx={lastPoint.x} cy={lastPoint.y} r="3" fill={lineColor} />
-                    <circle cx={lastPoint.x} cy={lastPoint.y} r="5" fill="none" stroke={lineColor} strokeWidth="0.5" opacity="0.5" />
-                </>
-            )}
-            {/* Time labels */}
-            {timeLabels.map((tl, i) => (
-                <text key={i} x={tl.x} y={H - 1} fill="rgba(148,163,184,0.5)" fontSize="7" fontFamily="monospace" textAnchor={i === 0 ? 'start' : i === timeLabels.length - 1 ? 'end' : 'middle'}>
-                    {tl.label}
-                </text>
-            ))}
-        </svg>
+        <div className="relative">
+            {/* Score labels (HTML — unaffected by SVG scaling) */}
+            <div className="absolute right-0 top-0 -mr-1 flex flex-col justify-between h-[50px] items-end pointer-events-none" style={{ transform: 'translateX(100%)', paddingLeft: '4px' }}>
+                <span className="text-[11px] font-mono font-semibold text-slate-300 leading-none">{maxScore}</span>
+                <span className="text-[11px] font-mono font-semibold text-slate-300 leading-none">{minScore}</span>
+            </div>
+
+            {/* SVG Chart (line + fill only) */}
+            <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
+                <defs>
+                    <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={lineColor} stopOpacity="0.15" />
+                        <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
+                    </linearGradient>
+                </defs>
+                {/* Grid lines */}
+                <line x1="0" y1={PAD_TOP} x2={W} y2={PAD_TOP} stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" />
+                <line x1="0" y1={PAD_TOP + drawH / 2} x2={W} y2={PAD_TOP + drawH / 2} stroke="rgba(148,163,184,0.12)" strokeWidth="0.5" strokeDasharray="2 4" />
+                <line x1="0" y1={PAD_TOP + drawH} x2={W} y2={PAD_TOP + drawH} stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" />
+                {/* Gradient fill */}
+                <path d={fillPath} fill="url(#sparkFill)" />
+                {/* Line */}
+                <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                {/* Current dot */}
+                {lastPoint && (
+                    <>
+                        <circle cx={lastPoint.x} cy={lastPoint.y} r="4" fill={lineColor} />
+                        <circle cx={lastPoint.x} cy={lastPoint.y} r="6" fill="none" stroke={lineColor} strokeWidth="0.5" opacity="0.5" />
+                    </>
+                )}
+            </svg>
+
+            {/* Time labels (HTML — 11px, clearly visible) */}
+            <div className="flex justify-between mt-1 px-0.5">
+                <span className="text-[11px] font-mono font-medium text-slate-300">{formatTime(history[0].time)}</span>
+                {history.length > 10 && (
+                    <span className="text-[11px] font-mono font-medium text-slate-400">{formatTime(history[Math.floor(history.length / 2)].time)}</span>
+                )}
+                <span className="text-[11px] font-mono font-bold text-slate-200">NOW</span>
+            </div>
+        </div>
     );
 }
