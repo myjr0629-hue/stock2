@@ -63,9 +63,14 @@ function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true): any
                 slim.last_quote = { midpoint: opt.last_quote.midpoint };
             }
         } else {
-            // allExpiryChain only needs gamma + OI for GEX calculation
+            // allExpiryChain: delta + gamma for OI mode metrics (OPI, DEX) + GEX
+            // volume for UOA calculation
             slim.greeks = {
+                delta: opt.greeks?.delta,
                 gamma: opt.greeks?.gamma,
+            };
+            slim.day = {
+                volume: opt.day?.volume,
             };
         }
         return slim;

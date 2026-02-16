@@ -124,15 +124,49 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         };
     }, [rawChain, currentPrice, userViewMode]);
 
+    // Intelligent Default Mode (placed before metrics for DTE-filtered chain)
+    const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
+    const isMarketClosed = totalVolume === 0 && rawChain.length > 0;
+
+    // [DTE SYNC] Shared DTE-filtered chain for mode-aware metrics
+    // VOLUME = rawChain (already nearest-weekly from API, ~140 contracts)
+    // OI = allExpiryChain filtered to 0-35 DTE (multi-expiry, ~800+ contracts)
+    // NOTE: rawChain from /api/live/ticker is pre-filtered to nearest weekly via slimOptionChain()
+    //       allExpiryChain contains ALL expiries (3000+ contracts) for multi-expiry analysis
+    const filteredChain = useMemo(() => {
+        if (effectiveViewMode === 'VOLUME') {
+            // VOLUME mode: rawChain is already the nearest weekly expiry (0-7 DTE)
+            return rawChain || [];
+        }
+
+        // OI mode: use allExpiryChain filtered to 0-35 DTE
+        const source = allExpiryChain && allExpiryChain.length > 0 ? allExpiryChain : rawChain;
+        if (!source || source.length === 0) return [];
+
+        const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const today = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate());
+        const maxDate = new Date(today);
+        maxDate.setDate(today.getDate() + 35);
+
+        return source.filter(opt => {
+            const expiryStr = opt.details?.expiration_date;
+            if (!expiryStr) return false;
+            const parts = expiryStr.split('-');
+            if (parts.length !== 3) return false;
+            const expiry = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            return expiry >= today && expiry <= maxDate;
+        });
+    }, [rawChain, allExpiryChain, effectiveViewMode]);
+
     // [PREMIUM] Options Pressure Index (OPI) - Unique to SIGNUM
     // OPI = Σ(Call Delta × Call OI) - Σ(Put Delta × Put OI)
     const opi = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400' };
+        if (!filteredChain || filteredChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400' };
 
         let callPressure = 0;
         let putPressure = 0;
 
-        rawChain.forEach(opt => {
+        filteredChain.forEach(opt => {
             const delta = opt.greeks?.delta || 0;
             const oi = opt.open_interest || opt.day?.open_interest || 0;
             const type = opt.details?.contract_type;
@@ -160,7 +194,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (normalized < -20) { label = fm('putDominant'); color = 'text-rose-300'; }
 
         return { value: Math.round(normalized), label, color, callPressure, putPressure };
-    }, [rawChain]);
+    }, [filteredChain]);
 
     // [PREMIUM] IV Percentile - ATM Implied Volatility Ranking
     const ivPercentile = useMemo(() => {
@@ -454,13 +488,13 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
     // [NEW] DEX (Delta Exposure) - Dealer Delta Hedging Direction
     const dex = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', rationale: '' };
+        if (!filteredChain || filteredChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', rationale: '' };
 
         let totalDex = 0;
         let callDex = 0;
         let putDex = 0;
 
-        rawChain.forEach(opt => {
+        filteredChain.forEach(opt => {
             const delta = opt.greeks?.delta || 0;
             const oi = opt.open_interest || opt.day?.open_interest || 0;
             const type = opt.details?.contract_type;
@@ -493,18 +527,18 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const rationale = `CallΔ ${callDexM.toFixed(1)}M / PutΔ ${putDexM.toFixed(1)}M`;
 
         return { value: dexMillions, label, color, rationale };
-    }, [rawChain]);
+    }, [filteredChain]);
 
     // [NEW] UOA Score (Unusual Options Activity) - Abnormal Volume Detection
     const uoa = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { score: 0, label: fm('analyzing'), color: 'text-slate-400', rationale: '' };
+        if (!filteredChain || filteredChain.length === 0) return { score: 0, label: fm('analyzing'), color: 'text-slate-400', rationale: '' };
 
         // Calculate today's total volume
         let todayVolume = 0;
         let avgOI = 0;
         let optionCount = 0;
 
-        rawChain.forEach(opt => {
+        filteredChain.forEach(opt => {
             const vol = opt.day?.volume || 0;
             const oi = opt.open_interest || 0;
             todayVolume += vol;
@@ -526,16 +560,16 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const rationale = fm('uoaVolOi', { vol: (todayVolume / 1000).toFixed(0), oi: (avgOI / 1000).toFixed(0) });
 
         return { score: Math.round(normalizedScore * 10) / 10, label, color, rationale };
-    }, [rawChain]);
+    }, [filteredChain]);
 
     // [NEW] P/C Ratio - Call/Put Volume Ratio (Market Sentiment Gauge)
     const pcRatio = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', callVol: 0, putVol: 0 };
+        if (!filteredChain || filteredChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', callVol: 0, putVol: 0 };
 
         let callVol = 0;
         let putVol = 0;
 
-        rawChain.forEach(opt => {
+        filteredChain.forEach(opt => {
             const vol = opt.day?.volume || 0;
             const type = opt.details?.contract_type;
             if (type === 'call') callVol += vol;
@@ -553,16 +587,16 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (ratio <= 0.75) { label = ui('pcPutLabel'); color = 'text-rose-300'; }
 
         return { value: roundedRatio, label, color, callVol, putVol };
-    }, [rawChain]);
+    }, [filteredChain]);
 
     // [NEW] P/C Ratio (OI-based) - switches with VOLUME/OI toggle
     const pcRatioOI = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', callOI: 0, putOI: 0 };
+        if (!filteredChain || filteredChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', callOI: 0, putOI: 0 };
 
         let callOI = 0;
         let putOI = 0;
 
-        rawChain.forEach(opt => {
+        filteredChain.forEach(opt => {
             const oi = opt.open_interest || 0;
             const type = opt.details?.contract_type;
             if (type === 'call') callOI += oi;
@@ -580,12 +614,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (ratio <= 0.75) { label = fm('putDominant'); color = 'text-rose-300'; }
 
         return { value: roundedRatio, label, color, callOI, putOI };
-    }, [rawChain]);
+    }, [filteredChain]);
 
     // [GEX REGIME] Institutional-grade gamma regime indicator
     // Combines: ATM concentration (rawChain) + Gamma Flip distance + DTE weighting
     const gexRegime = useMemo(() => {
-        if (!rawChain || rawChain.length === 0 || !currentPrice) return {
+        if (!filteredChain || filteredChain.length === 0 || !currentPrice) return {
             pinStrength: 0, label: fm('analyzing'), color: 'text-slate-400',
             regime: 'LOADING' as const, regimeColor: 'text-slate-400',
             nearestExpiry: '', dte: -1, weeklyExpiry: '', weeklyLabel: '', expiryLabel: '',
@@ -597,12 +631,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
         const todayStr = `${etNow.getFullYear()}-${String(etNow.getMonth() + 1).padStart(2, '0')}-${String(etNow.getDate()).padStart(2, '0')}`;
 
-        // === PART 1: ATM Concentration from rawChain (accurate, weekly expiry) ===
+        // === PART 1: ATM Concentration from filteredChain (mode-aware: weekly or 35DTE) ===
         let weeklyTotalGamma = 0, weeklyATMGamma = 0, weeklyNetGEX = 0;
         let weeklyCallOI = 0, weeklyPutOI = 0;
         let weeklyExpiry = '';
 
-        rawChain.forEach((c: any) => {
+        filteredChain.forEach((c: any) => {
             const gamma = c.greeks?.gamma || 0;
             const oi = c.open_interest || 0;
             const strike = c.details?.strike_price || 0;
@@ -692,7 +726,17 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         color = regimeColors[regime];
 
         const expiryLabel = nearestExpiry === todayStr ? fm('gexExpiryToday') : fm('gexExpiryDate', { date: nearestExpiry.substring(5).replace('-', '/') });
-        const weeklyLabel = weeklyExpiry === todayStr ? fm('gexWeeklyToday') : weeklyExpiry ? fm('gexWeeklyDate', { date: weeklyExpiry.substring(5).replace('-', '/') }) : '';
+        // Build expiry label from filteredChain's actual expiry range
+        const filteredExpiries = Array.from(new Set(filteredChain.map((c: any) => c.details?.expiration_date).filter(Boolean))).sort() as string[];
+        let weeklyLabel = '';
+        if (filteredExpiries.length > 1) {
+            // OI mode: show range like "02/18~03/20"
+            const first = filteredExpiries[0].substring(5).replace('-', '/');
+            const last = filteredExpiries[filteredExpiries.length - 1].substring(5).replace('-', '/');
+            weeklyLabel = `${first}~${last}`;
+        } else if (weeklyExpiry) {
+            weeklyLabel = weeklyExpiry === todayStr ? fm('gexWeeklyToday') : fm('gexWeeklyDate', { date: weeklyExpiry.substring(5).replace('-', '/') });
+        }
 
         return {
             pinStrength, label, color,
@@ -701,10 +745,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             atmConcentration: Math.round(atmConcentration),
             gammaShare: Math.round(gammaShare),
             flipLevel: flip, flipDistance: Math.round(Math.abs(flipDistance) * 10) / 10, flipDir,
-            nearestCount: rawChain.length, weeklyContracts: rawChain.length,
+            nearestCount: filteredChain.length, weeklyContracts: filteredChain.length,
             expiryCount, isLongGamma, nearestCallOI: weeklyCallOI, nearestPutOI: weeklyPutOI
         };
-    }, [rawChain, allExpiryChain, currentPrice, gammaFlipLevel]);
+    }, [filteredChain, allExpiryChain, currentPrice, gammaFlipLevel]);
 
     // [PREMIUM] Implied Move (기대변동폭) - Nearest Weekly Expiry ATM Straddle
     const impliedMove = useMemo(() => {
@@ -771,11 +815,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
     // [PREMIUM] Max Pain Distance - how far current price from max pain
     const maxPainDistance = useMemo(() => {
-        if (!rawChain || rawChain.length === 0 || !currentPrice) return { maxPain: 0, distance: 0, distPercent: 0, direction: 'at' as const, color: 'text-slate-400' };
+        if (!filteredChain || filteredChain.length === 0 || !currentPrice) return { maxPain: 0, distance: 0, distPercent: 0, direction: 'at' as const, color: 'text-slate-400' };
 
         // Calculate max pain: strike where total pain (loss) for option holders is maximized
         const strikeMap = new Map<number, { callOI: number; putOI: number }>();
-        rawChain.forEach((opt: any) => {
+        filteredChain.forEach((opt: any) => {
             const strike = opt.details?.strike_price;
             if (!strike) return;
             if (!strikeMap.has(strike)) strikeMap.set(strike, { callOI: 0, putOI: 0 });
@@ -808,11 +852,9 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (Math.abs(distPercent) > 0.5) color = 'text-cyan-400';
 
         return { maxPain: maxPainStrike, distance, distPercent, direction, color };
-    }, [rawChain, currentPrice]);
+    }, [filteredChain, currentPrice]);
 
-    // Intelligent Default Mode
-    const effectiveViewMode = userViewMode || (totalVolume > 0 ? 'VOLUME' : 'OI');
-    const isMarketClosed = totalVolume === 0 && rawChain.length > 0;
+    // [MOVED] effectiveViewMode + isMarketClosed now defined after flowMap (before metrics)
 
     // Calculate Max for Scaling
     const maxVal = useMemo(() => {
@@ -1260,20 +1302,25 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                     </div>
                 </div>
 
-                {/* 3. Right: Toggles */}
-                <div className="flex bg-slate-950 rounded-md p-1 border border-white/10 shrink-0">
-                    <button
-                        onClick={() => setUserViewMode('VOLUME')}
-                        className={`px-4 py-1.5 text-xs font-black rounded transition-all uppercase tracking-wider ${effectiveViewMode === 'VOLUME' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
-                    >
-                        Volume
-                    </button>
-                    <button
-                        onClick={() => setUserViewMode('OI')}
-                        className={`px-4 py-1.5 text-xs font-black rounded transition-all uppercase tracking-wider ${effectiveViewMode === 'OI' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
-                    >
-                        OI
-                    </button>
+                {/* 3. Right: DTE + Toggles */}
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[11px] font-bold text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-500/30 bg-cyan-500/10 tracking-wider font-mono">
+                        {effectiveViewMode === 'VOLUME' ? '0-7 DTE' : '0-35 DTE'}
+                    </span>
+                    <div className="flex bg-slate-950 rounded-md p-1 border border-white/10">
+                        <button
+                            onClick={() => setUserViewMode('VOLUME')}
+                            className={`px-4 py-1.5 text-xs font-black rounded transition-all uppercase tracking-wider ${effectiveViewMode === 'VOLUME' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
+                        >
+                            Volume
+                        </button>
+                        <button
+                            onClick={() => setUserViewMode('OI')}
+                            className={`px-4 py-1.5 text-xs font-black rounded transition-all uppercase tracking-wider ${effectiveViewMode === 'OI' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-slate-300'}`}
+                        >
+                            OI
+                        </button>
+                    </div>
                 </div>
             </div>
 
