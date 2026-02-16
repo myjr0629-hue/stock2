@@ -94,47 +94,49 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 import * as fs from 'fs';
 import * as path from 'path';
 const AI_VERDICT_CACHE_PATH = path.join(process.cwd(), '.next', 'cache', 'guardian_ai_verdict.json');
-const RLSI_HISTORY_PATH = path.join(process.cwd(), '.next', 'cache', 'rlsi_history.json');
 
-// [V9.0] RLSI Intraday History — stores 5-min snapshots during REG session
+// [V9.0] RLSI Intraday History — Redis-based for Vercel persistence
 interface RlsiHistoryEntry { time: string; score: number; }
+const RLSI_HISTORY_REDIS_KEY = 'guardian:rlsi_history';
+const RLSI_HISTORY_TTL = 24 * 60 * 60; // 24 hours
 
-function loadRlsiHistory(): RlsiHistoryEntry[] {
-    try {
-        if (fs.existsSync(RLSI_HISTORY_PATH)) {
-            const raw = fs.readFileSync(RLSI_HISTORY_PATH, 'utf-8');
-            return JSON.parse(raw) as RlsiHistoryEntry[];
-        }
-    } catch { }
-    return [];
-}
+import { getFromCache, setInCache } from '../redisClient';
 
-function saveRlsiHistory(history: RlsiHistoryEntry[]) {
-    try {
-        const dir = path.dirname(RLSI_HISTORY_PATH);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(RLSI_HISTORY_PATH, JSON.stringify(history), 'utf-8');
-    } catch (e) {
-        console.error('[Guardian] Failed to save RLSI history:', e);
+// In-memory fallback for local dev (when Redis is not available)
+let _rlsiHistoryMemory: RlsiHistoryEntry[] = [];
+
+async function loadRlsiHistory(): Promise<RlsiHistoryEntry[]> {
+    // Try Redis first
+    const fromRedis = await getFromCache<RlsiHistoryEntry[]>(RLSI_HISTORY_REDIS_KEY);
+    if (fromRedis && Array.isArray(fromRedis)) {
+        _rlsiHistoryMemory = fromRedis;
+        return fromRedis;
     }
+    // Fallback to memory
+    return _rlsiHistoryMemory;
 }
 
-function appendRlsiHistory(score: number, session: string): RlsiHistoryEntry[] {
-    let history = loadRlsiHistory();
+async function saveRlsiHistory(history: RlsiHistoryEntry[]) {
+    _rlsiHistoryMemory = history;
+    await setInCache(RLSI_HISTORY_REDIS_KEY, history, RLSI_HISTORY_TTL);
+}
+
+async function appendRlsiHistory(score: number, session: string): Promise<RlsiHistoryEntry[]> {
+    let history = await loadRlsiHistory();
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
 
-    // Auto-reset if it's a new trading day
-    if (history.length > 0) {
-        const lastDate = history[0].time.split('T')[0];
-        if (lastDate !== todayStr) {
-            console.log(`[Guardian V9.0] New trading day detected (${lastDate} → ${todayStr}), resetting RLSI history`);
-            history = [];
-        }
-    }
-
     // Only record during REG session (or keep last session's data)
     if (session === 'REG') {
+        // Auto-reset only during REG if it's a new trading day
+        if (history.length > 0) {
+            const lastDate = history[0].time.split('T')[0];
+            if (lastDate !== todayStr) {
+                console.log(`[Guardian V9.0] New trading day detected (${lastDate} → ${todayStr}), resetting RLSI history`);
+                history = [];
+            }
+        }
+
         // Avoid duplicate entries (within 2 min window)
         const lastEntry = history[history.length - 1];
         if (lastEntry) {
@@ -151,9 +153,10 @@ function appendRlsiHistory(score: number, session: string): RlsiHistoryEntry[] {
             history = history.slice(-78);
         }
 
-        saveRlsiHistory(history);
-        console.log(`[Guardian V9.0] RLSI History: ${history.length} entries, latest=${Math.round(score)}`);
+        await saveRlsiHistory(history);
+        console.log(`[Guardian V9.0] RLSI History (Redis): ${history.length} entries, latest=${Math.round(score)}`);
     }
+    // During non-REG (holidays, after-hours): return existing history without resetting
 
     return history;
 }
@@ -684,7 +687,7 @@ export class GuardianDataHub {
             console.log(`[Guardian V6.0] RuleVerdict: ${ruleVerdict.headline}, Action: ${ruleVerdict.action}`);
 
             // [V9.0] Append RLSI history for intraday sparkline
-            const rlsiHistory = appendRlsiHistory(rlsi.score, rlsi.session);
+            const rlsiHistory = await appendRlsiHistory(rlsi.score, rlsi.session);
 
             const context: GuardianContext = {
                 rlsi,
