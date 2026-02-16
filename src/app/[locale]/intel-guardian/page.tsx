@@ -12,6 +12,7 @@ import { TypewriterText, renderColoredText } from "@/components/guardian/Typewri
 import { RealityCheck } from "@/components/guardian/RealityCheck";
 import { useGuardian } from "@/components/guardian/GuardianProvider";
 import { EconomicCalendarWidget } from "@/components/guardian/EconomicCalendarWidget";
+import { useMarketStatus } from '@/hooks/useMarketStatus';
 
 // [PERF] Lazy-loaded heavy components — reduces initial JS bundle
 const SmartMoneyMap = dynamic(() => import("@/components/guardian/SmartMoneyMap"), { ssr: false });
@@ -285,7 +286,8 @@ export default function GuardianPage() {
 
     // [V7.7] Session-based animation control — no blinking during off-hours
     const session = data?.rlsi?.session;
-    const isMarketActive = session === 'REG';
+    const { status: marketStatusInfo } = useMarketStatus();
+    const isMarketActive = session === 'REG' && !marketStatusInfo.isHoliday;
 
     // Dynamic Map Border — no pulse animation when market is closed
     const mapBorderClass = isTargetLocked && isMarketActive
@@ -602,7 +604,7 @@ export default function GuardianPage() {
                                             <Clock size={20} className="text-amber-400" />
                                         </div>
                                         <div>
-                                            <div className="text-[13px] font-bold text-white/80">본장에서 실시간 분석이 진행됩니다</div>
+                                            <div className="text-[13px] font-bold text-white/80">{t('insightPending')}</div>
                                             <div className="text-[11px] text-slate-400 font-mono mt-1 font-jakarta">Regular Session 09:30-16:00 ET</div>
                                         </div>
                                     </div>

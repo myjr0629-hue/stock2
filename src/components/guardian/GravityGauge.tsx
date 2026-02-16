@@ -345,8 +345,8 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 </div>
             )}
 
-            {/* [V9.0] RLSI Intraday Sparkline */}
-            {rlsiHistory && rlsiHistory.length >= 2 && !loading && (
+            {/* [V9.0] RLSI Intraday Sparkline — hidden during holidays */}
+            {rlsiHistory && rlsiHistory.length >= 2 && !loading && !isHoliday && (
                 <div className="w-full max-w-[290px] border-t border-slate-800/50 pt-2 mt-1">
                     <div className="flex items-center justify-between mb-1">
                         <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 font-jakarta">INTRADAY TREND</span>
