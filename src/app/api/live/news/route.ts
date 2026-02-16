@@ -13,7 +13,9 @@ export async function GET(req: NextRequest) {
         const newsItems = await fetchStockNews([ticker], 10);
 
         const items = newsItems.map(item => ({
-            title: item.summaryKR || item.headline, // Use Korean summary as display title
+            title: item.headline, // Original English headline
+            summaryKR: item.summaryKR || null, // Korean translation
+            summaryJP: item.summaryJP || null, // Japanese translation
             originalTitle: item.headline,
             url: item.link || "#",
             source: item.source,
@@ -22,7 +24,7 @@ export async function GET(req: NextRequest) {
             tag: item.catalystType ? item.catalystType.toUpperCase() : "GENERAL",
             time: item.publishedAt,
             sentiment: item.sentiment,
-            isRumor: item.summaryKR.includes('[루머') // Rough check if rumor labeled
+            isRumor: item.summaryKR?.includes('[루머') || false
         }));
 
         // Calculate sentiment aggregation
