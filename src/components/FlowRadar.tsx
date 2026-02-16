@@ -22,6 +22,7 @@ interface FlowRadarProps {
 export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
     const fm = useTranslations('flowRadarMetrics');
+    const ui = useTranslations('flowRadarUI');
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const currentPriceLineRef = useRef<HTMLDivElement>(null);
@@ -544,12 +545,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const ratio = putVol > 0 ? callVol / putVol : callVol > 0 ? 10 : 0;
         const roundedRatio = Math.round(ratio * 100) / 100;
 
-        let label = '균형';
+        let label = ui('pcBalanceLabel');
         let color = 'text-white';
-        if (ratio >= 2.0) { label = '강한 콜 우위'; color = 'text-emerald-400'; }
-        else if (ratio >= 1.3) { label = '콜 우위'; color = 'text-emerald-300'; }
-        else if (ratio <= 0.5) { label = '강한 풋 우위'; color = 'text-rose-400'; }
-        else if (ratio <= 0.75) { label = '풋 우위'; color = 'text-rose-300'; }
+        if (ratio >= 2.0) { label = ui('pcStrongCallLabel'); color = 'text-emerald-400'; }
+        else if (ratio >= 1.3) { label = ui('pcCallLabel'); color = 'text-emerald-300'; }
+        else if (ratio <= 0.5) { label = ui('pcStrongPutLabel'); color = 'text-rose-400'; }
+        else if (ratio <= 0.75) { label = ui('pcPutLabel'); color = 'text-rose-300'; }
 
         return { value: roundedRatio, label, color, callVol, putVol };
     }, [rawChain]);
@@ -896,8 +897,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         // (1) OPI Score (Weight: 25%) - Delta-weighted positioning
         const opiScore = opi.value * 0.25; // Already -100~+100
         compositeScore += opiScore;
-        if (opi.value > 30) signals.push(`OPI +${opi.value}(상승압력)`);
-        else if (opi.value < -30) signals.push(`OPI ${opi.value}(하락압력)`);
+        if (opi.value > 30) signals.push(ui('signalOpiUp', { val: opi.value }));
+        else if (opi.value < -30) signals.push(ui('signalOpiDown', { val: opi.value }));
 
         // (2) Whale Premium Score (Weight: 25%)
         let whaleScore = 0;
@@ -907,7 +908,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (netWhalePremium < -100000) whaleScore = -15;
         compositeScore += whaleScore;
         if (Math.abs(netWhalePremium) > 100000) {
-            signals.push(`고래 ${netWhalePremium > 0 ? '+' : ''}$${(netWhalePremium / 1000).toFixed(0)}K`);
+            signals.push(ui('signalWhale', { premium: `${netWhalePremium > 0 ? '+' : ''}$${(netWhalePremium / 1000).toFixed(0)}K` }));
         }
 
         // (3) Squeeze Probability Score (Weight: 15%) - Volatility explosion risk
@@ -920,7 +921,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             // Direction bias: If OPI is positive, squeeze amplifies upside; if negative, downside
             squeezeScore = opi.value > 0 ? squeezeScore : -squeezeScore;
             compositeScore += squeezeScore;
-            if (squeezeProbability.value >= 45) signals.push(`스퀴즈 ${squeezeProbability.value}%`);
+            if (squeezeProbability.value >= 45) signals.push(ui('signalSqueeze', { val: squeezeProbability.value }));
         }
 
         // (4) IV Skew Score (Weight: 15%) - Fear/Greed gauge
@@ -930,7 +931,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             skewScore = -ivSkew.value * 1.5; // Invert: high put skew = bearish
             skewScore = Math.max(-15, Math.min(15, skewScore));
             compositeScore += skewScore;
-            if (Math.abs(ivSkew.value) >= 3) signals.push(`IV스큐 ${ivSkew.label}`);
+            if (Math.abs(ivSkew.value) >= 3) signals.push(ui('signalIvSkew', { label: ivSkew.label }));
         }
 
         // (5) Smart Money Score (Weight: 10%) - Institutional activity level
@@ -941,7 +942,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         // Apply direction based on whale bias
         if (whaleBias.includes('BEAR')) smartScore = -Math.abs(smartScore);
         compositeScore += smartScore;
-        if (smartMoney.score >= 60) signals.push(`스마트머니 ${smartMoney.label}`);
+        if (smartMoney.score >= 60) signals.push(ui('signalSmartMoney', { label: smartMoney.label }));
 
         // (6) IV Percentile Score (Weight: 5%) - Volatility environment
         let ivScore = 0;
@@ -998,21 +999,21 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         // V3.0: ACTIONABLE NARRATIVE ENGINE
         // =====================================
         // Output: status, message, action, warning, trigger
-        let status = "판단 보류 (SCANNING)";
-        let message = "세력들의 움직임을 정밀 분석 중입니다...";
+        let status = ui('verdictScanning');
+        let message = ui('verdictScanningMsg');
         let color = "text-slate-400";
         let probability = 50;
-        let probLabel = "중립";
+        let probLabel = ui('verdictNeutralLabel');
         let probColor = "text-slate-500";
-        let action = "";    // 대응 가이드
-        let warning = "";   // 경고
-        let trigger = "";   // 트리거 (다음 액션 조건)
+        let action = "";    // Action guide
+        let warning = "";   // Warning
+        let trigger = "";   // Trigger (next action condition)
 
         // Alpha Trade Intel
         let alphaIntel = "";
         if (alphaTrade) {
             const unitCost = alphaTrade.premium / (alphaTrade.size * 100);
-            alphaIntel = `최대거래: ${alphaTrade.type} $${alphaTrade.strike} ($${(alphaTrade.premium / 1000).toFixed(0)}K)`;
+            alphaIntel = ui('verdictAlphaTrade', { type: alphaTrade.type, strike: alphaTrade.strike, premium: (alphaTrade.premium / 1000).toFixed(0) });
         }
 
         // ================================================
@@ -1025,40 +1026,40 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         if (currentPrice > callWall) {
             // ===== BREAKOUT ZONE =====
             if (compositeScore > 30) {
-                status = "초강력 상승 (SUPER-CYCLE)";
-                message = `저항벽($${callWall}) 돌파. 기관 수급과 옵션 구조 모두 상방을 지지하는 희귀한 조건.`;
+                status = ui('verdictSuperCycle');
+                message = ui('verdictSuperCycleMsg', { callWall });
                 probability = Math.min(98, 75 + compositeScore * 0.23);
-                probLabel = "확신"; probColor = "text-emerald-400"; color = "text-emerald-400";
-                action = "기존 롱 유지, 풀백 시 추가 매수";
-                warning = "숏 절대 금지, 역추세 베팅 금지";
-                trigger = `새 저항선 형성 시 목표가 상향`;
+                probLabel = ui('verdictConviction'); probColor = "text-emerald-400"; color = "text-emerald-400";
+                action = ui('verdictSuperCycleAction');
+                warning = ui('verdictSuperCycleWarn');
+                trigger = ui('verdictSuperCycleTrigger');
             } else {
-                status = "돌파 후 숨고르기";
-                message = `저항($${callWall}) 돌파했으나 후속 수급이 약함. 지지 전환 확인까지 관망.`;
+                status = ui('verdictBreathingAfterBreak');
+                message = ui('verdictBreathingMsg', { callWall });
                 probability = 55 + compositeScore * 0.1;
-                probLabel = "관망"; probColor = "text-amber-400"; color = "text-amber-400";
-                action = "기존 롱 유지, 신규 진입 대기";
-                warning = "추격 매수 자제, 거래량 동반 필요";
-                trigger = `$${callWall} 위 안착 확인 시 추가 매수`;
+                probLabel = ui('verdictWaitLabel'); probColor = "text-amber-400"; color = "text-amber-400";
+                action = ui('verdictBreathingAction');
+                warning = ui('verdictBreathingWarn');
+                trigger = ui('verdictBreathingTrigger', { callWall });
             }
         } else if (currentPrice < putWall) {
             // ===== BREAKDOWN ZONE =====
             if (compositeScore < -30) {
-                status = "지지선 붕괴 (COLLAPSE)";
-                message = `최후 방어선($${putWall}) 이탈. 하방 압력 극심, 패닉 매도 구간.`;
+                status = ui('verdictCollapse');
+                message = ui('verdictCollapseMsg', { putWall });
                 probability = Math.max(5, 25 + compositeScore * 0.2);
-                probLabel = "위험"; probColor = "text-rose-500"; color = "text-rose-500";
-                action = "롱 즉시 손절, 숏 진입 가능";
-                warning = "반등 매수 시도 위험, 낙하 가속 가능";
-                trigger = `$${putWall} 회복 시 숏커버링 신호`;
+                probLabel = ui('verdictDanger'); probColor = "text-rose-500"; color = "text-rose-500";
+                action = ui('verdictCollapseAction');
+                warning = ui('verdictCollapseWarn');
+                trigger = ui('verdictCollapseTrigger', { putWall });
             } else {
-                status = "베어 트랩 가능성";
-                message = `지지선($${putWall}) 이탈이 페이크일 수 있음. 수급 신호가 혼재.`;
+                status = ui('verdictBearTrap');
+                message = ui('verdictBearTrapMsg', { putWall });
                 probability = 40 + compositeScore * 0.1;
-                probLabel = "주의"; probColor = "text-amber-500"; color = "text-amber-500";
-                action = "관망, 반등 확인 후 진입 검토";
-                warning = "성급한 바닥 매수 자제";
-                trigger = `$${putWall} 재진입 시 롱 신호`;
+                probLabel = ui('verdictCautionLabel'); probColor = "text-amber-500"; color = "text-amber-500";
+                action = ui('verdictBearTrapAction');
+                warning = ui('verdictBearTrapWarn');
+                trigger = ui('verdictBearTrapTrigger', { putWall });
             }
         } else {
             // ===== INSIDE RANGE =====
@@ -1067,66 +1068,66 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
             if (isNearRes) {
                 if (compositeScore > 25) {
-                    status = "돌파 임박 (BREAKOUT READY)";
-                    message = `저항($${callWall}) 근접. 옵션 수급 에너지 충전 완료, 돌파 시 가속 예상.`;
+                    status = ui('verdictBreakoutReady');
+                    message = ui('verdictBreakoutReadyMsg', { callWall });
                     probability = 75 + compositeScore * 0.2;
-                    probLabel = "강력 매수"; probColor = "text-emerald-400"; color = "text-emerald-400";
-                    action = `$${callWall} 돌파 시 추종 매수`;
-                    warning = "돌파 전 선행 매수는 리스크 있음";
-                    trigger = `거래량 동반 $${callWall} 돌파`;
+                    probLabel = ui('verdictStrongBuy'); probColor = "text-emerald-400"; color = "text-emerald-400";
+                    action = ui('verdictBreakoutReadyAction', { callWall });
+                    warning = ui('verdictBreakoutReadyWarn');
+                    trigger = ui('verdictBreakoutReadyTrigger', { callWall });
                 } else {
-                    status = "저항 확인 (RESISTANCE)";
-                    message = `저항벽($${callWall}) 도달. 수급이 약해 돌파 실패 시 조정 가능.`;
+                    status = ui('verdictResistance');
+                    message = ui('verdictResistanceMsg', { callWall });
                     probability = 45 + compositeScore * 0.1;
-                    probLabel = "주의"; probColor = "text-amber-400"; color = "text-amber-400";
-                    action = "보유 시 일부 익절 고려";
-                    warning = "신규 롱 자제, 저항 확인 필요";
-                    trigger = `$${callWall} 돌파 확인 시 재진입`;
+                    probLabel = ui('verdictCautionLabel'); probColor = "text-amber-400"; color = "text-amber-400";
+                    action = ui('verdictResistanceAction');
+                    warning = ui('verdictResistanceWarn');
+                    trigger = ui('verdictResistanceTrigger', { callWall });
                 }
             } else if (isNearSup) {
                 if (compositeScore > 15) {
-                    status = "바닥 매수 기회 (BUY THE DIP)";
-                    message = `지지선($${putWall}) 터치. 기관 저점 매집 포착, 손익비 유리한 구간.`;
+                    status = ui('verdictBuyTheDip');
+                    message = ui('verdictBuyTheDipMsg', { putWall });
                     probability = 70 + compositeScore * 0.2;
-                    probLabel = "매수"; probColor = "text-emerald-400"; color = "text-emerald-400";
-                    action = `$${putWall} 부근 분할 매수`;
-                    warning = `손절 기준: $${putWall} 이탈 시 즉시 탈출`;
-                    trigger = `반등 확인 후 추가 매수`;
+                    probLabel = ui('verdictBuy'); probColor = "text-emerald-400"; color = "text-emerald-400";
+                    action = ui('verdictBuyTheDipAction', { putWall });
+                    warning = ui('verdictBuyTheDipWarn', { putWall });
+                    trigger = ui('verdictBuyTheDipTrigger');
                 } else {
-                    status = "추가 하락 주의 (WEAK)";
-                    message = `지지선($${putWall})이 위태로움. 수급 약화 시 이탈 위험.`;
+                    status = ui('verdictWeak');
+                    message = ui('verdictWeakMsg', { putWall });
                     probability = 30 + compositeScore * 0.15;
-                    probLabel = "관망/매도"; probColor = "text-rose-500"; color = "text-rose-500";
-                    action = "기존 롱 축소 또는 풋 헤지 추가";
-                    warning = "신규 롱 자제, 반등 불확실";
-                    trigger = `$${putWall} 이탈 시 손절 실행`;
+                    probLabel = ui('verdictSellWait'); probColor = "text-rose-500"; color = "text-rose-500";
+                    action = ui('verdictWeakAction');
+                    warning = ui('verdictWeakWarn');
+                    trigger = ui('verdictWeakTrigger', { putWall });
                 }
             } else {
                 // MID-RANGE
                 if (compositeScore > 35) {
-                    status = "상승 모멘텀 (MOMENTUM)";
-                    message = `박스권 중간이나 수급 상방 우위 확실. 기관 포지셔닝이 롱 방향.`;
+                    status = ui('verdictMomentum');
+                    message = ui('verdictMomentumMsg');
                     probability = 65 + compositeScore * 0.2;
-                    probLabel = "매수 우위"; probColor = "text-emerald-400"; color = "text-emerald-400";
-                    action = `눌림목 매수 유효, $${putWall} 부근 진입`;
-                    warning = "추격 매수보다 풀백 대기가 유리";
-                    trigger = `$${callWall} 접근 시 익절 검토`;
+                    probLabel = ui('verdictBuyDominant'); probColor = "text-emerald-400"; color = "text-emerald-400";
+                    action = ui('verdictMomentumAction', { putWall });
+                    warning = ui('verdictMomentumWarn');
+                    trigger = ui('verdictMomentumTrigger', { callWall });
                 } else if (compositeScore < -35) {
-                    status = "하락 압력 (PRESSURE)";
-                    message = `하방 압력 우세. 풋 수급 확대, 기관 방어적 포지셔닝 포착.`;
+                    status = ui('verdictPressure');
+                    message = ui('verdictPressureMsg');
                     probability = 35 + compositeScore * 0.15;
-                    probLabel = "매도 우위"; probColor = "text-rose-400"; color = "text-rose-400";
-                    action = "롱 축소, 풋 헤지 확대";
-                    warning = "역추세 매수 위험, 하락 가속 가능";
-                    trigger = `$${putWall} 이탈 시 전량 손절`;
+                    probLabel = ui('verdictSellDominant'); probColor = "text-rose-400"; color = "text-rose-400";
+                    action = ui('verdictPressureAction');
+                    warning = ui('verdictPressureWarn');
+                    trigger = ui('verdictPressureTrigger', { putWall });
                 } else {
-                    status = "방향성 탐색 (NEUTRAL)";
-                    message = `박스권($${putWall}~$${callWall}) 중간. 수급 혼재, 방향 미확정.`;
+                    status = ui('verdictNeutral');
+                    message = ui('verdictNeutralMsg', { putWall, callWall });
                     probability = 50 + compositeScore * 0.1;
-                    probLabel = "중립"; probColor = "text-slate-500"; color = "text-slate-500";
-                    action = "관망, 방향 확정 시까지 대기";
-                    warning = "양방향 베팅 자제, 확인 후 진입";
-                    trigger = `Squeeze 50%+ 전환 또는 OPI ±30 이탈 시 방향 추종`;
+                    probLabel = ui('verdictNeutralLabel'); probColor = "text-slate-500"; color = "text-slate-500";
+                    action = ui('verdictNeutralAction');
+                    warning = ui('verdictNeutralWarn');
+                    trigger = ui('verdictNeutralTrigger');
                 }
             }
         }
@@ -1142,29 +1143,29 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
         if (isGammaPinch) {
             if (compositeScore > 20) {
-                status = "감마 핀치 — 상방 유력 (GAMMA PINCH ↑)";
-                message = `벽 구조 역전: 풋벽($${putWall}) > 콜벽($${callWall}). 양쪽 압력 충돌 중이나, OPI·수급이 상방 우위. $${callWall} 돌파 시 감마 스퀴즈 가속.`;
+                status = ui('verdictGammaPinchUp');
+                message = ui('verdictGammaPinchUpMsg', { putWall, callWall });
                 probability = Math.min(85, 65 + compositeScore * 0.2);
-                probLabel = "상방 유력"; probColor = "text-emerald-400"; color = "text-emerald-400";
-                action = `$${callWall} 돌파 확인 후 매수 추종`;
-                warning = `뒤집힌 구조는 양방향 리스크 존재 — 실패 시 급락 가능`;
-                trigger = `$${callWall} 돌파 + 거래량 동반 시 확정`;
+                probLabel = ui('verdictUpLikely'); probColor = "text-emerald-400"; color = "text-emerald-400";
+                action = ui('verdictGammaPinchUpAction', { callWall });
+                warning = ui('verdictGammaPinchUpWarn');
+                trigger = ui('verdictGammaPinchUpTrigger', { callWall });
             } else if (compositeScore < -20) {
-                status = "감마 핀치 — 하방 압력 (GAMMA PINCH ↓)";
-                message = `벽 구조 역전: 풋벽($${putWall}) > 콜벽($${callWall}). 수급이 하방 우위. $${putWall} 하단 이탈 시 낙폭 확대.`;
+                status = ui('verdictGammaPinchDown');
+                message = ui('verdictGammaPinchDownMsg', { putWall, callWall });
                 probability = Math.max(15, 35 + compositeScore * 0.2);
-                probLabel = "하방 주의"; probColor = "text-rose-400"; color = "text-rose-400";
-                action = `롱 축소, $${putWall} 이탈 시 풋 진입`;
-                warning = `뒤집힌 구조 — 반등 시에도 $${callWall}이 저항`;
-                trigger = `$${putWall} 이탈 시 하락 가속, 반등 시 $${callWall} 확인`;
+                probLabel = ui('verdictDownCaution'); probColor = "text-rose-400"; color = "text-rose-400";
+                action = ui('verdictGammaPinchDownAction', { putWall });
+                warning = ui('verdictGammaPinchDownWarn', { callWall });
+                trigger = ui('verdictGammaPinchDownTrigger', { putWall, callWall });
             } else {
-                status = "감마 핀치 — 폭발 대기 (GAMMA PINCH ⚡)";
-                message = `벽 구조 역전: 풋벽($${putWall}) > 콜벽($${callWall}). 양쪽 압력이 충돌하며 방향 미정. 한쪽 벽 돌파 시 급격한 움직임 예상.`;
+                status = ui('verdictGammaPinchExplosive');
+                message = ui('verdictGammaPinchExplosiveMsg', { putWall, callWall });
                 probability = 50;
-                probLabel = "방향 미정"; probColor = "text-amber-400"; color = "text-amber-400";
-                action = "양방향 대비 — 돌파 방향 추종 (straddle 적합)";
-                warning = `뒤집힌 구조는 변동성 폭발 전조 — 역방향 포지션 즉시 탈출 준비`;
-                trigger = `$${callWall} 돌파=상승 / $${putWall} 이탈=하락 — 방향 터지면 즉시 추종`;
+                probLabel = ui('verdictDirectionUndecided'); probColor = "text-amber-400"; color = "text-amber-400";
+                action = ui('verdictGammaPinchExplosiveAction');
+                warning = ui('verdictGammaPinchExplosiveWarn');
+                trigger = ui('verdictGammaPinchExplosiveTrigger', { callWall, putWall });
             }
         }
 
@@ -1173,20 +1174,20 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         if (isNearGexFlip && flipLevel > 0) {
             const aboveFlip = currentPrice > flipLevel;
             const flipWarning = aboveFlip
-                ? `GEX 전환 임박: 현재가가 감마 플립($${flipLevel.toFixed(1)}) ${gexFlipDist!.toFixed(1)}% 위. 이탈 시 숏감마 → 변동성 급증`
-                : `숏감마 진입 직전: 감마 플립($${flipLevel.toFixed(1)})까지 ${Math.abs(gexFlipDist!).toFixed(1)}%. 반등 못 하면 하락 가속`;
+                ? ui('gexFlipWarningAbove', { dist: gexFlipDist!.toFixed(1), flipLevel: flipLevel.toFixed(1) })
+                : ui('gexFlipWarningBelow', { dist: Math.abs(gexFlipDist!).toFixed(1), flipLevel: flipLevel.toFixed(1) });
             if (warning) warning += ' / ' + flipWarning;
             else warning = flipWarning;
         }
 
         // ===== SQUEEZE OVERRIDE: adds urgency to any scenario =====
         if (isSqueezeExtreme) {
-            warning = "SQUEEZE EXTREME: 급등/급락 임박, 역방향 포지션 즉시 탈출";
-            trigger = "방향 터지면 즉시 따라가기, 장 마감 30분 특별 주의";
+            warning = ui('squeezeExtremeWarn');
+            trigger = ui('squeezeExtremeTrigger');
         } else if (isSqueezeHigh) {
             if (!trigger.includes('Squeeze')) {
                 trigger += trigger ? ' / ' : '';
-                trigger += `Squeeze ${squeezeProbability.value}% 주의`;
+                trigger += ui('squeezeCautionTrigger', { val: squeezeProbability.value });
             }
         }
 
@@ -1196,15 +1197,15 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         // V4.0: FACTOR BREAKDOWN FOR VISUALIZATION
         // =====================================
         const factorBreakdown = [
-            { key: 'opi', name: 'OPI', score: Math.round(opiScore), max: 25, label: opi.value > 0 ? '콜 우위' : opi.value < 0 ? '풋 우위' : '중립' },
-            { key: 'whale', name: '고래', score: Math.round(whaleScore), max: 25, label: whaleScore > 0 ? '콜 매집' : whaleScore < 0 ? '풋 주도' : '관망' },
-            { key: 'squeeze', name: '스퀴즈', score: Math.round(squeezeScore), max: 15, label: squeezeProbability.value >= 45 ? `${squeezeProbability.value}%` : '안정' },
-            { key: 'skew', name: 'IV스큐', score: Math.round(skewScore), max: 15, label: ivSkew.value > 3 ? '공포' : ivSkew.value < -3 ? '탐욕' : '중립' },
-            { key: 'smart', name: '스마트', score: Math.round(smartScore), max: 10, label: smartMoney.label },
+            { key: 'opi', name: 'OPI', score: Math.round(opiScore), max: 25, label: opi.value > 0 ? ui('factorCallDominant') : opi.value < 0 ? ui('factorPutDominant') : ui('verdictNeutralLabel') },
+            { key: 'whale', name: ui('factorWhale'), score: Math.round(whaleScore), max: 25, label: whaleScore > 0 ? ui('factorCallAccum') : whaleScore < 0 ? ui('factorPutDominantWhale') : ui('factorWhaleWait') },
+            { key: 'squeeze', name: ui('factorSqueeze'), score: Math.round(squeezeScore), max: 15, label: squeezeProbability.value >= 45 ? `${squeezeProbability.value}%` : ui('factorStable') },
+            { key: 'skew', name: ui('factorIvSkew'), score: Math.round(skewScore), max: 15, label: ivSkew.value > 3 ? ui('factorFear') : ivSkew.value < -3 ? ui('factorGreed') : ui('verdictNeutralLabel') },
+            { key: 'smart', name: ui('factorSmart'), score: Math.round(smartScore), max: 10, label: smartMoney.label },
             { key: 'dex', name: 'DEX', score: Math.round(dexScore), max: 10, label: dex.label },
             { key: 'uoa', name: 'UOA', score: Math.round(uoaScore), max: 5, label: uoa.label },
-            { key: 'pc', name: 'P/C', score: Math.round(pcScore), max: 5, label: pcRatio.value > 1.3 ? '콜 과열' : pcRatio.value < 0.75 ? '풋 과열' : '균형' },
-            { key: 'zdte', name: 'GEX', score: Math.round(zdteScore), max: 5, label: gexRegime.pinStrength >= 35 ? `${gexRegime.pinStrength}%` : '미미' },
+            { key: 'pc', name: 'P/C', score: Math.round(pcScore), max: 5, label: pcRatio.value > 1.3 ? ui('factorCallOverheat') : pcRatio.value < 0.75 ? ui('factorPutOverheat') : ui('factorBalance') },
+            { key: 'zdte', name: 'GEX', score: Math.round(zdteScore), max: 5, label: gexRegime.pinStrength >= 35 ? `${gexRegime.pinStrength}%` : ui('factorMinimal') },
         ];
 
         return { status, message, color, probability, probLabel, probColor, whaleBias, compositeScore, signals, netWhalePremium, callPremium, putPremium, action, warning, trigger, factorBreakdown };
@@ -1288,7 +1289,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-ping" />
                         </div>
                         <span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span>
-                        <span className="text-[11px] font-medium text-slate-500 animate-pulse">분석 데이터 수집 중...</span>
+                        <span className="text-[11px] font-medium text-slate-500 animate-pulse">{ui('collectingData')}</span>
                     </div>
                 </div>
             ) : analysis && (
@@ -1304,13 +1305,13 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         <div className="flex items-center gap-2">
                             <span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span>
                             {/* Dynamic Status Icon */}
-                            {analysis.status?.includes('상승') || analysis.status?.includes('BULL') || analysis.status?.includes('매수') || analysis.status?.includes('BREAKOUT') || analysis.status?.includes('MOMENTUM') ? (
+                            {analysis.status?.includes('SUPER') || analysis.status?.includes('BULL') || analysis.status?.includes('Buy') || analysis.status?.includes('BREAKOUT') || analysis.status?.includes('MOMENTUM') ? (
                                 <TrendingUp size={16} className="text-emerald-400" />
-                            ) : analysis.status?.includes('하락') || analysis.status?.includes('BEAR') || analysis.status?.includes('COLLAPSE') || analysis.status?.includes('PRESSURE') || analysis.status?.includes('WEAK') ? (
+                            ) : analysis.status?.includes('COLLAPSE') || analysis.status?.includes('BEAR') || analysis.status?.includes('PRESSURE') || analysis.status?.includes('WEAK') ? (
                                 <TrendingDown size={16} className="text-rose-400" />
-                            ) : analysis.status?.includes('저항') || analysis.status?.includes('RESISTANCE') ? (
+                            ) : analysis.status?.includes('RESISTANCE') ? (
                                 <AlertTriangle size={14} className="text-rose-400" />
-                            ) : analysis.status?.includes('돌파') ? (
+                            ) : analysis.status?.includes('BREAKOUT') || analysis.status?.includes('GAMMA') ? (
                                 <Zap size={16} className="text-amber-400" />
                             ) : (
                                 <Activity size={14} className="text-slate-400" />
@@ -1326,10 +1327,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             {/* Row 1: Analysis Header + Composite Badge */}
                             <div className="flex items-center gap-2 mb-1.5">
                                 <Activity size={14} className="text-cyan-400" />
-                                <span className="text-[11px] text-white font-bold uppercase tracking-wider">분석</span>
+                                <span className="text-[11px] text-white font-bold uppercase tracking-wider">{ui('analysisLabel')}</span>
                                 {analysis.compositeScore !== undefined && (
                                     <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${analysis.compositeScore > 20 ? 'bg-emerald-500/20 text-emerald-400' : analysis.compositeScore < -20 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-slate-300'}`}>
-                                        종합 {analysis.compositeScore > 0 ? '+' : ''}{Math.round(analysis.compositeScore)}
+                                        {ui('compositeLabel', { score: `${analysis.compositeScore > 0 ? '+' : ''}${Math.round(analysis.compositeScore)}` })}
                                     </span>
                                 )}
                             </div>
@@ -1348,9 +1349,9 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     />
                                 </div>
                                 <div className="flex justify-between mt-0.5">
-                                    <span className="text-[8px] text-rose-400/60">-100 극약세</span>
+                                    <span className="text-[8px] text-rose-400/60">{ui('extremeBearish')}</span>
                                     <span className="text-[8px] text-slate-500">0</span>
-                                    <span className="text-[8px] text-emerald-400/60">극강세 +100</span>
+                                    <span className="text-[8px] text-emerald-400/60">{ui('extremeBullish')}</span>
                                 </div>
                             </div>
 
@@ -1414,15 +1415,15 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             {/* Row 6: Key Levels */}
                             <div className="flex items-center gap-3 pt-1.5 border-t border-white/10 mt-auto">
                                 <div className="flex items-center gap-1">
-                                    <span className="text-[9px] text-slate-400">지지</span>
+                                    <span className="text-[9px] text-slate-400">{ui('supportLabel')}</span>
                                     <span className="text-[10px] text-emerald-400 font-bold">${putWall}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <span className="text-[9px] text-slate-400">저항</span>
+                                    <span className="text-[9px] text-slate-400">{ui('resistanceLabel')}</span>
                                     <span className="text-[10px] text-rose-400 font-bold">${callWall}</span>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <span className="text-[9px] text-slate-400">현재</span>
+                                    <span className="text-[9px] text-slate-400">{ui('currentLabel')}</span>
                                     <span className="text-[10px] text-white font-bold">${currentPrice.toFixed(2)}</span>
                                 </div>
                             </div>
@@ -1439,8 +1440,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     {/* Infographic: pressure arrows */}
                                     <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M10 28 L25 14 M10 28 L25 42 M70 28 L55 14 M70 28 L55 42" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-emerald-400" /><line x1="25" y1="28" x2="55" y2="28" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" className="text-slate-400" /></svg>
 
-                                    <span className="text-[11px] text-white font-bold uppercase relative z-10">OPI(델타압력)</span>
-                                    <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">콜-풋 포지션</span>
+                                    <span className="text-[11px] text-white font-bold uppercase relative z-10">{ui('opiTitle')}</span>
+                                    <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">{ui('opiSubtitle')}</span>
 
                                     {/* Circular Gauge with Glow - LARGER */}
                                     <div className="relative w-14 h-14 mt-1">
@@ -1479,24 +1480,24 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M4 28 Q14 8 24 28 Q34 48 44 28 Q54 8 64 28 Q74 48 80 28" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" strokeLinecap="round" /><line x1="4" y1="28" x2="80" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
 
                                     <span className="text-[11px] text-white font-bold uppercase relative z-10">ATM IV</span>
-                                    <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">옵션가격 온도계</span>
+                                    <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">{ui('atmIvSubtitle')}</span>
 
                                     <div className={`text-2xl font-black relative z-10 mt-1 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivPercentile.value >= 25 && ivPercentile.value < 60 ? 'none' : '0 0 10px currentColor' }}>
                                         {ivPercentile.value}%
                                     </div>
                                     <div className={`text-[11px] font-bold relative z-10 ${ivPercentile.value >= 80 ? 'text-rose-400' : ivPercentile.value >= 60 ? 'text-orange-400' : ivPercentile.value <= 15 ? 'text-cyan-400' : ivPercentile.value <= 25 ? 'text-teal-400' : 'text-white'}`}>
-                                        {ivPercentile.value >= 80 ? '극도 과열'
-                                            : ivPercentile.value >= 60 ? '매도 유리'
-                                                : ivPercentile.value <= 15 ? '극저 IV'
-                                                    : ivPercentile.value <= 25 ? '매수 유리'
-                                                        : '중립'}
+                                        {ivPercentile.value >= 80 ? ui('ivExtremeHot')
+                                            : ivPercentile.value >= 60 ? ui('ivSellFavorable')
+                                                : ivPercentile.value <= 15 ? ui('ivExtremeLow')
+                                                    : ivPercentile.value <= 25 ? ui('ivBuyFavorable')
+                                                        : ui('ivNeutral')}
                                     </div>
                                     <div className="text-[11px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
-                                        {ivPercentile.value >= 80 ? '스프레드 매도 적극 추천'
-                                            : ivPercentile.value >= 60 ? '변동성 축소 베팅'
-                                                : ivPercentile.value <= 15 ? '네이키드 매수 유리'
-                                                    : ivPercentile.value <= 25 ? '스프레드 매수 유리'
-                                                        : '커버드콜 중립 운용'}
+                                        {ivPercentile.value >= 80 ? ui('ivStrategySpreadSell')
+                                            : ivPercentile.value >= 60 ? ui('ivStrategyVolShrink')
+                                                : ivPercentile.value <= 15 ? ui('ivStrategyNakedBuy')
+                                                    : ivPercentile.value <= 25 ? ui('ivStrategySpreadBuy')
+                                                        : ui('ivStrategyCoveredCall')}
                                     </div>
                                 </div>
 
@@ -1508,24 +1509,24 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><circle cx="40" cy="28" r="20" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-400" /><circle cx="40" cy="28" r="12" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-300" /><circle cx="40" cy="28" r="4" fill="currentColor" className="text-emerald-400" /><line x1="40" y1="4" x2="40" y2="52" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /><line x1="16" y1="28" x2="64" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /></svg>
 
                                     <span className="text-[11px] text-white font-bold uppercase relative z-10">COMPOSITE INDEX</span>
-                                    <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">(종합지수)</span>
+                                    <span className="text-[10px] text-white font-medium relative z-10 mt-0.5">{ui('compositeSubtitle')}</span>
 
                                     <div className={`text-2xl font-black relative z-10 mt-1 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: analysis.probability > 35 && analysis.probability < 65 ? 'none' : '0 0 10px currentColor' }}>
                                         {analysis.probability}%
                                     </div>
                                     <div className={`text-[11px] font-bold relative z-10 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`}>
-                                        {analysis.probability >= 80 ? '강한 수렴'
-                                            : analysis.probability >= 65 ? '신호수렴'
-                                                : analysis.probability <= 20 ? '강한 혼재'
-                                                    : analysis.probability <= 35 ? '신호혼재'
-                                                        : '관망'}
+                                        {analysis.probability >= 80 ? ui('strongConvergence')
+                                            : analysis.probability >= 65 ? ui('signalConvergence')
+                                                : analysis.probability <= 20 ? ui('strongConflict')
+                                                    : analysis.probability <= 35 ? ui('signalConflict')
+                                                        : ui('waitLabel')}
                                     </div>
                                     <div className="text-[11px] text-white/90 font-medium relative z-10 mt-0.5 text-center leading-tight">
                                         {analysis.probability >= 65
-                                            ? `${analysis.signals.length}개 지표 일치 → 방향성 확인`
+                                            ? ui('compositeAligned', { count: analysis.signals.length })
                                             : analysis.probability <= 35
-                                                ? `지표 충돌 → 진입 위험`
-                                                : `${analysis.signals.length}개 시그널 | 추가 확인 필요`
+                                                ? ui('compositeConflict')
+                                                : ui('compositeNeedConfirm', { count: analysis.signals.length })
                                         }
                                     </div>
                                 </div>
@@ -1573,11 +1574,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                 C ${((analysis.callPremium || 0) / 1000).toFixed(0)}K / P ${((analysis.putPremium || 0) / 1000).toFixed(0)}K
                                             </div>
                                             <div className="text-[10px] text-white/90 font-medium mt-0.5">
-                                                {(analysis.netWhalePremium || 0) > 500000 ? '대형 콜 매수 주도'
-                                                    : (analysis.netWhalePremium || 0) > 100000 ? '콜 매수 우위'
-                                                        : (analysis.netWhalePremium || 0) < -500000 ? '대형 풋 매수 주도'
-                                                            : (analysis.netWhalePremium || 0) < -100000 ? '풋 매수 우위'
-                                                                : '고래 관망 중'}
+                                                {(analysis.netWhalePremium || 0) > 500000 ? ui('whaleLargeBuyCall')
+                                                    : (analysis.netWhalePremium || 0) > 100000 ? ui('whaleCallBuy')
+                                                        : (analysis.netWhalePremium || 0) < -500000 ? ui('whaleLargeBuyPut')
+                                                            : (analysis.netWhalePremium || 0) < -100000 ? ui('whalePutBuy')
+                                                                : ui('whaleWaiting')}
                                             </div>
                                         </div>
                                     )}
@@ -1592,7 +1593,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     {/* Infographic: price range gauge */}
                                     <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.06] pointer-events-none" viewBox="0 0 80 56"><path d="M10 46 A 35 35 0 0 1 70 46" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-400" strokeLinecap="round" /><line x1="40" y1="46" x2="40" y2="16" stroke="currentColor" strokeWidth="1.5" className="text-indigo-300" strokeLinecap="round" /><circle cx="40" cy="14" r="2.5" fill="currentColor" className="text-indigo-400" /></svg>
                                     <div className="relative z-10 flex flex-col items-center">
-                                        <span className="text-[10px] text-white font-bold uppercase tracking-wider mb-1">현재가 위치</span>
+                                        <span className="text-[10px] text-white font-bold uppercase tracking-wider mb-1">{ui('pricePosition')}</span>
                                         {(() => {
                                             const totalRange = callWall - putWall;
                                             const currentPos = currentPrice - putWall;
@@ -1658,7 +1659,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                             return <circle cx={cx} cy={cy} r="4" fill="white" style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.8))', transition: 'cx 1s, cy 1s' }} />;
                                                         })()}
                                                         <text x="55" y="42" textAnchor="middle" className="fill-white text-sm font-black">{squeezeProbability.isLoading ? '--' : `${pct}%`}</text>
-                                                        <text x="55" y="56" textAnchor="middle" className="fill-slate-400 text-[9px]">{pct > 70 ? '스퀴즈 임박' : pct > 40 ? '주의 필요' : '안정'}</text>
+                                                        <text x="55" y="56" textAnchor="middle" className="fill-slate-400 text-[9px]">{pct > 70 ? ui('squeezeImminent') : pct > 40 ? ui('squeezeCaution') : ui('squeezeStable')}</text>
                                                     </svg>
                                                     <div className="flex justify-between w-full px-2 -mt-1">
                                                         <span className="text-[8px] text-emerald-400 font-bold">0%</span>
@@ -1691,7 +1692,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         <div className="flex items-center gap-1.5 mb-1">
                             <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
                             <span className="text-[10px] text-white uppercase font-bold tracking-wide">Dark Pool %</span>
-                            <span className="text-[8px] text-slate-400 font-medium">기관비중</span>
+                            <span className="text-[8px] text-slate-400 font-medium">{ui('institutionalWeight')}</span>
                             {/* Session Label: PRE / REG / POST */}
                             {(() => {
                                 const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
@@ -1713,18 +1714,18 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         </span>
                         {realtimeMetrics.darkPool && (
                             <span className="text-[10px] text-white mt-0.5 font-mono font-medium">
-                                DP {(realtimeMetrics.darkPool.volume / 1000).toFixed(1)}K / 전체 {(realtimeMetrics.darkPool.totalVolume / 1000).toFixed(1)}K
+                                DP {(realtimeMetrics.darkPool.volume / 1000).toFixed(1)}K / {ui('totalLabel')} {(realtimeMetrics.darkPool.totalVolume / 1000).toFixed(1)}K
                             </span>
                         )}
                         {/* Buy/Sell Ratio Bar */}
                         {realtimeMetrics.darkPool && (realtimeMetrics.darkPool.buyPct ?? 0) > 0 && (
                             <div className="w-full mt-1.5 px-1">
                                 <div className="flex items-center justify-between text-[10px] font-bold mb-0.5">
-                                    <span className="text-emerald-400">매수 {realtimeMetrics.darkPool.buyPct}%</span>
+                                    <span className="text-emerald-400">{ui('buyLabel')} {realtimeMetrics.darkPool.buyPct}%</span>
                                     <span className={`text-[9px] font-mono font-bold ${(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        순매수 {(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? '+' : ''}{((realtimeMetrics.darkPool.netBuyValue || 0) / 1e6).toFixed(1)}M
+                                        {ui('netBuyLabel')} {(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? '+' : ''}{((realtimeMetrics.darkPool.netBuyValue || 0) / 1e6).toFixed(1)}M
                                     </span>
-                                    <span className="text-rose-400">{realtimeMetrics.darkPool.sellPct}% 매도</span>
+                                    <span className="text-rose-400">{realtimeMetrics.darkPool.sellPct}% {ui('sellLabel')}</span>
                                 </div>
                                 <div className="flex h-[5px] rounded-full overflow-hidden bg-slate-700/50">
                                     {(() => {
@@ -1768,13 +1769,13 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             {realtimeMetrics.shortVolume ? `${realtimeMetrics.shortVolume.percent}%` : '--'}
                         </span>
                         <span className="text-[9px] text-white font-medium">
-                            {realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 40 ? '일일 공매도'
-                                : realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 25 ? '일일 공매도'
-                                    : '일일 공매도'}
+                            {realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 40 ? ui('dailyShortSelling')
+                                : realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 25 ? ui('dailyShortSelling')
+                                    : ui('dailyShortSelling')}
                         </span>
                         {realtimeMetrics.shortVolume && (
                             <span className="text-[10px] text-white mt-0.5 font-mono font-medium">
-                                공매도 {(realtimeMetrics.shortVolume.volume / 1000000).toFixed(1)}M / 총 {(realtimeMetrics.shortVolume.totalVolume / 1000000).toFixed(1)}M
+                                {ui('shortVolLabel')} {(realtimeMetrics.shortVolume.volume / 1000000).toFixed(1)}M / {ui('totalLabel')} {(realtimeMetrics.shortVolume.totalVolume / 1000000).toFixed(1)}M
                             </span>
                         )}
                     </div>
@@ -1823,15 +1824,15 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     return (
                                         <div className="w-full mt-1.5 px-1">
                                             <div className="flex items-center justify-between text-[9px] font-bold mb-0.5">
-                                                <span className="text-emerald-400">콜 {cPct}%</span>
+                                                <span className="text-emerald-400">{ui('callLabel')} {cPct}%</span>
                                                 <span className={`text-[8px] font-medium ${activePC.value >= 2.0 ? 'text-emerald-400' : activePC.value >= 1.3 ? 'text-emerald-300/80' : activePC.value <= 0.5 ? 'text-rose-400' : activePC.value <= 0.75 ? 'text-rose-300/80' : 'text-slate-400'}`}>
-                                                    {activePC.value >= 2.0 ? '강세 심리'
-                                                        : activePC.value >= 1.3 ? '상승 기대감'
-                                                            : activePC.value <= 0.5 ? '하락 헷지'
-                                                                : activePC.value <= 0.75 ? '방어적 심리'
-                                                                    : '방향 탐색'}
+                                                    {activePC.value >= 2.0 ? ui('pcBullish')
+                                                        : activePC.value >= 1.3 ? ui('pcUpExpect')
+                                                            : activePC.value <= 0.5 ? ui('pcDownHedge')
+                                                                : activePC.value <= 0.75 ? ui('pcDefensive')
+                                                                    : ui('pcExploring')}
                                                 </span>
-                                                <span className="text-rose-400">{pPct}% 풋</span>
+                                                <span className="text-rose-400">{pPct}% {ui('putLabel')}</span>
                                             </div>
                                             <div className="flex h-[4px] rounded-full overflow-hidden bg-slate-700/50">
                                                 <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${cPct}%` }} />
@@ -1872,29 +1873,29 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             {gexRegime.pinStrength}% <span className="text-sm">{gexRegime.label}</span>
                         </span>
                         <span className="text-[10px] text-white/70 font-medium mt-0.5 font-mono">
-                            {gexRegime.weeklyLabel} | {gexRegime.nearestCount}계약
+                            {gexRegime.weeklyLabel} | {gexRegime.nearestCount} {ui('contractsLabel')}
                         </span>
                         <span className="text-[10px] text-amber-300 mt-0.5 italic font-semibold">
                             {gexRegime.flipLevel
                                 ? (() => {
                                     const f = `FLIP $${gexRegime.flipLevel} (${gexRegime.flipDir}${gexRegime.flipDistance}%)`;
                                     const pinZone = Math.round(currentPrice / 5) * 5;
-                                    if (gexRegime.regime === 'STABLE') return `${f} | $${pinZone} 핀닝 안정`;
-                                    if (gexRegime.regime === 'TRANSITION') return `${f} | $${pinZone} 부근 ⚠ 전환 임박`;
-                                    if (gexRegime.regime === 'FLIP_ZONE') return `${f} | 플립 근접, 급변동 주의`;
-                                    return `${f} | 숏감마, 방향성 증폭 구간`;
+                                    if (gexRegime.regime === 'STABLE') return `${f} | $${pinZone} ${ui('gexPinStable')}`;
+                                    if (gexRegime.regime === 'TRANSITION') return `${f} | $${pinZone} ${ui('gexTransition')}`;
+                                    if (gexRegime.regime === 'FLIP_ZONE') return `${f} | ${ui('gexFlipNear')}`;
+                                    return `${f} | ${ui('gexShortGamma')}`;
                                 })()
                                 : (() => {
                                     const mp = maxPainDistance.maxPain;
                                     const atm = gexRegime.atmConcentration;
                                     if (gexRegime.isLongGamma) {
                                         return mp > 0
-                                            ? `롱감마 | ATM ${atm}% 집중 | MP $${mp}`
-                                            : `롱감마 | ATM ${atm}% 집중 → 가격 억제`;
+                                            ? ui('gexLongGammaWithMp', { atm, mp })
+                                            : ui('gexLongGammaSuppressed', { atm });
                                     } else {
                                         return mp > 0
-                                            ? `숏감마 | ATM ${atm}% | MP $${mp} → 변동 확대`
-                                            : `숏감마 | ATM ${atm}% → 방향성 증폭 가능`;
+                                            ? ui('gexShortGammaWithMp', { atm, mp })
+                                            : ui('gexShortGammaAmplified', { atm });
                                     }
                                 })()
                             }
@@ -1927,7 +1928,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     {flowViewMode === 'WHALE' && (
                                         <span className="text-[11px] text-slate-300 font-medium tracking-wide hidden sm:inline-block">
                                             <Info size={12} className="text-slate-400 inline mr-0.5" />
-                                            <span className="text-cyan-400">Cost</span>=매수단가 | <span className="text-amber-400">BEP</span>=손익분기점
+                                            <span className="text-cyan-400">Cost</span>={ui('costLabel')} | <span className="text-amber-400">BEP</span>={ui('bepLabel')}
                                         </span>
                                     )}
                                     {/* Whale / Dark Pool Toggle */}
@@ -1941,7 +1942,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             <Shield size={13} className={flowViewMode === 'WHALE' ? 'text-cyan-400' : 'text-slate-500'} />
                                             <div className="flex flex-col items-start">
                                                 <span className="text-[10px] font-black uppercase tracking-wider leading-none">Whale</span>
-                                                <span className={`text-[8px] leading-none mt-0.5 ${flowViewMode === 'WHALE' ? 'text-cyan-300/70' : 'text-slate-600'}`}>고래추적</span>
+                                                <span className={`text-[8px] leading-none mt-0.5 ${flowViewMode === 'WHALE' ? 'text-cyan-300/70' : 'text-slate-600'}`}>{ui('whaleTracking')}</span>
                                             </div>
                                             {whaleTrades.length > 0 && (
                                                 <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'WHALE' ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-700 text-slate-400'}`}>
@@ -1958,7 +1959,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             <Layers size={13} className={flowViewMode === 'DARKPOOL' ? 'text-teal-400' : 'text-slate-500'} />
                                             <div className="flex flex-col items-start">
                                                 <span className="text-[10px] font-black uppercase tracking-wider leading-none">Dark Pool</span>
-                                                <span className={`text-[8px] leading-none mt-0.5 ${flowViewMode === 'DARKPOOL' ? 'text-teal-300/70' : 'text-slate-600'}`}>다크풀</span>
+                                                <span className={`text-[8px] leading-none mt-0.5 ${flowViewMode === 'DARKPOOL' ? 'text-teal-300/70' : 'text-slate-600'}`}>{ui('darkPoolLabel')}</span>
                                             </div>
                                         </button>
                                     </div>
@@ -1991,9 +1992,9 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                 let strategyMain = "";
                                                 let strategySub = "";
                                                 if (isCall && moneyness < 0.60) {
-                                                    strategyMain = "STOCK REPL"; strategySub = "주식대체";
+                                                    strategyMain = "STOCK REPL"; strategySub = ui('stockReplace');
                                                 } else if (isCall && moneyness < 0.85) {
-                                                    strategyMain = "LEVERAGE"; strategySub = "레버리지";
+                                                    strategyMain = "LEVERAGE"; strategySub = ui('leverageLabel');
                                                 } else {
                                                     const isBlock = t.size >= 500;
                                                     strategyMain = isBlock ? "BLOCK" : "SWEEP";
@@ -2334,7 +2335,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <span className="text-white font-bold font-mono">${impliedMove.straddle}</span>
                                     </div>
                                     <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-teal-500/30">
-                                        <BarChart3 size={11} className="text-teal-400 inline mr-1" />{impliedMove.direction === 'bullish' ? '콜 프리미엄 우위 → 상승 기대' : impliedMove.direction === 'bearish' ? '풋 프리미엄 우위 → 하락 기대' : '균형'}
+                                        <BarChart3 size={11} className="text-teal-400 inline mr-1" />{impliedMove.direction === 'bullish' ? ui('impliedMoveBullish') : impliedMove.direction === 'bearish' ? ui('impliedMoveBearish') : ui('impliedMoveBalanced')}
                                     </div>
                                 </div>
                             </div>
@@ -2394,7 +2395,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">스마트머니</span>
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('smartMoneyTitle')}</span>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className={`text-2xl font-black ${smartMoney.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -2405,7 +2406,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </div>
                                         {/* Row 2: Rationale */}
                                         <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-indigo-500/30">
-                                            <Banknote size={11} className="text-indigo-400 inline mr-1" />대형거래: {smartMoney.rationale || '분석 중...'}
+                                            <Banknote size={11} className="text-indigo-400 inline mr-1" />{ui('largeTrade')}: {smartMoney.rationale || ui('analyzing')}
                                         </div>
                                     </div>
                                 </div>
@@ -2419,7 +2420,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">Max Pain 거리</span>
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('maxPainDistance')}</span>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <div className={`text-2xl font-black ${maxPainDistance.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -2432,7 +2433,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             <span className="text-white font-bold font-mono">${maxPainDistance.maxPain}</span>
                                         </div>
                                         <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-orange-500/30">
-                                            <Crosshair size={11} className="text-orange-400 inline mr-1" />{maxPainDistance.direction === 'above' ? `현재가가 Max Pain 위에 $${Math.abs(maxPainDistance.distance).toFixed(1)} 초과` : maxPainDistance.direction === 'below' ? `현재가가 Max Pain 아래 $${Math.abs(maxPainDistance.distance).toFixed(1)} 미달` : 'Max Pain 근접 (수렴 가능성)'}
+                                            <Crosshair size={11} className="text-orange-400 inline mr-1" />{maxPainDistance.direction === 'above' ? ui('maxPainAbove', { dist: Math.abs(maxPainDistance.distance).toFixed(1) }) : maxPainDistance.direction === 'below' ? ui('maxPainBelow', { dist: Math.abs(maxPainDistance.distance).toFixed(1) }) : ui('maxPainConverge')}
                                         </div>
                                     </div>
                                 </div>
@@ -2447,7 +2448,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">IV 스큐</span>
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('ivSkewTitle')}</span>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className={`text-2xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -2458,7 +2459,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </div>
                                         {/* Row 2: Rationale */}
                                         <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-violet-500/30">
-                                            <BarChart3 size={11} className="text-violet-400 inline mr-1" />{ivSkew.rationale || '풋/콜 IV 분석 중...'}
+                                            <BarChart3 size={11} className="text-violet-400 inline mr-1" />{ivSkew.rationale || ui('ivSkewAnalyzing')}
                                         </div>
                                     </div>
                                 </div>
@@ -2473,7 +2474,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">DEX (델타노출)</span>
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('dexTitle')}</span>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className={`text-2xl font-black ${dex.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -2484,7 +2485,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </div>
                                         {/* Row 2: Rationale */}
                                         <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-cyan-500/30">
-                                            <TrendingUp size={11} className="text-cyan-400 inline mr-1" />{dex.rationale || '델타 분석 중...'}
+                                            <TrendingUp size={11} className="text-cyan-400 inline mr-1" />{dex.rationale || ui('dexAnalyzing')}
                                         </div>
                                     </div>
                                 </div>
@@ -2499,7 +2500,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">UOA (이상거래)</span>
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('uoaTitle')}</span>
                                             </div>
                                             <div className="flex items-center gap-3">
                                                 <div className={`text-2xl font-black ${uoa.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -2510,7 +2511,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </div>
                                         {/* Row 2: Rationale */}
                                         <div className="text-[11px] text-white/90 font-medium pl-4 border-l border-amber-500/30">
-                                            <Activity size={11} className="text-amber-400 inline mr-1" />{uoa.rationale || '거래량 분석 중...'}
+                                            <Activity size={11} className="text-amber-400 inline mr-1" />{uoa.rationale || ui('uoaAnalyzing')}
                                         </div>
                                     </div>
                                 </div>

@@ -64,7 +64,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                 <div className="text-center">
                     <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
                         Net Premium Flow
-                        <span title={`오늘 시장 참여자들의 실제 베팅 방향입니다.\n(+) 양수: 상승 베팅(Call 매수) 우위\n(-) 음수: 하락 베팅(Put 매수) 우위`}>
+                        <span title={t('netPremiumTooltip')}>
                             <Info size={10} className="inline ml-1 text-slate-600 hover:text-slate-400 cursor-help" />
                         </span>
                     </div>
