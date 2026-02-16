@@ -50,11 +50,14 @@ export const MarketStatusBadge: React.FC<MarketStatusProps> = ({ status, variant
 
     // Header Variant (Compact)
     if (variant === "header") {
+        const headerText = isHoliday
+            ? `Holiday Closed${holidayName ? ` (${holidayName})` : ''}`
+            : session === "regular" ? "US Market OPEN" : session === "pre" ? "Pre-Market" : session === "post" ? "Post-Market" : "Market Closed";
         return (
             <div className={`flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/50 border border-slate-700/50 ${className}`}>
-                <span className={`w-2 h-2 rounded-full ${dotColor} animate-pulse`}></span>
+                <span className={`w-2 h-2 rounded-full ${dotColor} ${!isHoliday && !isClosed ? 'animate-pulse' : ''}`}></span>
                 <span className={`text-[11px] font-bold ${textColor}`}>
-                    {session === "regular" ? "US Market OPEN" : session === "pre" ? "Pre-Market" : session === "post" ? "Post-Market" : "Market Closed"}
+                    {headerText}
                 </span>
             </div>
         );

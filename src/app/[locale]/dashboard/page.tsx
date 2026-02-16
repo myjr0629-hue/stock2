@@ -145,7 +145,7 @@ function AlphaStatusBar() {
 
             {/* Center: Market Status Indicator + Countdown */}
             <div className="flex items-center gap-2">
-                {market?.marketStatus && market.marketStatus !== 'CLOSED' ? (
+                {market?.marketStatus && market.marketStatus !== 'CLOSED' && !market?.isHoliday ? (
                     <>
                         {/* LIVE — Pre-Market, Regular, After-Hours */}
                         <span className="relative flex h-2.5 w-2.5">
