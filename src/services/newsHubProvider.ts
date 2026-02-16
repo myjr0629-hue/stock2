@@ -174,19 +174,21 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
             // [S-75] Trilingual translation prompt (KO + JP)
             const prompt = `
             You are a top-tier financial analyst serving Korean and Japanese markets.
-            Translate the following news headlines/summaries into professional Korean AND Japanese.
+            Translate the following news headlines/summaries into BOTH Korean AND Japanese.
             Also, enable 'Rumor Detection': precise identification of unverified reports, leaks, or speculation vs confirmed news.
             
+            CRITICAL: summaryKR MUST be in Korean (한국어). summaryJP MUST be in Japanese (日本語). Do NOT mix languages.
+
             Input Data (JSON):
             ${JSON.stringify(promptItems)}
 
             Task:
-            1. 'summaryKR': Korean professional tone (e.g. "상승 마감" instead of "오르고 끝났다").
-            2. 'summaryJP': Japanese professional tone (e.g. "上昇で引けた" instead of "上がって終わった").
+            1. 'summaryKR': Korean professional tone (한국어 전문 톤, e.g. "상승 마감", "수익 전망 발표").
+            2. 'summaryJP': Japanese professional tone (日本語専門トーン, e.g. "上昇で引けた", "収益見通しを発表"). This MUST be Japanese, NOT Korean.
             3. 'isRumor': boolean (true if sources are 'sources say', 'reportedly', 'leaks', 'rumor', 'speculation').
 
             Output MUST be a valid JSON Array of objects:
-            [ { "id": "...", "summaryKR": "...", "summaryJP": "...", "isRumor": boolean } ]
+            [ { "id": "...", "summaryKR": "한국어 번역...", "summaryJP": "日本語翻訳...", "isRumor": boolean } ]
             DO NOT output markdown code blocks. Just the raw JSON.
             `;
 
@@ -235,14 +237,15 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
 
         for (const item of items) {
             const textToTranslate = item.description || item.title || "";
-            let translated = textToTranslate;
+            let translatedKR = textToTranslate;
+            let translatedJP = textToTranslate;
 
             // Skip if rate limited
             if (isTranslationRateLimited) {
                 fallbackResults.push({
                     id: item.id || `news-${Math.random().toString(36).substr(2, 9)}`,
-                    summaryKR: translated,
-                    summaryJP: translated,  // [S-75] Use original as fallback
+                    summaryKR: translatedKR,
+                    summaryJP: translatedJP,  // Use original English as fallback
                     isRumor: false
                 });
                 continue;
@@ -254,19 +257,27 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
                     await new Promise(resolve => setTimeout(resolve, 1000));
                 }
 
-                // Wrap Translate with 5s Timeout
-                const res = await withTimeout(
-                    translate(textToTranslate, { to: 'ko' }),
-                    5000,
-                    { text: textToTranslate } as any
-                );
-                translated = (res as any).text;
+                // Translate to Korean AND Japanese in parallel
+                const [resKR, resJP] = await Promise.all([
+                    withTimeout(
+                        translate(textToTranslate, { to: 'ko' }),
+                        5000,
+                        { text: textToTranslate } as any
+                    ),
+                    withTimeout(
+                        translate(textToTranslate, { to: 'ja' }),
+                        5000,
+                        { text: textToTranslate } as any
+                    )
+                ]);
+                translatedKR = (resKR as any).text;
+                translatedJP = (resJP as any).text;
             } catch (err: any) {
                 // If we get a 429, we trigger the circuit breaker
                 const is429 = err.status === 429 ||
                     err.name === 'TooManyRequestsError' ||
                     err.message?.includes('429') ||
-                    err.message?.includes('Too Many Requests'); // [V3.7.6] Explicit string check
+                    err.message?.includes('Too Many Requests');
 
                 if (is429) {
                     console.warn("[NewsHub] Translation Rate Limited (429)! Activating Circuit Breaker.");
@@ -284,8 +295,8 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
 
             fallbackResults.push({
                 id: item.id || `news-${Math.random().toString(36).substr(2, 9)}`,
-                summaryKR: translated,
-                summaryJP: translated,  // [S-75] Use Korean as fallback for JP
+                summaryKR: translatedKR,
+                summaryJP: translatedJP,
                 isRumor
             });
         }
