@@ -59,116 +59,65 @@ let memoryCache: {
 };
 
 // ============================================================
-// Yahoo Finance Fetcher (Single Call for Both VIX + NQ)
+// Yahoo Finance Fetcher
 // ============================================================
 
 /**
- * Fetch accurate previous close from daily candle data.
- * The chart API's `previousClose` for 24h instruments (BTC, futures) returns
- * the intraday start price, NOT the true previous session close.
- * Using range=5d&interval=1d gives us daily candle closes; the second-to-last
- * non-null close is the accurate previous close (matches Yahoo Finance website).
+ * Fetch multiple quotes from Yahoo Finance with accurate change%
+ * Uses meta.previousClose from chart API directly (matches Yahoo Finance website).
+ * Previously used a separate fetchTruePreviousCloses() call that picked wrong
+ * daily candle closes during holidays/weekends, causing chgPct errors.
  */
-async function fetchTruePreviousCloses(symbols: string[]): Promise<Map<string, number>> {
-    const prevCloses = new Map<string, number>();
+async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuote>> {
+    const results = new Map<string, YahooQuote>();
+    const now = new Date().toISOString();
 
-    const fetches = symbols.map(async (symbol) => {
+    // Fetch real-time prices sequentially (avoid rate limiting)
+    for (const symbol of symbols) {
         try {
             const encodedSymbol = encodeURIComponent(symbol);
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1d&range=5d`;
+            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1m&range=1d`;
 
             const res = await fetch(url, {
                 headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
                 signal: AbortSignal.timeout(5000)
             });
 
-            if (!res.ok) return;
+            if (!res.ok) {
+                console.warn(`[Yahoo] ${symbol} returned ${res.status}`);
+                continue;
+            }
 
             const data = await res.json();
-            const result = data?.chart?.result?.[0];
-            const closes = result?.indicators?.quote?.[0]?.close as (number | null)[] | undefined;
+            const meta = data?.chart?.result?.[0]?.meta;
 
-            if (closes && closes.length >= 2) {
-                // Filter out null (today's incomplete candle)
-                const nonNullCloses = closes.filter((c): c is number => c !== null);
-                if (nonNullCloses.length >= 2) {
-                    prevCloses.set(symbol, nonNullCloses[nonNullCloses.length - 2]);
-                }
+            if (!meta?.regularMarketPrice) {
+                console.warn(`[Yahoo] ${symbol} missing market price`);
+                continue;
             }
+
+            // Use meta.previousClose directly — this matches Yahoo Finance website
+            // chartPreviousClose is identical but kept as fallback
+            const price = meta.regularMarketPrice;
+            const prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
+            const change = price - prevClose;
+            const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
+
+            results.set(symbol, {
+                symbol,
+                price,
+                prevClose,
+                change,
+                changePct,
+                updatedAt: now,
+                source: "YAHOO",
+                isStale: false
+            });
+
+            console.log(`[Yahoo] ${symbol}: ${price.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%) [prevClose=${prevClose.toFixed(2)}]`);
         } catch (e) {
-            // Silently fail — will fall back to chart API's previousClose
+            console.warn(`[Yahoo] ${symbol} fetch failed:`, e);
         }
-    });
-
-    await Promise.all(fetches);
-    return prevCloses;
-}
-
-/**
- * Fetch multiple quotes from Yahoo Finance with accurate change%
- * Step 1: Fetch real-time prices from chart API (interval=1m, range=1d)
- * Step 2: Fetch true previous close from daily candles (interval=1d, range=5d)
- * Step 3: Calculate change% using true previous close
- */
-async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuote>> {
-    const results = new Map<string, YahooQuote>();
-    const now = new Date().toISOString();
-
-    // Parallel: fetch real-time prices + accurate previous closes
-    const [, truePrevCloses] = await Promise.all([
-        (async () => {
-            // Fetch real-time prices sequentially (avoid rate limiting)
-            for (const symbol of symbols) {
-                try {
-                    const encodedSymbol = encodeURIComponent(symbol);
-                    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1m&range=1d`;
-
-                    const res = await fetch(url, {
-                        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-                        signal: AbortSignal.timeout(5000)
-                    });
-
-                    if (!res.ok) {
-                        console.warn(`[Yahoo] ${symbol} returned ${res.status}`);
-                        continue;
-                    }
-
-                    const data = await res.json();
-                    const meta = data?.chart?.result?.[0]?.meta;
-
-                    if (!meta?.regularMarketPrice) {
-                        console.warn(`[Yahoo] ${symbol} missing market price`);
-                        continue;
-                    }
-
-                    results.set(symbol, {
-                        symbol,
-                        price: meta.regularMarketPrice,
-                        prevClose: meta.previousClose || meta.regularMarketPrice,
-                        change: 0,
-                        changePct: 0,
-                        updatedAt: now,
-                        source: "YAHOO",
-                        isStale: false
-                    });
-                } catch (e) {
-                    console.warn(`[Yahoo] ${symbol} fetch failed:`, e);
-                }
-            }
-        })(),
-        fetchTruePreviousCloses(symbols)
-    ]);
-
-    // Apply true previous close and recalculate change%
-    for (const [symbol, quote] of results) {
-        const truePrevClose = truePrevCloses.get(symbol);
-        if (truePrevClose && truePrevClose > 0) {
-            quote.prevClose = truePrevClose;
-        }
-        quote.change = quote.price - quote.prevClose;
-        quote.changePct = quote.prevClose > 0 ? (quote.change / quote.prevClose) * 100 : 0;
-
-        console.log(`[Yahoo] ${symbol}: ${quote.price.toFixed(2)} (${quote.changePct >= 0 ? '+' : ''}${quote.changePct.toFixed(2)}%) [prevClose=${quote.prevClose.toFixed(2)}]`);
     }
 
     return results;
@@ -186,16 +135,16 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
     if (timeSinceLastFetch >= RATE_LIMIT_MS) {
         console.log(`[Yahoo] Fetching fresh data (${Math.floor(timeSinceLastFetch / 1000)}s since last fetch)`);
 
-        const quotes = await fetchYahooQuotes(['^VIX', 'NQ=F', '^TNX', '^GSPC', 'BTC-USD', 'GC=F', 'CL=F', '^RUT']);
+        const quotes = await fetchYahooQuotes(['^VIX', 'NQ=F', '^TNX', 'ES=F', 'BTC-USD', 'GC=F', 'CL=F', 'RTY=F']);
 
         const vixQuote = quotes.get('^VIX');
         const nqQuote = quotes.get('NQ=F');
         const tnxQuote = quotes.get('^TNX');
-        const spxQuote = quotes.get('^GSPC');
+        const spxQuote = quotes.get('ES=F');
         const btcQuote = quotes.get('BTC-USD');
         const goldQuote = quotes.get('GC=F');
         const oilQuote = quotes.get('CL=F');
-        const rutQuote = quotes.get('^RUT');
+        const rutQuote = quotes.get('RTY=F');
 
         if (vixQuote) {
             memoryCache.vix = vixQuote;
@@ -251,11 +200,11 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
             vix: cacheSource(memoryCache.vix),
             nq: cacheSource(memoryCache.nq),
             tnx: memoryCache.tnx ? cacheSource(memoryCache.tnx) : getDefaultQuote('^TNX', 4.2),
-            spx: memoryCache.spx ? cacheSource(memoryCache.spx) : getDefaultQuote('^GSPC', 6000),
+            spx: memoryCache.spx ? cacheSource(memoryCache.spx) : getDefaultQuote('ES=F', 6800),
             btc: memoryCache.btc ? cacheSource(memoryCache.btc) : getDefaultQuote('BTC-USD', 97000),
             gold: memoryCache.gold ? cacheSource(memoryCache.gold) : getDefaultQuote('GC=F', 2900),
             oil: memoryCache.oil ? cacheSource(memoryCache.oil) : getDefaultQuote('CL=F', 70),
-            rut: memoryCache.rut ? cacheSource(memoryCache.rut) : getDefaultQuote('^RUT', 2280)
+            rut: memoryCache.rut ? cacheSource(memoryCache.rut) : getDefaultQuote('RTY=F', 2650)
         };
     }
 
@@ -318,11 +267,11 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
         vix: memoryCache.vix || getDefaultQuote('^VIX', 15),
         nq: memoryCache.nq || getDefaultQuote('NQ=F', 21000),
         tnx: memoryCache.tnx || getDefaultQuote('^TNX', 4.2),
-        spx: memoryCache.spx || getDefaultQuote('^GSPC', 6000),
+        spx: memoryCache.spx || getDefaultQuote('ES=F', 6800),
         btc: memoryCache.btc || getDefaultQuote('BTC-USD', 97000),
         gold: memoryCache.gold || getDefaultQuote('GC=F', 2900),
         oil: memoryCache.oil || getDefaultQuote('CL=F', 70),
-        rut: memoryCache.rut || getDefaultQuote('^RUT', 2280)
+        rut: memoryCache.rut || getDefaultQuote('RTY=F', 2650)
     };
 }
 

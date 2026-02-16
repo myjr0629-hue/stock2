@@ -29,9 +29,17 @@ export const CustomTickerBar = memo(() => {
     /**
      * isMarketLive — checks if a given market is currently in a live trading session.
      * All times are evaluated in US Eastern Time (ET).
+     * 
+     * Holiday behavior per asset type:
+     * - Cash indices (VIX, SPX, RUT): CBOE modified hours — 9:30 AM to ~1 PM ET
+     * - Bonds (US10Y/TNX): Fully closed on US holidays
+     * - CME futures (NQ, Gold, Oil): Modified hours — open Sun 6pm ET, close Mon ~1pm ET
+     * - Crypto (BTC): 24/7/365
      */
     const isMarketLive = (key: string): boolean => {
-        if (key === 'btc') return true;
+        if (key === 'btc') return true; // Crypto: 24/7/365
+
+        const isHoliday = snapshot.marketStatus?.isHoliday || false;
 
         const now = new Date();
         const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
@@ -41,12 +49,32 @@ export const CustomTickerBar = memo(() => {
         const m = et.getMinutes();
         const timeDecimal = h + m / 60;
 
-        // VIX, SPX, RUT (Cash index / CBOE) — Mon-Fri 09:30-16:15 ET only
-        if (key === 'vix' || key === 'spx' || key === 'rut') {
+        // Cash index (VIX) — CBOE modified hours on holidays
+        if (key === 'vix') {
             if (day === 0 || day === 6) return false;
+            if (isHoliday) {
+                // CBOE holiday: modified session 09:30-13:00 ET (early close ~1pm)
+                return timeDecimal >= 9.5 && timeDecimal < 13;
+            }
             return timeDecimal >= 9.5 && timeDecimal < 16.25;
         }
 
+        // Bond market (US10Y/TNX) — fully closed on holidays & weekends
+        if (key === 'us10y') {
+            if (isHoliday || day === 0 || day === 6) return false;
+            return timeDecimal >= 8 && timeDecimal < 17.25;
+        }
+
+        // CME Futures (NQ, Gold, Oil) — modified hours on holidays
+        // Normal: Sun 6pm-Fri 5pm ET (nearly 24h with 1hr break 5-6pm daily)
+        // Holiday: Open Sun 6pm ET, close Mon ~1pm ET (early halt)
+        if (isHoliday) {
+            // Holiday Mon: CME opens Sun 6pm ET, closes Mon ~1pm ET
+            if (day === 1) return timeDecimal < 13; // Mon before 1pm ET
+            return false; // Other holiday weekdays (rare): assume closed
+        }
+
+        // Normal weekday/weekend schedule for CME futures
         if (day === 6) return false;
         if (day === 0) return timeDecimal >= 18;
         if (day === 5) return timeDecimal < 17;
@@ -202,32 +230,45 @@ export const CustomTickerBar = memo(() => {
 
     return (
         <div className="w-full h-[30px] bg-[#131722] overflow-hidden relative z-40">
-            {/* Inline CSS for tick-flash keyframes */}
+            {/* Inline CSS for TradingView-style tick flash (text color only) */}
             <style>{`
                 @keyframes tickFlashUp {
-                    0% { background-color: rgba(8, 153, 129, 0.35); }
-                    100% { background-color: transparent; }
+                    0% { color: #26a69a; }
+                    100% { color: #d1d4dc; }
                 }
                 @keyframes tickFlashDown {
-                    0% { background-color: rgba(242, 54, 69, 0.35); }
-                    100% { background-color: transparent; }
+                    0% { color: #ef5350; }
+                    100% { color: #d1d4dc; }
                 }
                 .tick-flash-up {
-                    animation: tickFlashUp 0.7s ease-out forwards;
+                    animation: tickFlashUp 0.8s ease-out forwards;
                 }
                 .tick-flash-down {
-                    animation: tickFlashDown 0.7s ease-out forwards;
+                    animation: tickFlashDown 0.8s ease-out forwards;
+                }
+                @keyframes tickFlashUpPct {
+                    0% { color: #4aedc4; }
+                    100% { color: #089981; }
+                }
+                @keyframes tickFlashDownPct {
+                    0% { color: #ff7b7b; }
+                    100% { color: #f23645; }
+                }
+                .tick-flash-up-pct {
+                    animation: tickFlashUpPct 0.8s ease-out forwards;
+                }
+                .tick-flash-down-pct {
+                    animation: tickFlashDownPct 0.8s ease-out forwards;
                 }
             `}</style>
             <div className="h-full flex items-center justify-evenly gap-0">
                 {items.map((item, idx) => {
                     const flash = flashStates[item.key];
-                    const flashClass = flash === 'up' ? 'tick-flash-up' : flash === 'down' ? 'tick-flash-down' : '';
 
                     return (
                         <div
                             key={item.key}
-                            className={`flex items-center gap-[6px] h-full px-4 transition-colors ${flashClass}`}
+                            className="flex items-center gap-[6px] h-full px-4"
                             style={{
                                 borderRight: idx < items.length - 1 ? '1px solid #2a2e39' : 'none'
                             }}
@@ -267,24 +308,23 @@ export const CustomTickerBar = memo(() => {
                                 {item.label}
                             </span>
 
-                            {/* Value — flash text color briefly */}
+                            {/* Value — TradingView-style flash on text only */}
                             <span
-                                className="tabular-nums shrink-0"
+                                className={`tabular-nums shrink-0 ${flash === 'up' ? 'tick-flash-up' : flash === 'down' ? 'tick-flash-down' : ''}`}
                                 style={{
                                     fontSize: '12px',
                                     fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif',
                                     fontWeight: 400,
-                                    color: flash === 'up' ? '#26a69a' : flash === 'down' ? '#ef5350' : '#d1d4dc',
-                                    transition: 'color 0.3s ease'
+                                    color: '#d1d4dc'
                                 }}
                             >
                                 {formatValue(item)}
                             </span>
 
-                            {/* Change % */}
+                            {/* Change % — brighter flash then settle to base color */}
                             {item.change !== null && (
                                 <span
-                                    className="tabular-nums shrink-0"
+                                    className={`tabular-nums shrink-0 ${flash === 'up' ? 'tick-flash-up-pct' : flash === 'down' ? 'tick-flash-down-pct' : ''}`}
                                     style={{
                                         fontSize: '12px',
                                         fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif',

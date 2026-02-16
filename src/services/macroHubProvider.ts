@@ -59,7 +59,7 @@ export interface MacroSnapshot {
     };
 }
 
-const CACHE_TTL_MS = 120000; // 2 min cache
+const CACHE_TTL_MS = 60000; // 1 min cache (matches Yahoo rate limit)
 let cache: { data: MacroSnapshot | null; expiry: number; fetchedAt: number } = { data: null, expiry: 0, fetchedAt: 0 };
 
 const SYMBOLS = {
@@ -303,7 +303,7 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         symbolUsed: vixData.source === "YAHOO" ? "^VIX" : vixData.source
     };
 
-    // S&P 500 from Yahoo ^GSPC
+    // S&P 500 from Yahoo ES=F (E-mini futures)
     const spxData = yahooData.spx;
     const spx: MacroFactor = {
         level: spxData.price,
@@ -312,7 +312,7 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         label: "S&P 500",
         source: spxData.source === "YAHOO" ? "MASSIVE" : spxData.source === "REDIS" ? "FRED" : "FAIL",
         status: spxData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
-        symbolUsed: "^GSPC"
+        symbolUsed: "ES=F"
     };
 
     // Bitcoin from Yahoo BTC-USD
@@ -351,7 +351,7 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         symbolUsed: "CL=F"
     };
 
-    // Russell 2000 from Yahoo ^RUT
+    // Russell 2000 from Yahoo RTY=F (E-mini futures)
     const rutData = yahooData.rut;
     const rut: MacroFactor = {
         level: rutData.price,
@@ -360,7 +360,7 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         label: "Russell 2K",
         source: rutData.source === "YAHOO" ? "MASSIVE" : rutData.source === "REDIS" ? "FRED" : "FAIL",
         status: rutData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
-        symbolUsed: "^RUT"
+        symbolUsed: "RTY=F"
     };
 
     // [V7.0] US10Y: Yahoo ^TNX real-time, fallback to FED daily
