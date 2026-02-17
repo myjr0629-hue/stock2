@@ -1544,7 +1544,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className="h-[1px] flex-1 bg-indigo-500/50" />
                                                 <div className="flex flex-col items-center">
                                                     <div className="px-3 py-1 bg-indigo-600 rounded shadow-[0_0_15px_rgba(79,70,229,0.5)] border border-white/20 text-white font-black text-lg tracking-tight z-10 min-w-[100px] text-center">
-                                                        ${displayPrice}
+                                                        ${displayPrice.toFixed(2)}
                                                     </div>
                                                 </div>
                                                 <div className="h-[1px] flex-1 bg-indigo-500/50" />
