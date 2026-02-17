@@ -915,6 +915,7 @@ export async function getStockData(symbol: string, range: Range = "1d"): Promise
     change: isExtended ? (extChange || 0) : (regChange || 0),
     changePercent: isExtended ? (extChangePercent || 0) : (regChangePercent || 0),
     prevChangePercent, // [Phase 56]
+    prevClose, // [Fix] Enable prevClose dashed line in StockChart
     dayHigh: t?.day?.h, dayLow: t?.day?.l, volume: t?.day?.v, marketCap: 0,
     currency: "USD", history, rsi: rsi ?? undefined, return3d,
     extPrice, extChange, extChangePercent, session,
@@ -1168,6 +1169,8 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
         targetTradingDayET = yesterdayClassified.etDateYYYYMMDD;
         console.log(`[1D Chart] Overnight CLOSED - showing previous day: ${targetTradingDayET}`);
       }
+
+
 
       // Debug: Log unique dates in processed data
       const uniqueDates = [...new Set(processed.map((p: any) => p.etDate))] as string[];

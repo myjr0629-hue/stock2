@@ -1413,7 +1413,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 color={(displayChangePct || 0) >= 0 ? "#10b981" : "#f43f5e"}
                                                 ticker={ticker}
                                                 initialRange={range}
-                                                currentPrice={livePrice?.price || liveQuote?.prices?.lastTrade || displayPrice}
+                                                currentPrice={livePrice?.price || liveQuote?.prices?.lastTrade || activeExtPrice || displayPrice}
                                                 prevClose={liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose}
                                                 rsi={initialStockData.rsi}
                                                 return3d={initialStockData.return3d}
