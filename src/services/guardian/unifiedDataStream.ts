@@ -84,9 +84,9 @@ export interface GuardianContext {
     timestamp: string;
 }
 
-// === CACHE CONFIG ===
-let _cachedContext: GuardianContext | null = null;
-let _lastFetchTime = 0;
+// === CACHE CONFIG (per-locale to prevent AI text cross-contamination) ===
+const _cachedContext: Record<Locale, GuardianContext | null> = { ko: null, en: null, ja: null };
+const _lastFetchTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // [V8.1] Persistent AI verdict cache — file-based to survive server restarts
@@ -330,8 +330,8 @@ export class GuardianDataHub {
     static async getGuardianSnapshot(force: boolean = false, locale: Locale = 'ko'): Promise<GuardianContext> {
         const now = Date.now();
 
-        if (!force && _cachedContext && (now - _lastFetchTime < CACHE_TTL_MS)) {
-            return _cachedContext;
+        if (!force && _cachedContext[locale] && (now - _lastFetchTime[locale] < CACHE_TTL_MS)) {
+            return _cachedContext[locale]!;
         }
 
         console.log("[Guardian] Refreshing Context (Parallel Optimization)...");
@@ -719,8 +719,8 @@ export class GuardianDataHub {
             };
 
             if (!force) {
-                _cachedContext = context;
-                _lastFetchTime = now;
+                _cachedContext[locale] = context;
+                _lastFetchTime[locale] = now;
             }
 
             console.log("[Guardian] Context Refresh Complete.");
