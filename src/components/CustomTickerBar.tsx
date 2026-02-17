@@ -190,21 +190,29 @@ export const CustomTickerBar = memo(() => {
 
         if (!hasAnyFlash) return;
 
-        // Apply flash
-        setFlashStates(prev => ({ ...prev, ...newFlashes }));
+        // ─────── Staggered Flash: random delay per ticker ───────
+        // Instead of flashing all at once, each ticker fires with a random
+        // delay (0-1200ms) so it feels like live data streaming in sequentially.
+        const keys = Object.keys(newFlashes);
+        const timers: ReturnType<typeof setTimeout>[] = [];
 
-        // Clear flash after 700ms (TradingView-style quick fade)
-        const timer = setTimeout(() => {
-            setFlashStates(prev => {
-                const cleared = { ...prev };
-                for (const key of Object.keys(newFlashes)) {
-                    cleared[key] = null;
-                }
-                return cleared;
-            });
-        }, 700);
+        keys.forEach((key) => {
+            const delay = Math.random() * 1200; // 0~1.2s stagger
 
-        return () => clearTimeout(timer);
+            // Apply flash after random delay
+            const applyTimer = setTimeout(() => {
+                setFlashStates(prev => ({ ...prev, [key]: newFlashes[key] }));
+
+                // Clear this specific flash 700ms after it appeared
+                const clearTimer = setTimeout(() => {
+                    setFlashStates(prev => ({ ...prev, [key]: null }));
+                }, 700);
+                timers.push(clearTimer);
+            }, delay);
+            timers.push(applyTimer);
+        });
+
+        return () => timers.forEach(t => clearTimeout(t));
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [snapshot, loading]);
 
