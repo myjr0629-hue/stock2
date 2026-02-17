@@ -1,6 +1,6 @@
 "use client";
 
-import React, { memo, useRef, useEffect, useState } from 'react';
+import React, { memo, useRef, useEffect, useState, useCallback } from 'react';
 import { useMacroSnapshot } from '@/hooks/useMacroSnapshot';
 
 interface TickerItem {
@@ -13,18 +13,28 @@ interface TickerItem {
     isLive?: boolean; // Show pulsing dot for actively trading assets
 }
 
+// ── Symbol map for individual ticker polling ──
+const TICKER_SYMBOLS: Record<string, string> = {
+    nq: 'NQ=F', spx: 'ES=F', us10y: '^TNX', vix: '^VIX',
+    rut: 'RTY=F', btc: 'BTC-USD', gold: 'GC=F', oil: 'CL=F'
+};
+const TICKER_KEYS = Object.keys(TICKER_SYMBOLS);
+const POLL_INTERVAL_MS = 7000; // 7s between each ticker fetch
+
 /**
  * CustomTickerBar — TradingView-style ticker bar with tick flash
  * 
  * Features:
- * - Real-time market session detection per asset
- * - TradingView-style green/red flash on price change
+ * - Random-order individual ticker polling (7s intervals)
+ * - TradingView-style green/red background flash on price change
  * - Pulsing live dot for active markets
  */
 export const CustomTickerBar = memo(() => {
     const { snapshot, loading } = useMacroSnapshot();
     const prevValuesRef = useRef<Record<string, { value: number | null; change: number | null }>>({});
     const [flashStates, setFlashStates] = useState<Record<string, 'up' | 'down' | null>>({});
+    const [tickerOverrides, setTickerOverrides] = useState<Record<string, { value: number; change: number }>>({});
+    const pollQueueRef = useRef<string[]>([]);
 
     /**
      * isMarketLive — checks if a given market is currently in a live trading session.
@@ -91,29 +101,33 @@ export const CustomTickerBar = memo(() => {
         return timeDecimal < 17 || timeDecimal >= 18;      // Mon-Thu: 1hr break 17-18
     };
 
+    // Helper: use override value if available (from individual polling), else snapshot
+    const v = (key: string, snapshotVal: number | null) => tickerOverrides[key]?.value ?? snapshotVal;
+    const c = (key: string, snapshotChg: number | null) => tickerOverrides[key]?.change ?? snapshotChg;
+
     const items: TickerItem[] = [
         {
             key: 'nq',
             label: 'NASDAQ 100',
             logoUrl: 'https://s3-symbol-logo.tradingview.com/indices/nasdaq-100.svg',
-            value: snapshot.factors.nasdaq100.level,
-            change: snapshot.factors.nasdaq100.chgPct ?? null,
+            value: v('nq', snapshot.factors.nasdaq100.level),
+            change: c('nq', snapshot.factors.nasdaq100.chgPct ?? null),
             isLive: snapshot.factors.nasdaq100.status === 'OK' && isMarketLive('nq')
         },
         {
             key: 'spx',
             label: 'S&P 500',
             logoUrl: 'https://s3-symbol-logo.tradingview.com/indices/s-and-p-500.svg',
-            value: snapshot.factors.spx.level,
-            change: snapshot.factors.spx.chgPct ?? null,
+            value: v('spx', snapshot.factors.spx.level),
+            change: c('spx', snapshot.factors.spx.chgPct ?? null),
             isLive: snapshot.factors.spx.status === 'OK' && isMarketLive('spx')
         },
         {
             key: 'us10y',
             label: 'US 10Y',
             logoUrl: 'https://s3-symbol-logo.tradingview.com/country/US.svg',
-            value: snapshot.factors.us10y.level,
-            change: snapshot.factors.us10y.chgPct ?? null,
+            value: v('us10y', snapshot.factors.us10y.level),
+            change: c('us10y', snapshot.factors.us10y.chgPct ?? null),
             isYield: true,
             isLive: snapshot.factors.us10y.status === 'OK' && isMarketLive('us10y')
         },
@@ -121,40 +135,40 @@ export const CustomTickerBar = memo(() => {
             key: 'vix',
             label: 'VIX',
             logoUrl: 'https://s3-symbol-logo.tradingview.com/cboe-global-markets.svg',
-            value: snapshot.factors.vix.level,
-            change: snapshot.factors.vix.chgPct ?? null,
+            value: v('vix', snapshot.factors.vix.level),
+            change: c('vix', snapshot.factors.vix.chgPct ?? null),
             isLive: snapshot.factors.vix.status === 'OK' && isMarketLive('vix')
         },
         {
             key: 'rut',
             label: 'Russell 2K',
             logoUrl: 'https://s3-symbol-logo.tradingview.com/indices/russell-2000.svg',
-            value: snapshot.factors.rut.level,
-            change: snapshot.factors.rut.chgPct ?? null,
+            value: v('rut', snapshot.factors.rut.level),
+            change: c('rut', snapshot.factors.rut.chgPct ?? null),
             isLive: snapshot.factors.rut.status === 'OK' && isMarketLive('rut')
         },
         {
             key: 'btc',
             label: 'Bitcoin',
             logoUrl: 'https://s3-symbol-logo.tradingview.com/crypto/XTVCBTC.svg',
-            value: snapshot.factors.btc.level,
-            change: snapshot.factors.btc.chgPct ?? null,
+            value: v('btc', snapshot.factors.btc.level),
+            change: c('btc', snapshot.factors.btc.chgPct ?? null),
             isLive: snapshot.factors.btc.status === 'OK' && isMarketLive('btc')
         },
         {
             key: 'gold',
             label: 'Gold',
             logoUrl: 'https://s3-symbol-logo.tradingview.com/metal/gold.svg',
-            value: snapshot.factors.gold.level,
-            change: snapshot.factors.gold.chgPct ?? null,
+            value: v('gold', snapshot.factors.gold.level),
+            change: c('gold', snapshot.factors.gold.chgPct ?? null),
             isLive: snapshot.factors.gold.status === 'OK' && isMarketLive('gold')
         },
         {
             key: 'oil',
             label: 'Oil',
             logoUrl: 'https://s3-symbol-logo.tradingview.com/crude-oil.svg',
-            value: snapshot.factors.oil.level,
-            change: snapshot.factors.oil.chgPct ?? null,
+            value: v('oil', snapshot.factors.oil.level),
+            change: c('oil', snapshot.factors.oil.chgPct ?? null),
             isLive: snapshot.factors.oil.status === 'OK' && isMarketLive('oil')
         }
     ];
@@ -170,13 +184,10 @@ export const CustomTickerBar = memo(() => {
         for (const item of items) {
             const prev = prevValuesRef.current[item.key];
             if (prev && item.value !== null && prev.value !== null) {
-                // Detect value change (price tick)
                 if (item.value !== prev.value) {
                     newFlashes[item.key] = item.value > prev.value ? 'up' : 'down';
                     hasAnyFlash = true;
-                }
-                // Also detect change% shift (e.g. when price same but % changes due to rounding)
-                else if (item.change !== null && prev.change !== null && item.change !== prev.change) {
+                } else if (item.change !== null && prev.change !== null && item.change !== prev.change) {
                     newFlashes[item.key] = item.change > prev.change ? 'up' : 'down';
                     hasAnyFlash = true;
                 }
@@ -184,39 +195,74 @@ export const CustomTickerBar = memo(() => {
         }
 
         // Save current values for next comparison
-        const snapshot: Record<string, { value: number | null; change: number | null }> = {};
+        const vals: Record<string, { value: number | null; change: number | null }> = {};
         for (const item of items) {
-            snapshot[item.key] = { value: item.value, change: item.change };
+            vals[item.key] = { value: item.value, change: item.change };
         }
-        prevValuesRef.current = snapshot;
+        prevValuesRef.current = vals;
 
         if (!hasAnyFlash) return;
 
-        // ─────── Staggered Flash: random delay per ticker ───────
-        // Instead of flashing all at once, each ticker fires with a random
-        // delay (0-1200ms) so it feels like live data streaming in sequentially.
-        const keys = Object.keys(newFlashes);
-        const timers: ReturnType<typeof setTimeout>[] = [];
+        // Apply flash immediately (individual polling already staggers naturally)
+        setFlashStates(prev => ({ ...prev, ...newFlashes }));
 
-        keys.forEach((key) => {
-            const delay = Math.random() * 1200; // 0~1.2s stagger
+        // Clear each flash after 900ms
+        const timer = setTimeout(() => {
+            setFlashStates(prev => {
+                const next = { ...prev };
+                for (const key of Object.keys(newFlashes)) next[key] = null;
+                return next;
+            });
+        }, 900);
 
-            // Apply flash after random delay
-            const applyTimer = setTimeout(() => {
-                setFlashStates(prev => ({ ...prev, [key]: newFlashes[key] }));
-
-                // Clear this specific flash 700ms after it appeared
-                const clearTimer = setTimeout(() => {
-                    setFlashStates(prev => ({ ...prev, [key]: null }));
-                }, 700);
-                timers.push(clearTimer);
-            }, delay);
-            timers.push(applyTimer);
-        });
-
-        return () => timers.forEach(t => clearTimeout(t));
+        return () => clearTimeout(timer);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [snapshot, loading]);
+    }, [snapshot, tickerOverrides, loading]);
+
+    // ─────── Random-Order Individual Ticker Polling ───────
+    // Polls one ticker every 7s in random order. When the queue is empty,
+    // re-shuffles all 8 and starts again. Creates a continuous live-data feel.
+    useEffect(() => {
+        if (loading) return;
+
+        const fetchNextTicker = async () => {
+            // Refill & shuffle when queue is empty
+            if (pollQueueRef.current.length === 0) {
+                const shuffled = [...TICKER_KEYS];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                pollQueueRef.current = shuffled;
+            }
+
+            const key = pollQueueRef.current.shift()!;
+            const symbol = TICKER_SYMBOLS[key];
+
+            try {
+                const res = await fetch(`/api/market/ticker?s=${encodeURIComponent(symbol)}`);
+                if (!res.ok) return;
+                const data = await res.json();
+                if (data.price != null) {
+                    setTickerOverrides(prev => ({
+                        ...prev,
+                        [key]: { value: data.price, change: data.changePct }
+                    }));
+                }
+            } catch {
+                // Silently skip on error — next cycle will retry
+            }
+        };
+
+        // Start first fetch after a short delay
+        const initialTimer = setTimeout(fetchNextTicker, 2000);
+        const interval = setInterval(fetchNextTicker, POLL_INTERVAL_MS);
+
+        return () => {
+            clearTimeout(initialTimer);
+            clearInterval(interval);
+        };
+    }, [loading]);
 
     const formatValue = (item: TickerItem): string => {
         if (item.value === null) return '—';
@@ -248,35 +294,51 @@ export const CustomTickerBar = memo(() => {
 
     return (
         <div className="w-full h-[30px] bg-[#131722] overflow-hidden relative z-40">
-            {/* Inline CSS for TradingView-style tick flash (text color only) */}
+            {/* TradingView-style tick flash: background pulse + text color */}
             <style>{`
-                @keyframes tickFlashUp {
-                    0% { color: #26a69a; }
+                @keyframes tvFlashUpBg {
+                    0% { background-color: rgba(38,166,154,0.35); }
+                    100% { background-color: transparent; }
+                }
+                @keyframes tvFlashDownBg {
+                    0% { background-color: rgba(239,83,80,0.35); }
+                    100% { background-color: transparent; }
+                }
+                @keyframes tvFlashUpText {
+                    0% { color: #4aedc4; }
+                    50% { color: #26a69a; }
                     100% { color: #d1d4dc; }
                 }
-                @keyframes tickFlashDown {
-                    0% { color: #ef5350; }
+                @keyframes tvFlashDownText {
+                    0% { color: #ff7b7b; }
+                    50% { color: #ef5350; }
                     100% { color: #d1d4dc; }
                 }
-                .tick-flash-up {
-                    animation: tickFlashUp 0.8s ease-out forwards;
-                }
-                .tick-flash-down {
-                    animation: tickFlashDown 0.8s ease-out forwards;
-                }
-                @keyframes tickFlashUpPct {
+                @keyframes tvFlashUpPct {
                     0% { color: #4aedc4; }
                     100% { color: #089981; }
                 }
-                @keyframes tickFlashDownPct {
+                @keyframes tvFlashDownPct {
                     0% { color: #ff7b7b; }
                     100% { color: #f23645; }
                 }
-                .tick-flash-up-pct {
-                    animation: tickFlashUpPct 0.8s ease-out forwards;
+                .tv-flash-up-bg {
+                    animation: tvFlashUpBg 0.9s ease-out forwards;
                 }
-                .tick-flash-down-pct {
-                    animation: tickFlashDownPct 0.8s ease-out forwards;
+                .tv-flash-down-bg {
+                    animation: tvFlashDownBg 0.9s ease-out forwards;
+                }
+                .tv-flash-up-text {
+                    animation: tvFlashUpText 0.9s ease-out forwards;
+                }
+                .tv-flash-down-text {
+                    animation: tvFlashDownText 0.9s ease-out forwards;
+                }
+                .tv-flash-up-pct {
+                    animation: tvFlashUpPct 0.9s ease-out forwards;
+                }
+                .tv-flash-down-pct {
+                    animation: tvFlashDownPct 0.9s ease-out forwards;
                 }
             `}</style>
             <div className="h-full flex items-center justify-evenly gap-0">
@@ -286,9 +348,10 @@ export const CustomTickerBar = memo(() => {
                     return (
                         <div
                             key={item.key}
-                            className="flex items-center gap-[6px] h-full px-4"
+                            className={`flex items-center gap-[6px] h-full px-4 ${flash === 'up' ? 'tv-flash-up-bg' : flash === 'down' ? 'tv-flash-down-bg' : ''}`}
                             style={{
-                                borderRight: idx < items.length - 1 ? '1px solid #2a2e39' : 'none'
+                                borderRight: idx < items.length - 1 ? '1px solid #2a2e39' : 'none',
+                                transition: 'background-color 0.15s'
                             }}
                         >
                             {/* Live Pulse Dot */}
@@ -326,9 +389,9 @@ export const CustomTickerBar = memo(() => {
                                 {item.label}
                             </span>
 
-                            {/* Value — TradingView-style flash on text only */}
+                            {/* Value — TradingView-style text + background flash */}
                             <span
-                                className={`tabular-nums shrink-0 ${flash === 'up' ? 'tick-flash-up' : flash === 'down' ? 'tick-flash-down' : ''}`}
+                                className={`tabular-nums shrink-0 ${flash === 'up' ? 'tv-flash-up-text' : flash === 'down' ? 'tv-flash-down-text' : ''}`}
                                 style={{
                                     fontSize: '12px',
                                     fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif',
@@ -342,7 +405,7 @@ export const CustomTickerBar = memo(() => {
                             {/* Change % — brighter flash then settle to base color */}
                             {item.change !== null && (
                                 <span
-                                    className={`tabular-nums shrink-0 ${flash === 'up' ? 'tick-flash-up-pct' : flash === 'down' ? 'tick-flash-down-pct' : ''}`}
+                                    className={`tabular-nums shrink-0 ${flash === 'up' ? 'tv-flash-up-pct' : flash === 'down' ? 'tv-flash-down-pct' : ''}`}
                                     style={{
                                         fontSize: '12px',
                                         fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif',
