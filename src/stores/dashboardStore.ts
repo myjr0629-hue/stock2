@@ -73,8 +73,10 @@ interface MarketData {
 interface Signal {
     time: string;
     ticker: string;
-    type: 'SQUEEZE' | 'WHALE' | 'HOT' | 'ALERT';
+    type: 'SQUEEZE' | 'WHALE' | 'HOT' | 'ALERT' | 'BUY' | 'SELL';
     message: string;
+    messageKey?: string;
+    params?: Record<string, any>;
 }
 
 interface DashboardState {

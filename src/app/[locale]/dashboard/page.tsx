@@ -997,8 +997,35 @@ function MainChartPanel() {
 }
 
 // Signal Feed Item - Glassmorphism with Logo
-// [LOCALIZATION] Format time based on user's locale
-function SignalItem({ signal, locale }: { signal: { time: string; ticker: string; type: string; message: string }, locale: string }) {
+// [LOCALIZATION] i18n signal messages via messageKey + params
+// [TYPOGRAPHY] Min font size 11px, font-jakarta for consistency
+
+// Signal message translation map (ko/en/ja)
+const SIGNAL_MESSAGES: Record<string, Record<string, string>> = {
+    signalBuyPutFloor: { ko: '지지선 매수 기회 (Put Floor ${putFloor})', en: 'Support Buy Opportunity (Put Floor ${putFloor})', ja: 'サポートライン買い機会 (Put Floor ${putFloor})' },
+    signalBuyCallBullish: { ko: '콜 강세 (PCR ${pcr}) - 상승 추세', en: 'Call Bullish (PCR ${pcr}) - Uptrend', ja: 'コール強気 (PCR ${pcr}) - 上昇トレンド' },
+    signalSellCallWall: { ko: '저항선 도달 - 익절 고려 (Call Wall ${callWall})', en: 'Resistance Hit - Take Profit (Call Wall ${callWall})', ja: '抵抗線到達 - 利確検討 (Call Wall ${callWall})' },
+    signalSellPutHedge: { ko: '풋 헤징 증가 (PCR ${pcr}) - 하락 주의', en: 'Put Hedging Rising (PCR ${pcr}) - Caution', ja: 'プットヘッジ増加 (PCR ${pcr}) - 下落注意' },
+    signalWhaleGex: { ko: '${size} 고래 GEX (${gex})', en: '${size} Whale GEX (${gex})', ja: '${size} クジラ GEX (${gex})' },
+    signalGammaSqueeze: { ko: '🔥 감마 스퀴즈 - 급등 임박!', en: '🔥 Gamma Squeeze - Surge Imminent!', ja: '🔥 ガンマスクイーズ - 急騰間近！' },
+    signalHighIv: { ko: '📈 고변동성 (IV ${iv}%) - 큰 움직임 예상', en: '📈 High Volatility (IV ${iv}%) - Big Move Expected', ja: '📈 高ボラティリティ (IV ${iv}%) - 大きな動き予想' },
+    signalCallWallBreak: { ko: '🚀 Call Wall 돌파 ($${callWall}) - 신규 고점', en: '🚀 Call Wall Break ($${callWall}) - New High', ja: '🚀 Call Wall 突破 ($${callWall}) - 新高値' },
+    signalPutFloorBreak: { ko: '💥 Put Floor 이탈 ($${putFloor}) - 손절 고려', en: '💥 Put Floor Break ($${putFloor}) - Stop Loss', ja: '💥 Put Floor 割れ ($${putFloor}) - 損切り検討' },
+    signalDarkPool: { ko: '🏦 Dark Pool 집중 (${pct}%) - 기관 대량 거래', en: '🏦 Dark Pool Focus (${pct}%) - Institutional Block', ja: '🏦 Dark Pool 集中 (${pct}%) - 機関大口取引' },
+    signalShortVol: { ko: '📉 Short Vol 급증 (${pct}%) - 공매도 공세', en: '📉 Short Vol Surge (${pct}%) - Bearish Pressure', ja: '📉 Short Vol 急増 (${pct}%) - 空売り攻勢' },
+    signalImpliedMove: { ko: '⚡ Implied Move ±${pct}% - 대폭 변동 예상', en: '⚡ Implied Move ±${pct}% - Major Swing Expected', ja: '⚡ Implied Move ±${pct}% - 大幅変動予想' },
+};
+
+function translateSignalMessage(signal: { message: string; messageKey?: string; params?: Record<string, any> }, locale: string): string {
+    if (!signal.messageKey || !SIGNAL_MESSAGES[signal.messageKey]) {
+        return signal.message; // Fallback to raw message
+    }
+    const template = SIGNAL_MESSAGES[signal.messageKey][locale] || SIGNAL_MESSAGES[signal.messageKey].en || signal.message;
+    if (!signal.params) return template;
+    return template.replace(/\$\{(\w+)\}/g, (_, key) => String(signal.params?.[key] ?? key));
+}
+
+function SignalItem({ signal, locale }: { signal: { time: string; ticker: string; type: string; message: string; messageKey?: string; params?: Record<string, any> }, locale: string }) {
     const styles: Record<string, { card: string; bar: string; text: string }> = {
         BUY: {
             card: 'bg-emerald-500/10 border-emerald-500/30',
@@ -1031,6 +1058,9 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
         minute: '2-digit'
     });
 
+    // Translate message based on locale
+    const translatedMessage = translateSignalMessage(signal, locale);
+
     return (
         <div className={`relative p-2.5 rounded-lg border backdrop-blur-sm ${style.card}`}>
             {/* Left accent bar */}
@@ -1047,13 +1077,13 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                 </div>
-                <span className="font-semibold text-xs text-white">{signal.ticker}</span>
-                <span className={`text-[9px] font-medium ${style.text}`}>{signal.type}</span>
-                <span className="text-[9px] text-white/70 ml-auto">{formattedTime}</span>
+                <span className="font-jakarta font-semibold text-xs text-white">{signal.ticker}</span>
+                <span className={`text-[11px] font-jakarta font-bold ${style.text}`}>{signal.type}</span>
+                <span className="text-[11px] font-jakarta text-white/70 ml-auto">{formattedTime}</span>
             </div>
 
             {/* Message */}
-            <p className="text-[11px] text-white leading-relaxed pl-2">{signal.message}</p>
+            <p className="text-xs font-jakarta text-white leading-snug pl-2">{translatedMessage}</p>
         </div>
     );
 }
