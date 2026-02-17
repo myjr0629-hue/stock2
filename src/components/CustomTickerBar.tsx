@@ -29,12 +29,22 @@ export const CustomTickerBar = memo(() => {
     /**
      * isMarketLive — checks if a given market is currently in a live trading session.
      * All times are evaluated in US Eastern Time (ET).
-     * 
-     * Holiday behavior per asset type:
-     * - Cash indices (VIX, SPX, RUT): CBOE modified hours — 9:30 AM to ~1 PM ET
-     * - Bonds (US10Y/TNX): Fully closed on US holidays
-     * - CME futures (NQ, Gold, Oil): Modified hours — open Sun 6pm ET, close Mon ~1pm ET
-     * - Crypto (BTC): 24/7/365
+     *
+     * Data source → trading hours mapping:
+     * - BTC (BTC-USD):    Crypto — 24/7/365
+     * - VIX (^VIX):       CBOE extended hours — 3:00 AM–4:15 PM ET weekdays
+     * - US10Y (^TNX):     Bond market — 8:00 AM–5:15 PM ET weekdays
+     * - NQ (NQ=F):        CME Equity Index futures
+     * - SPX (ES=F):       CME Equity Index futures   ← NOT cash index!
+     * - RUT (RTY=F):      CME Equity Index futures   ← NOT cash index!
+     * - Gold (GC=F):      CME/COMEX futures
+     * - Oil (CL=F):       CME/NYMEX futures
+     *
+     * CME Globex normal hours: Sun 18:00 → Fri 17:00 ET (1hr break 17:00-18:00 Mon-Thu)
+     * CME holiday hours: halt early then reopen 18:00 ET
+     *   - Equity Index (NQ, ES, RTY): halt 13:00
+     *   - Energy (CL): halt 13:00
+     *   - Gold (GC/COMEX): halt 13:45
      */
     const isMarketLive = (key: string): boolean => {
         if (key === 'btc') return true; // Crypto: 24/7/365
@@ -44,49 +54,41 @@ export const CustomTickerBar = memo(() => {
         const now = new Date();
         const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
         const et = new Date(etStr);
-        const day = et.getDay();
+        const day = et.getDay(); // 0=Sun .. 6=Sat
         const h = et.getHours();
         const m = et.getMinutes();
         const timeDecimal = h + m / 60;
 
-        // Cash index (VIX) — CBOE modified hours on holidays
+        // ── VIX (^VIX) — CBOE extended hours ──
+        // CBOE calculates VIX from ~3:00 AM to 4:15 PM ET on trading days.
         if (key === 'vix') {
             if (day === 0 || day === 6) return false;
-            if (isHoliday) {
-                // CBOE holiday: modified session 09:30-13:00 ET (early close ~1pm)
-                return timeDecimal >= 9.5 && timeDecimal < 13;
-            }
-            return timeDecimal >= 9.5 && timeDecimal < 16.25;
+            if (isHoliday) return timeDecimal >= 3 && timeDecimal < 13; // holiday early close ~1pm
+            return timeDecimal >= 3 && timeDecimal < 16.25;
         }
 
-        // Cash indices (SPX, RUT) — regular stock market hours, fully closed on holidays & weekends
-        if (key === 'spx' || key === 'rut') {
-            if (isHoliday || day === 0 || day === 6) return false;
-            return timeDecimal >= 9.5 && timeDecimal < 16;
-        }
-
-        // Bond market (US10Y/TNX) — fully closed on holidays & weekends
+        // ── US10Y (^TNX) — Bond market ──
+        // SIFMA bond hours: 8:00 AM – 5:15 PM ET weekdays, fully closed holidays
         if (key === 'us10y') {
             if (isHoliday || day === 0 || day === 6) return false;
             return timeDecimal >= 8 && timeDecimal < 17.25;
         }
 
-        // CME Futures — per-product holiday hours (all times ET)
-        // Each product halts early then reopens at 18:00 ET for next day's session.
-        //   Gold (COMEX): halt 13:45, reopen 18:00
-        //   Equity Index (NQ): halt 13:00, reopen 18:00
-        //   Energy (Oil/NYMEX): halt 13:00, reopen 18:00
+        // ── CME Futures (NQ=F, ES=F, RTY=F, GC=F, CL=F) ──
+        // All remaining keys: nq, spx, rut, gold, oil → CME Globex hours
+
+        // Holiday schedule: halt early, reopen at 18:00 ET
         if (isHoliday) {
             if (day === 0 || day === 6) return false;
-            const haltTime = key === 'gold' ? 13.75 : 13; // Gold halts 13:45, others 13:00
+            const haltTime = key === 'gold' ? 13.75 : 13; // Gold 13:45, others 13:00
             return timeDecimal < haltTime || timeDecimal >= 18;
         }
 
-        // Normal weekday/weekend schedule for CME futures
-        if (day === 6) return false;
-        if (day === 0) return timeDecimal >= 18;
-        if (day === 5) return timeDecimal < 17;
-        return timeDecimal < 17 || timeDecimal >= 18;
+        // Normal CME Globex: Sun 18:00 → Fri 17:00 (1hr daily break 17:00-18:00)
+        if (day === 6) return false;                       // Saturday: closed all day
+        if (day === 0) return timeDecimal >= 18;           // Sunday: opens 18:00
+        if (day === 5) return timeDecimal < 17;            // Friday: closes 17:00
+        return timeDecimal < 17 || timeDecimal >= 18;      // Mon-Thu: 1hr break 17-18
     };
 
     const items: TickerItem[] = [
