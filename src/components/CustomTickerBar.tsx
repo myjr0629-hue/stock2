@@ -59,19 +59,27 @@ export const CustomTickerBar = memo(() => {
             return timeDecimal >= 9.5 && timeDecimal < 16.25;
         }
 
+        // Cash indices (SPX, RUT) — regular stock market hours, fully closed on holidays & weekends
+        if (key === 'spx' || key === 'rut') {
+            if (isHoliday || day === 0 || day === 6) return false;
+            return timeDecimal >= 9.5 && timeDecimal < 16;
+        }
+
         // Bond market (US10Y/TNX) — fully closed on holidays & weekends
         if (key === 'us10y') {
             if (isHoliday || day === 0 || day === 6) return false;
             return timeDecimal >= 8 && timeDecimal < 17.25;
         }
 
-        // CME Futures (NQ, Gold, Oil) — modified hours on holidays
-        // Normal: Sun 6pm-Fri 5pm ET (nearly 24h with 1hr break 5-6pm daily)
-        // Holiday: Open Sun 6pm ET, close Mon ~1pm ET (early halt)
+        // CME Futures — per-product holiday hours (all times ET)
+        // Each product halts early then reopens at 18:00 ET for next day's session.
+        //   Gold (COMEX): halt 13:45, reopen 18:00
+        //   Equity Index (NQ): halt 13:00, reopen 18:00
+        //   Energy (Oil/NYMEX): halt 13:00, reopen 18:00
         if (isHoliday) {
-            // Holiday Mon: CME opens Sun 6pm ET, closes Mon ~1pm ET
-            if (day === 1) return timeDecimal < 13; // Mon before 1pm ET
-            return false; // Other holiday weekdays (rare): assume closed
+            if (day === 0 || day === 6) return false;
+            const haltTime = key === 'gold' ? 13.75 : 13; // Gold halts 13:45, others 13:00
+            return timeDecimal < haltTime || timeDecimal >= 18;
         }
 
         // Normal weekday/weekend schedule for CME futures
