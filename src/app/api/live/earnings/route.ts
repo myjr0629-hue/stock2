@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
             if (daysUntilEarnings < 0) {
                 daysLabel = `D+${Math.abs(daysUntilEarnings)}`;
             } else if (daysUntilEarnings === 0) {
-                daysLabel = '오늘';
+                daysLabel = 'today';
             } else {
                 daysLabel = `D-${daysUntilEarnings}`;
             }
@@ -80,10 +80,9 @@ export async function GET(req: NextRequest) {
             if (daysUntilEarnings < 0) color = 'text-slate-500';
         }
 
-        // Time of day (bmo = before market, amc = after market close)
-        const hourLabel = targetEarnings?.hour === 'bmo' ? '시장 전' :
-            targetEarnings?.hour === 'amc' ? '마감 후' :
-                targetEarnings?.hour === 'dmh' ? '장중' : '';
+        // Time of day code (bmo = before market open, amc = after market close, dmh = during market hours)
+        const hourCode = targetEarnings?.hour || '';
+        const hourLabel = hourCode; // Raw code — client translates per locale
 
         return NextResponse.json({
             ticker: tickerUpper,

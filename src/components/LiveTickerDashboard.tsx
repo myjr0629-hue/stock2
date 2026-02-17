@@ -1327,7 +1327,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
                                     <span className="text-lg font-black text-white leading-none">{earningsData?.nextDate ? new Date(earningsData.nextDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}</span>
-                                    {earningsData?.hourLabel && <span className="text-[11px] text-amber-400 font-bold">{earningsData.hourLabel}</span>}
+                                    {earningsData?.hourLabel && <span className="text-[11px] text-amber-400 font-bold">{earningsData.hourLabel === 'bmo' ? td('earnBeforeMarket') : earningsData.hourLabel === 'amc' ? td('earnAfterMarket') : earningsData.hourLabel === 'dmh' ? td('earnDuringMarket') : earningsData.hourLabel}</span>}
                                     {earnDesc && <span className="text-[11px] text-white ml-0.5">{earnDesc}</span>}
                                 </div>
                                 {earningsData?.epsEstimate !== null && earningsData?.epsEstimate !== undefined && (
@@ -1337,7 +1337,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                 )}
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">Earnings Calendar</span>
+                                    <span className="text-[11px] text-white">{td('earningsCalendar')}</span>
                                 </div>
                             </div>
                         );
