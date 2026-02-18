@@ -1,6 +1,7 @@
 // M7 Earnings Calendar Component - Infographic bg, compact 3-item
 'use client';
 import { useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { Calendar, Zap } from 'lucide-react';
 import { EarningsEvent } from '@/services/finnhubClient';
 
@@ -35,6 +36,7 @@ function CalendarBg() {
 }
 
 export function M7EarningsCalendar({ earnings }: M7EarningsCalendarProps) {
+    const ss = useTranslations('sectorSession');
     const upcoming = useMemo(() => {
         const today = new Date().toISOString().split('T')[0];
         return earnings
@@ -52,9 +54,9 @@ export function M7EarningsCalendar({ earnings }: M7EarningsCalendarProps) {
     };
 
     const formatHour = (hour: string) => {
-        if (hour === 'bmo') return '장전';
-        if (hour === 'amc') return '장후';
-        return '장중';
+        if (hour === 'bmo') return ss('preMarket');
+        if (hour === 'amc') return ss('afterMarket');
+        return ss('duringMarket');
     };
 
     if (upcoming.length === 0) {

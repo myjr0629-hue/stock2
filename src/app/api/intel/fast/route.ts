@@ -72,6 +72,31 @@ export async function GET(request: Request) {
             sRaw === 'regular' ? 'REG' :
                 sRaw === 'post' ? 'POST' : 'CLOSED';
 
+        // [FIX] During PRE session, fetch daily aggregates to calculate real regular session change
+        // Polygon snapshot's day.c === prevDay.c during PRE, making direct calculation impossible.
+        // Use historicalResults (like live/ticker API does) for accurate regular session change.
+        let aggMap: Record<string, { prevClose: number, prevPrevClose: number }> = {};
+        if (session === 'PRE') {
+            const aggResults = await Promise.all(
+                tickers.map(t =>
+                    fetchMassive(
+                        `/v2/aggs/ticker/${t}/range/1/day/${new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)}/${new Date().toISOString().slice(0, 10)}`,
+                        { adjusted: 'true', sort: 'desc', limit: '3' },
+                        false, undefined, CACHE_POLICY.LIVE
+                    ).catch(() => null)
+                )
+            );
+            aggResults.forEach((agg, i) => {
+                const results = agg?.results || [];
+                if (results.length >= 2) {
+                    aggMap[tickers[i]] = {
+                        prevClose: results[0].c || 0,
+                        prevPrevClose: results[1].c || 0,
+                    };
+                }
+            });
+        }
+
         // ── Phase 2: Build unified quotes ──
         const quotes = tickers.map((ticker, i) => {
             const snap = snapshotMap[ticker];
@@ -98,16 +123,18 @@ export async function GET(request: Request) {
 
             if (session === 'PRE') {
                 displayPrice = prevClose;
-                // Use todaysChangePerc (Polygon: last regular session change), then cached, then calculated
-                if (todaysChangePerc && todaysChangePerc !== 0) {
-                    displayChangePct = todaysChangePerc;
+                // [FIX] Use daily aggregates for accurate regular session change
+                // Priority: 1) daily aggs, 2) snapshot day.c diff, 3) cached prevChangePct, 4) 0
+                const agg = aggMap[ticker];
+                if (agg && agg.prevClose > 0 && agg.prevPrevClose > 0) {
+                    // Use historical aggregates: yesterday's close vs day-before-yesterday's close
+                    displayChangePct = ((agg.prevClose - agg.prevPrevClose) / agg.prevPrevClose) * 100;
+                } else if (todayClose > 0 && prevClose > 0 && todayClose !== prevClose) {
+                    displayChangePct = ((todayClose - prevClose) / prevClose) * 100;
                 } else if (cached?.prices?.prevChangePct) {
                     displayChangePct = cached.prices.prevChangePct;
                 } else {
-                    // Calculate from snapshot if possible: day.c vs prevDay.c may differ
-                    displayChangePct = (todayClose > 0 && prevClose > 0 && todayClose !== prevClose)
-                        ? ((todayClose - prevClose) / prevClose) * 100
-                        : 0;
+                    displayChangePct = 0;
                 }
             }
 

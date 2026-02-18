@@ -1,10 +1,11 @@
 // ============================================================================
 // SectorPulseDashboard V2 — 컴팩트 카드형 + 글래스모피즘
-// "누가 섹터를 주도하고, 누가 소외되었는가" — 한국어 해석 포함
+// "누가 섹터를 주도하고, 누가 소외되었는가" — i18n 지원
 // ============================================================================
 'use client';
 
 import { useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 import { Zap } from 'lucide-react';
 import type { SectorConfig } from '@/types/sector';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
@@ -23,29 +24,30 @@ function fmtGex(v: number): string {
     return v.toFixed(0);
 }
 
-// Korean interpretation helpers
-function pcrLabel(pcr: number): string {
-    if (pcr < 0.6) return '극강세';
-    if (pcr < 0.8) return '강세';
-    if (pcr < 1.0) return '중립';
-    if (pcr < 1.2) return '약세';
-    return '극약세';
-}
-
-function flowLabelKR(dir: string): string {
-    if (dir === 'CALL') return '콜 자금 유입';
-    if (dir === 'PUT') return '풋 헷지 우세';
-    return '방향성 없음';
-}
-
-function regimeLabelKR(regime: string): string {
-    if (regime === 'LONG') return '안정적 흐름';
-    if (regime === 'SHORT') return '변동성 확대 주의';
-    return '중립 구간';
-}
-
 export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardProps) {
+    const ss = useTranslations('sectorSession');
     const accentColor = config.theme.accentHex;
+
+    // i18n helper functions
+    const pcrLabel = (pcr: number): string => {
+        if (pcr < 0.6) return ss('pcrExtrBullish');
+        if (pcr < 0.8) return ss('pcrBullish');
+        if (pcr < 1.0) return ss('pcrNeutral');
+        if (pcr < 1.2) return ss('pcrBearish');
+        return ss('pcrExtrBearish');
+    };
+
+    const flowLabel = (dir: string): string => {
+        if (dir === 'CALL') return ss('callInflow');
+        if (dir === 'PUT') return ss('putHedgeDominant');
+        return ss('noDirection');
+    };
+
+    const regimeLabel = (regime: string): string => {
+        if (regime === 'LONG') return ss('regimeStable');
+        if (regime === 'SHORT') return ss('regimeVolWarning');
+        return ss('regimeNeutralZone');
+    };
 
     const analysis = useMemo(() => {
         if (quotes.length === 0) return null;
@@ -83,20 +85,20 @@ export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardPro
         const overallSentiment = avgPcr < 0.8 ? 'BULLISH' :
             avgPcr > 1.2 ? 'BEARISH' : 'NEUTRAL';
 
-        // Korean insight for footer
+        // i18n insight for footer
         const gexInsight = totalGex > 0
-            ? '딜러 롱감마 → 주가 안정 기여'
-            : '딜러 숏감마 → 변동성 확대 가능';
+            ? ss('dealerLongStable')
+            : ss('dealerShortVol');
         const pcrInsight = avgPcr < 0.8
-            ? '콜 옵션 우세 → 강세 포지셔닝'
+            ? ss('callOptDom')
             : avgPcr > 1.1
-                ? '풋 옵션 우세 → 약세/헷지 포지셔닝'
-                : '풋콜 균형 → 방향성 탐색 중';
+                ? ss('putOptDom')
+                : ss('pcrBalanced');
         const gammaInsight = gammaShort > gammaLong
-            ? `${gammaShort}종목 Short Gamma → 급변동 가능`
+            ? ss('gammaShortCount', { count: gammaShort })
             : gammaLong > 0
-                ? `${gammaLong}종목 Long Gamma → 안정적 흐름`
-                : '감마 환경 중립';
+                ? ss('gammaLongCount', { count: gammaLong })
+                : ss('gammaEnvNeutral');
 
         return {
             tickers,
@@ -112,20 +114,20 @@ export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardPro
             pcrInsight,
             gammaInsight,
         };
-    }, [quotes]);
+    }, [quotes, ss]);
 
     if (!analysis) {
         return (
             <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-4">
-                <div className="text-xs text-white/40">Loading flow data...</div>
+                <div className="text-xs text-white/40">{ss('loadingFlowData')}</div>
             </div>
         );
     }
 
     const sentimentColor = analysis.overallSentiment === 'BULLISH' ? '#10b981' :
         analysis.overallSentiment === 'BEARISH' ? '#f43f5e' : '#94a3b8';
-    const sentimentKR = analysis.overallSentiment === 'BULLISH' ? '강세' :
-        analysis.overallSentiment === 'BEARISH' ? '약세' : '중립';
+    const sentimentLabel = analysis.overallSentiment === 'BULLISH' ? ss('bullishLabel') :
+        analysis.overallSentiment === 'BEARISH' ? ss('bearishLabel') : ss('neutralLabel');
 
     return (
         <div className="bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-5 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
@@ -136,7 +138,7 @@ export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardPro
                         <Zap className="w-3.5 h-3.5" style={{ color: accentColor }} />
                     </div>
                     <span className="text-[11px] font-bold text-white/90 tracking-wider uppercase">
-                        {config.shortName} 자금 흐름
+                        {config.shortName} {ss('fundFlow')}
                     </span>
                 </div>
                 <span className="text-[10px] font-bold px-2.5 py-1 rounded-full backdrop-blur-md"
@@ -145,7 +147,7 @@ export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardPro
                         color: sentimentColor,
                         border: `1px solid ${sentimentColor}30`,
                     }}>
-                    {sentimentKR}
+                    {sentimentLabel}
                 </span>
             </div>
 
@@ -168,12 +170,12 @@ export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardPro
                                 <div className="flex items-center gap-2.5">
                                     <span className="text-xs font-black text-white/90 w-12">{t.ticker}</span>
                                     <span className={`text-[10px] font-semibold ${isCall ? 'text-emerald-400' : isPut ? 'text-rose-400' : 'text-slate-400'}`}>
-                                        {flowLabelKR(t.flowDirection)}
+                                        {flowLabel(t.flowDirection)}
                                     </span>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className="text-[10px] font-medium" style={{ color: regimeColor }}>
-                                        {regimeLabelKR(t.regime)}
+                                        {regimeLabel(t.regime)}
                                     </span>
                                     <span className="text-[10px] text-white/70 font-mono bg-white/[0.05] px-1.5 py-0.5 rounded">
                                         PCR {t.pcr.toFixed(2)} <span className={`${t.pcr < 0.8 ? 'text-emerald-400' : t.pcr > 1.1 ? 'text-rose-400' : 'text-white/40'}`}>({pcrLabel(t.pcr)})</span>
@@ -197,13 +199,13 @@ export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardPro
                 })}
             </div>
 
-            {/* ── Aggregate Footer (with Korean insights) ── */}
+            {/* ── Aggregate Footer ── */}
             <div className="border-t border-white/[0.06] pt-3">
                 <div className="grid grid-cols-3 gap-3">
                     {/* Total GEX */}
                     <div className="bg-white/[0.03] backdrop-blur-md rounded-lg p-3 border border-white/[0.05]">
                         <div className="flex items-center justify-between mb-1">
-                            <span className="text-[9px] text-white/40 font-bold uppercase">총 GEX</span>
+                            <span className="text-[9px] text-white/40 font-bold uppercase">{ss('totalGex')}</span>
                             <span className={`text-sm font-black ${analysis.totalGex > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {analysis.totalGex > 0 ? '+' : ''}{fmtGex(analysis.totalGex)}
                             </span>
@@ -214,7 +216,7 @@ export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardPro
                     {/* Avg PCR */}
                     <div className="bg-white/[0.03] backdrop-blur-md rounded-lg p-3 border border-white/[0.05]">
                         <div className="flex items-center justify-between mb-1">
-                            <span className="text-[9px] text-white/40 font-bold uppercase">평균 PCR</span>
+                            <span className="text-[9px] text-white/40 font-bold uppercase">{ss('avgPcr')}</span>
                             <span className={`text-sm font-black ${analysis.avgPcr < 0.8 ? 'text-emerald-400' : analysis.avgPcr > 1.1 ? 'text-rose-400' : 'text-white/80'}`}>
                                 {analysis.avgPcr.toFixed(2)}
                             </span>
@@ -225,7 +227,7 @@ export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardPro
                     {/* Gamma */}
                     <div className="bg-white/[0.03] backdrop-blur-md rounded-lg p-3 border border-white/[0.05]">
                         <div className="flex items-center justify-between mb-1">
-                            <span className="text-[9px] text-white/40 font-bold uppercase">감마 환경</span>
+                            <span className="text-[9px] text-white/40 font-bold uppercase">{ss('gammaEnv')}</span>
                             <div className="flex items-center gap-1.5">
                                 <span className="text-xs font-bold text-cyan-400">{analysis.gammaLong}L</span>
                                 <span className="text-[8px] text-white/20">/</span>

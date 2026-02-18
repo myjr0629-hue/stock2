@@ -524,7 +524,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                     <div className="grid grid-cols-4 gap-2">
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">총 GEX</span>
+                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">{ss('totalGex')}</span>
                                 <span className={`text-sm font-bold font-num ${stats.totalGex > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {stats.totalGex > 0 ? '+' : ''}{formatGex(stats.totalGex)}
                                 </span>
@@ -533,7 +533,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">평균 PCR</span>
+                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">{ss('avgPcr')}</span>
                                 <span className={`text-sm font-bold font-num ${stats.avgPcr < 0.8 ? 'text-emerald-400' : stats.avgPcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
                                     {stats.avgPcr.toFixed(2)}
                                 </span>
@@ -542,7 +542,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">감마</span>
+                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">{ss('gamma')}</span>
                                 <div className="flex items-center gap-1">
                                     <span className="text-sm font-bold font-num text-cyan-400">{stats.gammaLong}L</span>
                                     <span className="text-[10px] text-white/20">/</span>

@@ -5,6 +5,7 @@
 // ============================================================================
 'use client';
 import { useMemo, useEffect, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import { Calendar, Zap, RefreshCw } from 'lucide-react';
 import { EarningsEvent } from '@/services/finnhubClient';
 import type { SectorConfig } from '@/types/sector';
@@ -42,6 +43,7 @@ interface SectorEarningsCalendarProps {
 }
 
 export function SectorEarningsCalendar({ config, earnings: propEarnings }: SectorEarningsCalendarProps) {
+    const ss = useTranslations('sectorSession');
     const [fetchedEarnings, setFetchedEarnings] = useState<EarningsEvent[]>([]);
     const [loading, setLoading] = useState(!propEarnings);
 
@@ -87,9 +89,9 @@ export function SectorEarningsCalendar({ config, earnings: propEarnings }: Secto
     };
 
     const formatHour = (hour: string) => {
-        if (hour === 'bmo') return '장전';
-        if (hour === 'amc') return '장후';
-        return '장중';
+        if (hour === 'bmo') return ss('preMarket');
+        if (hour === 'amc') return ss('afterMarket');
+        return ss('duringMarket');
     };
 
     if (loading) {

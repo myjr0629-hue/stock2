@@ -55,13 +55,17 @@ export async function GET(request: Request) {
 
             const todaysChangePerc = S.todaysChangePerc || 0;
 
-            // [FIX] Use Polygon's todaysChangePerc first (reliable across all sessions),
-            // otherwise calculate from day close vs prev day close
+            // [FIX] During PRE session, todaysChangePerc = prevClose→PRE price change (NOT regular session change!)
+            // We need the REGULAR session change (day.c vs prevDay.c) for main display.
+            // todaysChangePerc is only correct during REG/POST/CLOSED sessions.
             const priceForChange = (session === 'regular' && liveLast > 0) ? liveLast : dayClose;
-            const calculatedChangePct = (priceForChange > 0 && prevDayClose > 0)
+            const calculatedChangePct = (priceForChange > 0 && prevDayClose > 0 && priceForChange !== prevDayClose)
                 ? ((priceForChange - prevDayClose) / prevDayClose) * 100
                 : 0;
-            const changePercent = (todaysChangePerc !== 0) ? todaysChangePerc : calculatedChangePct;
+            // For PRE: use calculated (day.c vs prevDay.c), for other sessions: prefer todaysChangePerc
+            const changePercent = (session === 'pre')
+                ? calculatedChangePct
+                : (todaysChangePerc !== 0 ? todaysChangePerc : calculatedChangePct);
 
             // Session-aware price & extended price selection
             let price = 0;

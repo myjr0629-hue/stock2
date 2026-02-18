@@ -166,7 +166,7 @@ export function useIntelSharedData(): IntelSharedData & { refresh: () => void } 
                     return {
                         ...q,
                         price: p.price,
-                        changePct: p.changePercent ?? q.changePct,
+                        changePct: p.changePercent || q.changePct,
                         prevClose: p.prevClose ?? q.prevClose,
                         volume: p.volume ?? q.volume,
                         extendedPrice: (p.extendedPrice && p.extendedPrice > 0) ? p.extendedPrice : q.extendedPrice,
