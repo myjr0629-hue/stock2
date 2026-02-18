@@ -115,38 +115,77 @@ interface RankItem {
 // ── SVG Infographic Backgrounds ──
 function MoneyFlowBg() {
     return (
-        <svg className="absolute inset-0 w-full h-full opacity-[0.03] pointer-events-none" viewBox="0 0 200 200" preserveAspectRatio="none">
-            <path d="M20 160 Q50 80 100 100 T180 60" stroke="currentColor" strokeWidth="2" fill="none" />
-            <path d="M20 170 Q60 100 110 120 T180 80" stroke="currentColor" strokeWidth="1" fill="none" opacity="0.5" />
-            <circle cx="100" cy="100" r="30" stroke="currentColor" strokeWidth="1" fill="none" opacity="0.3" />
-            <text x="145" y="50" fontSize="36" fill="currentColor" opacity="0.2" fontWeight="bold">$</text>
-            <rect x="15" y="155" width="8" height="35" rx="2" fill="currentColor" opacity="0.15" />
-            <rect x="30" y="135" width="8" height="55" rx="2" fill="currentColor" opacity="0.1" />
-            <rect x="45" y="145" width="8" height="45" rx="2" fill="currentColor" opacity="0.12" />
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="mfGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#34d399" stopOpacity="0.12" />
+                    <stop offset="100%" stopColor="#34d399" stopOpacity="0.02" />
+                </linearGradient>
+            </defs>
+            {/* Rising bar chart pattern */}
+            <rect x="20" y="120" width="16" height="45" rx="2" fill="url(#mfGrad)" />
+            <rect x="45" y="95" width="16" height="70" rx="2" fill="url(#mfGrad)" />
+            <rect x="70" y="70" width="16" height="95" rx="2" fill="url(#mfGrad)" />
+            <rect x="95" y="50" width="16" height="115" rx="2" fill="url(#mfGrad)" />
+            <rect x="120" y="30" width="16" height="135" rx="2" fill="url(#mfGrad)" />
+            <rect x="145" y="55" width="16" height="110" rx="2" fill="url(#mfGrad)" />
+            <rect x="170" y="40" width="16" height="125" rx="2" fill="url(#mfGrad)" />
+            {/* Trend line */}
+            <path d="M28 118 L53 93 L78 68 L103 48 L128 28 L153 53 L178 38" stroke="#34d399" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.08" />
+            {/* Dollar sign watermark */}
+            <text x="156" y="32" fontSize="30" fill="#34d399" opacity="0.05" fontWeight="bold">$</text>
         </svg>
     );
 }
 
 function SqueezeBg() {
     return (
-        <svg className="absolute inset-0 w-full h-full opacity-[0.03] pointer-events-none" viewBox="0 0 200 200" preserveAspectRatio="none">
-            <line x1="100" y1="20" x2="100" y2="180" stroke="currentColor" strokeWidth="2" strokeDasharray="6 4" />
-            <path d="M30 100 Q65 60 100 100 Q135 140 170 100" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            <path d="M30 100 Q65 140 100 100 Q135 60 170 100" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            <circle cx="100" cy="100" r="5" fill="currentColor" opacity="0.3" />
-            <text x="140" y="45" fontSize="28" fill="currentColor" opacity="0.2" fontWeight="bold">⚡</text>
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="sqGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.005" />
+                    <stop offset="80%" stopColor="#f59e0b" stopOpacity="0.07" />
+                </linearGradient>
+            </defs>
+            {/* Compression band fill */}
+            <path d="M10 20 L190 75 L190 105 L10 160 Z" fill="url(#sqGrad)" />
+            {/* Compression lines converging */}
+            <line x1="10" y1="20" x2="190" y2="75" stroke="#f59e0b" strokeWidth="1.5" opacity="0.08" />
+            <line x1="10" y1="160" x2="190" y2="105" stroke="#f59e0b" strokeWidth="1.5" opacity="0.08" />
+            <line x1="10" y1="40" x2="190" y2="80" stroke="#f59e0b" strokeWidth="1" opacity="0.04" />
+            <line x1="10" y1="140" x2="190" y2="100" stroke="#f59e0b" strokeWidth="1" opacity="0.04" />
+            {/* Explosion/burst at convergence point */}
+            <circle cx="190" cy="90" r="18" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3,3" opacity="0.07" />
+            <circle cx="190" cy="90" r="10" fill="#f59e0b" opacity="0.035" />
+            {/* Lightning bolt */}
+            <path d="M175 70 L182 86 L177 86 L184 106 L172 88 L178 88 Z" fill="#f59e0b" opacity="0.055" />
         </svg>
     );
 }
 
 function PainDivBg() {
     return (
-        <svg className="absolute inset-0 w-full h-full opacity-[0.03] pointer-events-none" viewBox="0 0 200 200" preserveAspectRatio="none">
-            <line x1="20" y1="100" x2="180" y2="100" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" />
-            <path d="M20 100 Q60 40 100 100 Q140 160 180 100" stroke="currentColor" strokeWidth="2" fill="none" />
-            <circle cx="100" cy="100" r="20" stroke="currentColor" strokeWidth="1" fill="none" opacity="0.3" />
-            <circle cx="100" cy="100" r="3" fill="currentColor" opacity="0.4" />
-            <text x="150" y="45" fontSize="24" fill="currentColor" opacity="0.2" fontWeight="bold">MP</text>
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="pdGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f87171" stopOpacity="0.055" />
+                    <stop offset="50%" stopColor="#f87171" stopOpacity="0.007" />
+                    <stop offset="100%" stopColor="#f87171" stopOpacity="0.055" />
+                </linearGradient>
+            </defs>
+            {/* Divergence fill between wave and center */}
+            <path d="M10 90 Q30 30 50 90 Q70 150 90 90 Q110 30 130 90 Q150 150 170 90 Q190 30 200 90 L200 180 L0 180 Z" fill="url(#pdGrad)" />
+            {/* Sine wave / oscillation pattern */}
+            <path d="M10 90 Q30 30 50 90 Q70 150 90 90 Q110 30 130 90 Q150 150 170 90 Q190 30 200 90" stroke="#f87171" strokeWidth="2" fill="none" opacity="0.07" />
+            {/* Center equilibrium line */}
+            <line x1="0" y1="90" x2="200" y2="90" stroke="#f87171" strokeWidth="0.8" strokeDasharray="6,4" opacity="0.055" />
+            {/* Target/bullseye */}
+            <circle cx="165" cy="45" r="20" fill="none" stroke="#f87171" strokeWidth="1" opacity="0.04" />
+            <circle cx="165" cy="45" r="12" fill="none" stroke="#f87171" strokeWidth="1" opacity="0.035" />
+            <circle cx="165" cy="45" r="4" fill="#f87171" opacity="0.04" />
+            {/* Divergence arrows */}
+            <path d="M35 90 L20 55" stroke="#f87171" strokeWidth="1.5" opacity="0.055" />
+            <path d="M35 90 L20 125" stroke="#f87171" strokeWidth="1.5" opacity="0.055" />
         </svg>
     );
 }
@@ -363,8 +402,8 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                                 <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
                             </div>
                             <div>
-                                <span className="text-[11px] font-bold text-white uppercase tracking-wider">{t.moneyFlow}</span>
-                                <span className="text-[9px] text-white ml-1.5">({t.moneyFlowSub})</span>
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">{t.moneyFlow}</span>
+                                <span className="text-[11px] text-white ml-1.5">({t.moneyFlowSub})</span>
                             </div>
                         </div>
                         {isLive ? (
@@ -391,8 +430,8 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                                         style={{
                                             width: `${item.pct}%`,
                                             background: item.value >= 0
-                                                ? 'linear-gradient(90deg, rgba(16,185,129,0.2), rgba(16,185,129,0.45))'
-                                                : 'linear-gradient(90deg, rgba(244,63,94,0.2), rgba(244,63,94,0.45))',
+                                                ? 'linear-gradient(90deg, rgba(16,185,129,0.35), rgba(16,185,129,0.7))'
+                                                : 'linear-gradient(90deg, rgba(244,63,94,0.35), rgba(244,63,94,0.7))',
                                         }}
                                     />
                                 </div>
@@ -403,7 +442,7 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                         ))}
                     </div>
 
-                    <p className="text-[11px] text-white font-medium mt-3 leading-relaxed">{rankings.flowInsight}</p>
+                    <p className="text-xs text-white font-medium mt-3 leading-relaxed">{rankings.flowInsight}</p>
                 </div>
             </div>
 
@@ -421,8 +460,8 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                                 <Zap className="w-3.5 h-3.5 text-amber-400" />
                             </div>
                             <div>
-                                <span className="text-[11px] font-bold text-white uppercase tracking-wider">{t.squeeze}</span>
-                                <span className="text-[9px] text-white ml-1.5">({t.squeezeSub})</span>
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">{t.squeeze}</span>
+                                <span className="text-[11px] text-white ml-1.5">({t.squeezeSub})</span>
                             </div>
                         </div>
                         {isLive ? (
@@ -452,10 +491,10 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                                             style={{
                                                 width: `${item.pct}%`,
                                                 background: item.value < 1.5
-                                                    ? 'linear-gradient(90deg, rgba(239,68,68,0.2), rgba(239,68,68,0.5))'
+                                                    ? 'linear-gradient(90deg, rgba(239,68,68,0.35), rgba(239,68,68,0.75))'
                                                     : item.value < 3
-                                                        ? 'linear-gradient(90deg, rgba(245,158,11,0.15), rgba(245,158,11,0.35))'
-                                                        : 'linear-gradient(90deg, rgba(100,116,139,0.1), rgba(100,116,139,0.25))',
+                                                        ? 'linear-gradient(90deg, rgba(245,158,11,0.25), rgba(245,158,11,0.6))'
+                                                        : 'linear-gradient(90deg, rgba(100,116,139,0.15), rgba(100,116,139,0.4))',
                                             }}
                                         />
                                     </div>
@@ -469,7 +508,7 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                         })}
                     </div>
 
-                    <p className="text-[11px] text-white font-medium mt-3 leading-relaxed">{rankings.squeezeInsight}</p>
+                    <p className="text-xs text-white font-medium mt-3 leading-relaxed">{rankings.squeezeInsight}</p>
                 </div>
             </div>
 
@@ -487,8 +526,8 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                                 <Flame className="w-3.5 h-3.5 text-rose-400" />
                             </div>
                             <div>
-                                <span className="text-[11px] font-bold text-white uppercase tracking-wider">{t.pain}</span>
-                                <span className="text-[9px] text-white ml-1.5">({t.painSub})</span>
+                                <span className="text-xs font-bold text-white uppercase tracking-wider">{t.pain}</span>
+                                <span className="text-[11px] text-white ml-1.5">({t.painSub})</span>
                             </div>
                         </div>
                         {isLive ? (
@@ -518,7 +557,7 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                                                 className="absolute left-1/2 top-0 h-full rounded-r-full transition-all duration-700"
                                                 style={{
                                                     width: `${Math.min(50, item.pct / 2)}%`,
-                                                    background: 'linear-gradient(90deg, rgba(239,68,68,0.2), rgba(239,68,68,0.45))',
+                                                    background: 'linear-gradient(90deg, rgba(239,68,68,0.35), rgba(239,68,68,0.7))',
                                                 }}
                                             />
                                         ) : (
@@ -527,7 +566,7 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                                                 style={{
                                                     right: '50%',
                                                     width: `${Math.min(50, item.pct / 2)}%`,
-                                                    background: 'linear-gradient(270deg, rgba(59,130,246,0.2), rgba(59,130,246,0.45))',
+                                                    background: 'linear-gradient(270deg, rgba(59,130,246,0.35), rgba(59,130,246,0.7))',
                                                 }}
                                             />
                                         )}
@@ -541,7 +580,7 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                         })}
                     </div>
 
-                    <p className="text-[11px] text-white font-medium mt-3 leading-relaxed">{rankings.painInsight}</p>
+                    <p className="text-xs text-white font-medium mt-3 leading-relaxed">{rankings.painInsight}</p>
                 </div>
             </div>
         </div>

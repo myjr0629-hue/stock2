@@ -53,12 +53,15 @@ export async function GET(request: Request) {
             const prevDayClose = S.prevDay?.c || 0;
             const prevClose = prevDayClose;
 
-            // [FIX] changePercent: during REG use liveLast (real-time), otherwise dayClose
-            // dayClose can be stale during intraday trading
+            const todaysChangePerc = S.todaysChangePerc || 0;
+
+            // [FIX] Use Polygon's todaysChangePerc first (reliable across all sessions),
+            // otherwise calculate from day close vs prev day close
             const priceForChange = (session === 'regular' && liveLast > 0) ? liveLast : dayClose;
-            const changePercent = (priceForChange > 0 && prevDayClose > 0)
+            const calculatedChangePct = (priceForChange > 0 && prevDayClose > 0)
                 ? ((priceForChange - prevDayClose) / prevDayClose) * 100
                 : 0;
+            const changePercent = (todaysChangePerc !== 0) ? todaysChangePerc : calculatedChangePct;
 
             // Session-aware price & extended price selection
             let price = 0;

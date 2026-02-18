@@ -98,11 +98,16 @@ export async function GET(request: Request) {
 
             if (session === 'PRE') {
                 displayPrice = prevClose;
-                // Use previous day's change if available from cached data
-                if (cached?.prices?.prevChangePct) {
+                // Use todaysChangePerc (Polygon: last regular session change), then cached, then calculated
+                if (todaysChangePerc && todaysChangePerc !== 0) {
+                    displayChangePct = todaysChangePerc;
+                } else if (cached?.prices?.prevChangePct) {
                     displayChangePct = cached.prices.prevChangePct;
                 } else {
-                    displayChangePct = 0;
+                    // Calculate from snapshot if possible: day.c vs prevDay.c may differ
+                    displayChangePct = (todayClose > 0 && prevClose > 0 && todayClose !== prevClose)
+                        ? ((todayClose - prevClose) / prevClose) * 100
+                        : 0;
                 }
             }
 

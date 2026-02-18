@@ -11,25 +11,25 @@ interface M7EarningsCalendarProps {
 // SVG Infographic Background — calendar/timeline pattern
 function CalendarBg() {
     return (
-        <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
             {/* Calendar grid */}
-            <rect x="25" y="30" width="150" height="120" rx="4" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            <line x1="25" y1="55" x2="175" y2="55" stroke="currentColor" strokeWidth="1" />
+            <rect x="25" y="30" width="150" height="120" rx="4" stroke="#f59e0b" strokeWidth="1.5" fill="none" opacity="0.2" />
+            <line x1="25" y1="55" x2="175" y2="55" stroke="#f59e0b" strokeWidth="1" opacity="0.2" />
             {/* Grid lines */}
-            <line x1="62" y1="55" x2="62" y2="150" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            <line x1="100" y1="55" x2="100" y2="150" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            <line x1="137" y1="55" x2="137" y2="150" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            <line x1="25" y1="87" x2="175" y2="87" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            <line x1="25" y1="119" x2="175" y2="119" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            {/* Highlighted cell */}
-            <rect x="63" y="56" width="36" height="30" rx="2" fill="currentColor" opacity="0.15" />
-            {/* Calendar pin */}
-            <line x1="55" y1="22" x2="55" y2="38" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <line x1="145" y1="22" x2="145" y2="38" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+            <line x1="62" y1="55" x2="62" y2="150" stroke="#f59e0b" strokeWidth="0.5" opacity="0.15" />
+            <line x1="100" y1="55" x2="100" y2="150" stroke="#f59e0b" strokeWidth="0.5" opacity="0.15" />
+            <line x1="137" y1="55" x2="137" y2="150" stroke="#f59e0b" strokeWidth="0.5" opacity="0.15" />
+            <line x1="25" y1="87" x2="175" y2="87" stroke="#f59e0b" strokeWidth="0.5" opacity="0.15" />
+            <line x1="25" y1="119" x2="175" y2="119" stroke="#f59e0b" strokeWidth="0.5" opacity="0.15" />
+            {/* Highlighted cell — earnings day */}
+            <rect x="63" y="56" width="36" height="30" rx="2" fill="#f59e0b" opacity="0.2" />
+            {/* Calendar pins */}
+            <line x1="55" y1="22" x2="55" y2="38" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" opacity="0.25" />
+            <line x1="145" y1="22" x2="145" y2="38" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" opacity="0.25" />
             {/* Clock watermark */}
-            <circle cx="165" cy="30" r="12" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" />
-            <line x1="165" y1="30" x2="165" y2="22" stroke="currentColor" strokeWidth="1" opacity="0.3" />
-            <line x1="165" y1="30" x2="172" y2="33" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+            <circle cx="165" cy="30" r="12" stroke="#f59e0b" strokeWidth="1.5" fill="none" opacity="0.18" />
+            <line x1="165" y1="30" x2="165" y2="22" stroke="#f59e0b" strokeWidth="1" opacity="0.18" />
+            <line x1="165" y1="30" x2="172" y2="33" stroke="#f59e0b" strokeWidth="1" opacity="0.18" />
         </svg>
     );
 }
@@ -63,7 +63,7 @@ export function M7EarningsCalendar({ earnings }: M7EarningsCalendarProps) {
                 <CalendarBg />
                 <div className="relative z-10 flex items-center gap-2">
                     <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">EARNINGS CALENDAR</span>
+                    <span className="text-[11px] font-bold text-white tracking-wider uppercase font-jakarta">EARNINGS CALENDAR</span>
                 </div>
                 <p className="relative z-10 text-xs text-white/70 mt-2">No upcoming earnings</p>
             </div>
@@ -80,7 +80,7 @@ export function M7EarningsCalendar({ earnings }: M7EarningsCalendarProps) {
                 {/* Header */}
                 <div className="flex items-center gap-2 mb-2">
                     <Calendar className="w-3.5 h-3.5 text-amber-400" />
-                    <span className="text-[10px] font-bold text-white tracking-wider uppercase">EARNINGS CALENDAR</span>
+                    <span className="text-[11px] font-bold text-white tracking-wider uppercase font-jakarta">EARNINGS CALENDAR</span>
                 </div>
 
                 {/* Earnings List */}
@@ -108,20 +108,20 @@ export function M7EarningsCalendar({ earnings }: M7EarningsCalendarProps) {
                                 {/* Info */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-1.5">
-                                        <span className="text-xs font-bold text-white">{event.symbol}</span>
+                                        <span className="text-xs font-bold text-white font-jakarta">{event.symbol}</span>
                                         {isToday && (
-                                            <span className="flex items-center gap-0.5 px-1 py-0.5 bg-amber-500 text-black text-[8px] font-bold rounded animate-pulse">
+                                            <span className="flex items-center gap-0.5 px-1 py-0.5 bg-amber-500 text-black text-[11px] font-bold rounded animate-pulse font-jakarta">
                                                 <Zap className="w-2 h-2" /> TODAY
                                             </span>
                                         )}
                                     </div>
-                                    <div className="text-[9px] text-white/60">{event.date} | {formatHour(event.hour)}</div>
+                                    <div className="text-[11px] text-white/70 font-num">{event.date} | {formatHour(event.hour)}</div>
                                 </div>
 
                                 {/* EPS */}
                                 <div className="text-right flex-shrink-0">
-                                    <div className="text-[9px] text-white/70 uppercase">EPS Est</div>
-                                    <div className="text-xs font-bold text-white">${event.epsEstimate?.toFixed(2) || '-'}</div>
+                                    <div className="text-[11px] text-white/70 uppercase font-jakarta">EPS Est</div>
+                                    <div className="text-xs font-bold text-white font-num">${event.epsEstimate?.toFixed(2) || '-'}</div>
                                 </div>
 
                                 {/* Days Badge */}
@@ -131,7 +131,7 @@ export function M7EarningsCalendar({ earnings }: M7EarningsCalendarProps) {
                                         ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
                                         : 'bg-slate-800 text-white'
                                     }`}>
-                                    <span className="text-sm font-black leading-none">
+                                    <span className="text-sm font-extrabold leading-none font-num">
                                         {isToday ? '⚡' : `D-${daysUntil}`}
                                     </span>
                                 </div>

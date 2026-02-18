@@ -172,20 +172,23 @@ function TacticalTickerCard({ t }: { t: TickerSnapshot }) {
                         className="w-full h-full object-cover"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                 </div>
-                <span className="text-[13px] font-black text-white">{t.ticker}</span>
-                <span className={`text-[13px] font-black ml-auto ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                <span className="text-[13px] font-extrabold text-white font-jakarta">{t.ticker}</span>
+                <span className={`text-[13px] font-extrabold ml-auto font-num ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {isUp ? '+' : ''}{t.change_pct.toFixed(2)}%
                 </span>
             </div>
             {/* Row 2: Price + Alpha */}
             <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[13px] font-bold text-white">${t.close_price.toFixed(2)}</span>
-                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${t.alpha_score >= 50 ? 'bg-emerald-500/15 text-emerald-400' : 'bg-slate-700/30 text-slate-400'}`}>
-                    α{t.alpha_score.toFixed(0)}
-                </span>
+                <span className="text-[13px] font-bold text-white font-num">${t.close_price.toFixed(2)}</span>
+                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border backdrop-blur-md text-[11px] font-bold ${t.alpha_score >= 75 ? 'bg-amber-500/15 border-amber-500/30 text-amber-200' :
+                    t.alpha_score >= 50 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-200' :
+                        'bg-white/[0.05] border-white/[0.10] text-white/60'}`}>
+                    <span className="opacity-80 font-jakarta">α</span>
+                    <span className="text-[13px] font-bold font-num">{t.alpha_score.toFixed(0)}</span>
+                </div>
             </div>
             {/* Row 3: Analysis — white, readable */}
-            <p className="text-[11px] text-white/75 leading-relaxed">
+            <p className="text-[13px] text-white/90 font-medium leading-relaxed">
                 {t.analysis_kr}
             </p>
         </div>
@@ -343,7 +346,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                 <div className="backdrop-blur-xl p-8">
                     <div className="flex items-center gap-3 mb-4">
                         <Camera className="w-4 h-4" style={{ color: accentColor }} />
-                        <span className="text-xs font-bold text-white tracking-wider uppercase">
+                        <span className="text-xs font-bold text-white tracking-wider uppercase font-jakarta">
                             {config.shortName} POST-MARKET REPORT
                         </span>
                     </div>
@@ -442,20 +445,20 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                             <Camera className="w-4.5 h-4.5" style={{ color: accentColor }} />
                         </div>
                         <div>
-                            <div className="text-sm font-black text-white tracking-[0.2em] uppercase">
+                            <div className="text-sm font-extrabold text-white tracking-[0.2em] uppercase font-jakarta">
                                 {config.shortName} POST-MARKET REPORT
                             </div>
-                            <div className="text-[10px] text-white/35 font-mono mt-0.5">{timeStr} ET</div>
+                            <div className="text-[11px] text-white/60 font-num mt-0.5">{timeStr} ET</div>
                         </div>
                     </div>
                     <div className="flex items-center gap-2.5">
                         {isLocked && (
-                            <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-400 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25">
+                            <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 font-jakarta">
                                 <Lock className="w-3 h-3" />
                                 LOCKED
                             </span>
                         )}
-                        <span className="text-[10px] font-bold px-3 py-1.5 rounded-lg"
+                        <span className="text-[11px] font-bold px-3 py-1.5 rounded-lg font-jakarta"
                             style={{
                                 backgroundColor: `${outlookColor}15`,
                                 color: outlookColor,
@@ -481,10 +484,10 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                 </div>
                                 <div>
-                                    <div className="text-[10px] text-white/50 font-bold tracking-wider">MVP</div>
+                                    <div className="text-[11px] text-white/70 font-bold tracking-wider font-jakarta">MVP</div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-base font-black text-white">{topGainer.ticker}</span>
-                                        <span className={`text-base font-black ${topGainer.change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        <span className="text-base font-extrabold text-white font-jakarta">{topGainer.ticker}</span>
+                                        <span className={`text-base font-extrabold font-num ${topGainer.change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                             {topGainer.change_pct >= 0 ? '+' : ''}{topGainer.change_pct.toFixed(2)}%
                                         </span>
                                     </div>
@@ -498,10 +501,10 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                 </div>
                                 <div>
-                                    <div className="text-[9px] text-white/35 font-bold tracking-wider">WORST</div>
+                                    <div className="text-[11px] text-white/60 font-bold tracking-wider font-jakarta">WORST</div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold text-white/70">{topLoser.ticker}</span>
-                                        <span className="text-sm font-bold text-rose-400">
+                                        <span className="text-sm font-bold text-white/70 font-jakarta">{topLoser.ticker}</span>
+                                        <span className="text-sm font-bold text-rose-400 font-num">
                                             {topLoser.change_pct.toFixed(2)}%
                                         </span>
                                     </div>
@@ -509,9 +512,9 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                             </div>
                             {/* W/L Record */}
                             <div className="flex items-center gap-3 mt-1">
-                                <span className="text-emerald-400 text-lg font-black">{summary.gainers}W</span>
-                                <span className="text-white/25 text-base">—</span>
-                                <span className="text-rose-400 text-lg font-black">{summary.losers}L</span>
+                                <span className="text-emerald-400 text-lg font-extrabold font-num">{summary.gainers}W</span>
+                                <span className="text-white/50 text-base">—</span>
+                                <span className="text-rose-400 text-lg font-extrabold font-num">{summary.losers}L</span>
                             </div>
                         </div>
 
@@ -522,9 +525,9 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
 
                         {/* RIGHT: Gamma Signal Light */}
                         <div className="flex flex-col items-center">
-                            <div className="text-[10px] text-white/50 font-bold tracking-wider mb-3">GAMMA REGIME</div>
+                            <div className="text-[11px] text-white/70 font-bold tracking-wider mb-3 font-jakarta">GAMMA REGIME</div>
                             <GammaSignal regime={summary.dominant_regime} pcr={summary.avg_pcr} />
-                            <div className="flex items-center gap-3 mt-3 text-[10px] text-white/35 font-mono">
+                            <div className="flex items-center gap-3 mt-3 text-[11px] text-white/60 font-num">
                                 <span>GEX {fmtGex(summary.total_gex)}</span>
                             </div>
                         </div>
@@ -537,11 +540,11 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                 <div className={`${glass} p-5 mb-5`}>
                     <div className="flex items-center gap-2 mb-3">
                         <Brain className="w-4 h-4 text-amber-400" />
-                        <span className="text-[11px] font-bold text-white uppercase tracking-[0.15em]">NEXT DAY OUTLOOK</span>
+                        <span className="text-[12px] font-bold text-white uppercase tracking-[0.15em] font-jakarta">NEXT DAY OUTLOOK</span>
                     </div>
 
                     {/* Headline — readable, not oversized */}
-                    <h3 className="text-[15px] font-bold text-white leading-snug mb-3">
+                    <h3 className="text-[15px] font-bold text-white leading-snug mb-3 font-jakarta">
                         {briefing.headline}
                     </h3>
 
@@ -549,7 +552,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                     <div className="space-y-2 mb-4">
                         {briefing.bullets.map((bullet, i) => (
                             <div key={i} className="flex items-start gap-2 leading-relaxed">
-                                <HighlightedText html={bullet} className="text-[12px] text-white/80" />
+                                <HighlightedText html={bullet} className="text-[13px] text-white/90" />
                             </div>
                         ))}
                     </div>
@@ -557,9 +560,9 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                     {/* Watchpoints */}
                     {briefing.watchpoints.length > 0 && (
                         <div className="bg-white/[0.03] rounded-lg p-3 border border-white/[0.06]">
-                            <div className="text-[9px] font-bold text-white/45 uppercase tracking-wider mb-1.5">WATCHPOINTS</div>
+                            <div className="text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1.5 font-jakarta">WATCHPOINTS</div>
                             {briefing.watchpoints.map((wp, i) => (
-                                <div key={i} className="text-[11px] text-white/65 leading-relaxed mb-1 last:mb-0">
+                                <div key={i} className="text-[13px] text-white/80 font-medium leading-relaxed mb-1 last:mb-0">
                                     {wp}
                                 </div>
                             ))}
@@ -573,14 +576,14 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                 <div className="mb-5">
                     <div className="flex items-center gap-2 mb-4">
                         <Shield className="w-4 h-4 text-purple-400" />
-                        <span className="text-[11px] font-bold text-white uppercase tracking-[0.15em]">TACTICAL ORDERS</span>
+                        <span className="text-[12px] font-bold text-white uppercase tracking-[0.15em] font-jakarta">TACTICAL ORDERS</span>
                         {/* Summary badges */}
                         <div className="flex items-center gap-1.5 ml-auto">
                             {(['ATTACK', 'DEFEND', 'RETREAT'] as GroupKey[]).map(key => {
                                 const g = VERDICT_GROUPS[key];
                                 const count = groups[key].length;
                                 return (
-                                    <span key={key} className="text-[10px] font-bold px-2.5 py-1 rounded-md"
+                                    <span key={key} className="text-[11px] font-bold px-2.5 py-1 rounded-md font-jakarta"
                                         style={{
                                             backgroundColor: count > 0 ? `${g.color}15` : 'rgba(255,255,255,0.03)',
                                             color: count > 0 ? g.color : 'rgba(255,255,255,0.2)',
@@ -609,13 +612,13 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                                             style={{ backgroundColor: `${g.color}15` }}>
                                             <Icon className="w-3.5 h-3.5" style={{ color: g.color }} />
                                         </div>
-                                        <span className="text-sm font-black" style={{ color: g.color }}>
+                                        <span className="text-sm font-extrabold" style={{ color: g.color }}>
                                             {g.label === 'ATTACK_LABEL' ? tr('attackLabel') : g.label === 'DEFEND_LABEL' ? tr('defendLabel') : g.label === 'RETREAT_LABEL' ? tr('retreatLabel') : g.label}
                                         </span>
-                                        <span className="text-xs text-white/30 font-bold ml-1">
+                                        <span className="text-xs text-white/30 font-bold ml-1 font-jakarta">
                                             {g.labelEN}
                                         </span>
-                                        <span className="text-xs font-bold ml-auto px-2 py-0.5 rounded-md"
+                                        <span className="text-xs font-bold ml-auto px-2 py-0.5 rounded-md font-num"
                                             style={{ backgroundColor: `${g.color}15`, color: g.color }}>
                                             {tr('tickerCount', { count: String(items.length) })}
                                         </span>
@@ -640,11 +643,11 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                                 const Icon = g.icon;
                                 return (
                                     <div key={key} className="flex items-center gap-2 bg-white/[0.02] rounded-lg px-4 py-2.5 border border-white/[0.04] flex-1">
-                                        <Icon className="w-3.5 h-3.5" style={{ color: `${g.color}60` }} />
-                                        <span className="text-[11px] font-bold" style={{ color: `${g.color}60` }}>
+                                        <Icon className="w-3.5 h-3.5" style={{ color: `${g.color}99` }} />
+                                        <span className="text-[12px] font-bold" style={{ color: `${g.color}` }}>
                                             {g.label === 'ATTACK_LABEL' ? tr('attackLabel') : g.label === 'DEFEND_LABEL' ? tr('defendLabel') : g.label === 'RETREAT_LABEL' ? tr('retreatLabel') : g.label}
                                         </span>
-                                        <span className="text-[11px] text-white/30 ml-auto">{g.emptyMsg === 'ATTACK_EMPTY' ? tr('attackEmpty') : g.emptyMsg === 'DEFEND_EMPTY' ? tr('defendEmpty') : g.emptyMsg === 'RETREAT_EMPTY' ? tr('retreatEmpty') : g.emptyMsg}</span>
+                                        <span className="text-[12px] text-white/60 ml-auto">{g.emptyMsg === 'ATTACK_EMPTY' ? tr('attackEmpty') : g.emptyMsg === 'DEFEND_EMPTY' ? tr('defendEmpty') : g.emptyMsg === 'RETREAT_EMPTY' ? tr('retreatEmpty') : g.emptyMsg}</span>
                                     </div>
                                 );
                             })}
@@ -656,7 +659,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                     FOOTER — Signature
                    ══════════════════════════════════════════════ */}
                 <div className="pt-4 border-t border-white/[0.06] flex items-center justify-between">
-                    <div className="flex items-center gap-2.5 text-[10px] text-white/25">
+                    <div className="flex items-center gap-2.5 text-[11px] text-white/50 font-jakarta">
                         <Clock className="w-3.5 h-3.5" />
                         <span>{tr('snapshotLabel')}: {snapshotDate}</span>
                         {isLocked && (
@@ -665,7 +668,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                             </span>
                         )}
                     </div>
-                    <div className="text-[10px] text-white/20 italic">
+                    <div className="text-[11px] text-white/50 italic font-jakarta">
                         Generated by SIGNUM AI Core • Valid until Next Open
                     </div>
                 </div>

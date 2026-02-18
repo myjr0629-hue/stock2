@@ -116,54 +116,79 @@ interface RankItem {
 // ── SVG Infographic Backgrounds ──
 function MoneyFlowBg() {
     return (
-        <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none z-[1]" viewBox="0 0 200 180" preserveAspectRatio="none">
+            {/* DEBUG: Full background test - should be VERY visible */}
+            <rect x="0" y="0" width="200" height="180" fill="#34d399" opacity="0.5" />
+            <defs>
+                <linearGradient id="mfGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#34d399" stopOpacity="0.4" />
+                    <stop offset="100%" stopColor="#34d399" stopOpacity="0.08" />
+                </linearGradient>
+            </defs>
             {/* Rising bar chart pattern */}
-            <rect x="20" y="120" width="16" height="45" rx="2" fill="currentColor" />
-            <rect x="45" y="95" width="16" height="70" rx="2" fill="currentColor" />
-            <rect x="70" y="70" width="16" height="95" rx="2" fill="currentColor" />
-            <rect x="95" y="50" width="16" height="115" rx="2" fill="currentColor" />
-            <rect x="120" y="30" width="16" height="135" rx="2" fill="currentColor" />
-            <rect x="145" y="55" width="16" height="110" rx="2" fill="currentColor" />
-            <rect x="170" y="40" width="16" height="125" rx="2" fill="currentColor" />
+            <rect x="20" y="120" width="16" height="45" rx="2" fill="url(#mfGrad)" />
+            <rect x="45" y="95" width="16" height="70" rx="2" fill="url(#mfGrad)" />
+            <rect x="70" y="70" width="16" height="95" rx="2" fill="url(#mfGrad)" />
+            <rect x="95" y="50" width="16" height="115" rx="2" fill="url(#mfGrad)" />
+            <rect x="120" y="30" width="16" height="135" rx="2" fill="url(#mfGrad)" />
+            <rect x="145" y="55" width="16" height="110" rx="2" fill="url(#mfGrad)" />
+            <rect x="170" y="40" width="16" height="125" rx="2" fill="url(#mfGrad)" />
             {/* Trend line */}
-            <path d="M28 118 L53 93 L78 68 L103 48 L128 28 L153 53 L178 38" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+            <path d="M28 118 L53 93 L78 68 L103 48 L128 28 L153 53 L178 38" stroke="#34d399" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" opacity="0.3" />
             {/* Dollar sign watermark */}
-            <text x="160" y="30" fontSize="28" fill="currentColor" opacity="0.3" fontWeight="bold">$</text>
+            <text x="156" y="32" fontSize="30" fill="#34d399" opacity="0.15" fontWeight="bold">$</text>
         </svg>
     );
 }
 
 function SqueezeBg() {
     return (
-        <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="sqGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#f59e0b" stopOpacity="0.03" />
+                    <stop offset="80%" stopColor="#f59e0b" stopOpacity="0.25" />
+                </linearGradient>
+            </defs>
+            {/* Compression band fill */}
+            <path d="M10 20 L190 75 L190 105 L10 160 Z" fill="url(#sqGrad)" />
             {/* Compression lines converging */}
-            <line x1="10" y1="20" x2="190" y2="75" stroke="currentColor" strokeWidth="1.5" />
-            <line x1="10" y1="160" x2="190" y2="105" stroke="currentColor" strokeWidth="1.5" />
-            <line x1="10" y1="40" x2="190" y2="80" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-            <line x1="10" y1="140" x2="190" y2="100" stroke="currentColor" strokeWidth="1" opacity="0.5" />
+            <line x1="10" y1="20" x2="190" y2="75" stroke="#f59e0b" strokeWidth="1.5" opacity="0.3" />
+            <line x1="10" y1="160" x2="190" y2="105" stroke="#f59e0b" strokeWidth="1.5" opacity="0.3" />
+            <line x1="10" y1="40" x2="190" y2="80" stroke="#f59e0b" strokeWidth="1" opacity="0.15" />
+            <line x1="10" y1="140" x2="190" y2="100" stroke="#f59e0b" strokeWidth="1" opacity="0.15" />
             {/* Explosion/burst at convergence point */}
-            <circle cx="190" cy="90" r="18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3,3" />
-            <circle cx="190" cy="90" r="10" fill="none" stroke="currentColor" strokeWidth="1" />
+            <circle cx="190" cy="90" r="18" fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="3,3" opacity="0.25" />
+            <circle cx="190" cy="90" r="10" fill="#f59e0b" opacity="0.12" />
             {/* Lightning bolt */}
-            <path d="M175 70 L182 86 L177 86 L184 106 L172 88 L178 88 Z" fill="currentColor" opacity="0.5" />
+            <path d="M175 70 L182 86 L177 86 L184 106 L172 88 L178 88 Z" fill="#f59e0b" opacity="0.2" />
         </svg>
     );
 }
 
 function PainDivBg() {
     return (
-        <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+            <defs>
+                <linearGradient id="pdGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#f87171" stopOpacity="0.2" />
+                    <stop offset="50%" stopColor="#f87171" stopOpacity="0.03" />
+                    <stop offset="100%" stopColor="#f87171" stopOpacity="0.2" />
+                </linearGradient>
+            </defs>
+            {/* Divergence fill between wave and center */}
+            <path d="M10 90 Q30 30 50 90 Q70 150 90 90 Q110 30 130 90 Q150 150 170 90 Q190 30 200 90 L200 180 L0 180 Z" fill="url(#pdGrad)" />
             {/* Sine wave / oscillation pattern */}
-            <path d="M10 90 Q30 30 50 90 Q70 150 90 90 Q110 30 130 90 Q150 150 170 90 Q190 30 200 90" stroke="currentColor" strokeWidth="2" fill="none" />
+            <path d="M10 90 Q30 30 50 90 Q70 150 90 90 Q110 30 130 90 Q150 150 170 90 Q190 30 200 90" stroke="#f87171" strokeWidth="2" fill="none" opacity="0.25" />
             {/* Center equilibrium line */}
-            <line x1="0" y1="90" x2="200" y2="90" stroke="currentColor" strokeWidth="0.8" strokeDasharray="6,4" opacity="0.6" />
+            <line x1="0" y1="90" x2="200" y2="90" stroke="#f87171" strokeWidth="0.8" strokeDasharray="6,4" opacity="0.2" />
             {/* Target/bullseye */}
-            <circle cx="165" cy="45" r="20" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.4" />
-            <circle cx="165" cy="45" r="12" fill="none" stroke="currentColor" strokeWidth="1" opacity="0.3" />
-            <circle cx="165" cy="45" r="4" fill="currentColor" opacity="0.3" />
+            <circle cx="165" cy="45" r="20" fill="none" stroke="#f87171" strokeWidth="1" opacity="0.15" />
+            <circle cx="165" cy="45" r="12" fill="none" stroke="#f87171" strokeWidth="1" opacity="0.12" />
+            <circle cx="165" cy="45" r="4" fill="#f87171" opacity="0.15" />
             {/* Divergence arrows */}
-            <path d="M35 90 L20 55" stroke="currentColor" strokeWidth="1.5" markerEnd="url(#arrowUp)" opacity="0.4" />
-            <path d="M35 90 L20 125" stroke="currentColor" strokeWidth="1.5" opacity="0.4" />
+            <path d="M35 90 L20 55" stroke="#f87171" strokeWidth="1.5" opacity="0.2" />
+            <path d="M35 90 L20 125" stroke="#f87171" strokeWidth="1.5" opacity="0.2" />
         </svg>
     );
 }
@@ -197,7 +222,7 @@ function RankBadge({ rank, color }: { rank: number; color: string }) {
         );
     }
     return (
-        <span className="w-4 text-center text-[9px] font-bold text-white/30 flex-shrink-0">{rank}</span>
+        <span className="w-4 text-center text-[11px] font-bold text-white/50 flex-shrink-0 font-num">{rank}</span>
     );
 }
 
@@ -380,19 +405,19 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                                 <DollarSign className="w-3.5 h-3.5 text-emerald-400" />
                             </div>
                             <div>
-                                <span className="text-[11px] font-bold text-white uppercase tracking-wider">{t.moneyFlow}</span>
-                                <span className="text-[9px] text-white ml-1.5">({t.moneyFlowSub})</span>
+                                <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">{t.moneyFlow}</span>
+                                <span className="text-[12px] text-white/50 ml-1.5">({t.moneyFlowSub})</span>
                             </div>
                         </div>
                         {isLive ? (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                                <span className="text-[8px] font-bold text-emerald-400">{t.live}</span>
+                                <span className="text-[11px] font-bold text-emerald-400 font-jakarta">{t.live}</span>
                             </div>
                         ) : (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span className="text-[8px] font-bold text-slate-400">{t.closed}</span>
+                                <span className="text-[11px] font-bold text-slate-400 font-jakarta">{t.closed}</span>
                             </div>
                         )}
                     </div>
@@ -414,7 +439,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                                         }}
                                     />
                                 </div>
-                                <span className={`text-[11px] font-black min-w-[55px] text-right ${item.value >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                <span className={`text-[11px] font-bold min-w-[55px] text-right font-num ${item.value >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {item.value >= 0 ? '+' : ''}{item.label}
                                 </span>
                             </div>
@@ -422,7 +447,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                     </div>
 
                     {/* Insight — pure white */}
-                    <p className="text-[11px] text-white font-medium mt-3 leading-relaxed">{rankings.flowInsight}</p>
+                    <p className="text-[12px] text-white/80 font-medium mt-3 leading-relaxed">{rankings.flowInsight}</p>
                 </div>
             </div>
 
@@ -440,19 +465,19 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                                 <Zap className="w-3.5 h-3.5 text-amber-400" />
                             </div>
                             <div>
-                                <span className="text-[11px] font-bold text-white uppercase tracking-wider">{t.squeeze}</span>
-                                <span className="text-[9px] text-white ml-1.5">({t.squeezeSub})</span>
+                                <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">{t.squeeze}</span>
+                                <span className="text-[12px] text-white/50 ml-1.5">({t.squeezeSub})</span>
                             </div>
                         </div>
                         {isLive ? (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                                <span className="text-[8px] font-bold text-amber-400">{t.live}</span>
+                                <span className="text-[10px] font-bold text-amber-400 font-jakarta">{t.live}</span>
                             </div>
                         ) : (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span className="text-[8px] font-bold text-slate-400">{t.closed}</span>
+                                <span className="text-[11px] font-bold text-slate-400 font-jakarta">{t.closed}</span>
                             </div>
                         )}
                     </div>
@@ -478,8 +503,8 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                                             }}
                                         />
                                     </div>
-                                    <span className="text-[10px] font-semibold text-white/40 w-5">{dirLabel}</span>
-                                    <span className="text-[11px] font-black min-w-[35px] text-right"
+                                    <span className="text-[10px] font-semibold text-white/40 w-5 font-jakarta">{dirLabel}</span>
+                                    <span className="text-[11px] font-bold min-w-[35px] text-right font-num"
                                         style={{ color: item.color }}>
                                         {item.label}
                                     </span>
@@ -488,7 +513,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                         })}
                     </div>
 
-                    <p className="text-[11px] text-white font-medium mt-3 leading-relaxed">{rankings.squeezeInsight}</p>
+                    <p className="text-[12px] text-white/80 font-medium mt-3 leading-relaxed">{rankings.squeezeInsight}</p>
                 </div>
             </div>
 
@@ -506,19 +531,19 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                                 <Flame className="w-3.5 h-3.5 text-rose-400" />
                             </div>
                             <div>
-                                <span className="text-[11px] font-bold text-white uppercase tracking-wider">{t.pain}</span>
-                                <span className="text-[9px] text-white ml-1.5">({t.painSub})</span>
+                                <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">{t.pain}</span>
+                                <span className="text-[12px] text-white/50 ml-1.5">({t.painSub})</span>
                             </div>
                         </div>
                         {isLive ? (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-pulse" />
-                                <span className="text-[8px] font-bold text-rose-400">{t.live}</span>
+                                <span className="text-[11px] font-bold text-rose-400 font-jakarta">{t.live}</span>
                             </div>
                         ) : (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span className="text-[8px] font-bold text-slate-400">{t.closed}</span>
+                                <span className="text-[11px] font-bold text-slate-400 font-jakarta">{t.closed}</span>
                             </div>
                         )}
                     </div>
@@ -552,7 +577,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                                             />
                                         )}
                                     </div>
-                                    <span className="text-[11px] font-black min-w-[42px] text-right"
+                                    <span className="text-[11px] font-bold min-w-[42px] text-right font-num"
                                         style={{ color: item.color }}>
                                         {item.label}
                                     </span>
@@ -561,7 +586,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                         })}
                     </div>
 
-                    <p className="text-[11px] text-white font-medium mt-3 leading-relaxed">{rankings.painInsight}</p>
+                    <p className="text-[12px] text-white/80 font-medium mt-3 leading-relaxed">{rankings.painInsight}</p>
                 </div>
             </div>
         </div>

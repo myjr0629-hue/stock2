@@ -5,12 +5,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
     Activity, Radio, RefreshCw, TrendingUp,
     DollarSign, Shield, Target, ChevronRight,
-    AlertTriangle
+    AlertTriangle, Moon, Sun, Clock
 } from 'lucide-react';
 import type { SectorConfig } from '@/types/sector';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
@@ -210,6 +210,56 @@ const DISCLAIMER: Record<string, string> = {
     ja: '情報提供のみ • 投資助言ではありません',
 };
 
+// ── Market Session Detection (ET timezone) ──
+type MarketSession = 'PRE_MARKET' | 'LIVE' | 'POST_MARKET' | 'CLOSED';
+
+interface SessionInfo {
+    key: MarketSession;
+    label: string;
+    color: string;
+    icon: typeof Radio;
+    pulse: boolean;
+}
+
+const SESSION_LABELS: Record<MarketSession, string> = {
+    PRE_MARKET: 'PRE-MKT',
+    LIVE: 'LIVE',
+    POST_MARKET: 'POST-MKT',
+    CLOSED: 'CLOSED',
+};
+
+function getMarketSession(): MarketSession {
+    const now = new Date();
+    // Convert to ET
+    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const et = new Date(etStr);
+    const day = et.getDay(); // 0=Sun, 6=Sat
+    const hours = et.getHours();
+    const minutes = et.getMinutes();
+    const time = hours * 60 + minutes; // minutes since midnight
+
+    // Weekend
+    if (day === 0 || day === 6) return 'CLOSED';
+
+    // Pre-market: 4:00 - 9:30
+    if (time >= 240 && time < 570) return 'PRE_MARKET';
+    // Regular: 9:30 - 16:00
+    if (time >= 570 && time < 960) return 'LIVE';
+    // Post-market: 16:00 - 20:00
+    if (time >= 960 && time < 1200) return 'POST_MARKET';
+    // Closed: 20:00 - 4:00
+    return 'CLOSED';
+}
+
+function getSessionInfo(session: MarketSession): Omit<SessionInfo, 'label'> {
+    switch (session) {
+        case 'PRE_MARKET': return { key: session, color: '#f59e0b', icon: Sun, pulse: true };
+        case 'LIVE': return { key: session, color: '#34d399', icon: Radio, pulse: true };
+        case 'POST_MARKET': return { key: session, color: '#a78bfa', icon: Moon, pulse: false };
+        case 'CLOSED': return { key: session, color: '#64748b', icon: Clock, pulse: false };
+    }
+}
+
 export function SectorSessionGrid({ config, quotes, loading, refreshing }: SectorSessionGridProps) {
     const ss = useTranslations('sectorSession');
     const router = useRouter();
@@ -220,6 +270,16 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
         [...quotes].sort((a, b) => b.changePct - a.changePct),
         [quotes]
     );
+
+    // Market session state — updates every 30s
+    const [session, setSession] = useState<MarketSession>(getMarketSession);
+    useEffect(() => {
+        const id = setInterval(() => setSession(getMarketSession()), 30_000);
+        return () => clearInterval(id);
+    }, []);
+    const sInfo = getSessionInfo(session);
+    const SessionIcon = sInfo.icon;
+    const sessionLabel = SESSION_LABELS[session];
 
     const stats = useMemo(() => {
         if (sorted.length === 0) return null;
@@ -267,19 +327,19 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                     {config.icon} {config.shortName} SESSION GRID
                 </h3>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-white/40 font-medium tracking-wider hidden md:inline px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] font-jakarta">
+                    <span className="text-[11px] text-white/60 font-medium tracking-wider hidden md:inline px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
                         {DISCLAIMER[locale] || DISCLAIMER.en}
                     </span>
                     {refreshing && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: `${accentColor}99` }} />}
-                    <span className="text-[10px] uppercase flex items-center gap-1.5 font-bold tracking-wider px-2 py-1 rounded-full backdrop-blur-sm font-jakarta"
+                    <span className="text-[11px] uppercase flex items-center gap-1.5 font-bold tracking-wider px-2.5 py-1 rounded-full backdrop-blur-sm font-jakarta"
                         style={{
-                            color: `${accentColor}cc`,
-                            backgroundColor: `${accentColor}0d`,
-                            borderColor: `${accentColor}1a`,
+                            color: sInfo.color,
+                            backgroundColor: `${sInfo.color}15`,
+                            borderColor: `${sInfo.color}30`,
                             borderWidth: '1px'
                         }}>
-                        <Radio className="w-3 h-3 animate-pulse" style={{ color: accentColor }} />
-                        LIVE
+                        <SessionIcon className={`w-3 h-3 ${sInfo.pulse ? 'animate-pulse' : ''}`} style={{ color: sInfo.color }} />
+                        {sessionLabel}
                     </span>
                 </div>
             </div>

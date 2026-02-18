@@ -12,20 +12,25 @@ import type { SectorConfig } from '@/types/sector';
 // SVG Infographic Background — calendar grid pattern
 function CalendarBg() {
     return (
-        <svg className="absolute inset-0 w-full h-full opacity-[0.04] pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
-            <rect x="25" y="30" width="150" height="120" rx="4" stroke="currentColor" strokeWidth="1.5" fill="none" />
-            <line x1="25" y1="55" x2="175" y2="55" stroke="currentColor" strokeWidth="1" />
-            <line x1="62" y1="55" x2="62" y2="150" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            <line x1="100" y1="55" x2="100" y2="150" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            <line x1="137" y1="55" x2="137" y2="150" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            <line x1="25" y1="87" x2="175" y2="87" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            <line x1="25" y1="119" x2="175" y2="119" stroke="currentColor" strokeWidth="0.5" opacity="0.5" />
-            <rect x="63" y="56" width="36" height="30" rx="2" fill="currentColor" opacity="0.15" />
-            <line x1="55" y1="22" x2="55" y2="38" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <line x1="145" y1="22" x2="145" y2="38" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            <circle cx="165" cy="30" r="12" stroke="currentColor" strokeWidth="1.5" fill="none" opacity="0.3" />
-            <line x1="165" y1="30" x2="165" y2="22" stroke="currentColor" strokeWidth="1" opacity="0.3" />
-            <line x1="165" y1="30" x2="172" y2="33" stroke="currentColor" strokeWidth="1" opacity="0.3" />
+        <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 200 180" preserveAspectRatio="none">
+            {/* Calendar grid */}
+            <rect x="25" y="30" width="150" height="120" rx="4" stroke="#f59e0b" strokeWidth="1.5" fill="none" opacity="0.055" />
+            <line x1="25" y1="55" x2="175" y2="55" stroke="#f59e0b" strokeWidth="1" opacity="0.055" />
+            {/* Grid lines */}
+            <line x1="62" y1="55" x2="62" y2="150" stroke="#f59e0b" strokeWidth="0.5" opacity="0.04" />
+            <line x1="100" y1="55" x2="100" y2="150" stroke="#f59e0b" strokeWidth="0.5" opacity="0.04" />
+            <line x1="137" y1="55" x2="137" y2="150" stroke="#f59e0b" strokeWidth="0.5" opacity="0.04" />
+            <line x1="25" y1="87" x2="175" y2="87" stroke="#f59e0b" strokeWidth="0.5" opacity="0.04" />
+            <line x1="25" y1="119" x2="175" y2="119" stroke="#f59e0b" strokeWidth="0.5" opacity="0.04" />
+            {/* Highlighted cell — earnings day */}
+            <rect x="63" y="56" width="36" height="30" rx="2" fill="#f59e0b" opacity="0.055" />
+            {/* Calendar pins */}
+            <line x1="55" y1="22" x2="55" y2="38" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" opacity="0.07" />
+            <line x1="145" y1="22" x2="145" y2="38" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" opacity="0.07" />
+            {/* Clock watermark */}
+            <circle cx="165" cy="30" r="12" stroke="#f59e0b" strokeWidth="1.5" fill="none" opacity="0.05" />
+            <line x1="165" y1="30" x2="165" y2="22" stroke="#f59e0b" strokeWidth="1" opacity="0.05" />
+            <line x1="165" y1="30" x2="172" y2="33" stroke="#f59e0b" strokeWidth="1" opacity="0.05" />
         </svg>
     );
 }
@@ -148,18 +153,18 @@ export function SectorEarningsCalendar({ config, earnings: propEarnings }: Secto
                                     <div className="flex items-center gap-1.5">
                                         <span className="text-xs font-bold text-white">{event.symbol}</span>
                                         {isToday && (
-                                            <span className="flex items-center gap-0.5 px-1 py-0.5 bg-amber-500 text-black text-[8px] font-bold rounded animate-pulse">
-                                                <Zap className="w-2 h-2" /> TODAY
+                                            <span className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500 text-black text-[11px] font-bold rounded animate-pulse">
+                                                <Zap className="w-3 h-3" /> TODAY
                                             </span>
                                         )}
                                     </div>
-                                    <div className="text-[9px] text-white/60">{event.date} | {formatHour(event.hour)}</div>
+                                    <div className="text-[11px] text-white/60">{event.date} | {formatHour(event.hour)}</div>
                                 </div>
 
                                 {/* EPS */}
                                 <div className="text-right flex-shrink-0">
-                                    <div className="text-[9px] text-white/70 uppercase">EPS Est</div>
-                                    <div className="text-xs font-bold text-white">${event.epsEstimate?.toFixed(2) || '-'}</div>
+                                    <div className="text-[11px] text-white/70 uppercase">EPS Est</div>
+                                    <div className="text-sm font-bold text-white">${event.epsEstimate?.toFixed(2) || '-'}</div>
                                 </div>
 
                                 {/* Days Badge */}
