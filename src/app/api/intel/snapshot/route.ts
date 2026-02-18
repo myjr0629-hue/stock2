@@ -89,12 +89,20 @@ export async function POST(request: Request) {
         const baseUrl = request.url.split('/api/')[0];
         const tickers = SECTOR_TICKERS[sector];
 
-        // ── Fetch current live data from existing Intel API ──
-        const liveApiUrl = sector === 'm7'
-            ? `${baseUrl}/api/intel/m7`
-            : `${baseUrl}/api/intel/physicalai`;
+        // ── Fetch current live data from lightweight Intel Fast API ──
+        // [FIX] Use /api/intel/fast (Polygon batch + Redis) instead of /api/intel/m7
+        // which internally calls /api/live/ticker × 7 → Yahoo Finance → timeout on Vercel
+        const liveApiUrl = `${baseUrl}/api/intel/fast?sector=${sector}`;
 
-        const res = await fetch(liveApiUrl, { cache: 'no-store' });
+        const res = await fetch(liveApiUrl, {
+            cache: 'no-store',
+            headers: {
+                // Bypass Vercel Deployment Protection for internal server-to-server calls
+                ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+                    ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+                    : {}),
+            },
+        });
         if (!res.ok) {
             return NextResponse.json(
                 { error: 'Failed to fetch live data for snapshot' },

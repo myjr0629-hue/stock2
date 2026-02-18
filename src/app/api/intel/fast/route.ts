@@ -180,6 +180,8 @@ export async function GET(request: Request) {
             let gammaRegime = 'NEUTRAL';
             let sparkline: number[] = [];
             let netPremium = 0;
+            let rsi = 0;
+            let rvol = 0;
 
             if (cached) {
                 // Full cached data from /api/live/ticker
@@ -191,6 +193,8 @@ export async function GET(request: Request) {
                 gex = cached.flow?.netGex || 0;
                 pcr = cached.flow?.oiPcr || cached.flow?.volumePcr || 1;
                 netPremium = cached.flow?.netPremium || 0;
+                rsi = cached.realtime?.rsi || 0;
+                rvol = cached.realtime?.relVol || 0;
 
                 if (gex > 0) gammaRegime = 'LONG';
                 else if (gex < 0) gammaRegime = 'SHORT';
@@ -221,6 +225,8 @@ export async function GET(request: Request) {
                 gammaRegime,
                 sparkline,
                 netPremium,
+                rsi,
+                rvol,
             };
         });
 
