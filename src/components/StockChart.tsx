@@ -611,7 +611,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 value={`CALL $${alphaLevels.callWall}`}
                                                 position="insideTopRight"
                                                 fill="#22d3ee"
-                                                fontSize={9}
+                                                fontSize={10}
                                                 fontWeight="bold"
                                             />
                                         </ReferenceLine>
@@ -629,7 +629,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 value={`PUT $${alphaLevels.putFloor}`}
                                                 position="insideBottomRight"
                                                 fill="#f43f5e"
-                                                fontSize={9}
+                                                fontSize={10}
                                                 fontWeight="bold"
                                             />
                                         </ReferenceLine>
@@ -645,11 +645,10 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         >
                                             <Label
                                                 value={`MAX PAIN $${alphaLevels.maxPain}`}
-                                                position="right"
+                                                position="insideRight"
                                                 fill="#a855f7"
                                                 fontSize={10}
                                                 fontWeight="bold"
-                                                offset={5}
                                             />
                                         </ReferenceLine>
                                     )}
