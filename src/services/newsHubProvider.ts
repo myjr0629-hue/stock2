@@ -5,6 +5,7 @@ import path from 'path';
 import fs from 'fs';
 
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
+import { getFromCache, setInCache } from "@/services/redisClient";
 
 export interface NewsItem {
     id: string;
@@ -169,13 +170,49 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, fallbackValue: T)
 // [Gemini Logic] Batch Analysis to respect Rate Limits (15 RPM)
 // We process up to 10 items in one go.
 // marketContext is optional — when provided, Gemini generates data-driven market interpretation
+// [PERF] Redis AI Cache — skip Gemini for previously analyzed articles (TTL: 2h)
 export async function analyzeNewsBatch(items: any[], marketContext?: string): Promise<AIAnalysisResult[]> {
     const client = getGenAIClient();
+
+    // [PERF] Step 1: Check Redis cache for each item
+    const cachedResults: AIAnalysisResult[] = [];
+    const uncachedItems: any[] = [];
+
+    try {
+        const cacheChecks = await Promise.all(
+            items.map(async (item) => {
+                const articleId = item.id || item.internalId || '';
+                if (!articleId) return null;
+                const cached = await getFromCache<AIAnalysisResult>(`news:ai:${articleId}`);
+                return cached ? { ...cached, _fromCache: true } : null;
+            })
+        );
+
+        items.forEach((item, idx) => {
+            if (cacheChecks[idx]) {
+                cachedResults.push(cacheChecks[idx]!);
+            } else {
+                uncachedItems.push(item);
+            }
+        });
+
+        if (uncachedItems.length === 0) {
+            console.log(`[NewsHub] All ${items.length} items served from Redis cache ✓`);
+            return cachedResults;
+        }
+        console.log(`[NewsHub] Cache hit: ${cachedResults.length}, miss: ${uncachedItems.length} → sending to Gemini`);
+    } catch (cacheErr) {
+        console.warn('[NewsHub] Redis cache check failed, proceeding with full Gemini:', cacheErr);
+        uncachedItems.push(...items);
+    }
+
+    // [PERF] Step 2: Only analyze uncached items with Gemini
+    const itemsToAnalyze = uncachedItems.length > 0 ? uncachedItems : items;
 
     // Try Gemini First
     if (client) {
         try {
-            const promptItems = items.map(item => ({
+            const promptItems = itemsToAnalyze.map(item => ({
                 id: item.id || `news-${Math.random().toString(36).substr(2, 9)}`,
                 text: `${item.title} - ${item.description || ""}`
             }));
@@ -185,22 +222,25 @@ export async function analyzeNewsBatch(items: any[], marketContext?: string): Pr
                 ? `\n            MARKET CONTEXT for this ticker (use this for your analysis):\n            ${marketContext}\n`
                 : '';
 
-            // [S-75+] Trilingual translation + AI Market Interpretation prompt
+            // [S-75+] Trilingual translation + AI Market Interpretation + Curation prompt
             const prompt = `
             You are a top-tier financial analyst at a Bloomberg-class terminal.
-            Your job: translate + provide ACTIONABLE market interpretation for each news item.
+            Your job: CURATE the most impactful news, translate, and provide ACTIONABLE market interpretation.
             ${contextSection}
             CRITICAL RULES:
+            - From the input items, SELECT ONLY THE TOP 5 most impactful news for investors. Discard duplicates and low-value items.
+            - Rank by: price impact potential > earnings/guidance > regulatory > analyst action > general commentary.
+            - If two articles cover the same event, keep only the one with more detail.
             - summaryKR MUST be in Korean (한국어). summaryJP MUST be in Japanese (日本語). Do NOT mix languages.
             - analysisKR MUST be in Korean, analysisEN in English, analysisJP in Japanese.
             - Each analysis should be 1-2 sentences of ACTIONABLE interpretation (not just repeating the headline).
             - If market context is provided, CONNECT the news to the data (RSI, PCR, gamma, support/resistance).
             - Focus on: price impact, risk level, and what a trader should watch for.
 
-            Input Data (JSON):
+            Input Data (JSON) — ${promptItems.length} items, select TOP 5:
             ${JSON.stringify(promptItems)}
 
-            Task for EACH news item:
+            Task for EACH selected item (TOP 5 ONLY):
             1. 'summaryKR': Korean professional translation (한국어 전문 톤).
             2. 'summaryJP': Japanese professional translation (日本語専門トーン).
             3. 'analysisKR': Korean market interpretation, 1-2 sentences. 투자자가 바로 행동할 수 있는 해석. (e.g. "RSI 과매도 구간에서 하락 뉴스 → 기술적 반등 가능성. Put Floor $120 지지 확인 필요")
@@ -208,7 +248,7 @@ export async function analyzeNewsBatch(items: any[], marketContext?: string): Pr
             5. 'analysisJP': Japanese market interpretation, 1-2 sentences. (e.g. "RSI売られ過ぎ区間で下落ニュース→テクニカル反発の可能性。プットフロア$120のサポート確認必要")
             6. 'isRumor': boolean (true if sources say 'reportedly', 'leaks', 'rumor', 'speculation').
 
-            Output MUST be a valid JSON Array:
+            Output MUST be a valid JSON Array of EXACTLY 5 items (or fewer if less than 5 unique news exist):
             [ { "id": "...", "summaryKR": "...", "summaryJP": "...", "analysisKR": "...", "analysisEN": "...", "analysisJP": "...", "isRumor": boolean } ]
             DO NOT output markdown code blocks. Just the raw JSON.
             `;
@@ -231,11 +271,27 @@ export async function analyzeNewsBatch(items: any[], marketContext?: string): Pr
             const analysis = JSON.parse(jsonStr) as AIAnalysisResult[];
 
             // [Fix] If Gemini returns empty/matches nothing, force fallback
-            if (analysis.length === 0 && items.length > 0) {
+            if (analysis.length === 0 && itemsToAnalyze.length > 0) {
                 throw new Error("Gemini returned empty results (Timeout or Refusal)");
             }
 
-            return analysis;
+            // [PERF] Step 3: Save Gemini results to Redis cache (TTL: 2 hours)
+            try {
+                await Promise.all(
+                    analysis.map(result => {
+                        if (result.id) {
+                            return setInCache(`news:ai:${result.id}`, result, 7200);
+                        }
+                        return Promise.resolve();
+                    })
+                );
+                console.log(`[NewsHub] Cached ${analysis.length} AI results to Redis (TTL: 2h)`);
+            } catch (saveErr) {
+                console.warn('[NewsHub] Failed to save AI results to Redis:', saveErr);
+            }
+
+            // Merge cached + fresh results
+            return [...cachedResults, ...analysis];
         } catch (e: any) {
             const errInfo = {
                 message: e?.message?.substring(0, 200),

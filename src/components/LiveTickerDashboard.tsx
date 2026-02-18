@@ -287,7 +287,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
     const verdictColors = {
         BULLISH: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', border: 'border-emerald-500/40', glow: 'shadow-emerald-500/20' },
         BEARISH: { bg: 'bg-rose-500/20', text: 'text-rose-400', border: 'border-rose-500/40', glow: 'shadow-rose-500/20' },
-        NEUTRAL: { bg: 'bg-slate-500/20', text: 'text-slate-400', border: 'border-slate-500/40', glow: '' },
+        NEUTRAL: { bg: 'bg-indigo-500/15', text: 'text-slate-300', border: 'border-indigo-500/30', glow: '' },
         CAUTION: { bg: 'bg-amber-500/20', text: 'text-amber-400', border: 'border-amber-500/40', glow: 'shadow-amber-500/20' },
     };
     const colors = verdictColors[verdict];
@@ -312,14 +312,14 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
                     <p className="text-sm text-white font-semibold leading-relaxed">
                         {briefing}
                     </p>
-                    <p className="text-xs text-white/70 leading-relaxed mt-2">
+                    <p className="text-[13px] text-white/80 leading-relaxed mt-2">
                         {subBriefing}
                     </p>
                 </div>
 
                 {/* Key Insights Grid */}
                 <div className="space-y-2">
-                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{td('keyMetrics')}</div>
+                    <div className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">{td('keyMetrics')}</div>
                     <div className="flex flex-wrap gap-1.5">
                         {insights.slice(0, 6).map((item, i) => (
                             <span
@@ -371,6 +371,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [optionsLoading, setOptionsLoading] = useState(false);
     const [structLoading, setStructLoading] = useState(false);
     const [newsLoading, setNewsLoading] = useState(false);
+    const [aiAnalyzing, setAiAnalyzing] = useState(false);
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
     const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
@@ -412,40 +413,60 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             : liveQuote?.session || 'CLOSED';
 
     // --- Fetchers ---
-    // [PERF] News + NewsScore 통합: 같은 API를 1번만 호출 (~10초 절약)
+    // [PERF] 2-Stage News Rendering: Quick (Polygon only) → Full (AI analysis)
+    const applyNewsScore = (data: any) => {
+        if (data.sentiment) {
+            setNewsScore({
+                score: data.sentiment.score || 50,
+                label: data.sentiment.label || td('sentimentNeutral'),
+                breakdown: data.sentiment.breakdown
+            });
+        } else {
+            const items = data.items || [];
+            let score = 50;
+            let positive = 0, negative = 0, neutral = 0;
+            items.forEach((item: any) => {
+                if (item.sentiment === 'positive') { score += 5; positive++; }
+                else if (item.sentiment === 'negative') { score -= 5; negative++; }
+                else neutral++;
+            });
+            score = Math.max(0, Math.min(100, score));
+            const label = score >= 70 ? td('sentimentPositive') : score >= 40 ? td('sentimentNeutral') : td('sentimentCaution');
+            setNewsScore({ score, label, breakdown: { positive, negative, neutral } });
+        }
+    };
+
     const fetchNewsAndScore = async () => {
         setNewsLoading(true);
         try {
-            const res = await fetch(`/api/live/news?t=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                // 1. 뉴스 아이템 설정
-                setKrNews(data.items || []);
-                // 2. 감성분석 스코어 설정 (기존 fetchNewsScore 로직)
-                if (data.sentiment) {
-                    setNewsScore({
-                        score: data.sentiment.score || 50,
-                        label: data.sentiment.label || td('sentimentNeutral'),
-                        breakdown: data.sentiment.breakdown
-                    });
-                } else {
-                    const items = data.items || [];
-                    let score = 50;
-                    let positive = 0, negative = 0, neutral = 0;
-                    items.forEach((item: any) => {
-                        if (item.sentiment === 'positive') { score += 5; positive++; }
-                        else if (item.sentiment === 'negative') { score -= 5; negative++; }
-                        else neutral++;
-                    });
-                    score = Math.max(0, Math.min(100, score));
-                    const label = score >= 70 ? td('sentimentPositive') : score >= 40 ? td('sentimentNeutral') : td('sentimentCaution');
-                    setNewsScore({ score, label, breakdown: { positive, negative, neutral } });
+            // Stage 1: Quick fetch — Polygon raw news only (~1s)
+            const quickRes = await fetch(`/api/live/news?t=${ticker}&quick=1`);
+            if (quickRes.ok) {
+                const quickData = await quickRes.json();
+                setKrNews(quickData.items || []);
+                applyNewsScore(quickData);
+                setNewsLoading(false);
+
+                // Stage 2: Full fetch — AI translation + analysis (5-15s, or instant if cached)
+                setAiAnalyzing(true);
+                try {
+                    const fullRes = await fetch(`/api/live/news?t=${ticker}`);
+                    if (fullRes.ok) {
+                        const fullData = await fullRes.json();
+                        setKrNews(fullData.items || []);
+                        applyNewsScore(fullData);
+                    }
+                } catch (aiErr) {
+                    console.warn('[News] AI analysis fetch failed:', aiErr);
+                } finally {
+                    setAiAnalyzing(false);
                 }
             }
         } catch (e: any) {
             if (e?.message?.includes("Failed to fetch")) console.warn("[News] Network retry...");
             else console.error(e);
-        } finally { setNewsLoading(false); }
+            setNewsLoading(false);
+        }
     };
     // [PERF] fetchQuote removed — replaced by SWR useFlowData hook above
     // SWR handles: caching, deduplication, background refresh (15s), error retry
@@ -2119,11 +2140,50 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         {newsLoading && <Loader2 size={10} className="text-cyan-400 animate-spin" />}
+                                        {aiAnalyzing && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 font-jakarta flex items-center gap-1 animate-pulse">
+                                                <Sparkles size={8} />
+                                                {locale === 'ko' ? 'AI 분석 중' : locale === 'ja' ? 'AI分析中' : 'AI Analyzing'}
+                                            </span>
+                                        )}
+                                        {!aiAnalyzing && !newsLoading && krNews.length > 0 && krNews[0]?.summaryKR && krNews[0]?.summaryKR !== krNews[0]?.title && (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-jakarta">
+                                                AI ✓
+                                            </span>
+                                        )}
                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
                                     </div>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+                                    {/* Full-Card AI Analysis Skeleton Overlay */}
+                                    {aiAnalyzing && (
+                                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center pointer-events-none"
+                                            style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.75) 0%, rgba(15,23,42,0.88) 50%, rgba(15,23,42,0.75) 100%)' }}>
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="relative">
+                                                    <div className="w-10 h-10 rounded-full border-2 border-cyan-500/30 flex items-center justify-center">
+                                                        <Sparkles size={18} className="text-cyan-400 animate-pulse" />
+                                                    </div>
+                                                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" style={{ animationDuration: '2s' }} />
+                                                </div>
+                                                <div className="text-center">
+                                                    <p className="text-[13px] text-cyan-200 font-jakarta font-bold tracking-wider">
+                                                        {locale === 'ko' ? 'AI 번역 · 분석 중' : locale === 'ja' ? 'AI翻訳・分析中' : 'AI Translating & Analyzing'}
+                                                    </p>
+                                                    <p className="text-[11px] text-slate-300 font-jakarta mt-0.5">
+                                                        {locale === 'ko' ? 'Gemini가 뉴스를 분석하고 있습니다...' : locale === 'ja' ? 'Geminiがニュースを分析中...' : 'Gemini is analyzing news...'}
+                                                    </p>
+                                                </div>
+                                                {/* Skeleton lines */}
+                                                <div className="w-48 space-y-2 mt-1">
+                                                    <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-500/40 to-cyan-500/20" style={{ animation: 'shimmer 2s ease-in-out infinite', backgroundSize: '200% 100%' }} />
+                                                    <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-500/40 to-cyan-500/20 w-3/4" style={{ animation: 'shimmer 2s ease-in-out infinite 0.3s', backgroundSize: '200% 100%' }} />
+                                                    <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-500/40 to-cyan-500/20 w-1/2" style={{ animation: 'shimmer 2s ease-in-out infinite 0.6s', backgroundSize: '200% 100%' }} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                     {krNews.slice(0, 5).map((n: any, i) => {
                                         const isExpanded = expandedNewsId === i;
                                         const analysis = locale === 'ko'
@@ -2132,6 +2192,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 ? (n.analysisJP || n.analysisKR || null)
                                                 : (n.analysisEN || n.analysisKR || null);
                                         const hasAnalysis = !!analysis;
+                                        const hasTranslation = locale === 'ko' ? !!n.summaryKR && n.summaryKR !== n.title
+                                            : locale === 'ja' ? !!n.summaryJP && n.summaryJP !== n.title
+                                                : true;
 
                                         return (
                                             <div key={`${n.title}-${i}`} className="border-b border-white/5 last:border-0 relative">
@@ -2139,6 +2202,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${n.sentiment === 'positive' ? 'bg-emerald-500' :
                                                     n.sentiment === 'negative' ? 'bg-rose-500' : 'bg-slate-600'
                                                     }`} />
+
 
                                                 {/* News Header — clickable for expand */}
                                                 <div
@@ -2171,7 +2235,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                             )}
                                                         </span>
                                                     </div>
-                                                    <div className="text-xs text-slate-300 font-medium leading-snug line-clamp-2">
+                                                    <div className="text-[13px] text-slate-300 font-medium leading-snug line-clamp-2">
                                                         {locale === 'ko'
                                                             ? (n.summaryKR || n.title)
                                                             : locale === 'ja'
@@ -2184,12 +2248,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 {/* AI Insight — Accordion */}
                                                 {isExpanded && analysis && (
                                                     <div className="px-3.5 pb-3 animate-in slide-in-from-top-1 duration-200">
-                                                        <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2.5">
+                                                        <div className="bg-cyan-950/60 border border-cyan-500/25 rounded-lg p-2.5 border-l-2 border-l-cyan-400">
                                                             <div className="flex items-center gap-1.5 mb-1">
                                                                 <Sparkles size={10} className="text-cyan-400" />
                                                                 <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider font-jakarta">AI Insight</span>
                                                             </div>
-                                                            <p className="text-[11px] text-slate-300 leading-relaxed">
+                                                            <p className="text-[13px] text-slate-300 leading-relaxed">
                                                                 {analysis}
                                                             </p>
                                                         </div>
