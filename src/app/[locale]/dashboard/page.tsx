@@ -920,8 +920,18 @@ function MainChartPanel() {
                                 <StockChart
                                     data={chartHistory}
                                     ticker={selectedTicker}
-                                    currentPrice={data?.underlyingPrice ?? undefined}
-                                    prevClose={prevClose}
+                                    currentPrice={
+                                        // POST/PRE: use extended price so chart tracks after-hours movement
+                                        (data?.session === 'POST' || data?.session === 'PRE') && (data?.extended?.postPrice || data?.extended?.prePrice)
+                                            ? (data?.session === 'POST' ? data?.extended?.postPrice : data?.extended?.prePrice) ?? undefined
+                                            : (data?.underlyingPrice ?? undefined)
+                                    }
+                                    prevClose={
+                                        // POST: reference line = today's regular close (Yahoo/TradingView standard)
+                                        data?.session === 'POST' && data?.regularCloseToday
+                                            ? data.regularCloseToday
+                                            : prevClose
+                                    }
                                     alphaLevels={{
                                         callWall: data?.levels?.callWall ?? undefined,
                                         putFloor: data?.levels?.putFloor ?? undefined,
