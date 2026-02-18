@@ -1534,7 +1534,13 @@
         "callWallNear": "🎯 {ticker} Call Wall ${wall} 근접 ({dist}%), 돌파 시 감마 스퀴즈 가능",
         "putFloorNear": "🛡️ {ticker} Put Floor ${floor} 근접 ({dist}%), 하방 지지 예상",
         "noKeyLevels": "📊 주요 옵션 레벨 근접 종목 없음 — 레인지 내 등락 예상",
-        "neutral": "중립"
+        "neutral": "중립",
+        "nextDayOutlook": "NEXT DAY OUTLOOK",
+        "newsDigestTitle": "M7 NEWS DIGEST",
+        "bullishSentiment": "강세",
+        "bearishSentiment": "약세",
+        "mixedSentiment": "혼조",
+        "neutralSentiment": "중립"
     },
     "sectorSession": {
         "callInflow": "콜 유입",

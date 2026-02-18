@@ -51,6 +51,19 @@ export interface TickerSnapshot {
     analysis_kr: string;              // 한줄 AI 요약
 }
 
+export interface NewsDigestItem {
+    headline: string;                 // Original English headline
+    summaryKR: string;                // Korean translation
+    summaryJP: string;                // Japanese translation
+    insightKR: string;                // AI insight (Korean)
+    insightEN: string;                // AI insight (English)
+    insightJP: string;                // AI insight (Japanese)
+    source: string;                   // Publisher name
+    sentiment: 'positive' | 'negative' | 'neutral';
+    tickers: string[];                // Related M7 tickers
+    publishedAt: string;              // ISO datetime
+}
+
 export interface BriefingData {
     headline: string;                 // Bold 18px headline
     bullets: string[];                // 3 bullet points (keywords wrapped in <mark>)
@@ -67,6 +80,15 @@ export interface SectorSummary {
     outlook: string;                  // 'BULLISH' | 'BEARISH' | 'NEUTRAL'
     next_day_briefing_kr: string;     // Legacy string (backward compat)
     briefing?: BriefingData;          // Structured briefing (new)
+    newsDigest?: NewsDigestItem[];    // AI-curated news digest
+    newsSentimentOverall?: string;    // 'BULLISH' | 'BEARISH' | 'MIXED' | 'NEUTRAL'
+    macroContext?: {                  // Market environment for NEXT DAY OUTLOOK
+        vix: { price: number; changePct: number };
+        spx: { price: number; changePct: number };
+        nq: { price: number; changePct: number };
+        tnx: { price: number; changePct: number };   // US 10Y yield
+        fearGreed?: number;           // 0-100 CNN Fear & Greed
+    };
 }
 
 export interface SnapshotData {

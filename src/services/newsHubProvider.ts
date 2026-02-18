@@ -309,7 +309,7 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
 }
 
 // Fetch stock news from Massive (Polygon) API
-export async function fetchStockNews(tickers: string[], limit: number = 10): Promise<NewsItem[]> {
+export async function fetchStockNews(tickers: string[], limit: number = 10, skipAI: boolean = false): Promise<NewsItem[]> {
     try {
         const tickerStr = tickers.join(',');
         const endpoint = `/v2/reference/news?ticker=${tickerStr}&limit=${limit}&order=desc&sort=published_utc`;
@@ -325,10 +325,9 @@ export async function fetchStockNews(tickers: string[], limit: number = 10): Pro
             internalId: article.id || `news-${idx}`
         }));
 
-        // Run Gemini Analysis (Parallel to save time? No, simple await is safer for now)
-        // Only run if we have a valid key
+        // Run Gemini Analysis (skip for snapshot — it does its own Gemini call)
         let aiResults: AIAnalysisResult[] = [];
-        if (process.env.GEMINI_NEWS_KEY || process.env.GEMINI_API_KEY) {
+        if (!skipAI && (process.env.GEMINI_NEWS_KEY || process.env.GEMINI_API_KEY)) {
             aiResults = await analyzeNewsBatch(rawItems);
         }
 

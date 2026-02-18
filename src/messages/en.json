@@ -1535,7 +1535,13 @@
         "callWallNear": "🎯 {ticker} Call Wall ${wall} nearby ({dist}%), gamma squeeze possible on break",
         "putFloorNear": "🛡️ {ticker} Put Floor ${floor} nearby ({dist}%), downside support expected",
         "noKeyLevels": "📊 No stocks near key option levels — range-bound moves expected",
-        "neutral": "Neutral"
+        "neutral": "Neutral",
+        "nextDayOutlook": "NEXT DAY OUTLOOK",
+        "newsDigestTitle": "M7 NEWS DIGEST",
+        "bullishSentiment": "BULLISH",
+        "bearishSentiment": "BEARISH",
+        "mixedSentiment": "MIXED",
+        "neutralSentiment": "NEUTRAL"
     },
     "sectorSession": {
         "callInflow": "Call Inflow",

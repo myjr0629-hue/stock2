@@ -1535,7 +1535,13 @@
         "callWallNear": "🎯 {ticker} Call Wall ${wall}接近 ({dist}%)、突破でガンマスクイーズの可能性",
         "putFloorNear": "🛡️ {ticker} Put Floor ${floor}接近 ({dist}%)、下方支持予想",
         "noKeyLevels": "📊 主要オプションレベル接近銘柄なし — レンジ内変動予想",
-        "neutral": "中立"
+        "neutral": "中立",
+        "nextDayOutlook": "NEXT DAY OUTLOOK",
+        "newsDigestTitle": "M7 NEWS DIGEST",
+        "bullishSentiment": "強気",
+        "bearishSentiment": "弱気",
+        "mixedSentiment": "混合",
+        "neutralSentiment": "中立"
     },
     "sectorSession": {
         "callInflow": "コール流入",

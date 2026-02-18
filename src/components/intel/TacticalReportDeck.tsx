@@ -8,12 +8,14 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
+import { useLocale } from 'next-intl';
 import {
     Lock, Camera, TrendingUp, TrendingDown, Shield,
     Target, BarChart3, Brain, RefreshCw, Clock, AlertCircle,
-    Swords, ShieldCheck, ArrowDownRight
+    Swords, ShieldCheck, ArrowDownRight, Newspaper, CircleDot,
+    Activity, Gauge, Globe, Zap, Eye
 } from 'lucide-react';
-import type { SectorConfig, SnapshotData, TickerSnapshot, BriefingData } from '@/types/sector';
+import type { SectorConfig, SnapshotData, TickerSnapshot, BriefingData, NewsDigestItem } from '@/types/sector';
 
 interface TacticalReportDeckProps {
     config: SectorConfig;
@@ -284,6 +286,7 @@ function generateClientBriefing(sorted: TickerSnapshot[], summary: any, tr: any)
 
 export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
     const tr = useTranslations('tacticalReport');
+    const locale = useLocale();
     const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
     const [snapshotDate, setSnapshotDate] = useState<string | null>(null);
     const [loading, setLoading] = useState(true);
@@ -534,38 +537,153 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                     </div>
                 </div>
 
-                {/* ══════════════════════════════════════════════
-                    2. NEXT DAY OUTLOOK — Newsletter Style
-                   ══════════════════════════════════════════════ */}
-                <div className={`${glass} p-5 mb-5`}>
-                    <div className="flex items-center gap-2 mb-3">
-                        <Brain className="w-4 h-4 text-amber-400" />
-                        <span className="text-[12px] font-bold text-white uppercase tracking-[0.15em] font-jakarta">NEXT DAY OUTLOOK</span>
-                    </div>
+                <div className={`grid ${summary.newsDigest && summary.newsDigest.length > 0 ? 'grid-cols-1 md:grid-cols-2' : 'grid-cols-1'} gap-4 mb-5`}>
+                    {/* LEFT: NEXT DAY OUTLOOK */}
+                    <div className={`${glass} p-5`}>
+                        <div className="flex items-center gap-2 mb-4">
+                            <Brain className="w-5 h-5 text-amber-400" />
+                            <span className="text-[13px] font-bold text-white uppercase tracking-[0.15em] font-jakarta">{tr('nextDayOutlook')}</span>
+                        </div>
 
-                    {/* Headline — readable, not oversized */}
-                    <h3 className="text-[15px] font-bold text-white leading-snug mb-3 font-jakarta">
-                        {briefing.headline}
-                    </h3>
+                        {/* Headline */}
+                        <h3 className="text-[16px] font-bold text-white leading-snug mb-4 font-jakarta">
+                            {briefing.headline}
+                        </h3>
 
-                    {/* Bullet Points */}
-                    <div className="space-y-2 mb-4">
-                        {briefing.bullets.map((bullet, i) => (
-                            <div key={i} className="flex items-start gap-2 leading-relaxed">
-                                <HighlightedText html={bullet} className="text-[13px] text-white/90" />
-                            </div>
-                        ))}
-                    </div>
+                        {/* Bullet Points — infographic style */}
+                        <div className="space-y-3 mb-4">
+                            {briefing.bullets.map((bullet, i) => {
+                                // Map bullet index to infographic icons
+                                const icons = [
+                                    <TrendingUp key="i" className="w-4 h-4 text-emerald-400" />,
+                                    <Shield key="i" className="w-4 h-4 text-amber-400" />,
+                                    <Gauge key="i" className="w-4 h-4 text-cyan-400" />,
+                                    <BarChart3 key="i" className="w-4 h-4 text-purple-400" />,
+                                    <Activity key="i" className="w-4 h-4 text-orange-400" />,
+                                    <Target key="i" className="w-4 h-4 text-sky-400" />,
+                                ];
+                                // Strip emoji from start of bullet text
+                                const cleanBullet = bullet.replace(/^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}]\s*/u, '');
+                                return (
+                                    <div key={i} className="flex items-start gap-2.5">
+                                        <div className="mt-0.5 flex-shrink-0">{icons[i % icons.length]}</div>
+                                        <HighlightedText html={cleanBullet} className="text-[13px] text-white/90 leading-relaxed" />
+                                    </div>
+                                );
+                            })}
+                        </div>
 
-                    {/* Watchpoints */}
-                    {briefing.watchpoints.length > 0 && (
-                        <div className="bg-white/[0.03] rounded-lg p-3 border border-white/[0.06]">
-                            <div className="text-[11px] font-bold text-white/70 uppercase tracking-wider mb-1.5 font-jakarta">WATCHPOINTS</div>
-                            {briefing.watchpoints.map((wp, i) => (
-                                <div key={i} className="text-[13px] text-white/80 font-medium leading-relaxed mb-1 last:mb-0">
-                                    {wp}
+                        {/* Watchpoints */}
+                        {briefing.watchpoints.length > 0 && (
+                            <div className="bg-white/[0.04] rounded-lg p-3 border border-white/[0.08] mb-4">
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <Eye className="w-3.5 h-3.5 text-amber-400" />
+                                    <span className="text-[11px] font-bold text-white/80 uppercase tracking-wider font-jakarta">WATCHPOINTS</span>
                                 </div>
-                            ))}
+                                {briefing.watchpoints.map((wp, i) => {
+                                    const cleanWp = wp.replace(/^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}]\s*/u, '');
+                                    return (
+                                        <div key={i} className="flex items-start gap-2 mb-1.5 last:mb-0">
+                                            <Target className="w-3 h-3 mt-0.5 text-amber-400/60 flex-shrink-0" />
+                                            <span className="text-[12px] text-white/80 leading-relaxed">{cleanWp}</span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Macro Context */}
+                        {summary.macroContext && (
+                            <div className="bg-white/[0.04] rounded-lg p-3 border border-white/[0.08]">
+                                <div className="flex items-center gap-1.5 mb-2.5">
+                                    <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                                    <span className="text-[11px] font-bold text-white/80 uppercase tracking-wider font-jakarta">MARKET CONTEXT</span>
+                                </div>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {[
+                                        { label: 'VIX', ...summary.macroContext.vix },
+                                        { label: 'S&P 500', ...summary.macroContext.spx },
+                                        { label: 'NASDAQ', ...summary.macroContext.nq },
+                                        { label: 'US 10Y', ...summary.macroContext.tnx },
+                                    ].map(m => (
+                                        <div key={m.label} className="text-center">
+                                            <div className="text-[10px] text-white/50 font-bold mb-0.5">{m.label}</div>
+                                            <div className="text-[14px] text-white font-bold font-num">
+                                                {m.label === 'US 10Y' ? `${m.price}%` : m.price.toLocaleString()}
+                                            </div>
+                                            <div className={`text-[11px] font-bold font-num ${m.changePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                {m.changePct >= 0 ? '+' : ''}{m.changePct.toFixed(2)}%
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* RIGHT: NEWS DIGEST */}
+                    {summary.newsDigest && summary.newsDigest.length > 0 && (
+                        <div className={`${glass} p-5`}>
+                            <div className="flex items-center gap-2 mb-3">
+                                <Newspaper className="w-4 h-4 text-cyan-400" />
+                                <span className="text-[12px] font-bold text-white uppercase tracking-[0.15em] font-jakarta">{tr('newsDigestTitle')}</span>
+                                {summary.newsSentimentOverall && (
+                                    <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full ${summary.newsSentimentOverall === 'BULLISH' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/25' :
+                                        summary.newsSentimentOverall === 'BEARISH' ? 'bg-red-500/15 text-red-400 border border-red-500/25' :
+                                            summary.newsSentimentOverall === 'MIXED' ? 'bg-amber-500/15 text-amber-400 border border-amber-500/25' :
+                                                'bg-white/5 text-white/50 border border-white/10'
+                                        }`}>
+                                        {summary.newsSentimentOverall === 'BULLISH' ? tr('bullishSentiment') :
+                                            summary.newsSentimentOverall === 'BEARISH' ? tr('bearishSentiment') :
+                                                summary.newsSentimentOverall === 'MIXED' ? tr('mixedSentiment') :
+                                                    tr('neutralSentiment')}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* News Items */}
+                            <div className="space-y-3">
+                                {summary.newsDigest.map((news, i) => {
+                                    const sentimentColor = news.sentiment === 'positive' ? '#10b981' :
+                                        news.sentiment === 'negative' ? '#f43f5e' : '#94a3b8';
+                                    const title = locale === 'ko' ? news.summaryKR :
+                                        locale === 'ja' ? news.summaryJP : news.headline;
+                                    const insight = locale === 'ko' ? news.insightKR :
+                                        locale === 'ja' ? news.insightJP : news.insightEN;
+                                    const hoursAgo = Math.max(1, Math.round((Date.now() - new Date(news.publishedAt).getTime()) / 3600000));
+
+                                    return (
+                                        <div key={i} className="group relative">
+                                            <div className="flex items-start gap-2.5">
+                                                <CircleDot className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: sentimentColor }} />
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-[14px] text-white font-semibold leading-snug">
+                                                        {title}
+                                                    </div>
+                                                    {insight && (
+                                                        <div className="text-[12px] text-cyan-300 mt-0.5 leading-snug line-clamp-2">
+                                                            → {insight}
+                                                        </div>
+                                                    )}
+                                                    <div className="flex items-center gap-2 mt-1.5">
+                                                        {news.tickers.slice(0, 3).map(t => (
+                                                            <span key={t} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-num">
+                                                                {t}
+                                                            </span>
+                                                        ))}
+                                                        <span className="text-[10px] text-white/50 ml-auto font-num">
+                                                            {news.source} · {hoursAgo}h
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {i < (summary.newsDigest?.length || 0) - 1 && (
+                                                <div className="border-b border-white/[0.08] mt-3" />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>

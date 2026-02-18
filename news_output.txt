@@ -1,0 +1,161 @@
+
+=== NVDA (3 articles) ===
+1. Apple Tests Key Uptrend as Tech Momentum Hangs in Balance
+   Publisher: Investing.com
+   Date: 2026-02-18T10:03:00Z
+   Tickers: AAPL,NVDA,META
+   Sentiment: ["neutral","positive","positive"]
+   Desc: Apple is testing a critical uptrend line connecting post-tariff lows. A failure to hold this support level would signal weakness in tech and consumer discretionary stocks, with significant implication
+
+2. Beyond Nvidia: 4 AI Stocks Flying Under the Radar
+   Publisher: Investing.com
+   Date: 2026-02-18T06:36:00Z
+   Tickers: NVDA,SMCI,ANET,VRT,SNPS
+   Sentiment: ["neutral","positive","positive","positive","positive"]
+   Desc: While Nvidia dominates AI accelerators, the broader AI ecosystem is expanding rapidly with lesser-known companies benefiting from surging AI infrastructure spending. The article highlights four underr
+
+3. How Nvidia and AI are Driving Demand for Silver Higher
+   Publisher: The Motley Fool
+   Date: 2026-02-18T04:05:00Z
+   Tickers: NVDA
+   Sentiment: ["positive"]
+   Desc: Nvidia's new 800V HVDC data centers launching in 2027 are expected to significantly increase silver demand due to the metal's superior thermal conductivity and oxidation resistance at high voltages. W
+
+
+=== AMZN (3 articles) ===
+1. Quantum Computing Stocks IonQ, Rigetti Computing, and D-Wave Quantum Have Issued a Can't-Miss $615 Million Warning to Wall Street
+   Publisher: The Motley Fool
+   Date: 2026-02-18T10:06:00Z
+   Tickers: IONQ,IONQ.WS,RGTI,RGTIW,QBTS
+   Sentiment: ["negative","negative","negative","negative","negative","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral"]
+   Desc: Despite quantum computing stocks IonQ, Rigetti, and D-Wave soaring 670-6,217% over the trailing year, insiders at these companies have collectively sold approximately $615 million more shares than the
+
+2. The Data Center AI Spending Boom Hides a Dirty Little Secret
+   Publisher: The Motley Fool
+   Date: 2026-02-18T08:02:00Z
+   Tickers: MU,AMZN,GOOG,GOOGL,META
+   Sentiment: ["positive","neutral","neutral","neutral","neutral","neutral"]
+   Desc: While big tech companies are spending record amounts on AI data centers ($600B expected in 2026), a critical shortage of memory chips (DRAM, NAND, HBM) is driving up prices and accounting for ~45% of 
+
+3. 3 Tech Stocks That Could Help Set You Up for Life
+   Publisher: The Motley Fool
+   Date: 2026-02-18T03:05:00Z
+   Tickers: TSM,AAPL,SNDK,NVDA,GOOG
+   Sentiment: ["positive","positive","positive","neutral","neutral","neutral","neutral"]
+   Desc: The article recommends three tech stocks for long-term portfolio growth: Taiwan Semiconductor (TSM) as an established, reliable chip manufacturer benefiting from AI and tech trends with strong margins
+
+
+=== TSLA (3 articles) ===
+1. Stock Market Today, Feb. 17: Rivian Drops as Analysts Lift Price Targets but R2 Launch Risks Weigh
+   Publisher: The Motley Fool
+   Date: 2026-02-17T22:14:55Z
+   Tickers: RIVN,TSLA,LCID
+   Sentiment: ["negative","negative","negative"]
+   Desc: Rivian Automotive fell 7.11% to $16.47 on February 17, 2026, despite multiple Wall Street analysts raising price targets to $18-$23. The decline reflects investor concerns about execution risks surrou
+
+2. Should You Buy the Vanguard S&P 500 ETF With the Stock Market Near a Record High? History Offers a Clear Answer
+   Publisher: The Motley Fool
+   Date: 2026-02-17T21:15:00Z
+   Tickers: VOO,NVDA,AAPL,MSFT,AVGO
+   Sentiment: ["positive","positive","positive","positive","positive","positive","positive","positive","positive","positive"]
+   Desc: The article argues that despite the S&P 500 trading near record highs, historical data suggests it remains a solid long-term investment. The index has delivered 10.6% average annual returns since 1957
+
+3. Autonomous Vehicles Strategic Intelligence Report 2025: Market to Consolidate Around a Small Set of Well-capitalized First Movers-especially Baidu (Apollo Go), Waymo, Zoox, WeRide, and Pony.ai
+   Publisher: GlobeNewswire Inc.
+   Date: 2026-02-17T16:00:00Z
+   Tickers: BIDU,WRD,TSLA,GM,GOOG
+   Sentiment: ["positive","positive","neutral","neutral","positive","positive","positive"]
+   Desc: The autonomous vehicle market is consolidating around a few well-capitalized leaders including Baidu, Waymo, Zoox, WeRide, and Pony.ai. Global robotaxi fleets are expected to exceed 10,000 Level 4 cap
+
+
+=== AAPL (3 articles) ===
+1. Stock-Split Watch: Is Microsoft Next?
+   Publisher: The Motley Fool
+   Date: 2026-02-18T10:30:00Z
+   Tickers: MSFT,AAPL,GS,GSpA,GSpC
+   Sentiment: ["neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral"]
+   Desc: Microsoft's $396.86 stock price is approaching Apple's pre-split price from 2020, and its inclusion in the price-weighted Dow Jones Industrial Average creates pressure for a potential stock split. How
+
+2. Apple Tests Key Uptrend as Tech Momentum Hangs in Balance
+   Publisher: Investing.com
+   Date: 2026-02-18T10:03:00Z
+   Tickers: AAPL,NVDA,META
+   Sentiment: ["neutral","positive","positive"]
+   Desc: Apple is testing a critical uptrend line connecting post-tariff lows. A failure to hold this support level would signal weakness in tech and consumer discretionary stocks, with significant implication
+
+3. Down 6%, Should You Buy the Dip on Apple?
+   Publisher: The Motley Fool
+   Date: 2026-02-18T07:03:00Z
+   Tickers: AAPL,GOOG,GOOGL
+   Sentiment: ["positive","neutral","neutral"]
+   Desc: Apple stock has declined 6% year-to-date and 8% in the past week due to FTC regulatory concerns and AI feature delays. However, the article argues the sell-off is overblown, citing Apple's strong Q1 2
+
+
+=== MSFT (3 articles) ===
+1. Stock-Split Watch: Is Microsoft Next?
+   Publisher: The Motley Fool
+   Date: 2026-02-18T10:30:00Z
+   Tickers: MSFT,AAPL,GS,GSpA,GSpC
+   Sentiment: ["neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral"]
+   Desc: Microsoft's $396.86 stock price is approaching Apple's pre-split price from 2020, and its inclusion in the price-weighted Dow Jones Industrial Average creates pressure for a potential stock split. How
+
+2. The Data Center AI Spending Boom Hides a Dirty Little Secret
+   Publisher: The Motley Fool
+   Date: 2026-02-18T08:02:00Z
+   Tickers: MU,AMZN,GOOG,GOOGL,META
+   Sentiment: ["positive","neutral","neutral","neutral","neutral","neutral"]
+   Desc: While big tech companies are spending record amounts on AI data centers ($600B expected in 2026), a critical shortage of memory chips (DRAM, NAND, HBM) is driving up prices and accounting for ~45% of 
+
+3. Stock Market Today, Feb. 17: Apple Rebounds as AI Strategy Heads Into High-Profile March Event
+   Publisher: The Motley Fool
+   Date: 2026-02-17T22:05:51Z
+   Tickers: AAPL,MSFT,GOOG,GOOGL
+   Sentiment: ["positive","neutral","neutral","neutral"]
+   Desc: Apple rebounded on February 17 after Wedbush reiterated an Outperform rating and $350 price target, following an earlier 8% decline. Investors are now focused on Apple's March 4 product event where Si
+
+
+=== GOOGL (3 articles) ===
+1. Stock-Split Watch: Is Microsoft Next?
+   Publisher: The Motley Fool
+   Date: 2026-02-18T10:30:00Z
+   Tickers: MSFT,AAPL,GS,GSpA,GSpC
+   Sentiment: ["neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral","neutral"]
+   Desc: Microsoft's $396.86 stock price is approaching Apple's pre-split price from 2020, and its inclusion in the price-weighted Dow Jones Industrial Average creates pressure for a potential stock split. How
+
+2. The Data Center AI Spending Boom Hides a Dirty Little Secret
+   Publisher: The Motley Fool
+   Date: 2026-02-18T08:02:00Z
+   Tickers: MU,AMZN,GOOG,GOOGL,META
+   Sentiment: ["positive","neutral","neutral","neutral","neutral","neutral"]
+   Desc: While big tech companies are spending record amounts on AI data centers ($600B expected in 2026), a critical shortage of memory chips (DRAM, NAND, HBM) is driving up prices and accounting for ~45% of 
+
+3. Down 6%, Should You Buy the Dip on Apple?
+   Publisher: The Motley Fool
+   Date: 2026-02-18T07:03:00Z
+   Tickers: AAPL,GOOG,GOOGL
+   Sentiment: ["positive","neutral","neutral"]
+   Desc: Apple stock has declined 6% year-to-date and 8% in the past week due to FTC regulatory concerns and AI feature delays. However, the article argues the sell-off is overblown, citing Apple's strong Q1 2
+
+
+=== META (3 articles) ===
+1. Apple Tests Key Uptrend as Tech Momentum Hangs in Balance
+   Publisher: Investing.com
+   Date: 2026-02-18T10:03:00Z
+   Tickers: AAPL,NVDA,META
+   Sentiment: ["neutral","positive","positive"]
+   Desc: Apple is testing a critical uptrend line connecting post-tariff lows. A failure to hold this support level would signal weakness in tech and consumer discretionary stocks, with significant implication
+
+2. The Data Center AI Spending Boom Hides a Dirty Little Secret
+   Publisher: The Motley Fool
+   Date: 2026-02-18T08:02:00Z
+   Tickers: MU,AMZN,GOOG,GOOGL,META
+   Sentiment: ["positive","neutral","neutral","neutral","neutral","neutral"]
+   Desc: While big tech companies are spending record amounts on AI data centers ($600B expected in 2026), a critical shortage of memory chips (DRAM, NAND, HBM) is driving up prices and accounting for ~45% of 
+
+3. David Tepper's Appaloosa Ups Micron Stake By 250%, Trims Nvidia And Amazon
+   Publisher: Benzinga
+   Date: 2026-02-17T22:43:00Z
+   Tickers: MU,BABA,AMZN,NVDA,META
+   Sentiment: ["positive","negative","negative","negative","positive","positive","positive","positive"]
+   Desc: Billionaire David Tepper's Appaloosa Management significantly increased its Micron Technology position by 250% while reducing stakes in Chinese tech and Mag 7 stocks. The fund added 1 million Micron s
+

@@ -6,7 +6,11 @@
 
 import { NextResponse } from 'next/server';
 import { saveSnapshot, getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
-import type { SnapshotData, TickerSnapshot, SectorSummary } from '@/types/sector';
+import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem } from '@/types/sector';
+import { fetchStockNews } from '@/services/newsHubProvider';
+import { GoogleGenAI } from '@google/genai';
+import { getFromCache } from '@/services/redisClient';
+import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 
 // Sector ticker lists
 const SECTOR_TICKERS: Record<string, string[]> = {
@@ -64,8 +68,16 @@ export async function GET(request: Request) {
  */
 export async function POST(request: Request) {
     try {
-        const body = await request.json();
-        const sector = body.sector as string;
+        // Support both body JSON and query params
+        let sector: string;
+        try {
+            const body = await request.json();
+            sector = body.sector as string;
+        } catch {
+            // If no body, try query params
+            const { searchParams } = new URL(request.url);
+            sector = searchParams.get('sector') || '';
+        }
 
         if (!sector || !SECTOR_TICKERS[sector]) {
             return NextResponse.json(
@@ -168,9 +180,155 @@ export async function POST(request: Request) {
 
         const outlook = avgPcr < 0.8 ? 'BULLISH' : avgPcr > 1.2 ? 'BEARISH' : 'NEUTRAL';
 
+        // ── [MACRO CONTEXT] Read from Redis only (Guardian already caches Yahoo data) ──
+        let macroContext: SectorSummary['macroContext'] = undefined;
+        try {
+            const [redisVix, redisSpx, redisNq, redisTnx] = await Promise.all([
+                getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX),
+                getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.SPX),
+                getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.NQ),
+                getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.TNX),
+            ]);
+            if (redisVix && redisSpx && redisNq && redisTnx) {
+                macroContext = {
+                    vix: { price: Math.round(redisVix.price * 100) / 100, changePct: Math.round(redisVix.changePct * 100) / 100 },
+                    spx: { price: Math.round(redisSpx.price * 100) / 100, changePct: Math.round(redisSpx.changePct * 100) / 100 },
+                    nq: { price: Math.round(redisNq.price * 100) / 100, changePct: Math.round(redisNq.changePct * 100) / 100 },
+                    tnx: { price: Math.round(redisTnx.price * 100) / 100, changePct: Math.round(redisTnx.changePct * 100) / 100 },
+                };
+                console.log(`[Snapshot] Macro from Redis: VIX=${macroContext.vix.price}, SPX=${macroContext.spx.price}`);
+            } else {
+                console.log('[Snapshot] Macro data not in Redis yet, skipping macroContext');
+            }
+        } catch (macroErr) {
+            console.warn('[Snapshot] Macro Redis read failed:', macroErr);
+        }
+
         const briefingResult = generateNextDayBriefing(tickerSnapshots, {
             dominantRegime, avgPcr, totalGex, gainers, losers, outlook
         });
+
+        // ── [NEWS DIGEST] Fetch M7 news + Gemini AI Insight ──
+        let newsDigest: NewsDigestItem[] = [];
+        let newsSentimentOverall: string = 'NEUTRAL';
+        let newsDebugInfo: string = '';
+        try {
+            // Polygon API needs individual ticker calls (comma-separated not supported)
+            const newsPromises = tickers.map(t => fetchStockNews([t], 3, true));
+            const newsArrays = await Promise.all(newsPromises);
+            const rawNews = newsArrays.flat();
+            console.log(`[Snapshot] fetchStockNews returned ${rawNews.length} items from ${tickers.length} tickers`);
+            if (rawNews.length > 0) console.log(`[Snapshot] First news: ${rawNews[0].headline}`);
+            // Dedup by headline
+            const seen = new Set<string>();
+            const uniqueNews = rawNews.filter(n => {
+                if (seen.has(n.headline)) return false;
+                seen.add(n.headline);
+                return true;
+            }).slice(0, 8);
+
+            if (uniqueNews.length > 0) {
+                // Generate AI insights via Gemini (NEWS_KEY = Tier1 primary)
+                const geminiKey = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_VERDICT_KEY || process.env.GEMINI_API_KEY;
+                console.log(`[Snapshot] uniqueNews: ${uniqueNews.length}, geminiKey: ${geminiKey ? 'YES (' + geminiKey.substring(0, 8) + '...)' : 'MISSING'}`);
+                if (geminiKey) {
+                    try {
+                        const genAI = new GoogleGenAI({ apiKey: geminiKey });
+                        const newsForPrompt = uniqueNews.map((n, i) => ({
+                            id: i,
+                            title: n.headline,
+                            desc: n.summaryKR || n.headline,
+                            tickers: n.relatedTickers?.filter(t => tickers.includes(t)) || [],
+                            sentiment: n.sentiment,
+                        }));
+
+                        const tickerContext = tickerSnapshots.map(t =>
+                            `${t.ticker}: ${t.change_pct >= 0 ? '+' : ''}${t.change_pct.toFixed(2)}%, RSI ${t.rsi}, PCR ${t.pcr}, γ ${t.gamma_regime}`
+                        ).join('; ');
+
+                        const prompt = `You are SIGNUM Intelligence, an elite financial analyst.
+Context: M7 sector today — ${tickerContext}
+Outlook: ${outlook}, Dominant Gamma: ${dominantRegime}
+
+Analyze these ${newsForPrompt.length} news items and provide investment insights:
+${JSON.stringify(newsForPrompt)}
+
+For each news item, provide:
+1. insightKR: 한국어 투자 인사이트 (15-25자, 핵심 영향만. 예: "AI 인프라 지출 확대 → NVDA 수혜 지속")
+2. insightEN: English investment insight (15-25 words, key impact. e.g. "AI infra spending surge benefits NVDA long-term")
+3. insightJP: 日本語投資インサイト (15-25文字, 核心的影響のみ)
+4. sentiment: "positive" | "negative" | "neutral" (based on actual market impact, not headline tone)
+5. summaryKR: 한국어 번역 제목 (10-20자)
+6. summaryJP: 日本語翻訳タイトル (10-20文字)
+
+Also provide overallSentiment: "BULLISH" | "BEARISH" | "MIXED" | "NEUTRAL" based on the aggregate news tone.
+
+Output MUST be valid JSON (no markdown):
+{ "items": [ { "id": 0, "summaryKR": "...", "summaryJP": "...", "insightKR": "...", "insightEN": "...", "insightJP": "...", "sentiment": "..." } ], "overallSentiment": "..." }`;
+
+                        const result = await genAI.models.generateContent({
+                            model: 'gemini-2.5-flash',
+                            contents: prompt,
+                        });
+
+                        const responseText = (result.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+                        if (!responseText) throw new Error('Gemini returned empty response');
+                        const parsed = JSON.parse(responseText);
+                        const aiItems = parsed.items || [];
+                        newsSentimentOverall = parsed.overallSentiment || 'NEUTRAL';
+
+                        newsDigest = uniqueNews.slice(0, 6).map((n, i) => {
+                            const ai = aiItems.find((a: any) => a.id === i) || {};
+                            return {
+                                headline: n.headline,
+                                summaryKR: ai.summaryKR || n.summaryKR || n.headline,
+                                summaryJP: ai.summaryJP || n.summaryJP || n.headline,
+                                insightKR: ai.insightKR || '',
+                                insightEN: ai.insightEN || '',
+                                insightJP: ai.insightJP || '',
+                                source: n.source,
+                                sentiment: ai.sentiment || n.sentiment || 'neutral',
+                                tickers: n.relatedTickers?.filter(t => tickers.includes(t)) || [],
+                                publishedAt: n.publishedAt,
+                            };
+                        });
+                        console.log(`[Snapshot] News Digest: ${newsDigest.length} items, overall: ${newsSentimentOverall}`);
+                    } catch (aiErr: any) {
+                        newsDebugInfo = `Gemini failed: ${aiErr.message || aiErr}`;
+                        console.warn('[Snapshot] Gemini insight generation failed, using raw news:', aiErr);
+                        // Fallback: use news without AI insight
+                        newsDigest = uniqueNews.slice(0, 6).map(n => ({
+                            headline: n.headline,
+                            summaryKR: n.summaryKR || n.headline,
+                            summaryJP: n.summaryJP || n.headline,
+                            insightKR: '',
+                            insightEN: '',
+                            insightJP: '',
+                            source: n.source,
+                            sentiment: n.sentiment || 'neutral',
+                            tickers: n.relatedTickers?.filter(t => tickers.includes(t)) || [],
+                            publishedAt: n.publishedAt,
+                        }));
+                    }
+                } else {
+                    // No Gemini key — raw news only
+                    newsDigest = uniqueNews.slice(0, 6).map(n => ({
+                        headline: n.headline,
+                        summaryKR: n.summaryKR || n.headline,
+                        summaryJP: n.summaryJP || n.headline,
+                        insightKR: '',
+                        insightEN: '',
+                        insightJP: '',
+                        source: n.source,
+                        sentiment: n.sentiment || 'neutral',
+                        tickers: n.relatedTickers?.filter(t => tickers.includes(t)) || [],
+                        publishedAt: n.publishedAt,
+                    }));
+                }
+            }
+        } catch (newsErr) {
+            console.warn('[Snapshot] News fetch failed, skipping digest:', newsErr);
+        }
 
         const sectorSummary: SectorSummary = {
             avg_alpha: Math.round(avgAlpha * 10) / 10,
@@ -182,6 +340,9 @@ export async function POST(request: Request) {
             outlook,
             next_day_briefing_kr: briefingResult.legacy,
             briefing: briefingResult.briefing,
+            newsDigest: newsDigest.length > 0 ? newsDigest : undefined,
+            newsSentimentOverall: newsDigest.length > 0 ? newsSentimentOverall : undefined,
+            macroContext,
         };
 
         const snapshotData: SnapshotData = {
@@ -210,6 +371,9 @@ export async function POST(request: Request) {
             snapshot_date: snapshotDate,
             tickers_count: tickerSnapshots.length,
             outlook: sectorSummary.outlook,
+            news_count: newsDigest.length,
+            news_sentiment: newsSentimentOverall,
+            news_debug: newsDebugInfo || 'OK',
         });
 
     } catch (e: any) {
@@ -373,6 +537,32 @@ function generateNextDayBriefing(
     // Bullet 3: PCR & Outlook
     const pcrEmoji = summary.avgPcr < 0.8 ? '🟢' : summary.avgPcr > 1.2 ? '🔴' : '🟡';
     bullets.push(`${pcrEmoji} PCR 평균 <mark>${summary.avgPcr.toFixed(2)}</mark> → ${outlookKR}. ${summary.avgPcr < 0.8 ? '콜 우위 — 상방 기대' : summary.avgPcr > 1.2 ? '풋 우위 — 하방 압력' : '옵션 시장 중립적 포지셔닝'}`);
+
+    // Bullet 4: Volume analysis
+    const highVolTickers = tickers.filter(t => (t.rvol || 0) > 1.3);
+    const lowVolTickers = tickers.filter(t => (t.rvol || 0) > 0 && (t.rvol || 0) < 0.7);
+    if (highVolTickers.length > 0) {
+        bullets.push(`📊 거래량 주목: ${highVolTickers.map(t => `${t.ticker} ${(t.rvol || 0).toFixed(1)}x`).join(', ')} — 평소 대비 높은 거래량, 추세 가속 가능`);
+    } else if (lowVolTickers.length > 0) {
+        bullets.push(`📊 거래량 감소: ${lowVolTickers.map(t => `${t.ticker} ${(t.rvol || 0).toFixed(1)}x`).join(', ')} — 관망세 우세, 방향 결정 대기`);
+    }
+
+    // Bullet 5: RSI extremes
+    const oversold = tickers.filter(t => (t.rsi || 50) < 35);
+    const overbought = tickers.filter(t => (t.rsi || 50) > 70);
+    if (oversold.length > 0) {
+        bullets.push(`⚠️ RSI 과매도 구간: ${oversold.map(t => `<mark>${t.ticker} RSI ${Math.round(t.rsi || 0)}</mark>`).join(', ')} — 기술적 반등 가능성 주시`);
+    } else if (overbought.length > 0) {
+        bullets.push(`⚠️ RSI 과매수 구간: ${overbought.map(t => `<mark>${t.ticker} RSI ${Math.round(t.rsi || 0)}</mark>`).join(', ')} — 차익실현 압력 예상`);
+    } else {
+        const avgRsi = tickers.reduce((s, t) => s + (t.rsi || 50), 0) / tickers.length;
+        bullets.push(`📐 RSI 평균 <mark>${Math.round(avgRsi)}</mark> — 과열/과매도 구간 아님, 중립 모멘텀`);
+    }
+
+    // Bullet 6: Alpha score distribution
+    const avgAlpha = tickers.reduce((s, t) => s + (t.alpha_score || 0), 0) / tickers.length;
+    const gradeA = tickers.filter(t => t.grade === 'A' || t.grade === 'B').length;
+    bullets.push(`🏆 Alpha 평균 <mark>${Math.round(avgAlpha)}</mark> — ${gradeA > 0 ? `B등급↑ ${gradeA}종목 (${tickers.filter(t => t.grade === 'A' || t.grade === 'B').map(t => t.ticker).join(',')})` : '전 종목 C등급 이하, 전반적 약세'}`);
 
     // Watchpoints
     const watchpoints: string[] = [];
