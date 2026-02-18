@@ -55,17 +55,27 @@ export async function GET(request: Request) {
 
             const todaysChangePerc = S.todaysChangePerc || 0;
 
-            // [FIX] During PRE session, todaysChangePerc = prevClose→PRE price change (NOT regular session change!)
-            // We need the REGULAR session change (day.c vs prevDay.c) for main display.
-            // todaysChangePerc is only correct during REG/POST/CLOSED sessions.
-            const priceForChange = (session === 'regular' && liveLast > 0) ? liveLast : dayClose;
-            const calculatedChangePct = (priceForChange > 0 && prevDayClose > 0 && priceForChange !== prevDayClose)
-                ? ((priceForChange - prevDayClose) / prevDayClose) * 100
-                : 0;
-            // For PRE: use calculated (day.c vs prevDay.c), for other sessions: prefer todaysChangePerc
-            const changePercent = (session === 'pre')
-                ? calculatedChangePct
-                : (todaysChangePerc !== 0 ? todaysChangePerc : calculatedChangePct);
+            // [FIX V2] Session-aware changePct calculation
+            // PROBLEM: Polygon's todaysChangePerc uses the LATEST trade (including after-hours)
+            // vs prevDay.c. During POST, this gives e.g. +1.81% (post-market price) instead of
+            // the correct +1.63% (regular session close). Since we display dayClose as the main price
+            // during POST/CLOSED, the changePct must match: dayClose vs prevDayClose.
+            //
+            // REG: Use todaysChangePerc (live last trade is the correct reference)
+            // PRE: Calculate from day.c vs prevDay.c (regular session = yesterday's close)
+            // POST/CLOSED: Calculate from day.c vs prevDay.c (regular session close, NOT post-market)
+            let changePercent = 0;
+            if (session === 'regular') {
+                // During regular hours: Polygon's live todaysChangePerc is accurate
+                changePercent = todaysChangePerc !== 0 ? todaysChangePerc
+                    : ((liveLast > 0 && prevDayClose > 0) ? ((liveLast - prevDayClose) / prevDayClose) * 100 : 0);
+            } else {
+                // PRE / POST / CLOSED: Always calculate from dayClose vs prevDayClose
+                // This ensures changePct matches the displayed price (dayClose)
+                changePercent = (dayClose > 0 && prevDayClose > 0 && dayClose !== prevDayClose)
+                    ? ((dayClose - prevDayClose) / prevDayClose) * 100
+                    : 0;
+            }
 
             // Session-aware price & extended price selection
             let price = 0;
