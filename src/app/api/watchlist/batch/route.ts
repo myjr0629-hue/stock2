@@ -299,7 +299,10 @@ export async function GET(request: Request) {
                     callWall: structureRes?.levels?.callWall ?? null,
                     putFloor: structureRes?.levels?.putFloor ?? null,
                     // [RANKING] Net premium flow for Money Flow ranking
-                    netPremium: structureRes?.netPremium ?? null
+                    netPremium: structureRes?.netPremium ?? null,
+                    // [FIX] Volume + RelVol for snapshot pipeline
+                    volume: stockData.volume || 0,
+                    relVol: relVol ?? 0
                 }
             };
         } catch (error) {

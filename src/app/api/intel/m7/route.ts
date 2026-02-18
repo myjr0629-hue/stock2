@@ -33,6 +33,8 @@ export interface M7Quote {
     gammaRegime: string;
     sparkline: number[];
     netPremium: number;
+    rsi: number;
+    rvol: number;
 }
 
 export async function GET(request: Request) {
@@ -98,7 +100,9 @@ export async function GET(request: Request) {
                     pcr: 1,
                     gammaRegime: 'NEUTRAL',
                     sparkline: [],
-                    netPremium: 0
+                    netPremium: 0,
+                    rsi: 0,
+                    rvol: 0
                 });
                 return;
             }
@@ -161,7 +165,7 @@ export async function GET(request: Request) {
                 price: displayPrice,
                 changePct: displayChangePct,
                 prevClose: data.prices?.prevRegularClose || data.prevClose || 0,
-                volume: data.day?.v || 0,
+                volume: rt.volume || 0,
                 extendedPrice,
                 extendedChangePct,
                 extendedLabel,
@@ -175,7 +179,9 @@ export async function GET(request: Request) {
                 pcr: rt.pcr || 1,
                 gammaRegime,
                 sparkline: rt.sparkline || [],
-                netPremium: rt.netPremium || 0
+                netPremium: rt.netPremium || 0,
+                rsi: rt.rsi || 0,
+                rvol: rt.relVol || 0
             });
         });
 
