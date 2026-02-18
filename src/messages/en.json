@@ -1569,7 +1569,11 @@
         "belowMaxPain": "Below Max Pain($${mp}) by ${diff}%, rebound possible.",
         "slightBelowMaxPain": "Slightly below Max Pain($${mp}), wait-and-see.",
         "callWallNearBreak": "Near Call Wall($${cw}) → strong resistance, breakout = surge.",
-        "putFloorNearBreak": "Near Put Floor($${pf}) → strong support, break = plunge."
+        "putFloorNearBreak": "Near Put Floor($${pf}) → strong support, break = plunge.",
+        "oversold": "Oversold",
+        "overbought": "Overbought",
+        "volumeSurge": "Volume Surge",
+        "volumeWeak": "Low Volume"
     },
     "sectorRanking": {
         "moneyFlowSub": "Money Flow Ranking",

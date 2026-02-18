@@ -32,6 +32,8 @@ export interface IntelQuote {
     gammaRegime: string;
     sparkline: number[];
     netPremium: number;
+    rsi: number;
+    rvol: number;
 }
 
 export interface IntelSharedData {
@@ -304,6 +306,8 @@ function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResult
             gammaRegime: gex > 0 ? 'LONG' : gex < 0 ? 'SHORT' : existing.gammaRegime,
             sparkline: rt.sparkline?.length > 0 ? rt.sparkline : existing.sparkline,
             netPremium: rt.netPremium || existing.netPremium,
+            rsi: rt.rsi || existing.rsi || 0,
+            rvol: rt.relVol || existing.rvol || 0,
         };
     });
 }

@@ -19,6 +19,8 @@ interface TacticalItem {
     pcr: number;
     gammaRegime: string;
     sparkline: number[];
+    rsi: number;
+    rvol: number;
 }
 
 interface PhysicalAITacticalDeckProps {
@@ -62,7 +64,7 @@ function PricePositionBar({ current, putFloor, maxPain, callWall }: { current: n
 }
 
 // AI Analysis Generator
-function generateAnalysis(ticker: string, price: number, change: number, maxPain: number, callWall: number, putFloor: number, gex: number, pcr: number, gammaRegime: string): string {
+function generateAnalysis(ticker: string, price: number, change: number, maxPain: number, callWall: number, putFloor: number, gex: number, pcr: number, gammaRegime: string, rsi: number = 0, rvol: number = 0): string {
     const priceVsMaxPain = maxPain > 0 ? ((price - maxPain) / maxPain * 100) : 0;
     const isAboveMaxPain = priceVsMaxPain > 0;
     let analysis = '';
@@ -79,14 +81,22 @@ function generateAnalysis(ticker: string, price: number, change: number, maxPain
         analysis += 'Short Gamma 구간으로 변동성 확대 주의. ';
     }
     if (callWall > 0 && price > callWall * 0.97) {
-        analysis += `Call Wall($${callWall.toFixed(0)}) 근접, 저항 예상.`;
+        analysis += `Call Wall($${callWall.toFixed(0)}) 근접, 저항 예상. `;
     } else if (putFloor > 0 && price < putFloor * 1.03) {
-        analysis += `Put Floor($${putFloor.toFixed(0)}) 근접, 지지 테스트 가능.`;
+        analysis += `Put Floor($${putFloor.toFixed(0)}) 근접, 지지 테스트 가능. `;
     } else if (pcr < 0.7) {
-        analysis += '낮은 PCR, 강세 포지셔닝 유지.';
+        analysis += '낮은 PCR, 강세 포지셔닝 유지. ';
     } else if (pcr > 1.3) {
-        analysis += '높은 PCR, 헤지 심리 강화.';
+        analysis += '높은 PCR, 헤지 심리 강화. ';
     }
+    // RSI momentum
+    if (rsi > 0) {
+        if (rsi < 30) analysis += `RSI ${Math.round(rsi)}(과매도). `;
+        else if (rsi > 70) analysis += `RSI ${Math.round(rsi)}(과매수). `;
+    }
+    // RVOL conviction
+    if (rvol > 1.5) analysis += `RVOL ${rvol.toFixed(1)}x(거래량 급증).`;
+    else if (rvol > 0 && rvol < 0.5) analysis += `RVOL ${rvol.toFixed(1)}x(거래량 부진).`;
     return analysis;
 }
 
@@ -113,7 +123,9 @@ export function PhysicalAITacticalDeck({ sharedData, sharedRefreshing }: Physica
             gex: q.gex,
             pcr: q.pcr,
             gammaRegime: q.gammaRegime,
-            sparkline: q.sparkline
+            sparkline: q.sparkline,
+            rsi: q.rsi || 0,
+            rvol: q.rvol || 0,
         }));
 
         convertedItems.sort((a, b) => b.alphaScore - a.alphaScore);
@@ -198,7 +210,9 @@ export function PhysicalAITacticalDeck({ sharedData, sharedRefreshing }: Physica
                     gex: gex,
                     pcr: rt.pcr || 1,
                     gammaRegime,
-                    sparkline: rt.sparkline || []
+                    sparkline: rt.sparkline || [],
+                    rsi: rt.rsi || 0,
+                    rvol: rt.relVol || 0,
                 });
             });
 
@@ -261,7 +275,7 @@ export function PhysicalAITacticalDeck({ sharedData, sharedRefreshing }: Physica
                     const isUp = item.changePct >= 0;
                     const isHighGex = Math.abs(item.gex) > 50e6;
                     const isExtremePcr = item.pcr < 0.5 || item.pcr > 1.5;
-                    const analysis = generateAnalysis(item.ticker, item.price, item.changePct, item.maxPain, item.callWall, item.putFloor, item.gex, item.pcr, item.gammaRegime);
+                    const analysis = generateAnalysis(item.ticker, item.price, item.changePct, item.maxPain, item.callWall, item.putFloor, item.gex, item.pcr, item.gammaRegime, item.rsi, item.rvol);
 
                     return (
                         <div key={item.ticker} className="relative group rounded-xl border transition-all duration-300 overflow-hidden border-orange-900/50 bg-[#1a1208] hover:border-orange-700/60">

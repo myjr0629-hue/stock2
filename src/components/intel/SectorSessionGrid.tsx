@@ -165,6 +165,24 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
         parts.push(ss('extremePutBias'));
     }
 
+    // 4. RSI 모멘텀 상태
+    const rsi = (q as any).rsi || 0;
+    if (rsi > 0) {
+        if (rsi < 30) {
+            parts.push(`RSI ${Math.round(rsi)}(${ss('oversold')}).`);
+        } else if (rsi > 70) {
+            parts.push(`RSI ${Math.round(rsi)}(${ss('overbought')}).`);
+        }
+    }
+
+    // 5. RVOL 거래량 확신도
+    const rvol = (q as any).rvol || 0;
+    if (rvol > 1.5) {
+        parts.push(`RVOL ${rvol.toFixed(1)}x(${ss('volumeSurge')}).`);
+    } else if (rvol > 0 && rvol < 0.5) {
+        parts.push(`RVOL ${rvol.toFixed(1)}x(${ss('volumeWeak')}).`);
+    }
+
     return parts.join(' ') || ss('collectingData');
 }
 
@@ -358,6 +376,18 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                         <div className="text-[11px] text-white uppercase font-bold tracking-wide">PCR</div>
                                         <div className={`text-sm font-black ${q.pcr < 0.8 ? 'text-emerald-400' : q.pcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
                                             {q.pcr > 0 ? q.pcr.toFixed(2) : '-'}
+                                        </div>
+                                    </div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.rsi > 0 && q.rsi < 30 ? 'bg-emerald-500/10 border-emerald-500/25' : q.rsi > 70 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
+                                        <div className="text-[10px] text-white uppercase font-semibold">RSI</div>
+                                        <div className={`text-sm font-bold ${q.rsi > 0 && q.rsi < 30 ? 'text-emerald-400' : q.rsi > 70 ? 'text-rose-400' : 'text-white/70'}`}>
+                                            {q.rsi > 0 ? Math.round(q.rsi) : '-'}
+                                        </div>
+                                    </div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.rvol > 1.5 ? 'bg-amber-500/10 border-amber-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
+                                        <div className="text-[10px] text-white uppercase font-semibold">RVOL</div>
+                                        <div className={`text-sm font-bold ${q.rvol > 1.5 ? 'text-amber-400' : 'text-white/70'}`}>
+                                            {q.rvol > 0 ? `${q.rvol.toFixed(1)}x` : '-'}
                                         </div>
                                     </div>
                                     <div className="px-1.5 py-1 rounded border bg-white/[0.02] border-white/[0.06]">

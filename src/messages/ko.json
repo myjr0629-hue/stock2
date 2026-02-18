@@ -1568,7 +1568,11 @@
         "belowMaxPain": "Max Pain($${mp}) 대비 ${diff}% 하회, 반등 가능성.",
         "slightBelowMaxPain": "Max Pain($${mp}) 소폭 하회, 관망세.",
         "callWallNearBreak": "Call Wall($${cw}) 근접 → 강한 저항, 돌파 시 급등.",
-        "putFloorNearBreak": "Put Floor($${pf}) 근접 → 강한 지지, 이탈 시 급락."
+        "putFloorNearBreak": "Put Floor($${pf}) 근접 → 강한 지지, 이탈 시 급락.",
+        "oversold": "과매도",
+        "overbought": "과매수",
+        "volumeSurge": "거래량 급증",
+        "volumeWeak": "거래량 부진"
     },
     "sectorRanking": {
         "moneyFlowSub": "자금력 랭킹",

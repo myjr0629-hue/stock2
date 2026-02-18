@@ -1569,7 +1569,11 @@
         "belowMaxPain": "Max Pain($${mp})対比${diff}%下回り、反発の可能性。",
         "slightBelowMaxPain": "Max Pain($${mp})やや下回り、様子見。",
         "callWallNearBreak": "Call Wall($${cw})接近→強い抵抗、突破で急騰。",
-        "putFloorNearBreak": "Put Floor($${pf})接近→強い支持、割れで急落。"
+        "putFloorNearBreak": "Put Floor($${pf})接近→強い支持、割れで急落。",
+        "oversold": "売られすぎ",
+        "overbought": "買われすぎ",
+        "volumeSurge": "出来高急増",
+        "volumeWeak": "出来高低迷"
     },
     "sectorRanking": {
         "moneyFlowSub": "資金力ランキング",
