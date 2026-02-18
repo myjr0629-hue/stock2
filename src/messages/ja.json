@@ -1541,7 +1541,9 @@
         "bullishSentiment": "強気",
         "bearishSentiment": "弱気",
         "mixedSentiment": "混合",
-        "neutralSentiment": "中立"
+        "neutralSentiment": "中立",
+        "watchpoints": "注目ポイント",
+        "marketContext": "市場コンテキスト"
     },
     "sectorSession": {
         "callInflow": "コール流入",

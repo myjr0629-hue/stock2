@@ -1541,7 +1541,9 @@
         "bullishSentiment": "BULLISH",
         "bearishSentiment": "BEARISH",
         "mixedSentiment": "MIXED",
-        "neutralSentiment": "NEUTRAL"
+        "neutralSentiment": "NEUTRAL",
+        "watchpoints": "WATCHPOINTS",
+        "marketContext": "MARKET CONTEXT"
     },
     "sectorSession": {
         "callInflow": "Call Inflow",

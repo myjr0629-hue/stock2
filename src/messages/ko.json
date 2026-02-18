@@ -1540,7 +1540,9 @@
         "bullishSentiment": "강세",
         "bearishSentiment": "약세",
         "mixedSentiment": "혼조",
-        "neutralSentiment": "중립"
+        "neutralSentiment": "중립",
+        "watchpoints": "주요 관전 포인트",
+        "marketContext": "시장 컨텍스트"
     },
     "sectorSession": {
         "callInflow": "콜 유입",

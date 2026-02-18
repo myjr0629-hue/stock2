@@ -6,7 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { saveSnapshot, getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
-import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem } from '@/types/sector';
+import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem, BriefingData } from '@/types/sector';
 import { fetchStockNews } from '@/services/newsHubProvider';
 import { GoogleGenAI } from '@google/genai';
 import { getFromCache } from '@/services/redisClient';
@@ -487,13 +487,18 @@ function generateAnalysisKR(q: any, verdict: string): string {
 function generateNextDayBriefing(
     tickers: TickerSnapshot[],
     summary: { dominantRegime: string; avgPcr: number; totalGex: number; gainers: number; losers: number; outlook: string }
-): { legacy: string; briefing: { headline: string; bullets: string[]; watchpoints: string[] } } {
+): { legacy: string; briefing: BriefingData } {
     const sorted = [...tickers].sort((a, b) => b.change_pct - a.change_pct);
     const topGainer = sorted[0];
     const topLoser = sorted[sorted.length - 1];
 
     const regimeKR = summary.dominantRegime === 'LONG' ? 'Long Gamma (변동성 억제)' : 'Short Gamma (변동성 확대 가능)';
+    const regimeEN = summary.dominantRegime === 'LONG' ? 'Long Gamma (volatility suppressed)' : 'Short Gamma (volatility expansion possible)';
+    const regimeJP = summary.dominantRegime === 'LONG' ? 'ロングガンマ（変動性抑制）' : 'ショートガンマ（変動性拡大可能）';
+
     const outlookKR = summary.outlook === 'BULLISH' ? '강세 편향' : summary.outlook === 'BEARISH' ? '약세 편향' : '중립';
+    const outlookEN = summary.outlook === 'BULLISH' ? 'bullish bias' : summary.outlook === 'BEARISH' ? 'bearish bias' : 'neutral';
+    const outlookJP = summary.outlook === 'BULLISH' ? '強気偏向' : summary.outlook === 'BEARISH' ? '弱気偏向' : '中立';
 
     const gammaCount = tickers.filter(t => t.gamma_regime === 'LONG').length;
 
@@ -504,68 +509,113 @@ function generateNextDayBriefing(
     legacy += `감마 환경: ${gammaCount}/${tickers.length} ${regimeKR}. `;
     legacy += `PCR 평균 ${summary.avgPcr.toFixed(2)} → ${outlookKR}. `;
 
-    // ── Structured briefing ──
-    // Headline
+    // ── Structured briefing (3 languages) ──
     const allDown = summary.gainers === 0;
     const allUp = summary.losers === 0;
-    let headline = '';
+    const chgStr = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`;
+
+    // Headlines
+    let headline = '', headlineEN = '', headlineJP = '';
     if (allUp) {
-        headline = `전 종목 상승 — ${topGainer.ticker} ${topGainer.change_pct >= 0 ? '+' : ''}${topGainer.change_pct.toFixed(2)}% 선도, 리스크 온 모드`;
+        headline = `전 종목 상승 — ${topGainer.ticker} ${chgStr(topGainer.change_pct)} 선도, 리스크 온 모드`;
+        headlineEN = `All stocks up — ${topGainer.ticker} ${chgStr(topGainer.change_pct)} leading, risk-on mode`;
+        headlineJP = `全銘柄上昇 — ${topGainer.ticker} ${chgStr(topGainer.change_pct)} 主導、リスクオンモード`;
     } else if (allDown) {
         headline = `전 종목 하락 — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% 최대 낙폭, 방어 전환 필요`;
+        headlineEN = `All stocks down — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% largest drop, defensive shift needed`;
+        headlineJP = `全銘柄下落 — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% 最大下落幅、防御転換必要`;
     } else if (summary.gainers <= 2) {
         headline = `${topGainer.ticker} 주도 반등, 그러나 ${tickers.length}종 중 ${summary.losers}종 하락 — 변동성은 여전하다`;
+        headlineEN = `${topGainer.ticker}-led rebound, but ${summary.losers} of ${tickers.length} still down — volatility persists`;
+        headlineJP = `${topGainer.ticker}主導の反発、しかし${tickers.length}銘柄中${summary.losers}銘柄下落 — 変動性継続`;
     } else {
         headline = `${summary.gainers}종 상승 vs ${summary.losers}종 하락 — ${outlookKR} 장세, 선별적 접근 필요`;
+        headlineEN = `${summary.gainers} up vs ${summary.losers} down — ${outlookEN} market, selective approach needed`;
+        headlineJP = `${summary.gainers}銘柄上昇 vs ${summary.losers}銘柄下落 — ${outlookJP}相場、選別的アプローチ必要`;
     }
 
-    // Bullets
+    // Bullets (KR / EN / JP)
     const bullets: string[] = [];
+    const bulletsEN: string[] = [];
+    const bulletsJP: string[] = [];
+
     // Bullet 1: Leader & Laggard
     if (topGainer.change_pct > 0) {
-        bullets.push(`📈 주도주: <mark>${topGainer.ticker} ${topGainer.change_pct >= 0 ? '+' : ''}${topGainer.change_pct.toFixed(2)}%</mark>${summary.gainers === 1 ? ', 유일한 상승 종목' : ` 외 ${summary.gainers - 1}종 상승`}`);
+        bullets.push(`📈 주도주: <mark>${topGainer.ticker} ${chgStr(topGainer.change_pct)}</mark>${summary.gainers === 1 ? ', 유일한 상승 종목' : ` 외 ${summary.gainers - 1}종 상승`}`);
+        bulletsEN.push(`📈 Leader: <mark>${topGainer.ticker} ${chgStr(topGainer.change_pct)}</mark>${summary.gainers === 1 ? ', sole gainer' : ` and ${summary.gainers - 1} others up`}`);
+        bulletsJP.push(`📈 主導株: <mark>${topGainer.ticker} ${chgStr(topGainer.change_pct)}</mark>${summary.gainers === 1 ? '、唯一の上昇銘柄' : ` 他${summary.gainers - 1}銘柄上昇`}`);
     } else {
         bullets.push(`📉 전 종목 하락: 최소 낙폭 <mark>${topGainer.ticker} ${topGainer.change_pct.toFixed(2)}%</mark>`);
+        bulletsEN.push(`📉 All down: smallest drop <mark>${topGainer.ticker} ${topGainer.change_pct.toFixed(2)}%</mark>`);
+        bulletsJP.push(`📉 全銘柄下落: 最小下落幅 <mark>${topGainer.ticker} ${topGainer.change_pct.toFixed(2)}%</mark>`);
     }
+
     // Bullet 2: Gamma Regime
     const regimeEmoji = summary.dominantRegime === 'LONG' ? '🛡️' : '⚡';
     if (gammaCount === tickers.length) {
         bullets.push(`${regimeEmoji} 감마 환경: 전 종목 <mark>${summary.dominantRegime === 'LONG' ? 'Long Gamma' : 'Short Gamma'}</mark> — ${summary.dominantRegime === 'LONG' ? '변동성 억제 구간' : '변동성 확대 구간'}`);
+        bulletsEN.push(`${regimeEmoji} Gamma: All <mark>${summary.dominantRegime === 'LONG' ? 'Long Gamma' : 'Short Gamma'}</mark> — ${summary.dominantRegime === 'LONG' ? 'volatility suppressed' : 'volatility expansion zone'}`);
+        bulletsJP.push(`${regimeEmoji} ガンマ: 全銘柄 <mark>${summary.dominantRegime === 'LONG' ? 'ロングガンマ' : 'ショートガンマ'}</mark> — ${summary.dominantRegime === 'LONG' ? '変動性抑制区間' : '変動性拡大区間'}`);
     } else {
         bullets.push(`${regimeEmoji} 감마 환경: ${gammaCount}/${tickers.length} Long Gamma, <mark>${tickers.length - gammaCount}종 Short Gamma</mark> — 혼조세`);
+        bulletsEN.push(`${regimeEmoji} Gamma: ${gammaCount}/${tickers.length} Long, <mark>${tickers.length - gammaCount} Short Gamma</mark> — mixed`);
+        bulletsJP.push(`${regimeEmoji} ガンマ: ${gammaCount}/${tickers.length} ロング, <mark>${tickers.length - gammaCount}銘柄ショートガンマ</mark> — 混在`);
     }
+
     // Bullet 3: PCR & Outlook
     const pcrEmoji = summary.avgPcr < 0.8 ? '🟢' : summary.avgPcr > 1.2 ? '🔴' : '🟡';
     bullets.push(`${pcrEmoji} PCR 평균 <mark>${summary.avgPcr.toFixed(2)}</mark> → ${outlookKR}. ${summary.avgPcr < 0.8 ? '콜 우위 — 상방 기대' : summary.avgPcr > 1.2 ? '풋 우위 — 하방 압력' : '옵션 시장 중립적 포지셔닝'}`);
+    bulletsEN.push(`${pcrEmoji} Avg PCR <mark>${summary.avgPcr.toFixed(2)}</mark> → ${outlookEN}. ${summary.avgPcr < 0.8 ? 'Call dominance — upside expected' : summary.avgPcr > 1.2 ? 'Put dominance — downside pressure' : 'Options market neutral positioning'}`);
+    bulletsJP.push(`${pcrEmoji} PCR平均 <mark>${summary.avgPcr.toFixed(2)}</mark> → ${outlookJP}。${summary.avgPcr < 0.8 ? 'コール優位 — 上方期待' : summary.avgPcr > 1.2 ? 'プット優位 — 下方圧力' : 'オプション市場中立的ポジショニング'}`);
 
     // Bullet 4: Volume analysis
     const highVolTickers = tickers.filter(t => (t.rvol || 0) > 1.3);
     const lowVolTickers = tickers.filter(t => (t.rvol || 0) > 0 && (t.rvol || 0) < 0.7);
     if (highVolTickers.length > 0) {
-        bullets.push(`📊 거래량 주목: ${highVolTickers.map(t => `${t.ticker} ${(t.rvol || 0).toFixed(1)}x`).join(', ')} — 평소 대비 높은 거래량, 추세 가속 가능`);
+        const volStr = highVolTickers.map(t => `${t.ticker} ${(t.rvol || 0).toFixed(1)}x`).join(', ');
+        bullets.push(`📊 거래량 주목: ${volStr} — 평소 대비 높은 거래량, 추세 가속 가능`);
+        bulletsEN.push(`📊 Volume alert: ${volStr} — above-average volume, trend acceleration possible`);
+        bulletsJP.push(`📊 出来高注目: ${volStr} — 通常比高出来高、トレンド加速可能`);
     } else if (lowVolTickers.length > 0) {
-        bullets.push(`📊 거래량 감소: ${lowVolTickers.map(t => `${t.ticker} ${(t.rvol || 0).toFixed(1)}x`).join(', ')} — 관망세 우세, 방향 결정 대기`);
+        const volStr = lowVolTickers.map(t => `${t.ticker} ${(t.rvol || 0).toFixed(1)}x`).join(', ');
+        bullets.push(`📊 거래량 감소: ${volStr} — 관망세 우세, 방향 결정 대기`);
+        bulletsEN.push(`📊 Low volume: ${volStr} — wait-and-see dominates, direction pending`);
+        bulletsJP.push(`📊 出来高減少: ${volStr} — 様子見優勢、方向性待ち`);
     }
 
     // Bullet 5: RSI extremes
     const oversold = tickers.filter(t => (t.rsi || 50) < 35);
     const overbought = tickers.filter(t => (t.rsi || 50) > 70);
     if (oversold.length > 0) {
-        bullets.push(`⚠️ RSI 과매도 구간: ${oversold.map(t => `<mark>${t.ticker} RSI ${Math.round(t.rsi || 0)}</mark>`).join(', ')} — 기술적 반등 가능성 주시`);
+        const rsiStr = oversold.map(t => `<mark>${t.ticker} RSI ${Math.round(t.rsi || 0)}</mark>`).join(', ');
+        bullets.push(`⚠️ RSI 과매도 구간: ${rsiStr} — 기술적 반등 가능성 주시`);
+        bulletsEN.push(`⚠️ RSI oversold: ${rsiStr} — potential technical bounce`);
+        bulletsJP.push(`⚠️ RSI売られ過ぎ: ${rsiStr} — テクニカル反発の可能性`);
     } else if (overbought.length > 0) {
-        bullets.push(`⚠️ RSI 과매수 구간: ${overbought.map(t => `<mark>${t.ticker} RSI ${Math.round(t.rsi || 0)}</mark>`).join(', ')} — 차익실현 압력 예상`);
+        const rsiStr = overbought.map(t => `<mark>${t.ticker} RSI ${Math.round(t.rsi || 0)}</mark>`).join(', ');
+        bullets.push(`⚠️ RSI 과매수 구간: ${rsiStr} — 차익실현 압력 예상`);
+        bulletsEN.push(`⚠️ RSI overbought: ${rsiStr} — profit-taking pressure expected`);
+        bulletsJP.push(`⚠️ RSI買われ過ぎ: ${rsiStr} — 利確売り圧力予想`);
     } else {
         const avgRsi = tickers.reduce((s, t) => s + (t.rsi || 50), 0) / tickers.length;
         bullets.push(`📐 RSI 평균 <mark>${Math.round(avgRsi)}</mark> — 과열/과매도 구간 아님, 중립 모멘텀`);
+        bulletsEN.push(`📐 Avg RSI <mark>${Math.round(avgRsi)}</mark> — no extremes, neutral momentum`);
+        bulletsJP.push(`📐 RSI平均 <mark>${Math.round(avgRsi)}</mark> — 過熱/売られ過ぎなし、中立モメンタム`);
     }
 
     // Bullet 6: Alpha score distribution
     const avgAlpha = tickers.reduce((s, t) => s + (t.alpha_score || 0), 0) / tickers.length;
     const gradeA = tickers.filter(t => t.grade === 'A' || t.grade === 'B').length;
-    bullets.push(`🏆 Alpha 평균 <mark>${Math.round(avgAlpha)}</mark> — ${gradeA > 0 ? `B등급↑ ${gradeA}종목 (${tickers.filter(t => t.grade === 'A' || t.grade === 'B').map(t => t.ticker).join(',')})` : '전 종목 C등급 이하, 전반적 약세'}`);
+    const gradeList = tickers.filter(t => t.grade === 'A' || t.grade === 'B').map(t => t.ticker).join(',');
+    bullets.push(`🏆 Alpha 평균 <mark>${Math.round(avgAlpha)}</mark> — ${gradeA > 0 ? `B등급↑ ${gradeA}종목 (${gradeList})` : '전 종목 C등급 이하, 전반적 약세'}`);
+    bulletsEN.push(`🏆 Avg Alpha <mark>${Math.round(avgAlpha)}</mark> — ${gradeA > 0 ? `${gradeA} B-grade+ (${gradeList})` : 'all below C-grade, overall weakness'}`);
+    bulletsJP.push(`🏆 Alpha平均 <mark>${Math.round(avgAlpha)}</mark> — ${gradeA > 0 ? `B等級↑ ${gradeA}銘柄 (${gradeList})` : '全銘柄C等級以下、全般的弱勢'}`);
 
-    // Watchpoints
+    // Watchpoints (KR / EN / JP)
     const watchpoints: string[] = [];
+    const watchpointsEN: string[] = [];
+    const watchpointsJP: string[] = [];
+
     const nearCallWall = tickers.filter(t =>
         t.call_wall > 0 && t.close_price > 0 &&
         ((t.call_wall - t.close_price) / t.close_price * 100) < 3
@@ -573,6 +623,8 @@ function generateNextDayBriefing(
     nearCallWall.forEach(t => {
         const dist = ((t.call_wall - t.close_price) / t.close_price * 100).toFixed(1);
         watchpoints.push(`🎯 ${t.ticker} Call Wall $${t.call_wall} 근접 (${dist}%), 돌파 시 감마 스퀴즈 가능`);
+        watchpointsEN.push(`🎯 ${t.ticker} near Call Wall $${t.call_wall} (${dist}%), gamma squeeze possible on breakout`);
+        watchpointsJP.push(`🎯 ${t.ticker} コールウォール $${t.call_wall} 接近 (${dist}%)、突破時ガンマスクイーズ可能`);
     });
 
     const nearPutFloor = tickers.filter(t =>
@@ -582,10 +634,14 @@ function generateNextDayBriefing(
     nearPutFloor.forEach(t => {
         const dist = ((t.close_price - t.put_floor) / t.close_price * 100).toFixed(1);
         watchpoints.push(`🛡️ ${t.ticker} Put Floor $${t.put_floor} 근접 (${dist}%), 하방 지지 예상`);
+        watchpointsEN.push(`🛡️ ${t.ticker} near Put Floor $${t.put_floor} (${dist}%), downside support expected`);
+        watchpointsJP.push(`🛡️ ${t.ticker} プットフロア $${t.put_floor} 接近 (${dist}%)、下方支持予想`);
     });
 
     if (watchpoints.length === 0) {
         watchpoints.push(`📊 주요 옵션 레벨 근접 종목 없음 — 레인지 내 등락 예상`);
+        watchpointsEN.push(`📊 No tickers near key option levels — range-bound movement expected`);
+        watchpointsJP.push(`📊 主要オプションレベル接近銘柄なし — レンジ内変動予想`);
     }
 
     // Legacy string watchpoints
@@ -593,6 +649,13 @@ function generateNextDayBriefing(
         legacy += `관전 포인트: ${nearCallWall.map(t => `${t.ticker} Call Wall $${t.call_wall} 근접`).join(', ')}.`;
     }
 
-    return { legacy, briefing: { headline, bullets, watchpoints } };
+    return {
+        legacy,
+        briefing: {
+            headline, headlineEN, headlineJP,
+            bullets, bulletsEN, bulletsJP,
+            watchpoints, watchpointsEN, watchpointsJP,
+        }
+    };
 }
 

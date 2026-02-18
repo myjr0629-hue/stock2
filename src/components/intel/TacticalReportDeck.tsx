@@ -382,8 +382,20 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
         summary.outlook === 'BEARISH' ? '#f43f5e' : '#64748b';
 
     // Generate briefing data (from structured or client-side fallback)
-    const briefing: BriefingData = summary.briefing || generateClientBriefing(sorted, summary, tr);
-
+    const rawBriefing: BriefingData = summary.briefing || generateClientBriefing(sorted, summary, tr);
+    // Select locale-appropriate briefing fields (fallback to KR)
+    const briefing: BriefingData = {
+        ...rawBriefing,
+        headline: locale === 'en' ? (rawBriefing.headlineEN || rawBriefing.headline)
+            : locale === 'ja' ? (rawBriefing.headlineJP || rawBriefing.headline)
+                : rawBriefing.headline,
+        bullets: locale === 'en' ? (rawBriefing.bulletsEN?.length ? rawBriefing.bulletsEN : rawBriefing.bullets)
+            : locale === 'ja' ? (rawBriefing.bulletsJP?.length ? rawBriefing.bulletsJP : rawBriefing.bullets)
+                : rawBriefing.bullets,
+        watchpoints: locale === 'en' ? (rawBriefing.watchpointsEN?.length ? rawBriefing.watchpointsEN : rawBriefing.watchpoints)
+            : locale === 'ja' ? (rawBriefing.watchpointsJP?.length ? rawBriefing.watchpointsJP : rawBriefing.watchpoints)
+                : rawBriefing.watchpoints,
+    };
     // Group tickers by verdict
     const groups: Record<GroupKey, TickerSnapshot[]> = {
         ATTACK: sorted.filter(t => VERDICT_GROUPS.ATTACK.verdicts.includes(t.verdict)),
@@ -578,7 +590,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                             <div className="bg-white/[0.04] rounded-lg p-3 border border-white/[0.08] mb-4">
                                 <div className="flex items-center gap-1.5 mb-2">
                                     <Eye className="w-3.5 h-3.5 text-amber-400" />
-                                    <span className="text-[11px] font-bold text-white/80 uppercase tracking-wider font-jakarta">WATCHPOINTS</span>
+                                    <span className="text-[11px] font-bold text-white/80 uppercase tracking-wider font-jakarta">{tr('watchpoints')}</span>
                                 </div>
                                 {briefing.watchpoints.map((wp, i) => {
                                     const cleanWp = wp.replace(/^[\u{1F300}-\u{1FFFF}\u{2600}-\u{27BF}\u{FE00}-\u{FEFF}]\s*/u, '');
@@ -597,7 +609,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                             <div className="bg-white/[0.04] rounded-lg p-3 border border-white/[0.08]">
                                 <div className="flex items-center gap-1.5 mb-2.5">
                                     <Globe className="w-3.5 h-3.5 text-cyan-400" />
-                                    <span className="text-[11px] font-bold text-white/80 uppercase tracking-wider font-jakarta">MARKET CONTEXT</span>
+                                    <span className="text-[11px] font-bold text-white/80 uppercase tracking-wider font-jakarta">{tr('marketContext')}</span>
                                 </div>
                                 <div className="grid grid-cols-4 gap-2">
                                     {[

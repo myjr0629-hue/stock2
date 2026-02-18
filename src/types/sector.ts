@@ -65,9 +65,15 @@ export interface NewsDigestItem {
 }
 
 export interface BriefingData {
-    headline: string;                 // Bold 18px headline
-    bullets: string[];                // 3 bullet points (keywords wrapped in <mark>)
-    watchpoints: string[];            // Key levels to watch
+    headline: string;                 // Bold 18px headline (Korean)
+    headlineEN?: string;              // English headline
+    headlineJP?: string;              // Japanese headline
+    bullets: string[];                // Bullet points (Korean, keywords wrapped in <mark>)
+    bulletsEN?: string[];             // English bullets
+    bulletsJP?: string[];             // Japanese bullets
+    watchpoints: string[];            // Key levels to watch (Korean)
+    watchpointsEN?: string[];         // English watchpoints
+    watchpointsJP?: string[];         // Japanese watchpoints
 }
 
 export interface SectorSummary {
