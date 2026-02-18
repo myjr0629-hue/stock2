@@ -230,6 +230,8 @@ function generateVerdict(q: any): string {
     const gex = q.gex || 0;
     const pcr = q.pcr || 1;
     const changePct = q.changePct || 0;
+    const rsi = q.rsi || 0;
+    const rvol = q.rvol || 0;
 
     // Strong signals
     if (score >= 70 && pcr < 0.7 && changePct > 1) return 'BUY_DIP';
@@ -237,9 +239,18 @@ function generateVerdict(q: any): string {
     if (score >= 60 && gex < 0 && pcr < 0.8) return 'BUY_DIP';
     if (score < 40 && gex < 0 && pcr > 1.1) return 'TRIM';
 
+    // RSI-driven signals
+    if (rsi > 0 && rsi < 30 && changePct < -1 && score >= 40) return 'BUY_DIP';  // Oversold + dip on decent stock
+    if (rsi > 70 && changePct > 2) return 'TRIM';  // Overbought + overextended
+    if (rsi > 0 && rsi < 25 && pcr < 0.8) return 'BUY_DIP';  // Deep oversold + bullish options
+
     // Moderate signals
     if (changePct > 2 && pcr < 0.6) return 'TRIM';  // Overextended
     if (changePct < -2 && score >= 50) return 'BUY_DIP';  // Dip on strong stock
+
+    // RVOL conviction modifier: high volume confirms weak signals
+    if (rvol > 1.5 && changePct < -1.5 && score >= 45) return 'BUY_DIP';  // High vol selloff on OK stock
+    if (rvol > 1.5 && changePct > 2 && pcr > 0.9) return 'TRIM';  // High vol rally with put pressure
 
     return 'HOLD';
 }
@@ -254,6 +265,8 @@ function generateAnalysisKR(q: any, verdict: string): string {
     const price = q.price || 0;
     const callWall = q.callWall || 0;
     const putFloor = q.putFloor || 0;
+    const rsi = q.rsi || 0;
+    const rvol = q.rvol || 0;
 
     const regimeKR = regime === 'LONG' ? 'Long Gamma(변동성 억제)' :
         regime === 'SHORT' ? 'Short Gamma(변동성 확대)' : '중립';
@@ -263,6 +276,24 @@ function generateAnalysisKR(q: any, verdict: string): string {
 
     const maxPainDist = maxPain > 0 ? ((price - maxPain) / maxPain * 100).toFixed(1) : '0';
     const maxPainDir = parseFloat(maxPainDist) > 0 ? '상단' : '하단';
+
+    // RSI description
+    let rsiNote = '';
+    if (rsi > 0) {
+        const rsiVal = Math.round(rsi);
+        if (rsi < 30) rsiNote = ` RSI ${rsiVal}(과매도).`;
+        else if (rsi > 70) rsiNote = ` RSI ${rsiVal}(과매수).`;
+        else rsiNote = ` RSI ${rsiVal}.`;
+    }
+
+    // RVOL description
+    let rvolNote = '';
+    if (rvol > 0) {
+        const rvolVal = rvol.toFixed(1);
+        if (rvol > 1.5) rvolNote = ` RVOL ${rvolVal}x(거래량 급증).`;
+        else if (rvol < 0.5) rvolNote = ` RVOL ${rvolVal}x(거래량 부진).`;
+        else rvolNote = ` RVOL ${rvolVal}x.`;
+    }
 
     // Key level proximity
     let levelNote = '';
@@ -286,7 +317,7 @@ function generateAnalysisKR(q: any, verdict: string): string {
         'TRIM': '일부 차익실현 고려',
     };
 
-    return `${changePct > '0' ? '▲' : '▼'} ${changePct}%. ${regimeKR}. PCR ${pcr.toFixed(2)} (${pcrKR}). Max Pain $${maxPain} 대비 ${maxPainDir} ${Math.abs(parseFloat(maxPainDist))}% 마감.${levelNote} [${verdictKR[verdict] || verdict}]`;
+    return `${changePct > '0' ? '▲' : '▼'} ${changePct}%.${rsiNote}${rvolNote} ${regimeKR}. PCR ${pcr.toFixed(2)} (${pcrKR}). Max Pain $${maxPain} 대비 ${maxPainDir} ${Math.abs(parseFloat(maxPainDist))}% 마감.${levelNote} [${verdictKR[verdict] || verdict}]`;
 }
 
 function generateNextDayBriefing(
