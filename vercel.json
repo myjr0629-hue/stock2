@@ -9,8 +9,12 @@
             "schedule": "0 14 * * 1-5"
         },
         {
-            "path": "/api/cron/snapshot",
+            "path": "/api/cron/snapshot?sector=m7",
             "schedule": "0 21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/snapshot?sector=physical_ai",
+            "schedule": "5 21 * * 1-5"
         }
     ]
 }
