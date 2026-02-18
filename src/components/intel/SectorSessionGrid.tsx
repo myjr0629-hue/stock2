@@ -93,7 +93,7 @@ function FlowBar({ pcr, changePct, ss }: { pcr: number; changePct: number; ss: a
 
     return (
         <div className="flex items-center gap-2">
-            <span className={`text-[11px] font-bold w-12 ${isCall ? 'text-emerald-400' : isPut ? 'text-rose-400' : 'text-slate-400'}`}>
+            <span className={`text-[11px] font-semibold w-12 font-jakarta ${isCall ? 'text-emerald-400' : isPut ? 'text-rose-400' : 'text-slate-400'}`}>
                 {label}
             </span>
             <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
@@ -261,17 +261,17 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
 
             {/* ── Header ── */}
             <div className="flex items-center justify-between mb-5 relative z-10">
-                <h3 className="text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2"
+                <h3 className="text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2 font-jakarta"
                     style={{ color: accentColor }}>
                     <Activity className="w-4 h-4 animate-pulse" style={{ color: accentColor }} />
                     {config.icon} {config.shortName} SESSION GRID
                 </h3>
                 <div className="flex items-center gap-3">
-                    <span className="text-[10px] text-white/50 font-semibold tracking-wider hidden md:inline px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
+                    <span className="text-[10px] text-white/40 font-medium tracking-wider hidden md:inline px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06] font-jakarta">
                         {DISCLAIMER[locale] || DISCLAIMER.en}
                     </span>
                     {refreshing && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: `${accentColor}99` }} />}
-                    <span className="text-[10px] uppercase flex items-center gap-1.5 font-bold tracking-wider px-2 py-1 rounded-full backdrop-blur-sm"
+                    <span className="text-[10px] uppercase flex items-center gap-1.5 font-bold tracking-wider px-2 py-1 rounded-full backdrop-blur-sm font-jakarta"
                         style={{
                             color: `${accentColor}cc`,
                             backgroundColor: `${accentColor}0d`,
@@ -323,7 +323,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                 {/* Row 1: Rank + Logo + Ticker + Alpha + Alert */}
                                 <div className="flex items-center justify-between mb-2">
                                     <div className="flex items-center gap-2">
-                                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm ${idx === 0
+                                        <span className={`text-xs font-bold px-1.5 py-0.5 rounded backdrop-blur-sm font-num ${idx === 0
                                             ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20'
                                             : idx === sorted.length - 1
                                                 ? 'bg-rose-500/15 text-rose-300 border border-rose-500/20'
@@ -336,18 +336,18 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                                 className="w-full h-full object-cover"
                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                         </div>
-                                        <span className="text-base font-black text-white tracking-tight font-jakarta">{q.ticker}</span>
+                                        <span className="text-[15px] font-extrabold text-white tracking-tight font-jakarta">{q.ticker}</span>
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         {hasAlert && (
                                             <AlertTriangle className="w-3 h-3 text-amber-400 animate-pulse" />
                                         )}
-                                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border backdrop-blur-md text-[11px] font-bold ${q.alphaScore >= 75 ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' :
+                                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border backdrop-blur-md text-[11px] font-bold font-jakarta ${q.alphaScore >= 75 ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' :
                                             q.alphaScore >= 50 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' :
                                                 'bg-white/[0.03] border-white/[0.06] text-white/40'
                                             }`}>
-                                            <span className="opacity-70">α</span>
-                                            <span className="text-sm font-black">{q.alphaScore > 0 ? q.alphaScore.toFixed(1) : '-'}</span>
+                                            <span className="opacity-60">α</span>
+                                            <span className="text-sm font-bold font-num">{q.alphaScore > 0 ? q.alphaScore.toFixed(1) : '-'}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -367,38 +367,38 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                 {/* Row 3: 4-Quad Indicators */}
                                 <div className="grid grid-cols-2 gap-1.5 mb-2">
                                     <div className={`px-2 py-1.5 rounded-md border ${q.gex > 0 ? 'bg-emerald-500/10 border-emerald-500/25' : q.gex < 0 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[11px] text-white uppercase font-bold tracking-wide">GEX</div>
-                                        <div className={`text-sm font-black ${q.gex > 0 ? 'text-emerald-400' : q.gex < 0 ? 'text-rose-400' : 'text-white/50'}`}>
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">GEX</div>
+                                        <div className={`text-sm font-bold font-num ${q.gex > 0 ? 'text-emerald-400' : q.gex < 0 ? 'text-rose-400' : 'text-white/50'}`}>
                                             {q.gex > 0 ? '+' : ''}{formatGex(q.gex)}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.pcr < 0.8 ? 'bg-emerald-500/10 border-emerald-500/25' : q.pcr > 1.1 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[11px] text-white uppercase font-bold tracking-wide">PCR</div>
-                                        <div className={`text-sm font-black ${q.pcr < 0.8 ? 'text-emerald-400' : q.pcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">PCR</div>
+                                        <div className={`text-sm font-bold font-num ${q.pcr < 0.8 ? 'text-emerald-400' : q.pcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
                                             {q.pcr > 0 ? q.pcr.toFixed(2) : '-'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.rsi > 0 && q.rsi < 30 ? 'bg-emerald-500/10 border-emerald-500/25' : q.rsi > 70 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[10px] text-white uppercase font-semibold">RSI</div>
-                                        <div className={`text-sm font-bold ${q.rsi > 0 && q.rsi < 30 ? 'text-emerald-400' : q.rsi > 70 ? 'text-rose-400' : 'text-white/70'}`}>
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">RSI</div>
+                                        <div className={`text-sm font-bold font-num ${q.rsi > 0 && q.rsi < 30 ? 'text-emerald-400' : q.rsi > 70 ? 'text-rose-400' : 'text-white/70'}`}>
                                             {q.rsi > 0 ? Math.round(q.rsi) : '-'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.rvol > 1.5 ? 'bg-amber-500/10 border-amber-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[10px] text-white uppercase font-semibold">RVOL</div>
-                                        <div className={`text-sm font-bold ${q.rvol > 1.5 ? 'text-amber-400' : 'text-white/70'}`}>
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">RVOL</div>
+                                        <div className={`text-sm font-bold font-num ${q.rvol > 1.5 ? 'text-amber-400' : 'text-white/70'}`}>
                                             {q.rvol > 0 ? `${q.rvol.toFixed(1)}x` : '-'}
                                         </div>
                                     </div>
-                                    <div className="px-1.5 py-1 rounded border bg-white/[0.02] border-white/[0.06]">
-                                        <div className="text-[10px] text-white uppercase font-semibold">PUT FLOOR</div>
-                                        <div className="text-sm font-bold text-rose-300">
+                                    <div className="px-2 py-1.5 rounded-md border bg-white/[0.02] border-white/[0.06]">
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">PUT FLOOR</div>
+                                        <div className="text-sm font-bold font-num text-rose-300">
                                             ${q.putFloor > 0 ? q.putFloor.toFixed(0) : '-'}
                                         </div>
                                     </div>
-                                    <div className="px-1.5 py-1 rounded border bg-white/[0.02] border-white/[0.06]">
-                                        <div className="text-[10px] text-white uppercase font-semibold">CALL WALL</div>
-                                        <div className="text-sm font-bold text-emerald-300">
+                                    <div className="px-2 py-1.5 rounded-md border bg-white/[0.02] border-white/[0.06]">
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">CALL WALL</div>
+                                        <div className="text-sm font-bold font-num text-emerald-300">
                                             ${q.callWall > 0 ? q.callWall.toFixed(0) : '-'}
                                         </div>
                                     </div>
@@ -407,10 +407,10 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                 {/* Row 4: Position Bar */}
                                 <div className="mb-2 px-0.5">
                                     <PricePositionBar price={q.price} maxPain={q.maxPain} putFloor={q.putFloor} callWall={q.callWall} />
-                                    <div className="flex justify-between text-xs mt-1 font-bold">
-                                        <span className="text-rose-400">Put</span>
-                                        <span className="text-amber-300">⬥ Pain ${q.maxPain > 0 ? q.maxPain.toFixed(0) : '-'}</span>
-                                        <span className="text-emerald-400">Call</span>
+                                    <div className="flex justify-between text-[11px] mt-1 font-semibold font-jakarta">
+                                        <span className="text-rose-400/80">Put</span>
+                                        <span className="text-amber-300 font-num">⬥ Pain ${q.maxPain > 0 ? q.maxPain.toFixed(0) : '-'}</span>
+                                        <span className="text-emerald-400/80">Call</span>
                                     </div>
                                 </div>
 
@@ -428,24 +428,24 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                             {/* ── Card Footer: AI Analysis + Regime ── */}
                             <div className="px-3.5 pb-3 pt-0">
                                 {/* AI Analysis */}
-                                <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2 mb-2">
-                                    <p className="text-xs text-white leading-relaxed">{analysis}</p>
+                                <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2.5 mb-2">
+                                    <p className="text-[13px] font-medium text-white/80 leading-relaxed">{analysis}</p>
                                 </div>
 
                                 {/* Regime + Alerts + Navigate */}
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1.5">
                                         <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: regimeColor }} />
-                                        <span className="text-[11px] font-semibold" style={{ color: regimeColor }}>
+                                        <span className="text-[11px] font-semibold font-jakarta" style={{ color: regimeColor }}>
                                             {regimeLabel}
                                         </span>
                                         {isHighGex && (
-                                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-500/15 text-purple-300 rounded border border-purple-500/25">
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-purple-500/15 text-purple-300 rounded border border-purple-500/25 font-jakarta">
                                                 High GEX
                                             </span>
                                         )}
                                         {isExtremePcr && (
-                                            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-amber-500/15 text-amber-300 rounded border border-amber-500/25">
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-amber-500/15 text-amber-300 rounded border border-amber-500/25 font-jakarta">
                                                 PCR ⚠
                                             </span>
                                         )}
@@ -464,45 +464,45 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                     <div className="grid grid-cols-4 gap-2">
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white font-bold uppercase">총 GEX</span>
-                                <span className={`text-sm font-black ${stats.totalGex > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">총 GEX</span>
+                                <span className={`text-sm font-bold font-num ${stats.totalGex > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {stats.totalGex > 0 ? '+' : ''}{formatGex(stats.totalGex)}
                                 </span>
                             </div>
-                            <p className="text-[11px] text-white/60">{stats.gexInsight}</p>
+                            <p className="text-[11px] text-white/60 font-medium">{stats.gexInsight}</p>
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white font-bold uppercase">평균 PCR</span>
-                                <span className={`text-sm font-black ${stats.avgPcr < 0.8 ? 'text-emerald-400' : stats.avgPcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
+                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">평균 PCR</span>
+                                <span className={`text-sm font-bold font-num ${stats.avgPcr < 0.8 ? 'text-emerald-400' : stats.avgPcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
                                     {stats.avgPcr.toFixed(2)}
                                 </span>
                             </div>
-                            <p className="text-[11px] text-white/60">{stats.pcrInsight}</p>
+                            <p className="text-[11px] text-white/60 font-medium">{stats.pcrInsight}</p>
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white font-bold uppercase">감마</span>
+                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">감마</span>
                                 <div className="flex items-center gap-1">
-                                    <span className="text-sm font-bold text-cyan-400">{stats.gammaLong}L</span>
-                                    <span className="text-[10px] text-white/30">/</span>
-                                    <span className="text-sm font-bold text-amber-400">{stats.gammaShort}S</span>
+                                    <span className="text-sm font-bold font-num text-cyan-400">{stats.gammaLong}L</span>
+                                    <span className="text-[10px] text-white/20">/</span>
+                                    <span className="text-sm font-bold font-num text-amber-400">{stats.gammaShort}S</span>
                                 </div>
                             </div>
-                            <p className="text-[11px] text-white/60">
+                            <p className="text-[11px] text-white/60 font-medium">
                                 {stats.gammaShort > stats.gammaLong ? ss('shortGammaDomMoveRisk') : stats.gammaLong > 0 ? ss('longGammaDomStable') : ss('searchingDirection')}
                             </p>
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white font-bold uppercase">FLOW</span>
+                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">FLOW</span>
                                 <div className="flex items-center gap-1">
-                                    <span className="text-sm font-bold text-emerald-400">{stats.callDom}C</span>
-                                    <span className="text-[10px] text-white/30">/</span>
-                                    <span className="text-sm font-bold text-rose-400">{sorted.length - stats.callDom}P</span>
+                                    <span className="text-sm font-bold font-num text-emerald-400">{stats.callDom}C</span>
+                                    <span className="text-[10px] text-white/20">/</span>
+                                    <span className="text-sm font-bold font-num text-rose-400">{sorted.length - stats.callDom}P</span>
                                 </div>
                             </div>
-                            <p className="text-[11px] text-white/60">
+                            <p className="text-[11px] text-white/60 font-medium">
                                 {stats.callDom > sorted.length / 2 ? ss('callInflowDom') : ss('putHedgeDom')}
                             </p>
                         </div>

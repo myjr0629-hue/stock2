@@ -265,13 +265,13 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
         <div className="w-full">
             {/* Report Header */}
             <div className="mb-3 px-1 flex items-center justify-between">
-                <span className="text-[9px] text-white/60 uppercase tracking-widest">
+                <span className="text-[10px] text-white/50 uppercase tracking-widest font-jakarta">
                     장마감 보고서 | POST-MARKET ANALYSIS
                 </span>
                 <div className="flex items-center gap-2">
                     {isRefreshing && <RefreshCw className="w-3 h-3 animate-spin text-slate-500" />}
-                    <span className="text-[9px] text-white/40">실시간 데이터</span>
-                    <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700/50 border border-slate-600/50 rounded text-[9px] text-white/70 font-bold">
+                    <span className="text-[10px] text-white/40 font-medium">실시간 데이터</span>
+                    <span className="flex items-center gap-1 px-2 py-0.5 bg-slate-700/50 border border-slate-600/50 rounded text-[10px] text-white/60 font-semibold font-jakarta">
                         📋 SNAPSHOT
                     </span>
                 </div>
@@ -289,7 +289,7 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                             {/* Header */}
                             <div className="flex items-center justify-between p-3 bg-slate-800/30 border-b border-slate-700/50">
                                 <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${idx < 3 ? 'bg-amber-500/30 text-amber-300' : 'bg-slate-700 text-slate-400'}`}>
+                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded font-num ${idx < 3 ? 'bg-amber-500/30 text-amber-300' : 'bg-slate-700 text-slate-400'}`}>
                                         #{idx + 1}
                                     </span>
                                     <div className={`w-9 h-9 rounded-full border-2 overflow-hidden ${isUp ? 'border-emerald-500' : 'border-rose-500'}`}>
@@ -297,12 +297,12 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                                     </div>
                                     <div>
                                         <div className="flex items-center gap-1">
-                                            <span className="text-sm font-black text-white">{item.ticker}</span>
-                                            <span className="text-[8px] text-white/50 bg-slate-700 px-1 rounded">CLOSE</span>
+                                            <span className="text-[15px] font-extrabold text-white font-jakarta">{item.ticker}</span>
+                                            <span className="text-[10px] text-white/40 bg-slate-700 px-1.5 rounded font-jakarta font-medium">CLOSE</span>
                                         </div>
                                         <div className="flex items-center gap-1.5">
-                                            <span className="text-xs font-bold text-white">${item.price.toFixed(2)}</span>
-                                            <span className={`flex items-center gap-0.5 text-xs font-bold ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            <span className="text-xs font-bold text-white font-num">${item.price.toFixed(2)}</span>
+                                            <span className={`flex items-center gap-0.5 text-xs font-semibold font-num ${isUp ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                 {isUp ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                                                 {isUp ? '+' : ''}{item.changePct.toFixed(2)}%
                                             </span>
@@ -310,7 +310,7 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                                     </div>
                                 </div>
                                 <div className="flex flex-col items-end gap-1">
-                                    <div className={`text-lg font-black ${item.alphaScore >= 75 ? 'text-amber-400' : item.alphaScore >= 50 ? 'text-emerald-400' : 'text-white'}`}>
+                                    <div className={`text-lg font-bold font-num ${item.alphaScore >= 75 ? 'text-amber-400' : item.alphaScore >= 50 ? 'text-emerald-400' : 'text-white'}`}>
                                         {item.alphaScore > 0 ? item.alphaScore.toFixed(1) : '-'}
                                     </div>
                                     <MiniSparkline data={item.sparkline} isUp={isUp} />
@@ -323,26 +323,26 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                                 <div>
                                     <div className="flex items-center gap-1.5 mb-2">
                                         <Crosshair className="w-3 h-3 text-amber-400" />
-                                        <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider">Key Levels</span>
+                                        <span className="text-[10px] font-semibold text-white/50 uppercase tracking-wider font-jakarta">Key Levels</span>
                                     </div>
                                     <div className="grid grid-cols-3 gap-1.5 text-center mb-2">
                                         <div className="bg-rose-500/10 border border-rose-500/20 rounded p-1.5">
-                                            <div className="text-[8px] text-rose-400 uppercase">Put Floor</div>
-                                            <div className="text-xs font-bold text-white">{formatPrice(item.putFloor)}</div>
+                                            <div className="text-[10px] text-rose-400/70 uppercase font-medium tracking-wider font-jakarta">Put Floor</div>
+                                            <div className="text-xs font-bold text-white font-num">{formatPrice(item.putFloor)}</div>
                                         </div>
                                         <div className="bg-amber-500/10 border border-amber-500/20 rounded p-1.5">
-                                            <div className="text-[8px] text-amber-400 uppercase">Max Pain</div>
-                                            <div className="text-xs font-bold text-white">{formatPrice(item.maxPain)}</div>
+                                            <div className="text-[10px] text-amber-400/70 uppercase font-medium tracking-wider font-jakarta">Max Pain</div>
+                                            <div className="text-xs font-bold text-white font-num">{formatPrice(item.maxPain)}</div>
                                         </div>
                                         <div className="bg-emerald-500/10 border border-emerald-500/20 rounded p-1.5">
-                                            <div className="text-[8px] text-emerald-400 uppercase">Call Wall</div>
-                                            <div className="text-xs font-bold text-white">{formatPrice(item.callWall)}</div>
+                                            <div className="text-[10px] text-emerald-400/70 uppercase font-medium tracking-wider font-jakarta">Call Wall</div>
+                                            <div className="text-xs font-bold text-white font-num">{formatPrice(item.callWall)}</div>
                                         </div>
                                     </div>
                                     <PricePositionBar current={item.price} putFloor={item.putFloor} maxPain={item.maxPain} callWall={item.callWall} />
-                                    <div className="flex justify-between mt-1.5 text-[10px] text-white font-medium">
+                                    <div className="flex justify-between mt-1.5 text-[10px] text-white/50 font-medium font-jakarta">
                                         <span>Put Zone</span>
-                                        <span>● 현재가 ${item.price.toFixed(0)}</span>
+                                        <span className="text-white/70 font-num">● 현재가 ${item.price.toFixed(0)}</span>
                                         <span>Call Zone</span>
                                     </div>
                                 </div>
@@ -351,24 +351,24 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                                 <div>
                                     <div className="flex items-center gap-1.5 mb-2">
                                         <BarChart3 className="w-3 h-3 text-cyan-400" />
-                                        <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider">Options Profile</span>
+                                        <span className="text-[10px] font-semibold text-white/50 uppercase tracking-wider font-jakarta">Options Profile</span>
                                     </div>
                                     <div className="flex items-center justify-between bg-slate-800/50 rounded-lg p-2">
                                         <div className="flex items-center gap-3">
                                             <div>
-                                                <span className="text-[8px] text-white/50 block">GEX</span>
-                                                <span className={`text-sm font-bold ${item.gex > 0 ? 'text-cyan-400' : 'text-amber-400'}`}>
+                                                <span className="text-[10px] text-white/40 block font-medium tracking-wider font-jakarta">GEX</span>
+                                                <span className={`text-sm font-bold font-num ${item.gex > 0 ? 'text-cyan-400' : 'text-amber-400'}`}>
                                                     {item.gex > 0 ? '+' : ''}{formatGex(item.gex)}
                                                 </span>
                                             </div>
                                             <div>
-                                                <span className="text-[8px] text-white/50 block">PCR</span>
-                                                <span className={`text-sm font-bold ${item.pcr < 0.8 ? 'text-emerald-400' : item.pcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
+                                                <span className="text-[10px] text-white/40 block font-medium tracking-wider font-jakarta">PCR</span>
+                                                <span className={`text-sm font-bold font-num ${item.pcr < 0.8 ? 'text-emerald-400' : item.pcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
                                                     {item.pcr.toFixed(2)}
                                                 </span>
                                             </div>
                                         </div>
-                                        <span className={`text-[10px] font-bold px-2 py-1 rounded ${item.gammaRegime === 'LONG' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
+                                        <span className={`text-[10px] font-semibold px-2 py-1 rounded font-jakarta ${item.gammaRegime === 'LONG' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
                                             item.gammaRegime === 'SHORT' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                                                 'bg-slate-700 text-white/60 border border-slate-600'
                                             }`}>
@@ -381,10 +381,10 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                                 <div>
                                     <div className="flex items-center gap-1.5 mb-2">
                                         <FileText className="w-3 h-3 text-purple-400" />
-                                        <span className="text-[9px] font-bold text-white/70 uppercase tracking-wider">AI Analysis</span>
+                                        <span className="text-[10px] font-semibold text-white/50 uppercase tracking-wider font-jakarta">AI Analysis</span>
                                     </div>
                                     <div className="bg-purple-500/5 border border-purple-500/20 rounded-lg p-2.5">
-                                        <p className="text-[10px] text-white/80 leading-relaxed">{analysis}</p>
+                                        <p className="text-[12px] font-medium text-white/80 leading-relaxed">{analysis}</p>
                                     </div>
                                 </div>
 
@@ -394,12 +394,12 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                                         <AlertTriangle className="w-3 h-3 text-amber-400" />
                                         <div className="flex items-center gap-1">
                                             {isHighGex && (
-                                                <span className="text-[8px] px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded border border-purple-500/30">
+                                                <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-purple-500/20 text-purple-300 rounded border border-purple-500/30 font-jakarta">
                                                     High GEX
                                                 </span>
                                             )}
                                             {isExtremePcr && (
-                                                <span className="text-[8px] px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded border border-amber-500/30">
+                                                <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-amber-500/20 text-amber-300 rounded border border-amber-500/30 font-jakarta">
                                                     PCR Alert
                                                 </span>
                                             )}

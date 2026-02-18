@@ -204,7 +204,7 @@ export function PriceDisplayCard({
     return (
         <div className="flex flex-col items-center">
             {/* Main Price */}
-            <div className="text-2xl font-black text-white tracking-tighter tabular-nums drop-shadow-sm">
+            <div className="text-2xl font-bold text-white tracking-tighter drop-shadow-sm font-jakarta font-num">
                 ${intradayPrice.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
@@ -214,23 +214,23 @@ export function PriceDisplayCard({
             {/* Extended Price (if available) */}
             {hasExtended && (
                 <div className="flex items-center justify-center gap-1.5 mb-1 animate-in fade-in slide-in-from-bottom-1">
-                    <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${(extendedLabel || 'POST') === 'POST'
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm border font-jakarta ${(extendedLabel || 'POST') === 'POST'
                         ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                         : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                         }`}>
                         {extendedLabel || 'POST'}
                     </span>
-                    <span className="text-xs font-mono font-bold text-white/90">
+                    <span className="text-xs font-bold text-white/90 font-num">
                         ${extendedPrice.toFixed(2)}
                     </span>
-                    <span className={`text-[10px] font-bold ${extendedColor}`}>
+                    <span className={`text-[10px] font-semibold font-num ${extendedColor}`}>
                         {isExtendedUp ? '+' : ''}{extendedChangePct.toFixed(2)}%
                     </span>
                 </div>
             )}
 
             {/* Change Percentage */}
-            <div className={`flex items-center justify-center gap-0.5 text-sm font-bold tracking-tight ${intradayColor} ${isIntradayUp
+            <div className={`flex items-center justify-center gap-0.5 text-sm font-semibold tracking-tight font-num ${intradayColor} ${isIntradayUp
                 ? 'drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]'
                 : 'drop-shadow-[0_0_8px_rgba(251,113,133,0.3)]'
                 }`}>
