@@ -645,7 +645,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         >
                                             <Label
                                                 value={`MAX PAIN $${alphaLevels.maxPain}`}
-                                                position="insideRight"
+                                                position="insideBottomRight"
                                                 fill="#a855f7"
                                                 fontSize={10}
                                                 fontWeight="bold"
