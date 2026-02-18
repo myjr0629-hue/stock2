@@ -7,7 +7,7 @@ import { useLivePrice } from '@/hooks/useLivePrice';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown, Crosshair, Radar, Shield } from "lucide-react";
+import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown, Crosshair, Radar, Shield, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 import { StockData, OptionData, NewsItem } from "@/services/stockTypes";
 import { OIChart } from "@/components/OIChart";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
@@ -76,11 +76,11 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
             <div className="flex flex-col h-full bg-transparent">
                 {/* Header - matching FLOW UNIT style */}
                 <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 shrink-0">
-                    <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
+                    <span className="text-[11px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
                         <Zap size={10} />
                         SIGNAL CORE
                     </span>
-                    <span className="text-[9px] text-slate-500 font-medium uppercase tracking-wider">
+                    <span className="text-[11px] text-slate-400 font-medium uppercase tracking-wider">
                         LOADING
                     </span>
                 </div>
@@ -296,11 +296,11 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         <div className="flex flex-col h-full bg-transparent">
             {/* Header - matching FLOW UNIT style */}
             <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 shrink-0">
-                <span className="text-[10px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
+                <span className="text-[11px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
                     <Zap size={10} />
                     SIGNAL CORE
                 </span>
-                <span className={`text-[9px] font-medium uppercase tracking-wider ${colors.text}`}>
+                <span className={`text-[11px] font-medium uppercase tracking-wider ${colors.text}`}>
                     {verdict}
                 </span>
             </div>
@@ -319,12 +319,12 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 
                 {/* Key Insights Grid */}
                 <div className="space-y-2">
-                    <div className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{td('keyMetrics')}</div>
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{td('keyMetrics')}</div>
                     <div className="flex flex-wrap gap-1.5">
                         {insights.slice(0, 6).map((item, i) => (
                             <span
                                 key={i}
-                                className={`text-[10px] font-bold px-2 py-1 rounded-lg ${item.type === 'bull' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                className={`text-[11px] font-bold px-2 py-1 rounded-lg ${item.type === 'bull' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
                                     item.type === 'bear' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' :
                                         'bg-slate-700/50 text-slate-400 border border-slate-600/30'
                                     }`}
@@ -367,6 +367,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [liveChartData, setLiveChartData] = useState<any[] | null>(null);
     const [structure, setStructure] = useState<any>(null);
     const [krNews, setKrNews] = useState<any[]>(initialNews || []);
+    const [expandedNewsId, setExpandedNewsId] = useState<number | null>(null);
     const [optionsLoading, setOptionsLoading] = useState(false);
     const [structLoading, setStructLoading] = useState(false);
     const [newsLoading, setNewsLoading] = useState(false);
@@ -718,8 +719,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         // Silent chart refresh every 30s
         const chartInterval = setInterval(fetchChartData, 30000);
 
+        // [AI Insight] News auto-refresh every 30min for real-time AI analysis
+        const newsInterval = setInterval(fetchNewsAndScore, 30 * 60 * 1000);
+
         return () => {
             clearInterval(chartInterval);
+            clearInterval(newsInterval);
             document.removeEventListener('visibilitychange', handleVisibility);
             window.removeEventListener('focus', handleFocus);
         };
@@ -807,7 +812,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="ml-auto flex items-center gap-2">
                             <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                                <span className="text-[10px] font-mono text-indigo-300">CONNECTING</span>
+                                <span className="text-[11px] font-mono text-indigo-300 font-jakarta">CONNECTING</span>
                             </div>
                         </div>
                     </div>
@@ -817,7 +822,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 <div className="grid grid-cols-5 gap-2 animate-pulse">
                     {['NET GEX', 'GAMMA FLIP', 'SQUEEZE', 'VWAP', 'SHORT VOL %'].map((label, i) => (
                         <div key={i} className="h-24 bg-slate-800/30 rounded-xl border border-slate-700/20 p-3 flex flex-col justify-between">
-                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">{label}</span>
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-jakarta">{label}</span>
                             <div className="h-5 w-16 bg-slate-700/30 rounded" />
                         </div>
                     ))}
@@ -825,7 +830,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 <div className="grid grid-cols-5 gap-2 animate-pulse">
                     {['MAX PAIN', 'ATM IV', 'P/C RATIO', 'GEX REGIME', 'IMPLIED MOVE'].map((label, i) => (
                         <div key={i} className="h-24 bg-slate-800/30 rounded-xl border border-slate-700/20 p-3 flex flex-col justify-between">
-                            <span className="text-[8px] font-bold text-slate-600 uppercase tracking-wider">{label}</span>
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-jakarta">{label}</span>
                             <div className="h-5 w-16 bg-slate-700/30 rounded" />
                         </div>
                     ))}
@@ -836,7 +841,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* Chart area with premium skeleton */}
                     <div className="col-span-8 h-[520px] rounded-2xl border border-white/10 bg-slate-900/60 overflow-hidden relative">
                         {/* Decorative Label */}
-                        <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[9px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2">
+                        <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[11px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2 font-jakarta">
                             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Price History
                         </div>
                         {/* Fake chart grid lines */}
@@ -867,14 +872,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="absolute inset-0 flex items-center justify-center">
                             <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/50 backdrop-blur-sm">
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                                <span className="text-[10px] font-mono text-slate-400 tracking-wider">LOADING CHART</span>
+                                <span className="text-[11px] font-mono text-slate-400 tracking-wider font-jakarta">LOADING CHART</span>
                             </div>
                         </div>
                     </div>
                     {/* Sidebar skeleton */}
                     <div className="col-span-4 space-y-4 animate-pulse">
                         <div className="h-[250px] bg-slate-800/20 rounded-2xl border border-slate-700/15 p-4">
-                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wider mb-3">SIGNAL FEED</div>
+                            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 font-jakarta">SIGNAL FEED</div>
                             <div className="space-y-2">
                                 {[...Array(4)].map((_, i) => (
                                     <div key={i} className="h-4 bg-slate-700/20 rounded w-full" style={{ width: `${85 - i * 10}%` }} />
@@ -882,7 +887,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             </div>
                         </div>
                         <div className="h-[250px] bg-slate-800/20 rounded-2xl border border-slate-700/15 p-4">
-                            <div className="text-[9px] font-bold text-slate-600 uppercase tracking-wider mb-3">5-DAY HISTORY</div>
+                            <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 font-jakarta">5-DAY HISTORY</div>
                             <div className="space-y-2">
                                 {[...Array(5)].map((_, i) => (
                                     <div key={i} className="flex justify-between">
@@ -967,7 +972,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md w-fit">
                             <div className={`w-1.5 h-1.5 rounded-full ${activeExtType === 'PRE' ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
                             <div className="flex items-baseline gap-2">
-                                <span className={`text-[10px] font-black uppercase tracking-widest font-jakarta ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                <span className={`text-[11px] font-black uppercase tracking-widest font-jakarta ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
                                     {activeExtType === 'PRE' ? 'Pre' : 'Post'}
                                 </span>
                                 <span className="text-sm font-bold text-slate-200 tabular-nums">
@@ -1003,9 +1008,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Zap className={`w-3.5 h-3.5 ${isHot ? 'text-amber-400' : 'text-cyan-400'}`} />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">VOL REGIME</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">VOL REGIME</span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isHot ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${regimeColor}`}>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isHot ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${regimeColor}`}>
                                         {r?.regime || '...'}
                                     </span>
                                 </div>
@@ -1014,13 +1019,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <span className="text-[11px] text-white font-bold">/100</span>
                                     <span className="text-[11px] text-white ml-0.5">{regimeDesc}</span>
                                 </div>
-                                <div className="relative z-10 flex gap-3 mt-1 text-[10px] tabular-nums">
-                                    <span className="text-white/60">GEX <span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel || '--'}</span></span>
-                                    <span className="text-white/60">IV <span className="font-bold text-white/90">{r?.iv || '--'}%</span></span>
-                                    <span className="text-white/60">Flip <span className="font-bold text-white/90">{r?.flipDistance ? `${r.flipDistance > 0 ? '+' : ''}${r.flipDistance}%` : '--'}</span></span>
+                                <div className="relative z-10 flex gap-3 mt-1 text-[11px] tabular-nums">
+                                    <span className="text-white/80 font-jakarta">GEX <span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel || '--'}</span></span>
+                                    <span className="text-white/80 font-jakarta">IV <span className="font-bold text-white">{r?.iv || '--'}%</span></span>
+                                    <span className="text-white/80 font-jakarta">Flip <span className="font-bold text-white">{r?.flipDistance ? `${r.flipDistance > 0 ? '+' : ''}${r.flipDistance}%` : '--'}</span></span>
                                 </div>
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">GEX + IV + Gamma Flip + Squeeze</span>
+                                    <span className="text-[11px] text-slate-300 font-jakarta">GEX + IV + Gamma Flip + Squeeze</span>
                                 </div>
                             </div>
                         );
@@ -1038,18 +1043,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Target className="w-3.5 h-3.5 text-amber-400" />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">CONVICTION</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">CONVICTION</span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>{conviction?.grade || '...'}</span>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>{conviction?.grade || '...'}</span>
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
                                     <span className={`text-lg font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '--'}</span>
                                     <span className="text-[11px] text-white font-bold">/100</span>
                                     <span className="text-[11px] text-white ml-0.5">{convDesc}</span>
                                 </div>
-                                <div className="relative z-10 text-[11px] text-white/70 mt-0.5">{conviction?.label || ''}</div>
+                                <div className="relative z-10 text-[11px] text-slate-300 mt-0.5">{conviction?.label || ''}</div>
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">{td('convComposite')}</span>
+                                    <span className="text-[11px] text-slate-300 font-jakarta">{td('convComposite')}</span>
                                 </div>
                             </div>
                         );
@@ -1068,9 +1073,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Activity className="w-3.5 h-3.5 text-indigo-400" />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">VWAP</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">VWAP</span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${vwapDiff > 0 ? 'bg-emerald-500/20 text-emerald-400' : vwapDiff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white'}`}>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${vwapDiff > 0 ? 'bg-emerald-500/20 text-emerald-400' : vwapDiff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>
                                         {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(1)}%
                                     </span>
                                 </div>
@@ -1078,9 +1083,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <span className={`text-lg font-black font-mono tabular-nums leading-none ${vwapDiff > 0 ? 'text-emerald-400' : vwapDiff < 0 ? 'text-rose-400' : 'text-white'}`}>${vwap.toFixed(2)}</span>
                                 </div>
                                 <div className="relative z-10 text-[11px] text-white mt-0.5">{vwapDesc}</div>
-                                <div className="relative z-10 text-[11px] text-white/70 mt-px">{td('vwapDeviation')} {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(2)}{td('vwapDeviationSuffix')}</div>
+                                <div className="relative z-10 text-[11px] text-slate-300 mt-px">{td('vwapDeviation')} {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(2)}{td('vwapDeviationSuffix')}</div>
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">{td('vwapFullDesc')}</span>
+                                    <span className="text-[11px] text-slate-300 font-jakarta">{td('vwapFullDesc')}</span>
                                 </div>
                             </div>
                         );
@@ -1100,23 +1105,23 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <ShieldAlert className={`w-3.5 h-3.5 ${isCritical ? 'text-rose-400' : 'text-orange-400'}`} />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">SHORT SQUEEZE</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">SHORT SQUEEZE</span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isCritical ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${statusColor}`}>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isCritical ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${statusColor}`}>
                                         {s?.status || '...'}
                                     </span>
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
                                     <span className={`text-lg font-black tabular-nums leading-none ${statusColor}`}>{s?.siPercent !== undefined ? s.siPercent.toFixed(1) : '--'}%</span>
-                                    <span className="text-[11px] text-white font-bold">SI%</span>
+                                    <span className="text-[11px] text-white font-bold font-jakarta">SI%</span>
                                     <span className="text-[11px] text-white ml-0.5">{sqDesc}</span>
                                 </div>
-                                <div className="relative z-10 flex gap-3 mt-0.5 text-[10px] tabular-nums">
-                                    <span className="text-white/60">{td('sqDaysToCover')} <span className="font-bold text-white/90">{s?.daysToCover?.toFixed(1) ?? '--'}{td('sqDays')}</span></span>
-                                    <span className="text-white/60">{td('sqShortRatio')} <span className="font-bold text-white/90">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></span>
+                                <div className="relative z-10 flex gap-3 mt-0.5 text-[11px] tabular-nums">
+                                    <span className="text-white/80">{td('sqDaysToCover')} <span className="font-bold text-white">{s?.daysToCover?.toFixed(1) ?? '--'}{td('sqDays')}</span></span>
+                                    <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></span>
                                 </div>
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">SI% + Days to Cover + Short Vol</span>
+                                    <span className="text-[11px] text-slate-300 font-jakarta">SI% + Days to Cover + Short Vol</span>
                                 </div>
                             </div>
                         );
@@ -1139,9 +1144,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Crosshair className={`w-3.5 h-3.5 ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-cyan-400'}`} />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">ANALYST TARGET</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">ANALYST TARGET</span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isBullish ? 'bg-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-600/50 text-white/70'}`}>{consensusKr}</span>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isBullish ? 'bg-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-slate-300'}`}>{consensusKr}</span>
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
                                     <span className={`text-lg font-black tabular-nums leading-none ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span>
@@ -1150,7 +1155,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                                 {bd && total > 0 && (
                                     <div className="relative z-10 mt-1">
-                                        <div className="text-[9px] text-white/70 tabular-nums">
+                                        <div className="text-[11px] text-slate-300 tabular-nums font-jakarta">
                                             <span className="text-emerald-400 font-bold">Strong Buy {bd.strongBuy}</span>
                                             <span className="text-white/30 mx-0.5">|</span>
                                             <span className="text-emerald-400/70">Buy {bd.buy}</span>
@@ -1174,7 +1179,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                 )}
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">Analyst Consensus</span>
+                                    <span className="text-[11px] text-slate-300 font-jakarta">Analyst Consensus</span>
                                 </div>
                             </div>
                         );
@@ -1199,9 +1204,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Radar className={`w-3.5 h-3.5 ${isAccumulation ? 'text-emerald-400' : 'text-indigo-400'}`} />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">INST RADAR</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">INST RADAR</span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isAccumulation ? 'bg-emerald-500/20' : isDistribution ? 'bg-rose-500/20' : 'bg-slate-600/50'} ${sigColor}`}>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isAccumulation ? 'bg-emerald-500/20' : isDistribution ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${sigColor}`}>
                                         {signal}
                                     </span>
                                 </div>
@@ -1210,12 +1215,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <span className="text-[11px] text-white font-bold">{td('instDarkPool')}</span>
                                     <span className="text-[11px] text-white ml-0.5">{instDesc}</span>
                                 </div>
-                                <div className="relative z-10 flex gap-3 mt-0.5 text-[10px] tabular-nums">
-                                    <span className="text-white/60">{td('instBlock')} <span className="font-bold text-white/90">{blockCount}{td('instTrades')}</span></span>
-                                    <span className="text-white/60">{td('sqShortRatio')} <span className="font-bold text-white/90">{institutionalData?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
+                                <div className="relative z-10 flex gap-3 mt-0.5 text-[11px] tabular-nums">
+                                    <span className="text-white/80">{td('instBlock')} <span className="font-bold text-white">{blockCount}{td('instTrades')}</span></span>
+                                    <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{institutionalData?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
                                 </div>
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">Dark Pool + Block Trade + Short Vol</span>
+                                    <span className="text-[11px] text-slate-300 font-jakarta">Dark Pool + Block Trade + Short Vol</span>
                                 </div>
                             </div>
                         );
@@ -1231,10 +1236,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">TREND PHASE</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">TREND PHASE</span>
                                     </div>
                                     {smaData?.crossType === 'NEW' && (
-                                        <span className="text-[7px] font-black px-1.5 py-px rounded bg-amber-500/30 text-amber-300 animate-pulse">NEW!</span>
+                                        <span className="text-[11px] font-black px-1.5 py-px rounded bg-amber-500/30 text-amber-300 animate-pulse font-jakarta">NEW!</span>
                                     )}
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-2">
@@ -1250,7 +1255,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                 )}
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">SMA 50/200 Cross Analysis</span>
+                                    <span className="text-[11px] text-slate-300 font-jakarta">SMA 50/200 Cross Analysis</span>
                                 </div>
                             </div>
                         );
@@ -1273,9 +1278,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Shield className={`w-3.5 h-3.5 ${hasData ? 'text-emerald-400' : 'text-amber-400'}`} />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta">FUNDAMENTAL</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">FUNDAMENTAL</span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded bg-slate-600/50 ${hasData ? gradeColor : 'text-slate-400'}`}>
+                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta bg-slate-700/30 ${hasData ? gradeColor : 'text-slate-400'}`}>
                                         {hasData ? f?.grade : td('fundGradeCollecting')}
                                     </span>
                                 </div>
@@ -1290,16 +1295,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className="text-sm font-bold text-white/40 leading-none">{fundDesc}</span>
                                     </div>
                                 )}
-                                <div className="relative z-10 flex flex-wrap gap-x-2 mt-1 text-[10px] tabular-nums">
-                                    {pe !== null && pe !== undefined && <span className="text-white/60">PE <span className="font-bold text-white/90">{pe}</span></span>}
-                                    {roe !== null && roe !== undefined && <span className="text-white/60">ROE <span className="font-bold text-white/90">{roe}%</span></span>}
-                                    {rev !== null && rev !== undefined && <span className="text-white/60">{td('fundRevenue')} <span className="font-bold text-white/90">{rev > 0 ? '+' : ''}{rev}%</span></span>}
-                                    {margin !== null && margin !== undefined && <span className="text-white/60">{td('fundMargin')} <span className="font-bold text-white/90">{margin}%</span></span>}
-                                    {de !== null && de !== undefined && <span className="text-white/60">D/E <span className="font-bold text-white/90">{de}</span></span>}
+                                <div className="relative z-10 flex flex-wrap gap-x-2 mt-1 text-[11px] tabular-nums">
+                                    {pe !== null && pe !== undefined && <span className="text-white/80 font-jakarta">PE <span className="font-bold text-white">{pe}</span></span>}
+                                    {roe !== null && roe !== undefined && <span className="text-white/80 font-jakarta">ROE <span className="font-bold text-white">{roe}%</span></span>}
+                                    {rev !== null && rev !== undefined && <span className="text-white/80">{td('fundRevenue')} <span className="font-bold text-white">{rev > 0 ? '+' : ''}{rev}%</span></span>}
+                                    {margin !== null && margin !== undefined && <span className="text-white/80">{td('fundMargin')} <span className="font-bold text-white">{margin}%</span></span>}
+                                    {de !== null && de !== undefined && <span className="text-white/80 font-jakarta">D/E <span className="font-bold text-white">{de}</span></span>}
                                     {!pe && !roe && !rev && !margin && !de && <span className="text-white/40">{td('fundApiWaiting')}</span>}
                                 </div>
                                 <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-white">PE + FCF + Rev + Margin + DE</span>
+                                    <span className="text-[11px] text-slate-300 font-jakarta">PE + FCF + Rev + Margin + DE</span>
                                 </div>
                             </div>
                         );
@@ -1319,9 +1324,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
-                                        <span className="text-[12px] font-bold text-white uppercase tracking-wider">EARNINGS</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">EARNINGS</span>
                                     </div>
-                                    <span className={`text-[11px] font-bold px-1.5 py-px rounded ${isImminent ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-500/20 text-slate-300'}`}>
+                                    <span className={`text-[11px] font-bold px-1.5 py-px rounded font-jakarta ${isImminent ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/30 text-slate-300'}`}>
                                         {isValidDays ? `D-${daysNum}` : rawDays || 'TBD'}
                                     </span>
                                 </div>
@@ -1350,7 +1355,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="relative z-10 flex items-center justify-between mb-1">
                             <div className="flex items-center gap-1">
                                 <Layers className="w-3.5 h-3.5 text-violet-400" />
-                                <span className="text-[12px] font-bold text-white uppercase tracking-wider">RELATED</span>
+                                <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">RELATED</span>
                             </div>
                             <span className="text-[11px] text-white">{td('relatedSector')}</span>
                         </div>
@@ -1365,7 +1370,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 className="w-4 h-4 rounded-full object-cover bg-white/10"
                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                             />
-                                            <span className="text-[11px] font-bold text-white">{item.ticker}</span>
+                                            <span className="text-[11px] font-bold text-white font-jakarta">{item.ticker}</span>
                                         </div>
                                         <span className={`text-[11px] font-bold tabular-nums ${item.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                             {item.change >= 0 ? '+' : ''}{item.change}%
@@ -1373,11 +1378,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-[11px] text-white/70 text-center py-1">{td('loading')}</div>
+                                <div className="text-[11px] text-slate-300 text-center py-1">{td('loading')}</div>
                             )}
                         </div>
                         <div className="relative z-10 mt-0.5">
-                            <span className="text-[11px] text-white">Related Tickers</span>
+                            <span className="text-[11px] text-slate-300 font-jakarta">Related Tickers</span>
                         </div>
                     </div>
 
@@ -1387,15 +1392,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             {/* COMMAND GRID (2 Columns: Main vs Sidebar) */}
             {
                 (
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 h-[800px]">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[800px]">
 
                         {/* MAIN COLUMN (8 Cols) - Flex Structure */}
                         <div className="lg:col-span-8 flex flex-col items-stretch gap-4 h-full">
                             {/* A. Main Chart Section */}
-                            {/* A. Main Chart Section (Height: 520px) */}
-                            <div className="h-[520px] min-h-0 relative flex flex-col group shrink-0">
+                            {/* A. Main Chart Section (Height: 580px) */}
+                            <div className="h-[580px] min-h-0 relative flex flex-col group shrink-0">
                                 {/* Decorative Label (Absolute) */}
-                                <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[9px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2">
+                                <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[11px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2 font-jakarta">
                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Price History
                                 </div>
 
@@ -1403,9 +1408,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 overflow-hidden shadow-2xl relative backdrop-blur-md flex flex-col">
                                     {/* Texture Overlay */}
                                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-20" />
-                                    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-indigo-900/10 pointer-events-none" />
-
-                                    <div className="flex-1 min-h-0 relative z-10 p-1 pb-12">
+                                    <div className="flex-1 min-h-0 relative z-10 p-1 pb-2">
                                         {liveChartData && liveChartData.length > 0 ? (
                                             <StockChart
                                                 key={`${ticker}:${range}`}
@@ -1469,7 +1472,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 {/* Loading indicator */}
                                                 <div className="relative z-10 flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/50 backdrop-blur-sm">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                                                    <span className="text-[10px] font-mono text-slate-400 tracking-wider">LOADING CHART DATA</span>
+                                                    <span className="text-[11px] font-mono text-slate-400 tracking-wider font-jakarta">LOADING CHART DATA</span>
                                                 </div>
                                             </div>
                                         )}
@@ -1482,12 +1485,26 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                 {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
                                 <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                                    {/* Infographic BG: Micro Grid + Level Lines */}
+                                    <div className="absolute inset-0 pointer-events-none z-0">
+                                        {/* Fine grid */}
+                                        <div className="absolute inset-0 bg-[linear-gradient(rgba(251,191,36,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.06)_1px,transparent_1px)] bg-[size:32px_32px]" />
+                                        {/* Horizontal level indicators */}
+                                        <div className="absolute top-[25%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/25 to-transparent" />
+                                        <div className="absolute top-[50%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/35 to-transparent" />
+                                        <div className="absolute top-[75%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/25 to-transparent" />
+                                        {/* Corner depth markers */}
+                                        <div className="absolute top-2 left-2 w-4 h-4 border-l-2 border-t-2 border-amber-500/30" />
+                                        <div className="absolute top-2 right-2 w-4 h-4 border-r-2 border-t-2 border-amber-500/30" />
+                                        <div className="absolute bottom-2 left-2 w-4 h-4 border-l-2 border-b-2 border-amber-500/30" />
+                                        <div className="absolute bottom-2 right-2 w-4 h-4 border-r-2 border-b-2 border-amber-500/30" />
+                                    </div>
                                     {/* Loading Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
                                     {structLoading && !structure && (
                                         <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
                                             <div className="flex flex-col items-center gap-2">
                                                 <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-                                                <span className="text-[10px] text-cyan-400/80 font-bold uppercase tracking-wider">Loading...</span>
+                                                <span className="text-[11px] text-cyan-400/80 font-bold uppercase tracking-wider font-jakarta">Loading...</span>
                                             </div>
                                         </div>
                                     )}
@@ -1503,7 +1520,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 const now = new Date();
                                                 const diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
                                                 return diffDays >= 0 ? (
-                                                    <span className={`text-[9px] font-black px-1.5 py-0.5 rounded ${diffDays <= 1 ? 'bg-rose-950/50 text-rose-400 border border-rose-500/30' : 'bg-cyan-950/50 text-cyan-400 border border-cyan-500/30'}`}>
+                                                    <span className={`text-[11px] font-black px-1.5 py-0.5 rounded font-jakarta ${diffDays <= 1 ? 'bg-rose-950/50 text-rose-400 border border-rose-500/30' : 'bg-cyan-950/50 text-cyan-400 border border-cyan-500/30'}`}>
                                                         D-{diffDays}
                                                     </span>
                                                 ) : null;
@@ -1511,11 +1528,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <span className="text-xs font-black text-amber-500 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/30 flex items-center gap-2 shadow-lg">
-                                                <span className="text-[10px] font-black tracking-tighter">MAX PAIN</span>
-                                                <span className="text-[9px] text-amber-300/60 font-medium uppercase tracking-tighter">({t('maxPainLabel')})</span>
+                                                <span className="text-[11px] font-black tracking-tighter font-jakarta">MAX PAIN</span>
+                                                <span className="text-[11px] text-amber-300/70 font-medium uppercase tracking-tighter">({t('maxPainLabel')})</span>
                                                 <span className="text-sm font-black pl-1 border-l border-amber-500/20">${structure?.maxPain || initialStockData.flow?.maxPain || "---"}</span>
                                                 {(structure?.maxPain || initialStockData.flow?.maxPain) && (
-                                                    <span className={`text-[9px] font-bold ml-1 ${((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain)) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                    <span className={`text-[11px] font-bold ml-1 font-jakarta ${((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain)) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                         ({((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain) * 100).toFixed(1)}%)
                                                     </span>
                                                 )}
@@ -1538,13 +1555,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <div className="absolute inset-y-4 left-0 right-0 flex flex-col justify-between px-8">
                                             {/* Resistance (Call Wall) */}
                                             <div className="flex items-center gap-2 border-b border-rose-500/30 pb-1">
-                                                <span className="text-[10px] font-bold text-rose-400 w-12 text-right">RESIST</span>
+                                                <span className="text-[11px] font-bold text-rose-400 w-12 text-right font-jakarta">RESIST</span>
                                                 <span className="text-sm font-black text-rose-200 tracking-wider">${structure?.levels?.callWall || "---"}</span>
                                             </div>
 
                                             {/* Max Pain Marker (Center Concept) */}
                                             <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex items-center justify-end pr-8 gap-2 opacity-90">
-                                                <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Max Pain</span>
+                                                <span className="text-[11px] font-bold text-amber-500 uppercase tracking-wider font-jakarta">Max Pain</span>
                                                 <div className="w-12 h-[1px] bg-amber-500/50" />
                                             </div>
 
@@ -1562,7 +1579,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                             {/* Support (Put Floor) */}
                                             <div className="flex items-center gap-2 border-t border-emerald-500/30 pt-1">
-                                                <span className="text-[10px] font-bold text-emerald-400 w-12 text-right">SUPPORT</span>
+                                                <span className="text-[11px] font-bold text-emerald-400 w-12 text-right font-jakarta">SUPPORT</span>
                                                 <span className="text-sm font-black text-emerald-200 tracking-wider">${structure?.levels?.putFloor || "---"}</span>
                                             </div>
                                         </div>
@@ -1578,7 +1595,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             const color = absDistance < 1 ? "text-amber-400" : distance > 0 ? "text-rose-400" : "text-emerald-400";
                                             return (
                                                 <div className="bg-slate-800/40 rounded-md px-2 py-1.5 border border-white/5">
-                                                    <div className="text-[8px] text-slate-500 font-bold uppercase">{t('maxPainDistance')}</div>
+                                                    <div className="text-[11px] text-slate-400 font-bold uppercase font-jakarta">{t('maxPainDistance')}</div>
                                                     <div className={`text-sm font-black ${color}`}>
                                                         {distance > 0 ? "+" : ""}{distance.toFixed(1)}%
                                                     </div>
@@ -1594,7 +1611,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             const color = rangeWidth > 10 ? "text-rose-400" : rangeWidth > 5 ? "text-amber-400" : "text-emerald-400";
                                             return (
                                                 <div className="bg-slate-800/40 rounded-md px-2 py-1.5 border border-white/5">
-                                                    <div className="text-[8px] text-slate-500 font-bold uppercase">{t('rangeWidth')}</div>
+                                                    <div className="text-[11px] text-slate-400 font-bold uppercase font-jakarta">{t('rangeWidth')}</div>
                                                     <div className={`text-sm font-black ${color}`}>
                                                         {rangeWidth.toFixed(1)}%
                                                     </div>
@@ -1605,7 +1622,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                     {/* Insight Footer */}
                                     <div className="px-4 py-2 border-t border-white/5 bg-slate-950/30">
-                                        <p className="text-[10px] text-white/70 leading-relaxed">
+                                        <p className="text-[11px] text-slate-300 leading-relaxed">
                                             {displayPrice > (structure?.maxPain || 0)
                                                 ? t('aboveMaxPain')
                                                 : displayPrice < (structure?.maxPain || 0)
@@ -1617,23 +1634,37 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                 {/* 2. NET GAMMA ENGINE (Infographic Style) */}
                                 <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                                    {/* Infographic BG: Scanlines + Energy Pulse */}
+                                    <div className="absolute inset-0 pointer-events-none z-0">
+                                        {/* Horizontal scanlines */}
+                                        <div className="absolute inset-0 bg-[linear-gradient(rgba(168,85,247,0.04)_1px,transparent_1px)] bg-[size:100%_8px]" />
+                                        {/* Diagonal tech lines */}
+                                        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(168,85,247,0.05)_25%,transparent_25%,transparent_50%,rgba(168,85,247,0.05)_50%,rgba(168,85,247,0.05)_75%,transparent_75%)] bg-[size:40px_40px]" />
+                                        {/* Energy pulse glow - top right */}
+                                        <div className="absolute -top-10 -right-10 w-48 h-48 bg-[radial-gradient(circle,rgba(168,85,247,0.12)_0%,transparent_60%)] animate-pulse" style={{ animationDuration: '5s' }} />
+                                        {/* Corner frames */}
+                                        <div className="absolute top-0 right-0 w-16 h-16 border-r-2 border-t-2 border-purple-500/15 rounded-tr-2xl" />
+                                        <div className="absolute bottom-0 left-0 w-16 h-16 border-l-2 border-b-2 border-purple-500/15 rounded-bl-2xl" />
+                                        {/* Bottom accent */}
+                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
+                                    </div>
                                     {/* Loading Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
                                     {structLoading && !structure && (
                                         <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
                                             <div className="flex flex-col items-center gap-2">
                                                 <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-                                                <span className="text-[10px] text-cyan-400/80 font-bold uppercase tracking-wider">Loading...</span>
+                                                <span className="text-[11px] text-cyan-400/80 font-bold uppercase tracking-wider font-jakarta">Loading...</span>
                                             </div>
                                         </div>
                                     )}
                                     {/* Header */}
                                     <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
-                                        <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                        <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 font-jakarta">
                                             <Activity size={10} className={structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"} />
                                             NET GAMMA ENGINE
                                         </h4>
                                         {structure?.expiration && (
-                                            <span className="text-xs text-white font-mono">EXP: {structure.expiration}</span>
+                                            <span className="text-xs text-white font-mono font-jakarta">EXP: {structure.expiration}</span>
                                         )}
                                     </div>
 
@@ -1645,7 +1676,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <div className="relative shrink-0">
                                                 <div className={`w-20 h-20 rounded-full border-4 border-dashed ${structure?.netGex > 0 ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.5)]" : "border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.5)]"} flex items-center justify-center animate-[spin_10s_linear_infinite]`} />
                                                 <div className={`absolute inset-2 rounded-full bg-slate-900/95 flex flex-col items-center justify-center border ${structure?.netGex > 0 ? "border-emerald-500/50" : "border-rose-500/50"}`}>
-                                                    <div className="text-[8px] text-slate-500 uppercase font-bold">NET GEX</div>
+                                                    <div className="text-[11px] text-slate-400 uppercase font-bold font-jakarta">NET GEX</div>
                                                     <div className={`text-lg font-black ${structure?.netGex > 0 ? "text-emerald-300" : "text-rose-300"}`}>
                                                         {structure?.netGex ? (structure.netGex / 1000000).toFixed(1) + "M" : "0.0M"}
                                                     </div>
@@ -1657,7 +1688,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className={`text-sm font-black ${structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                     {structure?.netGex > 0 ? "⚡ STABLE" : "⚡ VOLATILE"}
                                                 </div>
-                                                <div className="text-[11px] text-white/80 leading-snug mt-0.5">
+                                                <div className="text-[11px] text-white/90 leading-snug mt-0.5">
                                                     {structure?.netGex > 0
                                                         ? t('netGexStable')
                                                         : t('netGexVolatile')}
@@ -1678,9 +1709,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                         const pcrColor = pcr > 1.2 ? "text-rose-400" : pcr < 0.8 ? "text-emerald-400" : "text-white";
                                                         return (
                                                             <>
-                                                                <div className="text-[9px] text-white/80 uppercase font-bold">P/C Ratio</div>
+                                                                <div className="text-[11px] text-white/90 uppercase font-bold font-jakarta">P/C Ratio</div>
                                                                 <div className={`text-sm font-black ${pcrColor}`}>{pcr.toFixed(2)}</div>
-                                                                <div className="text-[9px] text-white/80 uppercase font-bold mt-1">Total OI</div>
+                                                                <div className="text-[11px] text-white/90 uppercase font-bold font-jakarta mt-1">Total OI</div>
                                                                 <div className="text-sm font-black text-indigo-300">{oiFormatted}</div>
                                                             </>
                                                         );
@@ -1708,7 +1739,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                         <div>
                                                             <div className="text-xs text-amber-400 font-black uppercase tracking-wider flex items-center gap-2">
                                                                 Gamma Flip Level
-                                                                <span className="text-[8px] bg-emerald-500/80 text-white px-1.5 py-0.5 rounded font-bold">READY</span>
+                                                                <span className="text-[11px] bg-emerald-500/80 text-white px-1.5 py-0.5 rounded font-bold font-jakarta">READY</span>
                                                             </div>
                                                             <div className="text-[11px] text-white/70">{t('gammaFlipLevel')}</div>
                                                         </div>
@@ -1718,11 +1749,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                         <div className="text-2xl font-black text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.6)] flex items-center justify-end gap-1.5">
                                                             ${structure.gammaFlipLevel}
                                                             {structure.gammaFlipType === 'MULTI_EXP' && (
-                                                                <span className="text-[8px] bg-purple-500/80 text-white px-1 py-0.5 rounded font-bold">60D</span>
+                                                                <span className="text-[11px] bg-purple-500/80 text-white px-1 py-0.5 rounded font-bold font-jakarta">60D</span>
                                                             )}
                                                         </div>
                                                         {displayPrice && (
-                                                            <div className={`text-[10px] font-bold ${displayPrice > structure.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
+                                                            <div className={`text-[11px] font-bold font-jakarta ${displayPrice > structure.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
                                                                 {displayPrice > structure.gammaFlipLevel
                                                                     ? t('longGammaZone')
                                                                     : t('shortGammaZone')}
@@ -1733,7 +1764,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                                 {/* Position Bar with Labels */}
                                                 <div className="relative z-10">
-                                                    <div className="flex justify-between text-[9px] mb-0.5">
+                                                    <div className="flex justify-between text-[11px] mb-0.5">
                                                         <span className="text-rose-400 font-bold">{t('shortGammaLabel')}</span>
                                                         <span className="text-white/50">← Flip →</span>
                                                         <span className="text-emerald-400 font-bold">{t('longGammaLabel')}</span>
@@ -1758,7 +1789,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                             );
                                                         })()}
                                                     </div>
-                                                    <div className="flex justify-between text-[9px] text-white/60 mt-0.5">
+                                                    <div className="flex justify-between text-[11px] text-white/70 mt-0.5">
                                                         <span>${(structure.gammaFlipLevel * 0.93).toFixed(0)}</span>
                                                         <span className="text-amber-300 font-bold">${structure.gammaFlipLevel}</span>
                                                         <span>${(structure.gammaFlipLevel * 1.07).toFixed(0)}</span>
@@ -1773,11 +1804,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                         <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
                                                     </div>
                                                     <div>
-                                                        <div className="text-xs text-slate-400 font-black uppercase tracking-wider flex items-center gap-2">
+                                                        <div className="text-xs text-slate-300 font-black uppercase tracking-wider flex items-center gap-2 font-jakarta">
                                                             Gamma Flip Level
-                                                            <span className="text-[8px] bg-slate-600/80 text-white px-1.5 py-0.5 rounded font-bold animate-pulse">LOADING</span>
+                                                            <span className="text-[11px] bg-slate-600/80 text-white px-1.5 py-0.5 rounded font-bold animate-pulse font-jakarta">LOADING</span>
                                                         </div>
-                                                        <div className="text-[11px] text-white/50">{t('optionsDataLoading')}</div>
+                                                        <div className="text-[11px] text-slate-300">{t('optionsDataLoading')}</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1830,13 +1861,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                                         <AlertCircle className="w-4 h-4 text-slate-500" />}
                                                             </div>
                                                             <div>
-                                                                <div className="text-xs text-slate-400 font-black uppercase tracking-wider flex items-center gap-2">
+                                                                <div className="text-xs text-slate-300 font-black uppercase tracking-wider flex items-center gap-2 font-jakarta">
                                                                     Gamma Flip Level
-                                                                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold ${badgeColor}`}>{badgeText}</span>
+                                                                    <span className={`text-[11px] px-1.5 py-0.5 rounded font-bold font-jakarta ${badgeColor}`}>{badgeText}</span>
                                                                 </div>
-                                                                <div className="text-[11px] text-white/50">{message}</div>
+                                                                <div className="text-[11px] text-slate-300">{message}</div>
                                                                 {interpretation && (
-                                                                    <div className={`text-[10px] font-bold mt-0.5 ${gammaFlipType === 'ALL_LONG' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                    <div className={`text-[11px] font-bold mt-0.5 ${gammaFlipType === 'ALL_LONG' ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                                         {interpretation}
                                                                     </div>
                                                                 )}
@@ -1852,7 +1883,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             {/* Gamma Concentration */}
                                             <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[9px] text-white font-bold uppercase">GAMMA CONC. {td('gammaConc')}</span>
+                                                    <span className="text-[11px] text-white font-bold uppercase font-jakarta">GAMMA CONC. {td('gammaConc')}</span>
                                                 </div>
                                                 {(() => {
                                                     const concentration = structure?.gammaConcentration ?? 0;
@@ -1867,7 +1898,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                                 <span className={`text-lg font-black ${color}`}>{concentration}%</span>
                                                                 <span className={`text-xs font-semibold ${color}`}>{label}</span>
                                                             </div>
-                                                            <div className="text-[9px] text-white mt-0.5">{desc}</div>
+                                                            <div className="text-[11px] text-white mt-0.5">{desc}</div>
                                                         </div>
                                                     );
                                                 })()}
@@ -1876,7 +1907,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             {/* Squeeze Risk */}
                                             <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
                                                 <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[9px] text-white/80 font-bold uppercase">Squeeze Risk</span>
+                                                    <span className="text-[11px] text-white font-bold uppercase font-jakarta">Squeeze Risk</span>
                                                 </div>
                                                 {(() => {
                                                     // [V45.17] Use server-calculated squeezeRisk (SSOT)
@@ -1898,7 +1929,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                     {/* MM Insight Footer (Simplified) */}
                                     <div className="px-3 py-2 border-t border-white/5 bg-slate-950/30">
-                                        <p className="text-[10px] text-white/70 leading-relaxed">
+                                        <p className="text-[11px] text-slate-300 leading-relaxed">
                                             {structure?.netGex > 0 ? t('longGammaStable') : t('shortGammaWarning')}
                                         </p>
                                     </div>
@@ -1914,7 +1945,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <div className="w-1 h-3 bg-slate-500 rounded-full" /> Key Market Levels
                                         </h4>
                                         {(structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone) && (
-                                            <span className="text-[10px] text-amber-500 font-black">
+                                            <span className="text-[11px] text-amber-500 font-black font-jakarta">
                                                 Max Pain ({td('maxPainLabel')}): ${structure?.maxPain || initialStockData.flow?.maxPain || initialStockData.flow?.pinZone}
                                             </span>
                                         )}
@@ -1944,17 +1975,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className={`text-4xl font-black ${structure?.netGex > 0 ? "text-emerald-400" : structure?.netGex < 0 ? "text-rose-400" : "text-white"}`}>
                                                     {structure?.netGex ? (structure.netGex > 0 ? "+" : "") + (structure.netGex / 1000000).toFixed(2) + "M" : "—"}
                                                 </div>
-                                                <div className="text-[10px] text-slate-500 uppercase tracking-widest mt-1 flex items-center justify-center gap-1">
+                                                <div className="text-[11px] text-slate-400 uppercase tracking-widest mt-1 flex items-center justify-center gap-1 font-jakarta">
                                                     {td('netGexLabel')}
                                                     <span title={td('gexTooltip')}>
-                                                        <Info size={10} className="text-slate-600 hover:text-slate-400 cursor-help" />
+                                                        <Info size={10} className="text-slate-500 hover:text-slate-300 cursor-help" />
                                                     </span>
                                                 </div>
 
                                                 {/* 0DTE Pulse Indicator (New) */}
                                                 {structure?.gexZeroDteRatio !== undefined && (
                                                     <div className="mt-3 px-4">
-                                                        <div className="flex items-center justify-between text-[9px] font-bold text-slate-500 mb-1 tracking-wider uppercase">
+                                                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-400 mb-1 tracking-wider uppercase font-jakarta">
                                                             <span className="flex items-center gap-1"><Zap size={10} className="text-amber-400" /> 0DTE Velocity</span>
                                                             <span className={structure.gexZeroDteRatio > 0.3 ? "text-amber-400" : "text-slate-600"}>{(structure.gexZeroDteRatio * 100).toFixed(0)}% Impact</span>
                                                         </div>
@@ -1968,10 +1999,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 )}
 
                                                 {/* Expert Interpretation */}
-                                                <div className={`mt-4 text-[10px] font-bold px-2 py-1 rounded inline-block ${structure?.netGex > 0 ? "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" : structure?.netGex < 0 ? "bg-rose-950/30 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400"}`}>
+                                                <div className={`mt-4 text-[11px] font-bold px-2 py-1 rounded inline-block ${structure?.netGex > 0 ? "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" : structure?.netGex < 0 ? "bg-rose-950/30 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400"}`}>
                                                     {structure?.netGex > 0 ? td('gexBullish') : structure?.netGex < 0 ? td('gexBearish') : td('gexNeutral')}
                                                 </div>
-                                                <div className="mt-4 flex justify-center gap-4 text-[9px] font-medium text-slate-500 border-t border-white/5 pt-2">
+                                                <div className="mt-4 flex justify-center gap-4 text-[11px] font-medium text-slate-400 border-t border-white/5 pt-2">
                                                     <div className="flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
                                                         <span>{td('gexSafeZone')}</span>
@@ -2011,7 +2042,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* 1. Decision Gate - Fixed Height */}
                             <div className="shrink-0 relative rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-2xl">
-                                {/* Decorative Outline REMOVED because it conflicts with standard glass look */}
+                                {/* Infographic BG: Radar Grid + Sentinel Glow */}
+                                <div className="absolute inset-0 pointer-events-none z-0">
+                                    {/* Crosshair grid */}
+                                    <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.07)_1px,transparent_1px)] bg-[size:24px_24px]" />
+                                    {/* Radar sweep glow */}
+                                    <div className="absolute -top-20 -right-20 w-60 h-60 bg-[radial-gradient(circle,rgba(99,102,241,0.18)_0%,transparent_70%)] animate-pulse" style={{ animationDuration: '4s' }} />
+                                    {/* Bottom accent line */}
+                                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
+                                    {/* Corner accent */}
+                                    <div className="absolute top-0 right-0 w-20 h-20 border-r-2 border-t-2 border-indigo-500/20 rounded-tr-2xl" />
+                                    <div className="absolute bottom-0 left-0 w-20 h-20 border-l-2 border-b-2 border-indigo-500/20 rounded-bl-2xl" />
+                                </div>
                                 <DecisionGate
                                     ticker={ticker}
                                     displayPrice={displayPrice}
@@ -2029,12 +2071,33 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* 2. Flow Unit - Glass Card */}
                             <div className="shrink-0 rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors shadow-2xl">
+                                {/* Infographic BG: Flow Pulse + Wave Pattern */}
+                                <div className="absolute inset-0 pointer-events-none z-0">
+                                    {/* Horizontal flow lines */}
+                                    <div className="absolute inset-0 bg-[linear-gradient(0deg,transparent_0%,transparent_48%,rgba(56,189,248,0.07)_49%,rgba(56,189,248,0.07)_51%,transparent_52%,transparent_100%)] bg-[size:100%_20px]" />
+                                    {/* Pulse glow top-left */}
+                                    <div className="absolute -top-10 -left-10 w-48 h-48 bg-[radial-gradient(circle,rgba(56,189,248,0.15)_0%,transparent_70%)]" />
+                                    {/* Bottom-right emerald glow for bullish feel */}
+                                    <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-[radial-gradient(circle,rgba(52,211,153,0.12)_0%,transparent_70%)]" />
+                                    {/* Accent lines */}
+                                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
+                                    <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-sky-500/25 via-transparent to-transparent" />
+                                </div>
                                 <div className="p-2 border-b border-white/5 flex items-center justify-between bg-white/5">
                                     <div className="flex items-center gap-2">
                                         <Activity size={10} className="text-sky-400" />
-                                        <span className="text-[10px] font-black text-sky-200 uppercase tracking-widest">Flow Unit</span>
+                                        <span className="text-[11px] font-black text-sky-200 uppercase tracking-widest font-jakarta">Flow Unit</span>
                                     </div>
-                                    <span className="text-[8px] bg-slate-800/80 text-slate-500 px-1.5 py-0.5 rounded border border-white/5">INTRADAY</span>
+                                    <span className={`text-[11px] px-1.5 py-0.5 rounded border font-jakarta ${effectiveSession === 'REG' ? 'bg-emerald-900/50 text-emerald-400 border-emerald-500/20' :
+                                        effectiveSession === 'PRE' ? 'bg-amber-900/50 text-amber-400 border-amber-500/20' :
+                                            effectiveSession === 'POST' ? 'bg-blue-900/50 text-blue-400 border-blue-500/20' :
+                                                'bg-slate-800/80 text-slate-400 border-white/5'
+                                        }`}>{
+                                            effectiveSession === 'REG' ? 'INTRADAY' :
+                                                effectiveSession === 'PRE' ? 'PRE-MKT' :
+                                                    effectiveSession === 'POST' ? 'POST-MKT' :
+                                                        'CLOSED'
+                                        }</span>
                                 </div>
                                 <div className="p-1">
                                     <FlowSniper
@@ -2046,49 +2109,101 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             </div>
 
-                            {/* 3. Intel Feed Needs to fill remaining height */}
+                            {/* 3. Intel Feed — Real-time AI Insight */}
                             <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-2xl relative group">
-                                {/* Background Pattern */}
-                                {/* Background Pattern REMOVED for consistency */}
 
                                 <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 relative z-10 shrink-0">
                                     <div className="flex items-center gap-2">
-                                        <Newspaper size={12} className="text-slate-400" />
-                                        <h3 className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Intel Feed (AI)</h3>
+                                        <Sparkles size={12} className="text-cyan-400" />
+                                        <h3 className="text-[11px] font-black text-white uppercase tracking-widest font-jakarta">Intel Feed (AI)</h3>
                                     </div>
-                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                                    <div className="flex items-center gap-1.5">
+                                        {newsLoading && <Loader2 size={10} className="text-cyan-400 animate-spin" />}
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                                    </div>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
-                                    {krNews.slice(0, 5).map((n: any, i) => (
-                                        <a key={i} href={n.url || n.link || "#"} target="_blank" rel="noreferrer" className="block group/item border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors relative min-h-[80px]">
-                                            {/* Hover Indicator */}
-                                            <div className="absolute left-0 top-0 bottom-0 w-0.5 bg-indigo-500/0 group-hover/item:bg-indigo-500 transition-all duration-300" />
+                                    {krNews.slice(0, 5).map((n: any, i) => {
+                                        const isExpanded = expandedNewsId === i;
+                                        const analysis = locale === 'ko'
+                                            ? (n.analysisKR || null)
+                                            : locale === 'ja'
+                                                ? (n.analysisJP || n.analysisKR || null)
+                                                : (n.analysisEN || n.analysisKR || null);
+                                        const hasAnalysis = !!analysis;
 
-                                            <div className="p-3 flex flex-col justify-center h-full">
-                                                <div className="text-[9px] text-indigo-300/80 font-bold mb-1 flex justify-between items-center">
-                                                    <span className="flex items-center gap-2">
-                                                        {n.source || n.publisher || "Unknown"}
-                                                        {n.isRumor && (
-                                                            <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse">RUMOR</span>
+                                        return (
+                                            <div key={`${n.title}-${i}`} className="border-b border-white/5 last:border-0 relative">
+                                                {/* Sentiment Indicator Bar */}
+                                                <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${n.sentiment === 'positive' ? 'bg-emerald-500' :
+                                                    n.sentiment === 'negative' ? 'bg-rose-500' : 'bg-slate-600'
+                                                    }`} />
+
+                                                {/* News Header — clickable for expand */}
+                                                <div
+                                                    className={`p-3 pl-3.5 cursor-pointer hover:bg-white/5 transition-colors ${isExpanded ? 'bg-white/[0.03]' : ''
+                                                        }`}
+                                                    onClick={() => setExpandedNewsId(isExpanded ? null : i)}
+                                                >
+                                                    <div className="text-[11px] text-indigo-300/90 font-bold mb-1 flex justify-between items-center font-jakarta">
+                                                        <span className="flex items-center gap-1.5">
+                                                            {n.source || "Unknown"}
+                                                            {n.ageHours !== undefined && (
+                                                                <span className="text-slate-400">· {n.ageHours < 1 ? 'Now' : `${n.ageHours}h`}</span>
+                                                            )}
+                                                            {n.isRumor && (
+                                                                <span className="text-[11px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse font-jakarta">RUMOR</span>
+                                                            )}
+                                                        </span>
+                                                        <span className="flex items-center gap-1">
+                                                            {hasAnalysis && (
+                                                                <span className="text-[11px] px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 font-jakarta">
+                                                                    AI
+                                                                </span>
+                                                            )}
+                                                            {n.sentiment === 'positive' && <span className="text-emerald-500 text-[11px] font-jakarta">BULLISH</span>}
+                                                            {n.sentiment === 'negative' && <span className="text-rose-500 text-[11px] font-jakarta">BEARISH</span>}
+                                                            {hasAnalysis && (
+                                                                isExpanded
+                                                                    ? <ChevronUp size={12} className="text-slate-400" />
+                                                                    : <ChevronDown size={12} className="text-slate-400" />
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                    <div className="text-xs text-slate-300 font-medium leading-snug line-clamp-2">
+                                                        {locale === 'ko'
+                                                            ? (n.summaryKR || n.title)
+                                                            : locale === 'ja'
+                                                                ? (n.summaryJP || n.summaryKR || n.title)
+                                                                : n.title
+                                                        }
+                                                    </div>
+                                                </div>
+
+                                                {/* AI Insight — Accordion */}
+                                                {isExpanded && analysis && (
+                                                    <div className="px-3.5 pb-3 animate-in slide-in-from-top-1 duration-200">
+                                                        <div className="bg-white/[0.03] border border-white/[0.06] rounded-lg p-2.5">
+                                                            <div className="flex items-center gap-1.5 mb-1">
+                                                                <Sparkles size={10} className="text-cyan-400" />
+                                                                <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider font-jakarta">AI Insight</span>
+                                                            </div>
+                                                            <p className="text-[11px] text-slate-300 leading-relaxed">
+                                                                {analysis}
+                                                            </p>
+                                                        </div>
+                                                        {n.url && n.url !== '#' && (
+                                                            <a href={n.url} target="_blank" rel="noreferrer"
+                                                                className="text-[11px] text-indigo-400 hover:text-indigo-300 mt-1.5 inline-block font-jakarta">
+                                                                {locale === 'ko' ? '원문 보기 →' : locale === 'ja' ? '原文を見る →' : 'Read original →'}
+                                                            </a>
                                                         )}
-                                                    </span>
-                                                    <span className={n.sentiment === 'positive' ? 'text-emerald-500' : 'text-slate-600'}>
-                                                        {n.sentiment === 'positive' ? 'BULLISH' : ''}
-                                                    </span>
-                                                </div>
-                                                <div className="text-xs text-slate-300 font-medium leading-snug group-hover/item:text-white transition-colors line-clamp-2">
-                                                    {/* [S-75] Locale-based display: ko=summaryKR, ja=summaryJP, en=original title */}
-                                                    {locale === 'ko'
-                                                        ? (n.summaryKR || n.title)
-                                                        : locale === 'ja'
-                                                            ? (n.summaryJP || n.summaryKR || n.title)
-                                                            : n.title
-                                                    }
-                                                </div>
+                                                    </div>
+                                                )}
                                             </div>
-                                        </a>
-                                    ))}
+                                        );
+                                    })}
                                     {krNews.length === 0 && (
                                         <div className="h-full flex items-center justify-center text-amber-400/70 text-xs text-center p-4 italic">
                                             {tIntel('translating')}

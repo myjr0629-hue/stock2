@@ -11,6 +11,9 @@ export interface NewsItem {
     headline: string;
     summaryKR: string;       // Korean summary
     summaryJP?: string;      // Japanese summary [S-75]
+    analysisKR?: string;     // AI market interpretation (Korean)
+    analysisEN?: string;     // AI market interpretation (English)
+    analysisJP?: string;     // AI market interpretation (Japanese)
     source: string;
     link?: string;           // Article URL
     publishedAt: string;     // ISO datetime
@@ -84,12 +87,15 @@ import { GoogleGenAI } from "@google/genai";
 // @ts-ignore
 import translate from "google-translate-api-x";
 
-const MODEL_NAME = "gemini-2.5-flash"; // [STABLE] Fast & Reliable
+const MODEL_NAME = "gemini-2.5-flash"; // [QUALITY] 2.5-flash: deeper analysis with thinking (5 items fits within 60s timeout)
 
 interface AIAnalysisResult {
     id: string;
     summaryKR: string;
     summaryJP: string;  // [S-75] Japanese translation
+    analysisKR?: string;     // AI market interpretation (Korean)
+    analysisEN?: string;     // AI market interpretation (English)
+    analysisJP?: string;     // AI market interpretation (Japanese)
     isRumor: boolean;
 }
 
@@ -98,8 +104,8 @@ let genAI: GoogleGenAI | null = null;
 function getGenAIClient() {
     if (genAI) return genAI;
 
-    // 1. Try Process Env (SWAPPED: Use VERDICT KEY for News)
-    let apiKey = process.env.GEMINI_VERDICT_KEY || process.env.GEMINI_API_KEY;
+    // 1. Try Process Env (NEWS_KEY first, then fallback to VERDICT or generic)
+    let apiKey = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_VERDICT_KEY || process.env.GEMINI_API_KEY;
 
     // 2. Manual Fallback if process.env fails (Robust Loader)
     if (!apiKey) {
@@ -118,6 +124,8 @@ function getGenAIClient() {
                         apiKey = trimmed.split('=')[1].trim();
                     }
                 }
+            } else {
+                console.warn('[NewsHub] .env.local not found');
             }
         } catch (e) {
             console.warn('[NewsHub] Env fetch failed:', e);
@@ -160,7 +168,8 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, fallbackValue: T)
 
 // [Gemini Logic] Batch Analysis to respect Rate Limits (15 RPM)
 // We process up to 10 items in one go.
-export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]> {
+// marketContext is optional — when provided, Gemini generates data-driven market interpretation
+export async function analyzeNewsBatch(items: any[], marketContext?: string): Promise<AIAnalysisResult[]> {
     const client = getGenAIClient();
 
     // Try Gemini First
@@ -171,34 +180,46 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
                 text: `${item.title} - ${item.description || ""}`
             }));
 
-            // [S-75] Trilingual translation prompt (KO + JP)
+            // Build market context section for the prompt
+            const contextSection = marketContext
+                ? `\n            MARKET CONTEXT for this ticker (use this for your analysis):\n            ${marketContext}\n`
+                : '';
+
+            // [S-75+] Trilingual translation + AI Market Interpretation prompt
             const prompt = `
-            You are a top-tier financial analyst serving Korean and Japanese markets.
-            Translate the following news headlines/summaries into BOTH Korean AND Japanese.
-            Also, enable 'Rumor Detection': precise identification of unverified reports, leaks, or speculation vs confirmed news.
-            
-            CRITICAL: summaryKR MUST be in Korean (한국어). summaryJP MUST be in Japanese (日本語). Do NOT mix languages.
+            You are a top-tier financial analyst at a Bloomberg-class terminal.
+            Your job: translate + provide ACTIONABLE market interpretation for each news item.
+            ${contextSection}
+            CRITICAL RULES:
+            - summaryKR MUST be in Korean (한국어). summaryJP MUST be in Japanese (日本語). Do NOT mix languages.
+            - analysisKR MUST be in Korean, analysisEN in English, analysisJP in Japanese.
+            - Each analysis should be 1-2 sentences of ACTIONABLE interpretation (not just repeating the headline).
+            - If market context is provided, CONNECT the news to the data (RSI, PCR, gamma, support/resistance).
+            - Focus on: price impact, risk level, and what a trader should watch for.
 
             Input Data (JSON):
             ${JSON.stringify(promptItems)}
 
-            Task:
-            1. 'summaryKR': Korean professional tone (한국어 전문 톤, e.g. "상승 마감", "수익 전망 발표").
-            2. 'summaryJP': Japanese professional tone (日本語専門トーン, e.g. "上昇で引けた", "収益見通しを発表"). This MUST be Japanese, NOT Korean.
-            3. 'isRumor': boolean (true if sources are 'sources say', 'reportedly', 'leaks', 'rumor', 'speculation').
+            Task for EACH news item:
+            1. 'summaryKR': Korean professional translation (한국어 전문 톤).
+            2. 'summaryJP': Japanese professional translation (日本語専門トーン).
+            3. 'analysisKR': Korean market interpretation, 1-2 sentences. 투자자가 바로 행동할 수 있는 해석. (e.g. "RSI 과매도 구간에서 하락 뉴스 → 기술적 반등 가능성. Put Floor $120 지지 확인 필요")
+            4. 'analysisEN': English market interpretation, 1-2 sentences. Actionable. (e.g. "Bearish news while RSI is oversold → possible technical bounce. Watch Put Floor at $120 for support.")
+            5. 'analysisJP': Japanese market interpretation, 1-2 sentences. (e.g. "RSI売られ過ぎ区間で下落ニュース→テクニカル反発の可能性。プットフロア$120のサポート確認必要")
+            6. 'isRumor': boolean (true if sources say 'reportedly', 'leaks', 'rumor', 'speculation').
 
-            Output MUST be a valid JSON Array of objects:
-            [ { "id": "...", "summaryKR": "한국어 번역...", "summaryJP": "日本語翻訳...", "isRumor": boolean } ]
+            Output MUST be a valid JSON Array:
+            [ { "id": "...", "summaryKR": "...", "summaryJP": "...", "analysisKR": "...", "analysisEN": "...", "analysisJP": "...", "isRumor": boolean } ]
             DO NOT output markdown code blocks. Just the raw JSON.
             `;
 
-            // Wrap Gemini call with 10s Timeout
+            // Wrap Gemini call with 60s Timeout (10 items × 3 languages + analysis)
             const result = await withTimeout(
                 client.models.generateContent({
                     model: MODEL_NAME,
                     contents: prompt,
                 }),
-                10000, // 10s timeout
+                60000, // 60s timeout — generous for batch translation+analysis
                 { text: "[]" } as any // fallback empty result
             );
 
@@ -206,6 +227,7 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
 
             // Clean up markdown if present
             const jsonStr = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+            if (!jsonStr) throw new Error('Gemini returned empty response');
             const analysis = JSON.parse(jsonStr) as AIAnalysisResult[];
 
             // [Fix] If Gemini returns empty/matches nothing, force fallback
@@ -214,8 +236,13 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
             }
 
             return analysis;
-        } catch (e) {
-            console.warn("[NewsHub] Gemini Analysis Failed (404/Quota/Timeout), switching to Fallback:", e);
+        } catch (e: any) {
+            const errInfo = {
+                message: e?.message?.substring(0, 200),
+                status: e?.status || e?.statusCode || e?.code,
+                name: e?.name,
+            };
+            console.warn("[NewsHub] Gemini Analysis Failed:", JSON.stringify(errInfo));
             // Fall through to fallback
         }
     }
@@ -309,7 +336,7 @@ export async function analyzeNewsBatch(items: any[]): Promise<AIAnalysisResult[]
 }
 
 // Fetch stock news from Massive (Polygon) API
-export async function fetchStockNews(tickers: string[], limit: number = 10, skipAI: boolean = false): Promise<NewsItem[]> {
+export async function fetchStockNews(tickers: string[], limit: number = 10, skipAI: boolean = false, marketContext?: string): Promise<NewsItem[]> {
     try {
         const tickerStr = tickers.join(',');
         const endpoint = `/v2/reference/news?ticker=${tickerStr}&limit=${limit}&order=desc&sort=published_utc`;
@@ -327,8 +354,8 @@ export async function fetchStockNews(tickers: string[], limit: number = 10, skip
 
         // Run Gemini Analysis (skip for snapshot — it does its own Gemini call)
         let aiResults: AIAnalysisResult[] = [];
-        if (!skipAI && (process.env.GEMINI_NEWS_KEY || process.env.GEMINI_API_KEY)) {
-            aiResults = await analyzeNewsBatch(rawItems);
+        if (!skipAI && getGenAIClient()) {
+            aiResults = await analyzeNewsBatch(rawItems, marketContext);
         }
 
         return rawItems.map((article: any) => {
@@ -391,6 +418,9 @@ export async function fetchStockNews(tickers: string[], limit: number = 10, skip
                 headline: article.title || "No Title",
                 summaryKR: finalSummaryKR,
                 summaryJP: finalSummaryJP,  // [S-75] Japanese translation
+                analysisKR: aiMatch?.analysisKR || undefined,
+                analysisEN: aiMatch?.analysisEN || undefined,
+                analysisJP: aiMatch?.analysisJP || undefined,
                 source: article.publisher?.name || "Unknown",
                 link: article.article_url,
                 publishedAt,

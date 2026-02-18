@@ -117,8 +117,16 @@
   }
 
   body {
-    @apply bg-background text-foreground tracking-tight antialiased bg-gradient-to-b from-[#CFEBF8] via-[#F0F3F7] to-[#F1DCC9] min-h-screen;
+    @apply bg-background text-foreground tracking-tight antialiased;
+    background-image: linear-gradient(to bottom, #CFEBF8, #F0F3F7, #F1DCC9);
+    background-attachment: fixed;
+    min-height: 100vh;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
+  }
+
+  .dark body {
+    background-image: none;
+    background-color: var(--background);
   }
 }
 

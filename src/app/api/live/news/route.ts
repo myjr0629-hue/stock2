@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchStockNews } from '@/services/newsHubProvider';
+import { getFromCache } from '@/services/redisClient';
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -8,14 +9,60 @@ export async function GET(req: NextRequest) {
 
     const startTime = Date.now();
     try {
-        // Use Global News Hub (Massive API + Gemini Translation)
-        // This replaces the old Google RSS Scraper (Native KR).
-        const newsItems = await fetchStockNews([ticker], 10);
+        // [AI Insight] Build market context for Gemini analysis
+        let marketContext: string | undefined;
+        try {
+            // Try to get live market data from Redis (set by other API calls)
+            const [rsiData, structData, quoteData] = await Promise.all([
+                getFromCache(`sma:${ticker}`).catch(() => null),
+                getFromCache(`options:structure:${ticker}`).catch(() => null),
+                getFromCache(`quote:${ticker}`).catch(() => null),
+            ]);
+
+            const contextParts: string[] = [];
+
+            if (rsiData) {
+                const sma = typeof rsiData === 'string' ? JSON.parse(rsiData) : rsiData;
+                if (sma.rsi14) contextParts.push(`RSI(14): ${Math.round(sma.rsi14)}`);
+                if (sma.sma20) contextParts.push(`SMA20: $${sma.sma20}`);
+                if (sma.sma50) contextParts.push(`SMA50: $${sma.sma50}`);
+            }
+
+            if (structData) {
+                const struct = typeof structData === 'string' ? JSON.parse(structData) : structData;
+                if (struct.pcr) contextParts.push(`PCR: ${struct.pcr}`);
+                if (struct.gammaProfile?.netGex) contextParts.push(`GEX: ${struct.gammaProfile.netGex > 0 ? '+' : ''}${(struct.gammaProfile.netGex / 1e6).toFixed(1)}M`);
+                if (struct.gammaProfile?.regime) contextParts.push(`Gamma Regime: ${struct.gammaProfile.regime}`);
+                if (struct.callWall) contextParts.push(`Call Wall: $${struct.callWall}`);
+                if (struct.putFloor) contextParts.push(`Put Floor: $${struct.putFloor}`);
+                if (struct.maxPain) contextParts.push(`Max Pain: $${struct.maxPain}`);
+            }
+
+            if (quoteData) {
+                const quote = typeof quoteData === 'string' ? JSON.parse(quoteData) : quoteData;
+                if (quote.price) contextParts.push(`Current Price: $${quote.price}`);
+                if (quote.changePct !== undefined) contextParts.push(`Change: ${quote.changePct >= 0 ? '+' : ''}${quote.changePct.toFixed(2)}%`);
+            }
+
+            if (contextParts.length > 0) {
+                marketContext = `${ticker}: ${contextParts.join(', ')}`;
+                console.log(`[News API] Market context for ${ticker}: ${marketContext}`);
+            }
+        } catch (ctxErr) {
+            // Market context is optional — proceed without it
+            console.warn('[News API] Failed to build market context:', ctxErr);
+        }
+
+        // Use Global News Hub (Massive API + Gemini Translation + AI Analysis)
+        const newsItems = await fetchStockNews([ticker], 5, false, marketContext);
 
         const items = newsItems.map(item => ({
             title: item.headline, // Original English headline
             summaryKR: item.summaryKR || null, // Korean translation
             summaryJP: item.summaryJP || null, // Japanese translation
+            analysisKR: item.analysisKR || null, // AI market interpretation (Korean)
+            analysisEN: item.analysisEN || null, // AI market interpretation (English)
+            analysisJP: item.analysisJP || null, // AI market interpretation (Japanese)
             originalTitle: item.headline,
             url: item.link || "#",
             source: item.source,
@@ -52,9 +99,11 @@ export async function GET(req: NextRequest) {
             },
             source: "MassiveAPI+Gemini",
             sourceGrade: "A+",
+            hasAIAnalysis: items.some(i => i.analysisKR || i.analysisEN),
             debug: {
                 fetched: items.length,
-                latencyMs: Date.now() - startTime
+                latencyMs: Date.now() - startTime,
+                hasMarketContext: !!marketContext
             }
         });
 

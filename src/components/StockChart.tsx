@@ -396,7 +396,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     };
 
     return (
-        <Card className="shadow-none border border-slate-800 bg-[#0b1219] rounded-md overflow-hidden relative h-full max-h-[520px]">
+        <Card className="shadow-none border border-slate-800 bg-[#0b1219] rounded-md overflow-hidden relative h-full flex flex-col">
             {/* Loading Overlay */}
             {loading && (
                 <div className="absolute inset-0 bg-[#0b1219]/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -460,9 +460,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                     </TabsList>
                 </Tabs>
             </CardHeader>
-            <CardContent className="pt-6">
+            <CardContent className="pt-6 flex-1 flex flex-col min-h-0">
                 {/* [P0-2] Key-based remount for stability */}
-                <div key={`${ticker}-${range}`} className={`h-[360px] w-full flex flex-col min-w-[200px] min-h-[200px] relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
+                <div key={`${ticker}-${range}`} className={`flex-1 w-full flex flex-col min-w-[200px] min-h-[200px] relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
                     {mounted && dataReady && processedData.length > 0 ? (
                         <>
                             <ResponsiveContainer width="99%" height="100%" minWidth={200} minHeight={200}>
@@ -516,25 +516,6 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         itemStyle={{ color: '#f8fafc' }}
                                         formatter={(value: any) => [`${(Number(value) || 0).toFixed(2)}`, "Close"]}
                                     />
-                                    {/* [S-78] prevClose Reference - hidden to prevent Y-axis expansion */}
-                                    {isIntraday && prevClose !== undefined && (
-                                        <ReferenceLine
-                                            y={prevClose}
-                                            stroke="#ffffff"
-                                            strokeDasharray="4 2"
-                                            strokeWidth={1}
-                                            ifOverflow="hidden"
-                                        >
-                                            <Label
-                                                value={prevClose.toFixed(2)}
-                                                position="right"
-                                                fill="#ffffff"
-                                                fontSize={11}
-                                                fontWeight="bold"
-                                                offset={5}
-                                            />
-                                        </ReferenceLine>
-                                    )}
                                     {/* [S-78] Live Price Reference with session-aware label (Command style) */}
                                     {currentPrice !== undefined && (() => {
                                         // Determine session from last data point
@@ -597,6 +578,48 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             </ReferenceLine>
                                         );
                                     })()}
+                                    {/* [S-78] prevClose Reference - rendered AFTER currentPrice so dashed line is on top */}
+                                    {isIntraday && prevClose !== undefined && (
+                                        <ReferenceLine
+                                            y={prevClose}
+                                            stroke="#94a3b8"
+                                            strokeDasharray="8 4"
+                                            strokeWidth={1.5}
+                                            ifOverflow="extendDomain"
+                                        >
+                                            <Label
+                                                position="right"
+                                                offset={5}
+                                                content={({ viewBox }: any) => {
+                                                    const { x, y, width } = viewBox || {};
+                                                    if (x === undefined || y === undefined) return null;
+                                                    const badgeX = (width ? x + width - 54 : x + 5);
+                                                    return (
+                                                        <g>
+                                                            <rect
+                                                                x={badgeX}
+                                                                y={y - 10}
+                                                                width={54}
+                                                                height={20}
+                                                                rx={4}
+                                                                fill="#3b82f6"
+                                                            />
+                                                            <text
+                                                                x={badgeX + 27}
+                                                                y={y + 4}
+                                                                textAnchor="middle"
+                                                                fill="#ffffff"
+                                                                fontSize={11}
+                                                                fontWeight="bold"
+                                                            >
+                                                                {prevClose.toFixed(2)}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                }}
+                                            />
+                                        </ReferenceLine>
+                                    )}
                                     {/* [Alpha Levels] Optional overlays - scale maintained with ifOverflow="hidden" */}
                                     {alphaLevels?.callWall && (
                                         <ReferenceLine
@@ -700,31 +723,6 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                     />
                                 </LineChart>
                             </ResponsiveContainer>
-                            {/* Previous Close Badge - DOM overlay outside Recharts */}
-                            {isIntraday && prevClose !== undefined && (() => {
-                                const domainMin = minPrice - padding;
-                                const domainMax = maxPrice + padding;
-                                // X-axis takes approximately 25px at bottom, need to scale percentage to plotting area only
-                                const xAxisHeight = 25; // approximate X-axis height in pixels
-                                const containerHeight = 360; // matches h-[360px]
-                                const plotAreaHeight = containerHeight - xAxisHeight;
-                                const badgeYRatio = (domainMax - prevClose) / (domainMax - domainMin);
-                                const badgeYPixels = badgeYRatio * plotAreaHeight; // position within plot area
-
-                                return (
-                                    <div
-                                        className="absolute right-0 pointer-events-none z-10 flex justify-end"
-                                        style={{
-                                            top: `${badgeYPixels}px`,
-                                            transform: 'translateY(-50%)' // Center vertically on the line
-                                        }}
-                                    >
-                                        <div className="bg-blue-500 text-white text-xs font-bold px-[4px] py-[1px] rounded-[2px] shadow-sm whitespace-nowrap min-w-0 leading-none">
-                                            {Number(prevClose).toFixed(2)}
-                                        </div>
-                                    </div>
-                                );
-                            })()}
                             {/* Current Price Badge - Now rendered via ReferenceLine Label instead of DOM overlay */}
                         </>
                     ) : (

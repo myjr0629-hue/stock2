@@ -40,18 +40,18 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                         Flow Sniper
                         <div className="flex items-center gap-1 mt-0.5">
                             {isGammaSqueeze ? (
-                                <span className="block text-[9px] text-indigo-300 font-black animate-pulse">🚀 GAMMA SQUEEZE DETECTED</span>
+                                <span className="block text-[11px] text-indigo-300 font-black animate-pulse font-jakarta">🚀 GAMMA SQUEEZE DETECTED</span>
                             ) : isPanicSelling ? (
-                                <span className="block text-[9px] text-rose-300 font-black animate-pulse">📉 PANIC SELLING DETECTED</span>
+                                <span className="block text-[11px] text-rose-300 font-black animate-pulse font-jakarta">📉 PANIC SELLING DETECTED</span>
                             ) : (
-                                <span className="block text-[8px] text-indigo-400 font-bold normal-case opacity-90">{t('realtimeTracking')}</span>
+                                <span className="block text-[11px] text-indigo-400 font-bold normal-case opacity-90">{t('realtimeTracking')}</span>
                             )}
                         </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${isGammaSqueeze ? 'bg-indigo-400 shadow-[0_0_10px_#818cf8]' : isPanicSelling ? 'bg-rose-500 shadow-[0_0_10px_#f43f5e]' : isBullish ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
-                    <span className={`text-[9px] font-black ${isGammaSqueeze ? 'text-indigo-300' : isPanicSelling ? 'text-rose-300' : isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    <span className={`text-[11px] font-black font-jakarta ${isGammaSqueeze ? 'text-indigo-300' : isPanicSelling ? 'text-rose-300' : isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
                         {isGammaSqueeze ? t('gammaSqueeze') :
                             isPanicSelling ? t('panicSelling') :
                                 isBullish ? "BULLISH" : "BEARISH"}
@@ -62,10 +62,10 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
             <div className="space-y-1.5 pt-1.5 pb-2 px-3 flex-1">
                 {/* 1. NET PREMIUM BIG DISPLAY */}
                 <div className="text-center">
-                    <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-0.5">
+                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 font-jakarta">
                         Net Premium Flow
                         <span title={t('netPremiumTooltip')}>
-                            <Info size={10} className="inline ml-1 text-slate-600 hover:text-slate-400 cursor-help" />
+                            <Info size={10} className="inline ml-1 text-slate-500 hover:text-slate-300 cursor-help" />
                         </span>
                     </div>
                     <div className={`text-2xl font-black tabular-nums tracking-tighter ${isBullish ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -75,7 +75,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
 
                 {/* 2. CALL vs PUT BATTLE BAR */}
                 <div className="space-y-0.5">
-                    <div className="flex justify-between text-[8px] font-bold text-slate-400 uppercase">
+                    <div className="flex justify-between text-[11px] font-bold text-slate-400 uppercase font-jakarta">
                         <span className="text-emerald-500">Call Prem (${(callPremium / 1000000).toFixed(1)}M)</span>
                         <span className="text-rose-500">Put Prem (${(putPremium / 1000000).toFixed(1)}M)</span>
                     </div>
@@ -94,7 +94,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                             style={{ width: `${putPct}%` }}
                         />
                     </div>
-                    <div className="flex justify-between text-[7px] font-mono text-slate-600">
+                    <div className="flex justify-between text-[11px] font-mono text-slate-400">
                         <span>{callPct.toFixed(0)}%</span>
                         <span>{putPct.toFixed(0)}%</span>
                     </div>
@@ -102,8 +102,8 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
 
                 {/* 3. RELVOL / ACTIVITY (Placeholder for Logic) */}
                 <div className="flex items-center justify-between pt-1.5 border-t border-white/5 mt-1.5">
-                    <span className="text-[8px] font-bold text-slate-500 uppercase">Volume Strength</span>
-                    <div className="flex items-center gap-1 text-[8px] font-black text-amber-400">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase font-jakarta">Volume Strength</span>
+                    <div className="flex items-center gap-1 text-[11px] font-black text-amber-400 font-jakarta">
                         <TrendingUp size={9} />
                         <span>ACTIVE ({optionsCount} Contracts)</span>
                     </div>
