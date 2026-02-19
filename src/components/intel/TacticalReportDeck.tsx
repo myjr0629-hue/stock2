@@ -162,8 +162,78 @@ function HighlightedText({ html, className }: { html: string; className?: string
     );
 }
 
+// ── Build locale-aware analysis text from structured data + i18n keys ──
+function buildLocaleAnalysis(t: TickerSnapshot, a: any): string {
+    const changePct = t.change_pct.toFixed(2);
+    const arrow = t.change_pct >= 0 ? '▲' : '▼';
+
+    // RSI
+    let rsiNote = '';
+    if (t.rsi > 0) {
+        const rsiVal = Math.round(t.rsi);
+        if (t.rsi < 30) rsiNote = ` RSI ${rsiVal}(${a('rsiOversold')}).`;
+        else if (t.rsi > 70) rsiNote = ` RSI ${rsiVal}(${a('rsiOverbought')}).`;
+        else rsiNote = ` RSI ${rsiVal}.`;
+    }
+
+    // RVOL
+    let rvolNote = '';
+    if (t.rvol > 0) {
+        const rvolVal = t.rvol.toFixed(1);
+        if (t.rvol > 1.5) rvolNote = ` RVOL ${rvolVal}x(${a('rvolSurge')}).`;
+        else if (t.rvol < 0.5) rvolNote = ` RVOL ${rvolVal}x(${a('rvolWeak')}).`;
+        else rvolNote = ` RVOL ${rvolVal}x.`;
+    }
+
+    // Gamma regime
+    const regime = t.gamma_regime || 'NEUTRAL';
+    const regimeLabel = regime === 'LONG' ? a('regimeLong') :
+        regime === 'SHORT' ? a('regimeShort') : a('regimeNeutral');
+
+    // PCR
+    const pcr = t.pcr || 1;
+    const pcrLabel = pcr < 0.7 ? a('pcrBullish') :
+        pcr > 1.2 ? a('pcrBearish') : a('pcrBalanced');
+
+    // Max Pain distance
+    const maxPain = t.max_pain || 0;
+    const price = t.close_price || 0;
+    let maxPainNote = '';
+    if (maxPain > 0 && price > 0) {
+        const dist = Math.abs((price - maxPain) / maxPain * 100).toFixed(1);
+        const dir = price > maxPain ? a('maxPainAbove') : a('maxPainBelow');
+        maxPainNote = ` ${a('closedVsMaxPain', { mp: maxPain, dir, dist })}`;
+    }
+
+    // Key level proximity
+    let levelNote = '';
+    if (t.call_wall > 0 && price > 0) {
+        const distToWall = ((t.call_wall - price) / price * 100).toFixed(1);
+        if (parseFloat(distToWall) < 2 && parseFloat(distToWall) > 0) {
+            levelNote = ` ${a('callWallNear', { wall: t.call_wall, dist: distToWall })}`;
+        }
+    }
+    if (t.put_floor > 0 && price > 0) {
+        const distToFloor = ((price - t.put_floor) / price * 100).toFixed(1);
+        if (parseFloat(distToFloor) < 2 && parseFloat(distToFloor) > 0) {
+            levelNote = ` ${a('putFloorNear', { floor: t.put_floor, dist: distToFloor })}`;
+        }
+    }
+
+    // Verdict
+    const verdictMap: Record<string, string> = {
+        'BUY_DIP': a('verdictBuyDip'),
+        'HOLD': a('verdictHold'),
+        'HEDGE': a('verdictHedge'),
+        'TRIM': a('verdictTrim'),
+    };
+    const verdictLabel = verdictMap[t.verdict] || t.verdict;
+
+    return `${arrow} ${changePct}%.${rsiNote}${rvolNote} ${regimeLabel}. PCR ${pcr.toFixed(2)} (${pcrLabel}).${maxPainNote}${levelNote} [${verdictLabel}]`;
+}
+
 // ── Ticker Card Component (compact, used in tactical groups) ──
-function TacticalTickerCard({ t }: { t: TickerSnapshot }) {
+function TacticalTickerCard({ t, analysisText }: { t: TickerSnapshot; analysisText: string }) {
     const isUp = t.change_pct >= 0;
     return (
         <div className="bg-white/[0.03] rounded-lg p-3 border border-white/[0.06] hover:bg-white/[0.06] hover:border-white/[0.1] transition-all duration-200">
@@ -189,9 +259,9 @@ function TacticalTickerCard({ t }: { t: TickerSnapshot }) {
                     <span className="text-[13px] font-bold font-num">{t.alpha_score.toFixed(0)}</span>
                 </div>
             </div>
-            {/* Row 3: Analysis — white, readable */}
+            {/* Row 3: Analysis — locale-aware, white, readable */}
             <p className="text-[13px] text-white/90 font-medium leading-relaxed">
-                {t.analysis_kr}
+                {analysisText}
             </p>
         </div>
     );
@@ -756,9 +826,14 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
 
                                     {/* Ticker Cards — 2-col when many items */}
                                     <div className={`grid gap-2 ${items.length > 3 ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                                        {items.map(t => (
-                                            <TacticalTickerCard key={t.ticker} t={t} />
-                                        ))}
+                                        {items.map(t => {
+                                            const a = (key: string, params?: Record<string, string | number>) =>
+                                                tr(`analysis.${key}`, params as any);
+                                            return (
+                                                <TacticalTickerCard key={t.ticker} t={t}
+                                                    analysisText={buildLocaleAnalysis(t, a)} />
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             );

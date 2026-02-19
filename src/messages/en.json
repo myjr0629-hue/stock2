@@ -1543,7 +1543,28 @@
         "mixedSentiment": "MIXED",
         "neutralSentiment": "NEUTRAL",
         "watchpoints": "WATCHPOINTS",
-        "marketContext": "MARKET CONTEXT"
+        "marketContext": "MARKET CONTEXT",
+        "analysis": {
+            "regimeLong": "Long Gamma (vol suppressed)",
+            "regimeShort": "Short Gamma (vol expanding)",
+            "regimeNeutral": "Neutral",
+            "pcrBullish": "Bullish positioning",
+            "pcrBearish": "Bearish positioning",
+            "pcrBalanced": "Balanced positioning",
+            "rsiOversold": "Oversold",
+            "rsiOverbought": "Overbought",
+            "rvolSurge": "Volume surge",
+            "rvolWeak": "Low volume",
+            "maxPainAbove": "above",
+            "maxPainBelow": "below",
+            "callWallNear": "Call Wall $${wall} nearby (${dist}%), gamma squeeze possible on break.",
+            "putFloorNear": "Put Floor $${floor} nearby (${dist}%), downside support expected.",
+            "verdictBuyDip": "Buy the dip opportunity",
+            "verdictHold": "Hold position",
+            "verdictHedge": "Hedge recommended",
+            "verdictTrim": "Consider partial profit-taking",
+            "closedVsMaxPain": "Closed ${dist}% ${dir} Max Pain $${mp}."
+        }
     },
     "sectorSession": {
         "callInflow": "Call Inflow",
