@@ -487,14 +487,15 @@ function calculateStructure(input: AlphaInput): PillarDetail {
     let gammaScore = 0;
     const gammaFlipBonus = getGammaFlipBonus(input.price, input.gammaFlipLevel);
 
-    // [V4.6] GEX direction — thresholds calibrated for mid/large caps (not just mega-caps)
-    // Discovery 종목 GEX range: -3K ~ -83K. 3일 수익 관점: negative GEX = 가격 증폭
+    // [V5 Weekly] GEX direction — thresholds calibrated for WEEKLY EXPIRY scale (÷10 from V4.6)
+    // Weekly-only GEX is 10-50x smaller than all-chain GEX
+    // Discovery 종목 GEX range: -3K ~ -83K → weekly: -300 ~ -8K
     const gex = input.gex || 0;
     let gexDirectionBonus = 0;
-    if (gex > 500000) gexDirectionBonus = 2;        // Strong positive GEX — dealer support
-    else if (gex > 0) gexDirectionBonus = 1;         // Positive GEX — mild support
-    else if (gex < -50000) gexDirectionBonus = 2;    // [V4.6] Negative GEX = price amplification (3-day catalyst)
-    else if (gex < -10000) gexDirectionBonus = 1;    // [V4.6] Moderate negative = amplification potential
+    if (gex > 50000) gexDirectionBonus = 2;        // Strong positive GEX — dealer support
+    else if (gex > 0) gexDirectionBonus = 1;        // Positive GEX — mild support
+    else if (gex < -5000) gexDirectionBonus = 2;    // [V5 Weekly] Negative GEX = price amplification (3-day catalyst)
+    else if (gex < -1000) gexDirectionBonus = 1;    // [V5 Weekly] Moderate negative = amplification potential
     else gexDirectionBonus = 0;
 
     gammaScore = clamp(gammaFlipBonus + gexDirectionBonus, 0, 5);

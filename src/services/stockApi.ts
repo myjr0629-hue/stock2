@@ -303,12 +303,55 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
     allResults = [...futureContracts];
     // Manual pagination loop removed as fetchMassiveAll handles it internally
 
-    // [V7.0] ALL EXPIRIES AGGREGATION MODEL
-    // Now includes ALL contracts within the 35-day window for institutional-grade GEX
-    // This produces a more stable Gamma Flip Level that reflects total market positioning
-    console.log(`[V7.0] ${symbol}: Using ALL ${allResults.length} contracts for GEX (All Expiries Model)`);
+    // [V5 Weekly] WEEKLY EXPIRY FOCUS MODEL
+    // 3일 모멘텀 엔진에 최적화: 주간 만기(D+2~D+7)만 사용
+    // 0DTE는 노이즈 과다(극단적 감마, 낮은 OI) → 스킵
+    // 주간 없으면 가장 가까운 월간 만기로 fallback
+    const allExpiries = [...new Set(allResults.map((c: any) =>
+      c.details?.expiration_date || c.expiration_date
+    ).filter(Boolean))].sort() as string[];
 
-    const contracts = allResults
+    let selectedExpiry: string | null = null;
+
+    // Priority 1: Weekly expiry (D+2 ~ D+7) — skip 0DTE
+    for (const exp of allExpiries) {
+      const daysOut = Math.ceil((new Date(exp).getTime() - nowET.getTime()) / 86400000);
+      if (daysOut >= 2 && daysOut <= 7) {
+        selectedExpiry = exp;
+        break;
+      }
+    }
+
+    // Priority 2: Fallback to nearest non-0DTE expiry (D+2+)
+    if (!selectedExpiry) {
+      for (const exp of allExpiries) {
+        const daysOut = Math.ceil((new Date(exp).getTime() - nowET.getTime()) / 86400000);
+        if (daysOut >= 2) {
+          selectedExpiry = exp;
+          break;
+        }
+      }
+    }
+
+    // Priority 3: Use whatever is available (last resort)
+    if (!selectedExpiry && allExpiries.length > 0) {
+      selectedExpiry = allExpiries[0];
+    }
+
+    // Filter to selected expiry only
+    const weeklyFiltered = selectedExpiry
+      ? allResults.filter((c: any) => {
+        const exp = c.details?.expiration_date || c.expiration_date;
+        return exp === selectedExpiry;
+      })
+      : allResults;
+
+    const daysToExp = selectedExpiry
+      ? Math.ceil((new Date(selectedExpiry).getTime() - nowET.getTime()) / 86400000)
+      : 0;
+    console.log(`[V5 Weekly] ${symbol}: Weekly Focus → ${selectedExpiry} (D+${daysToExp}) | ${weeklyFiltered.length}/${allResults.length} contracts (${allExpiries.length} expiries available)`);
+
+    const contracts = weeklyFiltered
       .map((c: any) => {
         const oi = Number(c.open_interest); // official OI
         return {
@@ -316,12 +359,12 @@ async function getPolygonOptionsChain(symbol: string, presetSpot?: number, budge
           contract_type: (c.details?.contract_type || c.contract_type || c.details?.type || "call").toLowerCase(),
           open_interest: Number.isFinite(oi) ? oi : 0,
           greeks: c.greeks || { gamma: 0 },
-          implied_volatility: c.implied_volatility ?? null, // [V4.2] Preserve IV from Polygon for ivSkew/atmIv
-          expiry: c.details?.expiration_date || c.expiration_date // Keep track of specific expiry
+          implied_volatility: c.implied_volatility ?? null,
+          expiry: c.details?.expiration_date || c.expiration_date
         };
       });
 
-    console.log(`[Massive] ${symbol} Valid Contracts (All Expiries): ${contracts.length}`);
+    console.log(`[V5 Weekly] ${symbol} Weekly Contracts: ${contracts.length} (expiry: ${selectedExpiry})`);
 
     // [V5.0] Save to cache for weekend use (only on weekdays with valid data)
     const result = { contracts, expiry: dominantExpiry, spot: spot || 0 };
