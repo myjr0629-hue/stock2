@@ -437,8 +437,8 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
             });
         }
     } else {
-        // Pre-market 데이터 없음 → 중립 (보너스도 패널티도 없음)
-        factors.push({ name: 'preMarketValidation', value: 0, max: 5, detail: 'PM 데이터 없음' });
+        // Pre-market 데이터 없음 (본장/폐장) → 배점에서 완전 제외 (max:0)
+        factors.push({ name: 'preMarketValidation', value: 0, max: 0, detail: '해당없음' });
     }
     total += preMarketScore;
 
@@ -1481,9 +1481,9 @@ export function computeIVSkew(rawChain: any[], price: number): number | null {
         let putIVs: number[] = [];
 
         for (const c of rawChain) {
-            const strike = c.details?.strike_price;
+            const strike = c.details?.strike_price || c.strike_price;
             const iv = c.implied_volatility;
-            const type = c.details?.contract_type;
+            const type = c.details?.contract_type || c.contract_type;
 
             if (!strike || !iv || iv <= 0) continue;
             if (Math.abs(strike - price) > tolerance) continue;

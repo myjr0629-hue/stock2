@@ -20,7 +20,7 @@ export const revalidate = 30;
 // All prices, RSI, 3D return, VWAP are identical to getStockData()
 async function getStockDataLight(symbol: string) {
     const to = new Date().toISOString().split('T')[0];
-    const fromDate = new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0];
+    const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]; // 30 days for SMA20
 
     // [PERF] All 3 calls in parallel (getStockData does snapshot+chart+RSI parallel, then 3D return SEQUENTIAL)
     const [snapRes, rsiRes, dailyAggs] = await Promise.all([
@@ -292,13 +292,44 @@ export async function GET(request: Request) {
             const alphaCallWall = structureRes?.callWall ?? opts?.callWall ?? null;
             const alphaPutFloor = structureRes?.putFloor ?? opts?.putFloor ?? null;
             const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
-            const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
+            let alphaSqueezeScore = structureRes?.squeezeScore ?? null;
+            // [V5 FIX] squeezeScore fallback from GEX + PCR when structureRes unavailable
+            if (alphaSqueezeScore === null && alphaGex !== null) {
+                let sq = 25; // base
+                const absGex = Math.abs(alphaGex);
+                if (alphaGex < 0) sq += 15; // negative GEX = squeeze-prone
+                if (absGex > 50_000_000) sq += 15;
+                else if (absGex > 10_000_000) sq += 10;
+                else if (absGex > 1_000_000) sq += 5;
+                const pcr = alphaPcr ?? 1;
+                if (pcr <= 0.4 || pcr >= 1.8) sq += 10;
+                else if (pcr <= 0.6 || pcr >= 1.5) sq += 5;
+                alphaSqueezeScore = Math.min(100, Math.max(0, sq));
+            }
 
-            // [V5] Compute IV Skew + Implied Move from raw options chain
-            const rawChain = opts?.rawChain || [];
+            // [V5 FIX] rawContracts (not rawChain!) — oiHeat + IV calculations
+            const rawContracts = opts?.rawContracts || [];
             const currentPrice = stockData.price || 0;
-            const ivSkew = computeIVSkew(rawChain, currentPrice);
-            const impliedMovePct = computeImpliedMovePct(rawChain, currentPrice);
+            const ivSkew = computeIVSkew(rawContracts, currentPrice);
+
+            // [V5 FIX] Extract callWall/putFloor from rawContracts directly
+            // structureRes may be null — ensure walls are always available
+            let maxCallOI = 0, maxPutOI = 0;
+            let directCallWall = 0, directPutFloor = 0;
+            for (const c of rawContracts) {
+                const oi = c.open_interest || 0;
+                const strike = c.strike_price || 0;
+                if (c.contract_type === 'call' && oi > maxCallOI) { maxCallOI = oi; directCallWall = strike; }
+                if (c.contract_type === 'put' && oi > maxPutOI) { maxPutOI = oi; directPutFloor = strike; }
+            }
+
+            // [V5 FIX] impliedMovePct from wall spread (no dependency on last_trade.price)
+            let impliedMovePct: number | null = null;
+            if (directCallWall > 0 && directPutFloor > 0 && currentPrice > 0) {
+                impliedMovePct = ((directCallWall - directPutFloor) / currentPrice) * 100;
+            } else {
+                impliedMovePct = computeImpliedMovePct(rawContracts, currentPrice);
+            }
 
             // [V5] Whale Index from GEX (same as dashboard/unified)
             const whaleIndex = calculateWhaleIndex(alphaGex);
@@ -323,10 +354,10 @@ export async function GET(request: Request) {
                     rsi14: stockData.rsi ?? null,
                     pcr: alphaPcr,
                     gex: alphaGex,
-                    callWall: alphaCallWall,
-                    putFloor: alphaPutFloor,
+                    rawChain: rawContracts,
+                    callWall: directCallWall || structureRes?.callWall || null,
+                    putFloor: directPutFloor || structureRes?.putFloor || null,
                     gammaFlipLevel: alphaGammaFlip,
-                    rawChain,
                     squeezeScore: alphaSqueezeScore,
                     relVol,
                     optionsDataAvailable: !!opts,
