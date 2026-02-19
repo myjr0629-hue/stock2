@@ -313,13 +313,14 @@ export async function GET(req: NextRequest) {
         }
     };
 
-    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value] = await Promise.all([
+    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData] = await Promise.all([
         fetchOC(),
         fetchFlow(),
         fetchStructure(),
         fetchRealtimeMetrics(),
         fetchMacro(),
-        fetchSMA20()
+        fetchSMA20(),
+        getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),
     ]);
 
     // Phase 2 results - extract OC data and compute derived values
@@ -670,7 +671,12 @@ export async function GET(req: NextRequest) {
                     // Regime data (from macro snapshot)
                     ndxChangePct: macroData?.nqChangePercent ?? null,
                     vixValue: macroData?.vix ?? null,
+                    vixChangePct: macroData?.factors?.vix?.chgPct ?? null,
                     tltChangePct: macroData?.tltChangePct ?? null,  // [V3 PIPELINE] TLT Safe Haven
+                    gldChangePct: macroData?.gldChangePct ?? null,
+                    dxy: macroData?.dxy ?? null,
+                    realYieldStance: (macroData?.realYield?.stance === 'LOOSE' ? 'EASY' : macroData?.realYield?.stance ?? null) as 'TIGHT' | 'NEUTRAL' | 'EASY' | null,
+                    fearGreedScore: fgCacheData?.score ?? null,
                     // Catalyst data
                     impliedMovePct,
                     optionsDataAvailable: !!(alphaRawChain.length),
