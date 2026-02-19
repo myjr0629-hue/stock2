@@ -89,28 +89,33 @@ export async function POST(request: Request) {
         const baseUrl = request.url.split('/api/')[0];
         const tickers = SECTOR_TICKERS[sector];
 
-        // ── Fetch current live data from lightweight Intel Fast API ──
-        // [FIX] Use /api/intel/fast (Polygon batch + Redis) instead of /api/intel/m7
-        // which internally calls /api/live/ticker × 7 → Yahoo Finance → timeout on Vercel
-        const liveApiUrl = `${baseUrl}/api/intel/fast?sector=${sector}`;
+        // ── Fetch current live data: fast (prices) + watchlist/batch (alpha/RSI/RVOL) ──
+        const bypassHeaders: Record<string, string> = {};
+        if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+            bypassHeaders['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+        }
 
-        const res = await fetch(liveApiUrl, {
-            cache: 'no-store',
-            headers: {
-                // Bypass Vercel Deployment Protection for internal server-to-server calls
-                ...(process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-                    ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
-                    : {}),
-            },
-        });
-        if (!res.ok) {
+        const [fastRes, batchRes] = await Promise.all([
+            // 1. Price data from Polygon batch
+            fetch(`${baseUrl}/api/intel/fast?sector=${sector}`, {
+                cache: 'no-store',
+                headers: bypassHeaders,
+            }),
+            // 2. Alpha scores, RSI, RVOL from watchlist/batch (real-time calculation)
+            fetch(`${baseUrl}/api/watchlist/batch?tickers=${tickers.join(',')}`, {
+                cache: 'no-store',
+                headers: bypassHeaders,
+            }).catch(() => null),
+        ]);
+
+        if (!fastRes.ok) {
             return NextResponse.json(
                 { error: 'Failed to fetch live data for snapshot' },
                 { status: 502 }
             );
         }
 
-        const text = await res.text();
+        const text = await fastRes.text();
         if (!text) {
             return NextResponse.json(
                 { error: 'Empty response from live API' },
@@ -133,6 +138,17 @@ export async function POST(request: Request) {
             );
         }
 
+        // Parse watchlist/batch data and build lookup map
+        const batchMap: Record<string, any> = {};
+        if (batchRes && batchRes.ok) {
+            try {
+                const batchJson = await batchRes.json();
+                (batchJson?.results || batchJson?.data || []).forEach((r: any) => {
+                    batchMap[r.ticker] = r;
+                });
+            } catch { /* batch data optional, fast data is sufficient for prices */ }
+        }
+
         // ── Build snapshot data ──
         const now = new Date();
         const snapshotDate = now.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -146,25 +162,39 @@ export async function POST(request: Request) {
         nextClose.setUTCHours(21, 0, 0, 0); // ET 16:00 = UTC 21:00
 
         const tickerSnapshots: TickerSnapshot[] = liveData.data.map((q: any) => {
-            // Generate AI verdict based on indicators
-            const verdict = generateVerdict(q);
-            const analysis = generateAnalysisKR(q, verdict);
+            // Merge watchlist/batch data (alpha, RSI, RVOL, options) over fast data
+            const batch = batchMap[q.ticker];
+            const alphaScore = batch?.alphaSnapshot?.score ?? batch?.alpha?.score ?? q.alphaScore ?? 0;
+            const grade = batch?.alphaSnapshot?.grade ?? batch?.alpha?.grade ?? q.grade ?? '-';
+            const rsi = batch?.realtime?.rsi ?? q.rsi ?? 0;
+            const rvol = batch?.realtime?.relVol ?? q.rvol ?? 0;
+            const gex = batch?.flow?.netGex ?? q.gex ?? 0;
+            const pcr = batch?.flow?.oiPcr ?? batch?.flow?.volumePcr ?? q.pcr ?? 0;
+            const maxPain = batch?.flow?.maxPain ?? q.maxPain ?? 0;
+            const callWall = batch?.flow?.callWall ?? q.callWall ?? 0;
+            const putFloor = batch?.flow?.putFloor ?? q.putFloor ?? 0;
+
+            const merged = { ...q, alphaScore, grade, rsi, rvol, gex, pcr, maxPain, callWall, putFloor };
+
+            // Generate AI verdict based on merged indicators
+            const verdict = generateVerdict(merged);
+            const analysis = generateAnalysisKR(merged, verdict);
 
             return {
                 ticker: q.ticker,
                 close_price: q.price || 0,
                 change_pct: q.changePct || 0,
-                alpha_score: q.alphaScore || 0,
-                grade: q.grade || '-',
+                alpha_score: alphaScore,
+                grade,
                 volume: q.volume || 0,
-                gex: q.gex || 0,
-                pcr: q.pcr || 0,
+                gex,
+                pcr,
                 gamma_regime: q.gammaRegime || 'NEUTRAL',
-                max_pain: q.maxPain || 0,
-                call_wall: q.callWall || 0,
-                put_floor: q.putFloor || 0,
-                rsi: q.rsi || 0,
-                rvol: q.rvol || 0,
+                max_pain: maxPain,
+                call_wall: callWall,
+                put_floor: putFloor,
+                rsi,
+                rvol,
                 sparkline: q.sparkline || [],
                 verdict,
                 analysis_kr: analysis,
