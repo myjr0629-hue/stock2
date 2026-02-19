@@ -129,32 +129,21 @@ async function getPriceActionSentiment(): Promise<number> {
 }
 
 // === [V8.2] CNN Fear & Greed Index ===
-// Returns 0-100 (0=Extreme Fear, 100=Extreme Greed)
-let _fgCache: { score: number; rating: string; timestamp: number } | null = null;
-const FG_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+// [V8.3] Reads from Redis ONLY (cron writes to 'cnn:feargreed')
+import { getFromCache } from '@/services/redisClient';
 
 async function fetchFearGreedIndex(): Promise<{ score: number; rating: string }> {
-    // Check cache
-    if (_fgCache && (Date.now() - _fgCache.timestamp < FG_CACHE_TTL)) {
-        return { score: _fgCache.score, rating: _fgCache.rating };
-    }
-
     try {
-        const res = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', {
-            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
-        });
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        const fg = data.fear_and_greed;
-        if (fg && typeof fg.score === 'number') {
-            _fgCache = { score: fg.score, rating: fg.rating, timestamp: Date.now() };
-            console.log(`[RLSI V8.2] CNN Fear & Greed: ${fg.score.toFixed(1)} (${fg.rating})`);
-            return { score: fg.score, rating: fg.rating };
+        const cached = await getFromCache<{ score: number; rating: string; updatedAt: string }>('cnn:feargreed');
+        if (cached && typeof cached.score === 'number') {
+            console.log(`[RLSI] F&G from Redis: ${cached.score.toFixed(0)} (${cached.rating})`);
+            return { score: cached.score, rating: cached.rating };
         }
-        throw new Error('Invalid F&G response');
+        console.warn('[RLSI] No F&G in Redis, using VIX fallback');
+        return { score: -1, rating: 'fallback' };
     } catch (e) {
-        console.warn('[RLSI] CNN F&G fetch failed, using VIX fallback:', e);
-        return { score: -1, rating: 'fallback' }; // Signal to use VIX fallback
+        console.warn('[RLSI] F&G Redis read failed:', e);
+        return { score: -1, rating: 'fallback' };
     }
 }
 

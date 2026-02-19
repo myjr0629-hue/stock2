@@ -3,11 +3,11 @@ import { setInCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 
 /**
- * [V8.0] Yahoo → Redis Writer (Cron Only)
+ * [V8.0] Market Data → Redis Writer (Cron Only)
  * 
- * This is the ONLY place that calls Yahoo Finance directly.
+ * This is the ONLY place that calls Yahoo Finance and CNN directly.
  * Runs every 1 minute via Vercel Cron.
- * Fetches all 8 symbols and writes to Redis.
+ * Fetches all 8 Yahoo symbols + CNN Fear & Greed and writes to Redis.
  * All other services read from Redis only.
  */
 
@@ -58,12 +58,37 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
     }
 }
 
+// CNN Fear & Greed Index → Redis
+async function fetchAndCacheFearGreed(): Promise<string> {
+    try {
+        const res = await fetch('https://production.dataviz.cnn.io/index/fearandgreed/graphdata', {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+            signal: AbortSignal.timeout(5000),
+        });
+        if (!res.ok) return 'F&G=FAIL';
+
+        const data = await res.json();
+        const fg = data.fear_and_greed;
+        if (fg && typeof fg.score === 'number') {
+            await setInCache('cnn:feargreed', {
+                score: fg.score,
+                rating: fg.rating,
+                updatedAt: new Date().toISOString(),
+            });
+            return `F&G=${fg.score.toFixed(0)}(${fg.rating})`;
+        }
+        return 'F&G=INVALID';
+    } catch {
+        return 'F&G=FAIL';
+    }
+}
+
 export async function GET() {
     const results: string[] = [];
     let ok = 0;
     let fail = 0;
 
-    // Fetch sequentially to avoid rate limiting
+    // Yahoo symbols — sequential to avoid rate limiting
     for (const { yahoo, key } of SYMBOLS) {
         const quote = await fetchOneQuote(yahoo);
         if (quote) {
@@ -76,7 +101,13 @@ export async function GET() {
         }
     }
 
-    console.log(`[market-feed] ${ok}/${SYMBOLS.length} updated: ${results.join(', ')}`);
+    // CNN Fear & Greed
+    const fgResult = await fetchAndCacheFearGreed();
+    results.push(fgResult);
+    if (!fgResult.includes('FAIL')) ok++;
+    else fail++;
+
+    console.log(`[market-feed] ${ok}/${SYMBOLS.length + 1} updated: ${results.join(', ')}`);
 
     return NextResponse.json({
         ok,
@@ -85,3 +116,4 @@ export async function GET() {
         ts: new Date().toISOString(),
     });
 }
+
