@@ -3,32 +3,53 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, ArrowDownRight, Activity, Zap, TrendingUp, AlertCircle, Heart } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Activity, Heart } from "lucide-react";
 import { useFavorites } from "@/hooks/useFavorites";
-import { fetchStockDataAction, fetchOptionsDataAction } from "@/app/actions";
-import { StockData, OptionData, analyzeGemsTicker, Tier01Data } from "@/services/stockTypes";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 interface WatchlistRow {
     symbol: string;
-    name: string;
     price: number;
-    change: number;
-    changePercent: number;
-    vwap?: number;
-    maxPain?: number;
-    pcr?: number;
-    return3d?: string;
-    pulseScore?: number;
-    velocity?: string;
-    mmPos?: string;
-    session?: 'pre' | 'reg' | 'post';
+    changePct: number;
+    vwap?: number | null;
+    maxPain?: number | null;
+    pcr?: number | null;
+    return3d?: number | null;
+    // V5 Alpha Engine fields
+    alphaScore: number;
+    alphaGrade: string;
+    alphaAction: string;
+    session?: string;
+}
+
+// Grade → color mapping
+function gradeColor(grade: string) {
+    switch (grade) {
+        case 'S': return 'bg-yellow-400 text-black';
+        case 'A': return 'bg-emerald-500 text-white';
+        case 'B': return 'bg-blue-500 text-white';
+        case 'C': return 'bg-slate-400 text-white';
+        case 'D': return 'bg-orange-500 text-white';
+        case 'F': return 'bg-rose-600 text-white';
+        default: return 'bg-slate-300 text-white';
+    }
+}
+
+// Action → display
+function actionDisplay(action: string) {
+    switch (action) {
+        case 'STRONG_BUY': return { label: 'STRONG BUY', color: 'text-emerald-600', icon: <ArrowUpRight className="w-3.5 h-3.5" /> };
+        case 'BUY': return { label: 'BUY', color: 'text-emerald-500', icon: <ArrowUpRight className="w-3.5 h-3.5" /> };
+        case 'WATCH': return { label: 'WATCH', color: 'text-blue-500', icon: <Activity className="w-3.5 h-3.5" /> };
+        case 'REDUCE': return { label: 'REDUCE', color: 'text-orange-500', icon: <ArrowDownRight className="w-3.5 h-3.5" /> };
+        case 'EXIT': return { label: 'EXIT', color: 'text-rose-600', icon: <ArrowDownRight className="w-3.5 h-3.5" /> };
+        default: return { label: action, color: 'text-slate-500', icon: null };
+    }
 }
 
 export function WatchlistGrid() {
     const router = useRouter();
-    const { favorites, isFavorite, toggleFavorite, isLoaded } = useFavorites();
+    const { favorites, toggleFavorite, isLoaded } = useFavorites();
     const [data, setData] = useState<WatchlistRow[]>([]);
     const [loading, setLoading] = useState(false);
 
@@ -42,45 +63,30 @@ export function WatchlistGrid() {
         const fetchData = async () => {
             setLoading(true);
             try {
-                const results = await Promise.all(favorites.map(async (ticker) => {
-                    try {
-                        const [stock, options] = await Promise.all([
-                            fetchStockDataAction(ticker, '1d'),
-                            fetchOptionsDataAction(ticker)
-                        ]);
+                // [V5] Single batch API call — uses V5 Alpha Engine (calculateAlphaScore)
+                const res = await fetch(`/api/watchlist/batch?tickers=${favorites.join(',')}`, { cache: 'no-store' });
+                if (!res.ok) throw new Error('Batch API failed');
+                const json = await res.json();
 
-                        if (!stock) return null;
+                const rows: WatchlistRow[] = (json.results || [])
+                    .filter((r: any) => r && !r.error)
+                    .map((r: any) => ({
+                        symbol: r.ticker,
+                        price: r.realtime?.price || 0,
+                        changePct: r.realtime?.changePct || 0,
+                        vwap: r.realtime?.vwap ?? null,
+                        maxPain: r.realtime?.maxPain ?? null,
+                        pcr: r.realtime?.pcr ?? null,
+                        return3d: r.realtime?.return3d ?? null,
+                        alphaScore: r.alphaSnapshot?.score ?? 0,
+                        alphaGrade: r.alphaSnapshot?.grade ?? '-',
+                        alphaAction: r.alphaSnapshot?.action ?? 'WATCH',
+                        session: r.realtime?.session || 'reg',
+                    }));
 
-                        // GEMS Logic Light
-                        const gems = analyzeGemsTicker({
-                            ticker: stock.symbol,
-                            todaysChangePerc: stock.changePercent,
-                            day: { c: stock.price }
-                        }, "Neutral", options);
-
-                        const row: WatchlistRow = {
-                            symbol: stock.symbol,
-                            name: stock.name,
-                            price: stock.price,
-                            change: stock.change,
-                            changePercent: stock.changePercent,
-                            vwap: stock.vwap,
-                            maxPain: options?.maxPain,
-                            pcr: options?.putCallRatio,
-                            return3d: stock.return3d !== undefined ? `${stock.return3d > 0 ? "+" : ""}${stock.return3d.toFixed(2)}%` : undefined,
-                            pulseScore: gems.alphaScore,
-                            velocity: gems.velocity,
-                            mmPos: gems.mmPos,
-                            session: stock.session
-                        };
-                        return row;
-                    } catch (e) {
-                        console.error(`Failed to fetch ${ticker}`, e);
-                        return null;
-                    }
-                }));
-
-                setData(results.filter((r): r is WatchlistRow => r !== null));
+                setData(rows);
+            } catch (e) {
+                console.error('Watchlist batch fetch failed:', e);
             } finally {
                 setLoading(false);
             }
@@ -111,7 +117,7 @@ export function WatchlistGrid() {
                         Your Watchlist
                         <span className="text-sm font-medium text-slate-400 ml-2 bg-slate-100 px-2 py-0.5 rounded-full">{favorites.length} Tickers</span>
                     </h2>
-                    <p className="text-slate-500 text-sm mt-1">Real-time GEMS V8.1 tracking for your favorite assets.</p>
+                    <p className="text-slate-500 text-sm mt-1">Real-time Alpha V5 Engine tracking for your favorite assets.</p>
                 </div>
             </div>
 
@@ -130,82 +136,90 @@ export function WatchlistGrid() {
                                     <th className="px-6 py-4 text-right">Max Pain</th>
                                     <th className="px-6 py-4 text-center">P/C Ratio</th>
                                     <th className="px-6 py-4 text-right">3D Return</th>
-                                    <th className="px-6 py-4 text-center bg-slate-100/50">Alpha Pulse</th>
+                                    <th className="px-6 py-4 text-center bg-slate-100/50">Alpha V5</th>
                                     <th className="px-4 py-4 w-10"></th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                                {data.map((row) => (
-                                    <tr key={row.symbol} className="hover:bg-slate-50/80 transition-colors group cursor-pointer" onClick={() => router.push(`/ticker?ticker=${row.symbol}`)}>
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-900 text-base font-jakarta">{row.symbol}</div>
-                                            <div className="text-[10px] text-slate-400 font-medium truncate max-w-[120px] font-jakarta">{row.name}</div>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <div className="flex flex-col items-end">
-                                                <div className="font-bold text-slate-900 tabular-nums">
-                                                    ${row.price.toFixed(2)}
-                                                </div>
-                                                {row.session && row.session !== 'reg' && (
-                                                    <span className={`text-[9px] font-black uppercase tracking-wider px-1 rounded font-jakarta ${row.session === 'pre' ? "bg-blue-100 text-blue-600" : "bg-indigo-100 text-indigo-600"}`}>
-                                                        {row.session}-market
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="px-6 py-4 text-right">
-                                            <span className={`inline-flex items-center font-bold text-xs ${row.change >= 0 ? "text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded" : "text-rose-600 bg-rose-50 px-2 py-0.5 rounded"}`}>
-                                                {row.change >= 0 ? "+" : ""}{row.changePercent.toFixed(2)}%
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-right bg-blue-50/10">
-                                            {row.vwap !== undefined && row.vwap !== null ? (
+                                {data.map((row) => {
+                                    const action = actionDisplay(row.alphaAction);
+                                    const return3dStr = row.return3d != null
+                                        ? `${row.return3d > 0 ? '+' : ''}${row.return3d.toFixed(2)}%`
+                                        : null;
+
+                                    return (
+                                        <tr key={row.symbol} className="hover:bg-slate-50/80 transition-colors group cursor-pointer" onClick={() => router.push(`/ticker?ticker=${row.symbol}`)}>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-900 text-base font-jakarta">{row.symbol}</div>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
                                                 <div className="flex flex-col items-end">
-                                                    <span className="font-bold text-slate-700">${row.vwap.toFixed(2)}</span>
-                                                    <span className={`text-[9px] font-black uppercase tracking-wide font-jakarta ${row.price >= row.vwap ? "text-emerald-600" : "text-rose-500"}`}>
-                                                        {row.price >= row.vwap ? "ABOVE" : "BELOW"}
-                                                    </span>
+                                                    <div className="font-bold text-slate-900 tabular-nums">
+                                                        ${row.price.toFixed(2)}
+                                                    </div>
+                                                    {row.session && row.session !== 'reg' && (
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-1 rounded font-jakarta ${row.session === 'pre' ? "bg-blue-100 text-blue-600" : "bg-indigo-100 text-indigo-600"}`}>
+                                                            {row.session}-market
+                                                        </span>
+                                                    )}
                                                 </div>
-                                            ) : <span className="text-slate-300">-</span>}
-                                        </td>
-                                        <td className="px-6 py-4 text-right font-medium text-slate-600">
-                                            {row.maxPain ? `$${row.maxPain}` : '-'}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            {row.pcr ? (
-                                                <div className="inline-flex flex-col items-center">
-                                                    <span className="font-bold text-slate-700">{row.pcr.toFixed(2)}</span>
-                                                    <span className="text-[9px] text-slate-400 font-jakarta">{row.pcr > 1 ? "Bearish" : row.pcr < 0.7 ? "Bullish" : "Neutral"}</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <span className={`inline-flex items-center font-bold text-xs ${row.changePct >= 0 ? "text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded" : "text-rose-600 bg-rose-50 px-2 py-0.5 rounded"}`}>
+                                                    {row.changePct >= 0 ? "+" : ""}{row.changePct.toFixed(2)}%
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right bg-blue-50/10">
+                                                {row.vwap != null ? (
+                                                    <div className="flex flex-col items-end">
+                                                        <span className="font-bold text-slate-700">${row.vwap.toFixed(2)}</span>
+                                                        <span className={`text-[9px] font-black uppercase tracking-wide font-jakarta ${row.price >= row.vwap ? "text-emerald-600" : "text-rose-500"}`}>
+                                                            {row.price >= row.vwap ? "ABOVE" : "BELOW"}
+                                                        </span>
+                                                    </div>
+                                                ) : <span className="text-slate-300">-</span>}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-medium text-slate-600">
+                                                {row.maxPain ? `$${row.maxPain}` : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-center">
+                                                {row.pcr ? (
+                                                    <div className="inline-flex flex-col items-center">
+                                                        <span className="font-bold text-slate-700">{row.pcr.toFixed(2)}</span>
+                                                        <span className="text-[9px] text-slate-400 font-jakarta">{row.pcr > 1 ? "Bearish" : row.pcr < 0.7 ? "Bullish" : "Neutral"}</span>
+                                                    </div>
+                                                ) : '-'}
+                                            </td>
+                                            <td className={`px-6 py-4 text-right font-bold ${return3dStr?.startsWith('+') ? 'text-emerald-600' : return3dStr?.startsWith('-') ? 'text-rose-600' : 'text-slate-600'}`}>
+                                                {return3dStr || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-center bg-slate-50/30">
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    <div className={`w-7 h-7 rounded-lg flex items-center justify-center font-black text-xs ${gradeColor(row.alphaGrade)}`}>
+                                                        {row.alphaGrade}
+                                                    </div>
+                                                    <div className="flex flex-col items-start">
+                                                        <span className="font-bold text-slate-900 text-sm tabular-nums">{Math.round(row.alphaScore)}</span>
+                                                        <span className={`text-[9px] font-bold ${action.color} flex items-center gap-0.5`}>
+                                                            {action.icon}
+                                                            {action.label}
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                            ) : '-'}
-                                        </td>
-                                        <td className={`px-6 py-4 text-right font-bold ${row.return3d?.startsWith('+') ? 'text-emerald-600' : row.return3d?.startsWith('-') ? 'text-rose-600' : 'text-slate-600'}`}>
-                                            {row.return3d || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 text-center bg-slate-50/30">
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                <div className="w-8 h-8 rounded-lg bg-white border border-slate-200 shadow-sm flex items-center justify-center font-black text-slate-900">
-                                                    {(row.pulseScore || 0).toFixed(1)}
-                                                </div>
-                                                <div className="text-[10px] font-bold text-slate-500">
-                                                    {row.velocity === '▲' && <ArrowUpRight className="w-4 h-4 text-emerald-500" />}
-                                                    {row.velocity === '►' && <Activity className="w-4 h-4 text-blue-500" />}
-                                                    {row.velocity === '▼' && <ArrowDownRight className="w-4 h-4 text-rose-500" />}
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-full"
-                                                onClick={() => toggleFavorite(row.symbol)}
-                                            >
-                                                <Heart className="w-4 h-4 fill-current" />
-                                            </Button>
-                                        </td>
-                                    </tr>
-                                ))}
+                                            </td>
+                                            <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-8 w-8 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-full"
+                                                    onClick={() => toggleFavorite(row.symbol)}
+                                                >
+                                                    <Heart className="w-4 h-4 fill-current" />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
