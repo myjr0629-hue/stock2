@@ -1501,8 +1501,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             </div>
 
-                            {/* B. Advanced Options Analysis (Fixed Height: 380px) */}
-                            <div className="h-[380px] min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+                            {/* B. Advanced Options Analysis (Fixed Height: 460px) */}
+                            <div className="h-[460px] min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
 
                                 {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
                                 <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
@@ -2059,7 +2059,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* SIDEBAR (4 Cols) - Glass Stack */}
-                        <div className="lg:col-span-4 flex flex-col gap-4 h-full">
+                        <div className="lg:col-span-4 flex flex-col gap-4 h-full overflow-hidden">
 
                             {/* 1. Decision Gate - Fixed Height */}
                             <div className="shrink-0 relative rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-2xl">
@@ -2155,7 +2155,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                 </div>
 
-                                <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10">
+                                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative z-10">
                                     {/* Full-Card AI Analysis Skeleton Overlay */}
                                     {aiAnalyzing && (
                                         <div className="absolute inset-0 z-30 flex flex-col items-center justify-center pointer-events-none"
@@ -2184,6 +2184,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             </div>
                                         </div>
                                     )}
+
                                     {krNews.slice(0, 5).map((n: any, i) => {
                                         const isExpanded = expandedNewsId === i;
                                         const analysis = locale === 'ko'
@@ -2197,7 +2198,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 : true;
 
                                         return (
-                                            <div key={`${n.title}-${i}`} className="border-b border-white/5 last:border-0 relative">
+                                            <div key={`${n.title}-${i}`} className={`border-b border-white/5 last:border-0 relative ${isExpanded ? 'bg-cyan-950/20' : ''}`}>
                                                 {/* Sentiment Indicator Bar */}
                                                 <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${n.sentiment === 'positive' ? 'bg-emerald-500' :
                                                     n.sentiment === 'negative' ? 'bg-rose-500' : 'bg-slate-600'
@@ -2206,7 +2207,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                                 {/* News Header — clickable for expand */}
                                                 <div
-                                                    className={`p-3 pl-3.5 cursor-pointer hover:bg-white/5 transition-colors ${isExpanded ? 'bg-white/[0.03]' : ''
+                                                    className={`p-3 pl-3.5 cursor-pointer hover:bg-white/5 transition-colors ${isExpanded ? 'bg-cyan-500/[0.06]' : ''
                                                         }`}
                                                     onClick={() => setExpandedNewsId(isExpanded ? null : i)}
                                                 >
@@ -2222,7 +2223,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                         </span>
                                                         <span className="flex items-center gap-1">
                                                             {hasAnalysis && (
-                                                                <span className="text-[11px] px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 font-jakarta">
+                                                                <span className={`text-[11px] px-1 py-0.5 rounded font-jakarta ${isExpanded ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-400/40' : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20'}`}>
                                                                     AI
                                                                 </span>
                                                             )}
@@ -2230,7 +2231,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                             {n.sentiment === 'negative' && <span className="text-rose-500 text-[11px] font-jakarta">BEARISH</span>}
                                                             {hasAnalysis && (
                                                                 isExpanded
-                                                                    ? <ChevronUp size={12} className="text-slate-400" />
+                                                                    ? <ChevronUp size={12} className="text-cyan-400" />
                                                                     : <ChevronDown size={12} className="text-slate-400" />
                                                             )}
                                                         </span>
@@ -2245,26 +2246,39 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                     </div>
                                                 </div>
 
-                                                {/* AI Insight — Accordion */}
-                                                {isExpanded && analysis && (
-                                                    <div className="px-3.5 pb-3 animate-in slide-in-from-top-1 duration-200">
-                                                        <div className="bg-cyan-950/60 border border-cyan-500/25 rounded-lg p-2.5 border-l-2 border-l-cyan-400">
-                                                            <div className="flex items-center gap-1.5 mb-1">
-                                                                <Sparkles size={10} className="text-cyan-400" />
-                                                                <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider font-jakarta">AI Insight</span>
+                                                {/* AI Insight — absolute overlay, direction based on position */}
+                                                {isExpanded && analysis && (() => {
+                                                    const showAbove = i >= 3;
+                                                    return (
+                                                        <div className={`absolute left-0 right-0 z-30 px-2 animate-in duration-200 ${showAbove ? 'slide-in-from-bottom-1 pb-0.5' : 'slide-in-from-top-1 pt-0.5'}`}
+                                                            style={showAbove ? { bottom: '100%' } : { top: '100%' }}>
+                                                            <div className="bg-cyan-950/95 backdrop-blur-lg border border-cyan-500/30 rounded-lg p-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_15px_rgba(6,182,212,0.15)]">
+                                                                <div className="flex items-center justify-between mb-1">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <Sparkles size={10} className="text-cyan-400" />
+                                                                        <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-wider font-jakarta">AI Insight</span>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setExpandedNewsId(null); }}
+                                                                        className="text-slate-400 hover:text-white transition-colors p-0.5 rounded hover:bg-white/10"
+                                                                    >
+                                                                        <ChevronUp size={14} />
+                                                                    </button>
+                                                                </div>
+                                                                <p className="text-[13px] text-slate-200 leading-relaxed">
+                                                                    {analysis}
+                                                                </p>
+                                                                {n.url && n.url !== '#' && (
+                                                                    <a href={n.url} target="_blank" rel="noreferrer"
+                                                                        className="text-[11px] text-indigo-400 hover:text-indigo-300 mt-1.5 inline-block font-jakarta"
+                                                                        onClick={(e) => e.stopPropagation()}>
+                                                                        {locale === 'ko' ? '원문 보기 →' : locale === 'ja' ? '原文を見る →' : 'Read original →'}
+                                                                    </a>
+                                                                )}
                                                             </div>
-                                                            <p className="text-[13px] text-slate-300 leading-relaxed">
-                                                                {analysis}
-                                                            </p>
                                                         </div>
-                                                        {n.url && n.url !== '#' && (
-                                                            <a href={n.url} target="_blank" rel="noreferrer"
-                                                                className="text-[11px] text-indigo-400 hover:text-indigo-300 mt-1.5 inline-block font-jakarta">
-                                                                {locale === 'ko' ? '원문 보기 →' : locale === 'ja' ? '原文を見る →' : 'Read original →'}
-                                                            </a>
-                                                        )}
-                                                    </div>
-                                                )}
+                                                    );
+                                                })()}
                                             </div>
                                         );
                                     })}
