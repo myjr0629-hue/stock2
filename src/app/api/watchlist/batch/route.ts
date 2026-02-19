@@ -8,6 +8,7 @@ import { getOptionsData } from '@/services/stockApi';
 import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
+import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
@@ -113,6 +114,86 @@ export async function GET(request: Request) {
     const startTime = Date.now();
     const baseUrl = request.url.split('/api/')[0];
 
+    // ═══ [CACHE WARMER] Cache-first fast path ═══
+    // If all tickers have pre-warmed analysis in Redis, return cached analysis + live prices
+    try {
+        const cached = await getAnalysisCacheForTickers(tickers);
+        const cachedCount = Object.keys(cached).length;
+
+        if (cachedCount === tickers.length) {
+            // Full cache hit — fetch only live prices from Polygon snapshot (1 call, ~200ms)
+            const snapshotData = await fetchMassive(
+                `/v2/snapshot/locale/us/markets/stocks/tickers`,
+                { tickers: tickers.join(',') }
+            ).catch(() => null);
+
+            const snapshotMap: Record<string, any> = {};
+            (snapshotData?.tickers || []).forEach((t: any) => {
+                snapshotMap[t.ticker] = t;
+            });
+
+            const results = tickers.map(ticker => {
+                const analysis = cached[ticker];
+                const snap = snapshotMap[ticker];
+
+                // Live price from Polygon snapshot
+                const prevClose = snap?.prevDay?.c || 0;
+                const latestPrice = snap?.lastTrade?.p || snap?.min?.c || snap?.day?.c || prevClose;
+                const changePct = snap?.todaysChangePerc || 0;
+                const volume = snap?.day?.v || 0;
+                const vwap = snap?.day?.vw || null;
+
+                return {
+                    ticker,
+                    alphaSnapshot: analysis.alphaSnapshot,
+                    realtime: {
+                        price: latestPrice,
+                        changePct,
+                        session: 'reg', // simplified — actual session from cached data
+                        rsi: analysis.rsi,
+                        return3d: analysis.return3d,
+                        sparkline: analysis.sparkline,
+                        maxPain: analysis.maxPain,
+                        maxPainDist: (analysis.maxPain && latestPrice)
+                            ? Number(((analysis.maxPain - latestPrice) / latestPrice * 100).toFixed(2))
+                            : null,
+                        gex: analysis.gex,
+                        gexM: analysis.gexM,
+                        pcr: analysis.pcr,
+                        whaleIndex: analysis.whaleIndex,
+                        whaleConfidence: analysis.whaleConfidence,
+                        gammaFlipLevel: analysis.gammaFlipLevel,
+                        iv: analysis.iv,
+                        vwap,
+                        vwapDist: (vwap && latestPrice)
+                            ? Number(((latestPrice - vwap) / vwap * 100).toFixed(2))
+                            : null,
+                        callWall: analysis.callWall,
+                        putFloor: analysis.putFloor,
+                        netPremium: analysis.netPremium,
+                        volume,
+                        relVol: analysis.relVol ?? 0,
+                    }
+                };
+            });
+
+            const elapsed = Date.now() - startTime;
+            return NextResponse.json({
+                results,
+                meta: {
+                    count: tickers.length,
+                    elapsed,
+                    source: 'analysis_cache',
+                    cached: true,
+                }
+            });
+        }
+    } catch (e) {
+        // Cache check failed — fall through to full computation
+        console.warn('[Watchlist Batch] Cache check failed, using fallback:', e);
+    }
+
+    // ═══ Fallback: Full computation (existing code, untouched) ═══
     // Process all tickers in parallel
     const results = await Promise.all(tickers.map(async (ticker) => {
         try {

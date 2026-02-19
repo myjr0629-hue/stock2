@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { getFromCache } from '@/services/redisClient';
 import { CentralDataHub } from '@/services/centralDataHub';
+import { getAnalysisCacheForTickers } from '@/services/analysisCache';
 
 // Sector ticker maps
 const SECTOR_TICKERS: Record<string, string[]> = {
@@ -53,12 +54,15 @@ export async function GET(request: Request) {
             ...tickers.flatMap(t => [
                 getFromCache<any>(tickerCacheKey(t)).catch(() => null),
                 getFromCache<any>(`flow:extended:${t}`).catch(() => null)
-            ])
+            ]),
         ]);
 
         // De-interleave: [cached0, ext0, cached1, ext1, ...] → separate arrays
         const cachedTickers = tickers.map((_, i) => interleaved[i * 2]);
         const extendedCache = tickers.map((_, i) => interleaved[i * 2 + 1]);
+
+        // [CACHE WARMER] Also fetch analysis cache as additional data source
+        const analysisCache = await getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>));
 
         // Build snapshot lookup map
         const snapshotMap: Record<string, any> = {};
@@ -170,6 +174,8 @@ export async function GET(request: Request) {
             }
 
             // --- Options/Alpha data from Redis cache (instant if available) ---
+            // [CACHE WARMER] Try analysis cache first, then fall back to flow:ticker cache
+            const analysis = analysisCache[ticker];
             let alphaScore = 0;
             let grade = '-';
             let maxPain = 0;
@@ -183,7 +189,22 @@ export async function GET(request: Request) {
             let rsi = 0;
             let rvol = 0;
 
-            if (cached) {
+            if (analysis) {
+                // Use pre-warmed analysis cache (always fresh, 2-min Cron)
+                alphaScore = analysis.alphaSnapshot?.score || 0;
+                grade = analysis.alphaSnapshot?.grade || '-';
+                maxPain = analysis.maxPain || 0;
+                callWall = analysis.callWall || 0;
+                putFloor = analysis.putFloor || 0;
+                gex = analysis.gex || 0;
+                pcr = analysis.pcr || 1;
+                netPremium = analysis.netPremium || 0;
+                rsi = analysis.rsi || 0;
+                rvol = analysis.relVol || 0;
+                sparkline = analysis.sparkline || [];
+                if (gex > 0) gammaRegime = 'LONG';
+                else if (gex < 0) gammaRegime = 'SHORT';
+            } else if (cached) {
                 // Full cached data from /api/live/ticker
                 alphaScore = cached.alpha?.score || 0;
                 grade = cached.alpha?.grade || '-';

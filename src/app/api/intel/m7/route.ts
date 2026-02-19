@@ -6,6 +6,9 @@
 import { NextResponse } from 'next/server';
 import { getStockData, getOptionsData } from '@/services/stockApi';
 import { analyzeGemsTicker } from '@/services/stockTypes';
+import { fetchMassive } from '@/services/massiveClient';
+import { getAnalysisCacheForTickers } from '@/services/analysisCache';
+import { CentralDataHub } from '@/services/centralDataHub';
 
 // M7 Tickers (fixed list)
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
@@ -42,6 +45,114 @@ export async function GET(request: Request) {
     const baseUrl = request.url.split('/api/')[0];
 
     try {
+        // ═══ [CACHE WARMER] Cache-first fast path ═══
+        // Check Redis for pre-warmed analysis data for all M7 tickers
+        const cached = await getAnalysisCacheForTickers(M7_TICKERS);
+        const cachedCount = Object.keys(cached).length;
+
+        if (cachedCount === M7_TICKERS.length) {
+            // Full cache hit — fetch only live prices from Polygon batch snapshot
+            const [snapshotData, marketStatus] = await Promise.all([
+                fetchMassive(
+                    `/v2/snapshot/locale/us/markets/stocks/tickers`,
+                    { tickers: M7_TICKERS.join(',') }
+                ).catch(() => null),
+                CentralDataHub.getMarketStatus().catch(() => ({ session: 'closed' })),
+            ]);
+
+            const sRaw = (marketStatus as any)?.session || 'closed';
+            const session = sRaw === 'pre' ? 'PRE' :
+                sRaw === 'regular' ? 'REG' :
+                    sRaw === 'post' ? 'POST' : 'CLOSED';
+
+            const snapshotMap: Record<string, any> = {};
+            (snapshotData?.tickers || []).forEach((t: any) => {
+                snapshotMap[t.ticker] = t;
+            });
+
+            const quotes: M7Quote[] = M7_TICKERS.map(ticker => {
+                const analysis = cached[ticker];
+                const snap = snapshotMap[ticker];
+
+                const prevClose = snap?.prevDay?.c || 0;
+                const todayClose = snap?.day?.c || prevClose;
+                const latestPrice = snap?.lastTrade?.p || snap?.min?.c || todayClose || prevClose;
+
+                // Session-aware pricing (same logic as existing)
+                let displayPrice = latestPrice;
+                let displayChangePct = snap?.todaysChangePerc || 0;
+                let extendedPrice = 0;
+                let extendedChangePct = 0;
+                let extendedLabel = '';
+
+                if (session === 'POST' || session === 'CLOSED') {
+                    if (todayClose > 0 && prevClose > 0) {
+                        displayPrice = todayClose;
+                        displayChangePct = ((todayClose - prevClose) / prevClose) * 100;
+                    }
+                    const postPrice = snap?.afterHours?.p || latestPrice || 0;
+                    if (postPrice > 0 && displayPrice > 0) {
+                        extendedPrice = postPrice;
+                        extendedLabel = 'POST';
+                        extendedChangePct = ((postPrice - displayPrice) / displayPrice) * 100;
+                    }
+                } else if (session === 'PRE') {
+                    displayPrice = prevClose;
+                    displayChangePct = 0; // Will be filled later if aggs available
+                    extendedPrice = latestPrice;
+                    extendedLabel = 'PRE';
+                    if (prevClose > 0) {
+                        extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
+                    }
+                }
+
+                const gex = analysis.gex || 0;
+                let gammaRegime = 'NEUTRAL';
+                if (gex > 0) gammaRegime = 'LONG';
+                else if (gex < 0) gammaRegime = 'SHORT';
+
+                return {
+                    ticker,
+                    price: displayPrice,
+                    changePct: displayChangePct,
+                    prevClose,
+                    volume: snap?.day?.v || 0,
+                    extendedPrice,
+                    extendedChangePct,
+                    extendedLabel,
+                    session,
+                    alphaScore: analysis.alphaSnapshot.score,
+                    grade: analysis.alphaSnapshot.grade,
+                    maxPain: analysis.maxPain || 0,
+                    callWall: analysis.callWall || 0,
+                    putFloor: analysis.putFloor || 0,
+                    gex,
+                    pcr: analysis.pcr || 1,
+                    gammaRegime,
+                    sparkline: analysis.sparkline || [],
+                    netPremium: analysis.netPremium || 0,
+                    rsi: analysis.rsi || 0,
+                    rvol: analysis.relVol || 0,
+                };
+            });
+
+            quotes.sort((a, b) => b.changePct - a.changePct);
+
+            const elapsed = Date.now() - startTime;
+            return NextResponse.json({
+                success: true,
+                data: quotes,
+                meta: {
+                    tickers: M7_TICKERS,
+                    count: quotes.length,
+                    elapsedMs: elapsed,
+                    cachedFor: '15s',
+                    source: 'analysis_cache',
+                }
+            });
+        }
+
+        // ═══ Fallback: Original HTTP-based fetch (existing code, untouched) ═══
         // Parallel fetch: Price data + Watchlist batch analysis
         const [priceResults, watchlistRes] = await Promise.all([
             // Fetch live price data for each ticker
