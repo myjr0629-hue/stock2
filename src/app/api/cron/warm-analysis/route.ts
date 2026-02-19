@@ -10,6 +10,7 @@ import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { writeAnalysisCache, type AnalysisCacheEntry } from '@/services/analysisCache';
+import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 
 // ── Ticker Lists ──
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
@@ -94,6 +95,30 @@ async function getStockDataLight(symbol: string) {
     };
 }
 
+// ── Shared macro data (fetched ONCE per warm cycle, reused by all tickers) ──
+let _sharedMacro: { ndxChangePct: number | null; vixValue: number | null; vixChangePct: number | null; tltChangePct: number | null; gldChangePct: number | null; dxy: number | null; realYieldStance: 'TIGHT' | 'NEUTRAL' | 'EASY' | null } | null = null;
+
+async function getSharedMacro() {
+    if (_sharedMacro) return _sharedMacro;
+    try {
+        const macro = await getMacroSnapshotSSOT();
+        _sharedMacro = {
+            ndxChangePct: macro.nqChangePercent ?? null,
+            vixValue: macro.vix ?? null,
+            vixChangePct: macro.factors?.vix?.chgPct ?? null,
+            tltChangePct: macro.tltChangePct ?? null,
+            gldChangePct: macro.gldChangePct ?? null,
+            dxy: macro.dxy ?? null,
+            realYieldStance: (macro.realYield?.stance === 'LOOSE' ? 'EASY' : macro.realYield?.stance ?? null) as 'TIGHT' | 'NEUTRAL' | 'EASY' | null,
+        };
+        console.log(`[WARM] Macro loaded: NQ=${_sharedMacro.ndxChangePct?.toFixed(2)}% VIX=${_sharedMacro.vixValue}`);
+    } catch (e) {
+        console.warn('[WARM] Macro fetch failed, regime data will be missing:', e);
+        _sharedMacro = { ndxChangePct: null, vixValue: null, vixChangePct: null, tltChangePct: null, gldChangePct: null, dxy: null, realYieldStance: null };
+    }
+    return _sharedMacro;
+}
+
 // ── Compute and cache analysis for a single ticker ──
 async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean; ms: number }> {
     const start = Date.now();
@@ -156,6 +181,9 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
         const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
         const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
 
+        // [FIX] Fetch shared macro data for regime pillar
+        const macroData = await getSharedMacro();
+
         // Alpha Engine call
         let alphaResult;
         try {
@@ -178,6 +206,14 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
                 relVol,
                 optionsDataAvailable: !!opts,
                 preMarketChangePct: null,
+                // [FIX] Macro Regime — was missing, causing 'NDX 데이터 없음'
+                ndxChangePct: macroData?.ndxChangePct ?? null,
+                vixValue: macroData?.vixValue ?? null,
+                vixChangePct: macroData?.vixChangePct ?? null,
+                tltChangePct: macroData?.tltChangePct ?? null,
+                gldChangePct: macroData?.gldChangePct ?? null,
+                dxy: macroData?.dxy ?? null,
+                realYieldStance: macroData?.realYieldStance ?? null,
             });
         } catch {
             alphaResult = calculateAlphaScore({
