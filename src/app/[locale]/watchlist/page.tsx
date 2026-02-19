@@ -93,15 +93,15 @@ export default function WatchlistPage() {
 
                 {/* ── Sort Chips ── */}
                 {!loading && items.length > 1 && (
-                    <div className="flex items-center gap-2 text-[10px]">
-                        <span className="text-slate-600 font-semibold uppercase tracking-wider">Sort</span>
+                    <div className="flex items-center gap-2 text-[11px]">
+                        <span className="text-slate-300 font-semibold uppercase tracking-wider">Sort</span>
                         {(['default', 'alpha', 'change', 'whale'] as SortKey[]).map(key => (
                             <button
                                 key={key}
                                 onClick={() => handleSort(key)}
                                 className={`px-2.5 py-1 rounded-lg border transition-all duration-200 font-bold ${sortKey === key
                                     ? 'border-amber-500/30 bg-amber-500/10 text-amber-400'
-                                    : 'border-white/[0.04] bg-white/[0.02] text-slate-500 hover:text-slate-300 hover:border-white/[0.08]'
+                                    : 'border-white/[0.06] bg-white/[0.03] text-slate-300 hover:text-white hover:border-white/[0.12]'
                                     }`}
                             >
                                 {key === 'default' ? 'Default' : key === 'alpha' ? 'Alpha' : key === 'change' ? 'Change%' : 'Whale'}
@@ -125,8 +125,8 @@ export default function WatchlistPage() {
                         {/* Column Headers (glassmorphism bar) */}
                         <div className="flex items-center rounded-lg border border-white/[0.04] bg-white/[0.03] backdrop-blur-sm">
                             <div className="w-11 flex-shrink-0" />
-                            <div className={`flex-1 ${GRID_COLS} px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider`}>
-                                <div className="pl-1">{t('symbol')}</div>
+                            <div className={`flex-1 ${GRID_COLS} px-3 py-2.5 text-[11px] font-bold text-slate-200 uppercase tracking-wider`}>
+                                <div className="text-center">{t('symbol')}</div>
                                 <div className="text-center">{t('price')}</div>
                                 <div className="text-center">Chart</div>
                                 <div className="text-center">Alpha</div>
@@ -155,7 +155,7 @@ export default function WatchlistPage() {
 
                 {/* ── Last Updated Footer ── */}
                 {!loading && items.length > 0 && (
-                    <div className="text-center text-[10px] text-slate-600 pt-2">
+                    <div className="text-center text-[10px] text-slate-400 pt-2">
                         Auto-refresh every 30s • Data Source: Premium Financial Feed
                     </div>
                 )}
@@ -241,7 +241,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                     <span className="text-3xl font-black text-white tabular-nums tracking-tight">{stats.total}</span>
                     <Activity className="w-4 h-4 text-amber-400/60 -translate-y-0.5" />
                 </div>
-                <div className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold mt-1">WATCHLIST</div>
+                <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold mt-1">WATCHLIST</div>
                 <svg className="absolute right-0 top-0 w-28 h-full opacity-[0.07]" viewBox="0 0 100 60" preserveAspectRatio="none">
                     <polyline points="0,30 15,30 20,10 25,50 30,20 35,40 40,30 55,30 60,15 65,45 70,25 75,35 80,30 100,30" fill="none" stroke="#f59e0b" strokeWidth="2" />
                 </svg>
@@ -255,7 +255,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                     <div className="w-px h-5 bg-white/[0.06]" />
                     <div className="flex items-center gap-1"><ArrowDownRight className="w-3.5 h-3.5 text-rose-400" /><span className="text-xl font-black text-rose-400 tabular-nums">{stats.losers}</span></div>
                 </div>
-                <div className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold mt-1.5">GAINERS / LOSERS</div>
+                <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold mt-1.5">GAINERS / LOSERS</div>
                 <div className="mt-2 h-1.5 rounded-full bg-slate-800/80 overflow-hidden flex">
                     <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out rounded-l-full" style={{ width: `${(stats.gainers / Math.max(stats.total, 1)) * 100}%` }} />
                     <div className="bg-gradient-to-r from-rose-400 to-rose-500 transition-all duration-700 ease-out rounded-r-full ml-auto" style={{ width: `${(stats.losers / Math.max(stats.total, 1)) * 100}%` }} />
@@ -276,7 +276,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                     <StatsAlphaGauge score={stats.avgAlpha} grade={stats.avgGrade} />
                     <div>
                         <div className="text-xl font-black text-white tabular-nums">{stats.avgAlpha}</div>
-                        <div className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold">AVG ALPHA</div>
+                        <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold">AVG ALPHA</div>
                     </div>
                 </div>
                 <svg className="absolute right-0 top-0 w-24 h-full opacity-[0.05]" viewBox="0 0 80 80">
@@ -299,12 +299,12 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                         {etInfo.session === 'reg' ? 'REGULAR' : etInfo.session === 'pre' ? 'PRE-MARKET' : etInfo.session === 'post' ? 'POST-MARKET' : 'CLOSED'}
                     </span>
                 </div>
-                <div className="text-[13px] font-bold tabular-nums text-white/90 mt-1.5">{etInfo.etStr} <span className="text-[10px] text-slate-400 font-bold">ET</span></div>
-                <div className="text-[10px] text-white tabular-nums">{etInfo.etDateStr}</div>
+                <div className="text-[13px] font-bold tabular-nums text-white/90 mt-1.5">{etInfo.etStr} <span className="text-xs text-slate-300 font-bold">ET</span></div>
+                <div className="text-xs text-white tabular-nums">{etInfo.etDateStr}</div>
                 <div className="mt-1 flex items-center gap-1.5">
-                    <span className={`text-[10px] font-bold ${sc === 'emerald' ? 'text-emerald-400' : sc === 'cyan' ? 'text-cyan-400' : sc === 'amber' ? 'text-amber-400' : 'text-slate-400'
+                    <span className={`text-xs font-bold ${sc === 'emerald' ? 'text-emerald-400' : sc === 'cyan' ? 'text-cyan-400' : sc === 'amber' ? 'text-amber-400' : 'text-slate-400'
                         }`}>{etInfo.nextLabel}</span>
-                    <span className="text-[11px] font-black tabular-nums text-white/70">{etInfo.countdown}</span>
+                    <span className="text-xs font-black tabular-nums text-white/90">{etInfo.countdown}</span>
                 </div>
                 <svg className="absolute right-1 top-1 w-16 h-16 opacity-[0.05] text-white" viewBox="0 0 60 60">
                     <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -317,7 +317,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
             {/* ── Ticker Heatmap ── */}
             <div className="hidden lg:block relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
                 <TickerHeatmap items={items} />
-                <div className="text-[10px] text-slate-400 uppercase tracking-[0.15em] font-bold mt-2">DAILY CHANGE</div>
+                <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold mt-2">DAILY CHANGE</div>
             </div>
         </div>
     );
@@ -369,7 +369,7 @@ function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
 }
 
 // ─── GRID TEMPLATE (shared between header & cards) ──────────────────────
-const GRID_COLS = 'grid grid-cols-[1.2fr_1.2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr]';
+const GRID_COLS = 'grid grid-cols-[1.4fr_1.4fr_0.7fr_0.9fr_1fr_0.8fr_0.7fr_1.1fr_0.7fr_1.2fr_1.2fr]';
 
 // ─── GLASSMORPHISM TABLE-ROW CARD (Mockup 1 Layout + Mockup 2 Glass) ─────
 function WatchlistCard({ item, onRemove, locale, index }: {
@@ -437,7 +437,7 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                         </div>
                         <div className="min-w-0">
                             <div className="font-black text-[13px] text-white tracking-wide">{item.ticker}</div>
-                            <div className="text-[10px] text-slate-500 truncate">{item.name}</div>
+                            <div className="text-[11px] text-slate-300 truncate">{item.name}</div>
                         </div>
                     </div>
 
@@ -451,9 +451,9 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                                 const etDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
                                 const isWeekend = etDow === 0 || etDow === 6;
                                 const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < 960 ? 'reg' : etMins < 1200 ? 'post' : 'closed';
-                                if (realSession === 'pre') return <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400">PRE</span>;
-                                if (realSession === 'post') return <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-400">POST</span>;
-                                if (realSession === 'closed') return <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-slate-500/20 text-slate-400">CLOSED</span>;
+                                if (realSession === 'pre') return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-cyan-500/25 text-cyan-400">PRE</span>;
+                                if (realSession === 'post') return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/25 text-amber-400">POST</span>;
+                                if (realSession === 'closed') return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-500/25 text-slate-400">CLOSED</span>;
                                 return null;
                             })()}
                         </div>
@@ -473,7 +473,7 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                                     {isPositive ? '+' : ''}{item.changePct.toFixed(2)}%
                                 </span>
                                 {item.vwapDist !== undefined && item.vwapDist !== null && (
-                                    <span className={`opacity-60 ${item.vwapDist > 0 ? 'text-amber-400' : 'text-cyan-400'}`}>V{item.vwapDist > 0 ? '+' : ''}{item.vwapDist.toFixed(1)}%</span>
+                                    <span className={`opacity-90 ${item.vwapDist > 0 ? 'text-amber-400' : 'text-cyan-400'}`}>V{item.vwapDist > 0 ? '+' : ''}{item.vwapDist.toFixed(1)}%</span>
                                 )}
                             </div>
                         )}
@@ -600,7 +600,7 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
             g === 'C' ? 'text-amber-400 stroke-amber-400' : 'text-rose-400 stroke-rose-400';
 
     return (
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-center gap-1.5">
             <div className="relative w-9 h-9">
                 <svg className="w-9 h-9 -rotate-90">
                     <circle cx="18" cy="18" r="13" fill="none" stroke="#1e293b" strokeWidth="2.5" />
@@ -608,9 +608,9 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
                         strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
                         style={{ transition: 'stroke-dashoffset 0.8s ease-out' }} />
                 </svg>
-                <div className={`absolute inset-0 flex items-center justify-center text-[10px] font-black ${c}`}>{g}</div>
+                <div className={`absolute inset-0 flex items-center justify-center text-[11px] font-black ${c}`}>{g}</div>
             </div>
-            <span className="text-xs font-bold tabular-nums text-white/80">{score}</span>
+            <span className="text-sm font-bold tabular-nums text-white/95">{score}</span>
         </div>
     );
 }
@@ -626,9 +626,9 @@ function SignalBadge({ action, confidence }: { action?: string; confidence?: num
     const s = cfg[action] || cfg['HOLD'];
     return (
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${s.bg} border ${s.border}`}>
-            <span className={`text-[11px] font-black ${s.text}`}>{action}</span>
+            <span className={`text-[13px] font-black ${s.text}`}>{action}</span>
             {confidence !== undefined && (
-                <span className="text-[10px] font-bold tabular-nums text-slate-400">{confidence}%</span>
+                <span className="text-xs font-bold tabular-nums text-slate-200">{confidence}%</span>
             )}
         </div>
     );
@@ -645,12 +645,12 @@ function WhaleIndicator({ index, confidence }: { index?: number; confidence?: st
             'text-slate-500 bg-slate-600/10 border-slate-600/20';
 
     return (
-        <div className="flex items-center gap-1.5" title={`Whale Index: ${index}`}>
+        <div className="flex items-center justify-center gap-1.5" title={`Whale Index: ${index}`}>
             <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border ${color}`}>
                 <Fish className="w-3 h-3" />
-                <span className="text-[11px] font-bold tabular-nums">{index}</span>
+                <span className="text-[13px] font-bold tabular-nums">{index}</span>
             </div>
-            <span className="text-[9px] text-white/50 hidden xl:inline">{level}</span>
+            <span className="text-[10px] text-white/70 hidden xl:inline">{level}</span>
         </div>
     );
 }
@@ -660,10 +660,10 @@ function IVIndicator({ value }: { value?: number }) {
     const color = value >= 50 ? 'text-rose-400' : value <= 20 ? 'text-emerald-400' : 'text-amber-400';
     const label = value >= 50 ? 'HIGH' : value <= 20 ? 'LOW' : '';
     return (
-        <div className="flex items-center gap-1" title={`IV: ${value.toFixed(0)}%`}>
-            <Activity className="w-3 h-3 text-slate-600" />
-            <span className={`text-[11px] font-bold tabular-nums ${color}`}>{value.toFixed(0)}%</span>
-            {label && <span className="text-[8px] text-white/40 font-bold">{label}</span>}
+        <div className="flex items-center justify-center gap-1" title={`IV: ${value.toFixed(0)}%`}>
+            <Activity className="w-3.5 h-3.5 text-slate-400" />
+            <span className={`text-[13px] font-bold tabular-nums ${color}`}>{value.toFixed(0)}%</span>
+            {label && <span className="text-[10px] text-white/70 font-bold">{label}</span>}
         </div>
     );
 }
@@ -675,19 +675,19 @@ function GammaFlipIndicator({ value, price, gexM }: { value?: number; price?: nu
         const color = isAbove ? 'text-emerald-400' : 'text-rose-400';
         const label = isAbove ? tInd('longGamma') : tInd('shortGamma');
         return (
-            <div className="flex items-center gap-1" title={`Gamma Flip: $${value}`}>
-                <RefreshCcw className="w-3 h-3 text-slate-600" />
-                <span className={`text-[11px] font-bold tabular-nums ${color}`}>${value.toFixed(0)}</span>
-                <span className="text-[9px] text-white/50">{label}</span>
+            <div className="flex items-center justify-center gap-1" title={`Gamma Flip: $${value}`}>
+                <RefreshCcw className="w-3 h-3 text-slate-400" />
+                <span className={`text-[13px] font-bold tabular-nums ${color}`}>${value.toFixed(0)}</span>
+                <span className="text-[10px] text-white/70">{label}</span>
             </div>
         );
     }
     if (gexM !== undefined && gexM !== null) {
         const badge = gexM < 0
-            ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-600/70 text-white">SHORT</span>
-            : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-emerald-600/70 text-white">LONG</span>;
+            ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-600/70 text-white">SHORT</span>
+            : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-600/70 text-white">LONG</span>;
         return (
-            <div className="flex items-center gap-1" title={gexM < 0 ? tInd('allShortGamma') : tInd('allLongGamma')}>
+            <div className="flex items-center justify-center gap-1" title={gexM < 0 ? tInd('allShortGamma') : tInd('allLongGamma')}>
                 <RefreshCcw className="w-3 h-3 text-slate-600" />
                 {badge}
             </div>
@@ -700,12 +700,12 @@ function Return3DIndicator({ value }: { value?: number }) {
     if (value === undefined || value === null) return <span className="text-[9px] text-slate-600">—</span>;
     const color = value > 0 ? 'text-emerald-400' : value < 0 ? 'text-rose-400' : 'text-white/60';
     return (
-        <div className="flex items-center gap-1" title="3D Return">
-            <TrendingUp className="w-3 h-3 text-slate-600" />
-            <span className={`text-[11px] font-bold tabular-nums ${color}`}>
+        <div className="flex items-center justify-center gap-1" title="3D Return">
+            <TrendingUp className="w-3 h-3 text-slate-400" />
+            <span className={`text-[13px] font-bold tabular-nums ${color}`}>
                 {value > 0 ? '+' : ''}{value.toFixed(1)}%
             </span>
-            <span className="text-[8px] text-white/30 font-bold">3D</span>
+            <span className="text-[10px] text-white/70 font-bold">3D</span>
         </div>
     );
 }
@@ -715,10 +715,10 @@ function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }
     const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white/60';
     const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
     return (
-        <div className="flex items-center gap-1" title={`Max Pain: $${maxPain?.toFixed(0)}`}>
-            <Crosshair className="w-3 h-3 text-slate-600" />
-            {maxPain && <span className="text-[11px] tabular-nums font-bold text-white/70">${maxPain.toFixed(0)}</span>}
-            <span className={`text-[10px] font-bold ${color}`}>{arrow}{dist > 0 ? '+' : ''}{dist.toFixed(1)}%</span>
+        <div className="flex items-center justify-center gap-1" title={`Max Pain: $${maxPain?.toFixed(0)}`}>
+            <Crosshair className="w-3 h-3 text-slate-400" />
+            {maxPain && <span className="text-[13px] tabular-nums font-bold text-white/90">${maxPain.toFixed(0)}</span>}
+            <span className={`text-xs font-bold ${color}`}>{arrow}{dist > 0 ? '+' : ''}{dist.toFixed(1)}%</span>
         </div>
     );
 }
@@ -739,10 +739,10 @@ function GexIndicator({ gexM }: { gexM?: number }) {
     const label = gexM > 0 ? 'LONG' : gexM < 0 ? 'SHORT' : 'FLAT';
     const val = Math.abs(gexM) >= 1 ? `${gexM.toFixed(1)}M` : `${Math.abs(gexM * 1000).toFixed(0)}K`;
     return (
-        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold ${color}`} title={`GEX: ${gexM}M`}>
+        <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border text-xs font-bold ${color}`} title={`GEX: ${gexM}M`}>
             {gexM > 0 ? <Shield className="w-3 h-3" /> : gexM < 0 ? <Zap className="w-3 h-3" /> : null}
             <span>{label}</span>
-            <span className="tabular-nums opacity-70">{val}</span>
+            <span className="tabular-nums opacity-90">{val}</span>
         </div>
     );
 }
