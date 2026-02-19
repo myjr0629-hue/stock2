@@ -35,8 +35,8 @@ export interface ShortVolumeData {
 export async function fetchTradeData(ticker: string): Promise<TradeData | null> {
     try {
         const [tradesRes, quotesRes] = await Promise.all([
-            fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=5000&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } } as any),
-            fetch(`${POLYGON_BASE}/v3/quotes/${ticker}?limit=5000&order=desc&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } } as any),
+            fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=1000&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } } as any),
+            fetch(`${POLYGON_BASE}/v3/quotes/${ticker}?limit=1000&order=desc&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } } as any),
         ]);
 
         if (!tradesRes.ok) {

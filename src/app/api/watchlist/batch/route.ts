@@ -1,14 +1,16 @@
 // Watchlist Batch Analyze API - Optimized multi-ticker analysis
 // Single request for multiple tickers to reduce HTTP overhead
-// [V3.0] Uses Alpha Engine V3 (calculateAlphaScore) for unified alpha calculation
-// [PERF] Uses lightweight stock data (no chart/minute data) for faster response
+// [V5] Uses Alpha Engine V5 (calculateAlphaScore) with FULL data enrichment
+// [V5] Macro + Flow + Catalyst data = absolute alpha scores identical to reports
 
 import { NextResponse } from 'next/server';
 import { getOptionsData } from '@/services/stockApi';
-import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
+import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
+import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
+import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetricsService';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
@@ -76,6 +78,16 @@ async function getStockDataLight(symbol: string) {
     // Sparkline: last 20 daily closes (shows ~1 month trend at watchlist scale)
     const sparkline = dailyResults.slice(-20).map((d: any) => d.close);
 
+    // [V5] PM extended change calculation for PM Gate 11
+    // PRE session: PM price vs previous regular close (prevClose)
+    // POST session: PM price vs today's close
+    let extendedChangePct: number | null = null;
+    if (session === 'pre' && prevClose > 0) {
+        extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
+    } else if (session === 'post' && todayClose > 0) {
+        extendedChangePct = ((latestPrice - todayClose) / todayClose) * 100;
+    }
+
     return {
         symbol,
         price: latestPrice,
@@ -90,6 +102,7 @@ async function getStockDataLight(symbol: string) {
         vwap: t?.day?.vw,
         history: sparkline.map((close: number) => ({ close })), // Compatible format
         dailyResults, // [V3.2] For session-aware changePct/relVol
+        extendedChangePct, // [V5] For PM Gate 11 (preMarketChangePct)
     };
 }
 
@@ -193,15 +206,34 @@ export async function GET(request: Request) {
         console.warn('[Watchlist Batch] Cache check failed, using fallback:', e);
     }
 
-    // ═══ Fallback: Full computation (existing code, untouched) ═══
+    // ═══ [V5] Fetch macro data ONCE for all tickers (shared) ═══
+    let macroData: any = null;
+    try {
+        const macro = await getMacroSnapshotSSOT();
+        macroData = {
+            ndxChangePct: macro.nqChangePercent ?? null,
+            vixValue: macro.vix ?? null,
+            vixChangePct: macro.factors?.vix?.chgPct ?? null,
+            tltChangePct: macro.tltChangePct ?? null,
+            gldChangePct: macro.gldChangePct ?? null,
+            dxy: macro.dxy ?? null,
+            realYieldStance: macro.realYield?.stance ?? null,
+        };
+    } catch (e) {
+        console.warn('[Watchlist Batch] Macro fetch failed, using defaults:', e);
+    }
+
+    // ═══ Fallback: Full computation with COMPLETE data ═══
     // Process all tickers in parallel
     const results = await Promise.all(tickers.map(async (ticker) => {
         try {
-            // [PERF] Use lightweight stock data (no chart download) + options + structure in parallel
-            const [stockData, optionsData, structureRes] = await Promise.all([
+            // [V5] Full data pipeline — identical to dashboard/unified
+            const [stockData, optionsData, structureRes, tradeData, shortVolData] = await Promise.all([
                 getStockDataLight(ticker).catch(() => null),
                 getOptionsData(ticker).catch(() => null),
-                getStructureData(ticker).catch(() => null)
+                getStructureData(ticker).catch(() => null),
+                fetchTradeData(ticker).catch(() => null),     // [V5] Dark Pool + Block Trades
+                fetchShortVolumeData(ticker).catch(() => null) // [V5] Short Volume
             ]);
 
             if (!stockData) {
@@ -246,6 +278,14 @@ export async function GET(request: Request) {
                 }
             }
 
+            // [V5] SMA20 from daily aggs (same as dashboard/unified fetchTechnicalIndicators)
+            let sma20: number | null = null;
+            const dailyCloses = dailyResults.map((d: any) => d.close).filter(Boolean);
+            if (dailyCloses.length >= 20) {
+                const last20 = dailyCloses.slice(-20);
+                sma20 = parseFloat((last20.reduce((a: number, b: number) => a + b, 0) / 20).toFixed(2));
+            }
+
             const opts = optionsData as any;
             const alphaGex = structureRes?.netGex ?? opts?.gems?.gex ?? opts?.gex ?? null;
             const alphaPcr = opts?.putCallRatio ?? null;
@@ -254,13 +294,28 @@ export async function GET(request: Request) {
             const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
             const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
 
-            // Call V3.2 Engine
+            // [V5] Compute IV Skew + Implied Move from raw options chain
+            const rawChain = opts?.rawChain || [];
+            const currentPrice = stockData.price || 0;
+            const ivSkew = computeIVSkew(rawChain, currentPrice);
+            const impliedMovePct = computeImpliedMovePct(rawChain, currentPrice);
+
+            // [V5] Whale Index from GEX (same as dashboard/unified)
+            const whaleIndex = calculateWhaleIndex(alphaGex);
+
+            // [V5] Flow data from realtimeMetrics
+            const darkPoolPct = tradeData?.darkPoolPercent ?? null;
+            const shortVolPct = shortVolData?.shortVolPercent ?? null;
+            const blockTradesCount = tradeData?.blockTrades ?? null;
+            const netPremium = structureRes?.netPremium ?? null;
+
+            // Call V5 Engine with FULL data
             let alphaResult;
             try {
                 alphaResult = calculateAlphaScore({
                     ticker: ticker.toUpperCase(),
                     session: alphaSession,
-                    price: stockData.price || 0,
+                    price: currentPrice,
                     prevClose: stockData.prevClose || 0,
                     changePct,
                     vwap: stockData.vwap ?? null,
@@ -271,22 +326,46 @@ export async function GET(request: Request) {
                     callWall: alphaCallWall,
                     putFloor: alphaPutFloor,
                     gammaFlipLevel: alphaGammaFlip,
-                    rawChain: opts?.rawChain || [],
+                    rawChain,
                     squeezeScore: alphaSqueezeScore,
                     relVol,
                     optionsDataAvailable: !!opts,
-                    // [V3.4] Pre-Market Validation
+                    // [V5] Pre-Market Validation
                     preMarketChangePct: (stockData as any).extendedChangePct ?? null,
+                    // [V5] Macro Regime — shared across all tickers
+                    ndxChangePct: macroData?.ndxChangePct ?? null,
+                    vixValue: macroData?.vixValue ?? null,
+                    vixChangePct: macroData?.vixChangePct ?? null,
+                    tltChangePct: macroData?.tltChangePct ?? null,
+                    gldChangePct: macroData?.gldChangePct ?? null,
+                    dxy: macroData?.dxy ?? null,
+                    realYieldStance: macroData?.realYieldStance ?? null,
+                    // [V5] Flow data — identical to dashboard/unified
+                    darkPoolPct,
+                    shortVolPct,
+                    blockTrades: blockTradesCount,
+                    whaleIndex,
+                    netFlow: netPremium,
+                    // [V5] Momentum SMA20
+                    sma20,
+                    // [V5] Catalyst data
+                    ivSkew,
+                    impliedMovePct,
+                    atmIv: structureRes?.atmIv ?? null,
                 });
             } catch (e) {
-                console.error(`[Watchlist Batch] V3.2 Engine failed for ${ticker}:`, e);
+                console.error(`[Watchlist Batch] V5 Engine failed for ${ticker}:`, e);
                 alphaResult = calculateAlphaScore({
                     ticker: ticker.toUpperCase(),
                     session: alphaSession,
-                    price: stockData.price || 0,
+                    price: currentPrice,
                     prevClose: stockData.prevClose || 0,
                     changePct,
                     preMarketChangePct: (stockData as any).extendedChangePct ?? null,
+                    ndxChangePct: macroData?.ndxChangePct ?? null,
+                    vixValue: macroData?.vixValue ?? null,
+                    tltChangePct: macroData?.tltChangePct ?? null,
+                    gldChangePct: macroData?.gldChangePct ?? null,
                 });
             }
 
@@ -295,7 +374,6 @@ export async function GET(request: Request) {
             // === OPTIONS INDICATORS ===
             const hasOptionsData = opts && (opts?.maxPain || opts?.gems?.gex || opts?.gex);
             const maxPain = hasOptionsData ? (opts?.maxPain || null) : null;
-            const currentPrice = stockData.price || 0;
             const maxPainDist = (maxPain && currentPrice)
                 ? Number(((maxPain - currentPrice) / currentPrice * 100).toFixed(2))
                 : null;
@@ -304,25 +382,14 @@ export async function GET(request: Request) {
             const gex = hasOptionsData ? (rawGex || null) : null;
             const gexM = gex !== null ? Number((gex / 1000000).toFixed(2)) : null;
 
-            // === WHALE INDEX ===
-            let whaleIndex = 0;
+            // === WHALE INDEX (uses V5 calculateWhaleIndex above) ===
             let whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE' = 'NONE';
             const pcr = opts?.putCallRatio || 1;
 
             if (gex !== null && gex !== undefined) {
-                if (gex > 0 && pcr < 0.8) {
-                    whaleIndex = Math.min(90, 60 + Math.abs(gex / 100000));
-                    whaleConfidence = 'HIGH';
-                } else if (gex > 0 && pcr <= 1.2) {
-                    whaleIndex = Math.min(70, 40 + Math.abs(gex / 200000));
-                    whaleConfidence = 'MED';
-                } else if (gex < 0 || pcr > 1.3) {
-                    whaleIndex = Math.max(10, 30 - Math.abs(gex / 500000));
-                    whaleConfidence = 'LOW';
-                } else {
-                    whaleIndex = 35;
-                    whaleConfidence = 'LOW';
-                }
+                if (gex > 0 && pcr < 0.8) whaleConfidence = 'HIGH';
+                else if (gex > 0 && pcr <= 1.2) whaleConfidence = 'MED';
+                else whaleConfidence = 'LOW';
             }
 
             // === GAMMA FLIP & OPTIONS (Unified Pipeline from Structure API) ===
