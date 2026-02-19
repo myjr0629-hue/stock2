@@ -241,7 +241,15 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                     <span className="text-3xl font-black text-white tabular-nums tracking-tight">{stats.total}</span>
                     <Activity className="w-4 h-4 text-amber-400/60 -translate-y-0.5" />
                 </div>
-                <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold mt-1">WATCHLIST</div>
+                <div className="flex items-center gap-2 mt-1">
+                    <span className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold">WATCHLIST</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-xs text-slate-200 uppercase tracking-wider font-bold">AVG CHANGE</span>
+                    <span className={`text-lg font-black tabular-nums ${stats.avgChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {stats.avgChange >= 0 ? '+' : ''}{stats.avgChange.toFixed(2)}%
+                    </span>
+                </div>
                 <svg className="absolute right-0 top-0 w-28 h-full opacity-[0.07]" viewBox="0 0 100 60" preserveAspectRatio="none">
                     <polyline points="0,30 15,30 20,10 25,50 30,20 35,40 40,30 55,30 60,15 65,45 70,25 75,35 80,30 100,30" fill="none" stroke="#f59e0b" strokeWidth="2" />
                 </svg>
