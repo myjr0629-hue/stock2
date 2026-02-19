@@ -124,78 +124,14 @@ async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuo
 }
 
 /**
- * Get Yahoo data with rate limiting and Redis persistence
- * Returns both VIX and NQ in single call
+ * Get Yahoo data — Redis only (NEVER call Yahoo directly from serverless)
+ * Yahoo data is populated into Redis by the local dev server.
+ * Serverless functions only READ from Redis.
  */
 export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQuote; tnx: YahooQuote; spx: YahooQuote; btc: YahooQuote; gold: YahooQuote; oil: YahooQuote; rut: YahooQuote }> {
-    const now = Date.now();
-    const timeSinceLastFetch = now - memoryCache.lastFetch;
-
-    // 1. Check if we should fetch from Yahoo (rate limit: 1 min)
-    if (timeSinceLastFetch >= RATE_LIMIT_MS) {
-        console.log(`[Yahoo] Fetching fresh data (${Math.floor(timeSinceLastFetch / 1000)}s since last fetch)`);
-
-        const quotes = await fetchYahooQuotes(['^VIX', 'NQ=F', '^TNX', 'ES=F', 'BTC-USD', 'GC=F', 'CL=F', 'RTY=F']);
-
-        const vixQuote = quotes.get('^VIX');
-        const nqQuote = quotes.get('NQ=F');
-        const tnxQuote = quotes.get('^TNX');
-        const spxQuote = quotes.get('ES=F');
-        const btcQuote = quotes.get('BTC-USD');
-        const goldQuote = quotes.get('GC=F');
-        const oilQuote = quotes.get('CL=F');
-        const rutQuote = quotes.get('RTY=F');
-
-        if (vixQuote) {
-            memoryCache.vix = vixQuote;
-            setInCache(YAHOO_CACHE_KEYS.VIX, vixQuote).catch(() => { });
-        }
-
-        if (nqQuote) {
-            memoryCache.nq = nqQuote;
-            setInCache(YAHOO_CACHE_KEYS.NQ, nqQuote).catch(() => { });
-        }
-
-        if (tnxQuote) {
-            memoryCache.tnx = tnxQuote;
-            setInCache(YAHOO_CACHE_KEYS.TNX, tnxQuote).catch(() => { });
-        }
-
-        if (spxQuote) {
-            memoryCache.spx = spxQuote;
-            setInCache(YAHOO_CACHE_KEYS.SPX, spxQuote).catch(() => { });
-        }
-
-        if (btcQuote) {
-            memoryCache.btc = btcQuote;
-            setInCache(YAHOO_CACHE_KEYS.BTC, btcQuote).catch(() => { });
-        }
-
-        if (goldQuote) {
-            memoryCache.gold = goldQuote;
-            setInCache(YAHOO_CACHE_KEYS.GOLD, goldQuote).catch(() => { });
-        }
-
-        if (oilQuote) {
-            memoryCache.oil = oilQuote;
-            setInCache(YAHOO_CACHE_KEYS.OIL, oilQuote).catch(() => { });
-        }
-
-        if (rutQuote) {
-            memoryCache.rut = rutQuote;
-            setInCache(YAHOO_CACHE_KEYS.RUT, rutQuote).catch(() => { });
-        }
-
-        if (vixQuote || nqQuote || tnxQuote || spxQuote || btcQuote || goldQuote || oilQuote || rutQuote) {
-            memoryCache.lastFetch = now;
-        }
-    } else {
-        console.log(`[Yahoo] Using cached data (${Math.floor(timeSinceLastFetch / 1000)}s old, next fetch in ${Math.ceil((RATE_LIMIT_MS - timeSinceLastFetch) / 1000)}s)`);
-    }
-
-    // 2. Return from memory cache if available
+    // 1. Return from memory cache if available (fast path)
     if (memoryCache.vix && memoryCache.nq) {
-        const cacheSource = (q: YahooQuote) => ({ ...q, source: q.source === "YAHOO" ? "YAHOO" as const : "CACHE" as const, isStale: q.source !== "YAHOO" });
+        const cacheSource = (q: YahooQuote) => ({ ...q, source: "CACHE" as const, isStale: false });
         return {
             vix: cacheSource(memoryCache.vix),
             nq: cacheSource(memoryCache.nq),
@@ -208,8 +144,8 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
         };
     }
 
-    // 3. Try Redis cache (survives server restarts)
-    console.log('[Yahoo] Memory cache empty, trying Redis...');
+    // 2. Read from Redis (populated by dev server)
+    console.log('[Yahoo] Reading macro data from Redis...');
 
     const [redisVix, redisNq, redisTnx, redisSpx, redisBtc, redisGold, redisOil, redisRut] = await Promise.all([
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX),
@@ -222,47 +158,20 @@ export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQu
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.RUT)
     ]);
 
-    if (redisVix) {
-        memoryCache.vix = redisVix;
-        console.log(`[Yahoo] VIX from Redis: ${redisVix.price}`);
-    }
+    // Populate memory cache from Redis
+    if (redisVix) { memoryCache.vix = redisVix; }
+    if (redisNq) { memoryCache.nq = redisNq; }
+    if (redisTnx) { memoryCache.tnx = redisTnx; }
+    if (redisSpx) { memoryCache.spx = redisSpx; }
+    if (redisBtc) { memoryCache.btc = redisBtc; }
+    if (redisGold) { memoryCache.gold = redisGold; }
+    if (redisOil) { memoryCache.oil = redisOil; }
+    if (redisRut) { memoryCache.rut = redisRut; }
 
-    if (redisNq) {
-        memoryCache.nq = redisNq;
-        console.log(`[Yahoo] NQ from Redis: ${redisNq.price}`);
-    }
+    const redisHits = [redisVix, redisNq, redisTnx, redisSpx, redisBtc, redisGold, redisOil, redisRut].filter(Boolean).length;
+    console.log(`[Yahoo] Redis: ${redisHits}/8 symbols loaded`);
 
-    if (redisTnx) {
-        memoryCache.tnx = redisTnx;
-        console.log(`[Yahoo] TNX (US10Y) from Redis: ${redisTnx.price}`);
-    }
-
-    if (redisSpx) {
-        memoryCache.spx = redisSpx;
-        console.log(`[Yahoo] SPX from Redis: ${redisSpx.price}`);
-    }
-
-    if (redisBtc) {
-        memoryCache.btc = redisBtc;
-        console.log(`[Yahoo] BTC from Redis: ${redisBtc.price}`);
-    }
-
-    if (redisGold) {
-        memoryCache.gold = redisGold;
-        console.log(`[Yahoo] GOLD from Redis: ${redisGold.price}`);
-    }
-
-    if (redisOil) {
-        memoryCache.oil = redisOil;
-        console.log(`[Yahoo] OIL from Redis: ${redisOil.price}`);
-    }
-
-    if (redisRut) {
-        memoryCache.rut = redisRut;
-        console.log(`[Yahoo] RUT from Redis: ${redisRut.price}`);
-    }
-
-    // 4. Return what we have (with defaults for missing)
+    // 3. Return what we have (with defaults for missing)
     return {
         vix: memoryCache.vix || getDefaultQuote('^VIX', 15),
         nq: memoryCache.nq || getDefaultQuote('NQ=F', 21000),
