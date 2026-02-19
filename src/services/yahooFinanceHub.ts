@@ -59,69 +59,9 @@ let memoryCache: {
 };
 
 // ============================================================
-// Yahoo Finance Fetcher
+// [V8.0] Yahoo direct HTTP calls REMOVED
+// All data now comes from Redis only (getYahooDataSSOT)
 // ============================================================
-
-/**
- * Fetch multiple quotes from Yahoo Finance with accurate change%
- * Uses meta.previousClose from chart API directly (matches Yahoo Finance website).
- * Previously used a separate fetchTruePreviousCloses() call that picked wrong
- * daily candle closes during holidays/weekends, causing chgPct errors.
- */
-async function fetchYahooQuotes(symbols: string[]): Promise<Map<string, YahooQuote>> {
-    const results = new Map<string, YahooQuote>();
-    const now = new Date().toISOString();
-
-    // Fetch real-time prices sequentially (avoid rate limiting)
-    for (const symbol of symbols) {
-        try {
-            const encodedSymbol = encodeURIComponent(symbol);
-            const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?interval=1m&range=1d`;
-
-            const res = await fetch(url, {
-                headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-                signal: AbortSignal.timeout(5000)
-            });
-
-            if (!res.ok) {
-                console.warn(`[Yahoo] ${symbol} returned ${res.status}`);
-                continue;
-            }
-
-            const data = await res.json();
-            const meta = data?.chart?.result?.[0]?.meta;
-
-            if (!meta?.regularMarketPrice) {
-                console.warn(`[Yahoo] ${symbol} missing market price`);
-                continue;
-            }
-
-            // Use meta.previousClose directly — this matches Yahoo Finance website
-            // chartPreviousClose is identical but kept as fallback
-            const price = meta.regularMarketPrice;
-            const prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
-            const change = price - prevClose;
-            const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
-
-            results.set(symbol, {
-                symbol,
-                price,
-                prevClose,
-                change,
-                changePct,
-                updatedAt: now,
-                source: "YAHOO",
-                isStale: false
-            });
-
-            console.log(`[Yahoo] ${symbol}: ${price.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%) [prevClose=${prevClose.toFixed(2)}]`);
-        } catch (e) {
-            console.warn(`[Yahoo] ${symbol} fetch failed:`, e);
-        }
-    }
-
-    return results;
-}
 
 /**
  * [V8.0] Get market data from Redis ONLY (no Yahoo direct calls)

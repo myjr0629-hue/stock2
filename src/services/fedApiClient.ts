@@ -249,92 +249,32 @@ export interface VixSSOT {
 let vixCache: { data: VixSSOT | null } = { data: null };
 
 /**
- * Fetch real-time VIX from Yahoo Finance
- */
-async function fetchVixFromYahoo(): Promise<VixSSOT | null> {
-    try {
-        const url = "https://query1.finance.yahoo.com/v8/finance/chart/%5EVIX?interval=1m&range=1d";
-        const res = await fetch(url, {
-            headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
-            signal: AbortSignal.timeout(5000) // 5s timeout
-        });
-
-        if (!res.ok) {
-            console.warn(`[VIX] Yahoo Finance returned ${res.status}`);
-            return null;
-        }
-
-        const data = await res.json();
-        const meta = data?.chart?.result?.[0]?.meta;
-
-        if (!meta?.regularMarketPrice) {
-            console.warn("[VIX] Yahoo Finance missing market price");
-            return null;
-        }
-
-        const vix = meta.regularMarketPrice;
-        const prevClose = meta.previousClose || vix;
-        const change = vix - prevClose;
-        const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
-
-        console.log(`[VIX] Yahoo OK: ${vix.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`);
-
-        return {
-            vix,
-            prevClose,
-            change,
-            changePct,
-            source: "YAHOO",
-            updatedAt: new Date().toISOString(),
-            isStale: false
-        };
-    } catch (e) {
-        console.warn("[VIX] Yahoo Finance fetch failed:", e);
-        return null;
-    }
-}
-
-/**
- * Get VIX with Multi-Tier Fallback (SSOT)
- * [V45.8] "Last Known Good" Pattern with Redis persistence
- * Used by both Guardian page display and RLSI engine
+ * [V8.0] Get VIX from Redis ONLY (no Yahoo direct calls)
+ * Priority: 1) In-Memory Cache → 2) Redis → 3) FRED → 4) Default
  */
 export async function getVixSSOT(): Promise<VixSSOT> {
-    // 1. Try Yahoo Finance (Real-time)
-    const yahooVix = await fetchVixFromYahoo();
-    if (yahooVix) {
-        // Update both in-memory and Redis cache on success
-        vixCache = { data: yahooVix };
-        // Fire-and-forget Redis update (don't block)
-        setInCache(CACHE_KEYS.VIX_LAST_KNOWN_GOOD, yahooVix).catch(() => { });
-        return yahooVix;
-    }
-
-    // 2. Fallback: Use in-memory cache (fast, same process)
+    // 1. Use in-memory cache if available
     if (vixCache.data) {
-        console.log(`[VIX] Using In-Memory Cache: ${vixCache.data.vix.toFixed(2)}`);
-        return { ...vixCache.data, source: "CACHE", isStale: true };
+        return { ...vixCache.data, source: "CACHE", isStale: false };
     }
 
-    // 3. Fallback: Use Redis cache (survives server restarts)
+    // 2. Try Redis cache
     try {
         const redisVix = await getFromCache<VixSSOT>(CACHE_KEYS.VIX_LAST_KNOWN_GOOD);
         if (redisVix && redisVix.vix) {
-            console.log(`[VIX] Using Redis Cache: ${redisVix.vix.toFixed(2)} (from ${redisVix.updatedAt})`);
-            // Hydrate in-memory cache
+            console.log(`[VIX] Redis: ${redisVix.vix.toFixed(2)}`);
             vixCache = { data: redisVix };
-            return { ...redisVix, source: "REDIS", isStale: true };
+            return { ...redisVix, source: "REDIS", isStale: false };
         }
     } catch (e) {
         console.warn("[VIX] Redis cache failed:", e);
     }
 
-    // 4. Fallback: Try FRED (Daily Close) - Only when all caches empty
-    console.log("[VIX] No cached data, trying FRED...");
+    // 3. Fallback: FRED (Daily Close)
+    console.log("[VIX] No Redis data, trying FRED...");
     try {
         const fredVix = await getVixFromFred();
         if (fredVix.vix !== null) {
-            console.log(`[VIX] Cold start: Using FRED daily close: ${fredVix.vix}`);
             const result: VixSSOT = {
                 vix: fredVix.vix,
                 prevClose: fredVix.vix,
@@ -344,7 +284,6 @@ export async function getVixSSOT(): Promise<VixSSOT> {
                 updatedAt: fredVix.updatedAt,
                 isStale: true
             };
-            // Cache FRED data as initial value
             vixCache = { data: result };
             setInCache(CACHE_KEYS.VIX_LAST_KNOWN_GOOD, result).catch(() => { });
             return result;
@@ -353,7 +292,7 @@ export async function getVixSSOT(): Promise<VixSSOT> {
         console.warn("[VIX] FRED fallback failed:", e);
     }
 
-    // 5. Emergency Fallback: Default value
+    // 4. Emergency Default
     console.warn("[VIX] All sources failed, using default 15");
     return {
         vix: 15,
