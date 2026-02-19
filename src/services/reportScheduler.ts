@@ -430,7 +430,17 @@ export async function generateReport(type: ReportType, force: boolean = false, t
                     price <= DISCOVERY_FILTER.maxPrice &&
                     volume >= DISCOVERY_FILTER.minVolume &&
                     !candidateTickers.includes(g.ticker);
-            }).map((g: any) => g.ticker).slice(0, 15);
+            });
+            // [V4.5] Surge-aware ordering: 15%+ gainers go to the end (deprioritized, not blocked)
+            const sortedGainers = validGainers.sort((a: any, b: any) => {
+                const aChange = a.todaysChangePerc || ((a.day?.c - a.prevDay?.c) / a.prevDay?.c * 100) || 0;
+                const bChange = b.todaysChangePerc || ((b.day?.c - b.prevDay?.c) / b.prevDay?.c * 100) || 0;
+                const aSurge = aChange >= 15 ? 1 : 0;
+                const bSurge = bChange >= 15 ? 1 : 0;
+                if (aSurge !== bSurge) return aSurge - bSurge; // non-surge first
+                return bChange - aChange; // then by change desc
+            });
+            const validGainerTickers = sortedGainers.map((g: any) => g.ticker).slice(0, 15);
 
             // --- TOP VOLUME (Most Active) [V2.0 NEW] ---
             const mostActive = await fetchTopActive();
@@ -447,13 +457,13 @@ export async function generateReport(type: ReportType, force: boolean = false, t
                     price <= DISCOVERY_FILTER.maxPrice &&
                     volume >= DISCOVERY_FILTER.minVolume &&
                     !candidateTickers.includes(g.ticker) &&
-                    !validGainers.includes(g.ticker); // No duplicates
+                    !validGainerTickers.includes(g.ticker); // No duplicates
             }).map((g: any) => g.ticker).slice(0, 10);
 
             // --- MERGE DISCOVERIES ---
-            const allDiscovery = [...validGainers, ...validActive];
+            const allDiscovery = [...validGainerTickers, ...validActive];
             if (allDiscovery.length > 0) {
-                console.log(`[ReportScheduler] V2.0 Discovery: ${validGainers.length} Gainers + ${validActive.length} Active = ${allDiscovery.length} total`);
+                console.log(`[ReportScheduler] V2.0 Discovery: ${validGainerTickers.length} Gainers + ${validActive.length} Active = ${allDiscovery.length} total`);
                 discoveryTickers = allDiscovery;
                 candidateTickers = [...candidateTickers, ...allDiscovery];
             }

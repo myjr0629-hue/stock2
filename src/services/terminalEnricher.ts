@@ -138,7 +138,7 @@ const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_K
 async function fetchShortVolumePct(ticker: string): Promise<number | undefined> {
     try {
         const url = `https://api.polygon.io/stocks/v1/short-volume?ticker=${ticker}&limit=1&apiKey=${POLYGON_API_KEY}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+        const res = await fetch(url, { signal: AbortSignal.timeout(10000) }); // [V4.5] 5s→10s
         if (!res.ok) {
             console.warn(`[ShortVol] ${ticker}: HTTP ${res.status}`);
             return undefined;
@@ -160,33 +160,45 @@ async function fetchShortVolumePct(ticker: string): Promise<number | undefined> 
 
 // [V4.3] Fetch REAL dark pool % from Polygon (stock trades, not options)
 // Same logic as /api/flow/dark-pool-trades — FINRA TRF/ADF exchanges
+// [V4.5] Reduced limit 5000→1000 (sufficient for % calc, prevents timeout during batch)
+//        Increased timeout 8s→12s, added retry
 const DARK_POOL_EXCHANGES = new Set([4, 15, 16, 19]);
 const DARK_POOL_CONDITIONS = new Set([12, 41, 52]);
 async function fetchDarkPoolPct(ticker: string): Promise<number | undefined> {
-    try {
-        const url = `https://api.polygon.io/v3/trades/${ticker}?limit=5000&order=desc&apiKey=${POLYGON_API_KEY}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        if (!res.ok) return undefined;
-        const data = await res.json();
-        const trades = data.results || [];
-        if (trades.length === 0) return undefined;
-
-        let totalVolume = 0;
-        let darkPoolVolume = 0;
-        for (const trade of trades) {
-            const size = trade.size || 0;
-            totalVolume += size;
-            const isDarkExchange = DARK_POOL_EXCHANGES.has(trade.exchange);
-            const hasDarkCondition = (trade.conditions || []).some((c: number) => DARK_POOL_CONDITIONS.has(c));
-            if (isDarkExchange || hasDarkCondition) {
-                darkPoolVolume += size;
+    const MAX_ATTEMPTS = 2;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+            const url = `https://api.polygon.io/v3/trades/${ticker}?limit=1000&order=desc&apiKey=${POLYGON_API_KEY}`;
+            const res = await fetch(url, { signal: AbortSignal.timeout(12000) });
+            if (res.status === 429) {
+                console.warn(`[DarkPool] ${ticker}: 429 rate limit (attempt ${attempt})`);
+                if (attempt < MAX_ATTEMPTS) { await new Promise(r => setTimeout(r, 2000)); continue; }
+                return undefined;
             }
+            if (!res.ok) return undefined;
+            const data = await res.json();
+            const trades = data.results || [];
+            if (trades.length === 0) return undefined;
+
+            let totalVolume = 0;
+            let darkPoolVolume = 0;
+            for (const trade of trades) {
+                const size = trade.size || 0;
+                totalVolume += size;
+                const isDarkExchange = DARK_POOL_EXCHANGES.has(trade.exchange);
+                const hasDarkCondition = (trade.conditions || []).some((c: number) => DARK_POOL_CONDITIONS.has(c));
+                if (isDarkExchange || hasDarkCondition) {
+                    darkPoolVolume += size;
+                }
+            }
+            return totalVolume > 0 ? Math.round((darkPoolVolume / totalVolume) * 1000) / 10 : undefined;
+        } catch (e: any) {
+            console.warn(`[DarkPool] ${ticker}: ${e?.message || 'error'} (attempt ${attempt})`);
+            if (attempt < MAX_ATTEMPTS) { await new Promise(r => setTimeout(r, 1000)); continue; }
+            return undefined;
         }
-        return totalVolume > 0 ? Math.round((darkPoolVolume / totalVolume) * 1000) / 10 : undefined;
-    } catch (e: any) {
-        console.warn(`[DarkPool] ${ticker}: ${e?.message || 'error'}`);
-        return undefined;
     }
+    return undefined;
 }
 
 async function enrichSingleTickerWithRetry(
@@ -363,6 +375,10 @@ function buildPriceEvidence(data: any): UnifiedPrice {
         error: data.error,
         prevClose: data.prevClose || 0,
         changePct: data.finalChangePercent || data.changePct || 0, // [Phase 24.3] SSOT
+        // [V5] PM 검증 데이터 분리
+        regChangePct: data.regChangePct ?? (data.finalChangePercent || data.changePct || 0),
+        pmPrice: data.pmPrice ?? undefined,
+        pmChangePct: data.pmChangePct ?? undefined,
         vwap,
         vwapDistPct: vwap > 0 ? ((last - vwap) / vwap) * 100 : 0,
         rsi14: data.rsi || null, // [V3 FIX] null instead of 50 — let engine handle missing data honestly
@@ -700,8 +716,11 @@ function calculateStealthLabel(price: UnifiedPrice, flow: UnifiedFlow, options: 
     // Comprehensive condition-based tag assignment for maximum signal detection
     const tags: string[] = [];
 
-    // [V4.3] Use REAL dark pool % from Polygon stock trades (same as /api/flow/dark-pool-trades)
-    const darkPoolPct = realDarkPoolPct ?? forensicData?.details?.offExchangePct ?? (flow.offExPct > 0 ? flow.offExPct : undefined);
+    // [V4.5] Use REAL dark pool % from Polygon stock trades (same as /api/flow/dark-pool-trades)
+    // Fallback chain: realDarkPoolPct → forensic offExchangePct → flow offExPct
+    // Only use fallback if value is > 0 (0 is not meaningful dark pool data)
+    const forensicDarkPool = forensicData?.details?.offExchangePct;
+    const darkPoolPct = realDarkPoolPct ?? (forensicDarkPool && forensicDarkPool > 0 ? forensicDarkPool : undefined) ?? (flow.offExPct > 0 ? flow.offExPct : undefined);
     const blockTrades = forensicData?.details?.blockCount ?? undefined;
 
     // 1. GAMMA SQUEEZE DETECTION

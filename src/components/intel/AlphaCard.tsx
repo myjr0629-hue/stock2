@@ -115,7 +115,7 @@ function ScoreRing({ score, size = 64, strokeWidth = 4 }: { score: number; size?
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className={cn("font-black leading-none", c.text, size >= 60 ? "text-[18px]" : "text-[14px]")}>{score.toFixed(1)}</span>
-                <span className={cn("font-bold opacity-50 mt-0.5", c.text, size >= 60 ? "text-[9px]" : "text-[7px]")}>{c.label}</span>
+                <span className={cn("font-bold opacity-70 mt-0.5", c.text, size >= 60 ? "text-[11px]" : "text-[11px]")}>{c.label}</span>
             </div>
         </div>
     );
@@ -145,7 +145,7 @@ function RankBadge({ rank }: { rank: number }) {
         size: 'w-6 h-6 text-[11px]',
     } : {
         bg: 'bg-white/[0.08] border border-white/[0.12]',
-        text: 'text-white/50',
+        text: 'text-white/70',
         shadow: '',
         size: 'w-5 h-5 text-[10px]',
     };
@@ -259,16 +259,16 @@ function PillarBar({ name, pillar }: { name: string; pillar: PillarData }) {
 
     return (
         <div className="flex items-center gap-2 group/pillar">
-            <div className={cn("w-4 flex-shrink-0", c.text, "opacity-50")}>{config.icon}</div>
-            <span className="text-[10px] text-white/40 w-12 flex-shrink-0 font-medium">{config.label}</span>
+            <div className={cn("w-4 flex-shrink-0", c.text, "opacity-70")}>{config.icon}</div>
+            <span className="text-[11px] text-white/70 w-12 flex-shrink-0 font-semibold">{config.label}</span>
             <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                 <div
                     className={cn("h-full rounded-full transition-all duration-700", c.bar)}
                     style={{ width: `${pct}%`, opacity: pct > 50 ? 0.9 : 0.5 }}
                 />
             </div>
-            <span className={cn("text-[10px] font-mono font-bold w-7 text-right",
-                pct >= 70 ? c.text : pct >= 40 ? "text-white/50" : "text-white/30"
+            <span className={cn("text-[11px] font-mono font-bold w-7 text-right",
+                pct >= 70 ? c.text : pct >= 40 ? "text-white/70" : "text-white/50"
             )}>
                 {pillar.score}/{pillar.max}
             </span>
@@ -304,24 +304,24 @@ function InsightPanel({
             ))}
 
             {/* Gates & Data Quality footer */}
-            <div className="flex items-center justify-between pt-2 text-[10px]">
+            <div className="flex items-center justify-between pt-2 text-[11px]">
                 {gatesApplied && gatesApplied.length > 0 ? (
-                    <div className="flex items-center gap-1.5 text-rose-400/70">
-                        <Shield className="w-3 h-3" />
-                        <span className="font-medium">{gatesApplied.join(', ')}</span>
+                    <div className="flex items-center gap-1.5 text-rose-400">
+                        <Shield className="w-3.5 h-3.5" />
+                        <span className="font-bold">{gatesApplied.join(', ')}</span>
                     </div>
                 ) : (
-                    <div className="flex items-center gap-1.5 text-emerald-400/40">
-                        <Shield className="w-3 h-3" />
-                        <span>게이트 통과</span>
+                    <div className="flex items-center gap-1.5 text-emerald-400/70">
+                        <Shield className="w-3.5 h-3.5" />
+                        <span className="font-semibold">게이트 통과</span>
                     </div>
                 )}
                 {dataCompleteness !== undefined && (
                     <div className="flex items-center gap-1.5">
-                        <Database className="w-3 h-3 text-white/20" />
+                        <Database className="w-3.5 h-3.5 text-white/40" />
                         <span className={cn("font-mono font-bold",
-                            dataCompleteness >= 80 ? "text-emerald-300/60" :
-                                dataCompleteness >= 50 ? "text-amber-300/60" : "text-slate-500"
+                            dataCompleteness >= 80 ? "text-emerald-300" :
+                                dataCompleteness >= 50 ? "text-amber-300" : "text-slate-400"
                         )}>
                             {dataCompleteness}%
                         </span>
@@ -377,21 +377,21 @@ function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, call
 
             {/* Numeric labels — M7 style grid boxes */}
             <div className="grid grid-cols-3 gap-1">
-                <div className="bg-white/[0.04] rounded-lg py-1.5 px-2 border border-white/[0.06] text-center">
-                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold font-jakarta">STOP</p>
-                    <p className="text-[11px] font-bold text-rose-300/80 font-mono">${cutPrice.toFixed(0)}</p>
-                    <p className="text-[8px] text-rose-400/50 font-mono">{downside.toFixed(1)}%</p>
+                <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-white/[0.08] text-center">
+                    <p className="text-[11px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">STOP</p>
+                    <p className="text-xs font-bold text-rose-300 font-mono">${cutPrice.toFixed(0)}</p>
+                    <p className="text-[11px] text-rose-400/80 font-mono">{downside.toFixed(1)}%</p>
                 </div>
-                <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-emerald-500/10 text-center">
-                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold font-jakarta">ENTRY</p>
-                    <p className="text-[11px] font-bold text-white/80 font-mono">
-                        ${entryLow.toFixed(0)}<span className="text-white/30">~</span>${entryHigh.toFixed(0)}
+                <div className="bg-white/[0.08] rounded-lg py-1.5 px-2 border border-emerald-500/15 text-center">
+                    <p className="text-[11px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">ENTRY</p>
+                    <p className="text-xs font-bold text-white/90 font-mono">
+                        ${entryLow.toFixed(0)}<span className="text-white/50">~</span>${entryHigh.toFixed(0)}
                     </p>
                 </div>
-                <div className="bg-white/[0.04] rounded-lg py-1.5 px-2 border border-white/[0.06] text-center">
-                    <p className="text-[7px] text-white/30 uppercase tracking-[0.12em] font-bold font-jakarta">TARGET</p>
-                    <p className="text-[11px] font-bold text-emerald-300/80 font-mono">${targetPrice.toFixed(0)}</p>
-                    <p className="text-[8px] text-emerald-400/50 font-mono">+{upside.toFixed(1)}%</p>
+                <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-white/[0.08] text-center">
+                    <p className="text-[11px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">TARGET</p>
+                    <p className="text-xs font-bold text-emerald-300 font-mono">${targetPrice.toFixed(0)}</p>
+                    <p className="text-[11px] text-emerald-400/80 font-mono">+{upside.toFixed(1)}%</p>
                 </div>
             </div>
         </div>
@@ -424,42 +424,47 @@ export function AlphaCard({
 
     // Dynamic border based on conviction
     const borderColor = alphaScore >= 80
-        ? 'border-cyan-400/25 hover:border-cyan-400/40'
+        ? 'border-cyan-400/30 hover:border-cyan-400/50'
         : alphaScore >= 65
-            ? 'border-emerald-400/20 hover:border-emerald-400/35'
+            ? 'border-emerald-400/25 hover:border-emerald-400/40'
             : isHighRisk
-                ? 'border-rose-500/15 hover:border-rose-500/30'
-                : 'border-white/[0.10] hover:border-white/[0.18]';
+                ? 'border-rose-500/20 hover:border-rose-500/35'
+                : 'border-white/[0.12] hover:border-white/[0.22]';
 
     const isUp = changePct >= 0;
 
     return (
         <div
             className={cn(
-                // ── M7 Style Card Shell ──
+                // ── M7 Glassmorphism Card Shell ──
                 "relative flex flex-col rounded-xl border transition-all duration-300 overflow-hidden group cursor-pointer",
-                "bg-white/[0.02] backdrop-blur-md",
+                "bg-slate-800/40 backdrop-blur-xl shadow-lg shadow-black/20",
                 "hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(0,0,0,0.4)]",
                 borderColor,
             )}
             onClick={handleClick}
         >
             {/* Glass shine — M7 signature */}
-            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/15 to-transparent" />
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
             {/* ─── HEADER: Rank + Logo + Ticker | Score Ring ─── */}
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-3">
                     <RankBadge rank={rank} />
-                    <div className="w-8 h-8 rounded-lg bg-white/[0.06] border border-white/[0.08] overflow-hidden flex-shrink-0">
-                        <img src={logoUrl} alt={ticker} className="w-full h-full object-contain p-1"
-                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    {/* M7-style circular logo */}
+                    <div className="w-10 h-10 rounded-full p-[1px] bg-gradient-to-b from-white/20 to-white/5 shadow-lg flex-shrink-0">
+                        <div className="w-full h-full rounded-full bg-[#0a0f14] overflow-hidden flex items-center justify-center relative">
+                            <img src={logoUrl} alt={ticker} className="w-full h-full object-cover scale-[1.05]"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            <div className="absolute inset-0 rounded-full shadow-[inset_0_2px_10px_rgba(255,255,255,0.1)] pointer-events-none" />
+                        </div>
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
                             <h3 className="text-sm font-black text-white tracking-tight font-jakarta">{ticker}</h3>
                             {isHighRisk && (
-                                <span className="text-[7px] font-bold bg-rose-500/15 text-rose-300/80 px-1.5 py-0.5 rounded border border-rose-500/15 uppercase tracking-wider font-jakarta">
+                                <span className="text-[11px] font-bold bg-rose-500/15 text-rose-300 px-1.5 py-0.5 rounded border border-rose-500/20 uppercase tracking-wider font-jakarta">
                                     SPEC
                                 </span>
                             )}
@@ -495,11 +500,11 @@ export function AlphaCard({
                     <span className={cn("mt-0.5 flex-shrink-0", entrySignal.color)}>{entrySignal.icon}</span>
                     <div className="flex-1">
                         <div className="flex items-center justify-between">
-                            <span className={cn("text-xs font-bold", entrySignal.color)}>{entrySignal.label}</span>
-                            <span className={cn("text-[11px] font-mono", entrySignal.color)}>{entrySignal.detail}</span>
+                            <span className={cn("text-[13px] font-bold", entrySignal.color)}>{entrySignal.label}</span>
+                            <span className={cn("text-xs font-mono font-semibold", entrySignal.color)}>{entrySignal.detail}</span>
                         </div>
                         {actionKR && (
-                            <p className="text-[11px] text-white/50 mt-1 leading-relaxed">{actionKR}</p>
+                            <p className="text-[11px] text-white/70 mt-1 leading-relaxed">{actionKR}</p>
                         )}
                     </div>
                 </div>
@@ -507,7 +512,7 @@ export function AlphaCard({
 
             {/* ─── PRICE LEVEL BAR ─── */}
             {entryLow > 0 && (
-                <div className="px-4 pb-3">
+                <div className="mx-4 mb-3 p-3 rounded-lg bg-gradient-to-br from-white/[0.10] to-white/[0.04] border border-white/[0.12]">
                     <PriceLevelBar
                         price={price}
                         entryLow={entryLow}
@@ -520,14 +525,14 @@ export function AlphaCard({
             )}
 
             {/* ─── QUICK STATS (M7 grid style) ─── */}
-            <div className="px-4 pb-2">
-                <div className="flex items-center justify-between text-[10px] text-white/40">
+            <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-white/[0.08] border border-white/[0.10]">
+                <div className="flex items-center justify-between text-[11px] text-white/60">
                     <div className="flex items-center gap-3">
-                        {callWall ? <span>CW <span className="text-white/60 font-mono font-medium">${callWall.toFixed(0)}</span></span> : null}
-                        {putFloor ? <span>PF <span className="text-white/60 font-mono font-medium">${putFloor.toFixed(0)}</span></span> : null}
+                        {callWall ? <span>CW <span className="text-white/80 font-mono font-bold">${callWall.toFixed(0)}</span></span> : null}
+                        {putFloor ? <span>PF <span className="text-white/80 font-mono font-bold">${putFloor.toFixed(0)}</span></span> : null}
                         {whaleNetM !== undefined && whaleNetM !== 0 && (
                             <span className={cn("font-bold flex items-center gap-0.5",
-                                whaleNetM >= 0 ? 'text-emerald-400/60' : 'text-rose-400/60'
+                                whaleNetM >= 0 ? 'text-emerald-400/90' : 'text-rose-400/90'
                             )}>
                                 <Waves className="w-3 h-3" />
                                 {whaleNetM >= 0 ? '+' : ''}{whaleNetM.toFixed(1)}M
@@ -535,8 +540,8 @@ export function AlphaCard({
                         )}
                     </div>
                     {rr > 0 && (
-                        <span className="text-white/40 font-mono">
-                            R:R <span className={cn("font-bold", rr >= 2 ? 'text-emerald-300/70' : 'text-white/50')}>{rr.toFixed(1)}:1</span>
+                        <span className="text-white/60 font-mono">
+                            R:R <span className={cn("font-bold", rr >= 2 ? 'text-emerald-300' : 'text-white/70')}>{rr.toFixed(1)}:1</span>
                         </span>
                     )}
                 </div>
@@ -544,23 +549,23 @@ export function AlphaCard({
 
             {/* ─── WHY (Analysis text — M7 card analysis style) ─── */}
             {whyKR && (
-                <div className="px-4 pb-3">
-                    <p className="text-[11px] text-white/40 leading-relaxed line-clamp-3">{whyKR}</p>
+                <div className="mx-4 mb-3 px-3 py-2 rounded-lg bg-white/[0.08] border border-white/[0.10]">
+                    <p className="text-[11px] text-white/70 leading-relaxed line-clamp-3">{whyKR}</p>
                 </div>
             )}
 
             {/* ─── TRIGGER BADGES (M7 tag style) ─── */}
             {triggerCodes && triggerCodes.length > 0 && (
-                <div className="px-4 pb-3 flex flex-wrap gap-1">
+                <div className="mx-4 mb-3 px-3 py-2 rounded-lg bg-white/[0.08] border border-white/[0.10] flex flex-wrap gap-1">
                     {triggerCodes.slice(0, 6).map(code => {
                         const t = TRIGGER_CONFIG[code];
                         if (!t) return null;
                         return (
                             <span key={code} className={cn(
-                                "text-[9px] font-bold px-1.5 py-1 rounded-md border flex items-center gap-1",
-                                t.type === 'positive' ? "bg-emerald-500/[0.06] text-emerald-300/70 border-emerald-500/10" :
-                                    t.type === 'negative' ? "bg-rose-500/[0.06] text-rose-300/70 border-rose-500/10" :
-                                        "bg-white/[0.04] text-white/40 border-white/[0.06]"
+                                "text-[11px] font-bold px-1.5 py-1 rounded-md border flex items-center gap-1",
+                                t.type === 'positive' ? "bg-emerald-500/[0.08] text-emerald-300 border-emerald-500/15" :
+                                    t.type === 'negative' ? "bg-rose-500/[0.08] text-rose-300 border-rose-500/15" :
+                                        "bg-white/[0.06] text-white/60 border-white/[0.08]"
                             )}>
                                 {t.icon}
                                 {t.label}
@@ -577,8 +582,8 @@ export function AlphaCard({
                     className={cn(
                         "w-full flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-bold transition-all duration-300 border",
                         showInsight
-                            ? "bg-white/[0.06] border-white/[0.12] text-white/60"
-                            : "bg-white/[0.02] border-white/[0.05] text-white/30 hover:text-white/50 hover:bg-white/[0.04]"
+                            ? "bg-white/[0.08] border-white/[0.15] text-white/80"
+                            : "bg-white/[0.04] border-white/[0.08] text-white/60 hover:text-white/80 hover:bg-white/[0.06]"
                     )}
                 >
                     <Gauge className="w-3.5 h-3.5" />

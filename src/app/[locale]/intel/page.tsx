@@ -14,7 +14,7 @@ export default async function IntelPage({ params }: PageProps) {
     const { locale } = await params;
 
     return (
-        <div className="flex flex-col min-h-screen bg-[#05090f]">
+        <div className="flex flex-col min-h-screen bg-[#0a1120]">
             <Suspense fallback={null}>
             </Suspense>
             <div className="flex-1 relative">

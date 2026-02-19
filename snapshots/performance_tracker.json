@@ -733,5 +733,20 @@
       }
     ],
     "calculated": false
+  },
+  {
+    "date": "2026-02-18",
+    "reportType": "morning",
+    "sessionType": "pre",
+    "timestamp": "2026-02-19T13:47:25.927Z",
+    "tickers": [
+      {
+        "symbol": "HLF",
+        "rank": 1,
+        "baselinePrice": 16.54,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
   }
 ]

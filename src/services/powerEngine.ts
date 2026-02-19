@@ -13,7 +13,7 @@ import {
     PowerMeta
 } from './engineConfig';
 import { MAGNIFICENT_7, BIO_LEADERS_TOP5, DATACENTER_TOP5, getSectorForTicker } from './universePolicy';
-import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, type AlphaSession, type AlphaResult } from './alphaEngine';
+import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, calculateTradePlan, type AlphaSession, type AlphaResult, type TradePlan } from './alphaEngine';
 
 // === GUARDIAN SIGNAL INTEGRATION (Phase 4) ===
 export interface GuardianSignal {
@@ -392,12 +392,37 @@ export function computeQualityTier(
             sentiment: sentiment ?? null,
             wasInPrevReport,
             optionsDataAvailable: !!optionsComplete,
-            // [V3.4] Pre-Market Validation
-            preMarketPrice: evidence?.price?.preMarketPrice ?? null,
-            preMarketChangePct: evidence?.price?.preMarketChangePct ?? null,
+            // [V5] Pre-Market data for PM Verification Layer
+            preMarketPrice: evidence?.price?.pmPrice ?? null,
+            preMarketChangePct: evidence?.price?.pmChangePct ?? null,
         });
     } catch (e: any) {
         console.error(`[PowerEngine] V3 alpha failed for ${symbol}:`, e?.message || e);
+    }
+
+    // [V5] Trade Plan — 진입/목표/손절 자동 계산
+    let tradePlan: TradePlan | null = null;
+    if (alphaV3 && alphaV3.score >= 60) {
+        try {
+            tradePlan = calculateTradePlan({
+                regClose: evidence?.price?.last || 0,
+                prevClose: evidence?.price?.prevClose || 0,
+                pmPrice: evidence?.price?.pmPrice ?? null,
+                pmChangePct: evidence?.price?.pmChangePct ?? null,
+                changePct: evidence?.price?.changePct || 0,
+                vwap: evidence?.price?.vwap ?? null,
+                sma20: evidence?.price?.sma20 ?? null,
+                callWall: evidence?.options?.callWall ?? null,
+                putFloor: evidence?.options?.putFloor ?? null,
+                maxPain: evidence?.options?.maxPain ?? null,
+                history3d: evidence?.price?.history3d || [],
+                alphaScore: alphaV3.score,
+                gatesApplied: alphaV3.gatesApplied || [],
+                atmIv: evidence?.options?.atmIv ?? null,
+            });
+        } catch (e: any) {
+            console.error(`[PowerEngine] TradePlan failed for ${symbol}:`, e?.message || e);
+        }
     }
 
     // Build alphaV3 payload for return
@@ -413,6 +438,7 @@ export function computeQualityTier(
         gatesApplied: alphaV3.gatesApplied,
         dataCompleteness: alphaV3.dataCompleteness,
         dataCompletenessLabel: alphaV3.dataCompletenessLabel,
+        tradePlan: tradePlan || undefined,
     } : undefined;
 
     // [P0] Determine tier based on completeness and score

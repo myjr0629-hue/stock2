@@ -1660,23 +1660,23 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
                             <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 pt-4">
                                 <div>
                                     <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
-                                            <Activity className="w-3 h-3 text-emerald-500" />
+                                        <span className="text-xs font-bold text-slate-300 tracking-widest uppercase flex items-center gap-2">
+                                            <Activity className="w-3.5 h-3.5 text-emerald-500" />
                                             SIGNUM INTELLIGENCE
                                         </span>
                                     </div>
                                     <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-3">
                                         <span className="text-emerald-500">ALPHA REPORT</span>
-                                        <span className={`text-[10px] font-bold font-mono px-2 py-0.5 rounded border border-opacity-20 flex items-center gap-1.5 align-middle ${getRegimeColor(regime)}`}>
+                                        <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded border border-opacity-20 flex items-center gap-1.5 align-middle ${getRegimeColor(regime)}`}>
                                             {getRegimeText(regime)}
                                         </span>
                                     </h1>
-                                    <p className="text-slate-400 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
+                                    <p className="text-slate-300 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
                                         AI 엔진이 선별한 <span className="text-slate-300 font-bold">오늘의 최적 진입 종목 12선</span>
                                     </p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-slate-500 font-mono text-[10px] mt-2 bg-slate-800/50 px-2 py-1 rounded inline-block">
+                                    <p className="text-slate-400 font-mono text-xs mt-2 bg-slate-800/50 px-2 py-1 rounded inline-block">
                                         ID: {report?.meta?.id?.toUpperCase() || "SYNC"} • {report?.meta?.generatedAtET || "WAITING"}
                                     </p>
                                 </div>
@@ -1684,16 +1684,16 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
                                 {/* Summary Stats */}
                                 <div className="flex flex-col sm:flex-row items-center gap-4">
                                     <div className="flex items-center gap-3">
-                                        <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded">
-                                            <span className="text-[10px] text-slate-500 block">분석 종목</span>
+                                        <div className="px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+                                            <span className="text-xs text-slate-300 block font-semibold">분석 종목</span>
                                             <span className="text-sm font-mono font-bold text-white">{alphaItems?.length || 0}개</span>
                                         </div>
-                                        <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded">
-                                            <span className="text-[10px] text-slate-500 block">옵션 커버리지</span>
+                                        <div className="px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+                                            <span className="text-xs text-slate-300 block font-semibold">옵션 커버리지</span>
                                             <span className="text-sm font-mono font-bold text-emerald-400">{report?.meta?.optionsStatus?.coveragePct || 0}%</span>
                                         </div>
-                                        <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded">
-                                            <span className="text-[10px] text-slate-500 block">생성 시각</span>
+                                        <div className="px-4 py-2 bg-slate-900 border border-slate-700 rounded">
+                                            <span className="text-xs text-slate-300 block font-semibold">생성 시각</span>
                                             <span className="text-sm font-mono font-bold text-slate-300">{report?.meta?.generatedAtET?.split(' ')[1]?.slice(0, 5) || '—'}</span>
                                         </div>
                                     </div>

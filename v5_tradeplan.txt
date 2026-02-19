@@ -1,0 +1,128 @@
+V5 TRADE PLAN REPORT
+Generated: 2026-02-19T13:47:25.927Z
+
+1. HLF | Score: 79 | Gates: PM_CONFIRM
+   RegClose: $16.54 (3.76%) | PM: $18.56 (12.21%)
+   --- TRADE PLAN ---
+   Entry: $18.09 (zone: $17.89 ~ $18.36)
+   Strategy: PM 갭 +12.2% — 큰 갭, 의미있는 풀백 대기 필수
+   Target1: $18.53 | Target2: $18.78
+   TargetBasis: ATR 기반 (CallWall 이미 돌파 또는 데이터 없음) | IV Crush 위험으로 보수적 조정
+   StopLoss: $17.42 (ATR 기반)
+   R/R: 0.65 | ATR: $0.67
+   Note: R/R 부적합 — 진입 보류
+
+2. RELY | Score: 76 | Gates: EXTREME_GAP_RISK
+   RegClose: $13.61 (4.05%) | PM: $16.44 (20.79%)
+   --- TRADE PLAN ---
+   Entry: $15.79 (zone: $15.63 ~ $16.01)
+   Strategy: PM 갭 +20.8% — 극단적 갭, Gap Trap 주의. VWAP 리테스트 이후만 진입
+   Target1: $16.1 | Target2: $16.33
+   TargetBasis: ATR 기반 (CallWall 이미 돌파 또는 데이터 없음) | IV Crush 위험으로 보수적 조정
+   StopLoss: $15.26 (ATR 기반)
+   R/R: 0.57 | ATR: $0.54
+   Note: ⚠ EXTREME GAP RISK — 추격매수 금지. R/R 부적합 — 진입 보류
+
+3. RKLB | Score: 75 | Gates: SQUEEZE_BUILDING, SHORT_NOTED, PM_DIVERGE
+   RegClose: $74.42 (6.48%) | PM: $73.56 (-1.16%)
+   --- TRADE PLAN ---
+   Entry: $73.56 (zone: $71.97 ~ $74.62)
+   Strategy: PM 하락 -1.2% — 시가 관찰 후 반등 확인 시 진입
+   Target1: $80 | Target2: $85.29
+   TargetBasis: CallWall $80.00 → 감마 헤지 가속 시 +ATR
+   StopLoss: $70 (PutFloor $70.00)
+   R/R: 1.81 | ATR: $5.29
+   Note: R/R 낮음 — 진입 재고 또는 풀백 대기
+
+4. DASX | Score: 73 | Gates: SHORT_NOTED, PM_CONFIRM
+   RegClose: $10.34 (14.38%) | PM: $11.80 (14.12%)
+   --- TRADE PLAN ---
+   Entry: $11.35 (zone: $11.15 ~ $11.61)
+   Strategy: PM 갭 +14.1% — 큰 갭, 의미있는 풀백 대기 필수
+   Target1: $11.95 | Target2: $12.32
+   TargetBasis: ATR 기반 (CallWall 이미 돌파 또는 데이터 없음) | IV Crush 위험으로 보수적 조정
+   StopLoss: $11 (PutFloor $11.00)
+   R/R: 1.74 | ATR: $0.65
+   Note: R/R 낮음 — 진입 재고 또는 풀백 대기
+
+5. PL | Score: 72 | Gates: SQUEEZE_BUILDING
+   RegClose: $23.74 (6.89%) | PM: $23.64 (-0.42%)
+   --- TRADE PLAN ---
+   Entry: $23.64 (zone: $23.09 ~ $24)
+   Strategy: PM 하락 -0.4% — 시가 관찰 후 반등 확인 시 진입
+   Target1: $26.37 | Target2: $28.18
+   TargetBasis: ATR 기반 (CallWall 이미 돌파 또는 데이터 없음)
+   StopLoss: $22.24 (직전장 저가 $22.24)
+   R/R: 1.95 | ATR: $1.82
+   Note: R/R 낮음 — 진입 재고 또는 풀백 대기
+
+6. APPN | Score: 69 | Gates: SHORT_NOTED, PM_MILD_CONFIRM
+   RegClose: $24.06 (4.43%) | PM: $27.72 (15.21%)
+   --- TRADE PLAN ---
+   Entry: $26.47 (zone: $26.15 ~ $26.88)
+   Strategy: PM 갭 +15.2% — 극단적 갭, Gap Trap 주의. VWAP 리테스트 이후만 진입
+   Target1: $27.19 | Target2: $27.62
+   TargetBasis: ATR 기반 (CallWall 이미 돌파 또는 데이터 없음) | IV Crush 위험으로 보수적 조정
+   StopLoss: $25.42 (ATR 기반)
+   R/R: 0.7 | ATR: $1.05
+   Note: R/R 부적합 — 진입 보류
+
+7. AMGN | Score: 68 | Gates: SHORT_NOTED
+   RegClose: $379.73 (1.71%) | PM: $378.12 (-0.42%)
+   --- TRADE PLAN ---
+   Entry: $378.12 (zone: $375.66 ~ $379.77)
+   Strategy: PM 하락 -0.4% — 시가 관찰 후 반등 확인 시 진입
+   Target1: $390.43 | Target2: $398.64
+   TargetBasis: ATR 기반 (CallWall 이미 돌파 또는 데이터 없음)
+   StopLoss: $370.44 (직전장 저가 $370.44)
+   R/R: 1.6 | ATR: $8.21
+   Note: R/R 낮음 — 진입 재고 또는 풀백 대기
+
+8. ROK | Score: 63 | Gates: 
+   RegClose: $396.46 (2.06%) | PM: $0.00 (N/A)
+   --- TRADE PLAN ---
+   Entry: $396.46 (zone: $393.47 ~ $400.95)
+   Strategy: PM 데이터 없음 — 시가 근처 진입, 첫 5분 VWAP 확인
+   Target1: $410 | Target2: $424.96
+   TargetBasis: CallWall $410.00 → 감마 헤지 가속 시 +ATR
+   StopLoss: $387.18 (직전장 저가 $387.18)
+   R/R: 1.46 | ATR: $14.95
+   Note: R/R 낮음 — 진입 재고 또는 풀백 대기
+
+9. VTEC | Score: 63 | Gates: SHORT_NOTED, RSI_MOMENTUM_ALIVE, EXTREME_GAP_RISK
+   RegClose: $101.47 (0.00%) | PM: $123.00 (21.22%)
+   --- TRADE PLAN ---
+   Entry: $121.78 (zone: $121.48 ~ $122.19)
+   Strategy: PM 갭 +21.2% — 극단적 갭, Gap Trap 주의. VWAP 리테스트 이후만 진입
+   Target1: $123.3 | Target2: $124.32
+   TargetBasis: ATR 기반 (CallWall 이미 돌파 또는 데이터 없음)
+   StopLoss: $120.77 (ATR 기반)
+   R/R: 1.5 | ATR: $1.01
+   Note: ⚠ EXTREME GAP RISK — 추격매수 금지. R/R 낮음 — 진입 재고 또는 풀백 대기
+
+10. PONY | Score: 62 | Gates: 
+   RegClose: $13.65 (-0.87%) | PM: $13.60 (-0.37%)
+   --- TRADE PLAN ---
+   Entry: $13.6 (zone: $13.41 ~ $13.73)
+   Strategy: PM 하락 -0.4% — 시가 관찰 후 반등 확인 시 진입
+   Target1: $15 | Target2: $15.65
+   TargetBasis: CallWall $15.00 → 감마 헤지 가속 시 +ATR
+   StopLoss: $13.34 (직전장 저가 $13.34)
+   R/R: 5.38 | ATR: $0.65
+   Note: R/R 우수 — 표준 포지션 유효
+
+11. QCOM | Score: 61 | Gates: 
+   RegClose: $143.24 (0.43%) | PM: $142.95 (-0.20%)
+   --- TRADE PLAN ---
+   Entry: $142.95 (zone: $141.75 ~ $143.75)
+   Strategy: PM 하락 -0.2% — 시가 관찰 후 반등 확인 시 진입
+   Target1: $148.95 | Target2: $152.94
+   TargetBasis: ATR 기반 (CallWall 이미 돌파 또는 데이터 없음)
+   StopLoss: $140.72 (직전장 저가 $140.72)
+   R/R: 2.69 | ATR: $4
+   Note: R/R 적정 — 소규모 포지션 권장
+
+12. BIIB | Score: 59 | Gates: 
+   RegClose: $194.13 (-0.76%) | PM: $193.14 (-0.51%)
+   --- NO TRADE PLAN (score < 60) ---
+

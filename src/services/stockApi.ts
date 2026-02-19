@@ -13,9 +13,9 @@ const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_K
 const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
 
 // [S-56.4.5c] Concurrency constants for legacy functions
-const REPORT_CONCURRENCY = 2;
+const REPORT_CONCURRENCY = 5;  // [V4.5] Matches massiveClient
 const SPOT_CONCURRENCY = 5;
-const FIXED_DELAY_MS = 200;
+const FIXED_DELAY_MS = 250;    // [V4.5] Matches massiveClient BASE_DELAY_MS
 
 // const DISABLE_OPTIONS_IN_DEV = process.env.NODE_ENV !== "production"; // [S-17] Force Unblock for Demo
 

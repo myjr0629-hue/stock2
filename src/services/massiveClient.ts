@@ -117,9 +117,10 @@ interface QueueState {
 const reportState: QueueState = { active: 0, queue: [] };
 const spotState: QueueState = { active: 0, queue: [] };
 
-const REPORT_CONCURRENCY = 2;
+const REPORT_CONCURRENCY = 5;  // [V4.5] Increased from 2 (was too conservative)
 const SPOT_CONCURRENCY = 5;
-const FIXED_DELAY_MS = 200;
+const BASE_DELAY_MS = 250;     // [V4.5] 250ms × 5 concurrency = max ~240 calls/min (within 250/min limit)
+let adaptiveDelayMs = BASE_DELAY_MS; // [V4.5] Adaptive: increases on 429, recovers on success
 
 function waitInQueue(isReport: boolean): Promise<void> {
     const state = isReport ? reportState : spotState;
@@ -135,7 +136,7 @@ function waitInQueue(isReport: boolean): Promise<void> {
 async function releaseQueue(isReport: boolean) {
     const state = isReport ? reportState : spotState;
     state.active--;
-    await new Promise(r => setTimeout(r, FIXED_DELAY_MS));
+    await new Promise(r => setTimeout(r, adaptiveDelayMs));
     const next = state.queue.shift();
     if (next) {
         state.active++;
@@ -248,13 +249,19 @@ export async function fetchMassive(
                         } else if (isOptionsEndpoint) {
                             console.warn(`[Massive] NOT caching empty options data for ${endpoint}`);
                         }
+                        // [V4.5] Gradually recover delay on successful requests
+                        if (adaptiveDelayMs > BASE_DELAY_MS) {
+                            adaptiveDelayMs = Math.max(BASE_DELAY_MS, adaptiveDelayMs * 0.9);
+                        }
                         return data;
                     }
 
                     if (res.status === 429) {
                         attempt++;
+                        // [V4.5] Adaptive backoff: increase global delay to prevent future 429s
+                        adaptiveDelayMs = Math.min(adaptiveDelayMs * 2, 2000);
                         const waitTime = 1000 * Math.pow(2, attempt);
-                        console.warn(`[Massive] 429 Rate Limit. Retrying in ${waitTime}ms...`);
+                        console.warn(`[Massive] 429 Rate Limit. Adaptive delay → ${adaptiveDelayMs}ms. Retrying in ${waitTime}ms...`);
                         await new Promise(r => setTimeout(r, waitTime));
                         continue;
                     }

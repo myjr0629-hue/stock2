@@ -70,6 +70,12 @@ export interface AlphaInput {
     tltChangePct?: number | null;
     gldChangePct?: number | null;
 
+    // === REGIME ENHANCEMENT (V4.5) — 24/7 reliable indicators ===
+    fearGreedScore?: number | null;     // 0-100 CNN Fear & Greed
+    dxy?: number | null;                // Dollar Index
+    realYieldStance?: 'TIGHT' | 'NEUTRAL' | 'EASY' | null;
+    rotationDirection?: 'RISK_ON' | 'RISK_OFF' | 'NEUTRAL' | null;
+
     // === CATALYST data ===
     impliedMovePct?: number | null;
     sentiment?: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL' | null;
@@ -133,7 +139,7 @@ export interface AlphaResult {
 // CONSTANTS
 // ============================================================================
 
-const ENGINE_VERSION = '3.4.0';
+const ENGINE_VERSION = '4.6.0';
 
 // Pillar max scores
 const PILLAR_MAX = {
@@ -173,6 +179,7 @@ const GRADE_THRESHOLDS = {
  */
 export function calculateAlphaScore(input: AlphaInput): AlphaResult {
     const startTime = Date.now();
+
 
     // 1. Calculate data completeness
     const completeness = calculateDataCompleteness(input);
@@ -215,6 +222,7 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
     // 5. Apply absolute gates
     const gatesResult = applyAbsoluteGates(rawScore, input);
     const finalScore = Math.round(Math.max(0, Math.min(100, gatesResult.adjustedScore)));
+
 
     // 6. Determine grade and action
     const grade = determineGrade(finalScore);
@@ -266,7 +274,10 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     // Factor 1: Price Change (0-8) — [V3.3.1] Recalibrated
     const changePct = input.changePct || 0;
     let changeScore: number;
-    if (changePct >= 3) changeScore = 8;         // 3%+ = max (was 5%+)
+    // [V4.5] Sweet spot 3-8% = max. Above 8% = diminishing (chase risk)
+    if (changePct >= 3 && changePct <= 8) changeScore = 8;  // Sweet spot
+    else if (changePct > 8 && changePct <= 15) changeScore = 6; // Overheated
+    else if (changePct > 15) changeScore = 3;                // Surge = chase risk
     else if (changePct >= 2) changeScore = 7;
     else if (changePct >= 1) changeScore = 5;
     else if (changePct >= 0.5) changeScore = 4;
@@ -288,8 +299,8 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
         else vwapScore = 0;
         factors.push({ name: 'vwapPosition', value: round1(vwapScore), max: 5, detail: `VWAP거리 ${vwapDist >= 0 ? '+' : ''}${vwapDist.toFixed(1)}%` });
     } else {
-        // No VWAP → changePct positive = likely above VWAP
-        vwapScore = changePct > 1 ? 4 : changePct > 0 ? 3 : 1;
+        // [V4.5] No VWAP → conservative estimate (was 3-4, now 2)
+        vwapScore = changePct > 1 ? 3 : changePct > 0 ? 2 : 1;
         factors.push({ name: 'vwapPosition', value: round1(vwapScore), max: 5, detail: 'VWAP 없음(추정)' });
     }
     total += vwapScore;
@@ -457,12 +468,12 @@ function calculateStructure(input: AlphaInput): PillarDetail {
     );
 
     if (!optionsAvailable) {
-        // [V3.3.1] No options data → neutral baseline (not penalized for missing data)
+        // [V4.5] No options data → low baseline (data absence = uncertainty, not neutral)
         factors.push({ name: 'optionsData', value: 0, max: 25, detail: '옵션 데이터 없음' });
         return {
-            score: 13, // Neutral baseline when no data (was 8)
+            score: 8, // [V4.5] Reduced from 13 → 8 (uncertainty penalty, not zero)
             max: PILLAR_MAX.STRUCTURE,
-            pct: Math.round((13 / PILLAR_MAX.STRUCTURE) * 100),
+            pct: Math.round((8 / PILLAR_MAX.STRUCTURE) * 100),
             factors,
         };
     }
@@ -476,14 +487,15 @@ function calculateStructure(input: AlphaInput): PillarDetail {
     let gammaScore = 0;
     const gammaFlipBonus = getGammaFlipBonus(input.price, input.gammaFlipLevel);
 
-    // GEX direction: positive = dealer support (good), negative = amplification (squeeze potential)
+    // [V4.6] GEX direction — thresholds calibrated for mid/large caps (not just mega-caps)
+    // Discovery 종목 GEX range: -3K ~ -83K. 3일 수익 관점: negative GEX = 가격 증폭
     const gex = input.gex || 0;
     let gexDirectionBonus = 0;
-    if (gex > 2000000) gexDirectionBonus = 2;       // Strong positive GEX — dealer support
+    if (gex > 500000) gexDirectionBonus = 2;        // Strong positive GEX — dealer support
     else if (gex > 0) gexDirectionBonus = 1;         // Positive GEX — mild support
-    else if (gex < -5000000) gexDirectionBonus = 2;  // [V4.1] Very strong negative — explosive squeeze potential
-    else if (gex < -1000000) gexDirectionBonus = 1;  // [V4.1] Moderate negative — amplification potential
-    else gexDirectionBonus = 0;                       // Near-zero = no directional signal
+    else if (gex < -50000) gexDirectionBonus = 2;    // [V4.6] Negative GEX = price amplification (3-day catalyst)
+    else if (gex < -10000) gexDirectionBonus = 1;    // [V4.6] Moderate negative = amplification potential
+    else gexDirectionBonus = 0;
 
     gammaScore = clamp(gammaFlipBonus + gexDirectionBonus, 0, 5);
     const gexLabel = gex > 0 ? `GEX+$${(gex / 1e6).toFixed(0)}M` : `GEX-$${(Math.abs(gex) / 1e6).toFixed(0)}M`;
@@ -587,24 +599,30 @@ function calculateFlow(input: AlphaInput): PillarDetail {
         else darkPoolScore = 1;
         factors.push({ name: 'darkPool', value: round1(darkPoolScore), max: 7, detail: `Dark Pool ${dp.toFixed(1)}%` });
     } else {
-        darkPoolScore = 3; // [V3.3.1] Neutral when no data (was 2)
-        factors.push({ name: 'darkPool', value: 3, max: 7, detail: 'Dark Pool 데이터 없음' });
+        darkPoolScore = 2; // [V4.5] Reduced from 3 → 2 (no data = uncertain, not neutral)
+        factors.push({ name: 'darkPool', value: 2, max: 7, detail: 'Dark Pool 데이터 없음' });
     }
     total += darkPoolScore;
 
-    // Factor 2: Whale Index (0-6) — [V3.3.1] Recalibrated
+    // Factor 2: Whale Index (0-6) — [V4.6] 3일 수익 관점: 기관 대형 매수 감지
     let whaleScore = 0;
     const wi = input.whaleIndex;
-    if (wi !== null && wi !== undefined) {
+    if (wi !== null && wi !== undefined && wi > 0) {
         if (wi >= 70) whaleScore = 6;
         else if (wi >= 55) whaleScore = 5;
-        else if (wi >= 40) whaleScore = 4;  // 40 = significant (was 50)
+        else if (wi >= 40) whaleScore = 4;
         else if (wi >= 25) whaleScore = 3;
         else whaleScore = 2;
         factors.push({ name: 'whaleIndex', value: round1(whaleScore), max: 6, detail: `Whale ${wi.toFixed(0)}` });
     } else {
-        whaleScore = 3; // [V3.3.1] Neutral (was 2)
-        factors.push({ name: 'whaleIndex', value: 3, max: 6, detail: 'Whale 데이터 없음' });
+        // [V4.6] GEX 기반 whaleIndex=0일 때 netFlow+blockTrades로 기관 활동 추정
+        // 3일 수익 관점: 대형 자금 유입 = 가격 지지 + 상승 지속
+        const nf = input.netFlow || 0;
+        const bt = input.blockTrades || 0;
+        if (nf > 5_000_000 && bt >= 5) { whaleScore = 5; factors.push({ name: 'whaleIndex', value: 5, max: 6, detail: `대량유입 $${(nf / 1e6).toFixed(1)}M+블록${bt}건` }); }
+        else if (nf > 1_000_000 || bt >= 5) { whaleScore = 4; factors.push({ name: 'whaleIndex', value: 4, max: 6, detail: `기관활동 $${(nf / 1e6).toFixed(1)}M/블록${bt}건` }); }
+        else if (nf > 100_000 || bt >= 3) { whaleScore = 3; factors.push({ name: 'whaleIndex', value: 3, max: 6, detail: `소규모유입 $${(nf / 1e3).toFixed(0)}K` }); }
+        else { whaleScore = 2; factors.push({ name: 'whaleIndex', value: 2, max: 6, detail: '기관활동 미감지' }); }
     }
     total += whaleScore;
 
@@ -620,25 +638,35 @@ function calculateFlow(input: AlphaInput): PillarDetail {
         else relVolScore = 1;
         factors.push({ name: 'relativeVol', value: round1(relVolScore), max: 5, detail: `RelVol ${rv.toFixed(1)}x` });
     } else {
-        relVolScore = 3; // [V3.3.1] Neutral (was 2)
-        factors.push({ name: 'relativeVol', value: 3, max: 5, detail: 'RelVol 데이터 없음' });
+        relVolScore = 2; // [V4.5] Reduced from 3 → 2
+        factors.push({ name: 'relativeVol', value: 2, max: 5, detail: 'RelVol 데이터 없음' });
     }
     total += relVolScore;
 
-    // Factor 4: Short Volume Protection (0-4)
-    // LOW short vol = safe = points. HIGH short vol = danger = 0
+    // Factor 4: Short Volume × Direction (0-4) — [V4.6] 3일 수익 관점
+    // 상승중 + 高ShortVol = 숏커버 연료 (3일 추가 상승 가능)
+    // 하락중 + 高ShortVol = 숏이 이기는 중 (3일 추가 하락 위험)
     let shortVolScore = 0;
     const sv = input.shortVolPct;
+    const chgForSV = input.changePct || 0;
     if (sv !== null && sv !== undefined) {
-        if (sv < 25) shortVolScore = 4;       // Very safe
-        else if (sv < 35) shortVolScore = 3;  // Safe
-        else if (sv < 45) shortVolScore = 2;  // Normal
-        else if (sv < 55) shortVolScore = 1;  // Elevated
-        else shortVolScore = 0;                // Dangerous
-        factors.push({ name: 'shortVolume', value: round1(shortVolScore), max: 4, detail: `Short Vol ${sv.toFixed(1)}%` });
+        if (chgForSV >= 1) {
+            // 상승 중 — 高SV = 숏커버 연료 (3일 추가 상승)
+            if (sv >= 50) { shortVolScore = 4; factors.push({ name: 'shortVolume', value: 4, max: 4, detail: `SV ${sv.toFixed(0)}%+상승→숏커버연료🔥` }); }
+            else if (sv >= 35) { shortVolScore = 3; factors.push({ name: 'shortVolume', value: 3, max: 4, detail: `SV ${sv.toFixed(0)}%+상승→커버잠재` }); }
+            else { shortVolScore = 2; factors.push({ name: 'shortVolume', value: 2, max: 4, detail: `SV ${sv.toFixed(0)}% 보통` }); }
+        } else if (chgForSV <= -1) {
+            // 하락 중 — 高SV = 숏이 이기는 중
+            if (sv >= 50) { shortVolScore = 0; factors.push({ name: 'shortVolume', value: 0, max: 4, detail: `SV ${sv.toFixed(0)}%+하락→숏우위⚠` }); }
+            else if (sv >= 35) { shortVolScore = 1; factors.push({ name: 'shortVolume', value: 1, max: 4, detail: `SV ${sv.toFixed(0)}%+하락` }); }
+            else { shortVolScore = 2; factors.push({ name: 'shortVolume', value: 2, max: 4, detail: `SV ${sv.toFixed(0)}% 보통` }); }
+        } else {
+            shortVolScore = 2;
+            factors.push({ name: 'shortVolume', value: 2, max: 4, detail: `SV ${sv.toFixed(0)}% 횡보` });
+        }
     } else {
         shortVolScore = 2;
-        factors.push({ name: 'shortVolume', value: 2, max: 4, detail: 'Short Vol 데이터 없음' });
+        factors.push({ name: 'shortVolume', value: 2, max: 4, detail: 'SV 데이터 없음' });
     }
     total += shortVolScore;
 
@@ -734,6 +762,37 @@ function calculateRegime(input: AlphaInput): PillarDetail {
     factors.push({ name: 'safeHaven', value: round1(safeHavenScore), max: 5, detail: safeHavenDetail });
     total += safeHavenScore;
 
+    // [V4.5] Factor 4: Fear & Greed Index (±2 bonus/penalty) — 24/7 reliable
+    const fg = input.fearGreedScore;
+    if (fg !== null && fg !== undefined) {
+        let fgBonus = 0;
+        if (fg >= 70) { fgBonus = 2; }       // Greed = bullish confirmation
+        else if (fg >= 50) { fgBonus = 1; }   // Neutral-bullish
+        else if (fg <= 25) { fgBonus = -2; }  // Extreme Fear
+        else if (fg <= 40) { fgBonus = -1; }  // Fear
+        total += fgBonus;
+        factors.push({ name: 'fearGreed', value: fgBonus, max: 2, detail: `F&G ${fg.toFixed(0)}` });
+    }
+
+    // [V4.5] Factor 5: DXY Dollar Strength (±1) — 24/7 reliable (FX market)
+    const dxy = input.dxy;
+    if (dxy !== null && dxy !== undefined) {
+        let dxyBonus = 0;
+        if (dxy > 105) { dxyBonus = -1; }       // Strong dollar = equity headwind
+        else if (dxy < 100) { dxyBonus = 1; }  // Weak dollar = equity tailwind
+        total += dxyBonus;
+        factors.push({ name: 'dxyStrength', value: dxyBonus, max: 1, detail: `DXY ${dxy.toFixed(1)}` });
+    }
+
+    // [V4.5] Factor 6: Real Yield Stance (±1) — 24/7 reliable (bond market)
+    if (input.realYieldStance) {
+        let yieldBonus = 0;
+        if (input.realYieldStance === 'EASY') { yieldBonus = 1; }
+        else if (input.realYieldStance === 'TIGHT') { yieldBonus = -1; }
+        total += yieldBonus;
+        factors.push({ name: 'realYield', value: yieldBonus, max: 1, detail: `금리 ${input.realYieldStance}` });
+    }
+
     total = clamp(total, 0, PILLAR_MAX.REGIME);
 
     return {
@@ -791,13 +850,16 @@ function calculateCatalyst(input: AlphaInput): PillarDetail {
     }
     total += eventScore;
 
-    // Factor 4: Continuation Bonus (0-3) — [V3.3.1] New stocks get 1pt baseline
+    // Factor 4: Continuation (0-3) — [V4.6] 3일 수익 관점: 모멘텀 지속 확인
     let contScore = 0;
     if (input.wasInPrevReport) {
-        contScore = 3;
-        factors.push({ name: 'continuation', value: 3, max: 3, detail: '전일 Top12 유지' });
+        // [V4.6] 이전 리포트 + 상승 지속 = 모멘텀 연속 (3일 수익 확률 높음)
+        const chgCont = input.changePct || 0;
+        if (chgCont >= 1) { contScore = 3; factors.push({ name: 'continuation', value: 3, max: 3, detail: '연속상승 유지🔥' }); }
+        else if (chgCont >= 0) { contScore = 2; factors.push({ name: 'continuation', value: 2, max: 3, detail: '전일 유지(횡보)' }); }
+        else { contScore = 1; factors.push({ name: 'continuation', value: 1, max: 3, detail: '전일 유지(하락전환)' }); }
     } else {
-        contScore = 1; // [V3.3.1] New stock = fresh potential (was 0)
+        contScore = 1;
         factors.push({ name: 'continuation', value: 1, max: 3, detail: '신규' });
     }
     total += contScore;
@@ -826,14 +888,54 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
     let score = rawScore;
     const gatesApplied: string[] = [];
 
-    // Gate 1: EXHAUSTION — RSI extreme + huge pump + volume spike
-    const rsi = input.rsi14 || 50;
+    // [V4.6] Gate 1: EXHAUSTION — 진짜 끝난 급등만 캡
+    // 3일 철학: 이미 터진 종목 추격 ❌, 달리는 말 올라타기 ✅
+    const rsi = input.rsi14 ?? null;
     const changePct = input.changePct || 0;
     const relVol = input.relVol || 1;
-    if (rsi >= 80 && changePct >= 12 && relVol >= 2) {
-        score = 0; // Nuclear reset
-        gatesApplied.push('EXHAUSTION');
-        return { adjustedScore: score, gatesApplied }; // Immediate return
+    const netFlowG = input.netFlow ?? 0;
+    const hasFuel = relVol >= 1.5 || netFlowG > 500000 || (input.shortVolPct ?? 0) >= 40;
+
+    if (changePct >= 20) {
+        // 하루 20%+: 연료 확인 — 기관매집+볼륨이면 달리는 말, 아니면 끝난 폭죽
+        if (hasFuel && netFlowG > 0) {
+            // 기관이 아직 사고 있다 → 3일 추가 상승 가능, 캡하지 않음
+            score = Math.min(score, 85); // 약한 캡만 (무한 점수 방지)
+            gatesApplied.push('SURGE_WITH_FUEL');
+        } else {
+            // 볼륨 죽고 기관 매도 중 → 끝난 급등
+            score = Math.min(score, 30);
+            gatesApplied.push('EXHAUSTION');
+        }
+    }
+
+    // [V4.6] Gate 1.5: SURGE 판단 — 달리는 말 vs 추격매수
+    if (changePct >= 10 && changePct < 20) {
+        const return3D = input.return3D ?? 0;
+        const isMultiDayTrend = return3D > 0 && changePct < return3D * 0.7; // 오늘이 3일 흐름의 일부
+
+        if (isMultiDayTrend && hasFuel) {
+            // 달리는 말 — 3일째 모멘텀 지속 중 + 연료 있음 → 보너스
+            score = score + 3;
+            gatesApplied.push('MOMENTUM_RIDE');
+        } else if (!hasFuel && netFlowG < 0) {
+            // 볼륨 없고 기관 매도 → 추격매수 위험
+            score = Math.min(score, 55);
+            gatesApplied.push('CHASE_RISK');
+        }
+        // 그 외: 판단 유보, 감점 없음
+    } else if (changePct >= 5 && changePct < 10) {
+        // 5-10% 상승: 이건 정상적인 모멘텀 구간 — 감점 없음, 연료 있으면 가산
+        if (hasFuel && (input.shortVolPct ?? 0) >= 40) {
+            score = score + 2; // 숏커버 연료 + 적당한 상승 = 3일 폭발 직전
+            gatesApplied.push('SQUEEZE_BUILDING');
+        }
+    }
+
+    // [V4.6] RSI null + big move: RSI 없으면 판단 불가 → 가벼운 보류만
+    if (rsi === null && changePct >= 12) {
+        score = Math.min(score, 75); // 12%+ 인데 RSI 확인 불가 → 느슨한 캡
+        gatesApplied.push('NO_RSI_CAUTION');
     }
 
     // Gate 2: FAKE PUMP — [V3.3] 다차원 교차 검증
@@ -891,6 +993,7 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
     // Gate 4: SHORT ANALYSIS — [V3.3] 숏커버/스퀴즈 교차 판단
     // 높은 공매도 = 위험이 아니라, 방향에 따라 기회일 수 있음
     const shortVol = input.shortVolPct;
+    let shortSqueezeApplied = false; // [V4.5] Track to prevent Gate 7 double-counting
     if (shortVol !== null && shortVol !== undefined && shortVol >= 55) {
         const squeezeVal = input.squeezeScore ?? 0;
 
@@ -898,6 +1001,7 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
             // 숏커버 랠리 + 스퀴즈 조건 → 오히려 보너스
             score = score + 5;
             gatesApplied.push('SHORT_SQUEEZE_MOMENTUM');
+            shortSqueezeApplied = true; // [V4.5] Mark to skip Gate 7
         } else if (changePct > 0 && relVol >= 1.2) {
             // 가격 상승 중 + 거래량 증가 → 숏커버 진행, 감점 안 함
             gatesApplied.push('SHORT_COVER_ACTIVE');
@@ -906,43 +1010,36 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
             score = score - 8;
             gatesApplied.push('SHORT_STORM');
         } else {
-            // 공매도 높지만 방향 불분명 → 경미한 감점
-            score = score - 3;
-            gatesApplied.push('SHORT_ELEVATED');
+            // [V4.6] 방향 불분명 — FLOW pillar에서 이미 방향별 점수 처리됨
+            // 이중 감점 방지를 위해 gate 감점 제거, 태그만 유지
+            gatesApplied.push('SHORT_NOTED');
         }
     }
 
-    // Gate 5: CONTEXT-AWARE RSI — Market regime adjusts thresholds
-    // Risk-On (NDX ≥ +0.5%): RSI 82, change 8%, cap 75 → 강세장 모멘텀 놓침 방지
-    // Normal:                 RSI 75, change 5%, cap 65 → 기존 동일
-    // Risk-Off (NDX ≤ -0.5%): RSI 72, change 4%, cap 55 → 약세장 가짜 반등 경고 강화
+    // [V4.6] Gate 5: RSI — 3일 모멘텀 관점
+    // 장기투자: RSI 70 = 과매수 = 위험. 3일 트레이딩: RSI 70 = 모멘텀 살아있음 = 기회
+    // "달리는 말" — RSI가 높다는 건 지금 힘이 있다는 뜻
     const ndx = input.ndxChangePct ?? 0;
-    let rsiThreshold = 75;
-    let changeThreshold = 5;
-    let rsiCap = 65;
-    if (ndx >= 0.5) {
-        // Risk-On: relax thresholds — market is genuinely strong
-        rsiThreshold = 82;
-        changeThreshold = 8;
-        rsiCap = 75;
-        if (rsi >= rsiThreshold && changePct > changeThreshold) {
-            score = Math.min(score, rsiCap);
-            gatesApplied.push('RSI_EXTREME_RISKON');
+    if (rsi !== null) {
+        if (rsi >= 85 && changePct >= 15) {
+            // RSI 극단 + 이미 대폭등 → 진짜 끝물, 3일 내 반락 확률 높음
+            score = Math.min(score, 60);
+            gatesApplied.push('RSI_BLOW_OFF');
+        } else if (rsi >= 70 && rsi < 85 && hasFuel) {
+            // RSI 70-85 + 연료 있음 = 달리는 말 → 감점 없음, 오히려 모멘텀 확인
+            score = score + 2;
+            gatesApplied.push('RSI_MOMENTUM_ALIVE');
+        } else if (rsi <= 30 && changePct > 0 && hasFuel) {
+            // RSI 과매도 + 반등 시작 + 연료 → 3일 반등 셋업
+            score = score + 3;
+            gatesApplied.push('RSI_BOUNCE_SETUP');
         }
-    } else if (ndx <= -0.5) {
-        // Risk-Off: tighten thresholds — suspect any big move
-        rsiThreshold = 72;
-        changeThreshold = 4;
-        rsiCap = 55;
-        if (rsi >= rsiThreshold && changePct > changeThreshold) {
-            score = Math.min(score, rsiCap);
-            gatesApplied.push('RSI_EXTREME_RISKOFF');
-        }
-    } else {
-        // Normal: original behavior
-        if (rsi >= 75 && changePct > 5) {
-            score = Math.min(score, 65);
-            gatesApplied.push('RSI_EXTREME');
+        // RSI 30-70: 정상 범위 → gate 개입 없음
+
+        // [V4.6] Risk-off 장세에서만 강한 캡 (시장 전체가 빠지는데 혼자 오르면 위험)
+        if (ndx <= -1.5 && rsi >= 75 && changePct >= 8) {
+            score = Math.min(score, 55);
+            gatesApplied.push('RISKOFF_DIVERGENCE');
         }
     }
 
@@ -952,12 +1049,11 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
         gatesApplied.push('DEAD_VOLUME');
     }
 
-    // Gate 7: SHORT SQUEEZE READY — high short vol + positive squeeze = potential cover rally (BONUS)
-    if (shortVol !== null && shortVol !== undefined && shortVol >= 45) {
+    // Gate 7: SHORT SQUEEZE READY — [V4.5] Only if Gate 4 didn't already apply squeeze bonus
+    if (!shortSqueezeApplied && shortVol !== null && shortVol !== undefined && shortVol >= 45) {
         const squeezeVal = input.squeezeScore ?? 0;
         if (squeezeVal >= 60 && changePct > 0 && relVol >= 1.5) {
-            // Short squeeze conditions: high shorts + squeeze score + price up + volume spike
-            score = score + 8; // Significant bonus
+            score = score + 8;
             gatesApplied.push('SHORT_SQUEEZE_READY');
         }
     }
@@ -977,6 +1073,52 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
             score = score + 5;
             gatesApplied.push('TREND_MOMENTUM_BONUS');
         }
+    }
+
+    // [V4.5] Gate 10: RISK_OFF_ROTATION — capital rotating to defense sectors
+    if (input.rotationDirection === 'RISK_OFF') {
+        score = Math.min(score, 65);
+        gatesApplied.push('RISK_OFF_ROTATION');
+    }
+
+    // ================================================================
+    // [V5] Gate 11: PM VERIFICATION — Phase 2 검증 레이어
+    // 기본분석(직전장) 결과를 PM 실시간 데이터로 확인/부정
+    // 철학: 분석은 직전장, 검증은 PM, 최종 확정은 둘의 조합
+    // ================================================================
+    const pmChg = input.preMarketChangePct;
+    if (pmChg !== null && pmChg !== undefined) {
+        const baseDir = changePct >= 0 ? 1 : -1; // 직전장 방향
+        const pmDir = pmChg >= 0 ? 1 : -1;       // PM 방향
+        const pmAbs = Math.abs(pmChg);
+        const sameDir = baseDir === pmDir;
+
+        if (sameDir && pmAbs >= 3 && pmAbs < 15) {
+            // PM 3-15%: 직전장과 같은 방향으로 적정 갭 → 강한 확인
+            score = score + 5;
+            gatesApplied.push('PM_CONFIRM');
+        } else if (sameDir && pmAbs >= 1 && pmAbs < 3) {
+            // PM 1-3%: 약한 확인
+            score = score + 3;
+            gatesApplied.push('PM_SOFT_CONFIRM');
+        } else if (sameDir && pmAbs >= 15 && pmAbs < 20) {
+            // PM 15-20%: 확인되지만 갭 부담 있음
+            score = score + 2;
+            gatesApplied.push('PM_MILD_CONFIRM');
+        } else if (sameDir && pmAbs >= 20) {
+            // PM 20%+: Gap Trap 위험 — Sell the News
+            // 보너스 없음 + 경고 태그
+            gatesApplied.push('EXTREME_GAP_RISK');
+        } else if (!sameDir && pmAbs >= 3) {
+            // PM이 직전장 반대 방향으로 3%+ → 기본분석 부정
+            score = Math.min(score, 55);
+            gatesApplied.push('PM_REJECT');
+        } else if (!sameDir && pmAbs >= 1) {
+            // PM이 반대 방향 1-3% → 약한 부정, 가벼운 감점
+            score = score - 3;
+            gatesApplied.push('PM_DIVERGE');
+        }
+        // PM < 1%: 미세 변동 → gate 개입 없음
     }
 
     return { adjustedScore: score, gatesApplied };
@@ -1408,3 +1550,246 @@ export function gradeToNumber(grade: AlphaGrade): number {
  * Re-export V2 functions for backward compatibility
  */
 export { calculateOIHeat, getGammaFlipBonus, getWallDistanceScore, getVIXTermScore, getSafeHavenScore };
+
+// ================================================================
+// [V5] TRADE PLAN ENGINE — 실전 트레이딩용 진입/목표/손절 계산
+// 철학: PM 세션에서 검증된 종목의 현실적 진입가를 제시하고,
+//       3일 수익률 관점의 목표가와 리스크 관리 손절가를 계산
+// ================================================================
+
+export interface TradePlan {
+    entry: number;              // 계산된 진입가
+    entryZone: [number, number]; // 진입 범위 (하단, 상단)
+    entryStrategy: string;       // 진입 전략 설명
+    target1: number;            // 보수적 목표가
+    target2: number;            // 공격적 목표가
+    targetBasis: string;         // 목표가 근거
+    stopLoss: number;           // 손절가
+    stopBasis: string;          // 손절 근거
+    riskReward: number;         // 리스크/리워드 비율 (target1 기준)
+    atr: number;                // ATR (일일 평균 변동폭)
+    positionNote: string;       // 포지션 사이징 참고
+}
+
+export interface TradePlanInput {
+    regClose: number;           // 직전장 종가
+    prevClose: number;          // 전전일 종가
+    pmPrice: number | null;     // PM 현재가
+    pmChangePct: number | null; // PM 변동률 (vs 직전장 종가)
+    changePct: number;          // 직전장 변동률
+    vwap: number | null;        // VWAP
+    sma20: number | null;       // SMA20
+    callWall: number | null;    // Call Wall (최대 콜 OI 행사가)
+    putFloor: number | null;    // Put Floor (최대 풋 OI 행사가)
+    maxPain: number | null;     // Max Pain
+    history3d: any[];           // 3일 캔들 데이터 [최근, 전일, 전전일]
+    alphaScore: number;         // Alpha 점수 (Gate 적용 후)
+    gatesApplied: string[];     // 적용된 Gate 목록
+    atmIv: number | null;       // ATM Implied Volatility
+}
+
+export function calculateTradePlan(input: TradePlanInput): TradePlan | null {
+    const { regClose, pmPrice, pmChangePct, changePct, vwap, sma20,
+        callWall, putFloor, history3d, alphaScore, gatesApplied, atmIv } = input;
+
+    if (regClose <= 0) return null;
+
+    // ── ATR 계산 (True Range의 평균) ──
+    // history3d: [최근봉, 전일봉, 전전일봉] (reversed from asc)
+    let atr = 0;
+    if (history3d && history3d.length >= 2) {
+        const trs: number[] = [];
+        for (const bar of history3d) {
+            if (bar.h && bar.l) {
+                trs.push(bar.h - bar.l);
+            }
+        }
+        atr = trs.length > 0 ? trs.reduce((a, b) => a + b, 0) / trs.length : regClose * 0.03;
+    } else {
+        // history 없을 때 — 가격의 3%를 기본 ATR로 추정
+        atr = regClose * 0.03;
+    }
+
+    // ATR이 너무 작으면 최소값 보정 (페니스탁 등)
+    if (atr < regClose * 0.01) atr = regClose * 0.01;
+
+    // ── 기준 가격 결정 ──
+    // PM 데이터가 있으면 PM 가격이 실제 장 시작 가격에 가까움
+    const basePrice = (pmPrice && pmPrice > 0) ? pmPrice : regClose;
+    const pmGapPct = pmChangePct || 0;
+    const pmAbs = Math.abs(pmGapPct);
+
+    // ── ENTRY (진입가) 계산 ──
+    // 핵심 원칙: PM 갭이 클수록 장 시작 후 풀백(되돌림)을 기대하고 더 낮은 가격에 진입
+    let entry: number;
+    let entryLow: number;
+    let entryHigh: number;
+    let entryStrategy: string;
+
+    if (pmPrice === null || pmPrice <= 0) {
+        // PM 데이터 없음 → 직전장 종가 기준 진입
+        entry = regClose;
+        entryLow = regClose - atr * 0.2;
+        entryHigh = regClose + atr * 0.3;
+        entryStrategy = 'PM 데이터 없음 — 시가 근처 진입, 첫 5분 VWAP 확인';
+    } else if (pmAbs < 3) {
+        // 갭 < 3%: 적은 갭 → 시가 진입 가능
+        entry = pmPrice;
+        entryLow = pmPrice - atr * 0.2;
+        entryHigh = pmPrice + atr * 0.2;
+        entryStrategy = 'PM 갭 소폭 — 시가 근처 진입 유효';
+    } else if (pmAbs < 8) {
+        // 갭 3-8%: 적정 갭 → 첫 하락에 진입
+        const pullback = atr * 0.3;
+        entry = pmPrice - pullback;
+        entryLow = pmPrice - atr * 0.5;
+        entryHigh = pmPrice;
+        entryStrategy = `PM 갭 ${pmGapPct >= 0 ? '+' : ''}${pmGapPct.toFixed(1)}% — 시가 후 첫 풀백($${pullback.toFixed(2)} 조정) 대기`;
+    } else if (pmAbs < 15) {
+        // 갭 8-15%: 큰 갭 → 의미있는 되돌림 대기
+        const pullback = atr * 0.7;
+        entry = pmPrice - pullback;
+        entryLow = pmPrice - atr * 1.0;
+        entryHigh = pmPrice - atr * 0.3;
+        entryStrategy = `PM 갭 ${pmGapPct >= 0 ? '+' : ''}${pmGapPct.toFixed(1)}% — 큰 갭, 의미있는 풀백 대기 필수`;
+    } else {
+        // 갭 15%+: 극단적 갭 → 대폭 되돌림 또는 진입 보류
+        const pullback = atr * 1.2;
+        entry = pmPrice - pullback;
+        entryLow = pmPrice - atr * 1.5;
+        entryHigh = pmPrice - atr * 0.8;
+        entryStrategy = `PM 갭 ${pmGapPct >= 0 ? '+' : ''}${pmGapPct.toFixed(1)}% — 극단적 갭, Gap Trap 주의. VWAP 리테스트 이후만 진입`;
+    }
+
+    // PM이 하락일 경우 진입가 조정: 하락 갭은 되돌림을 기대하지 않고 시가에서 관찰
+    if (pmGapPct < 0 && pmPrice && pmPrice > 0) {
+        entry = pmPrice;
+        entryLow = pmPrice - atr * 0.3;
+        entryHigh = pmPrice + atr * 0.2;
+        entryStrategy = `PM 하락 ${pmGapPct.toFixed(1)}% — 시가 관찰 후 반등 확인 시 진입`;
+    }
+
+    // ── TARGET (목표가) 계산 ──
+    // 3일 수익률 관점: 보수적 = 1.5×ATR, 공격적 = 2.5×ATR
+    // 옵션 레벨이 있으면 그것을 우선 적용
+    let target1: number;
+    let target2: number;
+    let targetBasis: string;
+
+    // Call Wall 기반 목표가 (entry 위에 있는 경우만 유효)
+    const callWallValid = callWall && callWall > entry;
+
+    if (callWallValid && callWall) {
+        // Call Wall이 진입가 위에 있음 → 1차 목표 = Call Wall
+        target1 = callWall;
+        // 2차 목표 = Call Wall + 1×ATR (마켓메이커 감마 헤지로 돌파 시 가속)
+        target2 = callWall + atr * 1.0;
+        targetBasis = `CallWall $${callWall.toFixed(2)} → 감마 헤지 가속 시 +ATR`;
+    } else {
+        // Call Wall이 이미 돌파됨 또는 없음 → ATR 기반
+        target1 = entry + atr * 1.5;
+        target2 = entry + atr * 2.5;
+        targetBasis = 'ATR 기반 (CallWall 이미 돌파 또는 데이터 없음)';
+    }
+
+    // ATM IV가 극히 높으면 (200%+ = 어닝 직전) 목표가를 보수적 조정
+    // 100% 수준은 일반적 모멘텀 종목에서도 나타나므로 감산하지 않음
+    if (atmIv && atmIv > 200) {
+        target1 = target1 * 0.97; // 극단적 IV일 때만 3% 보수적
+        target2 = target2 * 0.95;
+        targetBasis += ' | IV Crush 위험으로 보수적 조정';
+    }
+
+    // Target 최소 보장: entry 이하가 되지 않도록 floor 설정
+    const minTarget1 = entry + atr * 0.5;
+    const minTarget2 = entry + atr * 1.0;
+    if (target1 < minTarget1) target1 = minTarget1;
+    if (target2 < minTarget2) target2 = minTarget2;
+
+    // ── STOP LOSS (손절가) 계산 ──
+    // 원칙: 가장 높은 지지선 중 가장 가까운 것
+    const stopCandidates: { price: number; label: string }[] = [];
+
+    // 1) Entry - 1×ATR (기술적 손절)
+    stopCandidates.push({ price: entry - atr * 1.0, label: 'ATR 기반' });
+
+    // 2) Put Floor (옵션 지지)
+    if (putFloor && putFloor > 0 && putFloor < entry) {
+        stopCandidates.push({ price: putFloor, label: 'PutFloor $' + putFloor.toFixed(2) });
+    }
+
+    // 3) VWAP (모멘텀 확인선 — VWAP 이탈 시 모멘텀 소실)
+    if (vwap && vwap > 0 && vwap < entry) {
+        stopCandidates.push({ price: vwap * 0.99, label: 'VWAP 이탈' }); // VWAP 1% 아래
+    }
+
+    // 4) SMA20 (중기 추세 확인)
+    if (sma20 && sma20 > 0 && sma20 < entry) {
+        stopCandidates.push({ price: sma20 * 0.99, label: 'SMA20 이탈' });
+    }
+
+    // 5) 어제 저가 (최근 지지)
+    if (history3d && history3d.length > 0 && history3d[0].l) {
+        stopCandidates.push({ price: history3d[0].l, label: '직전장 저가 $' + history3d[0].l.toFixed(2) });
+    }
+
+    // 가장 높은 지지선을 손절로 (=가장 타이트한 손절)
+    // 단, entry의 80% 미만은 너무 넓으므로 제외
+    const validStops = stopCandidates.filter(s => s.price >= entry * 0.80 && s.price < entry);
+
+    let stopLoss: number;
+    let stopBasis: string;
+    if (validStops.length > 0) {
+        // 가장 높은 (타이트한) 지지선 사용
+        const bestStop = validStops.sort((a, b) => b.price - a.price)[0];
+        stopLoss = bestStop.price;
+        stopBasis = bestStop.label;
+    } else {
+        // 유효 후보 없으면 ATR 기반
+        stopLoss = entry - atr * 1.0;
+        stopBasis = 'ATR 기반 (지지선 부재)';
+    }
+
+    // ── RISK/REWARD ──
+    const risk = entry - stopLoss;
+    const reward = target1 - entry;
+    const riskReward = risk > 0 ? round2(reward / risk) : 0;
+
+    // ── POSITION NOTE ──
+    let positionNote = '';
+    if (riskReward >= 3) {
+        positionNote = 'R/R 우수 — 표준 포지션 유효';
+    } else if (riskReward >= 2) {
+        positionNote = 'R/R 적정 — 소규모 포지션 권장';
+    } else if (riskReward >= 1) {
+        positionNote = 'R/R 낮음 — 진입 재고 또는 풀백 대기';
+    } else {
+        positionNote = 'R/R 부적합 — 진입 보류';
+    }
+
+    // EXTREME_GAP_RISK가 있으면 경고 추가
+    if (gatesApplied.includes('EXTREME_GAP_RISK')) {
+        positionNote = '⚠ EXTREME GAP RISK — 추격매수 금지. ' + positionNote;
+    }
+    if (gatesApplied.includes('PM_REJECT')) {
+        positionNote = '❌ PM 역행 — 진입 보류 권장. ' + positionNote;
+    }
+
+    return {
+        entry: round2(entry),
+        entryZone: [round2(entryLow), round2(entryHigh)],
+        entryStrategy,
+        target1: round2(target1),
+        target2: round2(target2),
+        targetBasis,
+        stopLoss: round2(stopLoss),
+        stopBasis,
+        riskReward,
+        atr: round2(atr),
+        positionNote,
+    };
+}
+
+function round2(n: number): number {
+    return Math.round(n * 100) / 100;
+}

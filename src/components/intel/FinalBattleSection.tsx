@@ -34,22 +34,22 @@ function SectionHeader({
         <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
                 <div className={`w-9 h-9 rounded-xl flex items-center justify-center border backdrop-blur-sm ${isWarning
-                        ? 'bg-rose-500/[0.08] border-rose-500/20'
-                        : 'bg-white/[0.06] border-white/[0.10]'
+                    ? 'bg-rose-500/[0.08] border-rose-500/20'
+                    : 'bg-white/[0.06] border-white/[0.10]'
                     }`}>
                     <Icon className={`w-4.5 h-4.5 ${isWarning ? 'text-rose-400' : 'text-white/60'}`} />
                 </div>
                 <div>
-                    <h2 className="text-sm font-black text-white/90 tracking-wide uppercase flex items-center gap-2">
+                    <h2 className="text-sm font-black text-white tracking-wide uppercase flex items-center gap-2">
                         {title}
-                        <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-md ${isWarning
-                                ? 'bg-rose-500/[0.08] text-rose-400/80 border border-rose-500/15'
-                                : 'bg-white/[0.06] text-white/40 border border-white/[0.08]'
+                        <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded-md ${isWarning
+                            ? 'bg-rose-500/[0.08] text-rose-400 border border-rose-500/20'
+                            : 'bg-white/[0.08] text-white/60 border border-white/[0.10]'
                             }`}>
                             {count}
                         </span>
                     </h2>
-                    <p className="text-[10px] text-white/30 tracking-wider mt-0.5">{subtitle}</p>
+                    <p className="text-xs text-white/50 tracking-wider mt-0.5 font-semibold">{subtitle}</p>
                 </div>
             </div>
         </div>

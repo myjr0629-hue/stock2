@@ -1,0 +1,64 @@
+V5 Alpha Engine Morning Report
+Generated: 2026-02-19T13:31:14.969Z
+Total: 12 items
+
+1. HLF | Score:79 | Tier:WATCH
+   직전장: 3.76% | PM: 12.21% | Gates: PM_CONFIRM
+   DarkPool:1890.0% ShortVol:40.6 Whale:N/A
+   GEX:-24622.047066601306 Squeeze:N/A PCR:0.23092359649552152
+
+2. RELY | Score:76 | Tier:WATCH
+   직전장: 4.05% | PM: 20.94% | Gates: EXTREME_GAP_RISK
+   DarkPool:10000.0% ShortVol:27.9 Whale:N/A
+   GEX:-22130.812444335894 Squeeze:N/A PCR:0.5807440287465652
+
+3. RKLB | Score:75 | Tier:WATCH
+   직전장: 6.48% | PM: -1.02% | Gates: SQUEEZE_BUILDING, SHORT_NOTED, PM_DIVERGE
+   DarkPool:10000.0% ShortVol:70.8 Whale:N/A
+   GEX:-49842.50313935715 Squeeze:1 PCR:0.9551527491903297
+
+4. PL | Score:72 | Tier:WATCH
+   직전장: 6.89% | PM: -0.21% | Gates: SQUEEZE_BUILDING
+   DarkPool:10000.0% ShortVol:44.6 Whale:N/A
+   GEX:-61931.27374102282 Squeeze:1 PCR:1.0067938249553459
+
+5. AMGN | Score:68 | Tier:WATCH
+   직전장: 1.71% | PM: -0.42% | Gates: SHORT_NOTED
+   DarkPool:5250.0% ShortVol:58.9 Whale:N/A
+   GEX:-32115.50419808397 Squeeze:1 PCR:0.9681669972099902
+
+6. ROK | Score:63 | Tier:WATCH
+   직전장: 2.06% | PM: N/A | Gates: 
+   DarkPool:2240.0% ShortVol:28 Whale:N/A
+   GEX:-3981.811251428664 Squeeze:N/A PCR:1.2816750725966681
+
+7. VTEC | Score:63 | Tier:WATCH
+   직전장: 0.00% | PM: 21.22% | Gates: SHORT_NOTED, RSI_MOMENTUM_ALIVE, EXTREME_GAP_RISK
+   DarkPool:9430.0% ShortVol:74.4 Whale:N/A
+   GEX:3.563376029789423 Squeeze:N/A PCR:0.18181818181818182
+
+8. BIIB | Score:61 | Tier:WATCH
+   직전장: -0.76% | PM: -0.51% | Gates: 
+   DarkPool:5320.0% ShortVol:32.9 Whale:N/A
+   GEX:-10798.05820148219 Squeeze:N/A PCR:0.6287399616231967
+
+9. QCOM | Score:61 | Tier:WATCH
+   직전장: 0.43% | PM: -0.42% | Gates: 
+   DarkPool:10000.0% ShortVol:39.5 Whale:N/A
+   GEX:-67341.19268510543 Squeeze:1 PCR:0.5753427076405117
+
+10. VRTX | Score:57 | Tier:WATCH
+   직전장: -1.47% | PM: -0.70% | Gates: WALL_BREAKOUT
+   DarkPool:5480.0% ShortVol:45.6 Whale:N/A
+   GEX:-131.42608083214822 Squeeze:N/A PCR:1.0588767092326816
+
+11. EQIX | Score:54 | Tier:WATCH
+   직전장: -2.91% | PM: N/A | Gates: WALL_BREAKOUT, RSI_MOMENTUM_ALIVE
+   DarkPool:6250.0% ShortVol:43.1 Whale:N/A
+   GEX:383.8698762372231 Squeeze:N/A PCR:3.2046058458813107
+
+12. AMT | Score:53 | Tier:WATCH
+   직전장: -3.35% | PM: N/A | Gates: 
+   DarkPool:2390.0% ShortVol:43.1 Whale:N/A
+   GEX:-24562.535918078065 Squeeze:N/A PCR:0.5893981805458363
+

@@ -49,6 +49,11 @@ export interface UnifiedQuote {
     relVol?: number;
     gapPct?: number;
 
+    // [V5] 직전장/PM 가격 분리
+    regChangePct?: number;   // 직전장 종가 기준 변동률 (기본분석용)
+    pmPrice?: number;        // PM 현재가 (검증용)
+    pmChangePct?: number;    // PM 변동률 vs prevClose (검증용)
+
     rawChain?: any[];
 }
 
@@ -300,22 +305,44 @@ export const CentralDataHub = {
             changePct = ((price - prevClose) / prevClose) * 100;
         }
 
-        // [V3.4] Pre-market change vs prevClose (for Pre-Market Validation factor)
-        let extendedChangePct = 0;
-        if (extendedPrice > 0 && prevClose > 0) {
-            extendedChangePct = ((extendedPrice - prevClose) / prevClose) * 100;
+        // [V5] PRE 세션에서 changePct가 0인 경우: history에서 직전장 실제 변동률 계산
+        // PRE에서 price = prevClose = S.prevDay.c이므로 changePct=0이 됨
+        // 실제 직전장 변동은 마지막 두 완료 캔들 비교로 산출
+        if (session === 'PRE' && Math.abs(changePct) < 0.01 && fullHistory.length >= 2) {
+            const todayStr = new Date().toISOString().split('T')[0];
+            const completedBars = fullHistory.filter((bar: any) => {
+                const barDate = new Date(bar.t).toISOString().split('T')[0];
+                return barDate !== todayStr;
+            });
+            if (completedBars.length >= 2) {
+                const lastBar = completedBars[completedBars.length - 1]; // 직전 거래일
+                const prevBar = completedBars[completedBars.length - 2]; // 그 전날
+                price = lastBar.c;       // 직전 거래일 종가
+                prevClose = prevBar.c;   // 그 전날 종가
+                changePct = prevBar.c > 0 ? ((lastBar.c - prevBar.c) / prevBar.c) * 100 : 0;
+                console.log(`[V5] ${ticker}: PRE changePct corrected from history: ${changePct.toFixed(2)}% ($${prevBar.c.toFixed(2)} → $${lastBar.c.toFixed(2)})`);
+            }
         }
 
-        // [V3.4.1] PRE SESSION VALIDATION REBUILD
-        // 원칙: 기본틀(옵션/구조/플로우) = 직전장 데이터
-        //       검증 레이어(가격/모멘텀) = PM 데이터로 리빌드
-        // PM changePct를 primaryChange로 승격하여 Momentum Pillar가 PM 현실을 반영
-        let primaryChangePercent = changePct;
-        let activePrice = price;
+        // [V5] Pre-market change vs 어제 종가 (price)
+        // 중요: prevClose는 history correction 후 2일전 종가이므로, PM 변동률은 price(어제종가) 기준
+        // RKLB: price=$74.42(어제종가), PM=$73.65 → -1.03% (prevClose 기준이면 +5.4% 오류)
+        let extendedChangePct = 0;
+        if (extendedPrice > 0 && price > 0) {
+            extendedChangePct = ((extendedPrice - price) / price) * 100;
+        }
+
+        // [V5] 직전장/PM 가격 분리 — 기본분석은 반드시 직전장, PM은 검증용으로만
+        // 이전 V3.4.1은 PM changePct를 primaryChange로 승격시켰으나,
+        // 이는 엔진이 PM 가격을 직전장으로 착각하게 만들었음
+        let primaryChangePercent = changePct; // 항상 직전장 기준
+        let pmPrice: number | undefined = undefined;
+        let pmChangePct: number | undefined = undefined;
         if (session === 'PRE' && extendedPrice > 0 && prevClose > 0) {
-            primaryChangePercent = extendedChangePct;
-            activePrice = extendedPrice; // PM 가격을 active price로 승격
-            console.log(`[V3.4.1] ${ticker}: PRE Validation Rebuild — PM $${extendedPrice.toFixed(2)} (${extendedChangePct >= 0 ? '+' : ''}${extendedChangePct.toFixed(2)}%) overrides regClose $${price.toFixed(2)}`);
+            // PM 데이터를 별도 필드로 제공 (기본분석 changePct는 직전장 유지)
+            pmPrice = extendedPrice;
+            pmChangePct = extendedChangePct;
+            console.log(`[V5] ${ticker}: 직전장=$${price.toFixed(2)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%) | PM=$${extendedPrice.toFixed(2)} (${extendedChangePct >= 0 ? '+' : ''}${extendedChangePct.toFixed(2)}%)`);
         }
 
         const isRollover = (session === "PRE" && changePct === 0 && extendedChangePct === 0);
@@ -337,9 +364,12 @@ export const CentralDataHub = {
 
         return {
             ticker,
-            price: activePrice || 0,
-            changePct: changePct || 0,
-            finalChangePercent: primaryChangePercent || 0,
+            price: price || 0,             // [V5] 항상 직전장 종가 (PM override 제거)
+            changePct: changePct || 0,     // [V5] 항상 직전장 변동률
+            finalChangePercent: changePct || 0, // [V5] 직전장 = primaryChange
+            regChangePct: changePct || 0,  // [V5] 명시적 직전장 변동률
+            pmPrice,                       // [V5] PM 가격 (검증용, undefined if not PRE)
+            pmChangePct,                   // [V5] PM 변동률 (검증용)
             prevClose: prevClose || 0,
             volume: dayVolume,
             extendedPrice,
