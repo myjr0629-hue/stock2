@@ -6,11 +6,13 @@
 
 import { NextResponse } from 'next/server';
 import { getOptionsData } from '@/services/stockApi';
-import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
+import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { writeAnalysisCache, type AnalysisCacheEntry } from '@/services/analysisCache';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
+import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetricsService';
+import { getFromCache } from '@/services/redisClient';
 
 // ── Ticker Lists ──
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
@@ -123,11 +125,13 @@ async function getSharedMacro() {
 async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean; ms: number }> {
     const start = Date.now();
     try {
-        // Parallel: stock data + options + structure (same as watchlist/batch)
-        const [stockData, optionsData, structureRes] = await Promise.all([
+        // Parallel: stock data + options + structure + flow (same as watchlist/batch)
+        const [stockData, optionsData, structureRes, tradeData, shortVolData] = await Promise.all([
             getStockDataLight(ticker).catch(() => null),
             getOptionsData(ticker).catch(() => null),
-            getStructureData(ticker).catch(() => null)
+            getStructureData(ticker).catch(() => null),
+            fetchTradeData(ticker).catch(() => null),       // [FIX] Dark Pool + Block Trades
+            fetchShortVolumeData(ticker).catch(() => null),  // [FIX] Short Volume
         ]);
 
         if (!stockData) {
@@ -179,34 +183,87 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
         const alphaCallWall = structureRes?.callWall ?? opts?.callWall ?? null;
         const alphaPutFloor = structureRes?.putFloor ?? opts?.putFloor ?? null;
         const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
-        const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
+        let alphaSqueezeScore = structureRes?.squeezeScore ?? null;
+        // squeezeScore fallback from GEX + PCR (same as watchlist/batch)
+        if (alphaSqueezeScore === null && alphaGex !== null) {
+            let sq = 25;
+            const absGex = Math.abs(alphaGex);
+            if (alphaGex < 0) sq += 15;
+            if (absGex > 50_000_000) sq += 15;
+            else if (absGex > 10_000_000) sq += 10;
+            else if (absGex > 1_000_000) sq += 5;
+            const pcr = alphaPcr ?? 1;
+            if (pcr <= 0.4 || pcr >= 1.8) sq += 10;
+            else if (pcr <= 0.6 || pcr >= 1.5) sq += 5;
+            alphaSqueezeScore = Math.min(100, Math.max(0, sq));
+        }
 
-        // [FIX] Fetch shared macro data for regime pillar
+        // [FIX] SMA20 from daily aggs (same as watchlist/batch)
+        let sma20: number | null = null;
+        const dailyCloses = dailyResults.map((d: any) => d.close).filter(Boolean);
+        if (dailyCloses.length >= 20) {
+            const last20 = dailyCloses.slice(-20);
+            sma20 = parseFloat((last20.reduce((a: number, b: number) => a + b, 0) / 20).toFixed(2));
+        }
+
+        // [FIX] rawContracts for IV calculations
+        const rawContracts = opts?.rawContracts || [];
+        const currentPrice = stockData.price || 0;
+        const ivSkew = computeIVSkew(rawContracts, currentPrice);
+
+        // [FIX] impliedMovePct (same as watchlist/batch)
+        let directCallWall = 0, directPutFloor = 0;
+        let maxCallOI = 0, maxPutOI = 0;
+        for (const c of rawContracts) {
+            const oi = c.open_interest || 0;
+            const strike = c.strike_price || 0;
+            if (c.contract_type === 'call' && oi > maxCallOI) { maxCallOI = oi; directCallWall = strike; }
+            if (c.contract_type === 'put' && oi > maxPutOI) { maxPutOI = oi; directPutFloor = strike; }
+        }
+        let impliedMovePct: number | null = null;
+        if (directCallWall > 0 && directPutFloor > 0 && currentPrice > 0) {
+            impliedMovePct = ((directCallWall - directPutFloor) / currentPrice) * 100;
+        } else {
+            impliedMovePct = computeImpliedMovePct(rawContracts, currentPrice);
+        }
+
+        // [FIX] Flow data (same as watchlist/batch)
+        const darkPoolPct = tradeData?.darkPoolPercent ?? null;
+        const shortVolPct = shortVolData?.shortVolPercent ?? null;
+        const blockTradesCount = tradeData?.blockTrades ?? null;
+        const netPremium = structureRes?.netPremium ?? null;
+        const whaleIdx = calculateWhaleIndex(alphaGex);
+
+        // [FIX] Fetch shared macro + Fear & Greed data
         const macroData = await getSharedMacro();
+        const fgData = await getFromCache<{ score: number; rating: string }>('cnn:feargreed');
 
-        // Alpha Engine call
+        // Alpha Engine call — FULL DATA (identical to watchlist/batch)
         let alphaResult;
         try {
             alphaResult = calculateAlphaScore({
                 ticker: ticker.toUpperCase(),
                 session: alphaSession,
-                price: stockData.price || 0,
+                price: currentPrice,
                 prevClose: stockData.prevClose || 0,
                 changePct,
                 vwap: stockData.vwap ?? null,
                 return3D,
                 rsi14: stockData.rsi ?? null,
+                sma20,
                 pcr: alphaPcr,
                 gex: alphaGex,
-                callWall: alphaCallWall,
-                putFloor: alphaPutFloor,
+                callWall: directCallWall || alphaCallWall,
+                putFloor: directPutFloor || alphaPutFloor,
                 gammaFlipLevel: alphaGammaFlip,
-                rawChain: opts?.rawChain || [],
+                rawChain: rawContracts,
                 squeezeScore: alphaSqueezeScore,
+                atmIv: structureRes?.atmIv ?? null,
+                ivSkew,
                 relVol,
                 optionsDataAvailable: !!opts,
                 preMarketChangePct: null,
-                // [FIX] Macro Regime — was missing, causing 'NDX 데이터 없음'
+                // Macro Regime
                 ndxChangePct: macroData?.ndxChangePct ?? null,
                 vixValue: macroData?.vixValue ?? null,
                 vixChangePct: macroData?.vixChangePct ?? null,
@@ -214,6 +271,15 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
                 gldChangePct: macroData?.gldChangePct ?? null,
                 dxy: macroData?.dxy ?? null,
                 realYieldStance: macroData?.realYieldStance ?? null,
+                fearGreedScore: fgData?.score ?? null,
+                // Flow data
+                darkPoolPct,
+                shortVolPct,
+                blockTrades: blockTradesCount,
+                whaleIndex: whaleIdx,
+                netFlow: netPremium,
+                // Catalyst
+                impliedMovePct,
             });
         } catch {
             alphaResult = calculateAlphaScore({
@@ -229,7 +295,6 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
         // Options indicators
         const hasOptionsData = opts && (opts?.maxPain || opts?.gems?.gex || opts?.gex);
         const maxPain = hasOptionsData ? (opts?.maxPain || null) : null;
-        const currentPrice = stockData.price || 0;
         const rawGex = opts?.gems?.gex || opts?.gex;
         const gex = hasOptionsData ? (rawGex || null) : null;
         const gexM = gex !== null ? Number((gex / 1000000).toFixed(2)) : null;

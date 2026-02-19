@@ -11,6 +11,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetricsService';
+import { getFromCache } from '@/services/redisClient';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
@@ -223,6 +224,13 @@ export async function GET(request: Request) {
         console.warn('[Watchlist Batch] Macro fetch failed, using defaults:', e);
     }
 
+    // ═══ [V8.3] Fear & Greed from Redis (written by market-feed cron) ═══
+    let fearGreedScore: number | null = null;
+    try {
+        const fgData = await getFromCache<{ score: number; rating: string }>('cnn:feargreed');
+        fearGreedScore = fgData?.score ?? null;
+    } catch { /* ignore */ }
+
     // ═══ Fallback: Full computation with COMPLETE data ═══
     // Process all tickers in parallel
     const results = await Promise.all(tickers.map(async (ticker) => {
@@ -383,6 +391,8 @@ export async function GET(request: Request) {
                     ivSkew,
                     impliedMovePct,
                     atmIv: structureRes?.atmIv ?? null,
+                    // [V8.3] Fear & Greed
+                    fearGreedScore,
                 });
             } catch (e) {
                 console.error(`[Watchlist Batch] V5 Engine failed for ${ticker}:`, e);
