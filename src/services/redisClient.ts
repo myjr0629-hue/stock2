@@ -39,9 +39,9 @@ export async function getRedisClient(): Promise<Redis | null> {
     }
     lastInitAttempt = now;
 
-    // Check for required environment variables (Vercel KV or Upstash naming)
-    const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-    const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+    // Check for required environment variables (Upstash direct FIRST, then legacy Vercel KV)
+    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
 
     if (!url || !token) {
         console.warn('[Redis] KV_REST_API_URL/TOKEN or UPSTASH_REDIS_REST_URL/TOKEN not configured');
