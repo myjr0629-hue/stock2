@@ -2,43 +2,40 @@
 description: how to build and deploy the application
 ---
 
-# Build & Deploy Workflow
+# 배포 전 필수 체크리스트
 
-## 1. TypeScript Build Check
+## 1. TypeScript 타입 체크
 // turbo
-```bash
+```
 npx tsc --noEmit
 ```
+에러 0개 확인 후 다음 단계.
 
-## 2. ESLint Check (Optional)
-```bash
-npx next lint
+## 2. 프로덕션 빌드 검증
 ```
-
-## 3. i18n Key Validation
-Verify all three language files have the same number of keys:
-```powershell
-(Get-Content src/messages/ko.json | Select-String '":').Count
-(Get-Content src/messages/en.json | Select-String '":').Count
-(Get-Content src/messages/ja.json | Select-String '":').Count
+npx next build
 ```
-> All three counts should be identical.
+빌드 성공 확인 필수. `tsc --noEmit` 통과해도 `next build`에서 실패할 수 있음.
 
-## 4. Git Add & Commit
-```bash
+## 3. 로컬 실행 확인
+```
+npx next start -p 3001
+```
+변경한 페이지를 브라우저에서 직접 열어서 확인:
+- 페이지가 정상 렌더링되는지
+- 콘솔에 에러가 없는지
+- 기존 기능이 깨지지 않았는지
+
+## 4. 커밋 & Push
+```
 git add -A
-git commit -m "feat: <description>"
-```
-
-## 5. Push to GitHub (triggers Vercel auto-deploy)
-// turbo
-```bash
+git commit -m "설명"
 git push
 ```
 
-## Post-Deploy Verification
-- [ ] Vercel deployment status: https://vercel.com/dashboard
-- [ ] Language switching works (ko/en/ja)
-- [ ] Core pages load without errors (Guardian, Command, Intel)
-- [ ] Mobile view renders correctly
-
+## 주의사항
+- **절대 `tsc --noEmit`만으로 검증 완료라고 판단하지 말 것**
+- **한 번에 여러 파일/기능을 대량 변경하지 말 것 — 하나씩 검증**
+- **잘 동작하는 코드는 건드리지 말 것**
+- **SWR, fetch 패턴 변경 등 데이터 흐름을 바꾸는 작업은 반드시 로컬 실행 확인 후 push**
+- **에러 핸들링 패턴을 바꿀 때는 기존 동작 (silent fail vs throw) 반드시 확인**

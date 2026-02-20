@@ -1507,14 +1507,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 ticker={ticker}
                                                 initialRange={range}
                                                 currentPrice={
-                                                    // POST/PRE: use extended price so chart tracks after-hours movement
-                                                    (effectiveSession === 'POST' || effectiveSession === 'PRE') && activeExtPrice > 0
+                                                    // POST/PRE/CLOSED(with post data): use extended price so chart tracks after-hours movement
+                                                    (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0
                                                         ? activeExtPrice
                                                         : (livePrice?.price || liveQuote?.prices?.lastTrade || displayPrice)
                                                 }
                                                 prevClose={
-                                                    // POST: reference line = today's regular close (industry standard: Yahoo, TradingView)
-                                                    effectiveSession === 'POST' && displayPrice > 0
+                                                    // POST/CLOSED: reference line = today's regular close (industry standard: Yahoo, TradingView)
+                                                    (effectiveSession === 'POST' || (effectiveSession === 'CLOSED' && activeExtPrice > 0)) && displayPrice > 0
                                                         ? displayPrice
                                                         : (liveQuote?.prices?.prevRegularClose || (initialStockData as any)?.prices?.prevClose || initialStockData?.prevClose)
                                                 }

@@ -531,7 +531,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         if (lastSession === 'POST' || lastEtMinute >= 960) {
                                             sessionLabel = 'POST';
                                             sessionColor = '#60a5fa'; // Blue
-                                            bgColor = '#1e3a5f'; // Blue background
+                                            bgColor = '#1e40af'; // Dark navy blue background
                                         } else if (lastSession === 'PRE' || lastEtMinute < 570) {
                                             sessionLabel = 'PRE';
                                             sessionColor = '#fbbf24'; // Amber
@@ -565,7 +565,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                                     x={x + 32}
                                                                     y={y + 4}
                                                                     textAnchor="middle"
-                                                                    fill={sessionColor}
+                                                                    fill="#ffffff"
                                                                     fontSize={11}
                                                                     fontWeight="bold"
                                                                 >
@@ -593,7 +593,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 content={({ viewBox }: any) => {
                                                     const { x, y, width } = viewBox || {};
                                                     if (x === undefined || y === undefined) return null;
-                                                    const badgeX = (width ? x + width - 54 : x + 5);
+                                                    const badgeX = width ? x + width + 2 : x + 5; // Right side, in Y-axis area
                                                     return (
                                                         <g>
                                                             <rect
