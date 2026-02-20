@@ -1351,7 +1351,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
                         <div className="relative z-10 flex flex-col gap-1">
                             {relatedData?.topRelated && relatedData.topRelated.length > 0 ? (
-                                relatedData.topRelated.slice(0, 3).map((item, idx) => (
+                                relatedData.topRelated.slice(0, 3).map((item: any, idx: number) => (
                                     <div key={idx} className="flex items-center justify-between cursor-pointer hover:bg-white/5 rounded px-1 -mx-1 transition-colors"
                                         onClick={() => window.location.href = `/${locale}/ticker?ticker=${item.ticker}`}>
                                         <div className="flex items-center gap-1.5">
