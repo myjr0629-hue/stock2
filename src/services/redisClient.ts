@@ -7,7 +7,19 @@ import { Redis } from '@upstash/redis';
 // Lazy initialization - only create client when needed
 let redisClient: Redis | null = null;
 let lastInitAttempt = 0;
+let lastError: string | null = null;
 const RETRY_INTERVAL_MS = 30_000; // Retry Redis init every 30s after failure
+
+/** Get Redis connection status for debugging */
+export function getRedisStatus() {
+    return {
+        connected: redisClient !== null,
+        lastError,
+        hasUrl: !!(process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL),
+        hasToken: !!(process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN),
+        urlPrefix: (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '').substring(0, 30),
+    };
+}
 
 /**
  * Get Redis client instance (lazy initialization)
@@ -42,7 +54,8 @@ export async function getRedisClient(): Promise<Redis | null> {
         lastInitAttempt = 0; // Reset on success
         return redisClient;
     } catch (e) {
-        console.error('[Redis] Failed to initialize client:', e instanceof Error ? e.message : e);
+        lastError = `init: ${e instanceof Error ? e.message : String(e)}`;
+        console.error('[Redis] Failed to initialize client:', lastError);
         redisClient = null;
         return null;
     }
@@ -85,7 +98,8 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
         }
         return true;
     } catch (e) {
-        console.warn(`[Redis] Failed to set ${key}:`, e);
+        lastError = `set(${key}): ${e instanceof Error ? e.message : String(e)}`;
+        console.warn(`[Redis] Failed to set ${key}:`, lastError);
         return false;
     }
 }
