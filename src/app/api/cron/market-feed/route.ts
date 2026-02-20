@@ -92,11 +92,16 @@ export async function GET() {
     for (const { yahoo, key } of SYMBOLS) {
         const quote = await fetchOneQuote(yahoo);
         if (quote) {
-            await setInCache(key, quote);
-            results.push(`${yahoo}=${quote.price}`);
-            ok++;
+            const written = await setInCache(key, quote);
+            if (written) {
+                results.push(`${yahoo}=${quote.price}`);
+                ok++;
+            } else {
+                results.push(`${yahoo}=${quote.price}(REDIS_WRITE_FAIL)`);
+                fail++;
+            }
         } else {
-            results.push(`${yahoo}=FAIL`);
+            results.push(`${yahoo}=FETCH_FAIL`);
             fail++;
         }
     }
