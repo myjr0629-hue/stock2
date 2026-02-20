@@ -50,5 +50,7 @@ export async function GET() {
         us10y: us10yObj,
         // dxy: REMOVED
         sourceGrade
+    }, {
+        headers: { 'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60' }
     });
 }

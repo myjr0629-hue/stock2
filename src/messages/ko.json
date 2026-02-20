@@ -1467,6 +1467,7 @@
         "contractsLabel": "계약",
         "gexPinStable": "핀닝 안정",
         "gexTransition": "부근 ⚠ 전환 임박",
+        "gexFlipNear": "플립 접근, 급변동 주의",
         "gexShortGamma": "숏감마, 방향성 증폭 구간",
         "gexLongGammaWithMp": "롱감마 | ATM {atm}% 집중 | MP ${mp}",
         "gexLongGammaSuppressed": "롱감마 | ATM {atm}% 집중 → 가격 억제",

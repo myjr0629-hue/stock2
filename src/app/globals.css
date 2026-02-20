@@ -137,9 +137,9 @@
 
 /* ===== FONT SYSTEM ===== */
 
-/* Plus Jakarta Sans for English-only elements */
+/* Plus Jakarta Sans for English-only elements — next/font CSS variable */
 @utility font-jakarta {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', sans-serif;
 }
 
 /* ===== [S-51.1] PREMIUM TYPOGRAPHY ===== */
@@ -188,9 +188,9 @@
   letter-spacing: -0.02em;
 }
 
-/* Inter for numeric data (prices, percentages, scores) */
+/* Inter for numeric data (prices, percentages, scores) — next/font CSS variable */
 @utility font-num {
-  font-family: 'Inter', sans-serif;
+  font-family: var(--font-inter), 'Inter', sans-serif;
   font-variant-numeric: tabular-nums;
   font-feature-settings: "tnum" 1;
 }
@@ -438,4 +438,20 @@
   100% {
     background-position: -200% 0;
   }
+}
+
+/* [PERF] content-visibility: 뷰포트 밖 대형 섹션의 렌더링 지연 → 초기 페인트 가속 */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 500px;
+}
+
+.cv-auto-sm {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 200px;
+}
+
+.cv-auto-lg {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 800px;
 }

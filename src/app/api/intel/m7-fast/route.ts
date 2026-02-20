@@ -158,6 +158,8 @@ export async function GET() {
             success: true,
             data: quotes,
             meta: { tickers: M7_TICKERS, count: quotes.length, elapsedMs: elapsed, session, type: 'fast-v3' }
+        }, {
+            headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' }
         });
 
     } catch (error) {

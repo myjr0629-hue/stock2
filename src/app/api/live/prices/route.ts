@@ -34,7 +34,9 @@ export async function GET(req: NextRequest) {
             };
         });
 
-        return NextResponse.json({ prices });
+        return NextResponse.json({ prices }, {
+            headers: { 'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30' }
+        });
     } catch (error: any) {
         return NextResponse.json({ error: error.message }, { status: 500 });
     }
