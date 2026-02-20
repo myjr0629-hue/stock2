@@ -1446,12 +1446,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <Layers className="w-3.5 h-3.5 text-violet-400" />
                                 <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">RELATED</span>
                             </div>
-                            <span className="text-[11px] text-white">{td('relatedSector')}</span>
+                            <span className="text-[12px] text-white">{td('relatedSector')}</span>
                         </div>
                         <div className="relative z-10 flex flex-col gap-1">
                             {relatedData?.topRelated && relatedData.topRelated.length > 0 ? (
                                 relatedData.topRelated.slice(0, 3).map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between">
+                                    <div key={idx} className="flex items-center justify-between cursor-pointer hover:bg-white/5 rounded px-1 -mx-1 transition-colors"
+                                        onClick={() => window.location.href = `/${locale}/ticker?ticker=${item.ticker}`}>
                                         <div className="flex items-center gap-1.5">
                                             <img
                                                 src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
@@ -1459,19 +1460,19 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 className="w-4 h-4 rounded-full object-cover bg-white/10"
                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                             />
-                                            <span className="text-[11px] font-bold text-white font-jakarta">{item.ticker}</span>
+                                            <span className="text-[12px] font-bold text-white font-jakarta hover:text-indigo-300 transition-colors">{item.ticker}</span>
                                         </div>
-                                        <span className={`text-[11px] font-bold tabular-nums ${item.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        <span className={`text-[12px] font-bold tabular-nums ${item.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                             {item.change >= 0 ? '+' : ''}{item.change}%
                                         </span>
                                     </div>
                                 ))
                             ) : (
-                                <div className="text-[11px] text-slate-300 text-center py-1">{td('loading')}</div>
+                                <div className="text-[12px] text-slate-300 text-center py-1">{td('loading')}</div>
                             )}
                         </div>
                         <div className="relative z-10 mt-0.5">
-                            <span className="text-[11px] text-slate-300 font-jakarta">Related Tickers</span>
+                            <span className="text-[12px] text-slate-300 font-jakarta">Related Tickers</span>
                         </div>
                     </div>
 
