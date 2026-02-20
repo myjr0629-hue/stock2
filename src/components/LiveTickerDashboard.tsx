@@ -389,6 +389,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [squeezeData, setSqueezeData] = useState<{ siPercent: number; daysToCover: number; siChange: number; shortVolPercent: number; riskScore: number; status: string } | null>(null);
     const [institutionalData, setInstitutionalData] = useState<{ darkPool: { percent: number } | null; blockTrade: { count: number; volume: number } | null; shortVolume: { percent: number } | null } | null>(null);
     const [fundamentalData, setFundamentalData] = useState<{ score: number; grade: string; breakdown: Record<string, { value: string; score: number; label: string }>; pe?: number | null; de?: number | null; roe?: number | null; revenueGrowth?: number | null; netMargin?: number | null; fcfYield?: number | null } | null>(null);
+    // [Company Profile] Overview data for header display
+    const [companyOverview, setCompanyOverview] = useState<{ sector: string | null; sectorEN: string | null; description: string | null; descriptionEN: string | null } | null>(null);
 
     // i18n translations
     const t = useTranslations('command');
@@ -771,6 +773,27 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         };
     }, [ticker]);
 
+    // [Company Profile] Fetch overview (description + sector) with locale translation
+    useEffect(() => {
+        const fetchOverview = async () => {
+            try {
+                const res = await fetch(`/api/live/overview?t=${ticker}&lang=${locale}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.overview) {
+                        setCompanyOverview({
+                            sector: data.overview.sector,
+                            sectorEN: data.overview.sectorEN,
+                            description: data.overview.description,
+                            descriptionEN: data.overview.descriptionEN
+                        });
+                    }
+                }
+            } catch (e) { console.warn('[Overview] Error:', e); }
+        };
+        fetchOverview();
+    }, [ticker, locale]);
+
     if (!initialStockData) return <div>Data Unavailable</div>;
 
     // [UNIFIED] All price display logic via shared calcPriceDisplay()
@@ -930,48 +953,93 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
             {/* 1. TOP HEADER (2-Row Layout matching Flow page) - Sticky below main header */}
             <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                {/* Row 1: Identity (all inline) */}
-                <div className="flex items-center gap-2.5">
-                    <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
-                        <img
-                            src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
-                            alt={`${ticker} logo`}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                                (e.target as HTMLImageElement).parentElement!.classList.add('hidden');
-                            }}
-                        />
-                    </div>
-                    <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta">{ticker}</h1>
-                    <span className="text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta">{initialStockData.name}</span>
-                    <FavoriteToggle ticker={ticker} name={initialStockData.name} />
-                </div>
-
-                {/* Row 2: Price + Extended Badge (fixed position, independent of ticker) */}
-                <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px]">
-                    <div className="text-2xl font-black text-white tracking-tighter tabular-nums leading-none">
-                        ${displayPrice?.toFixed(2) || '—'}
-                    </div>
-                    <div className={`text-sm font-bold tabular-nums tracking-tighter ${displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                        {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
-                    </div>
-
-                    {/* Extended Session Badge */}
-                    {activeExtPrice > 0 && (
-                        <div className="flex items-center gap-2 px-2.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
-                            <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
-                            <div className="flex items-baseline gap-2">
-                                <span className={`text-[11px] font-black uppercase tracking-widest font-jakarta ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
-                                    {activeExtLabel}
-                                </span>
-                                <span className="text-xs font-bold text-slate-200 tabular-nums">
-                                    ${activeExtPrice.toFixed(2)}
-                                </span>
-                                <span className={`text-[11px] tabular-nums font-bold ${(activeExtPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                    {(activeExtPct || 0) > 0 ? "+" : ""}{(activeExtPct || 0).toFixed(2)}%
-                                </span>
+                {/* Header: 2-column layout — Left: ticker+price, Right: description */}
+                <div className="flex items-stretch gap-4">
+                    {/* Left Column: Identity + Price */}
+                    <div className="flex flex-col justify-center min-w-0 shrink-0">
+                        {/* Row 1: Identity */}
+                        <div className="flex items-center gap-2.5">
+                            <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
+                                <img
+                                    src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                                    alt={`${ticker} logo`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                        (e.target as HTMLImageElement).parentElement!.classList.add('hidden');
+                                    }}
+                                />
                             </div>
+                            <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta">{ticker}</h1>
+                            <span className="text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta shrink-0">{initialStockData.name}</span>
+                            <FavoriteToggle ticker={ticker} name={initialStockData.name} />
+                        </div>
+
+                        {/* Row 2: Price + Extended Badge + Sector Badge */}
+                        <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px]">
+                            <div className="text-2xl font-black text-white tracking-tighter tabular-nums leading-none">
+                                ${displayPrice?.toFixed(2) || '—'}
+                            </div>
+                            <div className={`text-sm font-bold tabular-nums tracking-tighter ${displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
+                            </div>
+
+                            {/* Extended Session Badge */}
+                            {activeExtPrice > 0 && (
+                                <div className="flex items-center gap-2 px-2.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
+                                    <div className="flex items-baseline gap-2">
+                                        <span className={`text-[11px] font-black uppercase tracking-widest font-jakarta ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                            {activeExtLabel}
+                                        </span>
+                                        <span className="text-xs font-bold text-slate-200 tabular-nums">
+                                            ${activeExtPrice.toFixed(2)}
+                                        </span>
+                                        <span className={`text-[11px] tabular-nums font-bold ${(activeExtPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                            {(activeExtPct || 0) > 0 ? "+" : ""}{(activeExtPct || 0).toFixed(2)}%
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Sector Badge */}
+                            {companyOverview?.sector && (
+                                <span className="text-[12px] px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 font-semibold whitespace-nowrap"
+                                    style={{ fontFamily: locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif" }}>
+                                    {companyOverview.sector.split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')}
+                                </span>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Right Column: Company Description with infographic background */}
+                    {companyOverview?.description && (
+                        <div className="ml-auto hidden lg:flex items-center max-w-[45%] relative overflow-hidden rounded-lg px-4 py-2"
+                            style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(59,130,246,0.10) 50%, rgba(99,102,241,0.05) 100%)' }}>
+                            {/* Infographic SVG background */}
+                            <svg className="absolute inset-0 w-full h-full opacity-[0.25]" preserveAspectRatio="none" viewBox="0 0 400 80">
+                                {/* Grid dots */}
+                                <pattern id="headerDots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+                                    <circle cx="2" cy="2" r="0.8" fill="rgb(165,180,252)" />
+                                </pattern>
+                                <rect width="400" height="80" fill="url(#headerDots)" />
+                                {/* Chart line */}
+                                <polyline points="0,60 40,55 80,40 120,50 160,30 200,35 240,20 280,25 320,15 360,18 400,10"
+                                    fill="none" stroke="rgb(129,140,248)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                {/* Area fill under chart */}
+                                <polygon points="0,60 40,55 80,40 120,50 160,30 200,35 240,20 280,25 320,15 360,18 400,10 400,80 0,80"
+                                    fill="url(#headerAreaGrad)" />
+                                <linearGradient id="headerAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                                    <stop offset="0%" stopColor="rgb(129,140,248)" stopOpacity="0.3" />
+                                    <stop offset="100%" stopColor="rgb(129,140,248)" stopOpacity="0" />
+                                </linearGradient>
+                            </svg>
+                            {/* Subtle left accent line */}
+                            <div className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-gradient-to-b from-indigo-400/70 via-blue-400/40 to-transparent" />
+                            <p className="relative text-[13px] text-slate-200 leading-snug text-justify z-10"
+                                style={{ fontFamily: locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif" }}>
+                                {companyOverview.description}
+                            </p>
                         </div>
                     )}
                 </div>
