@@ -32,6 +32,7 @@ interface TickerData {
     isGammaSqueeze: boolean;
     gammaFlipLevel: number | null;
     atmIv: number | null;  // [S-78] ATM Implied Volatility for premium cards
+    atmIvExpiry: string | null;  // [ATM IV] Actual expiry date used for IV calculation
     squeezeScore: number | null;       // [SQUEEZE FIX] 0-100 score from structureService
     squeezeRisk: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;  // [SQUEEZE FIX] Risk label
     // [DASHBOARD V2] New intraday indicators

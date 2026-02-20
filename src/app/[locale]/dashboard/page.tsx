@@ -721,12 +721,19 @@ function MainChartPanel() {
                     {/* Short Vol % (NEW) */}
                     {(() => {
                         const sv = data?.shortVolPct ?? 0;
+                        const dp = data?.darkPoolPct ?? 0;
                         const isAlert = sv >= 40;
+                        const svHigh = sv >= 40;
+                        const dpHigh = dp >= 40;
+                        const crossSignal = svHigh && dpHigh ? { label: td('svCrossInstShort'), color: 'text-rose-400' }
+                            : !svHigh && dpHigh ? { label: td('svCrossStealth'), color: 'text-emerald-400' }
+                                : svHigh && !dpHigh ? { label: td('svCrossRetailShort'), color: 'text-amber-400' }
+                                    : { label: td('svCrossNeutral'), color: 'text-slate-400' };
                         return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            <div className={`relative py-3 px-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                                 <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="10" width="10" height="50" rx="2" fill="currentColor" className="text-rose-400" /><rect x="22" y="20" width="10" height="40" rx="2" fill="currentColor" className="text-rose-400" /><rect x="39" y="28" width="10" height="32" rx="2" fill="currentColor" className="text-rose-400" /><rect x="56" y="36" width="10" height="24" rx="2" fill="currentColor" className="text-rose-300" /></svg>
-                                <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
+                                <div className="flex items-center gap-2 mb-1 whitespace-nowrap">
                                     <TrendingDown className="w-4 h-4 text-rose-400" />
                                     <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Short Vol %</span>
                                     {sv >= 50 && <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
@@ -735,8 +742,15 @@ function MainChartPanel() {
                                     <span className={`text-xl font-mono font-bold ${sv >= 50 ? 'text-rose-400' : sv >= 40 ? 'text-amber-400' : 'text-white'}`}>
                                         {sv > 0 ? `${sv.toFixed(1)}%` : '—'}
                                     </span>
-                                    <span className="text-xs text-white">{sv >= 50 ? td('svShortHigh') : sv >= 40 ? td('svShortActive') : td('svNormal')}</span>
+                                    <span className="text-[12px] text-white">{sv >= 50 ? td('svShortHigh') : sv >= 40 ? td('svShortActive') : td('svNormal')}</span>
                                 </div>
+                                {sv > 0 && dp > 0 && (
+                                    <div className="mt-0.5 flex items-center gap-1 whitespace-nowrap overflow-hidden">
+                                        <span className="text-[12px] text-slate-300">vs DP {dp.toFixed(0)}%</span>
+                                        <span className="text-[12px] text-slate-300">→</span>
+                                        <span className={`text-[12px] font-semibold truncate ${crossSignal.color}`}>{crossSignal.label}</span>
+                                    </div>
+                                )}
                             </div>
                         );
                     })()}
@@ -757,7 +771,12 @@ function MainChartPanel() {
                             <span className="text-xl font-mono font-bold text-white">
                                 {data?.atmIv ? `${data.atmIv}%` : "—"}
                             </span>
-                            <span className="text-xs text-white">{(data?.atmIv || 0) > 50 ? td('highVol') : td('lowVol')}</span>
+                            <span className="text-[12px] text-white">{(data?.atmIv || 0) > 50 ? td('highVol') : td('lowVol')}</span>
+                            {data?.atmIvExpiry && (
+                                <span className="text-[12px] text-yellow-400 font-mono font-semibold">
+                                    {data.atmIvExpiry.slice(5).replace('-', '/')}
+                                </span>
+                            )}
                         </div>
                         {/* IV Level Bar */}
                         {data?.atmIv != null && data.atmIv > 0 && (
@@ -770,9 +789,9 @@ function MainChartPanel() {
                                     />
                                 </div>
                                 <div className="flex justify-between mt-1">
-                                    <span className="text-[10px] text-slate-500">0%</span>
-                                    <span className="text-[10px] text-slate-500">50%</span>
-                                    <span className="text-[10px] text-slate-500">100%</span>
+                                    <span className="text-[12px] text-slate-400">0%</span>
+                                    <span className="text-[12px] text-slate-400">50%</span>
+                                    <span className="text-[12px] text-slate-400">100%</span>
                                 </div>
                             </div>
                         )}

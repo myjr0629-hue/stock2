@@ -275,6 +275,7 @@ function buildResponseFromResults(
                 isGammaSqueeze: data.isGammaSqueeze,
                 gammaFlipLevel: data.gammaFlipLevel,
                 atmIv: data.atmIv || null,
+                atmIvExpiry: data.atmIvExpiry || null,
                 squeezeScore: data.squeezeScore ?? null,     // [SQUEEZE FIX] 0-100 score from structureService
                 squeezeRisk: data.squeezeRisk ?? null,       // [SQUEEZE FIX] LOW/MEDIUM/HIGH/EXTREME
                 // [DASHBOARD V2] New intraday indicators

@@ -606,16 +606,26 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
         else if (zeroDteImpact <= 5) squeezeScore += 5;
 
         // 4. ATM IV (0-15 points) - High IV = market expects big move
+        // [BLOOMBERG STD] ATM Call IV + Put IV average at nearest strike
+        // IV field priority: top-level implied_volatility (Polygon actual) > greeks.implied_volatility
         let atmIvForSqueeze: number | null = null;
         if (underlyingPrice > 0 && cleanContracts.length > 0) {
             const atmStrike = sortedStrikes.reduce((closest, strike) =>
                 Math.abs(strike - underlyingPrice) < Math.abs(closest - underlyingPrice) ? strike : closest
             );
-            const atmContract = cleanContracts.find(c => c.k === atmStrike && c.type === 'call')
-                || cleanContracts.find(c => c.k === atmStrike && c.type === 'put');
-            const rawIv = atmContract?.greeks?.implied_volatility || atmContract?.implied_volatility || atmContract?.iv;
-            if (typeof rawIv === 'number' && rawIv > 0) {
-                atmIvForSqueeze = rawIv > 1 ? rawIv : rawIv * 100;
+            const extractIv = (c: any) => {
+                const raw = c?.implied_volatility || c?.greeks?.implied_volatility || c?.iv;
+                return typeof raw === 'number' && raw > 0 ? (raw > 1 ? raw : raw * 100) : null;
+            };
+            const callIv = extractIv(cleanContracts.find(c => c.k === atmStrike && c.type === 'call'));
+            const putIv = extractIv(cleanContracts.find(c => c.k === atmStrike && c.type === 'put'));
+            if (callIv !== null && putIv !== null) {
+                // 0DTE guard: if Call-Put IV spread > 40pp, IV is distorted
+                // In that case, use the lower IV (OTM side is more reliable)
+                const spread = Math.abs(callIv - putIv);
+                atmIvForSqueeze = spread > 40 ? Math.min(callIv, putIv) : (callIv + putIv) / 2;
+            } else {
+                atmIvForSqueeze = callIv ?? putIv;
             }
         }
         if (atmIvForSqueeze !== null) {
@@ -643,16 +653,69 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             callWall > 0 && underlyingPrice >= callWall * 0.98 &&
             pcr !== null && pcr < 0.6;
 
+        // [BLOOMBERG STD] ATM Call IV + Put IV average at nearest strike
+        // IV field priority: top-level implied_volatility (Polygon actual) > greeks.implied_volatility
+        // [DTE GUARD] When DTE < 2 (0DTE/1DTE), IV is distorted. Use next weekly expiry instead.
         let atmIv: number | null = null;
-        if (underlyingPrice > 0 && cleanContracts.length > 0) {
-            const atmStrike = sortedStrikes.reduce((closest, strike) =>
+        const currentDte = Math.max(0, Math.round(
+            (new Date(targetExpiry + 'T16:00:00').getTime() - new Date(todayStr + 'T09:30:00').getTime()) / 86400000
+        ));
+
+        // Determine which contracts to use for ATM IV
+        let ivContracts = cleanContracts;
+        let ivExpiry = targetExpiry;
+
+        if (currentDte < 2 && availableExpirations.length > 1) {
+            // [WEEKLY ONLY] Find next Friday (or Thursday for holiday) expiry
+            // Skip non-Friday expiries (Mon/Wed) which have low liquidity
+            const nextFridayExp = availableExpirations.find(exp => {
+                const expDate = new Date(exp + 'T12:00:00');
+                const dayOfWeek = expDate.getDay(); // 5=Friday, 4=Thursday
+                const expDte = Math.max(0, Math.round(
+                    (new Date(exp + 'T16:00:00').getTime() - new Date(todayStr + 'T09:30:00').getTime()) / 86400000
+                ));
+                return expDte >= 2 && (dayOfWeek === 5 || dayOfWeek === 4);
+            });
+
+            if (nextFridayExp) {
+                // Lightweight fetch: only ATM contracts for IV (limit=20)
+                try {
+                    const ivUrl = `/v3/snapshot/options/${ticker}?expiration_date=${nextFridayExp}&limit=250`;
+                    const ivRes = await fetchMassiveWithRetry(ivUrl, 1);
+                    if (ivRes.success && ivRes.data?.results?.length > 0) {
+                        ivContracts = ivRes.data.results.map((c: any) => ({
+                            ...c,
+                            k: c.details?.strike_price || 0,
+                            type: (c.details?.contract_type || 'call').toLowerCase(),
+                        }));
+                        ivExpiry = nextFridayExp;
+                        console.log(`[ATM IV] DTE=${currentDte} too short, using weekly ${nextFridayExp} (${ivContracts.length} contracts)`);
+                    }
+                } catch (e) {
+                    console.log(`[ATM IV] Next weekly fetch failed, using current:`, e);
+                }
+            }
+        }
+
+        if (underlyingPrice > 0 && ivContracts.length > 0) {
+            const ivStrikes = [...new Set(ivContracts.map((c: any) => c.k))].filter(Boolean).sort((a, b) => a - b);
+            const atmStrike = ivStrikes.reduce((closest: number, strike: number) =>
                 Math.abs(strike - underlyingPrice) < Math.abs(closest - underlyingPrice) ? strike : closest
             );
-            const atmContract = cleanContracts.find(c => c.k === atmStrike && c.type === 'call')
-                || cleanContracts.find(c => c.k === atmStrike && c.type === 'put');
-            const rawIv = atmContract?.greeks?.implied_volatility || atmContract?.implied_volatility || atmContract?.iv;
-            if (typeof rawIv === 'number' && rawIv > 0) {
-                atmIv = rawIv > 1 ? Math.round(rawIv) : Math.round(rawIv * 100);
+            const extractIv = (c: any) => {
+                const raw = c?.implied_volatility || c?.greeks?.implied_volatility || c?.iv;
+                return typeof raw === 'number' && raw > 0 ? (raw > 1 ? raw : raw * 100) : null;
+            };
+            const callIv = extractIv(ivContracts.find((c: any) => c.k === atmStrike && c.type === 'call'));
+            const putIv = extractIv(ivContracts.find((c: any) => c.k === atmStrike && c.type === 'put'));
+            if (callIv !== null && putIv !== null) {
+                // 0DTE guard: if Call-Put IV spread > 40pp, use the lower (OTM) IV
+                const spread = Math.abs(callIv - putIv);
+                const bestIv = spread > 40 ? Math.min(callIv, putIv) : (callIv + putIv) / 2;
+                atmIv = Math.round(bestIv);
+            } else {
+                const fallback = callIv ?? putIv;
+                atmIv = fallback !== null ? Math.round(fallback) : null;
             }
         }
 
@@ -685,6 +748,7 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             gammaFlipLevel,
             gammaFlipType,
             atmIv,
+            atmIvExpiry: ivExpiry,  // [ATM IV] Actual expiry used for IV calculation
             gammaConcentration,      // [V45.17] OI concentration near price (0-100%)
             gammaConcentrationLabel, // [V45.17] STICKY / NORMAL / LOOSE
             squeezeRisk,   // [V45.17] LOW/MEDIUM/HIGH/EXTREME
