@@ -613,8 +613,10 @@
     },
     "guide": {
         "overview": "概要",
+        "dashboard": "DASHBOARD",
         "guardian": "GUARDIAN",
         "command": "COMMAND",
+        "flow": "FLOW",
         "intel": "INTEL",
         "portfolio": "PORTFOLIO",
         "watchlist": "WATCHLIST",
@@ -622,14 +624,76 @@
     },
     "howItWorks": {
         "guideTitle": "SIGNUM HQ ガイド",
+        "guideSuffix": "ガイド",
         "guideSubtitle": "各指標の意味と活用法を学びましょう",
-        "heroTitle": "オプションベースの市場分析プラットフォーム",
-        "heroDescription": "SIGNUM HQは、ガンマエクスポージャー(GEX)、マックスペイン、オプションフローなどのオプション市場データを分析し、サポート/レジスタンスレベルとボラティリティの転換点を提供します。",
-        "guardianDesc": "市場全体のGEXポジショニングとマーケットフェーズ分析",
-        "commandDesc": "個別銘柄のガンマレベル、GEXエンジン、戦術的レンジ分析",
-        "intelDesc": "AIルーマー分析とリアルタイムインテリジェンスフィード",
-        "portfolioDesc": "アルファスコアとシグナルバッジによるポートフォリオ管理",
-        "watchlistDesc": "ウォッチリストモニタリング指標とカラム説明"
+        "heroTitle": "見えない市場の'本当の地形図'を解き明かす",
+        "heroDescription": "90%のトレーダーは、すでに遅れた<rose>過去のチャート</rose>に線を引いています。SIGNUM HQは、巨大機関と<gold>クジラ</gold>の<gold>ダークプール</gold>資金フローとオプションマーケットメーカーの物理的防衛ライン（<cyan>Call Wall、GEX</cyan>）をリアルタイムで解読し、株価が動く<cyan>未来の軌跡</cyan>を追跡するプレミアムクオンツインテリジェンスターミナルです。",
+        "dashboardDesc": "<cyan>リアルタイム価格</cyan> · ATM IV · GEX · Options Overlay — 6つのプレミアム指標を一画面に凝縮した司令塔",
+        "guardianDesc": "SPY/QQQの<cyan>ネットGEX · ガンマフリップ</cyan> · マーケットフェーズ · セクターインテル — 市場の体温を先に読むレーダー",
+        "commandDesc": "<cyan>Call Wall · Put Wall · Max Pain</cyan> · ガンマレベル · GEXエンジン · Tactical Range — 銘柄別の戦術解剖図",
+        "flowDesc": "<gold>ダークプールプリント</gold> · 機関ブロックオーダー · クジラ追跡 · リアルタイムオプションフロー — 大口の足跡を追う戦場",
+        "intelDesc": "<gold>M7 · Physical AI · Alpha Report</gold> — セッション終了後にAIが自動生成するプレミアムブリーフィング",
+        "portfolioDesc": "<cyan>アルファスコア</cyan> · シグナルバッジ · 収益率追跡 — AIがあなたのポジションをリアルタイム評価",
+        "watchlistDesc": "IV · Max Pain · <cyan>Alpha V5 Engine</cyan> — ウォッチリストの隠れたシグナルを一目で"
+    },
+    "dashboardGuide": {
+        "subtitle": "個別銘柄の核心プレミアム指標を一画面に凝縮した司令塔",
+        "overviewTitle": "ダッシュボード概要",
+        "overviewDesc": "ダッシュボードは選択した銘柄の<cyan>8つのプレミアム指標</cyan>を上部カードに一目で配置し、中央に<gold>Options Overlayチャート</gold>、下部に<cyan>5-Day History</cyan>、右側に<gold>Signal Feed</gold>をリアルタイムで提供する総合司令塔です。",
+        "indicatorsTitle": "上部プレミアム指標カード",
+        "indicatorsDesc": "8つの核心指標カードがダッシュボード上部に配置されます。各カードはオプション市場から抽出した高度なデータをリアルタイムで表示します。",
+        "netGex": {
+            "title": "NET GEX",
+            "badge": "核心",
+            "desc": "オプション市場の<cyan>総ガンマエクスポージャー</cyan>です。ディーラーがどれだけのガンマを保有しているか一目で把握できます。",
+            "positive": "プラス → ディーラーロングガンマ → ボラティリティ抑制、価格安定",
+            "negative": "マイナス → ディーラーショートガンマ → ボラティリティ拡大、トレンド加速",
+            "tip": "GEXが急変する時、市場の体質が変わるシグナルです"
+        },
+        "gammaFlip": {
+            "title": "GAMMA FLIP",
+            "badge": "転換点",
+            "desc": "ディーラーのガンマポジションが<gold>ロング ↔ ショートに転換する価格</gold>です。このレベルを基準に市場の性格が完全に変わります。",
+            "longLabel": "現在価格 < Flip → ロングガンマ（安定）",
+            "shortLabel": "現在価格 > Flip → ショートガンマ（爆発）",
+            "tip": "SHORT表示は現在ショートガンマ区間 — 急騰・急落の可能性高"
+        },
+        "squeeze": {
+            "title": "SQUEEZE",
+            "badge": "リスク度",
+            "desc": "<gold>ガンマスクイーズ発生確率</gold>をパーセントと等級（LOW/MED/HIGH）で表示します。高いほど急激な価格変動の可能性が大きくなります。",
+            "high": "HIGH — 58%+ スクイーズ警告、急変動に備え必須",
+            "med": "MED — 30〜58% 注意区間",
+            "low": "LOW — 30%未満、安定区間"
+        },
+        "vwap": {
+            "title": "VWAP距離",
+            "badge": "ポジション",
+            "desc": "現在価格と<cyan>VWAP（出来高加重平均価格）</cyan>の距離を%で表示します。機関トレーダーの基準となる核心レベルです。",
+            "above": "プラス → VWAP上 → 短期強気",
+            "below": "マイナス → VWAP下 → 短期弱気",
+            "tip": "0%に近いほどVWAPテスト区間 — 方向決定迫る"
+        },
+        "maxPain": {
+            "title": "MAX PAIN",
+            "desc": "オプション満期日に保有者の損失を最大化する価格です。満期が近づくとこの価格に収束する傾向があります。"
+        },
+        "callWall": {
+            "title": "CALL WALL",
+            "desc": "コールオプション売りが集中した価格帯 — 強力な<cyan>レジスタンス</cyan>の役割。突破時ガンマスクイーズ発動の可能性。"
+        },
+        "darkPool": {
+            "title": "DARK POOL %",
+            "desc": "全取引中<gold>ダークプール（機関非公開取引）</gold>の割合。高いほど機関の大規模ポジショニングが進行中。"
+        },
+        "shortVol": {
+            "title": "SHORT VOL %",
+            "desc": "空売り取引量比率。高い空売り比率 + 上昇モメンタム = <gold>ショートスクイーズ</gold>シグナル。"
+        },
+        "chartTitle": "Options Overlayチャート",
+        "chartDesc": "株価チャートに<cyan>Call Wall</cyan>（レジスタンス）、<gold>Max Pain</gold>（収束）、<rose>Put Wall</rose>（サポート）レベルをオーバーレイし、オプション市場が設定した価格範囲を一目で視覚化します。",
+        "signalTitle": "SIGNAL FEED",
+        "signalDesc": "リアルタイムで検知される<gold>クジラ取引</gold>、ダークプールイベント、ショートスクイーズ警報などをタイムラインで表示します。BUY/SELL/ALERT/WHALEタグでシグナルを区分します。"
     },
     "commandGuide": {
         "subtitle": "個別銘柄のGamma構造とTactical Rangeを分析します",

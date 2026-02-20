@@ -613,8 +613,10 @@
     },
     "guide": {
         "overview": "Overview",
+        "dashboard": "DASHBOARD",
         "guardian": "GUARDIAN",
         "command": "COMMAND",
+        "flow": "FLOW",
         "intel": "INTEL",
         "portfolio": "PORTFOLIO",
         "watchlist": "WATCHLIST",
@@ -622,14 +624,80 @@
     },
     "howItWorks": {
         "guideTitle": "SIGNUM HQ Guide",
+        "guideSuffix": "Guide",
         "guideSubtitle": "Learn the meaning and usage of each indicator",
-        "heroTitle": "Options-Based Market Analysis Platform",
-        "heroDescription": "SIGNUM HQ analyzes options market data including Gamma Exposure (GEX), Max Pain, and Options Flow to provide support/resistance levels and volatility turning points.",
-        "guardianDesc": "GEX positioning and market phase analysis for the overall market",
-        "commandDesc": "Gamma levels, GEX engine, and tactical range analysis for individual stocks",
-        "intelDesc": "AI rumor analysis and real-time intelligence feed",
-        "portfolioDesc": "Portfolio management with Alpha Score and Signal Badge",
-        "watchlistDesc": "Watchlist monitoring metrics and column explanations"
+        "heroTitle": "Unveil the Market's Hidden Battlefield",
+        "heroDescription": "90% of traders draw lines on <rose>charts that already happened</rose>. SIGNUM HQ decodes institutional and <gold>whale</gold> activity through <gold>dark pool flows</gold> and options market makers'' physical defense lines (<cyan>Call Wall, GEX</cyan>) in real-time — a premium quant intelligence terminal that tracks <cyan>where price will move</cyan>, not where it''s been.",
+        "dashboardDesc": "<cyan>Live Price</cyan> · ATM IV · GEX · Options Overlay — 6 premium indicators fused into one command center",
+        "guardianDesc": "SPY/QQQ <cyan>Net GEX · Gamma Flip</cyan> · Market Phase · Sector Intel — read the market''s temperature first",
+        "commandDesc": "<cyan>Call Wall · Put Wall · Max Pain</cyan> · Gamma Levels · GEX Engine · Tactical Range — a surgical teardown per ticker",
+        "flowDesc": "<gold>Dark Pool prints</gold> · Institutional blocks · Whale tracking · Live options flow — follow the footprints of the big money",
+        "intelDesc": "<gold>M7 · Physical AI · Alpha Report</gold> — premium AI-generated briefings after every session",
+        "portfolioDesc": "<cyan>Alpha Score</cyan> · Signal Badge · P&L tracking — AI evaluates your positions in real-time",
+        "watchlistDesc": "IV · Max Pain · <cyan>Alpha V5 Engine</cyan> — hidden signals for your watchlist at a glance"
+    },
+    "dashboardGuide": {
+        "subtitle": "All premium indicators for a single ticker, fused into one command center",
+        "overviewTitle": "Dashboard Overview",
+        "overviewDesc": "The Dashboard places <cyan>8 premium indicators</cyan> in top cards at a glance, with an <gold>Options Overlay chart</gold> in the center, <cyan>5-Day History</cyan> at the bottom, and a real-time <gold>Signal Feed</gold> on the right — your all-in-one command center.",
+        "indicatorsTitle": "Premium Indicator Cards",
+        "indicatorsDesc": "8 core indicator cards sit at the top of the dashboard. Each card delivers advanced data extracted from the options market in real-time.",
+        "netGex": {
+            "title": "NET GEX",
+            "badge": "Core",
+            "desc": "The <cyan>total gamma exposure</cyan> in the options market. See at a glance how much gamma dealers are holding.",
+            "positive": "Positive → Dealer long gamma → Volatility suppressed, price stable",
+            "negative": "Negative → Dealer short gamma → Volatility amplified, trend accelerated",
+            "tip": "A sharp change in GEX signals a shift in the market''s character"
+        },
+        "gammaFlip": {
+            "title": "GAMMA FLIP",
+            "badge": "Pivot",
+            "desc": "The price where dealer gamma position <gold>flips between long ↔ short</gold>. The market''s behavior changes completely at this level.",
+            "longLabel": "Price < Flip → Long gamma (stable)",
+            "shortLabel": "Price > Flip → Short gamma (explosive)",
+            "tip": "SHORT label means currently in short gamma zone — potential for sharp moves"
+        },
+        "squeeze": {
+            "title": "SQUEEZE",
+            "badge": "Risk",
+            "desc": "<gold>Gamma squeeze probability</gold> shown as percentage and grade (LOW/MED/HIGH). Higher values mean greater chance of dramatic price movement.",
+            "high": "HIGH — 58%+ squeeze warning, prepare for volatility",
+            "med": "MED — 30~58% caution zone",
+            "low": "LOW — Under 30%, stable zone"
+        },
+        "vwap": {
+            "title": "VWAP Distance",
+            "badge": "Position",
+            "desc": "Distance between current price and <cyan>VWAP (Volume Weighted Average Price)</cyan> in %. The key reference level for institutional traders.",
+            "above": "Positive → Above VWAP → Short-term bullish",
+            "below": "Negative → Below VWAP → Short-term bearish",
+            "tip": "The closer to 0%, the closer to a VWAP test — directional decision imminent"
+        },
+        "maxPain": {
+            "title": "MAX PAIN",
+            "desc": "The price that maximizes option holders'' losses at expiration. Price tends to converge toward this level as expiry approaches."
+        },
+        "callWall": {
+            "title": "CALL WALL",
+            "desc": "The strike with the highest call open interest — acts as a powerful <cyan>resistance level</cyan>. Breaking through can trigger a gamma squeeze."
+        },
+        "darkPool": {
+            "title": "DARK POOL %",
+            "desc": "Percentage of total volume traded in <gold>dark pools (institutional off-exchange)</gold>. Higher means large-scale institutional positioning is underway."
+        },
+        "shortVol": {
+            "title": "SHORT VOL %",
+            "desc": "Short sale volume ratio. High short volume + bullish momentum = <gold>short squeeze</gold> signal."
+        },
+        "atmIv": {
+            "title": "ATM IV",
+            "desc": "Tracks real-time <cyan>At-The-Money Implied Volatility</cyan> based on current price. Higher IV means the market expects larger price swings."
+        },
+        "chartTitle": "Options Overlay Chart",
+        "chartDesc": "Overlays <cyan>Call Wall</cyan> (resistance), <gold>Max Pain</gold> (convergence), and <rose>Put Wall</rose> (support) levels on the price chart — visualizing the price range set by the options market.",
+        "signalTitle": "SIGNAL FEED",
+        "signalDesc": "Real-time timeline of <gold>whale trades</gold>, dark pool events, and short squeeze alerts. Signals are tagged as BUY/SELL/ALERT/WHALE."
     },
     "commandGuide": {
         "subtitle": "Analyzes gamma structure and tactical range of individual tickers",

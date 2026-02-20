@@ -5,14 +5,15 @@ import { Link } from '@/i18n/routing';
 import { usePathname } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
 import {
-    Shield, Command, Brain, PieChart, Star,
-    Radio, ChevronRight, Home
+    LayoutDashboard, Shield, Command, Radio,
+    Brain, PieChart, Star, BookOpen, ChevronRight
 } from 'lucide-react';
 
 interface MenuItem {
     labelKey: string;
     href: string;
-    icon: React.ReactNode;
+    icon: any; // eslint-disable-line @typescript-eslint/no-explicit-any
+    gradient: string;
     children?: MenuItem[];
 }
 
@@ -22,68 +23,136 @@ export function HowItWorksSidebar() {
     const locale = useLocale();
 
     const menuItems: MenuItem[] = [
-        { labelKey: 'overview', href: `/${locale}/how-it-works`, icon: <Home size={14} /> },
-        { labelKey: 'guardian', href: `/${locale}/how-it-works/guardian`, icon: <Shield size={14} /> },
+        {
+            labelKey: 'overview',
+            href: '/how-it-works',
+            icon: BookOpen,
+            gradient: 'from-slate-400 to-slate-500',
+        },
+        {
+            labelKey: 'dashboard',
+            href: '/how-it-works/dashboard',
+            icon: LayoutDashboard,
+            gradient: 'from-indigo-400 to-indigo-600',
+        },
+        {
+            labelKey: 'guardian',
+            href: '/how-it-works/guardian',
+            icon: Shield,
+            gradient: 'from-emerald-400 to-teal-600',
+        },
         {
             labelKey: 'command',
-            href: `/${locale}/how-it-works/command`,
-            icon: <Command size={14} />,
+            href: '/how-it-works/command',
+            icon: Command,
+            gradient: 'from-cyan-400 to-blue-600',
             children: [
-                { labelKey: 'flowRadar', href: `/${locale}/how-it-works/command/flow-radar`, icon: <Radio size={12} /> }
+                { labelKey: 'flowRadar', href: '/how-it-works/command/flow-radar', icon: Radio, gradient: '' }
             ]
         },
-        { labelKey: 'intel', href: `/${locale}/how-it-works/intel`, icon: <Brain size={14} /> },
-        { labelKey: 'portfolio', href: `/${locale}/how-it-works/portfolio`, icon: <PieChart size={14} /> },
-        { labelKey: 'watchlist', href: `/${locale}/how-it-works/watchlist`, icon: <Star size={14} /> },
+        {
+            labelKey: 'flow',
+            href: '/how-it-works/flow',
+            icon: Radio,
+            gradient: 'from-sky-400 to-cyan-600',
+        },
+        {
+            labelKey: 'intel',
+            href: '/how-it-works/intel',
+            icon: Brain,
+            gradient: 'from-purple-400 to-pink-600',
+        },
+        {
+            labelKey: 'portfolio',
+            href: '/how-it-works/portfolio',
+            icon: PieChart,
+            gradient: 'from-amber-400 to-orange-600',
+        },
+        {
+            labelKey: 'watchlist',
+            href: '/how-it-works/watchlist',
+            icon: Star,
+            gradient: 'from-rose-400 to-red-600',
+        },
     ];
 
     const isActive = (href: string) => {
-        if (href === `/${locale}/how-it-works`) return pathname === href;
-        return pathname.startsWith(href);
+        const fullHref = `/${locale}${href}`;
+        if (href === '/how-it-works') return pathname === fullHref;
+        return pathname.startsWith(fullHref);
     };
 
     return (
-        <aside className="w-48 min-h-screen bg-[#0a1628] border-r border-white/5 py-4 px-3">
-            {/* Menu */}
-            <nav className="space-y-0.5">
-                {menuItems.map((item) => (
-                    <div key={item.href}>
-                        <Link
-                            href={item.href}
-                            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-xs ${isActive(item.href)
-                                ? 'bg-cyan-500/10 text-cyan-400 font-bold'
-                                : 'text-slate-400 hover:bg-white/5 hover:text-white'
-                                }`}
-                        >
-                            {item.icon}
-                            <span>{t(item.labelKey)}</span>
-                            {item.children && (
-                                <ChevronRight size={12} className="ml-auto" />
-                            )}
-                        </Link>
-
-                        {/* Children */}
-                        {item.children && isActive(item.href) && (
-                            <div className="ml-4 mt-0.5 space-y-0.5">
-                                {item.children.map((child) => (
-                                    <Link
-                                        key={child.href}
-                                        href={child.href}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all text-[11px] ${pathname === child.href
-                                            ? 'bg-cyan-500/20 text-cyan-300'
-                                            : 'text-slate-500 hover:text-slate-300'
-                                            }`}
-                                    >
-                                        {child.icon}
-                                        <span>{t(child.labelKey)}</span>
-                                    </Link>
-                                ))}
-                            </div>
-                        )}
+        <aside className="w-56 min-h-screen bg-[#0e1a2e]/90 backdrop-blur-xl border-r border-white/[0.08] pt-10 pb-5 px-3 flex flex-col">
+            {/* Brand */}
+            <div className="px-3 mb-5">
+                <div className="flex items-center gap-2 mb-1">
+                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-purple-500 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                        <BookOpen size={14} className="text-white" />
                     </div>
-                ))}
+                    <span className="text-sm font-black text-white tracking-wide">GUIDE</span>
+                </div>
+                <div className="h-px bg-gradient-to-r from-white/10 to-transparent mt-3" />
+            </div>
+
+            {/* Menu */}
+            <nav className="space-y-0.5 flex-1">
+                {menuItems.map((item) => {
+                    const active = isActive(item.href);
+                    const Icon = item.icon;
+                    return (
+                        <div key={item.href}>
+                            <Link
+                                href={item.href}
+                                className={`group flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all duration-200 text-[14px] font-jakarta ${active
+                                    ? 'bg-white/[0.08] text-white font-bold shadow-sm'
+                                    : 'text-slate-300 hover:bg-white/[0.04] hover:text-white'
+                                    }`}
+                            >
+                                <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${active
+                                    ? `bg-gradient-to-br ${item.gradient} shadow-md`
+                                    : 'bg-white/[0.06] group-hover:bg-white/[0.1]'
+                                    }`}>
+                                    <Icon size={13} className={active ? 'text-white' : 'text-slate-400 group-hover:text-slate-300'} />
+                                </div>
+                                <span className="flex-1">{t(item.labelKey)}</span>
+                                {item.children && (
+                                    <ChevronRight size={12} className={`transition-transform ${active ? 'rotate-90 text-white/60' : 'text-slate-600'}`} />
+                                )}
+                            </Link>
+
+                            {/* Submenu */}
+                            {item.children && active && (
+                                <div className="ml-5 mt-0.5 space-y-0.5 border-l border-white/[0.06] pl-2">
+                                    {item.children.map((child) => {
+                                        const ChildIcon = child.icon;
+                                        return (
+                                            <Link
+                                                key={child.href}
+                                                href={child.href}
+                                                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all text-[13px] font-jakarta ${pathname === `/${locale}${child.href}`
+                                                    ? 'bg-cyan-500/10 text-cyan-300 font-semibold'
+                                                    : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.03]'
+                                                    }`}
+                                            >
+                                                <ChildIcon size={11} />
+                                                <span>{t(child.labelKey)}</span>
+                                            </Link>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
             </nav>
+
+            {/* Footer */}
+            <div className="px-3 pt-4 border-t border-white/[0.06]">
+                <p className="text-[10px] text-slate-600 leading-relaxed">
+                    SIGNUM HQ v65
+                </p>
+            </div>
         </aside>
     );
 }
-
