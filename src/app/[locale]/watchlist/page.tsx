@@ -377,7 +377,7 @@ function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
 }
 
 // ─── GRID TEMPLATE (shared between header & cards) ──────────────────────
-const GRID_COLS = 'grid grid-cols-[1.4fr_1.4fr_0.7fr_0.9fr_1fr_0.8fr_0.7fr_1.1fr_0.7fr_1.2fr_1.2fr]';
+const GRID_COLS = 'grid grid-cols-[1fr_1.4fr_0.7fr_0.9fr_1fr_0.8fr_0.8fr_1.2fr_0.7fr_1.3fr_1.3fr]';
 
 // ─── GLASSMORPHISM TABLE-ROW CARD (Mockup 1 Layout + Mockup 2 Glass) ─────
 function WatchlistCard({ item, onRemove, locale, index }: {
@@ -445,7 +445,6 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                         </div>
                         <div className="min-w-0">
                             <div className="font-black text-[13px] text-white tracking-wide">{item.ticker}</div>
-                            <div className="text-[12px] text-slate-300 truncate">{item.name}</div>
                         </div>
                     </div>
 
