@@ -15,9 +15,9 @@ export function getRedisStatus() {
     return {
         connected: redisClient !== null,
         lastError,
-        hasUrl: !!(process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL),
-        hasToken: !!(process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN),
-        urlPrefix: (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '').substring(0, 30),
+        hasUrl: !!(process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL),
+        hasToken: !!(process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN),
+        urlPrefix: (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').substring(0, 30),
     };
 }
 

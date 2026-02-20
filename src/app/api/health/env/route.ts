@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
     const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
-    const UPSTASH_URL = process.env.KV_REST_API_URL || process.env.REDIS_URL;
+    const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
     const buildId = getBuildId();
     const envType = getEnvType();
 
