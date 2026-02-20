@@ -1570,8 +1570,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             </div>
 
-                            {/* B. Advanced Options Analysis (Fixed Height: 460px) */}
-                            <div className="h-[460px] min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+                            {/* B. Advanced Options Analysis (Fixed Height: 400px) */}
+                            <div className="h-[400px] min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
 
                                 {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
                                 <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
