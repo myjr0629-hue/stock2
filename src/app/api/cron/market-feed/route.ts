@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { setInCache } from '@/services/redisClient';
-import { getRedisStatus } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 
 /**
@@ -119,7 +118,6 @@ export async function GET() {
         ok,
         fail,
         results,
-        redis: getRedisStatus(),
         ts: new Date().toISOString(),
     });
 }
