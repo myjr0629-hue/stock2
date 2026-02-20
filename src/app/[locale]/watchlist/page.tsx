@@ -93,7 +93,7 @@ export default function WatchlistPage() {
 
                 {/* ── Sort Chips ── */}
                 {!loading && items.length > 1 && (
-                    <div className="flex items-center gap-2 text-[11px]">
+                    <div className="flex items-center gap-2 text-[12px]">
                         <span className="text-slate-300 font-semibold uppercase tracking-wider">Sort</span>
                         {(['default', 'alpha', 'change', 'whale'] as SortKey[]).map(key => (
                             <button
@@ -125,7 +125,7 @@ export default function WatchlistPage() {
                         {/* Column Headers (glassmorphism bar) */}
                         <div className="flex items-center rounded-lg border border-white/[0.04] bg-white/[0.03] backdrop-blur-sm">
                             <div className="w-11 flex-shrink-0" />
-                            <div className={`flex-1 ${GRID_COLS} px-3 py-2.5 text-[11px] font-bold text-slate-200 uppercase tracking-wider`}>
+                            <div className={`flex-1 ${GRID_COLS} px-3 py-2.5 text-[12px] font-bold text-slate-200 uppercase tracking-wider`}>
                                 <div className="text-center">{t('symbol')}</div>
                                 <div className="text-center">{t('price')}</div>
                                 <div className="text-center">Chart</div>
@@ -155,7 +155,7 @@ export default function WatchlistPage() {
 
                 {/* ── Last Updated Footer ── */}
                 {!loading && items.length > 0 && (
-                    <div className="text-center text-[10px] text-slate-400 pt-2">
+                    <div className="text-center text-[12px] text-slate-400 pt-2">
                         Auto-refresh every 30s • Data Source: Premium Financial Feed
                     </div>
                 )}
@@ -445,7 +445,7 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                         </div>
                         <div className="min-w-0">
                             <div className="font-black text-[13px] text-white tracking-wide">{item.ticker}</div>
-                            <div className="text-[11px] text-slate-300 truncate">{item.name}</div>
+                            <div className="text-[12px] text-slate-300 truncate">{item.name}</div>
                         </div>
                     </div>
 
@@ -459,9 +459,9 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                                 const etDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
                                 const isWeekend = etDow === 0 || etDow === 6;
                                 const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < 960 ? 'reg' : etMins < 1200 ? 'post' : 'closed';
-                                if (realSession === 'pre') return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-cyan-500/25 text-cyan-400">PRE</span>;
-                                if (realSession === 'post') return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-amber-500/25 text-amber-400">POST</span>;
-                                if (realSession === 'closed') return <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-slate-500/25 text-slate-400">CLOSED</span>;
+                                if (realSession === 'pre') return <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-cyan-500/25 text-cyan-400">PRE</span>;
+                                if (realSession === 'post') return <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-amber-500/25 text-amber-400">POST</span>;
+                                if (realSession === 'closed') return <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-slate-500/25 text-slate-400">CLOSED</span>;
                                 return null;
                             })()}
                         </div>
@@ -471,7 +471,7 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                                 <span className={item.regChangePct !== undefined && item.regChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
                                     {item.regChangePct !== undefined && item.regChangePct >= 0 ? '+' : ''}{(item.regChangePct ?? 0).toFixed(2)}%
                                 </span>
-                                <span className={`text-[10px] font-bold opacity-70 ${item.extChangePct >= 0 ? 'text-cyan-400' : 'text-rose-400/80'}`}>
+                                <span className={`text-[12px] font-bold ${item.extChangePct >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
                                     {item.extLabel} {item.extChangePct >= 0 ? '+' : ''}{item.extChangePct.toFixed(2)}%
                                 </span>
                             </div>
@@ -616,7 +616,7 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
                         strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
                         style={{ transition: 'stroke-dashoffset 0.8s ease-out' }} />
                 </svg>
-                <div className={`absolute inset-0 flex items-center justify-center text-[11px] font-black ${c}`}>{g}</div>
+                <div className={`absolute inset-0 flex items-center justify-center text-[12px] font-black ${c}`}>{g}</div>
             </div>
             <span className="text-sm font-bold tabular-nums text-white/95">{score}</span>
         </div>
@@ -624,7 +624,7 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
 }
 
 function SignalBadge({ action, confidence }: { action?: string; confidence?: number }) {
-    if (!action) return <span className="text-[10px] text-slate-600">—</span>;
+    if (!action) return <span className="text-[12px] text-slate-600">—</span>;
     const cfg: Record<string, { bg: string; text: string; border: string }> = {
         'HOLD': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/25' },
         'ADD': { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/25' },
@@ -658,7 +658,7 @@ function WhaleIndicator({ index, confidence }: { index?: number; confidence?: st
                 <Fish className="w-3 h-3" />
                 <span className="text-[13px] font-bold tabular-nums">{index}</span>
             </div>
-            <span className="text-[10px] text-white/70 hidden xl:inline">{level}</span>
+            <span className="text-[12px] text-white/70 hidden xl:inline">{level}</span>
         </div>
     );
 }
@@ -671,7 +671,7 @@ function IVIndicator({ value }: { value?: number }) {
         <div className="flex items-center justify-center gap-1" title={`IV: ${value.toFixed(0)}%`}>
             <Activity className="w-3.5 h-3.5 text-slate-400" />
             <span className={`text-[13px] font-bold tabular-nums ${color}`}>{value.toFixed(0)}%</span>
-            {label && <span className="text-[10px] text-white/70 font-bold">{label}</span>}
+            {label && <span className="text-[12px] text-white/70 font-bold">{label}</span>}
         </div>
     );
 }
@@ -686,14 +686,14 @@ function GammaFlipIndicator({ value, price, gexM }: { value?: number; price?: nu
             <div className="flex items-center justify-center gap-1" title={`Gamma Flip: $${value}`}>
                 <RefreshCcw className="w-3 h-3 text-slate-400" />
                 <span className={`text-[13px] font-bold tabular-nums ${color}`}>${value.toFixed(0)}</span>
-                <span className="text-[10px] text-white/70">{label}</span>
+                <span className="text-[12px] text-white/70">{label}</span>
             </div>
         );
     }
     if (gexM !== undefined && gexM !== null) {
         const badge = gexM < 0
-            ? <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-600/70 text-white">SHORT</span>
-            : <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-600/70 text-white">LONG</span>;
+            ? <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-rose-600/70 text-white">SHORT</span>
+            : <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-emerald-600/70 text-white">LONG</span>;
         return (
             <div className="flex items-center justify-center gap-1" title={gexM < 0 ? tInd('allShortGamma') : tInd('allLongGamma')}>
                 <RefreshCcw className="w-3 h-3 text-slate-600" />
@@ -713,7 +713,7 @@ function Return3DIndicator({ value }: { value?: number }) {
             <span className={`text-[13px] font-bold tabular-nums ${color}`}>
                 {value > 0 ? '+' : ''}{value.toFixed(1)}%
             </span>
-            <span className="text-[10px] text-white/70 font-bold">3D</span>
+            <span className="text-[12px] text-white/70 font-bold">3D</span>
         </div>
     );
 }
@@ -734,7 +734,7 @@ function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }
 function GexIndicator({ gexM }: { gexM?: number }) {
     if (gexM === undefined || gexM === null) {
         return (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border text-[10px] font-bold text-slate-500 bg-slate-600/10 border-slate-700/30">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border text-[12px] font-bold text-slate-500 bg-slate-600/10 border-slate-700/30">
                 <span>FLAT</span>
             </div>
         );
@@ -884,7 +884,7 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
                             </div>
                             <div>
                                 <h2 className="text-base font-black text-white">{t('addToWatchlist')}</h2>
-                                <p className="text-[10px] text-white/70 mt-0.5">{t('addToWatchlistDesc')}</p>
+                                <p className="text-[12px] text-white/70 mt-0.5">{t('addToWatchlistDesc')}</p>
                             </div>
                         </div>
                         <button
@@ -914,16 +914,16 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
                                     {loading && <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />}
                                     {validated && !loading && (
                                         <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                                            <span className="text-emerald-400 text-[10px] font-black">✓</span>
+                                            <span className="text-emerald-400 text-[12px] font-black">✓</span>
                                         </div>
                                     )}
                                 </div>
                             </div>
-                            {error && <p className="text-rose-400 text-[11px] mt-1.5 flex items-center gap-1"><span className="text-rose-400/60">⚠</span> {error}</p>}
+                            {error && <p className="text-rose-400 text-[12px] mt-1.5 flex items-center gap-1"><span className="text-rose-400/60">⚠</span> {error}</p>}
                             {isDuplicate && !error && (
                                 <div className="flex items-center gap-2 mt-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/[0.08] border border-amber-500/15">
                                     <span className="text-amber-400/80 text-xs">⚠</span>
-                                    <span className="text-amber-400 text-[11px] font-semibold">{ticker.toUpperCase()} is already in your watchlist</span>
+                                    <span className="text-amber-400 text-[12px] font-semibold">{ticker.toUpperCase()} is already in your watchlist</span>
                                 </div>
                             )}
                         </div>
@@ -941,9 +941,9 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
                                 </div>
                                 <div className="min-w-0">
                                     <div className="text-[13px] text-white font-bold truncate">{companyName}</div>
-                                    <div className="text-[10px] text-slate-500 font-medium tracking-wider">{ticker.toUpperCase()}</div>
+                                    <div className="text-[12px] text-slate-500 font-medium tracking-wider">{ticker.toUpperCase()}</div>
                                 </div>
-                                <div className="ml-auto text-emerald-400/80 text-[10px] font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/10">READY</div>
+                                <div className="ml-auto text-emerald-400/80 text-[12px] font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/10">READY</div>
                             </div>
                         )}
 
@@ -957,7 +957,7 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
                                             key={tk}
                                             type="button"
                                             onClick={() => setTicker(tk)}
-                                            className="px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[11px] text-slate-400 font-bold hover:bg-white/[0.08] hover:text-white hover:border-white/[0.12] transition-all duration-200 tracking-wide"
+                                            className="px-2.5 py-1 rounded-lg bg-white/[0.03] border border-white/[0.06] text-[12px] text-slate-400 font-bold hover:bg-white/[0.08] hover:text-white hover:border-white/[0.12] transition-all duration-200 tracking-wide"
                                         >
                                             {tk}
                                         </button>

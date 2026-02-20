@@ -146,66 +146,98 @@ export async function GET(request: Request) {
                 snapshotMap[t.ticker] = t;
             });
 
-            // [FIX] Detect current session properly (same logic as getStockDataLight)
-            const { getETNow } = await import('@/services/timezoneUtils');
-            const et = getETNow();
-            const etTime = et.hour + et.minute / 60;
-            let currentSession: 'pre' | 'reg' | 'post' = 'reg';
-            if (!et.isWeekend) {
-                if (etTime >= 4 && etTime < 9.5) currentSession = 'pre';
-                else if (etTime >= 16 && etTime < 20) currentSession = 'post';
-                else if (etTime >= 9.5 && etTime < 16) currentSession = 'reg';
-                else currentSession = (etTime >= 20 || etTime < 4) ? 'post' : 'reg';
-            }
-            const isExtended = currentSession !== 'reg';
+            // [UNIFIED] Use getMarketStatusSSOT — same as /api/live/quotes (SSOT for session)
+            const { getMarketStatusSSOT } = await import('@/services/marketStatusProvider');
+            const marketStatus = await getMarketStatusSSOT();
+            const currentSession = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
 
             const results = tickers.map(ticker => {
                 const analysis = cached[ticker];
                 const snap = snapshotMap[ticker];
 
-                // Live price from Polygon snapshot
-                const prevClose = snap?.prevDay?.c || 0;
-                const todayClose = snap?.day?.c || prevClose;
-                const latestPrice = snap?.lastTrade?.p || snap?.min?.c || snap?.day?.c || prevClose;
+                // ── Price calculation — IDENTICAL to /api/live/quotes ──
+                const liveLast = snap?.lastTrade?.p || 0;
+                const dayClose = snap?.day?.c || 0;
+                const prevDayClose = snap?.prevDay?.c || 0;
+                const prevClose = prevDayClose;
                 const volume = snap?.day?.v || 0;
                 const vwap = snap?.day?.vw || null;
 
-                // [FIX] Session-aware changePct
-                // REG: todaysChangePerc (regular session change)
-                // PRE: previous day's close-to-close (last completed session)
-                // POST: today's regular session change
+                // ── changePct: previous regular session performance ──
+                // REG: live todaysChangePerc
+                // PRE/POST/CLOSED: sparkline-based (last 2 daily closes = yesterday vs day-before-yesterday)
                 let changePct: number;
-                if (isExtended) {
-                    // During extended hours, show previous completed session's change
-                    changePct = prevClose > 0 ? ((todayClose - prevClose) / prevClose) * 100 : 0;
+                if (currentSession === 'regular') {
+                    const todaysChangePerc = snap?.todaysChangePerc || 0;
+                    changePct = todaysChangePerc !== 0 ? todaysChangePerc
+                        : ((liveLast > 0 && prevDayClose > 0) ? ((liveLast - prevDayClose) / prevDayClose) * 100 : 0);
                 } else {
-                    changePct = snap?.todaysChangePerc || 0;
+                    // Try sparkline first (always accurate for previous session change)
+                    const sparkline = analysis.sparkline || [];
+                    if (sparkline.length >= 2) {
+                        const lastClose = sparkline[sparkline.length - 1];
+                        const prevClose2 = sparkline[sparkline.length - 2];
+                        changePct = (prevClose2 > 0 && lastClose > 0)
+                            ? ((lastClose - prevClose2) / prevClose2) * 100 : 0;
+                    } else {
+                        // Fallback: dayClose vs prevDayClose
+                        changePct = (dayClose > 0 && prevDayClose > 0 && dayClose !== prevDayClose)
+                            ? ((dayClose - prevDayClose) / prevDayClose) * 100 : 0;
+                    }
                 }
 
-                // [FIX] Extended hours price change (pre-market or post-market vs reference)
-                let extendedChangePct: number | null = null;
+                // ── Session-aware price & extended price ──
+                // price = base reference (prevClose for PRE, dayClose for POST)
+                // extendedPrice = current actual trade price (pre/post-market)
+                let displayPrice = 0;
                 let extendedPrice: number | null = null;
-                if (currentSession === 'pre' && prevClose > 0) {
-                    extendedPrice = latestPrice;
-                    extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
-                } else if (currentSession === 'post' && todayClose > 0) {
-                    extendedPrice = latestPrice;
-                    extendedChangePct = ((latestPrice - todayClose) / todayClose) * 100;
+                let extendedLabel = '';
+
+                if (currentSession === 'regular') {
+                    displayPrice = liveLast || dayClose || prevClose;
+                } else if (currentSession === 'pre') {
+                    displayPrice = prevClose; // base = yesterday's close
+                    const prePrice = snap?.min?.c || liveLast || 0;
+                    if (prePrice > 0) {
+                        extendedPrice = prePrice;
+                        extendedLabel = 'PRE';
+                    }
+                } else if (currentSession === 'post') {
+                    displayPrice = dayClose || prevClose; // base = today's close
+                    const postPrice = snap?.min?.c || liveLast || 0;
+                    if (postPrice > 0 && postPrice !== displayPrice) {
+                        extendedPrice = postPrice;
+                        extendedLabel = 'POST';
+                    }
+                } else {
+                    // CLOSED
+                    displayPrice = dayClose || prevClose;
+                    if (snap?.afterHours?.p && snap.afterHours.p > 0) {
+                        extendedPrice = snap.afterHours.p;
+                        extendedLabel = 'POST';
+                    }
                 }
+
+                const extendedChangePct = (extendedPrice && extendedPrice > 0 && displayPrice > 0)
+                    ? ((extendedPrice - displayPrice) / displayPrice) * 100
+                    : null;
+
+                // Use displayPrice for maxPainDist calculation
+                const refPrice = extendedPrice || displayPrice;
 
                 return {
                     ticker,
                     alphaSnapshot: analysis.alphaSnapshot,
                     realtime: {
-                        price: latestPrice,
+                        price: displayPrice,
                         changePct,
-                        session: currentSession,
+                        session: currentSession === 'regular' ? 'reg' : currentSession,
                         rsi: analysis.rsi,
                         return3d: analysis.return3d,
                         sparkline: analysis.sparkline,
                         maxPain: analysis.maxPain,
-                        maxPainDist: (analysis.maxPain && latestPrice)
-                            ? Number(((analysis.maxPain - latestPrice) / latestPrice * 100).toFixed(2))
+                        maxPainDist: (analysis.maxPain && refPrice)
+                            ? Number(((analysis.maxPain - refPrice) / refPrice * 100).toFixed(2))
                             : null,
                         gex: analysis.gex,
                         gexM: analysis.gexM,
@@ -215,16 +247,17 @@ export async function GET(request: Request) {
                         gammaFlipLevel: analysis.gammaFlipLevel,
                         iv: analysis.iv,
                         vwap,
-                        vwapDist: (vwap && latestPrice)
-                            ? Number(((latestPrice - vwap) / vwap * 100).toFixed(2))
+                        vwapDist: (vwap && refPrice)
+                            ? Number(((refPrice - vwap) / vwap * 100).toFixed(2))
                             : null,
                         callWall: analysis.callWall,
                         putFloor: analysis.putFloor,
                         netPremium: analysis.netPremium,
                         volume,
                         relVol: analysis.relVol ?? 0,
-                        extendedPrice,
+                        extendedPrice: (extendedPrice && extendedPrice > 0 && extendedPrice !== displayPrice) ? extendedPrice : null,
                         extendedChangePct,
+                        extendedLabel: extendedLabel || undefined,
                     }
                 };
             });

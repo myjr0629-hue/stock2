@@ -145,9 +145,27 @@ export function useWatchlist() {
                     // Use 10s fast price if available, otherwise 30s batch
                     currentPrice: fastPrice?.price ?? apiData.realtime.price ?? 0,
                     changePct: fastPrice?.changePct ?? apiData.realtime.changePct ?? 0,
-                    regChangePct: fastPrice?.regChangePct ?? (apiData.realtime.session !== 'reg' ? apiData.realtime.changePct : undefined),
+                    // [FIX] regChangePct = 직전 정규장 등락률 (PRE/POST에서 sparkline으로 계산)
+                    regChangePct: (() => {
+                        // 1. Fast price provides regChangePct (from quotes API)
+                        const fpReg = fastPrice?.regChangePct;
+                        if (fpReg !== undefined && fpReg !== 0) return fpReg;
+                        // 2. Batch API provides changePct
+                        const batchReg = apiData.realtime.changePct;
+                        if (batchReg !== undefined && batchReg !== 0) return batchReg;
+                        // 3. Fallback: calculate from sparkline (last 2 closes = yesterday vs day before)
+                        const sparkline = apiData.realtime.sparkline;
+                        if (sparkline && sparkline.length >= 2) {
+                            const lastClose = sparkline[sparkline.length - 1];
+                            const prevClose2 = sparkline[sparkline.length - 2];
+                            if (prevClose2 > 0 && lastClose > 0) {
+                                return ((lastClose - prevClose2) / prevClose2) * 100;
+                            }
+                        }
+                        return 0;
+                    })(),
                     extChangePct: fastPrice?.extChangePct ?? apiData.realtime.extendedChangePct ?? undefined,
-                    extLabel: fastPrice?.extLabel ?? (apiData.realtime.session === 'pre' ? 'PRE' : apiData.realtime.session === 'post' ? 'POST' : undefined),
+                    extLabel: fastPrice?.extLabel ?? (apiData.realtime.extendedLabel as 'PRE' | 'POST' | undefined),
                     session: apiData.realtime.session,
                     alphaScore: apiData.alphaSnapshot.score,
                     alphaGrade: apiData.alphaSnapshot.grade,
