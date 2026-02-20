@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   ArrowRight,
   X,
@@ -68,8 +69,8 @@ function SignalBadge({ type }: { type: 'hot' | 'whale' | 'squeeze' | null }) {
   const { icon: Icon, label, color } = config[type];
 
   return (
-    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${color}`}>
-      <Icon className="w-2.5 h-2.5" />
+    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-bold uppercase tracking-wider border ${color}`}>
+      <Icon className="w-3 h-3" />
       {label}
     </div>
   );
@@ -134,7 +135,7 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
 
 // --- Enhanced Live Ticker Card ---
 function LiveTickerCard({ symbol }: { symbol: string }) {
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isDataChanged, setIsDataChanged] = useState(false);
@@ -185,102 +186,99 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
   const isPositive = priceChange ? parseFloat(priceChange) >= 0 : true;
 
   return (
-    <>
-      <div
-        onClick={() => setDrawerOpen(true)}
-        className="group cursor-pointer relative overflow-hidden rounded-xl 
+    <div
+      onClick={() => router.push(`/ticker?ticker=${symbol}`)}
+      className="group cursor-pointer relative overflow-hidden rounded-xl 
           transition-all duration-300 ease-out
           bg-[#0d1829]/80 border border-[#1a2942]
           hover:bg-[#0f1f33] hover:border-cyan-500/40
           hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(34,211,238,0.12)]
           active:translate-y-0 active:shadow-none"
-      >
-        {/* Live Indicator Dot */}
-        <div className="absolute top-3 right-3 flex items-center gap-1.5">
-          <span className="relative flex h-1.5 w-1.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-          </span>
-          <span className="text-[8px] text-emerald-400/70 uppercase tracking-wider">Live</span>
+    >
+      {/* Live Indicator Dot */}
+      <div className="absolute top-3 right-3 flex items-center gap-1.5">
+        <span className="relative flex h-1.5 w-1.5">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+        </span>
+        <span className="text-[10px] text-emerald-400/70 uppercase tracking-wider">Live</span>
+      </div>
+
+      <div className="p-5">
+        {/* Header Row */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-lg bg-[#0a1420] border border-[#1a2942] flex items-center justify-center overflow-hidden
+                group-hover:border-cyan-500/20 transition-colors">
+              <img
+                src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
+                alt={symbol}
+                className="w-7 h-7 object-contain"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+            <div>
+              <h3 className="font-bold text-lg text-white group-hover:text-cyan-100 transition-colors">{symbol}</h3>
+              <p className="text-xs text-slate-400 uppercase tracking-wider">NASDAQ</p>
+            </div>
+          </div>
+          <SignalBadge type={getBadgeType()} />
         </div>
 
-        <div className="p-4">
-          {/* Header Row */}
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-[#0a1420] border border-[#1a2942] flex items-center justify-center overflow-hidden
-                group-hover:border-cyan-500/20 transition-colors">
-                <img
-                  src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
-                  alt={symbol}
-                  className="w-6 h-6 object-contain"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                />
-              </div>
-              <div>
-                <h3 className="font-bold text-base text-white group-hover:text-cyan-100 transition-colors">{symbol}</h3>
-                <p className="text-[10px] text-slate-500 uppercase tracking-wider">NASDAQ</p>
-              </div>
-            </div>
-            <SignalBadge type={getBadgeType()} />
-          </div>
-
-          {/* Price & Sparkline */}
-          <div className="flex items-center justify-between mb-3">
-            <div>
-              {loading ? (
-                <div className="h-6 w-20 bg-white/5 rounded animate-pulse" />
-              ) : (
-                <div className={`transition-all duration-500 ${isDataChanged ? 'opacity-0 translate-y-1' : 'opacity-100 translate-y-0'}`}>
-                  <span className="text-lg font-mono font-bold text-white">
-                    ${data?.underlyingPrice?.toFixed(2) || '—'}
-                  </span>
-                  {priceChange && (
-                    <span className={`ml-2 text-xs font-medium ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {isPositive ? '+' : ''}{priceChange}%
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-            <Sparkline data={sparklineData} color={isPositive ? "#22d3ee" : "#f43f5e"} />
-          </div>
-
-          {/* Metrics Row */}
-          <div className="pt-3 border-t border-white/5">
+        {/* Price & Sparkline */}
+        <div className="flex items-center justify-between mb-3">
+          <div>
             {loading ? (
-              <div className="flex gap-4">
-                <div className="h-4 w-16 bg-white/5 rounded animate-pulse" />
-                <div className="h-4 w-20 bg-white/5 rounded animate-pulse" />
-              </div>
+              <div className="h-6 w-20 bg-white/5 rounded animate-pulse" />
             ) : (
-              <div className={`flex items-center gap-4 text-[10px] transition-all duration-500 ${isDataChanged ? 'opacity-0' : 'opacity-100'}`}>
-                <div className="flex items-center gap-1.5">
-                  <Activity className="w-3 h-3 text-amber-400" />
-                  <span className="text-slate-400">GEX</span>
-                  <span className="text-white font-mono font-medium">
-                    {data?.netGex ? `${data.netGex > 0 ? '+' : ''}${(data.netGex / 1e9).toFixed(1)}B` : '—'}
+              <div className={`transition-all duration-500 ${isDataChanged ? 'opacity-0 translate-y-1' : 'opacity-100 translate-y-0'}`}>
+                <span className="text-xl font-mono font-bold text-white">
+                  ${data?.underlyingPrice?.toFixed(2) || '—'}
+                </span>
+                {priceChange && (
+                  <span className={`ml-2 text-sm font-semibold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {isPositive ? '+' : ''}{priceChange}%
                   </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Target className="w-3 h-3 text-cyan-400" />
-                  <span className="text-slate-400">Max Pain</span>
-                  <span className="text-white font-mono font-medium">
-                    ${data?.maxPain?.toFixed(0) || '—'}
-                  </span>
-                </div>
+                )}
               </div>
             )}
           </div>
+          <Sparkline data={sparklineData} color={isPositive ? "#22d3ee" : "#f43f5e"} />
+        </div>
 
-          {/* Hover Arrow */}
-          <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 -translate-x-2">
-            <ChevronRight className="w-4 h-4 text-cyan-400" />
-          </div>
+        {/* Metrics Row */}
+        <div className="pt-3 border-t border-white/5">
+          {loading ? (
+            <div className="flex gap-4">
+              <div className="h-4 w-16 bg-white/5 rounded animate-pulse" />
+              <div className="h-4 w-20 bg-white/5 rounded animate-pulse" />
+            </div>
+          ) : (
+            <div className={`flex items-center gap-5 text-[13px] transition-all duration-500 ${isDataChanged ? 'opacity-0' : 'opacity-100'}`}>
+              <div className="flex items-center gap-1.5">
+                <Activity className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-slate-400">GEX</span>
+                <span className="text-white font-mono font-medium">
+                  {data?.netGex ? `${data.netGex > 0 ? '+' : ''}${(data.netGex / 1e9).toFixed(1)}B` : '—'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-slate-400">Max Pain</span>
+                <span className="text-white font-mono font-medium">
+                  ${data?.maxPain?.toFixed(0) || '—'}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Hover Arrow */}
+        <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-0 -translate-x-2">
+          <ChevronRight className="w-5 h-5 text-cyan-400" />
         </div>
       </div>
-      <TickerDrawer symbol={symbol} isOpen={drawerOpen} onClose={() => setDrawerOpen(false)} />
-    </>
+    </div>
   );
 }
 
@@ -397,16 +395,19 @@ export default function Page() {
               <span className="text-cyan-400 font-jakarta">SIGNUM HQ</span>
               {t('home.whySignumSuffix')}
             </h2>
-            <p className="text-xs text-slate-500 uppercase tracking-[0.25em]">
-              {t('home.premiumValue')}
+            <p className="text-sm md:text-base font-semibold tracking-[0.15em] uppercase">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-cyan-400">{t('home.premiumValue')}</span>
             </p>
           </div>
 
           {/* Feature Cards - Glassmorphism */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Card 1 */}
-            <div className="relative p-7 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/20 transition-all duration-300">
-              <div className="absolute -right-8 -bottom-8 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
+            <div className="relative p-7 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/30 transition-all duration-500 hover:shadow-[0_0_40px_rgba(34,211,238,0.08)]">
+              {/* Ambient Glow */}
+              <div className="absolute -top-20 -left-20 w-60 h-60 bg-cyan-500/[0.07] rounded-full blur-[80px] group-hover:bg-cyan-500/[0.12] transition-all duration-700" />
+              <div className="absolute bottom-0 right-0 w-40 h-40 bg-amber-500/[0.04] rounded-full blur-[60px] group-hover:bg-amber-500/[0.07] transition-all duration-700" />
+              <div className="absolute -right-8 -bottom-8 opacity-[0.06] group-hover:opacity-[0.12] transition-opacity duration-500">
                 <Waves className="w-36 h-36 text-cyan-400" />
               </div>
 
@@ -415,26 +416,29 @@ export default function Page() {
                   <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
                     <Waves className="w-6 h-6 text-cyan-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
+                  <span className="text-xs font-bold text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-lg border border-amber-400/20">
                     $200/mo {t('home.valuePerMonth')}
                   </span>
                 </div>
 
                 <h3 className="text-lg font-bold text-white mb-3">{t('home.gammaExposure')}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-6">
+                <p className="text-[13px] text-slate-400 leading-relaxed mb-6">
                   {t('home.gammaExposureDesc')}
                 </p>
 
-                <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                <span className="text-[13px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   {t('home.includedInSignum')}
                 </span>
               </div>
             </div>
 
             {/* Card 2 */}
-            <div className="relative p-7 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-amber-500/20 transition-all duration-300">
-              <div className="absolute -right-8 -bottom-8 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
+            <div className="relative p-7 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-amber-500/30 transition-all duration-500 hover:shadow-[0_0_40px_rgba(245,158,11,0.08)]">
+              {/* Ambient Glow */}
+              <div className="absolute -top-20 -left-20 w-60 h-60 bg-amber-500/[0.07] rounded-full blur-[80px] group-hover:bg-amber-500/[0.12] transition-all duration-700" />
+              <div className="absolute bottom-0 right-0 w-40 h-40 bg-cyan-500/[0.04] rounded-full blur-[60px] group-hover:bg-cyan-500/[0.07] transition-all duration-700" />
+              <div className="absolute -right-8 -bottom-8 opacity-[0.06] group-hover:opacity-[0.12] transition-opacity duration-500">
                 <Eye className="w-36 h-36 text-amber-400" />
               </div>
 
@@ -443,26 +447,29 @@ export default function Page() {
                   <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
                     <Eye className="w-6 h-6 text-amber-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
+                  <span className="text-xs font-bold text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-lg border border-amber-400/20">
                     $150/mo {t('home.valuePerMonth')}
                   </span>
                 </div>
 
                 <h3 className="text-lg font-bold text-white mb-3">{t('home.darkPoolTracking')}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-6">
+                <p className="text-[13px] text-slate-400 leading-relaxed mb-6">
                   {t('home.darkPoolTrackingDesc')}
                 </p>
 
-                <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                <span className="text-[13px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   {t('home.includedInSignum')}
                 </span>
               </div>
             </div>
 
             {/* Card 3 */}
-            <div className="relative p-7 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/20 transition-all duration-300">
-              <div className="absolute -right-8 -bottom-8 opacity-[0.06] group-hover:opacity-[0.1] transition-opacity">
+            <div className="relative p-7 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 overflow-hidden group hover:border-cyan-500/30 transition-all duration-500 hover:shadow-[0_0_40px_rgba(34,211,238,0.08)]">
+              {/* Ambient Glow */}
+              <div className="absolute -top-20 -left-20 w-60 h-60 bg-cyan-500/[0.07] rounded-full blur-[80px] group-hover:bg-cyan-500/[0.12] transition-all duration-700" />
+              <div className="absolute bottom-0 right-0 w-40 h-40 bg-emerald-500/[0.04] rounded-full blur-[60px] group-hover:bg-emerald-500/[0.07] transition-all duration-700" />
+              <div className="absolute -right-8 -bottom-8 opacity-[0.06] group-hover:opacity-[0.12] transition-opacity duration-500">
                 <Radar className="w-36 h-36 text-cyan-400" />
               </div>
 
@@ -471,18 +478,18 @@ export default function Page() {
                   <div className="w-12 h-12 rounded-xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
                     <Radar className="w-6 h-6 text-cyan-400" />
                   </div>
-                  <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-lg border border-amber-400/20">
+                  <span className="text-xs font-bold text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-lg border border-amber-400/20">
                     $100/mo {t('home.valuePerMonth')}
                   </span>
                 </div>
 
                 <h3 className="text-lg font-bold text-white mb-3">{t('home.sniperSignal')}</h3>
-                <p className="text-xs text-slate-400 leading-relaxed mb-6">
+                <p className="text-[13px] text-slate-400 leading-relaxed mb-6">
                   {t('home.sniperSignalDesc')}
                 </p>
 
-                <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-widest flex items-center gap-1.5">
-                  <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                <span className="text-[13px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
                   {t('home.includedInSignum')}
                 </span>
               </div>
@@ -510,12 +517,12 @@ export default function Page() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                 </span>
-                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-[0.2em]">{t('common.liveFeed')}</span>
+                <span className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em]">{t('common.liveFeed')}</span>
               </div>
               <h2 className="text-2xl font-black text-white font-jakarta">{t('home.signalDashboard')}</h2>
-              <p className="text-xs text-slate-500 mt-1">{t('home.signalDashboardDesc')}</p>
+              <p className="text-sm text-slate-400 mt-1">{t('home.signalDashboardDesc')}</p>
             </div>
-            <Link href="/watchlist" className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold transition-colors">
+            <Link href="/watchlist" className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold transition-colors">
               {t('common.viewAll')} <ChevronRight size={14} />
             </Link>
           </div>
@@ -539,12 +546,12 @@ export default function Page() {
             </svg>
             <span className="font-bold text-sm text-white/60 font-jakarta">SIGNUM HQ</span>
           </div>
-          <div className="flex items-center gap-6 text-[10px] text-white/70">
+          <div className="flex items-center gap-6 text-xs text-white/70">
             <Link href="/privacy" className="hover:text-white transition-colors">{t('footer.privacy')}</Link>
             <Link href="/terms" className="hover:text-white transition-colors">{t('footer.terms')}</Link>
             <a href="mailto:contact@signumhq.com" className="hover:text-white transition-colors">{t('footer.contact')}</a>
           </div>
-          <p className="text-[10px] text-white/50">{t('footer.copyright')}</p>
+          <p className="text-xs text-white/50">{t('footer.copyright')}</p>
         </div>
       </footer>
     </div>
