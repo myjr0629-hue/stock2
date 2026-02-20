@@ -7,13 +7,6 @@ const nextConfig = {
     eslint: {
         ignoreDuringBuilds: true,
     },
-    experimental: {
-        optimizePackageImports: [
-            'lucide-react',
-            'recharts',
-            'framer-motion',
-        ],
-    },
     outputFileTracingExcludes: {
         '*': [
             './snapshots/**',

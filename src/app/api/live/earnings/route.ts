@@ -100,8 +100,6 @@ export async function GET(req: NextRequest) {
                 latencyMs: Date.now() - startTime,
                 eventsFound: earnings.length
             }
-        }, {
-            headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=600' },
         });
 
     } catch (e: any) {

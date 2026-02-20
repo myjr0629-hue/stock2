@@ -124,10 +124,7 @@ export async function GET(req: NextRequest) {
             phase           // MARKUP | ACCELERATION | EUPHORIA | DISTRIBUTION | DECLINE | NEUTRAL
         }), {
             status: 200,
-            headers: {
-                'Content-Type': 'application/json; charset=utf-8',
-                'Cache-Control': 's-maxage=300, stale-while-revalidate=60',
-            }
+            headers: { 'Content-Type': 'application/json; charset=utf-8' }
         });
 
     } catch (error: any) {

@@ -69,10 +69,7 @@ export async function GET(req: NextRequest) {
             allTickers: results.map((item: any) => item.ticker)
         }), {
             status: 200,
-            headers: {
-                'Content-Type': 'application/json; charset=utf-8',
-                'Cache-Control': 's-maxage=3600, stale-while-revalidate=600',
-            }
+            headers: { 'Content-Type': 'application/json; charset=utf-8' }
         });
 
     } catch (error: any) {

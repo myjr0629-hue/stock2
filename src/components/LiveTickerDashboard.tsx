@@ -4,7 +4,6 @@ import React, { useEffect, useState, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
-import { useRelatedTickers, useAnalystData, useFundamentals, useEarningsData, useSmaData, useVolatilityRegime, useShortSqueeze, useInstitutionalFlow } from '@/hooks/useCommandData';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -376,17 +375,20 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
     const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
-    // [PERF] SWR hooks for non-realtime data — instant display on ticker re-visit
-    const { earningsData } = useEarningsData(ticker);
-    const { smaData } = useSmaData(ticker);
+    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string } | null>(null);
+    const [smaData, setSmaData] = useState<{ cross: string; crossType: string; label: string; sma50: number; sma200: number; distance: number; isImminent: boolean; phase: string } | null>(null);
     const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
-    const { relatedData } = useRelatedTickers(ticker);
-    const { analystData } = useAnalystData(ticker);
-    // [PREMIUM-5x2] SWR indicator hooks
-    const { volatilityData } = useVolatilityRegime(ticker);
-    const { squeezeData } = useShortSqueeze(ticker);
-    const { institutionalData } = useInstitutionalFlow(ticker);
-    const { fundamentalData } = useFundamentals(ticker);
+    const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(null);
+    const [analystData, setAnalystData] = useState<{
+        consensus: string; totalAnalysts: number; bullishPct: number;
+        breakdown: { strongBuy: number; buy: number; hold: number; sell: number; strongSell: number };
+        priceTarget: { mean: number; median: number; high: number; low: number } | null;
+    } | null>(null);
+    // [PREMIUM-5x2] New indicator states
+    const [volatilityData, setVolatilityData] = useState<{ regime: string; regimeScore: number; gex: number; gexLabel: string; iv: number; flipDistance: number; flipLevel: number; isAboveFlip: boolean; squeezeScore: number; squeezeRisk: string; gammaConcentration: number; gammaConcentrationLabel: string } | null>(null);
+    const [squeezeData, setSqueezeData] = useState<{ siPercent: number; daysToCover: number; siChange: number; shortVolPercent: number; riskScore: number; status: string } | null>(null);
+    const [institutionalData, setInstitutionalData] = useState<{ darkPool: { percent: number } | null; blockTrade: { count: number; volume: number } | null; shortVolume: { percent: number } | null } | null>(null);
+    const [fundamentalData, setFundamentalData] = useState<{ score: number; grade: string; breakdown: Record<string, { value: string; score: number; label: string }>; pe?: number | null; de?: number | null; roe?: number | null; revenueGrowth?: number | null; netMargin?: number | null; fcfYield?: number | null } | null>(null);
     // [Company Profile] Overview data for header display
     const [companyOverview, setCompanyOverview] = useState<{ sector: string | null; sectorEN: string | null; description: string | null; descriptionEN: string | null } | null>(null);
 
@@ -563,7 +565,44 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         } catch (e) { console.warn('[NewsScore] Error:', e); }
     };
 
-    // [PERF] fetchEarnings, fetchSma removed — replaced by SWR hooks (useEarningsData, useSmaData)
+    // [V45.15] Fetch Earnings Schedule
+    const fetchEarnings = async () => {
+        try {
+            const res = await fetch(`/api/live/earnings?t=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                setEarningsData({
+                    nextDate: data.nextEarningsDate || null,
+                    daysLabel: data.daysLabel || 'TBD',
+                    epsEstimate: data.epsEstimate || null,
+                    quarter: data.quarter || null,
+                    year: data.year || null,
+                    hourLabel: data.hourLabel || '',
+                    color: data.color || 'text-slate-400'
+                });
+            }
+        } catch (e) { console.warn('[Earnings] Error:', e); }
+    };
+
+    // [PREMIUM] Fetch SMA 50/200 for TREND PHASE™
+    const fetchSma = async () => {
+        try {
+            const res = await fetch(`/api/live/sma?t=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                setSmaData({
+                    cross: data.cross || 'UNKNOWN',
+                    crossType: data.crossType || '',
+                    label: data.label || td('noData'),
+                    sma50: data.sma50 || 0,
+                    sma200: data.sma200 || 0,
+                    distance: data.distance || 0,
+                    isImminent: data.isImminent || false,
+                    phase: data.phase || 'UNKNOWN'
+                });
+            }
+        } catch (e) { console.warn('[SMA] Error:', e); }
+    };
 
     // [PREMIUM] Conviction Matrix: 클라이언트 사이드 융합 점수 (API 호출 없음)
     const calculateConviction = () => {
@@ -607,10 +646,62 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         setConviction({ score, label, grade });
     };
 
-    // [PERF] fetchRelated, fetchAnalyst, fetchVolatilityRegime, fetchShortSqueeze,
-    // fetchInstitutional, fetchFundamentals removed — replaced by SWR hooks
-    // (useRelatedTickers, useAnalystData, useVolatilityRegime, useShortSqueeze,
-    //  useInstitutionalFlow, useFundamentals)
+    // [S-124.6] Fetch Related Tickers
+    const fetchRelated = async () => {
+        try {
+            const res = await fetch(`/api/live/related?t=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                setRelatedData({
+                    count: data.count || 0,
+                    topRelated: data.topRelated || []
+                });
+            }
+        } catch (e) { console.warn('[Related] Error:', e); }
+    };
+
+    // [PREMIUM] Fetch Analyst Target (Finnhub: Recommendations + Price Target)
+    const fetchAnalyst = async () => {
+        try {
+            const res = await fetch(`/api/live/analyst?t=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                setAnalystData(data);
+            }
+        } catch (e) { console.warn('[Analyst] Error:', e); }
+    };
+
+    // [PREMIUM-5x2] Fetch Volatility Regime
+    const fetchVolatilityRegime = async () => {
+        try {
+            const res = await fetch(`/api/live/volatility-regime?t=${ticker}`);
+            if (res.ok) setVolatilityData(await res.json());
+        } catch (e) { console.warn('[VolRegime] Error:', e); }
+    };
+
+    // [PREMIUM-5x2] Fetch Short Squeeze Risk
+    const fetchShortSqueeze = async () => {
+        try {
+            const res = await fetch(`/api/live/short-squeeze?t=${ticker}`);
+            if (res.ok) setSqueezeData(await res.json());
+        } catch (e) { console.warn('[ShortSqueeze] Error:', e); }
+    };
+
+    // [PREMIUM-5x2] Fetch Institutional Flow (reuses existing realtime-metrics)
+    const fetchInstitutional = async () => {
+        try {
+            const res = await fetch(`/api/flow/realtime-metrics?ticker=${ticker}`);
+            if (res.ok) setInstitutionalData(await res.json());
+        } catch (e) { console.warn('[Institutional] Error:', e); }
+    };
+
+    // [PREMIUM-5x2] Fetch Fundamental Value
+    const fetchFundamentals = async () => {
+        try {
+            const res = await fetch(`/api/live/fundamentals?t=${ticker}`);
+            if (res.ok) setFundamentalData(await res.json());
+        } catch (e) { console.warn('[Fundamentals] Error:', e); }
+    };
 
     // [FIX] Client-side chart refresh on visibility/focus change
     const fetchChartData = useCallback(async () => {
@@ -628,8 +719,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     // Initial Load & Polling
     useEffect(() => {
-        // [PERF] SWR handles: earnings, sma, related, analyst, volatility, squeeze, institutional, fundamentals
+        // [PERF] fetchQuote removed — SWR handles quote polling automatically
         fetchNewsAndScore(); // [PERF] 통합: fetchKrNews + fetchNewsScore → 1회 호출
+        fetchEarnings();
+        fetchSma();
+        fetchRelated();
+        fetchAnalyst();
+        fetchVolatilityRegime();
+        fetchShortSqueeze();
+        fetchInstitutional();
+        fetchFundamentals();
         fetchChartData(); // [FIX] Immediately fetch chart data on mount (prevents empty chart + currentPrice stretch)
 
         // [FIX] Re-fetch chart when user returns to this page/tab
