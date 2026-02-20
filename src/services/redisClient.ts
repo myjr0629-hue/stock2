@@ -6,23 +6,26 @@ import { Redis } from '@upstash/redis';
 
 // Lazy initialization - only create client when needed
 let redisClient: Redis | null = null;
-let initError: Error | null = null;
+let lastInitAttempt = 0;
+const RETRY_INTERVAL_MS = 30_000; // Retry Redis init every 30s after failure
 
 /**
  * Get Redis client instance (lazy initialization)
  * Supports both Vercel KV and Upstash environment variable names
+ * Retries after failure instead of giving up permanently
  */
 export async function getRedisClient(): Promise<Redis | null> {
-    // Return cached error state
-    if (initError) {
-        console.warn('[Redis] Previous initialization failed, skipping');
-        return null;
-    }
-
     // Return existing client
     if (redisClient) {
         return redisClient;
     }
+
+    // Rate-limit retry attempts (wait 30s before retrying after failure)
+    const now = Date.now();
+    if (lastInitAttempt > 0 && now - lastInitAttempt < RETRY_INTERVAL_MS) {
+        return null;
+    }
+    lastInitAttempt = now;
 
     // Check for required environment variables (Vercel KV or Upstash naming)
     const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
@@ -36,10 +39,11 @@ export async function getRedisClient(): Promise<Redis | null> {
     try {
         redisClient = new Redis({ url, token });
         console.log('[Redis] Client initialized successfully');
+        lastInitAttempt = 0; // Reset on success
         return redisClient;
     } catch (e) {
-        initError = e instanceof Error ? e : new Error(String(e));
-        console.error('[Redis] Failed to initialize client:', initError.message);
+        console.error('[Redis] Failed to initialize client:', e instanceof Error ? e.message : e);
+        redisClient = null;
         return null;
     }
 }
