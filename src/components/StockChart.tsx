@@ -476,7 +476,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         tickFormatter={xAxisTickFormatter}
                                         ticks={getCustomTicks()}
                                         stroke={chartConfig.textColor}
-                                        fontSize={11}
+                                        fontSize={12}
                                         fontWeight={500}
                                         tickLine={false}
                                         axisLine={false}
@@ -486,7 +486,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         orientation="right"
                                         domain={[minPrice - padding, maxPrice + padding]}
                                         stroke={chartConfig.textColor}
-                                        fontSize={11}
+                                        fontSize={12}
                                         fontWeight={500}
                                         tickLine={false}
                                         axisLine={false}
@@ -566,7 +566,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                                     y={y + 4}
                                                                     textAnchor="middle"
                                                                     fill="#ffffff"
-                                                                    fontSize={11}
+                                                                    fontSize={12}
                                                                     fontWeight="bold"
                                                                 >
                                                                     {currentPrice.toFixed(2)}
@@ -609,7 +609,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                                 y={y + 4}
                                                                 textAnchor="middle"
                                                                 fill="#ffffff"
-                                                                fontSize={11}
+                                                                fontSize={12}
                                                                 fontWeight="bold"
                                                             >
                                                                 {prevClose.toFixed(2)}
@@ -634,7 +634,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 value={`CALL $${alphaLevels.callWall}`}
                                                 position="insideTopRight"
                                                 fill="#22d3ee"
-                                                fontSize={10}
+                                                fontSize={12}
                                                 fontWeight="bold"
                                             />
                                         </ReferenceLine>
@@ -652,7 +652,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 value={`PUT $${alphaLevels.putFloor}`}
                                                 position="insideBottomRight"
                                                 fill="#f43f5e"
-                                                fontSize={10}
+                                                fontSize={12}
                                                 fontWeight="bold"
                                             />
                                         </ReferenceLine>
@@ -670,7 +670,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 value={`MAX PAIN $${alphaLevels.maxPain}`}
                                                 position="insideBottomRight"
                                                 fill="#a855f7"
-                                                fontSize={10}
+                                                fontSize={12}
                                                 fontWeight="bold"
                                             />
                                         </ReferenceLine>
