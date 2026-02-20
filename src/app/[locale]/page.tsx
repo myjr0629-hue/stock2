@@ -382,11 +382,45 @@ export default function Page() {
             <span className="text-white/60">|</span>
             <span className="text-slate-300">{t('home.earlyAccessCta')}</span>
           </div>
+
+          {/* Hero Dashboard Mockup — Perspective Preview */}
+          <div className="relative mt-12 max-h-[680px] overflow-hidden" style={{ perspective: '1200px' }}>
+            {/* Background Glows */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[350px] bg-cyan-500/[0.07] rounded-full blur-[100px] pointer-events-none" />
+            <div className="absolute top-1/4 left-1/4 w-[300px] h-[200px] bg-amber-500/[0.05] rounded-full blur-[80px] pointer-events-none" />
+
+            {/* Side Screens (Behind) — Flow & M7 */}
+            <div className="hidden lg:block absolute -left-[5%] top-[8%] w-[38%] z-0 opacity-[0.55] blur-[0.5px]"
+              style={{ transform: 'rotateY(18deg) rotateX(5deg) scale(0.8)' }}>
+              <div className="rounded-xl overflow-hidden border border-white/10 shadow-2xl">
+                <img src="/images/flow.PNG" alt="Flow Radar" className="w-full h-auto" />
+              </div>
+            </div>
+            <div className="hidden lg:block absolute -right-[5%] top-[8%] w-[38%] z-0 opacity-[0.55] blur-[0.5px]"
+              style={{ transform: 'rotateY(-18deg) rotateX(5deg) scale(0.8)' }}>
+              <div className="rounded-xl overflow-hidden border border-white/10 shadow-2xl">
+                <img src="/images/m7.PNG" alt="M7 Session Grid" className="w-full h-auto" />
+              </div>
+            </div>
+
+            {/* Main Screen (Front) — Command */}
+            <div className="relative z-10 mx-auto w-[85%] md:w-[65%] group transition-transform duration-700 hover:scale-[1.02]"
+              style={{ transform: 'rotateX(6deg)', transformOrigin: 'center bottom' }}>
+              <div className="rounded-xl overflow-hidden border border-white/15 shadow-[0_20px_60px_rgba(34,211,238,0.12),0_8px_24px_rgba(0,0,0,0.5)]">
+                <img src="/images/command.PNG" alt="SIGNUM HQ Command Dashboard" className="w-full h-auto" />
+              </div>
+              {/* Reflection glow on bottom edge */}
+              <div className="absolute -bottom-3 left-[15%] right-[15%] h-6 bg-cyan-500/15 blur-[25px] rounded-full" />
+            </div>
+
+            {/* Bottom Gradient Fade — aggressive */}
+            <div className="absolute bottom-0 left-0 right-0 h-[30%] bg-gradient-to-t from-[#060a12] via-[#060a12]/60 to-transparent pointer-events-none z-20" />
+          </div>
         </div>
       </section>
 
       {/* FEATURES SECTION */}
-      <section id="features" className="py-20 px-6">
+      <section id="features" className="-mt-20 relative z-30 pt-0 pb-20 px-6">
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-16">
