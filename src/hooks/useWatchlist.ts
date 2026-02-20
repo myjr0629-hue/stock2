@@ -145,9 +145,9 @@ export function useWatchlist() {
                     // Use 10s fast price if available, otherwise 30s batch
                     currentPrice: fastPrice?.price ?? apiData.realtime.price ?? 0,
                     changePct: fastPrice?.changePct ?? apiData.realtime.changePct ?? 0,
-                    regChangePct: fastPrice?.regChangePct,
-                    extChangePct: fastPrice?.extChangePct,
-                    extLabel: fastPrice?.extLabel,
+                    regChangePct: fastPrice?.regChangePct ?? (apiData.realtime.session !== 'reg' ? apiData.realtime.changePct : undefined),
+                    extChangePct: fastPrice?.extChangePct ?? apiData.realtime.extendedChangePct ?? undefined,
+                    extLabel: fastPrice?.extLabel ?? (apiData.realtime.session === 'pre' ? 'PRE' : apiData.realtime.session === 'post' ? 'POST' : undefined),
                     session: apiData.realtime.session,
                     alphaScore: apiData.alphaSnapshot.score,
                     alphaGrade: apiData.alphaSnapshot.grade,

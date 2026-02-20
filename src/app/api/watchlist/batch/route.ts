@@ -146,16 +146,52 @@ export async function GET(request: Request) {
                 snapshotMap[t.ticker] = t;
             });
 
+            // [FIX] Detect current session properly (same logic as getStockDataLight)
+            const { getETNow } = await import('@/services/timezoneUtils');
+            const et = getETNow();
+            const etTime = et.hour + et.minute / 60;
+            let currentSession: 'pre' | 'reg' | 'post' = 'reg';
+            if (!et.isWeekend) {
+                if (etTime >= 4 && etTime < 9.5) currentSession = 'pre';
+                else if (etTime >= 16 && etTime < 20) currentSession = 'post';
+                else if (etTime >= 9.5 && etTime < 16) currentSession = 'reg';
+                else currentSession = (etTime >= 20 || etTime < 4) ? 'post' : 'reg';
+            }
+            const isExtended = currentSession !== 'reg';
+
             const results = tickers.map(ticker => {
                 const analysis = cached[ticker];
                 const snap = snapshotMap[ticker];
 
                 // Live price from Polygon snapshot
                 const prevClose = snap?.prevDay?.c || 0;
+                const todayClose = snap?.day?.c || prevClose;
                 const latestPrice = snap?.lastTrade?.p || snap?.min?.c || snap?.day?.c || prevClose;
-                const changePct = snap?.todaysChangePerc || 0;
                 const volume = snap?.day?.v || 0;
                 const vwap = snap?.day?.vw || null;
+
+                // [FIX] Session-aware changePct
+                // REG: todaysChangePerc (regular session change)
+                // PRE: previous day's close-to-close (last completed session)
+                // POST: today's regular session change
+                let changePct: number;
+                if (isExtended) {
+                    // During extended hours, show previous completed session's change
+                    changePct = prevClose > 0 ? ((todayClose - prevClose) / prevClose) * 100 : 0;
+                } else {
+                    changePct = snap?.todaysChangePerc || 0;
+                }
+
+                // [FIX] Extended hours price change (pre-market or post-market vs reference)
+                let extendedChangePct: number | null = null;
+                let extendedPrice: number | null = null;
+                if (currentSession === 'pre' && prevClose > 0) {
+                    extendedPrice = latestPrice;
+                    extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
+                } else if (currentSession === 'post' && todayClose > 0) {
+                    extendedPrice = latestPrice;
+                    extendedChangePct = ((latestPrice - todayClose) / todayClose) * 100;
+                }
 
                 return {
                     ticker,
@@ -163,7 +199,7 @@ export async function GET(request: Request) {
                     realtime: {
                         price: latestPrice,
                         changePct,
-                        session: 'reg', // simplified — actual session from cached data
+                        session: currentSession,
                         rsi: analysis.rsi,
                         return3d: analysis.return3d,
                         sparkline: analysis.sparkline,
@@ -187,6 +223,8 @@ export async function GET(request: Request) {
                         netPremium: analysis.netPremium,
                         volume,
                         relVol: analysis.relVol ?? 0,
+                        extendedPrice,
+                        extendedChangePct,
                     }
                 };
             });
