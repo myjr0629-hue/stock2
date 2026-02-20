@@ -121,8 +121,8 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'No valid tickers provided' }, { status: 400 });
     }
 
-    if (tickers.length > 20) {
-        return NextResponse.json({ error: 'Max 20 tickers per request' }, { status: 400 });
+    if (tickers.length > 50) {
+        return NextResponse.json({ error: 'Max 50 tickers per request' }, { status: 400 });
     }
 
     const startTime = Date.now();
