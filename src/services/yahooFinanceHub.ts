@@ -32,8 +32,8 @@ export const YAHOO_CACHE_KEYS = {
     LAST_FETCH: 'yahoo:last_fetch'
 };
 
-// Rate limit: 1 minute between Yahoo calls
-const RATE_LIMIT_MS = 60 * 1000;
+// Memory cache TTL: 10s (V8.0: no direct Yahoo calls, just Redis reads — keep short)
+const RATE_LIMIT_MS = 10 * 1000;
 
 // In-memory cache for fast access
 let memoryCache: {

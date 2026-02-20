@@ -18,7 +18,6 @@ const nextConfig = {
     // [PERF] 패키지 import 최적화 — lucide-react tree-shaking 강화
     experimental: {
         optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
-        viewTransition: true,
     },
     async redirects() {
         return [
