@@ -91,6 +91,8 @@ export async function GET(req: NextRequest) {
                 homepage: results.homepage_url || null
             },
             debug: { latencyMs: Date.now() - startTime }
+        }, {
+            headers: { 'Cache-Control': 's-maxage=1800, stale-while-revalidate=300' },
         });
     } catch (e) {
         console.error("Overview API Error:", e);

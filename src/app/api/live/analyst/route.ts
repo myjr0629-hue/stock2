@@ -46,6 +46,8 @@ export async function GET(req: NextRequest) {
             breakdown: { strongBuy, buy, hold, sell, strongSell },
             period: latest?.period || null,
             priceTarget: null, // Finnhub Premium only
+        }, {
+            headers: { 'Cache-Control': 's-maxage=1800, stale-while-revalidate=300' },
         });
     } catch (err) {
         console.error('[API /live/analyst] Error:', err);

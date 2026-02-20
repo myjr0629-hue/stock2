@@ -133,6 +133,8 @@ export async function GET(req: NextRequest) {
             fcfYield: fcfYield !== null ? Math.round(fcfYield * 10) / 10 : null,
             pb: pb !== null ? Math.round(pb * 10) / 10 : null,
             ps: ps !== null ? Math.round(ps * 10) / 10 : null,
+        }, {
+            headers: { 'Cache-Control': 's-maxage=3600, stale-while-revalidate=600' },
         });
     } catch (error) {
         console.error('[fundamentals] Error:', error);
