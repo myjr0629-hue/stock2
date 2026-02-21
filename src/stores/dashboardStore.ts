@@ -381,7 +381,16 @@ export const useDashboardStore = create<DashboardState>()(
         }),
         {
             name: 'dashboard-storage',
-            partialize: (state) => ({ dashboardTickers: state.dashboardTickers }),
+            // [STRATEGY C] Persist price data for instant rendering on page load
+            // Previously only dashboardTickers was persisted → blank screen until API responds.
+            // Now: tickers + market + selectedTicker are also saved → previous session data renders instantly.
+            // Signals are excluded (time-sensitive, regenerated each fetch).
+            partialize: (state) => ({
+                dashboardTickers: state.dashboardTickers,
+                selectedTicker: state.selectedTicker,
+                tickers: state.tickers,
+                market: state.market,
+            }),
             // Note: localStorage is now fallback only.
             // Primary persistence is via Supabase (loadDashboardTickers on mount).
         }

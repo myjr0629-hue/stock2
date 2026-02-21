@@ -18,27 +18,53 @@ export async function GET(request: Request) {
         const marketStatus = await getMarketStatusSSOT();
         const session = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
 
-        // ── [P1 FIX] Fetch snapshot ONLY — no daily aggs ──
-        // Previous version fetched snapshot + 2-day historical bars per ticker (2 API calls each).
-        // For a 5-second poll this was too heavy. The full 30s poll handles regChangePct accurately.
-        // Here we only need live price + prevDay for display.
-        const results = await Promise.all(
-            tickers.map(async ticker => {
-                try {
-                    const snapshotRes = await fetchMassive(
-                        `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
-                        {},
-                        false,
-                        undefined,
-                        { cache: 'no-store' as RequestCache }
-                    );
-                    const snapshot = snapshotRes?.ticker || {};
-                    return { ticker, snapshot, error: null };
-                } catch (e: any) {
-                    return { ticker, snapshot: {}, error: e.message };
-                }
-            })
-        );
+        // ── [STRATEGY B] Batch Polygon snapshot — 1 API call instead of N ──
+        // Previous: N parallel calls to /v2/snapshot/locale/us/markets/stocks/tickers/${ticker}
+        // Now: Single batch call to /v2/snapshot/locale/us/markets/stocks/tickers?tickers=NVDA,TSLA,...
+        // All downstream logic (session-aware price, changePct) is unchanged.
+        const tickerString = tickers.join(',');
+        let results: { ticker: string; snapshot: any; error: string | null }[] = [];
+
+        try {
+            const batchRes = await fetchMassive(
+                `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickerString}`,
+                {},
+                false,
+                undefined,
+                { cache: 'no-store' as RequestCache }
+            );
+            const snapshots = batchRes?.tickers || [];
+            // Map batch response to same format as individual calls
+            const snapshotMap: Record<string, any> = {};
+            snapshots.forEach((s: any) => {
+                if (s?.ticker) snapshotMap[s.ticker] = s;
+            });
+            results = tickers.map(ticker => ({
+                ticker,
+                snapshot: snapshotMap[ticker] || {},
+                error: snapshotMap[ticker] ? null : 'no data in batch'
+            }));
+        } catch (batchErr: any) {
+            // Fallback: if batch fails, try individual calls (original behavior)
+            console.warn('[LiveAPI] Batch snapshot failed, falling back to individual calls:', batchErr.message);
+            results = await Promise.all(
+                tickers.map(async ticker => {
+                    try {
+                        const snapshotRes = await fetchMassive(
+                            `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
+                            {},
+                            false,
+                            undefined,
+                            { cache: 'no-store' as RequestCache }
+                        );
+                        const snapshot = snapshotRes?.ticker || {};
+                        return { ticker, snapshot, error: null };
+                    } catch (e: any) {
+                        return { ticker, snapshot: {}, error: e.message };
+                    }
+                })
+            );
+        }
 
         const data: Record<string, any> = {};
 

@@ -1,0 +1,769 @@
+{
+  "ticker": "JD",
+  "savedAt": "2026-02-21T01:55:09.591Z",
+  "tradingDay": "2026-02-20",
+  "data": {
+    "contracts": [
+      {
+        "strike_price": 18,
+        "contract_type": "call",
+        "open_interest": 1,
+        "greeks": {
+          "delta": 0.9899676119960892,
+          "gamma": 0.005227730322616975,
+          "theta": -0.009599169232351679,
+          "vega": 0.001489154780726489
+        },
+        "implied_volatility": 1.3979650731225675,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 19,
+        "contract_type": "call",
+        "open_interest": 1,
+        "greeks": {
+          "delta": 0.9888155619014118,
+          "gamma": 0.006490882623203423,
+          "theta": -0.009276568370736975,
+          "vega": 0.0015535682300861426
+        },
+        "implied_volatility": 1.2290570870438915,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 20,
+        "contract_type": "call",
+        "open_interest": 0,
+        "greeks": {
+          "delta": 0.9874107389483231,
+          "gamma": 0.00821477532671327,
+          "theta": -0.008945234783481028,
+          "vega": 0.0015952702935116989
+        },
+        "implied_volatility": 1.0688302172825204,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 21,
+        "contract_type": "call",
+        "open_interest": 1,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 22,
+        "contract_type": "call",
+        "open_interest": 0,
+        "greeks": {
+          "delta": 0.8391324167082025,
+          "gamma": 0.03547330871604602,
+          "theta": -0.12195014494420806,
+          "vega": 0.008895064696403322
+        },
+        "implied_volatility": 1.8325665391230022,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 23,
+        "contract_type": "call",
+        "open_interest": 6,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 24,
+        "contract_type": "call",
+        "open_interest": 1,
+        "greeks": {
+          "delta": 0.9545623225408899,
+          "gamma": 0.0435728267201378,
+          "theta": -0.014796108938333635,
+          "vega": 0.003604183794849189
+        },
+        "implied_volatility": 0.5806187632535024,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 24.5,
+        "contract_type": "call",
+        "open_interest": 1,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 25,
+        "contract_type": "call",
+        "open_interest": 235,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 25.5,
+        "contract_type": "call",
+        "open_interest": 18,
+        "greeks": {
+          "delta": 0.8433578452185498,
+          "gamma": 0.12009673762229092,
+          "theta": -0.034648032593012065,
+          "vega": 0.009646071931990373
+        },
+        "implied_volatility": 0.5311704225850126,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 26,
+        "contract_type": "call",
+        "open_interest": 161,
+        "greeks": {
+          "delta": 0.8922765759941201,
+          "gamma": 0.15956095247873353,
+          "theta": -0.015556302889734261,
+          "vega": 0.006496545045298847
+        },
+        "implied_volatility": 0.3090212495938203,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 26.5,
+        "contract_type": "call",
+        "open_interest": 602,
+        "greeks": {
+          "delta": 0.7987278115385572,
+          "gamma": 0.2581770166472814,
+          "theta": -0.022439613236030994,
+          "vega": 0.00983931863268061
+        },
+        "implied_volatility": 0.29125008247467077,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 27,
+        "contract_type": "call",
+        "open_interest": 497,
+        "greeks": {
+          "delta": 0.6478965840693514,
+          "gamma": 0.3502541561855613,
+          "theta": -0.029544292813317313,
+          "vega": 0.014842010633748714
+        },
+        "implied_volatility": 0.2866966753208676,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 27.5,
+        "contract_type": "call",
+        "open_interest": 1018,
+        "greeks": {
+          "delta": 0.4690771646107868,
+          "gamma": 0.34302891511983313,
+          "theta": -0.033892723039009524,
+          "vega": 0.014981740623393634
+        },
+        "implied_volatility": 0.31020908523682617,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 28,
+        "contract_type": "call",
+        "open_interest": 2631,
+        "greeks": {
+          "delta": 0.30211171209004406,
+          "gamma": 0.3110753903787869,
+          "theta": -0.028498695359778843,
+          "vega": 0.013229547554215546
+        },
+        "implied_volatility": 0.2986646399245867,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 28.5,
+        "contract_type": "call",
+        "open_interest": 599,
+        "greeks": {
+          "delta": 0.1851148385922121,
+          "gamma": 0.22526174718456685,
+          "theta": -0.02298992593634823,
+          "vega": 0.01020738769982119
+        },
+        "implied_volatility": 0.3152167183190915,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 29,
+        "contract_type": "call",
+        "open_interest": 1259,
+        "greeks": {
+          "delta": 0.10823227557619586,
+          "gamma": 0.14932232016568386,
+          "theta": -0.01676508172552736,
+          "vega": 0.006864795879508987
+        },
+        "implied_volatility": 0.33060877231650315,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 29.5,
+        "contract_type": "call",
+        "open_interest": 1567,
+        "greeks": {
+          "delta": 0.07807023371516736,
+          "gamma": 0.10310938930806134,
+          "theta": -0.015170117092745112,
+          "vega": 0.006923124057845754
+        },
+        "implied_volatility": 0.3784602693883049,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 30,
+        "contract_type": "call",
+        "open_interest": 1397,
+        "greeks": {
+          "delta": 0.048330704983178305,
+          "gamma": 0.06739674570258497,
+          "theta": -0.010721088908809302,
+          "vega": 0.004042008538515048
+        },
+        "implied_volatility": 0.39352385283394176,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 30.5,
+        "contract_type": "call",
+        "open_interest": 55,
+        "greeks": {
+          "delta": 0.03215690152879053,
+          "gamma": 0.04546252640330503,
+          "theta": -0.008431130653412602,
+          "vega": 0.0020376836275101937
+        },
+        "implied_volatility": 0.42489782771709755,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 31,
+        "contract_type": "call",
+        "open_interest": 386,
+        "greeks": {
+          "delta": 0.023449807845371092,
+          "gamma": 0.03251145853724795,
+          "theta": -0.006734768774100031,
+          "vega": 0.0020542118933962426
+        },
+        "implied_volatility": 0.44906665941674134,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 31.5,
+        "contract_type": "call",
+        "open_interest": 29,
+        "greeks": {
+          "delta": 0.11000910678609889,
+          "gamma": 0.06290521462422619,
+          "theta": -0.04062232868920113,
+          "vega": 0.007143781676935571
+        },
+        "implied_volatility": 0.7928982881538739,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 32,
+        "contract_type": "call",
+        "open_interest": 363,
+        "greeks": {
+          "delta": 0.051729154749690705,
+          "gamma": 0.041360264500941,
+          "theta": -0.019469024440940712,
+          "vega": 0.004170660837292939
+        },
+        "implied_volatility": 0.6769416462285999,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 32.5,
+        "contract_type": "call",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 33,
+        "contract_type": "call",
+        "open_interest": 649,
+        "greeks": {
+          "delta": 0.017305489211427768,
+          "gamma": 0.017728555924604438,
+          "theta": -0.007375279149350545,
+          "vega": 0.00211814979373192
+        },
+        "implied_volatility": 0.6363763463016647,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 33.5,
+        "contract_type": "call",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 34,
+        "contract_type": "call",
+        "open_interest": 148,
+        "greeks": {
+          "delta": 0.02307670264810777,
+          "gamma": 0.018613649713974934,
+          "theta": -0.011407149926494546,
+          "vega": 0.002148800101415734
+        },
+        "implied_volatility": 0.7723719152978225,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 35,
+        "contract_type": "call",
+        "open_interest": 214,
+        "greeks": {
+          "delta": 0.014138112255611516,
+          "gamma": 0.011808990846601712,
+          "theta": -0.008013280909557864,
+          "vega": 0.0021799354792496027
+        },
+        "implied_volatility": 0.8127247857337059,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 36,
+        "contract_type": "call",
+        "open_interest": 74,
+        "greeks": {
+          "delta": 0.136364933502543,
+          "gamma": 0.03541099284294064,
+          "theta": -0.09837338380748846,
+          "vega": 0.007597643817683567
+        },
+        "implied_volatility": 1.64400228980704,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 37,
+        "contract_type": "call",
+        "open_interest": 25,
+        "greeks": {
+          "delta": 0.05862591805249793,
+          "gamma": 0.023389115096360026,
+          "theta": -0.041955651376705046,
+          "vega": 0.004469888040334219
+        },
+        "implied_volatility": 1.3212113153508187,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 38,
+        "contract_type": "call",
+        "open_interest": 5,
+        "greeks": {
+          "delta": 0.06358512741774772,
+          "gamma": 0.02249059569498894,
+          "theta": -0.04969947437078915,
+          "vega": 0.0045253183964651935
+        },
+        "implied_volatility": 1.4663227535623384,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 39,
+        "contract_type": "call",
+        "open_interest": 12,
+        "greeks": {
+          "delta": 0.0560684976974413,
+          "gamma": 0.01959830115705061,
+          "theta": -0.04657068008797413,
+          "vega": 0.004582676969668978
+        },
+        "implied_volatility": 1.5204998028346886,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 40,
+        "contract_type": "call",
+        "open_interest": 2,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 18,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 19,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 20,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 21,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 22,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 23,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 24,
+        "contract_type": "put",
+        "open_interest": 13,
+        "greeks": {
+          "delta": -0.05346925115313348,
+          "gamma": 0.047237899542307754,
+          "theta": -0.018266749841139893,
+          "vega": 0.003610701104523614
+        },
+        "implied_volatility": 0.6136742247775703,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 24.5,
+        "contract_type": "put",
+        "open_interest": 110,
+        "greeks": {
+          "delta": -0.052707767796161105,
+          "gamma": 0.05583012540513647,
+          "theta": -0.01505928481800238,
+          "vega": 0.0036489215891759292
+        },
+        "implied_volatility": 0.512550140045648,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 25,
+        "contract_type": "put",
+        "open_interest": 637,
+        "greeks": {
+          "delta": -0.04604037242967761,
+          "gamma": 0.063876385396986,
+          "theta": -0.010489224689158756,
+          "vega": 0.003686467246023793
+        },
+        "implied_volatility": 0.39993255463719174,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 25.5,
+        "contract_type": "put",
+        "open_interest": 1722,
+        "greeks": {
+          "delta": -0.0764178276191506,
+          "gamma": 0.10312325592149962,
+          "theta": -0.0145533409075452,
+          "vega": 0.006431598055319083
+        },
+        "implied_volatility": 0.37077786890210773,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 26,
+        "contract_type": "put",
+        "open_interest": 5863,
+        "greeks": {
+          "delta": -0.14367723050117873,
+          "gamma": 0.166297861075335,
+          "theta": -0.0226255228680152,
+          "vega": 0.009742722673485341
+        },
+        "implied_volatility": 0.36408923627759515,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 26.5,
+        "contract_type": "put",
+        "open_interest": 607,
+        "greeks": {
+          "delta": -0.19560886686423332,
+          "gamma": 0.2598324918471217,
+          "theta": -0.021522385338428915,
+          "vega": 0.009837107298116302
+        },
+        "implied_volatility": 0.28412538958495076,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 27,
+        "contract_type": "put",
+        "open_interest": 1388,
+        "greeks": {
+          "delta": -0.35410347461592456,
+          "gamma": 0.34402895309243836,
+          "theta": -0.030134192040344863,
+          "vega": 0.014842955937657522
+        },
+        "implied_volatility": 0.2922485112415276,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 27.5,
+        "contract_type": "put",
+        "open_interest": 190,
+        "greeks": {
+          "delta": -0.5395614167378184,
+          "gamma": 0.40923671373680437,
+          "theta": -0.02815563096514819,
+          "vega": 0.014983505374836902
+        },
+        "implied_volatility": 0.2591614450364883,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 28,
+        "contract_type": "put",
+        "open_interest": 841,
+        "greeks": {
+          "delta": -0.711357360701881,
+          "gamma": 0.32618888748290364,
+          "theta": -0.02592877631299473,
+          "vega": 0.013231352940478917
+        },
+        "implied_volatility": 0.2788461154946816,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 28.5,
+        "contract_type": "put",
+        "open_interest": 74,
+        "greeks": {
+          "delta": -0.8076230250327543,
+          "gamma": 0.2245666309339623,
+          "theta": -0.02404606843890781,
+          "vega": 0.010208196761468199
+        },
+        "implied_volatility": 0.3240339117952466,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 29,
+        "contract_type": "put",
+        "open_interest": 807,
+        "greeks": {
+          "delta": -0.9353321309397984,
+          "gamma": 0.12377607540788332,
+          "theta": -0.009309259872139349,
+          "vega": 0.0039728346815466956
+        },
+        "implied_volatility": 0.2738108201669148,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 29.5,
+        "contract_type": "put",
+        "open_interest": 6,
+        "greeks": {
+          "delta": -0.8450131079812512,
+          "gamma": 0.12332164598508433,
+          "theta": -0.033583074287800566,
+          "vega": 0.010374528177108155
+        },
+        "implied_volatility": 0.517023701846695,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 30,
+        "contract_type": "put",
+        "open_interest": 127,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 30.5,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {
+          "delta": -0.8042609018119969,
+          "gamma": 0.086337402987017,
+          "theta": -0.06379064240469659,
+          "vega": 0.010542389739714822
+        },
+        "implied_volatility": 0.850659799465372,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 31,
+        "contract_type": "put",
+        "open_interest": 48,
+        "greeks": {
+          "delta": -0.9838184737264848,
+          "gamma": 0.026125617987226665,
+          "theta": -0.004358632763892074,
+          "vega": 0.001992215303161963
+        },
+        "implied_volatility": 0.4223292482380969,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 31.5,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {
+          "delta": -0.8200657530921031,
+          "gamma": 0.06780528328954963,
+          "theta": -0.07328370740427512,
+          "vega": 0.010702401684797809
+        },
+        "implied_volatility": 1.029100602877354,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 32,
+        "contract_type": "put",
+        "open_interest": 1,
+        "greeks": {
+          "delta": -0.9297348123357448,
+          "gamma": 0.04820427061012726,
+          "theta": -0.02730317334415379,
+          "vega": 0.004166803918583093
+        },
+        "implied_volatility": 0.749738109577692,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 32.5,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 33,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {
+          "delta": -0.8703211955268265,
+          "gamma": 0.0500682795450923,
+          "theta": -0.0644235031220802,
+          "vega": 0.007300993472242564
+        },
+        "implied_volatility": 1.1246111580374163,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 33.5,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {
+          "delta": -0.9883634292743951,
+          "gamma": 0.013111958226259116,
+          "theta": -0.004969441342526583,
+          "vega": 0.000887301788992996
+        },
+        "implied_volatility": 0.6478319098993675,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 34,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {
+          "delta": -0.9035416425149028,
+          "gamma": 0.0397930060575833,
+          "theta": -0.05254706688045432,
+          "vega": 0.007397103709386721
+        },
+        "implied_volatility": 1.1415987430925805,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 35,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 36,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 37,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 38,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 39,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {
+          "delta": -0.9919236823401875,
+          "gamma": 0.006026611842791475,
+          "theta": -0.005690110481592655,
+          "vega": 0.0009160930796055205
+        },
+        "implied_volatility": 1.058313464692359,
+        "expiry": "2026-02-27"
+      },
+      {
+        "strike_price": 40,
+        "contract_type": "put",
+        "open_interest": 0,
+        "greeks": {},
+        "implied_volatility": null,
+        "expiry": "2026-02-27"
+      }
+    ],
+    "expiry": "2026-02-20",
+    "spot": 27.38
+  }
+}

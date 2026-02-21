@@ -3,6 +3,8 @@ import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/s
 import { getStructureData } from '@/services/structureService';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
+import { fetchMassive } from '@/services/massiveClient';
 
 // [V4.1] Polygon API for technical indicators (return3D, sma20, rsi14, relVol)
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
@@ -429,6 +431,162 @@ function buildResponseFromResults(
     };
 }
 
+// ============================================================
+// [STRATEGY A] Build response from warm-analysis Redis cache
+// Converts AnalysisCacheEntry format → dashboard response format
+// Used during cold start to avoid 40+ Polygon API calls
+// ============================================================
+async function buildResponseFromAnalysisCache(
+    tickers: string[],
+    analysisCacheMap: Record<string, AnalysisCacheEntry>,
+    marketData: any
+) {
+    const tickersData: Record<string, any> = {};
+
+    // Fetch live prices in parallel via Polygon snapshots (lightweight, ~50ms per batch)
+    const priceMap: Record<string, any> = {};
+    try {
+        const priceResults = await Promise.all(
+            tickers.filter(t => analysisCacheMap[t]).map(async (ticker) => {
+                try {
+                    const snapRes = await fetchMassive(
+                        `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
+                        {}, false, undefined, { cache: 'no-store' as RequestCache }
+                    );
+                    return { ticker, snapshot: snapRes?.ticker || null };
+                } catch {
+                    return { ticker, snapshot: null };
+                }
+            })
+        );
+        priceResults.forEach(({ ticker, snapshot }) => {
+            if (snapshot) priceMap[ticker] = snapshot;
+        });
+    } catch {
+        // If price fetch fails, we still have analysis data — price will be stale but available
+    }
+
+    for (const ticker of tickers) {
+        const ac = analysisCacheMap[ticker];
+        if (!ac) continue;
+
+        // Merge live price from snapshot with cached analysis data
+        const snap = priceMap[ticker];
+        const livePrice = snap?.lastTrade?.p || snap?.min?.c || snap?.day?.c || 0;
+        const prevClose = snap?.prevDay?.c || 0;
+        const dayClose = snap?.day?.c || prevClose;
+        const todaysChangePerc = snap?.todaysChangePerc || 0;
+        const price = livePrice || dayClose || prevClose;
+
+        // Session detection (same as getMarketStatus)
+        const currentSession = marketData?.marketStatus || 'CLOSED';
+        const sessionMap: Record<string, string> = { 'PRE': 'PRE', 'OPEN': 'REG', 'AFTER': 'POST', 'CLOSED': 'CLOSED' };
+        const session = sessionMap[currentSession] || 'CLOSED';
+
+        // Calculate changePct from live data
+        let changePercent = 0;
+        if (session === 'REG') {
+            changePercent = todaysChangePerc || (prevClose > 0 && price > 0 ? ((price - prevClose) / prevClose) * 100 : 0);
+        } else {
+            changePercent = (dayClose > 0 && prevClose > 0 && dayClose !== prevClose) ? ((dayClose - prevClose) / prevClose) * 100 : 0;
+        }
+
+        // Squeeze risk label from score
+        const sqScore = ac.squeezeScore ?? 0;
+        const squeezeRisk = sqScore >= 70 ? 'EXTREME' : sqScore >= 50 ? 'HIGH' : sqScore >= 30 ? 'MEDIUM' : 'LOW';
+
+        // Build extended session data from snapshot
+        let extended: any = null;
+        if (snap) {
+            const afterHoursPrice = snap.afterHours?.p || 0;
+            const preMarketPrice = snap.preMarket?.p || 0;
+            extended = {
+                postPrice: afterHoursPrice > 0 ? afterHoursPrice : undefined,
+                postChangePct: afterHoursPrice > 0 && dayClose > 0 ? ((afterHoursPrice - dayClose) / dayClose) * 100 : undefined,
+                prePrice: preMarketPrice > 0 ? preMarketPrice : undefined,
+                preChangePct: preMarketPrice > 0 && prevClose > 0 ? ((preMarketPrice - prevClose) / prevClose) * 100 : undefined,
+            };
+        }
+
+        // Build display object (Command-style)
+        const displayPrice = session === 'REG' ? price : dayClose || prevClose;
+        const display = { price: displayPrice, changePctPct: changePercent };
+
+        tickersData[ticker] = {
+            underlyingPrice: price,
+            changePercent,
+            prevClose,
+            regularCloseToday: dayClose || null,
+            intradayChangePct: changePercent,
+            display,
+            prevChangePct: changePercent,
+            prevRegularClose: prevClose,
+            extended,
+            session,
+            netGex: ac.gex,
+            gexM: ac.gexM,             // [D] GEX in millions (display-ready)
+            maxPain: ac.maxPain,
+            pcr: ac.pcr,
+            isGammaSqueeze: sqScore >= 70 && (ac.gex ?? 0) < 0,
+            gammaFlipLevel: ac.gammaFlipLevel,
+            atmIv: ac.iv || null,
+            atmIvExpiry: null,
+            squeezeScore: ac.squeezeScore,
+            squeezeRisk,
+            vwap: null, // VWAP price needs live data, vwapDist is distance only
+            darkPoolPct: null,       // Not in analysis cache (comes from realtimeMetrics)
+            shortVolPct: null,       // Not in analysis cache
+            zeroDtePct: null,        // Not in analysis cache
+            impliedMovePct: null,    // Not in analysis cache
+            impliedMoveDir: null,
+            gammaConcentration: null,
+            volumePcr: null,
+            volumePcrCallVol: null,
+            volumePcrPutVol: null,
+            levels: {
+                callWall: ac.callWall,
+                putFloor: ac.putFloor,
+            },
+            expiration: null,
+            options_status: ac.maxPain || ac.gex ? 'OK' : null,
+            // [D] Technical indicators from analysis cache (used for Alpha recalc on full refresh)
+            _rsi14: ac.rsi,
+            _return3D: ac.return3d,
+            _relVol: ac.relVol,
+            _vwapDist: ac.vwapDist,
+            _netPremium: ac.netPremium,
+            _volume: ac.volume,
+            sparkline: ac.sparkline,
+            whaleIndex: ac.whaleIndex,
+            whaleConfidence: ac.whaleConfidence,
+            // Alpha from pre-computed cache
+            alpha: ac.alphaSnapshot ? {
+                score: ac.alphaSnapshot.score,
+                grade: ac.alphaSnapshot.grade,
+                action: ac.alphaSnapshot.action,
+                actionKR: ac.alphaSnapshot.actionKR,
+                whyKR: ac.alphaSnapshot.whyKR,
+                pillars: ac.alphaSnapshot.pillars,
+                gatesApplied: ac.alphaSnapshot.gatesApplied,
+                dataCompleteness: ac.alphaSnapshot.confidence,
+                engineVersion: ac.alphaSnapshot.engineVersion,
+            } : undefined,
+        };
+    }
+
+    return {
+        timestamp: new Date().toISOString(),
+        market: marketData,
+        tickers: tickersData,
+        signals: [] as any[],
+        meta: {
+            tickerCount: Object.keys(tickersData).length,
+            cacheTTL: CACHE_TTL_MS / 1000,
+            source: 'analysis-cache'
+        }
+    };
+}
+
 // Background revalidation function (used for both warmer and on-demand custom tickers)
 async function revalidateCache(cacheKey: string, tickers: string[], requestOrBaseUrl?: NextRequest | string) {
     const cached = cache.get(cacheKey);
@@ -530,22 +688,73 @@ export async function GET(request: NextRequest) {
         });
     }
 
-    // [COLD START] No cache anywhere — must fetch synchronously
-    console.log(`[CACHE] ❄️ Cold start for ${cacheKey}`);
+    // [COLD START + STRATEGY A] Check warm-analysis Redis cache before expensive API calls
+    // The warm-analysis cron pre-computes data for ~50 popular tickers every 2 minutes.
+    // If we have analysis cache hits, we can return instantly and revalidate in background.
+    console.log(`[CACHE] ❄️ Cold start for ${cacheKey} — checking analysis cache...`);
     try {
-        const tickerPromises = tickers.map(async (ticker) => {
-            try {
-                const data = await fetchTickerData(ticker, undefined, 3, baseUrl);
-                return { ticker, data, error: null };
-            } catch (e: any) {
-                return { ticker, data: null, error: e.message };
-            }
-        });
-
-        const [marketData, ...tickerResults] = await Promise.all([
+        const [marketData, analysisCacheMap] = await Promise.all([
             fetchMarketData(),
-            ...tickerPromises
+            getAnalysisCacheForTickers(tickers)
         ]);
+
+        const cachedTickers = Object.keys(analysisCacheMap);
+        const missingTickers = tickers.filter(t => !analysisCacheMap[t.toUpperCase()]);
+
+        // If we have analysis cache for ANY tickers, use it for instant response
+        if (cachedTickers.length > 0) {
+            console.log(`[CACHE] 🚀 Analysis cache hit: ${cachedTickers.length}/${tickers.length} tickers (miss: ${missingTickers.join(',') || 'none'})`);
+
+            // Build instant response from analysis cache + live prices
+            const response = await buildResponseFromAnalysisCache(tickers, analysisCacheMap, marketData);
+
+            // If there are missing tickers, fetch them via full API and merge
+            if (missingTickers.length > 0) {
+                const missingResults = await Promise.all(
+                    missingTickers.map(async (ticker) => {
+                        try {
+                            const data = await fetchTickerData(ticker, undefined, 3, baseUrl);
+                            return { ticker, data, error: null };
+                        } catch (e: any) {
+                            return { ticker, data: null, error: e.message };
+                        }
+                    })
+                );
+                const missingResponse = buildResponseFromResults(missingResults, marketData);
+                // Merge missing tickers into the response
+                response.tickers = { ...response.tickers, ...missingResponse.tickers };
+                response.signals = [...response.signals, ...missingResponse.signals].slice(0, 20);
+            }
+
+            // Store in cache and trigger background full revalidation
+            const ts = Date.now();
+            cache.set(cacheKey, { data: response, timestamp: ts });
+            writeToRedisCache(cacheKey, response, ts);
+
+            // Non-blocking: full revalidation to replace analysis-cache data with complete data
+            revalidateCache(cacheKey, tickers, baseUrl);
+
+            return NextResponse.json({
+                ...response,
+                _cached: false,
+                _status: 'analysis-cache-hit',
+                _analysisHits: cachedTickers.length,
+                _analysisMisses: missingTickers.length,
+            });
+        }
+
+        // No analysis cache either — full cold start (original path)
+        console.log(`[CACHE] ❄️ No analysis cache — full cold start`);
+        const tickerResults = await Promise.all(
+            tickers.map(async (ticker) => {
+                try {
+                    const data = await fetchTickerData(ticker, undefined, 3, baseUrl);
+                    return { ticker, data, error: null };
+                } catch (e: any) {
+                    return { ticker, data: null, error: e.message };
+                }
+            })
+        );
 
         const response = buildResponseFromResults(tickerResults, marketData);
 
