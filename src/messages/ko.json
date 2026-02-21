@@ -760,46 +760,183 @@
     "chartTitle": "Options Overlay 차트",
     "chartDesc": "주가 차트 위에 <cyan>Call Wall</cyan>(저항), <gold>Max Pain</gold>(수렴), <rose>Put Wall</rose>(지지) 레벨을 오버레이하여 옵션 시장이 설정한 가격 범위를 한눈에 시각화합니다.",
     "signalTitle": "SIGNAL FEED",
-    "signalDesc": "실시간으로 감지되는 <gold>고래 매매</gold>, 다크풀 이벤트, 숏스퀴즈 경보 등을 타임라인으로 표시합니다. BUY/SELL/ALERT/WHALE 태그로 신호를 구분합니다."
+    "signalDesc": "실시간으로 감지되는 <gold>고래 매매</gold>, 다크풀 이벤트, 숏스퀴즈 경보 등을 타임라인으로 표시합니다. BUY/SELL/ALERT/WHALE 태그로 신호를 구분합니다.",
+    "strategy": {
+      "warningTitle": "⚠️ 투자 위험 고지 및 면책 사항",
+      "warningDesc": "본 서비스에서 제공하는 모든 정보(지표, 시그널, 분석 결과 포함)는 투자 참고용 데이터이며, 투자 권유·매매 추천·투자 자문에 해당하지 않습니다. 금융 투자는 원금 손실의 위험이 있으며, 과거 데이터와 지표가 미래 수익을 보장하지 않습니다. 모든 투자 판단은 전적으로 이용자 본인의 몫이며, 그에 따른 손익의 책임 또한 이용자 본인에게 있습니다. 본 서비스 제공자는 이용자의 투자 결과에 대해 어떠한 법적 책임도 지지 않습니다."
+    }
   },
   "commandGuide": {
-    "subtitle": "개별 종목의 감마 구조와 tactical range를 분석합니다",
-    "cards": {
-      "gammaFlip": {
-        "badge": "핵심 지표",
-        "meaning": "딜러들의 감마 포지션이 롱에서 숏으로 (또는 반대로) 전환되는 가격 수준입니다. 이 레벨을 기준으로 시장의 변동성 특성이 달라집니다.",
-        "longGammaTitle": "현재가 < Flip Level",
-        "longGammaDesc": "롱감마 구간 - 가격 안정화 경향, 변동성 억제",
-        "shortGammaTitle": "현재가 > Flip Level",
-        "shortGammaDesc": "숏감마 구간 - 변동성 확대, 추세 가속 가능",
-        "signals": {
-          "ready": "감마 플립 레벨 계산 완료",
-          "short": "전 구간 숏감마 (Flip 지점 없음)",
-          "long": "전 구간 롱감마 (Flip 지점 없음)",
-          "na": "옵션 유동성 부족"
-        }
+    "subtitle": "개별 종목의 프리미엄 지표와 옵션 구조를 실시간 분석하는 커맨드 센터",
+    "overviewTitle": "COMMAND 개요",
+    "overviewDesc": "Command는 개별 종목의 <cyan>10개 프리미엄 지표</cyan>를 실시간으로 분석하는 전술 센터입니다. <gold>VOL REGIME</gold>, <cyan>CONVICTION</cyan>, <rose>SHORT SQUEEZE</rose>, <emerald>ANALYST TARGET</emerald> 등 기관급 분석 도구를 하나의 화면에서 확인할 수 있습니다.",
+    "indicatorsTitle": "프리미엄 지표 카드",
+    "indicatorsSubtitle": "10 Premium Indicators",
+    "indicatorsDesc": "Command 상단에 배치된 10개 프리미엄 지표 카드들은 실시간데일리스윙 판단에 필요한 핵심 데이터를 제공합니다.",
+    "row1Title": "Row 1  실시간  당일 판단",
+    "row2Title": "Row 2  스윙  장기 판단",
+    "volRegime": {
+      "title": "VOL REGIME",
+      "badge": "변동성",
+      "desc": "감마 노출, IV, 스퀴즈 확률을 융합하여 현재 <gold>변동성 체제</gold>를 4단계(STABLE/COILING/LOADED/ERUPTING)로 진단합니다. 100점 만점 스코어로 시장 온도를 즉시 파악할 수 있습니다.",
+      "stable": "STABLE  변동성 낮음, 안정적 구간",
+      "coiling": "COILING  에너지 축적 중, 방향 탐색",
+      "loaded": "LOADED  폭발 대기, 변동성 경보",
+      "erupting": "ERUPTING  극심한 변동성, 리스크 최고",
+      "tip": "LOADED/ERUPTING 구간에서는 포지션 사이징을 줄이고 손절매를 타이트하게 설정하세요.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "STABLE  레인지 바운드 전략, VWAP 기준 매매",
+      "guide2": "COILING  브레이크아웃 대비, 옵션 스트래들 고려",
+      "guide3": "LOADED/ERUPTING  추세 추종, 역추세 진입은 위험"
+    },
+    "conviction": {
+      "title": "CONVICTION MATRIX",
+      "badge": "복합 점수",
+      "desc": "<cyan>SMA 트렌드</cyan>, VWAP, P/C Ratio, GEX, Flow 5가지 데이터를 융합한 <gold>종합 확신도</gold> 점수입니다. A~F 등급으로 매수/매도 방향을 직관적으로 판단할 수 있습니다.",
+      "bull": "A~B+ (65+)  매수 우위, 복합 시그널 정렬",
+      "neutral": "B~C (45-64)  중립, 방향 탐색 중",
+      "bear": "D~F (0-44)  매도 우위, 하락 시그널 집중",
+      "tip": "Conviction이 80+ 이면서 VOL REGIME이 안정적이면 높은 확률의 진입점입니다.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "A등급: 강한 매수 확신  포지션 확대 고려",
+      "guide2": "C등급: 중립  관망 또는 소량 포지션만 유지",
+      "guide3": "F등급: 강한 매도 압력  숏 포지션 또는 헤지 고려"
+    },
+    "vwapCard": {
+      "title": "VWAP",
+      "badge": "기관 기준",
+      "desc": "현재가와 <cyan>VWAP(거래량가중평균가)</cyan>의 거리를 퍼센트로 표시합니다. 기관 트레이더들이 가장 중요하게 보는 <gold>포지션 기준점</gold>입니다.",
+      "above": "양수(+)  VWAP 위  단기 매수 우위",
+      "below": "음수(-)  VWAP 아래  단기 매도 우위",
+      "tip": "VWAP 근접 시(0.3%) 방향 결정의 핵심 구간  돌파/이탈 주시.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "+2% 이상: 과매수 경고  숏텀 차익실현 고려",
+      "guide2": "0.5% 이내: VWAP 테스트 구간  돌파/이탈 방향 집중",
+      "guide3": "-2% 이하: 약세 전환 가능  지지선 확인 후 진입"
+    },
+    "shortSqueeze": {
+      "title": "SHORT SQUEEZE",
+      "badge": "공매도 리스크",
+      "desc": "공매도 비율(SI%), 숏커버 소요일(Days to Cover), 공매도 거래 비중을 종합하여 <rose>숏스퀴즈 위험도</rose>를 측정합니다.",
+      "low": "LOW  SI% 5% 미만, 스퀴즈 가능성 낮음",
+      "medium": "MEDIUM  SI% 5-15%, 모니터링 필요",
+      "high": "HIGH  SI% 15%+, 숏스퀴즈 경보",
+      "critical": "CRITICAL  SI% 25%+, 극도 위험",
+      "tip": "Days to Cover 3일 이상 + SI% 15%+ 조합은 숏스퀴즈의 클래식 조건.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "HIGH/CRITICAL  숏 포지션 축소, 급등 시 추격 매수 주의",
+      "guide2": "양의 모멘텀 + HIGH SI%  숏커버 랠리 가능성",
+      "guide3": "LOW  공매도 영향 제한적, 펀더멘탈 중심 판단"
+    },
+    "analystTarget": {
+      "title": "ANALYST TARGET",
+      "badge": "컨센서스",
+      "desc": "월가 애널리스트들의 <emerald>투자 등급</emerald> 분포와 매수/매도 비율을 표시합니다. Strong Buy~Strong Sell 5단계 분포와 총 애널리스트 수를 확인할 수 있습니다.",
+      "strongBuy": "Strong Buy  강력 매수 추천",
+      "buy": "Buy  매수 추천",
+      "hold": "Hold  보유 추천",
+      "sell": "Sell  매도 추천",
+      "tip": "매수 추천 비율 80%+ = 시장 컨센서스가 강하게 형성, 단 역발상 관점도 고려.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "매수 90%+: 강한 컨센서스  중장기 포지션 근거",
+      "guide2": "매수 50-70%: 의견 분산  추가 분석 필요",
+      "guide3": "Hold 다수: 방향 불확실  숏텀 이벤트 중심 접근"
+    },
+    "instRadar": {
+      "title": "INST RADAR",
+      "badge": "기관 추적",
+      "desc": "<purple>다크풀 거래 비중</purple>과 <cyan>블록 트레이드</cyan> 빈도로 기관 투자자의 매집/분배 패턴을 추적합니다. ACCUMULATION/DISTRIBUTION/NEUTRAL 3단계 시그널로 표시됩니다.",
+      "accum": "ACCUMULATION  다크풀 40%+ & 블록 3건+  기관 매집",
+      "neutral": "NEUTRAL  정상 범위, 특이점 없음",
+      "dist": "DISTRIBUTION  다크풀 20%- & 블록 1건-  기관 분배",
+      "tip": "ACCUMULATION + 매수 컨센서스 조합은 중장기 상승의 강력한 근거.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "ACCUMULATION: 기관 매집 구간  풀백 시 매수 기회",
+      "guide2": "DISTRIBUTION: 기관 분배  반등 시 차익실현 고려",
+      "guide3": "NEUTRAL: 기관 참여 제한적  개인 수급 중심 분석"
+    },
+    "trendPhase": {
+      "title": "TREND PHASE",
+      "badge": "추세 진단",
+      "desc": "<emerald>SMA 50/200</emerald> 이동평균선 교차 상태로 현재 추세 국면을 진단합니다. GOLDEN Cross(강세)와 DEAD Cross(약세)를 실시간으로 감지합니다.",
+      "golden": "GOLDEN  SMA 50 > SMA 200, 상승 추세 전환",
+      "dead": "DEAD  SMA 50 < SMA 200, 하락 추세 전환",
+      "neutral": "NEUTRAL  교차 없음, 기존 추세 유지",
+      "tip": "GOLDEN Cross 직후 + CONVICTION A등급 = 매수 시그널의 이상적 조합.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "GOLDEN Cross: 중장기 매수 근거  트레일링 스탑 활용",
+      "guide2": "DEAD Cross: 방어적 전략  하락 헤지 고려",
+      "guide3": "SMA 거리 3% 이내: 교차 임박  방향 전환 모니터링"
+    },
+    "fundamental": {
+      "title": "FUNDAMENTAL",
+      "badge": "재무 분석",
+      "desc": "<cyan>PE</cyan>, <gold>ROE</gold>, FCF, 매출 성장률, 마진, D/E 비율을 종합한 <emerald>재무 건전성 점수</emerald>입니다. 100점 만점 A~F 등급으로 펀더멘탈을 빠르게 파악할 수 있습니다.",
+      "aGrade": "A등급 (80+)  재무 우수, 성장+수익성 균형",
+      "bGrade": "B등급 (60-79)  양호, 일부 약점 존재",
+      "cGrade": "C등급 이하  개선 필요, 리스크 주의",
+      "tip": "PE가 업종 평균 대비 낮으면서 ROE 20%+ = 저평가 성장주.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "A등급: 밸류에이션 매력  중장기 코어 포지션",
+      "guide2": "B등급: 선별적 접근  성장 모멘텀 확인 후 진입",
+      "guide3": "C등급 이하: 투기적  숏텀 이벤트 트레이딩만 고려"
+    },
+    "earnings": {
+      "title": "EARNINGS",
+      "badge": "실적 일정",
+      "desc": "다음 <gold>실적 발표 일정</gold>과 D-Day 카운트, 예상 EPS, 분기 정보를 표시합니다. 실적 시즌에는 변동성이 급격히 증가하므로 사전 준비가 필수입니다.",
+      "upcoming": "실적 임박(D-7 이내)  IV 상승, 옵션 프리미엄 증가",
+      "far": "실적까지 여유  펀더멘탈 기반 포지션 구축 가능",
+      "tip": "실적 발표 D-3부터 IV 급등  옵션 매수는 그 전에, 매도는 발표 직전 유리.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "실적 D-7: IV 상승 시작  스트래들 전략 검토",
+      "guide2": "실적 당일: 방향 예측 어려움  포지션 사이징 축소",
+      "guide3": "실적 후: IV Crush  옵션 매도 전략 유리"
+    },
+    "related": {
+      "title": "RELATED",
+      "badge": "상관 종목",
+      "desc": "현재 종목과 <cyan>높은 상관관계</cyan>를 가진 동종 업계 종목들의 실시간 등락률을 표시합니다. 섹터 전체 흐름을 한눈에 파악할 수 있습니다.",
+      "positive": "같은 방향  섹터 전체 모멘텀 확인",
+      "divergent": "다른 방향  개별 종목 이벤트 가능성",
+      "tip": "관련 종목 전체 상승 + 해당 종목만 하락 = 개별 이슈 점검 필요.",
+      "tradingGuide": "트레이딩 활용법",
+      "guide1": "섹터 동반 상승: 모멘텀 매매 유효  추세 추종",
+      "guide2": "대장주만 상승: 로테이션 가능성  후발주 주시",
+      "guide3": "섹터 디커플링: 개별 이벤트 분석  뉴스 확인"
+    },
+    "chartTitle": "Price History 차트",
+    "chartDesc": "<cyan>실시간 가격 차트</cyan>에 옵션 레벨(Call Wall, Max Pain, Put Floor, Prev Close)을 오버레이하여 시장이 설정한 <gold>지지/저항 범위</gold>를 시각화합니다. 1D/5D/1M/6M/1Y/All 기간 선택이 가능합니다.",
+    "signalTitle": "SIGNAL CORE",
+    "signalDesc": "<gold>AI 기반 종합 시그널</gold> 분석 엔진입니다. 감지된 시그널(GOLDEN Cross, Analyst Buy 등)을 뱃지로 요약하고, 마감 세션 SMA+뉴스 기반 AI 분석 리포트를 제공합니다.",
+    "flowTitle": "FLOW UNIT",
+    "flowDesc": "<emerald>실시간 옵션 자금 흐름</emerald>을 추적하는 Flow Sniper입니다. Net Premium(콜-풋 프리미엄 차이)과 Volume Strength로 기관의 <gold>방향성 베팅</gold>을 포착합니다. BULLISH/BEARISH 시그널과 활성 계약 수를 표시합니다.",
+    "gammaTitle": "TACTICAL RANGE & NET GAMMA ENGINE",
+    "gammaDesc": "<gold>옵션 데이터 기반 전술 레벨</gold>과 <cyan>감마 엔진</cyan> 분석입니다. Support/Resist/Max Pain 레벨로 단기 매매 범위를 설정하고, Net GEX 방향과 Gamma Flip Level로 시장 성격을 파악합니다.",
+    "intelTitle": "INTEL FEED (AI)",
+    "intelDesc": "<cyan>AI 뉴스 인텔리전스</cyan> 피드입니다. 해당 종목 관련 최신 뉴스를 AI가 분석하여 시장 영향도를 평가합니다. 각 뉴스에 AI 분석 뱃지가 표시되어 빠른 판단이 가능합니다.",
+    "gammaFlipDesc": "<purple>Gamma Flip Level</purple>은 옵션 딜러의 감마 노출이 <cyan>LONG에서 SHORT</cyan>으로 뒤집히는 가격입니다. 이 레벨 위에서는 딜러가 <emerald>같은 방향으로 헤지</emerald>하여 시장을 안정시키고, 아래에서는 <rose>반대 방향으로 헤지</rose>하여 변동성을 증폭시킵니다. VOL REGIME 카드의 'Flip' 거리가 핵심 지표입니다.",
+    "strategy": {
+      "title": "실전 트레이딩 가이드",
+      "desc": "Command 10개 지표를 <cyan>체계적으로 해석</cyan>하여 트레이딩에 활용하는 4단계 프로세스입니다.",
+      "step1": {
+        "title": "Step 1: 시장 온도 파악",
+        "desc": "VOL REGIME과 CONVICTION을 먼저 확인합니다. LOADED/ERUPTING 구간에서는 포지션 사이징을 줄이고, A등급 CONVICTION은 매수 근거가 됩니다."
       },
-      "netGex": {
-        "badge": "실시간",
-        "meaning": "현재 옵션 시장의 총 감마 노출도입니다. 양수면 딜러들이 롱감마, 음수면 숏감마 포지션을 보유 중입니다.",
-        "stableTitle": "STABLE (양수 GEX)",
-        "stableDesc": "딜러 롱감마 → 변동성 억제, 가격 안정",
-        "volatileTitle": "VOLATILE (음수 GEX)",
-        "volatileDesc": "딜러 숏감마 → 변동성 확대, 방향 가속"
+      "step2": {
+        "title": "Step 2: 방향성 확인",
+        "desc": "TREND PHASE의 SMA 교차 상태와 VWAP 위치를 확인합니다. GOLDEN + VWAP 위 = 상승 추세, DEAD + VWAP 아래 = 하락 추세."
       },
-      "tacticalRange": {
-        "badge": "전술 레벨",
-        "meaning": "옵션 데이터 기반으로 산출한 단기 지지/저항 레벨과 Max Pain 가격입니다.",
-        "resist": "콜 월(Call Wall) 기반 저항선",
-        "maxPain": "옵션 만기 시 수렴 예상 가격",
-        "support": "풋 플로어(Put Floor) 기반 지지선"
+      "step3": {
+        "title": "Step 3: 리스크 평가",
+        "desc": "SHORT SQUEEZE 위험도와 EARNINGS 일정을 점검합니다. 실적 D-3 이내 + HIGH SI% 조합은 극심한 변동성을 예고합니다."
       },
-      "risk": {
-        "badge": "리스크",
-        "meaning": "당일 만기 옵션의 영향도와 숏스퀴즈 발생 위험을 측정합니다.",
-        "impactDesc": "당일 만기 옵션이 전체 GEX에서 차지하는 비중. 30% 이상이면 장 종료 전 변동성 주의",
-        "squeezeDesc": "LOW/MED/HIGH - 숏스퀴즈 발생 가능성. 높을수록 급격한 상승 반전 가능"
-      }
+      "step4": {
+        "title": "Step 4: 기관 흐름 추적",
+        "desc": "INST RADAR의 매집/분배 시그널과 FLOW UNIT의 Net Premium 방향을 확인합니다. ACCUMULATION + 콜 프리미엄  = 강한 매수 시그널."
+      },
+      "warningTitle": "⚠️ 투자 위험 고지 및 면책 사항",
+      "warningDesc": "본 서비스에서 제공하는 모든 정보(지표, 시그널, 분석 결과 포함)는 투자 참고용 데이터이며, 투자 권유·매매 추천·투자 자문에 해당하지 않습니다. 금융 투자는 원금 손실의 위험이 있으며, 과거 데이터와 지표가 미래 수익을 보장하지 않습니다. 모든 투자 판단은 전적으로 이용자 본인의 몫이며, 그에 따른 손익의 책임 또한 이용자 본인에게 있습니다. 본 서비스 제공자는 이용자의 투자 결과에 대해 어떠한 법적 책임도 지지 않습니다."
     }
   },
   "intelGuide": {
@@ -1089,8 +1226,8 @@
         "title": "4단계: 종목 실행",
         "desc": "<emerald>Tactical Verdict</emerald>와 <cyan>RLSI Insight</cyan>의 AI 판단을 참고하여 최종 매매를 실행합니다. <gold>Dashboard의 개별 종목 분석</gold>과 결합하면 더욱 정밀한 타이밍을 잡을 수 있습니다."
       },
-      "warningTitle": "주의사항",
-      "warningDesc": "Guardian은 시장 상황을 분석하는 도구이지 <rose>매매 신호 생성기가 아닙니다</rose>. 최종 매매 결정은 반드시 본인의 판단으로 하시고, <gold>리스크 관리(손절 라인, 포지션 사이징)</gold>를 항상 준수하세요."
+      "warningTitle": "⚠️ 투자 위험 고지 및 면책 사항",
+      "warningDesc": "본 서비스에서 제공하는 모든 정보(지표, 시그널, 분석 결과 포함)는 투자 참고용 데이터이며, 투자 권유·매매 추천·투자 자문에 해당하지 않습니다. 금융 투자는 원금 손실의 위험이 있으며, 과거 데이터와 지표가 미래 수익을 보장하지 않습니다. 모든 투자 판단은 전적으로 이용자 본인의 몫이며, 그에 따른 손익의 책임 또한 이용자 본인에게 있습니다. 본 서비스 제공자는 이용자의 투자 결과에 대해 어떠한 법적 책임도 지지 않습니다."
     }
   },
   "landing": {

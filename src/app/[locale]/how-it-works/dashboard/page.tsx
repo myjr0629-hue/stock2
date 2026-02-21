@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { getTranslations } from 'next-intl/server';
 import {
     Zap, Diamond, Target, Shield, Layers, TrendingDown, TrendingUp,
-    Activity, ArrowUpDown, Lightbulb, BarChart3, MapPin
+    Activity, ArrowUpDown, Lightbulb, BarChart3, MapPin, AlertTriangle
 } from 'lucide-react';
 
 export default async function DashboardGuidePage() {
@@ -707,6 +707,17 @@ export default async function DashboardGuidePage() {
                     <div className="p-3 rounded-xl bg-cyan-900/20 border border-cyan-500/20 text-center">
                         <span className="text-sm font-black text-cyan-400">WHALE</span>
                         <p className="text-sm text-slate-300 mt-1">고래 매매 감지</p>
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══ Investment Risk Disclaimer ═══ */}
+            <section>
+                <div className="p-4 rounded-xl bg-amber-900/20 border border-amber-500/25 flex items-start gap-3">
+                    <AlertTriangle size={18} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                        <h4 className="text-[14px] font-bold text-amber-300 mb-1">{t('strategy.warningTitle')}</h4>
+                        <p className="text-[14px] text-amber-200/80 leading-relaxed">{t('strategy.warningDesc')}</p>
                     </div>
                 </div>
             </section>

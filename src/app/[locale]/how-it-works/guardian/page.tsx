@@ -7,8 +7,10 @@ import {
     ArrowUpDown, Radio, Zap, Brain, MapPin, Info, ChevronRight
 } from 'lucide-react';
 
-export default async function GuardianGuidePage() {
+export default async function GuardianGuidePage({ params }: { params: Promise<{ locale: string }> }) {
+    const { locale } = await params;
     const t = await getTranslations('guardianGuide');
+    const guardianFullImg = locale === 'ko' ? '/guide/guardian-full.png' : `/guide/guardian-full-${locale}.png`;
 
     const richTags = {
         cyan: (chunks: React.ReactNode) => <span className="text-cyan-400 font-semibold">{chunks}</span>,
@@ -43,7 +45,7 @@ export default async function GuardianGuidePage() {
                 <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-slate-900/30 backdrop-blur-sm shadow-2xl">
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.04] via-transparent to-cyan-500/[0.03] pointer-events-none" />
                     <Image
-                        src="/guide/guardian-full.png"
+                        src={guardianFullImg}
                         alt="Guardian Full View"
                         width={2048}
                         height={1200}

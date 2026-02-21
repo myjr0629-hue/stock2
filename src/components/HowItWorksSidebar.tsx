@@ -46,9 +46,6 @@ export function HowItWorksSidebar() {
             href: '/how-it-works/command',
             icon: Command,
             gradient: 'from-cyan-400 to-blue-600',
-            children: [
-                { labelKey: 'flowRadar', href: '/how-it-works/command/flow-radar', icon: Radio, gradient: '' }
-            ]
         },
         {
             labelKey: 'flow',

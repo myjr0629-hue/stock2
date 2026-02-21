@@ -697,46 +697,183 @@
     "chartTitle": "Options Overlay Chart",
     "chartDesc": "Overlays <cyan>Call Wall</cyan> (resistance), <gold>Max Pain</gold> (convergence), and <rose>Put Wall</rose> (support) levels on the price chart — visualizing the price range set by the options market.",
     "signalTitle": "SIGNAL FEED",
-    "signalDesc": "Real-time timeline of <gold>whale trades</gold>, dark pool events, and short squeeze alerts. Signals are tagged as BUY/SELL/ALERT/WHALE."
+    "signalDesc": "Real-time timeline of <gold>whale trades</gold>, dark pool events, and short squeeze alerts. Signals are tagged as BUY/SELL/ALERT/WHALE.",
+    "strategy": {
+      "warningTitle": "⚠️ Investment Risk Disclosure & Disclaimer",
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute investment advice, trading recommendations, or financial consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All investment decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' investment outcomes."
+    }
   },
   "commandGuide": {
-    "subtitle": "Analyzes gamma structure and tactical range of individual tickers",
-    "cards": {
-      "gammaFlip": {
-        "badge": "Core Indicator",
-        "meaning": "The price level where dealer gamma positioning flips from long to short (or vice-versa). Market volatility characteristics change around this level.",
-        "longGammaTitle": "Price < Flip Level",
-        "longGammaDesc": "Long Gamma Zone - Price stabilization tendency, suppressed volatility",
-        "shortGammaTitle": "Price > Flip Level",
-        "shortGammaDesc": "Short Gamma Zone - Expanded volatility, potential trend acceleration",
-        "signals": {
-          "ready": "Gamma Flip Level Calculated",
-          "short": "All-Range Short Gamma (No Flip Point)",
-          "long": "All-Range Long Gamma (No Flip Point)",
-          "na": "Insufficient Options Liquidity"
-        }
+    "subtitle": "Command center that analyzes premium indicators and options structure for individual tickers in real-time",
+    "overviewTitle": "COMMAND Overview",
+    "overviewDesc": "Command is a tactical center that analyzes <cyan>10 premium indicators</cyan> for individual tickers in real-time. Institutional-grade tools like <gold>VOL REGIME</gold>, <cyan>CONVICTION</cyan>, <rose>SHORT SQUEEZE</rose>, and <emerald>ANALYST TARGET</emerald> are available on a single screen.",
+    "indicatorsTitle": "Premium Indicator Cards",
+    "indicatorsSubtitle": "10 Premium Indicators",
+    "indicatorsDesc": "The 10 premium indicator cards at the top of Command deliver critical data for real-time, daily, and swing trading decisions.",
+    "row1Title": "Row 1  Real-Time & Intraday",
+    "row2Title": "Row 2  Swing & Long-Term",
+    "volRegime": {
+      "title": "VOL REGIME",
+      "badge": "Volatility",
+      "desc": "Fuses gamma exposure, IV, and squeeze probability to diagnose the current <gold>volatility regime</gold> in 4 stages (STABLE/COILING/LOADED/ERUPTING). A 100-point score instantly reveals market temperature.",
+      "stable": "STABLE  Low volatility, calm range",
+      "coiling": "COILING  Energy building, direction seeking",
+      "loaded": "LOADED  Explosion pending, volatility alert",
+      "erupting": "ERUPTING  Extreme volatility, maximum risk",
+      "tip": "In LOADED/ERUPTING zones, reduce position sizing and tighten stop-losses.",
+      "tradingGuide": "Trading Application",
+      "guide1": "STABLE  Range-bound strategy, trade around VWAP",
+      "guide2": "COILING  Prepare for breakout, consider options straddles",
+      "guide3": "LOADED/ERUPTING  Trend follow only, counter-trend entries are dangerous"
+    },
+    "conviction": {
+      "title": "CONVICTION MATRIX",
+      "badge": "Composite Score",
+      "desc": "A <gold>composite confidence score</gold> that fuses 5 data points: <cyan>SMA trend</cyan>, VWAP, P/C Ratio, GEX, and Flow. Grades A through F provide an instant directional read.",
+      "bull": "A-B+ (65+)  Bullish bias, signals aligned",
+      "neutral": "B-C (45-64)  Neutral, searching for direction",
+      "bear": "D-F (0-44)  Bearish bias, sell signals concentrated",
+      "tip": "Conviction 80+ combined with stable VOL REGIME = high-probability entry point.",
+      "tradingGuide": "Trading Application",
+      "guide1": "Grade A: Strong buy conviction  Consider scaling into position",
+      "guide2": "Grade C: Neutral  Watch from sidelines or keep minimal exposure",
+      "guide3": "Grade F: Strong sell pressure  Consider shorts or hedging"
+    },
+    "vwapCard": {
+      "title": "VWAP",
+      "badge": "Institutional Benchmark",
+      "desc": "Shows the percentage distance between the current price and <cyan>VWAP (Volume-Weighted Average Price)</cyan>. This is the most critical <gold>positioning benchmark</gold> for institutional traders.",
+      "above": "Positive (+)  Above VWAP  Short-term bullish",
+      "below": "Negative (-)  Below VWAP  Short-term bearish",
+      "tip": "Within 0.3% of VWAP = critical decision zone  watch for breakout or rejection.",
+      "tradingGuide": "Trading Application",
+      "guide1": "+2% or more: Overbought warning  Consider short-term profit-taking",
+      "guide2": "Within 0.5%: VWAP test zone  Focus on breakout/breakdown direction",
+      "guide3": "-2% or more: Potential bearish shift  Confirm support before entry"
+    },
+    "shortSqueeze": {
+      "title": "SHORT SQUEEZE",
+      "badge": "Short Risk",
+      "desc": "Measures <rose>short squeeze risk</rose> by combining short interest (SI%), days to cover, and short volume ratio.",
+      "low": "LOW  SI% below 5%, squeeze unlikely",
+      "medium": "MEDIUM  SI% 5-15%, monitoring required",
+      "high": "HIGH  SI% 15%+, squeeze alert",
+      "critical": "CRITICAL  SI% 25%+, extreme risk",
+      "tip": "Days to Cover 3+ combined with SI% 15%+ is the classic short squeeze setup.",
+      "tradingGuide": "Trading Application",
+      "guide1": "HIGH/CRITICAL  Reduce short positions, beware of chasing rallies",
+      "guide2": "Positive momentum + HIGH SI%  Short covering rally possible",
+      "guide3": "LOW  Limited short influence, focus on fundamentals"
+    },
+    "analystTarget": {
+      "title": "ANALYST TARGET",
+      "badge": "Consensus",
+      "desc": "Displays Wall Street analyst <emerald>rating distribution</emerald> with buy/sell ratios. Shows the 5-tier breakdown from Strong Buy to Strong Sell with total analyst count.",
+      "strongBuy": "Strong Buy  Strong buy recommendation",
+      "buy": "Buy  Buy recommendation",
+      "hold": "Hold  Hold recommendation",
+      "sell": "Sell  Sell recommendation",
+      "tip": "Buy ratio 80%+ = strong market consensus formed, but consider contrarian perspective too.",
+      "tradingGuide": "Trading Application",
+      "guide1": "Buy 90%+: Strong consensus  solid basis for mid-long term positions",
+      "guide2": "Buy 50-70%: Divided opinions  additional analysis needed",
+      "guide3": "Mostly Hold: Direction uncertain  focus on short-term event-driven approach"
+    },
+    "instRadar": {
+      "title": "INST RADAR",
+      "badge": "Institutional Tracking",
+      "desc": "Tracks institutional investor accumulation/distribution patterns through <purple>dark pool trade ratio</purple> and <cyan>block trade</cyan> frequency. Displayed as ACCUMULATION/DISTRIBUTION/NEUTRAL signals.",
+      "accum": "ACCUMULATION  Dark pool 40%+ and 3+ blocks  institutional buying",
+      "neutral": "NEUTRAL  Normal range, no anomalies",
+      "dist": "DISTRIBUTION  Dark pool below 20% and 1 or fewer blocks  institutional selling",
+      "tip": "ACCUMULATION + buy consensus is strong evidence for mid-long term upside.",
+      "tradingGuide": "Trading Application",
+      "guide1": "ACCUMULATION: Institutional buying zone  Buy opportunities on pullbacks",
+      "guide2": "DISTRIBUTION: Institutional selling  Consider taking profits on bounces",
+      "guide3": "NEUTRAL: Limited institutional participation  Analyze retail flow instead"
+    },
+    "trendPhase": {
+      "title": "TREND PHASE",
+      "badge": "Trend Diagnosis",
+      "desc": "Diagnoses the current trend phase via <emerald>SMA 50/200</emerald> moving average crossover status. Detects GOLDEN Cross (bullish) and DEAD Cross (bearish) in real-time.",
+      "golden": "GOLDEN  SMA 50 > SMA 200, bullish trend shift",
+      "dead": "DEAD  SMA 50 < SMA 200, bearish trend shift",
+      "neutral": "NEUTRAL  No crossover, existing trend continues",
+      "tip": "GOLDEN Cross + CONVICTION Grade A = ideal buy signal combination.",
+      "tradingGuide": "Trading Application",
+      "guide1": "GOLDEN Cross: Mid-long term buy thesis  Use trailing stops",
+      "guide2": "DEAD Cross: Defensive strategy  Consider downside hedges",
+      "guide3": "SMA distance within 3%: Crossover imminent  Monitor for direction change"
+    },
+    "fundamental": {
+      "title": "FUNDAMENTAL",
+      "badge": "Financial Analysis",
+      "desc": "A <emerald>financial health score</emerald> combining <cyan>PE</cyan>, <gold>ROE</gold>, FCF, revenue growth, margins, and D/E ratio. A-F grading on a 100-point scale for quick fundamental assessment.",
+      "aGrade": "Grade A (80+)  Excellent financials, growth + profitability balanced",
+      "bGrade": "Grade B (60-79)  Good, some weaknesses exist",
+      "cGrade": "Grade C or below  Needs improvement, increased risk",
+      "tip": "PE below sector average with ROE 20%+ = undervalued growth stock.",
+      "tradingGuide": "Trading Application",
+      "guide1": "Grade A: Valuation appeal  Core mid-long term position",
+      "guide2": "Grade B: Selective approach  Enter after confirming growth momentum",
+      "guide3": "Grade C or below: Speculative  Consider short-term event trading only"
+    },
+    "earnings": {
+      "title": "EARNINGS",
+      "badge": "Earnings Schedule",
+      "desc": "Displays the next <gold>earnings date</gold>, D-Day countdown, estimated EPS, and quarter info. Volatility spikes sharply during earnings season, making advance preparation essential.",
+      "upcoming": "Imminent (D-7 or less)  IV rising, options premiums increasing",
+      "far": "Earnings far out  Fundamental-based position building possible",
+      "tip": "IV surges from D-3 before earnings  Buy options before, sell just before announcement.",
+      "tradingGuide": "Trading Application",
+      "guide1": "Earnings D-7: IV rising  Review straddle strategies",
+      "guide2": "Earnings day: Direction unpredictable  Reduce position sizing",
+      "guide3": "Post-earnings: IV Crush  Options selling strategies favored"
+    },
+    "related": {
+      "title": "RELATED",
+      "badge": "Correlated Tickers",
+      "desc": "Shows real-time performance of sector peers with <cyan>high correlation</cyan> to the current ticker. Get a quick read on overall sector momentum.",
+      "positive": "Same direction  Sector-wide momentum confirmed",
+      "divergent": "Different direction  Individual ticker event possible",
+      "tip": "Entire sector rising but this ticker falling = check for stock-specific issues.",
+      "tradingGuide": "Trading Application",
+      "guide1": "Sector-wide rally: Momentum trades valid  Ride the trend",
+      "guide2": "Only leader rising: Rotation possible  Watch laggards",
+      "guide3": "Sector decoupling: Analyze individual events  Check news"
+    },
+    "chartTitle": "Price History Chart",
+    "chartDesc": "Overlays options levels (Call Wall, Max Pain, Put Floor, Prev Close) on the <cyan>real-time price chart</cyan> to visualize the market-defined <gold>support/resistance range</gold>. Supports 1D/5D/1M/6M/1Y/All timeframes.",
+    "signalTitle": "SIGNAL CORE",
+    "signalDesc": "An <gold>AI-powered composite signal</gold> analysis engine. Summarizes detected signals (GOLDEN Cross, Analyst Buy, etc.) as badges and provides SMA + news-based AI analysis reports from the closing session.",
+    "flowTitle": "FLOW UNIT",
+    "flowDesc": "Flow Sniper tracking <emerald>real-time options fund flows</emerald>. Captures institutional <gold>directional bets</gold> through Net Premium (call-put premium difference) and Volume Strength.",
+    "gammaTitle": "TACTICAL RANGE and NET GAMMA ENGINE",
+    "gammaDesc": "<gold>Options-derived tactical levels</gold> and <cyan>gamma engine</cyan> analysis. Sets short-term trading ranges with Support/Resist/Max Pain levels.",
+    "intelTitle": "INTEL FEED (AI)",
+    "intelDesc": "<cyan>AI News Intelligence</cyan> feed. AI analyzes the latest news related to the ticker and evaluates market impact.",
+    "gammaFlipDesc": "<purple>Gamma Flip Level</purple> is the price where option dealers' gamma exposure flips from <cyan>LONG to SHORT</cyan>. Above this level, dealers <emerald>hedge in the same direction</emerald>, stabilizing markets. Below, they <rose>hedge in opposite direction</rose>, amplifying volatility. The 'Flip' distance in the VOL REGIME card is the key metric.",
+    "strategy": {
+      "title": "Trading Strategy Guide",
+      "desc": "A 4-step process for <cyan>systematically interpreting</cyan> 10 indicators for trading.",
+      "step1": {
+        "title": "Step 1: Read Market Temperature",
+        "desc": "Check VOL REGIME and CONVICTION first. In LOADED/ERUPTING zones reduce sizing."
       },
-      "netGex": {
-        "badge": "Real-time",
-        "meaning": "Total gamma exposure of the current options market. Positive means dealers are long gamma, negative means short gamma.",
-        "stableTitle": "STABLE (Positive GEX)",
-        "stableDesc": "Dealer Long Gamma → Volatility Suppression, Price Stability",
-        "volatileTitle": "VOLATILE (Negative GEX)",
-        "volatileDesc": "Dealer Short Gamma → Volatility Expansion, Direction Acceleration"
+      "step2": {
+        "title": "Step 2: Confirm Direction",
+        "desc": "Check TREND PHASE SMA crossover and VWAP position."
       },
-      "tacticalRange": {
-        "badge": "Tactical Levels",
-        "meaning": "Short-term support/resistance levels and Max Pain price derived from options data.",
-        "resist": "Call Wall based Resistance",
-        "maxPain": "Expected Price Convergence at Expiry",
-        "support": "Put Floor based Support"
+      "step3": {
+        "title": "Step 3: Assess Risk",
+        "desc": "Review SHORT SQUEEZE risk and EARNINGS schedule."
       },
-      "risk": {
-        "badge": "Risk",
-        "meaning": "Measures the impact of 0DTE options and short squeeze risk.",
-        "impactDesc": "Percentage of 0DTE options in total GEX. >30% implies volatility caution before close.",
-        "squeezeDesc": "LOW/MED/HIGH - Squeeze probability. Higher means potential for sharp upward reversal."
-      }
+      "step4": {
+        "title": "Step 4: Track Institutional Flow",
+        "desc": "Monitor INST RADAR and FLOW UNIT Net Premium direction."
+      },
+      "warningTitle": "⚠️ Investment Risk Disclosure & Disclaimer",
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute investment advice, trading recommendations, or financial consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All investment decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' investment outcomes."
     }
   },
   "intelGuide": {
@@ -1026,8 +1163,8 @@
         "title": "Step 4: Execute Trades",
         "desc": "Reference AI judgments from Tactical Verdict and RLSI Insight for final trade execution. Combining with Dashboard's individual stock analysis enables more precise timing."
       },
-      "warningTitle": "Important Notice",
-      "warningDesc": "Guardian is an analysis tool, not a trade signal generator. Always make final trading decisions based on your own judgment, and consistently maintain risk management (stop-losses, position sizing)."
+      "warningTitle": "⚠️ Investment Risk Disclosure & Disclaimer",
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute investment advice, trading recommendations, or financial consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All investment decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' investment outcomes."
     }
   },
   "landing": {
