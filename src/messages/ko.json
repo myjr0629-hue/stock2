@@ -1614,10 +1614,11 @@
         "searchPlaceholder": "분석할 Ticker..."
     },
     "footer": {
+        "disclaimer": "SIGNUM HQ의 모든 정보는 투자 참고용 퀀트 데이터이며, 매매 추천이나 투자 자문에 해당하지 않습니다. 시스템 환경에 따라 데이터 지연 및 오류가 발생할 수 있으며, 당사는 정확성을 보장하지 않습니다. 과거의 실적이 미래 수익을 보장하지 않으며, 모든 투자 결정과 그에 따른 손익의 책임은 전적으로 이용자 본인에게 있습니다.",
         "privacy": "개인정보처리방침",
         "terms": "이용약관",
         "contact": "문의하기",
-        "copyright": "© 2026 Market Signal Command"
+        "copyright": " 2026 SIGNUM HQ. All rights reserved."
     },
     "signal": {
         "shortGammaAboveMaxPain": "숏감마 + Max Pain 상회 → 하방 압력, 관망",

@@ -1614,10 +1614,11 @@
         "searchPlaceholder": "Ticker 検索..."
     },
     "footer": {
+        "disclaimer": "SIGNUM HQが提供するすべての情報は、投資参考用のクオンツデータであり、金融商品取引法に基づく投資助言・代理業には該当しません。システム環境によりデータの遅延やエラーが発生する場合があり、その正確性・完全性を保証するものではありません。過去の実績は将来の収益を保証するものではなく、すべての投資判断はご自身の判断と責任において行ってください。",
         "privacy": "プライバシーポリシー",
         "terms": "利用規約",
         "contact": "お問い合わせ",
-        "copyright": "© 2026 Market Signal Command"
+        "copyright": " 2026 SIGNUM HQ. All rights reserved."
     },
     "signal": {
         "shortGammaAboveMaxPain": "Short Gamma + Max Pain上回り → 下落圧力、様子見",

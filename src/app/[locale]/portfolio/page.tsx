@@ -33,7 +33,7 @@ export default function PortfolioPage() {
             {/* Global Header */}
             {/* Page Header - Minimal & Premium */}
             <div className="border-b border-white/5">
-                <div className="max-w-7xl mx-auto px-4 sm:px-8 py-3 flex items-center justify-between">
+                <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Briefcase className="w-4 h-4 text-emerald-400/80" />
                         <span className="text-sm font-bold tracking-wide text-white/90">PORTFOLIO</span>
@@ -61,7 +61,7 @@ export default function PortfolioPage() {
                 </div>
             </div>
 
-            <main className="max-w-7xl mx-auto px-4 sm:px-8 py-6 space-y-5">
+            <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
                 {/* Stats Dashboard */}
                 <PortfolioStatsBar summary={summary} portfolioScore={portfolioScore} holdingsCount={holdings.length} />
 
