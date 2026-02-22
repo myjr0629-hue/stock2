@@ -530,13 +530,25 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
 
         let nextWeekFetchError = '';
         if (nextWeeklyExp) {
-            // Quick OI fetch for next week using direct fetchMassive
-            const nextUrl = `/v3/snapshot/options/${ticker}?expiration_date=${nextWeeklyExp}&limit=500`;
+            // [V4.6 FIX] Options Chain max limit=250 per page (500 returns 400 error)
+            // Must paginate via next_url to get complete OI data
+            let nextPageUrl: string | null = `/v3/snapshot/options/${ticker}?expiration_date=${nextWeeklyExp}&limit=250`;
+            let allNextWeekContracts: any[] = [];
+            let nextWeekPages = 0;
             try {
-                const nextData = await fetchMassive(nextUrl, {}, false, undefined, CACHE_POLICY.LIVE);
-                console.log(`[0DTE FETCH] ${ticker}: results=${nextData?.results?.length || 0}`);
-                if (nextData?.results && nextData.results.length > 0) {
-                    nextWeekOI = nextData.results.reduce((sum: number, c: any) => {
+                while (nextPageUrl && nextWeekPages < 5) {
+                    const nextData = await fetchMassive(nextPageUrl, {}, false, undefined, CACHE_POLICY.LIVE);
+                    if (nextData?.results && nextData.results.length > 0) {
+                        allNextWeekContracts = allNextWeekContracts.concat(nextData.results);
+                    } else {
+                        break;
+                    }
+                    nextPageUrl = nextData.next_url || null;
+                    nextWeekPages++;
+                }
+                console.log(`[0DTE FETCH] ${ticker}: ${allNextWeekContracts.length} contracts from ${nextWeekPages} pages`);
+                if (allNextWeekContracts.length > 0) {
+                    nextWeekOI = allNextWeekContracts.reduce((sum: number, c: any) => {
                         return sum + (c.open_interest || 0);
                     }, 0);
                     console.log(`[0DTE FETCH] ${ticker}: calculated nextWeekOI=${nextWeekOI}`);

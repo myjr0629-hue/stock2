@@ -117,9 +117,9 @@ interface QueueState {
 const reportState: QueueState = { active: 0, queue: [] };
 const spotState: QueueState = { active: 0, queue: [] };
 
-const REPORT_CONCURRENCY = 5;  // [V4.5] Increased from 2 (was too conservative)
-const SPOT_CONCURRENCY = 5;
-const BASE_DELAY_MS = 250;     // [V4.5] 250ms × 5 concurrency = max ~240 calls/min (within 250/min limit)
+const REPORT_CONCURRENCY = 10;  // [V4.6] Increased from 5 (Polygon Massive plan: ~100 req/sec)
+const SPOT_CONCURRENCY = 20;   // [V4.6] Increased from 5 (tested: no rate-limit headers, no 429s)
+const BASE_DELAY_MS = 50;      // [V4.6] Reduced from 250ms (tested 10 rapid-fire calls: all 200 OK)
 let adaptiveDelayMs = BASE_DELAY_MS; // [V4.5] Adaptive: increases on 429, recovers on success
 
 function waitInQueue(isReport: boolean): Promise<void> {
@@ -201,7 +201,7 @@ export async function fetchMassive(
         }
     }
 
-    const MAX_RETRIES = 5;
+    const MAX_RETRIES = 3; // [V4.6] Reduced from 5 (worst case: 3×15s = 45s instead of 90s)
     let attempt = 0;
     let lastHttpStatus: number | undefined;
 
