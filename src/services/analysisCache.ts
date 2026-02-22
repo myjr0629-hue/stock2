@@ -10,8 +10,9 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 // Cache key prefix — separate namespace from flow:ticker:* (used by live/ticker)
 const ANALYSIS_CACHE_PREFIX = 'cache:analysis:';
 
-// TTL: 5 minutes (Cron runs every 2 min, so data is always fresh)
-const ANALYSIS_CACHE_TTL = 300;
+// TTL: 3 days (Cron runs every 2 min Mon-Fri, so data is always fresh on weekdays.
+// Extended TTL ensures Friday's last data persists through the entire weekend.)
+const ANALYSIS_CACHE_TTL = 259200;
 
 /**
  * Shape of cached analysis data per ticker.
