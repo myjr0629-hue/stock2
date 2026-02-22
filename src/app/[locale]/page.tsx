@@ -585,7 +585,7 @@ export default function Page() {
             <Link href="/terms" className="hover:text-white transition-colors">{t('footer.terms')}</Link>
             <a href="mailto:contact@signumhq.com" className="hover:text-white transition-colors">{t('footer.contact')}</a>
           </div>
-          <p className="text-xs text-white/50">{t('footer.copyright')}</p>
+          <p className="text-[12px] text-slate-400">{t('footer.copyright')}</p>
         </div>
         <div className="max-w-5xl mx-auto mt-4 pt-3 border-t border-white/[0.04]">
           <p className="text-[12px] leading-relaxed text-slate-400 text-center">{t('footer.disclaimer')}</p>
