@@ -24,7 +24,7 @@ const POPULAR_TICKERS = [
     'SMCI', 'ARM', 'AVGO', 'CRM', 'SNOW', 'NET', 'UBER', 'SQ',
     'SHOP', 'SE', 'BABA', 'JD', 'NIO', 'LI', 'RIVN', 'LCID',
     'BA', 'DIS', 'NFLX', 'PYPL', 'V', 'MA', 'JPM', 'GS',
-    'XOM', 'CVX', 'LLY', 'UNH',
+    'XOM', 'CVX', 'LLY', 'UNH', 'WDC', 'MCD', 'CEG',
 ];
 
 // Deduplicated unified list

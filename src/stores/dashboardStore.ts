@@ -243,10 +243,22 @@ export const useDashboardStore = create<DashboardState>()(
                     const newTickers = data.tickers || {};
                     const mergedTickers = { ...existingTickers };
 
-                    // Only update tickers that have actual VALID data (not error objects)
+                    // [FIX] Field-level merge: preserve existing non-null values when new response has null
                     for (const [key, value] of Object.entries(newTickers)) {
                         if (value && typeof value === 'object' && !(value as any).error) {
-                            mergedTickers[key] = value as TickerData;
+                            const existing = mergedTickers[key];
+                            if (existing) {
+                                // Deep merge: only overwrite fields that have actual values
+                                const merged = { ...existing } as any;
+                                for (const [field, val] of Object.entries(value as any)) {
+                                    if (val !== null && val !== undefined && val !== '') {
+                                        merged[field] = val;
+                                    }
+                                }
+                                mergedTickers[key] = merged as TickerData;
+                            } else {
+                                mergedTickers[key] = value as TickerData;
+                            }
                         }
                         // If value has error, keep existing data (mergedTickers[key] already has it)
                     }
