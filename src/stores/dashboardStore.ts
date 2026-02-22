@@ -136,7 +136,7 @@ export const useDashboardStore = create<DashboardState>()(
             lastUpdated: null,
             dashboardTickers: [],
 
-            setSelectedTicker: (ticker) => {
+            setSelectedTicker: (ticker: string) => {
                 set({ selectedTicker: ticker });
                 // Update URL without reload
                 if (typeof window !== 'undefined') {
@@ -152,18 +152,18 @@ export const useDashboardStore = create<DashboardState>()(
                 }
             },
 
-            setTickers: (tickers) => set({ tickers }),
-            setMarket: (market) => set({ market }),
-            setSignals: (signals) => set({ signals }),
-            setLoading: (loading) => set({ isLoading: loading }),
+            setTickers: (tickers: Record<string, TickerData>) => set({ tickers }),
+            setMarket: (market: MarketData) => set({ market }),
+            setSignals: (signals: Signal[]) => set({ signals }),
+            setLoading: (loading: boolean) => set({ isLoading: loading }),
 
-            toggleDashboardTicker: (ticker) => {
+            toggleDashboardTicker: (ticker: string) => {
                 console.log('[BOARD] toggleDashboardTicker called:', ticker);
                 // Optimistic update
                 const current = get().dashboardTickers;
                 const isIn = current.includes(ticker.toUpperCase());
                 const optimistic = isIn
-                    ? current.filter(t => t !== ticker.toUpperCase())
+                    ? current.filter((t: string) => t !== ticker.toUpperCase())
                     : [...current, ticker.toUpperCase()].slice(0, 10);
                 set({ dashboardTickers: optimistic });
                 // Persist to Supabase (fire-and-forget with sync-back)
@@ -175,7 +175,7 @@ export const useDashboardStore = create<DashboardState>()(
                 });
             },
 
-            isDashboardTicker: (ticker) => get().dashboardTickers.includes(ticker.toUpperCase()),
+            isDashboardTicker: (ticker: string) => get().dashboardTickers.includes(ticker.toUpperCase()),
 
             loadDashboardTickers: async () => {
                 try {
@@ -262,6 +262,13 @@ export const useDashboardStore = create<DashboardState>()(
                     // AbortError is expected when a newer request cancels this one
                     if (error?.name === 'AbortError') return;
                     console.error('Dashboard fetch error:', error);
+                    // [RELIABILITY] If no data at all, trigger price-only fetch as emergency fallback
+                    // This ensures users see at least price data instead of a blank screen
+                    const hasAnyData = Object.keys(get().tickers).length > 0;
+                    if (!hasAnyData) {
+                        console.log('[BOARD] Emergency fallback: fetching prices only...');
+                        get().fetchPriceOnly(tickerList);
+                    }
                     set({ isLoading: false });
                 }
             },
@@ -286,7 +293,47 @@ export const useDashboardStore = create<DashboardState>()(
                     };
 
                     for (const [ticker, q] of Object.entries(quotes) as [string, any][]) {
-                        if (!q || !currentTickers[ticker]) continue;
+                        if (!q) continue;
+                        // [FIX] If ticker not in store yet (newly added), create minimal entry from quotes
+                        if (!currentTickers[ticker]) {
+                            const newPrice = q.price || q.latestPrice || q.extendedPrice || 0;
+                            const refClose = q.previousClose || q.prevClose || 0;
+                            const changePct = (newPrice && refClose > 0)
+                                ? ((newPrice - refClose) / refClose) * 100
+                                : (q.changePercent ?? 0);
+                            const sessionMap2: Record<string, string> = {
+                                'pre': 'PRE', 'regular': 'REG', 'post': 'POST', 'closed': 'CLOSED',
+                                'PRE': 'PRE', 'REG': 'REG', 'POST': 'POST', 'CLOSED': 'CLOSED'
+                            };
+                            currentTickers[ticker] = {
+                                underlyingPrice: newPrice,
+                                changePercent: changePct,
+                                prevClose: refClose,
+                                regularCloseToday: null,
+                                intradayChangePct: changePct,
+                                display: { price: newPrice, changePctPct: changePct },
+                                prevChangePct: changePct,
+                                prevRegularClose: refClose,
+                                extended: q.extendedPrice > 0 ? {
+                                    postPrice: q.extendedLabel === 'POST' ? q.extendedPrice : undefined,
+                                    postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : undefined,
+                                    prePrice: q.extendedLabel === 'PRE' ? q.extendedPrice : undefined,
+                                    preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : undefined,
+                                } : null,
+                                session: (sessionMap2[q.session] || 'CLOSED') as any,
+                                netGex: null, maxPain: null, pcr: null,
+                                isGammaSqueeze: false, gammaFlipLevel: null,
+                                atmIv: null, atmIvExpiry: null,
+                                squeezeScore: null, squeezeRisk: null,
+                                vwap: null, darkPoolPct: null, shortVolPct: null,
+                                zeroDtePct: null, impliedMovePct: null, impliedMoveDir: null,
+                                gammaConcentration: null, volumePcr: null,
+                                volumePcrCallVol: null, volumePcrPutVol: null,
+                                levels: null, expiration: null, options_status: null,
+                            } as TickerData;
+                            changed = true;
+                            continue;
+                        }
                         const existing = currentTickers[ticker];
                         const isAfterHours = q.session === 'post' || q.session === 'closed';
                         const mappedSession = sessionMap[q.session] || existing.session || 'CLOSED';
@@ -390,7 +437,26 @@ export const useDashboardStore = create<DashboardState>()(
                 selectedTicker: state.selectedTicker,
                 tickers: state.tickers,
                 market: state.market,
+                lastUpdated: state.lastUpdated,
             }),
+            // [RELIABILITY] Discard stale persisted ticker data on rehydration
+            // Prevents showing 24h+ old prices that could mislead users
+            merge: (persistedState: any, currentState: any) => {
+                if (persistedState?.lastUpdated) {
+                    const age = Date.now() - new Date(persistedState.lastUpdated).getTime();
+                    const STALE_LIMIT = 24 * 60 * 60 * 1000; // 24 hours
+                    if (age > STALE_LIMIT) {
+                        console.log('[BOARD] Discarding stale persisted tickers (age:', Math.round(age / 3600000), 'h)');
+                        return {
+                            ...currentState,
+                            dashboardTickers: persistedState.dashboardTickers || currentState.dashboardTickers,
+                            selectedTicker: persistedState.selectedTicker || currentState.selectedTicker,
+                            // tickers and market are intentionally NOT restored — too old
+                        };
+                    }
+                }
+                return { ...currentState, ...persistedState };
+            },
             // Note: localStorage is now fallback only.
             // Primary persistence is via Supabase (loadDashboardTickers on mount).
         }
