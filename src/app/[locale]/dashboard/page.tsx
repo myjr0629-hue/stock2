@@ -1249,27 +1249,50 @@ export default function DashboardPage() {
         setInitialized(true);
     }, [searchParams, setSelectedTicker, loadDashboardTickers]);
 
-    // Fetch data on mount and set up stable auto-refresh intervals
+    // [OPTIMIZED] Visibility-aware polling — pauses when tab hidden, resumes on focus
+    // Price interval: 3s (was 5s) for near-real-time feel
     useEffect(() => {
         if (!initialized) return;
 
-        // Initial fetch with current tickers
         const getTickerList = () => tickersRef.current.length > 0 ? tickersRef.current : undefined;
+        let fullInterval: ReturnType<typeof setInterval> | null = null;
+        let priceInterval: ReturnType<typeof setInterval> | null = null;
+
+        const startPolling = () => {
+            if (fullInterval) clearInterval(fullInterval);
+            if (priceInterval) clearInterval(priceInterval);
+
+            fullInterval = setInterval(() => {
+                fetchDashboardData(getTickerList());
+            }, 30000);
+
+            priceInterval = setInterval(() => {
+                fetchPriceOnly(getTickerList());
+            }, 3000);
+        };
+
+        const stopPolling = () => {
+            if (fullInterval) { clearInterval(fullInterval); fullInterval = null; }
+            if (priceInterval) { clearInterval(priceInterval); priceInterval = null; }
+        };
+
+        const handleVisibility = () => {
+            if (document.hidden) {
+                stopPolling();
+            } else {
+                fetchPriceOnly(getTickerList());
+                fetchDashboardData(getTickerList());
+                startPolling();
+            }
+        };
+
         fetchDashboardData(getTickerList());
-
-        // Full data poll (options, signals, etc.) every 30s
-        const fullInterval = setInterval(() => {
-            fetchDashboardData(getTickerList());
-        }, 30000);
-
-        // Fast price-only poll every 5s (lightweight /api/live/quotes)
-        const priceInterval = setInterval(() => {
-            fetchPriceOnly(getTickerList());
-        }, 5000);
+        startPolling();
+        document.addEventListener('visibilitychange', handleVisibility);
 
         return () => {
-            clearInterval(fullInterval);
-            clearInterval(priceInterval);
+            stopPolling();
+            document.removeEventListener('visibilitychange', handleVisibility);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialized]);

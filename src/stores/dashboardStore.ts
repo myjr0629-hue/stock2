@@ -262,6 +262,12 @@ export const useDashboardStore = create<DashboardState>()(
                     // AbortError is expected when a newer request cancels this one
                     if (error?.name === 'AbortError') return;
                     console.error('Dashboard fetch error:', error);
+                    // [RELIABILITY] If no data at all, trigger price-only fetch as emergency fallback
+                    const hasAnyData = Object.keys(get().tickers).length > 0;
+                    if (!hasAnyData) {
+                        console.log('[BOARD] Emergency fallback: fetching prices only...');
+                        get().fetchPriceOnly(tickerList);
+                    }
                     set({ isLoading: false });
                 }
             },
@@ -286,7 +292,17 @@ export const useDashboardStore = create<DashboardState>()(
                     };
 
                     for (const [ticker, q] of Object.entries(quotes) as [string, any][]) {
-                        if (!q || !currentTickers[ticker]) continue;
+                        if (!q) continue;
+                        // [FIX] Create minimal entry for new tickers not yet in store
+                        if (!currentTickers[ticker]) {
+                            currentTickers[ticker] = {
+                                underlyingPrice: q.price || 0,
+                                display: { price: q.price || 0, changePct: q.changePercent || 0 },
+                                session: (q.session === 'regular' ? 'REG' : q.session === 'pre' ? 'PRE' : q.session === 'post' ? 'POST' : 'CLOSED') as any,
+                            } as any;
+                            changed = true;
+                            continue;
+                        }
                         const existing = currentTickers[ticker];
                         const isAfterHours = q.session === 'post' || q.session === 'closed';
                         const mappedSession = sessionMap[q.session] || existing.session || 'CLOSED';
