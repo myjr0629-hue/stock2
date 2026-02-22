@@ -396,7 +396,7 @@ export const useDashboardStore = create<DashboardState>()(
             }
         }),
         {
-            name: 'dashboard-storage',
+            name: 'dashboard-storage-v2',
             // [STRATEGY C] Persist price data for instant rendering on page load
             // Previously only dashboardTickers was persisted → blank screen until API responds.
             // Now: tickers + market + selectedTicker are also saved → previous session data renders instantly.
