@@ -13,6 +13,9 @@ export default async function DashboardGuidePage() {
         cyan: (chunks: React.ReactNode) => <span className="text-cyan-400 font-semibold">{chunks}</span>,
         gold: (chunks: React.ReactNode) => <span className="text-amber-400 font-semibold">{chunks}</span>,
         rose: (chunks: React.ReactNode) => <span className="text-rose-400 font-semibold">{chunks}</span>,
+        emerald: (chunks: React.ReactNode) => <span className="text-emerald-400 font-semibold">{chunks}</span>,
+        purple: (chunks: React.ReactNode) => <span className="text-purple-400 font-semibold">{chunks}</span>,
+        indigo: (chunks: React.ReactNode) => <span className="text-indigo-400 font-semibold">{chunks}</span>,
     };
 
     return (
@@ -74,7 +77,7 @@ export default async function DashboardGuidePage() {
                                     </div>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-2xl font-black text-rose-400 tracking-tight">-0.34B</span>
-                                        <span className="text-xs text-rose-300">변동성 ↑</span>
+                                        <span className="text-xs text-rose-300">{t('netGex.mockSub')}</span>
                                     </div>
                                 </div>
                                 <div>
@@ -188,7 +191,7 @@ export default async function DashboardGuidePage() {
                                     </div>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-2xl font-black text-rose-400 tracking-tight">59%</span>
-                                        <span className="text-xs text-amber-300">변동성 주의</span>
+                                        <span className="text-xs text-amber-300">{t('squeeze.mockSub')}</span>
                                     </div>
                                 </div>
                                 <div>
@@ -241,7 +244,7 @@ export default async function DashboardGuidePage() {
                                 <div className="rounded-xl overflow-hidden border border-white/15 shadow-lg shadow-cyan-500/10 flex-shrink-0 bg-slate-900/80 px-4 py-3 min-w-[160px]">
                                     <div className="flex items-center gap-1.5 mb-1">
                                         <BarChart3 size={12} className="text-cyan-400" />
-                                        <span className="text-xs font-bold text-slate-300 tracking-wider">VWAP 거리</span>
+                                        <span className="text-xs font-bold text-slate-300 tracking-wider">{t('vwap.mockLabel')}</span>
                                     </div>
                                     <div className="flex items-baseline gap-1.5">
                                         <span className="text-2xl font-black text-emerald-400 tracking-tight">+0.7%</span>
@@ -304,7 +307,7 @@ export default async function DashboardGuidePage() {
                                     </div>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-2xl font-black text-emerald-400 tracking-tight">1.91</span>
-                                        <span className="text-xs text-emerald-300">콜 우위</span>
+                                        <span className="text-xs text-emerald-300">{t('pcRatio.mockSub')}</span>
                                     </div>
                                     <div className="text-[11px] text-slate-400 mt-0.5">C 490K / P 257K</div>
                                 </div>
@@ -345,7 +348,7 @@ export default async function DashboardGuidePage() {
                                     </div>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-2xl font-black text-amber-400 tracking-tight">23%</span>
-                                        <span className="text-xs text-amber-300">플립 구간</span>
+                                        <span className="text-xs text-amber-300">{t('gexRegime.mockSub')}</span>
                                     </div>
                                     <div className="text-[11px] text-slate-400 mt-0.5">FLIP $190 (±0.4%)</div>
                                 </div>
@@ -388,9 +391,9 @@ export default async function DashboardGuidePage() {
                                     </div>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-2xl font-black text-teal-400 tracking-tight">±1.4%</span>
-                                        <span className="text-xs text-emerald-300">안정</span>
+                                        <span className="text-xs text-emerald-300">{t('impliedMove.mockSub')}</span>
                                     </div>
-                                    <div className="text-[11px] text-cyan-400 mt-0.5">↗ 콜 프리미엄 우위 → 상승 기대</div>
+                                    <div className="text-[11px] text-cyan-400 mt-0.5">{t('impliedMove.mockHint')}</div>
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
@@ -434,7 +437,7 @@ export default async function DashboardGuidePage() {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h4 className="text-base font-black text-white">{t('maxPain.title')}</h4>
-                                        <span className="px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/30 text-xs font-bold text-rose-300">수렴점</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/30 text-xs font-bold text-rose-300">{t('maxPain.badge')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -480,7 +483,7 @@ export default async function DashboardGuidePage() {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h4 className="text-base font-black text-white">{t('callWall.title')}</h4>
-                                        <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-xs font-bold text-amber-300">저항/지지</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/30 text-xs font-bold text-amber-300">{t('callWall.badge')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -516,13 +519,13 @@ export default async function DashboardGuidePage() {
                                     </div>
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-2xl font-black text-purple-300 tracking-tight">57.6%</span>
-                                        <span className="text-xs text-purple-400">기관 집중</span>
+                                        <span className="text-xs text-purple-400">{t('darkPool.mockSub')}</span>
                                     </div>
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h4 className="text-base font-black text-white">{t('darkPool.title')}</h4>
-                                        <span className="px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-xs font-bold text-purple-300">기관 추적</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/30 text-xs font-bold text-purple-300">{t('darkPool.badge')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -558,14 +561,14 @@ export default async function DashboardGuidePage() {
                                     </div>
                                     <div className="flex items-baseline gap-1.5">
                                         <span className="text-2xl font-black text-orange-400 tracking-tight">45.2%</span>
-                                        <span className="text-xs text-orange-300">공매도 활동</span>
+                                        <span className="text-xs text-orange-300">{t('shortVol.mockSub')}</span>
                                     </div>
-                                    <div className="text-[11px] text-emerald-400 mt-0.5">vs DP 58% → 기관 숏 구축</div>
+                                    <div className="text-[11px] text-emerald-400 mt-0.5">{t('shortVol.mockHint')}</div>
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h4 className="text-base font-black text-white">{t('shortVol.title')}</h4>
-                                        <span className="px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/30 text-xs font-bold text-orange-300">공매도</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-orange-500/20 border border-orange-500/30 text-xs font-bold text-orange-300">{t('shortVol.badge')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -595,11 +598,11 @@ export default async function DashboardGuidePage() {
                                     <div className="flex items-center gap-1.5 mb-1">
                                         <Activity size={12} className="text-indigo-400" />
                                         <span className="text-xs font-bold text-slate-300 tracking-wider">ATM IV</span>
-                                        <span className="text-[10px] text-slate-500 ml-auto">내재변동성</span>
+                                        <span className="text-[10px] text-slate-500 ml-auto">{t('atmIv.mockLabel')}</span>
                                     </div>
                                     <div className="flex items-baseline gap-1.5">
                                         <span className="text-2xl font-black text-amber-400 tracking-tight">56%</span>
-                                        <span className="text-xs text-amber-300">고변동</span>
+                                        <span className="text-xs text-amber-300">{t('atmIv.mockSub')}</span>
                                         <span className="text-[10px] px-1 py-0.5 rounded bg-slate-700 text-slate-300 ml-auto">02/27</span>
                                     </div>
                                     <div className="mt-1.5 flex items-center gap-1.5">
@@ -616,7 +619,7 @@ export default async function DashboardGuidePage() {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <h4 className="text-base font-black text-white">{t('atmIv.title')}</h4>
-                                        <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-xs font-bold text-indigo-300">내재변동성</span>
+                                        <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-xs font-bold text-indigo-300">{t('atmIv.badge')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -661,17 +664,17 @@ export default async function DashboardGuidePage() {
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-0.5 bg-amber-400" />
                             <span className="text-amber-400 font-bold">CALL WALL</span>
-                            <span className="text-slate-300">저항</span>
+                            <span className="text-slate-300">{t('chart.callWallLabel')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-0.5 bg-rose-400 border-dashed" style={{ borderTop: '2px dashed' }} />
                             <span className="text-rose-400 font-bold">MAX PAIN</span>
-                            <span className="text-slate-300">수렴</span>
+                            <span className="text-slate-300">{t('chart.maxPainLabel')}</span>
                         </div>
                         <div className="flex items-center gap-2">
                             <div className="w-8 h-0.5 bg-cyan-400 border-dashed" style={{ borderTop: '2px dashed' }} />
                             <span className="text-cyan-400 font-bold">PREV CLOSE</span>
-                            <span className="text-slate-300">전일 종가</span>
+                            <span className="text-slate-300">{t('chart.prevCloseLabel')}</span>
                         </div>
                     </div>
                 </div>
@@ -694,19 +697,19 @@ export default async function DashboardGuidePage() {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="p-3 rounded-xl bg-emerald-900/20 border border-emerald-500/20 text-center">
                         <span className="text-sm font-black text-emerald-400">BUY</span>
-                        <p className="text-sm text-slate-300 mt-1">매수 시그널</p>
+                        <p className="text-sm text-slate-300 mt-1">{t('signal.buyDesc')}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-rose-900/20 border border-rose-500/20 text-center">
                         <span className="text-sm font-black text-rose-400">SELL</span>
-                        <p className="text-sm text-slate-300 mt-1">매도 시그널</p>
+                        <p className="text-sm text-slate-300 mt-1">{t('signal.sellDesc')}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-amber-900/20 border border-amber-500/20 text-center">
                         <span className="text-sm font-black text-amber-400">ALERT</span>
-                        <p className="text-sm text-slate-300 mt-1">다크풀 · 이상거래</p>
+                        <p className="text-sm text-slate-300 mt-1">{t('signal.alertDesc')}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-cyan-900/20 border border-cyan-500/20 text-center">
                         <span className="text-sm font-black text-cyan-400">WHALE</span>
-                        <p className="text-sm text-slate-300 mt-1">고래 매매 감지</p>
+                        <p className="text-sm text-slate-300 mt-1">{t('signal.whaleDesc')}</p>
                     </div>
                 </div>
             </section>

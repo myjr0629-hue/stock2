@@ -473,19 +473,19 @@ export default async function CommandGuidePage() {
                             <div className="p-4 rounded-xl bg-emerald-900/20 border border-emerald-500/20">
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                                    <span className="text-[14px] font-black text-emerald-400">LONG γ Zone (Flip 위)</span>
+                                    <span className="text-[14px] font-black text-emerald-400">{t('gammaFlip.longTitle')}</span>
                                 </div>
                                 <p className="text-[13px] text-slate-300 leading-relaxed">
-                                    현재가 &gt; Gamma Flip → 딜러가 <span className="text-emerald-400 font-semibold">같은 방향으로 헤지</span> → 가격 움직임을 억제하는 안정화 효과. <span className="text-amber-400 font-semibold">VWAP 근처에서 레인지 바운드</span> 전략 유효.
+                                    {t.rich('gammaFlip.longDesc', richTags)}
                                 </p>
                             </div>
                             <div className="p-4 rounded-xl bg-rose-900/20 border border-rose-500/20">
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="w-3 h-3 rounded-full bg-rose-500" />
-                                    <span className="text-[14px] font-black text-rose-400">SHORT γ Zone (Flip 아래)</span>
+                                    <span className="text-[14px] font-black text-rose-400">{t('gammaFlip.shortTitle')}</span>
                                 </div>
                                 <p className="text-[13px] text-slate-300 leading-relaxed">
-                                    현재가 &lt; Gamma Flip → 딜러가 <span className="text-rose-400 font-semibold">반대 방향으로 헤지</span> → 가격 움직임을 증폭시키는 불안정 효과. <span className="text-amber-400 font-semibold">변동성 급등</span>, 손절매 필수.
+                                    {t.rich('gammaFlip.shortDesc', richTags)}
                                 </p>
                             </div>
                         </div>
@@ -493,7 +493,7 @@ export default async function CommandGuidePage() {
                         <div className="p-3 rounded-lg bg-purple-900/20 border border-purple-500/20 flex items-start gap-2">
                             <Lightbulb size={14} className="text-purple-400 mt-0.5 flex-shrink-0" />
                             <span className="text-[13px] text-purple-200/90 leading-relaxed">
-                                Gamma Flip은 <span className="text-purple-300 font-semibold">옵션 딜러의 헤지 방향이 뒤집히는 가격</span>입니다. VOL REGIME 카드에서 Flip 거리(%)를 실시간 확인할 수 있으며, ±2% 이내이면 변동성 전환 임박을 의미합니다.
+                                {t.rich('gammaFlip.tip', richTags)}
                             </span>
                         </div>
                     </div>
