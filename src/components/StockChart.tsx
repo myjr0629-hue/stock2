@@ -13,7 +13,7 @@ import {
     YAxis,
     ReferenceLine,
     Label,
-    Customized
+    Customized,
 } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,6 +67,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     // [S-76] Sync props data - now works for ALL ranges including 1D with complete data
     // [FIX] Track previous ticker to detect changes and reset stale data
     const prevTickerRef = useRef(ticker);
+    const chartContainerRef = useRef<HTMLDivElement>(null);
     useEffect(() => {
         // [FIX] On ticker change: immediately clear stale chart data to prevent
         // Y-axis stretching (old TSLA $420 data + new NVDA $189 currentPrice = huge range)
@@ -148,6 +149,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             });
         }
     }, [currentPrice, range, chartData.length]); // [FIX] Added chartData.length
+
 
     const handleRangeChange = async (value: string) => {
         setRange(value);
@@ -462,7 +464,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             </CardHeader>
             <CardContent className="pt-6 flex-1 flex flex-col min-h-0">
                 {/* [P0-2] Key-based remount for stability */}
-                <div key={`${ticker}-${range}`} className={`flex-1 w-full flex flex-col min-w-[200px] min-h-[200px] relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
+                <div ref={chartContainerRef} key={`${ticker}-${range}`} className={`flex-1 w-full flex flex-col min-w-[200px] min-h-[200px] relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
                     {mounted && dataReady && processedData.length > 0 ? (
                         <>
                             <ResponsiveContainer width="99%" height="100%" minWidth={200} minHeight={200}>
@@ -490,7 +492,12 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         fontWeight={500}
                                         tickLine={false}
                                         axisLine={false}
-                                        tickFormatter={(value) => `${value.toFixed(2)}`}
+                                        tickFormatter={(value) => {
+                                            const threshold = (maxPrice - minPrice) * 0.04 || 1.5;
+                                            if (currentPrice !== undefined && Math.abs(value - currentPrice) < threshold) return '';
+                                            if (isIntraday && prevClose !== undefined && Math.abs(value - prevClose) < threshold) return '';
+                                            return `${value.toFixed(2)}`;
+                                        }}
                                         width={50}
                                         dx={0}
                                     />
@@ -516,69 +523,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         itemStyle={{ color: '#f8fafc' }}
                                         formatter={(value: any) => [`${(Number(value) || 0).toFixed(2)}`, "Close"]}
                                     />
-                                    {/* [S-78] Live Price Reference with session-aware label (Command style) */}
-                                    {currentPrice !== undefined && (() => {
-                                        // Determine session from last data point
-                                        const lastPoint = processedData[processedData.length - 1];
-                                        const lastSession = lastPoint?.session || 'REG';
-                                        const lastEtMinute = lastPoint?.xValue || 0;
-
-                                        // Session detection
-                                        let sessionLabel = 'INTRADAY';
-                                        let sessionColor = '#e2e8f0'; // White for regular
-                                        let bgColor = '#334155'; // Slate background
-
-                                        if (lastSession === 'POST' || lastEtMinute >= 960) {
-                                            sessionLabel = 'POST';
-                                            sessionColor = '#60a5fa'; // Blue
-                                            bgColor = '#1e40af'; // Dark navy blue background
-                                        } else if (lastSession === 'PRE' || lastEtMinute < 570) {
-                                            sessionLabel = 'PRE';
-                                            sessionColor = '#fbbf24'; // Amber
-                                            bgColor = '#3f3f00'; // Amber background
-                                        }
-
-                                        return (
-                                            <ReferenceLine
-                                                y={currentPrice}
-                                                stroke={sessionColor}
-                                                strokeWidth={2}
-                                                ifOverflow="extendDomain"
-                                            >
-                                                <Label
-                                                    position="right"
-                                                    offset={5}
-                                                    content={({ viewBox }: any) => {
-                                                        const { x, y } = viewBox || {};
-                                                        if (x === undefined || y === undefined) return null;
-                                                        return (
-                                                            <g>
-                                                                <rect
-                                                                    x={x + 5}
-                                                                    y={y - 10}
-                                                                    width={54}
-                                                                    height={20}
-                                                                    rx={4}
-                                                                    fill={bgColor}
-                                                                />
-                                                                <text
-                                                                    x={x + 32}
-                                                                    y={y + 4}
-                                                                    textAnchor="middle"
-                                                                    fill="#ffffff"
-                                                                    fontSize={12}
-                                                                    fontWeight="bold"
-                                                                >
-                                                                    {currentPrice.toFixed(2)}
-                                                                </text>
-                                                            </g>
-                                                        );
-                                                    }}
-                                                />
-                                            </ReferenceLine>
-                                        );
-                                    })()}
-                                    {/* [S-78] prevClose Reference - rendered AFTER currentPrice so dashed line is on top */}
+                                    {/* ═══ LAYER 1 (BACK): prevClose dashed line only — no label here ═══ */}
                                     {isIntraday && prevClose !== undefined && (
                                         <ReferenceLine
                                             y={prevClose}
@@ -586,41 +531,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             strokeDasharray="8 4"
                                             strokeWidth={1.5}
                                             ifOverflow="extendDomain"
-                                        >
-                                            <Label
-                                                position="right"
-                                                offset={5}
-                                                content={({ viewBox }: any) => {
-                                                    const { x, y, width } = viewBox || {};
-                                                    if (x === undefined || y === undefined) return null;
-                                                    const badgeX = width ? x + width + 2 : x + 5; // Right side, in Y-axis area
-                                                    return (
-                                                        <g>
-                                                            <rect
-                                                                x={badgeX}
-                                                                y={y - 10}
-                                                                width={54}
-                                                                height={20}
-                                                                rx={4}
-                                                                fill="#3b82f6"
-                                                            />
-                                                            <text
-                                                                x={badgeX + 27}
-                                                                y={y + 4}
-                                                                textAnchor="middle"
-                                                                fill="#ffffff"
-                                                                fontSize={12}
-                                                                fontWeight="bold"
-                                                            >
-                                                                {prevClose.toFixed(2)}
-                                                            </text>
-                                                        </g>
-                                                    );
-                                                }}
-                                            />
-                                        </ReferenceLine>
+                                        />
                                     )}
-                                    {/* [Alpha Levels] Optional overlays - scale maintained with ifOverflow="hidden" */}
+                                    {/* ═══ LAYER 2: Alpha level lines + labels ═══ */}
                                     {alphaLevels?.callWall && (
                                         <ReferenceLine
                                             y={alphaLevels.callWall}
@@ -667,38 +580,54 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             ifOverflow="hidden"
                                         >
                                             <Label
-                                                value={`MAX PAIN $${alphaLevels.maxPain}`}
                                                 position="insideBottomRight"
-                                                fill="#a855f7"
-                                                fontSize={12}
-                                                fontWeight="bold"
+                                                content={({ viewBox }: any) => {
+                                                    const { x, y, width } = viewBox || {};
+                                                    if (x === undefined || y === undefined) return null;
+                                                    const labelX = (width ? x + width : x) - 10;
+                                                    const text = `MAX PAIN $${alphaLevels.maxPain}`;
+                                                    return (
+                                                        <g>
+                                                            <rect
+                                                                x={labelX - 112}
+                                                                y={y + 3}
+                                                                width={112}
+                                                                height={18}
+                                                                rx={3}
+                                                                fill="#0b1219"
+                                                                fillOpacity={0.9}
+                                                            />
+                                                            <text
+                                                                x={labelX - 56}
+                                                                y={y + 16}
+                                                                textAnchor="middle"
+                                                                fill="#a855f7"
+                                                                fontSize={12}
+                                                                fontWeight="bold"
+                                                            >
+                                                                {text}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                }}
                                             />
                                         </ReferenceLine>
                                     )}
-                                    {/* [S-65] Gradient based on ACTUAL data extent, not full domain */}
+                                    {/* ═══ LAYER 3: Gradient + Price Line ═══ */}
                                     <defs>
                                         {(() => {
-                                            const xMin = 240; // Fixed Pre-market start
+                                            const xMin = 240;
                                             const totalRange = xDataMax - xMin || 1;
-
-                                            // Offsets based on actual data range
                                             const preEndOffset = Math.max(0, Math.min(1, (SESSION_PRE_END - xMin) / totalRange));
-                                            // Only show Post color if data extends past REG_END (16:00)
                                             const postStartOffset = xDataMax > SESSION_REG_END
                                                 ? Math.max(0, Math.min(1, (SESSION_REG_END - xMin) / totalRange))
-                                                : 1; // No Post color if data hasn't reached 16:00
-
+                                                : 1;
                                             return (
                                                 <linearGradient id="chartGradient" x1="0" y1="0" x2="1" y2="0">
-                                                    {/* Pre Market: Yellow */}
                                                     <stop offset={0} stopColor={chartConfig.preMarketColor} />
                                                     <stop offset={preEndOffset} stopColor={chartConfig.preMarketColor} />
-
-                                                    {/* Regular Market: White/Silver */}
                                                     <stop offset={preEndOffset} stopColor={chartConfig.lineColor} />
                                                     <stop offset={postStartOffset} stopColor={chartConfig.lineColor} />
-
-                                                    {/* Post Market: Blue (only if data > 16:00) */}
                                                     {xDataMax > SESSION_REG_END && (
                                                         <>
                                                             <stop offset={postStartOffset} stopColor={chartConfig.postMarketColor} />
@@ -709,8 +638,6 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             );
                                         })()}
                                     </defs>
-
-                                    {/* Single Continuous Line */}
                                     <Line
                                         type="monotone"
                                         dataKey="close"
@@ -721,9 +648,93 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         isAnimationActive={false}
                                         connectNulls={true}
                                     />
+                                    {/* ═══ prevClose label (left side) ═══ */}
+                                    {isIntraday && prevClose !== undefined && (
+                                        <ReferenceLine
+                                            y={prevClose}
+                                            stroke="transparent"
+                                            strokeWidth={0}
+                                            ifOverflow="extendDomain"
+                                        >
+                                            <Label
+                                                position="left"
+                                                offset={5}
+                                                content={({ viewBox }: any) => {
+                                                    const { x, y, width: vw } = viewBox || {};
+                                                    if (x === undefined || y === undefined) return null;
+                                                    const rightX = vw ? x + vw : x;
+                                                    return (
+                                                        <g data-price-badge="prevclose-left">
+                                                            <rect x={x - 57} y={y - 10} width={54} height={20} rx={4} fill="#3b82f6" />
+                                                            <text x={x - 30} y={y + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">
+                                                                {prevClose.toFixed(2)}
+                                                            </text>
+                                                            <rect x={rightX + 5} y={y - 10} width={54} height={20} rx={4} fill="#3b82f6" />
+                                                            <text x={rightX + 32} y={y + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">
+                                                                {prevClose.toFixed(2)}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                }}
+                                            />
+                                        </ReferenceLine>
+                                    )}
+                                    {/* ═══ currentPrice line + label (right side) ═══ */}
+                                    {currentPrice !== undefined && (() => {
+                                        const lastPoint = processedData[processedData.length - 1];
+                                        const lastSession = lastPoint?.session || 'REG';
+                                        const lastEtMinute = lastPoint?.xValue || 0;
+                                        let sessionColor = '#e2e8f0';
+                                        let bgColor = '#334155';
+                                        if (lastSession === 'POST' || lastEtMinute >= 960) {
+                                            sessionColor = '#60a5fa';
+                                            bgColor = '#1e40af';
+                                        } else if (lastSession === 'PRE' || lastEtMinute < 570) {
+                                            sessionColor = '#fbbf24';
+                                            bgColor = '#3f3f00';
+                                        }
+                                        return (
+                                            <ReferenceLine
+                                                y={currentPrice}
+                                                stroke={sessionColor}
+                                                strokeWidth={2}
+                                                ifOverflow="extendDomain"
+                                            >
+                                                <Label
+                                                    position="right"
+                                                    offset={5}
+                                                    content={({ viewBox }: any) => {
+                                                        const { x, y } = viewBox || {};
+                                                        if (x === undefined || y === undefined) return null;
+                                                        return (
+                                                            <g data-price-badge="current-right">
+                                                                <rect
+                                                                    x={x + 5}
+                                                                    y={y - 10}
+                                                                    width={54}
+                                                                    height={20}
+                                                                    rx={4}
+                                                                    fill={bgColor}
+                                                                />
+                                                                <text
+                                                                    x={x + 32}
+                                                                    y={y + 4}
+                                                                    textAnchor="middle"
+                                                                    fill="#ffffff"
+                                                                    fontSize={12}
+                                                                    fontWeight="bold"
+                                                                >
+                                                                    {currentPrice.toFixed(2)}
+                                                                </text>
+                                                            </g>
+                                                        );
+                                                    }}
+                                                />
+                                            </ReferenceLine>
+                                        );
+                                    })()}
                                 </LineChart>
                             </ResponsiveContainer>
-                            {/* Current Price Badge - Now rendered via ReferenceLine Label instead of DOM overlay */}
                         </>
                     ) : (
                         <div className="flex h-full w-full items-center justify-center bg-[#0b1219]">
