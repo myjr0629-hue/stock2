@@ -216,6 +216,22 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
     const data = useDashboardStore(s => s.tickers[ticker]);
     const setSelectedTicker = useDashboardStore(s => s.setSelectedTicker);
     const toggleDashboardTicker = useDashboardStore(s => s.toggleDashboardTicker);
+    const fetchSingleTicker = useDashboardStore(s => s.fetchSingleTicker);
+    const lastUpdated = useDashboardStore(s => s.lastUpdated);
+    const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // [PREFETCH] On hover, fetch data if missing or stale (>60s)
+    const handleHoverPrefetch = useCallback(() => {
+        hoverTimeout.current = setTimeout(() => {
+            const isStale = !data || !data.underlyingPrice ||
+                (lastUpdated && (Date.now() - new Date(lastUpdated).getTime() > 60000));
+            if (isStale) fetchSingleTicker(ticker);
+        }, 300);
+    }, [ticker, data, lastUpdated, fetchSingleTicker]);
+
+    const handleHoverCancel = useCallback(() => {
+        if (hoverTimeout.current) { clearTimeout(hoverTimeout.current); hoverTimeout.current = null; }
+    }, []);
 
     const hasGammaSqueeze = data?.isGammaSqueeze;
     const hasWhale = data?.netGex && Math.abs(data.netGex) > 500000000;
@@ -251,6 +267,8 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
         <div className="group relative flex items-center">
             <button
                 onClick={() => setSelectedTicker(ticker)}
+                onMouseEnter={handleHoverPrefetch}
+                onMouseLeave={handleHoverCancel}
                 className={`flex-1 flex items-center justify-between p-3 rounded-lg transition-all duration-200
                     ${isSelected
                         ? "bg-cyan-500/10 border border-cyan-500/30"
@@ -1286,6 +1304,9 @@ export default function DashboardPage() {
             }
         };
 
+        // [PROGRESSIVE] Fire price-only FIRST for instant price display
+        fetchPriceOnly(getTickerList());
+        // Then fire full data for option indicators (slower)
         fetchDashboardData(getTickerList());
         startPolling();
         document.addEventListener('visibilitychange', handleVisibility);
