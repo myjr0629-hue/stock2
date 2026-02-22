@@ -216,6 +216,26 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
     const data = useDashboardStore(s => s.tickers[ticker]);
     const setSelectedTicker = useDashboardStore(s => s.setSelectedTicker);
     const toggleDashboardTicker = useDashboardStore(s => s.toggleDashboardTicker);
+    const fetchSingleTicker = useDashboardStore(s => s.fetchSingleTicker);
+    const lastUpdated = useDashboardStore(s => s.lastUpdated);
+
+    // [PREFETCH] Hover 시 미리 데이터 로딩 — 클릭 시 즉시 렌더링
+    const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const handleHoverPrefetch = useCallback(() => {
+        if (hoverTimeout.current) clearTimeout(hoverTimeout.current);
+        hoverTimeout.current = setTimeout(() => {
+            // 데이터가 없거나 60초 이상 된 경우에만 prefetch
+            const stale = !data?.underlyingPrice || (
+                lastUpdated && (Date.now() - new Date(lastUpdated).getTime() > 60000)
+            );
+            if (stale && !isSelected) {
+                fetchSingleTicker(ticker);
+            }
+        }, 300);
+    }, [data?.underlyingPrice, lastUpdated, isSelected, fetchSingleTicker, ticker]);
+    const handleHoverCancel = useCallback(() => {
+        if (hoverTimeout.current) { clearTimeout(hoverTimeout.current); hoverTimeout.current = null; }
+    }, []);
 
     const hasGammaSqueeze = data?.isGammaSqueeze;
     const hasWhale = data?.netGex && Math.abs(data.netGex) > 500000000;
@@ -251,6 +271,8 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
         <div className="group relative flex items-center">
             <button
                 onClick={() => setSelectedTicker(ticker)}
+                onMouseEnter={handleHoverPrefetch}
+                onMouseLeave={handleHoverCancel}
                 className={`flex-1 flex items-center justify-between p-3 rounded-lg transition-all duration-200
                     ${isSelected
                         ? "bg-cyan-500/10 border border-cyan-500/30"
@@ -1249,27 +1271,57 @@ export default function DashboardPage() {
         setInitialized(true);
     }, [searchParams, setSelectedTicker, loadDashboardTickers]);
 
-    // Fetch data on mount and set up stable auto-refresh intervals
+    // [OPTIMIZED] Visibility-aware polling — pauses when tab hidden, resumes on focus
+    // Price interval: 3s (was 5s) for near-real-time feel
     useEffect(() => {
         if (!initialized) return;
 
-        // Initial fetch with current tickers
         const getTickerList = () => tickersRef.current.length > 0 ? tickersRef.current : undefined;
+        let fullInterval: ReturnType<typeof setInterval> | null = null;
+        let priceInterval: ReturnType<typeof setInterval> | null = null;
+
+        const startPolling = () => {
+            // Clear any existing intervals first (safety)
+            if (fullInterval) clearInterval(fullInterval);
+            if (priceInterval) clearInterval(priceInterval);
+
+            // Full data poll (options, signals, etc.) every 30s
+            fullInterval = setInterval(() => {
+                fetchDashboardData(getTickerList());
+            }, 30000);
+
+            // Fast price-only poll every 3s (lightweight /api/live/quotes)
+            priceInterval = setInterval(() => {
+                fetchPriceOnly(getTickerList());
+            }, 3000);
+        };
+
+        const stopPolling = () => {
+            if (fullInterval) { clearInterval(fullInterval); fullInterval = null; }
+            if (priceInterval) { clearInterval(priceInterval); priceInterval = null; }
+        };
+
+        const handleVisibility = () => {
+            if (document.hidden) {
+                stopPolling();
+            } else {
+                // Tab became visible — immediately fetch fresh data, then resume polling
+                fetchPriceOnly(getTickerList());
+                fetchDashboardData(getTickerList());
+                startPolling();
+            }
+        };
+
+        // Initial fetch + start polling
         fetchDashboardData(getTickerList());
+        startPolling();
 
-        // Full data poll (options, signals, etc.) every 30s
-        const fullInterval = setInterval(() => {
-            fetchDashboardData(getTickerList());
-        }, 30000);
-
-        // Fast price-only poll every 5s (lightweight /api/live/quotes)
-        const priceInterval = setInterval(() => {
-            fetchPriceOnly(getTickerList());
-        }, 5000);
+        // Listen for tab visibility changes
+        document.addEventListener('visibilitychange', handleVisibility);
 
         return () => {
-            clearInterval(fullInterval);
-            clearInterval(priceInterval);
+            stopPolling();
+            document.removeEventListener('visibilitychange', handleVisibility);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialized]);
