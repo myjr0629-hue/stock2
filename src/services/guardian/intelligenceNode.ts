@@ -120,6 +120,14 @@ interface IntelligenceContext {
     oilChangePct?: number;            // Oil (CL=F) daily change %
     btcChangePct?: number;            // BTC daily change %
     tltChangePct?: number;            // TLT (20Y Bond ETF) daily change %
+    // [V10.0] GAMMA SHIELD — Options-based volatility intelligence
+    gexIndex?: number;                // Normalized GEX (-100 to +100)
+    gexLevel?: string;                // LONG_GAMMA, NEUTRAL, SHORT_GAMMA
+    squeezeRisk?: number;             // Squeeze probability 0-100%
+    squeezeLevel?: string;            // LOW, MEDIUM, HIGH, EXTREME
+    triggerSupport?: number | null;    // S&P 500 options-based support
+    triggerResistance?: number | null; // S&P 500 options-based resistance
+    triggerCurrent?: number | null;    // S&P 500 current price
 }
 
 // === TIME-BASED GATING ===
@@ -187,6 +195,13 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
 
         ${ctx.signalConflict ? `- ⚠️ 신호 충돌: ${ctx.signalConflict}` : ''}
 
+        ${ctx.gexIndex !== undefined ? `**🛡️ GAMMA SHIELD:**
+        - GEX 지수: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
+        - 스퀴즈 리스크: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
+        ${ctx.triggerSupport ? `- 옵션 지지선(S&P 500): ${ctx.triggerSupport.toLocaleString()}` : ''}
+        ${ctx.triggerResistance ? `- 옵션 저항선(S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}
+        ${ctx.triggerCurrent ? `- 현재가(S&P 500): ${ctx.triggerCurrent.toLocaleString()}` : ''}` : ''}
+
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**📰 실시간 시장 뉴스:**
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
@@ -198,6 +213,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - **신호 충돌 시**: RLSI/나스닥은 강세이나 순환매가 RISK_OFF이면 "겉은 강세, 속은 약세" 같은 표현으로 혼재 신호를 명확히 전달. 반대로 지표는 약세이나 성장주로 자금 유입 시 "저점 매집 가능성" 표현 사용
         - **뉴스가 제공된 경우**: 수치 변동의 원인을 뉴스에서 찾아 반드시 언급 (예: "CPI 예상 상회로 인한 매도세", "연준 발언으로 금리 인하 기대 후퇴")
         - **거시경제 자산 교차 검증**: 금+채권(TLT) 동반 상승 시 안전자산 선호 언급, 유가 급등 시 인플레 우려, 달러 강세 시 신흥국/원자재 약세 연결
+        - **감마 쉴드 분석**: GEX가 -20 이하면 딜러 매수 헤지로 변동성 확대 경고, +20 이상이면 감마 클램핑으로 안정 언급. 스퀴즈 리스크 45% 이상이면 급변동 가능성 경고. 옵션 지지/저항선 근접 시 해당 레벨 언급
 
         **출력 형식 (반드시 이 형식으로):**
         [현황] (5일 기준 섹터 이동 현황 + 거시 배경 1문장)
@@ -229,6 +245,13 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
 
         ${ctx.signalConflict ? `- ⚠️ Signal Conflict: ${ctx.signalConflict}` : ''}
 
+        ${ctx.gexIndex !== undefined ? `**🛡️ GAMMA SHIELD:**
+        - GEX Index: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
+        - Squeeze Risk: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
+        ${ctx.triggerSupport ? `- Options Support (S&P 500): ${ctx.triggerSupport.toLocaleString()}` : ''}
+        ${ctx.triggerResistance ? `- Options Resistance (S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}
+        ${ctx.triggerCurrent ? `- Current Price (S&P 500): ${ctx.triggerCurrent.toLocaleString()}` : ''}` : ''}
+
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**📰 Real-time Market News:**
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
@@ -239,6 +262,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - Reflect the regime (RISK_OFF_DEFENSE etc.) in actionable advice
         - **Signal Conflict**: When RLSI/NASDAQ are bullish but rotation is RISK_OFF, describe it as "surface strength masks underlying weakness"
         - **When news is provided**: Identify the root cause of market movements from news (e.g., "CPI beat triggered selloff", "Fed hawkish tone pressures growth")
+        - **Gamma Shield**: If GEX <= -20, warn about dealer hedging amplifying volatility. If GEX >= +20, note gamma clamping stabilizing prices. If squeeze risk >= 45%, warn about potential sharp moves. Reference options support/resistance levels when price is near them
 
         **Output Format (strictly follow):**
         [Status] (1 sentence on 5-day sector movement)
@@ -265,6 +289,12 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.trendVsToday ? `- 本日 vs トレンド: ${ctx.trendVsToday}` : ''}
         ${ctx.noiseWarning ? `- ノイズ警告: ${ctx.noiseWarning}` : ''}
         ${ctx.rotationConviction ? `- ローテーション確信度: ${ctx.rotationConviction}` : ''}
+
+        ${ctx.gexIndex !== undefined ? `**🛡️ ガンマシールド:**
+        - GEX指数: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
+        - スクイーズリスク: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
+        ${ctx.triggerSupport ? `- オプションサポート(S&P 500): ${ctx.triggerSupport.toLocaleString()}` : ''}
+        ${ctx.triggerResistance ? `- オプションレジスタンス(S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
 
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**📰 リアルタイム市場ニュース:**
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}

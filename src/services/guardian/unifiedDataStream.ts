@@ -497,7 +497,15 @@ export class GuardianDataHub {
                         goldChangePct: macro?.factors?.gold?.chgPct ?? undefined,
                         oilChangePct: macro?.factors?.oil?.chgPct ?? undefined,
                         btcChangePct: macro?.factors?.btc?.chgPct ?? undefined,
-                        tltChangePct: macro?.tltChangePct ?? undefined
+                        tltChangePct: macro?.tltChangePct ?? undefined,
+                        // [V10.0] GAMMA SHIELD — Options-based volatility intelligence
+                        gexIndex: gammaShieldData?.gexIndex ?? undefined,
+                        gexLevel: gammaShieldData?.gexLevel ?? undefined,
+                        squeezeRisk: gammaShieldData?.squeezeRisk ?? undefined,
+                        squeezeLevel: gammaShieldData?.squeezeLevel ?? undefined,
+                        triggerSupport: gammaShieldData?.supportWall ?? undefined,
+                        triggerResistance: gammaShieldData?.resistanceWall ?? undefined,
+                        triggerCurrent: gammaShieldData?.currentPrice ?? undefined
                     };
 
                     const [rotationText, realityText] = await Promise.all([
