@@ -45,12 +45,29 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
 
         // [BUGFIX] Yahoo Finance sometimes returns anomalous near-zero values (e.g., 1E-09) for ^VIX chartPreviousClose
         if (prevClose < 0.01) {
-            const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
-            const firstValid = closes.find((c: number | null) => c !== null && c > 0.01);
-            if (firstValid) {
-                prevClose = firstValid;
-            } else {
-                prevClose = price; // Fallback to 0% change if no history available
+            // Default to `price` (0% change) if the secondary fetch fails for any reason
+            prevClose = price;
+            try {
+                // Secondary fetch to get true daily candlesticks (bypass the 1-minute intraday chart bug)
+                const fallbackUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encoded}?interval=1d&range=5d`;
+                const fallbackRes = await fetch(fallbackUrl, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                    cache: 'no-store',
+                    signal: AbortSignal.timeout(3000),
+                });
+                if (fallbackRes.ok) {
+                    const fallbackData = await fallbackRes.json();
+                    const closes = fallbackData?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
+                    const validCloses = closes.filter((c: number | null) => c !== null && c > 0.01);
+                    if (validCloses.length >= 2) {
+                        // The last item is today's live price, second-to-last is yesterday's true close
+                        prevClose = validCloses[validCloses.length - 2];
+                    } else if (validCloses.length === 1) {
+                        prevClose = validCloses[0];
+                    }
+                }
+            } catch (e) {
+                // Ignore as we already defaulted to `price`
             }
         }
 
