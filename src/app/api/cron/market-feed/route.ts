@@ -41,7 +41,19 @@ async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
         if (!meta?.regularMarketPrice) return null;
 
         const price = meta.regularMarketPrice;
-        const prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
+        let prevClose = meta.previousClose ?? meta.chartPreviousClose ?? price;
+
+        // [BUGFIX] Yahoo Finance sometimes returns anomalous near-zero values (e.g., 1E-09) for ^VIX chartPreviousClose
+        if (prevClose < 0.01) {
+            const closes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [];
+            const firstValid = closes.find((c: number | null) => c !== null && c > 0.01);
+            if (firstValid) {
+                prevClose = firstValid;
+            } else {
+                prevClose = price; // Fallback to 0% change if no history available
+            }
+        }
+
         const change = price - prevClose;
         const changePct = prevClose > 0 ? (change / prevClose) * 100 : 0;
 
