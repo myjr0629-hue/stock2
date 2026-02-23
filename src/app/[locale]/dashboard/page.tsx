@@ -1263,8 +1263,9 @@ export default function DashboardPage() {
             setSelectedTicker(ticker.toUpperCase());
         }
         // Load user's dashboard tickers from Supabase (overrides localStorage)
-        loadDashboardTickers();
-        setInitialized(true);
+        loadDashboardTickers().then(() => {
+            setInitialized(true);
+        });
     }, [searchParams, setSelectedTicker, loadDashboardTickers]);
 
     // [OPTIMIZED] Visibility-aware polling — pauses when tab hidden, resumes on focus
@@ -1305,6 +1306,7 @@ export default function DashboardPage() {
         };
 
         // [PROGRESSIVE] Fire price-only FIRST for instant price display
+        // Now guaranteed to run AFTER Supabase load since initialized is true
         fetchPriceOnly(getTickerList());
         // Then fire full data for option indicators (slower)
         fetchDashboardData(getTickerList());
