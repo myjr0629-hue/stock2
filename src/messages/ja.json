@@ -122,6 +122,8 @@
         "gravityGauge": "GRAVITY GAUGE",
         "rlsi": "Relative Liquid Strength Index",
         "rlsiShort": "RLSI マーケットヘルス",
+        "preMarketEstimate": "プレマーケット予想値",
+        "mapStandbyNotice": "レギュラーセッション開始までは前日終値基準のフローを表示します",
         "priceFlow": "価格-フロー乖離",
         "flowMap": "セクター資金フロー分析",
         "tactical": "戦術的判断",
@@ -165,7 +167,11 @@
             "XLP": "生活必需品",
             "XLRE": "不動産",
             "XLU": "公益事業",
-            "AI_PWR": "AI電力網"
+            "AI_PWR": "AI電力網",
+            "SMH": "半導体",
+            "HACK": "サイバーセキュリティ",
+            "ICLN": "クリーンエネルギー",
+            "SAFE_HAVEN": "安全資産"
         },
         "rvolActive": "活発",
         "rvolNormal": "普通",

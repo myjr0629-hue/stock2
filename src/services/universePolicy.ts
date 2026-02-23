@@ -100,6 +100,10 @@ export const SECTOR_MAP: Record<string, { name: string; tickers: string[] }> = {
     XLRE: { name: "부동산", tickers: ["PLD", "AMT", "EQIX", "CCI", "PSA", "O", "VICI", "WELL"] },
     XLU: { name: "유틸리티", tickers: ["NEE", "SO", "DUK", "CEG", "AEP", "SRE", "D", "PEG"] },
     AI_PWR: { name: "AI 전력망", tickers: ["VST", "CEG", "VRT", "ETN", "PWR"] }, // New Synthetic Sector
+    SMH: { name: "반도체", tickers: ["NVDA", "AMD", "AVGO", "QCOM", "MU", "LRCX", "AMAT", "KLAC", "MRVL", "ASML"] },
+    HACK: { name: "사이버보안", tickers: ["CRWD", "PANW", "ZS", "FTNT", "OKTA"] },
+    ICLN: { name: "클린에너지", tickers: ["ENPH", "SEDG", "FSLR", "NEE", "PLUG"] },
+    SAFE_HAVEN: { name: "안전자산", tickers: ["TLT", "GLD", "IEF", "SHY"] }
 };
 
 export function getSectorForTicker(ticker: string): string | null {

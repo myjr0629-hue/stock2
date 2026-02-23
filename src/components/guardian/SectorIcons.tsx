@@ -12,6 +12,10 @@ import {
     Building2,    // XLRE - Real Estate
     Droplets,      // XLU - Utilities
     Activity,      // AI_PWR - Pulse
+    ShieldCheck,   // HACK - Cyber
+    Leaf,          // ICLN - Clean Energy
+    Anchor,        // SAFE_HAVEN - Safe
+    Server,        // SMH - Semi (Alternative since CPU is in XLK)
     LucideIcon
 } from "lucide-react";
 
@@ -33,7 +37,11 @@ export const SECTOR_VISUALS: Record<string, SectorVisualInfo> = {
     "XLC": { icon: Wifi, color: "#06b6d4", label: "Comm." },            // Cyan-500
     "XLRE": { icon: Building2, color: "#14b8a6", label: "Real Estate" },// Teal-500
     "XLU": { icon: Droplets, color: "#3b82f6", label: "Utilities" },     // Blue-500 (Water/Elec)
-    "AI_PWR": { icon: Activity, color: "#00FFF2", label: "AI Infra" }  // Electric Cyan
+    "AI_PWR": { icon: Activity, color: "#00FFF2", label: "AI Infra" },  // Electric Cyan
+    "SMH": { icon: Server, color: "#ffffff", label: "Semis" },          // White/Silver for Semi
+    "HACK": { icon: ShieldCheck, color: "#ef4444", label: "Cyber" },    // Red for Cyber Security
+    "ICLN": { icon: Leaf, color: "#22c55e", label: "Clean Nrg" },       // Green for Clean Energy
+    "SAFE_HAVEN": { icon: Anchor, color: "#eab308", label: "Safe Haven" } // Gold/Yellow for Safe Haven
 };
 
 // Pastel/Matte variants for background fills to avoid "Blinding Neon"
@@ -49,5 +57,9 @@ export const SECTOR_BG_COLORS: Record<string, string> = {
     "XLC": "rgba(6, 182, 212, 0.15)",
     "XLRE": "rgba(20, 184, 166, 0.15)",
     "XLU": "rgba(59, 130, 246, 0.15)",
-    "AI_PWR": "rgba(0, 255, 242, 0.15)"
+    "AI_PWR": "rgba(0, 255, 242, 0.15)",
+    "SMH": "rgba(255, 255, 255, 0.15)",
+    "HACK": "rgba(239, 68, 68, 0.15)",
+    "ICLN": "rgba(34, 197, 94, 0.15)",
+    "SAFE_HAVEN": "rgba(234, 179, 8, 0.15)"
 };

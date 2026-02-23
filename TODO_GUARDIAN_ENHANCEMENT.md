@@ -59,11 +59,11 @@ Guardian RLSI 정확도 향상 (65-75% → 75-85%)
 - 월 가치: $80-100 → $120-150
 
 ## 상태
-- [ ] VIX Term Structure 추가
-- [ ] Bond Flow 추가  
-- [ ] Gold Flow 추가
-- [ ] 반도체 섹터 (SMH) 추가
-- [ ] 사이버보안 섹터 (HACK) 추가
-- [ ] 클린에너지 섹터 (ICLN) 추가
-- [ ] RLSI 가중치 재조정
-- [ ] 테스트 및 검증
+- [x] VIX Term Structure 추가
+- [x] Bond Flow 추가  
+- [x] Gold Flow 추가
+- [x] 반도체 섹터 (SMH) 추가
+- [x] 사이버보안 섹터 (HACK) 추가
+- [x] 클린에너지 섹터 (ICLN) 추가
+- [x] RLSI 가중치 재조정
+- [x] 테스트 및 검증

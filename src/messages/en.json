@@ -122,6 +122,8 @@
         "gravityGauge": "GRAVITY GAUGE",
         "rlsi": "Relative Liquid Strength Index",
         "rlsiShort": "RLSI Market Health",
+        "preMarketEstimate": "PRE-MARKET ESTIMATE",
+        "mapStandbyNotice": "Shows flow based on yesterday's close until regular open",
         "priceFlow": "Price-Flow Divergence",
         "flowMap": "Sector Flow Analysis",
         "tactical": "Tactical Verdict",
@@ -165,7 +167,11 @@
             "XLP": "Consumer Staples",
             "XLRE": "Real Estate",
             "XLU": "Utilities",
-            "AI_PWR": "AI Power Grid"
+            "AI_PWR": "AI Power Grid",
+            "SMH": "Semiconductors",
+            "HACK": "Cyber Security",
+            "ICLN": "Clean Energy",
+            "SAFE_HAVEN": "Safe Haven"
         },
         "rvolActive": "Active",
         "rvolNormal": "Normal",

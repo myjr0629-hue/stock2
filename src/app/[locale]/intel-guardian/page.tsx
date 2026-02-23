@@ -189,6 +189,10 @@ const SECTOR_NAME_I18N: Record<string, Record<SectorLocale, string>> = {
     '부동산': { ko: '부동산', en: 'Real Estate', ja: '不動産' },
     '유틸리티': { ko: '유틸리티', en: 'Utilities', ja: 'ユーティリティ' },
     'AI 전력망': { ko: 'AI 전력망', en: 'AI Power Grid', ja: 'AI電力網' },
+    '반도체': { ko: '반도체', en: 'Semiconductors', ja: '半導体' },
+    '사이버보안': { ko: '사이버보안', en: 'Cyber Security', ja: 'サイバーセキュリティ' },
+    '클린에너지': { ko: '클린에너지', en: 'Clean Energy', ja: 'クリーンエネルギー' },
+    '안전자산': { ko: '안전자산', en: 'Safe Haven', ja: '安全資産' },
 };
 function getSectorName(name: string, locale: string): string {
     return SECTOR_NAME_I18N[name]?.[(locale as SectorLocale) || 'ko'] || name;
@@ -425,12 +429,17 @@ export default function GuardianPage() {
                                 Flow Topography Map v3.0
                             </h3>
                             {/* Session indicator — REG only feature */}
-                            <span className={`text-[11px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta ${isMarketActive
+                            <span className={`text-[11px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta shrink-0 ${isMarketActive
                                 ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
                                 : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
                                 }`}>
                                 {isMarketActive ? '● LIVE' : 'STANDBY'}
                             </span>
+                            {!isMarketActive && (
+                                <span className="text-[12px] text-amber-500/80 font-medium tracking-wide">
+                                    {t('mapStandbyNotice')}
+                                </span>
+                            )}
                             {/* [V6.0] Rotation Regime Badge */}
                             {isMarketActive && data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
                                 <span className={`text-[11px] font-bold tracking-wider px-2 py-0.5 rounded border font-jakarta ${data.rotationIntensity.regime === 'RISK_ON_GROWTH' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' :

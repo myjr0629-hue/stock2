@@ -122,6 +122,8 @@
         "gravityGauge": "GRAVITY GAUGE",
         "rlsi": "Relative Liquid Strength Index",
         "rlsiShort": "RLSI 시장 건강도",
+        "preMarketEstimate": "장전 예상치",
+        "mapStandbyNotice": "본장 개장 전까지 전일 종가 기준의 흐름을 보여줍니다",
         "priceFlow": "가격-플로우 괴리",
         "flowMap": "섹터 자금 흐름 분석",
         "tactical": "전술적 판단",
@@ -165,7 +167,11 @@
             "XLP": "필수소비재",
             "XLRE": "부동산",
             "XLU": "유틸리티",
-            "AI_PWR": "AI 전력망"
+            "AI_PWR": "AI 전력망",
+            "SMH": "반도체",
+            "HACK": "사이버보안",
+            "ICLN": "클린에너지",
+            "SAFE_HAVEN": "안전자산"
         },
         "rvolActive": "활발",
         "rvolNormal": "보통",

@@ -55,6 +55,10 @@ export interface RLSIResult {
         yieldPenalty: number;
         vix: number;
         vixMultiplier: number;
+        // [V9.0] New Indicators
+        vixTermStructure: number;  // 1.0 (Contango) to <1.0 (Backwardation)
+        bondFlow: number;          // TLT Daily Change %
+        goldFlow: number;          // GLD Daily Change %
     };
     timestamp: string;
 }
@@ -125,6 +129,48 @@ async function getPriceActionSentiment(): Promise<number> {
     } catch (e) {
         console.warn("[RLSI] Price action fetch failed:", e);
         return 0.5; // Neutral
+    }
+}
+
+// === [V9.0] NEW: Fetch Additional Flow Data (VIX Term Structure, TLT, GLD) ===
+async function getFlowDataIndicators(): Promise<{ vixContango: number, tltChange: number, gldChange: number }> {
+    try {
+        const tickers = ['VIXY', 'VXX', 'TLT', 'GLD'];
+        const tickerStr = tickers.join(',');
+        const endpoint = `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickerStr}`;
+        const data = await fetchMassive(endpoint, {}, true);
+
+        let vixContango = 1.0;
+        let tltChange = 0;
+        let gldChange = 0;
+
+        if (data.tickers && data.tickers.length > 0) {
+            const getChange = (sym: string) => {
+                const t = data.tickers.find((x: any) => x.ticker === sym);
+                return t ? (t.todaysChangePerc || 0) : 0;
+            };
+
+            const getPrice = (sym: string) => {
+                const t = data.tickers.find((x: any) => x.ticker === sym);
+                return t ? (t.min?.c || t.day?.c || t.prevDay?.c || 1) : 1;
+            };
+
+            tltChange = getChange('TLT');
+            gldChange = getChange('GLD');
+
+            // Simplified VIX Term Structure Proxy using VIXY (Short-term) and VIXM (Mid-term) would be better,
+            // but for now, we look at the raw change in VIXY/VXX to gauge immediate stress.
+            // If we only have VIXY and VXX (both short), they act similarly. 
+            // We'll calculate a stress ratio based on VIXY surge. 
+            // Contango (normal) = VIXY fading/stable. Backwardation (stress) = VIXY surging.
+            const vixyChange = getChange('VIXY');
+            vixContango = vixyChange > 5 ? 0.8 : (vixyChange < -2 ? 1.05 : 1.0); // Simple proxy multiplier
+        }
+
+        return { vixContango, tltChange, gldChange };
+    } catch (e) {
+        console.warn("[RLSI] Flow data indicators fetch failed:", e);
+        return { vixContango: 1.0, tltChange: 0, gldChange: 0 };
     }
 }
 
@@ -223,10 +269,11 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
 
         // Fetch other data (universal across sessions)
         // [V8.2] Removed news fetch — sentiment now from CNN Fear & Greed Index
-        const [yields, macro, breadth] = await Promise.all([
+        const [yields, macro, breadth, flowData] = await Promise.all([
             getTreasuryYields().catch(() => ({ us10y: 4.0 } as any)),
             getMacroSnapshotSSOT().catch(() => ({ vix: 15 } as any)),
-            getMarketBreadth(0).catch(() => null as BreadthSnapshot | null)
+            getMarketBreadth(0).catch(() => null as BreadthSnapshot | null),
+            getFlowDataIndicators()
         ]);
 
         // 2. Component Calculations
@@ -260,8 +307,21 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
         if (vix > 30) vixMultiplier = 0.5;
         else if (vix > 20) vixMultiplier = 0.8;
 
+        // Apply VIX Term Structure Multiplier [V9.0]
+        vixMultiplier *= flowData.vixContango;
+
+        // H. [V9.0] Bond & Gold Flow Adjustments
+        // If TLT (Bonds) and GLD (Gold) are surging together, it signals Risk-Off.
+        let flowPenalty = 0;
+        if (flowData.tltChange > 0.5 && flowData.gldChange > 0.5) {
+            flowPenalty = 5; // Risk-off penalty
+        } else if (flowData.tltChange < -0.5 && flowData.gldChange < -0.5) {
+            // Risk-on boost (optional, maybe no boost, just less penalty)
+            flowPenalty = -2;
+        }
+
         // 3. [V6.0] Final Calculation with Breadth Integration
-        // PriceAction 20% + Breadth 20% + News 10% + Momentum 30% + Rotation 10% + Base 10 - Penalty
+        // PriceAction 20% + Breadth 20% + News 10% + Momentum 30% + Rotation 10% + Base 10 - Penalty - FlowPenalty
         let baseScore =
             (priceActionScore * WEIGHTS.PRICE_ACTION) +
             (breadthScoreValue * WEIGHTS.BREADTH) +
@@ -269,7 +329,8 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
             (momentumScore * WEIGHTS.MOMENTUM) +
             (rotationScoreNorm * WEIGHTS.ROTATION) +
             WEIGHTS.BASE_BUFFER -
-            yieldPenalty;
+            yieldPenalty -
+            flowPenalty;
 
         // Apply VIX Multiplier
         let finalScore = baseScore * vixMultiplier;
@@ -306,7 +367,10 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
                 yieldRaw: Number(yieldRaw.toFixed(2)),
                 yieldPenalty: Number(yieldPenalty.toFixed(1)),
                 vix: Number(vix.toFixed(2)),
-                vixMultiplier
+                vixMultiplier,
+                vixTermStructure: Number(flowData.vixContango.toFixed(2)),
+                bondFlow: Number(flowData.tltChange.toFixed(2)),
+                goldFlow: Number(flowData.gldChange.toFixed(2))
             },
             timestamp: new Date().toISOString()
         };
@@ -339,7 +403,10 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
                 yieldRaw: 4.0,
                 yieldPenalty: 5,
                 vix: 15,
-                vixMultiplier: 1.0
+                vixMultiplier: 1.0,
+                vixTermStructure: 1.0,
+                bondFlow: 0,
+                goldFlow: 0
             },
             timestamp: new Date().toISOString()
         };

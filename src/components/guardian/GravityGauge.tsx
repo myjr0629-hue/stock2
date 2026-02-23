@@ -131,14 +131,14 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                     <Activity className="w-3 h-3 text-white opacity-70" />
                     <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">Gravity Gauge</span>
                     {session && (
-                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded ml-auto ${isHoliday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                        <span className={`${session === 'PRE' ? 'text-[12px]' : 'text-[11px]'} font-bold px-1.5 py-0.5 rounded ml-auto whitespace-nowrap ${isHoliday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                             session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                                 session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
                                     session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
                                         'bg-slate-500/20 text-slate-400 border border-slate-500/30'
                             }`}>
                             {isHoliday ? 'HOLIDAY' :
-                                session === 'PRE' ? 'PRE-MKT' :
+                                session === 'PRE' ? t('preMarketEstimate') :
                                     session === 'REG' ? 'LIVE' :
                                         session === 'POST' ? 'AFTER' : 'CLOSED'}
                         </span>

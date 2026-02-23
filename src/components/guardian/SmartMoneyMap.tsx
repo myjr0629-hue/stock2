@@ -200,7 +200,7 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMar
 }
 
 // === COMPONENT: CURVED ARROW ===
-function CurvedFlowArrow({ start, end, strength, color = "#3b82f6", isBullMode = false }: { start: THREE.Vector3, end: THREE.Vector3, strength: number, color?: string, isBullMode?: boolean }) {
+function CurvedFlowArrow({ start, end, strength, color = "#3b82f6", isBullMode = false, isMarketActive = true }: { start: THREE.Vector3, end: THREE.Vector3, strength: number, color?: string, isBullMode?: boolean, isMarketActive?: boolean }) {
     // Logic: Lift the curve in Y to jump over other nodes if needed.
     const mid = start.clone().lerp(end, 0.5);
 
@@ -247,15 +247,19 @@ function CurvedFlowArrow({ start, end, strength, color = "#3b82f6", isBullMode =
                 transparent
                 opacity={0.4}
             />
-            {/* PARTICLES - High Velocity */}
-            <FlowParticle curve={curve} delay={0} speed={speed} size={particleSize} color={particleColor} />
-            {/* Secondary Particle only for strong flows */}
-            {strength > 10 && (
-                <FlowParticle curve={curve} delay={0.3 / speed} speed={speed * 1.1} size={particleSize * 0.7} color={particleColor} />
-            )}
-            {/* Torrent gets a third particle! */}
-            {isTorrent && (
-                <FlowParticle curve={curve} delay={0.6 / speed} speed={speed * 0.9} size={particleSize * 0.8} color="#ffffff" />
+            {/* PARTICLES - High Velocity. Only animate during active market */}
+            {isMarketActive && (
+                <>
+                    <FlowParticle curve={curve} delay={0} speed={speed} size={particleSize} color={particleColor} />
+                    {/* Secondary Particle only for strong flows */}
+                    {strength > 10 && (
+                        <FlowParticle curve={curve} delay={0.3 / speed} speed={speed * 1.1} size={particleSize * 0.7} color={particleColor} />
+                    )}
+                    {/* Torrent gets a third particle! */}
+                    {isTorrent && (
+                        <FlowParticle curve={curve} delay={0.6 / speed} speed={speed * 0.9} size={particleSize * 0.8} color="#ffffff" />
+                    )}
+                </>
             )}
 
             {/* ARROW HEAD */}
@@ -309,6 +313,7 @@ export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, ta
                             strength={v.strength}
                             color={color}
                             isBullMode={isBullMode} // Pass Regime
+                            isMarketActive={isMarketActive}
                         />
                     );
                 }
@@ -326,6 +331,7 @@ export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, ta
                         strength={20}
                         color="#ffffff"
                         isBullMode={isBullMode}
+                        isMarketActive={isMarketActive}
                     />
                 );
             }
