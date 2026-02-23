@@ -232,7 +232,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         </div>
                     </div>
 
-                    {/* Label */}
+                    {/* Label + Description */}
                     <span className="text-[12px] font-jakarta text-slate-300 mt-0.5">
                         {gexLabel}
                     </span>
