@@ -1264,6 +1264,39 @@
             "guide2": "5日トレンドがマイナス→プラスに転換したセクター → 初期リバウンド捕捉、先行エントリー機会",
             "guide3": "セクター内上位銘柄のみ上昇し残りは下落 → 選別的な銘柄売買、セクターETFは非推奨"
         },
+        "gammaShield": {
+            "title": "GAMMA SHIELD™",
+            "badge": "重要指標",
+            "desc": "<cyan>S&P 500オプション市場</cyan>の機関ディーラーの<gold>ガンマヘッジポジション</gold>をリアルタイムで分析し、市場の<emerald>ボラティリティ方向</emerald>と<rose>急変動リスク</rose>を事前に検知します。ウォール街の機関トレーダーが使用する核心的なボラティリティインテリジェンスを個人投資家にも提供します。",
+            "sampleInsight": "オプション市場均衡 — 大きな変動なく横ばいの可能性",
+            "gex": {
+                "title": "Gamma Pressure（GEX指数）",
+                "desc": "<cyan>SPY + QQQ</cyan>のオプションガンマエクスポージャー(GEX)を合算し-100～+100に正規化した指数です。<gold>プラス(+)</gold>ならディーラーが下落時に買いヘッジ→市場安定。<rose>マイナス(-)</rose>ならディーラーが下落時に売りヘッジ→下落加速リスク。",
+                "long": "安定",
+                "neutral": "中立",
+                "short": "注意"
+            },
+            "squeeze": {
+                "title": "Squeeze Risk（スクイーズリスク）",
+                "desc": "オプション売り手（ショートガンマポジション）が急激な価格変動により<rose>強制決済（スクイーズ）</rose>される確率を測定します。<gold>45%以上</gold>なら爆発的な価格変動が迫っている可能性があり、<rose>70%以上</rose>は極端な危険ゾーンです。"
+            },
+            "trigger": {
+                "title": "Trigger Band（オプショントリガーバンド）",
+                "desc": "S&P 500 <cyan>オプションチェーンの建玉（Open Interest）</cyan>を分析し、機関が設定した<emerald>サポートレベル（Put Floor）</emerald>と<rose>レジスタンスレベル（Call Wall）</rose>を算出します。このレベルは実際の市場で価格の壁として機能します。",
+                "resistDesc": "コールオプション集中 → 上昇抵抗",
+                "supportDesc": "プットオプション集中 → 下落防御"
+            },
+            "insightTitle": "リアルタイム動的インサイト",
+            "insightDesc": "GAMMA SHIELDは<cyan>現在のデータに基づき最も緊急なシグナル1つ</cyan>を自動選別してヘッダーに表示します。各状況のインサイト例:",
+            "insightLong": "大型機関が下落防御中 — 急落の可能性低い（GEX ≥ +20: ディーラーロングガンマ、市場安定化）",
+            "insightShort": "機関ヘッジが変動を拡大中 — 急騰落に注意（GEX ≤ -20: ディーラーショートガンマ、ボラティリティ拡大）",
+            "insightSqueeze": "オプション売り手の損切り迫る — 爆発的な動きに備え（スクイーズリスク ≥ 45%）",
+            "insightTrigger": "S&Pオプション壁接近 — 突破で急騰、失敗で反落（現在価がレジスタンス/サポートの1.5%以内）",
+            "tradingGuide": "GAMMA SHIELD活用法",
+            "guide1": "<emerald>GEX +20以上 + スクイーズ LOW</emerald> → 市場安定期、<gold>ボラティリティ縮小戦略</gold>有利（ショートストラドル、カバードコール）",
+            "guide2": "<rose>GEX -20以下 + スクイーズ HIGH</rose> → 急変動迫る、<cyan>方向性ベット</cyan>または<gold>ヘッジ強化</gold>が必要",
+            "guide3": "Trigger Bandの<emerald>サポート接近時に反発買い</emerald>、<rose>レジスタンス接近時に利確</rose> — オプション壁が価格マグネットの役割"
+        },
         "strategy": {
             "title": "実践トレード活用ガイド",
             "desc": "Guardianの全データを<cyan>体系的に解釈</cyan>してトレード意思決定に活用する4段階プロセスです。マクロ視点からミクロ実行までをカバーします。",

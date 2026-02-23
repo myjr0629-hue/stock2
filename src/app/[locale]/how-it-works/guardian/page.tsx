@@ -57,6 +57,225 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
             </section>
 
             {/* ═══════════════════════════════════════════════════════════ */}
+            {/* Section 1.5: GAMMA SHIELD™ — Critical Indicator           */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <section className="space-y-5">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/25">
+                            <Shield size={18} className="text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-xl font-bold text-white">{t('gammaShield.title')}</h3>
+                            <p className="text-[13px] text-cyan-400 font-medium uppercase tracking-wider">Options-Based Volatility Shield</p>
+                        </div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-rose-500/20 border border-rose-500/30 text-xs font-bold text-rose-300">{t('gammaShield.badge')}</span>
+                </div>
+
+                <p className="text-[15px] text-slate-300 leading-relaxed">{t.rich('gammaShield.desc', richTags)}</p>
+
+                {/* ── GAMMA SHIELD SVG Mockup ── */}
+                <div className="rounded-2xl bg-gradient-to-br from-slate-900/70 via-slate-900/50 to-slate-800/30 border border-slate-700/30 overflow-hidden">
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-5 pt-4 pb-2">
+                        <div className="flex items-center gap-2">
+                            <Shield size={16} className="text-cyan-400" />
+                            <span className="text-[14px] font-black tracking-[0.08em] text-slate-200">GAMMA SHIELD</span>
+                            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded-sm border text-emerald-400 border-emerald-500/30 bg-emerald-500/10">HIGH</span>
+                            <span className="text-[12px] text-slate-300">· {t('gammaShield.sampleInsight')}</span>
+                        </div>
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded border text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse">● LIVE</span>
+                    </div>
+
+                    {/* Content — 3 Columns */}
+                    <div className="grid grid-cols-3 gap-4 px-5 pb-5 pt-1">
+                        {/* Col 1: GEX Pressure */}
+                        <div className="flex flex-col items-center gap-2">
+                            <span className="text-[11px] font-bold tracking-[0.10em] text-slate-300 uppercase">Gamma Pressure</span>
+                            <div className="text-[28px] font-black text-slate-300 tabular-nums leading-none">+3</div>
+                            <div className="text-[11px] font-bold px-2 py-0.5 rounded-sm border text-slate-300 border-slate-600/30 bg-slate-600/10">NEUTRAL</div>
+                            {/* Mini gauge bar */}
+                            <div className="w-full max-w-[140px]">
+                                <div className="relative h-[5px] rounded-full bg-slate-800 overflow-hidden">
+                                    <div className="absolute h-full rounded-full bg-gradient-to-r from-slate-500 to-slate-400" style={{ left: '50%', width: '1.5%' }} />
+                                    <div className="absolute left-1/2 top-0 w-[1px] h-full bg-slate-500/60" />
+                                </div>
+                                <div className="flex justify-between mt-1">
+                                    <span className="text-[10px] text-red-400/70">-100</span>
+                                    <span className="text-[10px] text-slate-500">0</span>
+                                    <span className="text-[10px] text-emerald-400/70">+100</span>
+                                </div>
+                            </div>
+                            <span className="text-[11px] text-slate-400">NEUTRAL ZONE</span>
+                        </div>
+
+                        {/* Col 2: Squeeze Risk */}
+                        <div className="flex flex-col items-center gap-2 border-x border-slate-700/25">
+                            <span className="text-[11px] font-bold tracking-[0.10em] text-slate-300 uppercase">Squeeze Risk</span>
+                            <div className="relative w-[60px] h-[60px]">
+                                <svg width="60" height="60" viewBox="0 0 56 56">
+                                    <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(100,116,139,0.2)" strokeWidth="3" />
+                                    <circle cx="28" cy="28" r="24" fill="none" stroke="#fde047" strokeWidth="3"
+                                        strokeLinecap="round" strokeDasharray="150.8" strokeDashoffset="100.5"
+                                        transform="rotate(-90 28 28)" />
+                                </svg>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <span className="text-[16px] font-black text-yellow-300 tabular-nums leading-none">33</span>
+                                    <span className="text-[10px] text-slate-400">%</span>
+                                </div>
+                            </div>
+                            <div className="text-[11px] font-bold px-2 py-0.5 rounded-sm border bg-yellow-500/20 border-yellow-500/40">
+                                <span className="text-yellow-300">MEDIUM</span>
+                            </div>
+                        </div>
+
+                        {/* Col 3: Trigger Band */}
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[11px] font-bold tracking-[0.10em] text-slate-300 uppercase text-center">Trigger Band</span>
+                            <span className="text-[10px] text-slate-400 text-center -mt-1">S&P 500</span>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-red-400 tracking-wide">RESISTANCE</span>
+                                <span className="text-[12px] font-black text-red-400 tabular-nums">7,060</span>
+                            </div>
+                            <div className="relative h-[24px] rounded-md bg-slate-800/60 border border-slate-700/40 overflow-hidden">
+                                <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/[0.08] via-transparent to-red-500/[0.08]" />
+                                <div className="absolute inset-0 flex items-center justify-center">
+                                    <span className="text-[12px] font-black text-white/90 tabular-nums bg-slate-900/60 px-2 py-0.5 rounded">6,830</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[11px] text-emerald-400 tracking-wide">SUPPORT</span>
+                                <span className="text-[12px] font-black text-emerald-400 tabular-nums">6,450</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── 3 Metric Deep Dive Cards ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {/* GEX Pressure */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-cyan-500/[0.05] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 flex items-center justify-center">
+                                    <Activity size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.gex.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.gex.desc', richTags)}</p>
+                            <div className="grid grid-cols-3 gap-1.5">
+                                <div className="p-1.5 rounded-lg bg-emerald-900/20 border border-emerald-500/15 text-center">
+                                    <div className="text-[10px] font-bold text-emerald-400">+20 ~ +100</div>
+                                    <div className="text-[11px] text-slate-300">{t('gammaShield.gex.long')}</div>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-slate-800/50 border border-white/5 text-center">
+                                    <div className="text-[10px] font-bold text-slate-300">-20 ~ +20</div>
+                                    <div className="text-[11px] text-slate-300">{t('gammaShield.gex.neutral')}</div>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-red-900/20 border border-red-500/15 text-center">
+                                    <div className="text-[10px] font-bold text-red-400">-100 ~ -20</div>
+                                    <div className="text-[11px] text-slate-300">{t('gammaShield.gex.short')}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Squeeze Risk */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -left-6 -bottom-6 w-28 h-28 rounded-full bg-amber-500/[0.05] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center">
+                                    <Zap size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.squeeze.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.squeeze.desc', richTags)}</p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                                <div className="p-1.5 rounded-lg bg-emerald-900/20 border border-emerald-500/15 text-center">
+                                    <div className="text-[10px] font-bold text-emerald-400">0-20%</div>
+                                    <div className="text-[11px] text-slate-300">LOW</div>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-yellow-900/20 border border-yellow-500/15 text-center">
+                                    <div className="text-[10px] font-bold text-yellow-300">20-45%</div>
+                                    <div className="text-[11px] text-slate-300">MEDIUM</div>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-amber-900/20 border border-amber-500/15 text-center">
+                                    <div className="text-[10px] font-bold text-amber-400">45-70%</div>
+                                    <div className="text-[11px] text-slate-300">HIGH</div>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-red-900/20 border border-red-500/15 text-center">
+                                    <div className="text-[10px] font-bold text-red-400">70-100%</div>
+                                    <div className="text-[11px] text-slate-300">EXTREME</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Trigger Band */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-emerald-500/[0.05] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center">
+                                    <ArrowUpDown size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.trigger.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.trigger.desc', richTags)}</p>
+                            <div className="space-y-1.5">
+                                <div className="flex items-center justify-between p-1.5 rounded-lg bg-red-900/15 border border-red-500/15">
+                                    <span className="text-[11px] text-red-400 font-bold">RESISTANCE</span>
+                                    <span className="text-[11px] text-slate-300">{t('gammaShield.trigger.resistDesc')}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-1.5 rounded-lg bg-emerald-900/15 border border-emerald-500/15">
+                                    <span className="text-[11px] text-emerald-400 font-bold">SUPPORT</span>
+                                    <span className="text-[11px] text-slate-300">{t('gammaShield.trigger.supportDesc')}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Dynamic Insight Examples ── */}
+                <div className={`${glassCard} ${glassBg}`}>
+                    <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-indigo-500/[0.05] blur-3xl pointer-events-none" />
+                    <div className="relative space-y-3">
+                        <div className="flex items-center gap-2">
+                            <Info size={14} className="text-cyan-400" />
+                            <h4 className="text-sm font-bold text-white">{t('gammaShield.insightTitle')}</h4>
+                        </div>
+                        <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.insightDesc', richTags)}</p>
+                        <div className="space-y-2">
+                            {[
+                                { icon: '🟢', text: t('gammaShield.insightLong'), color: 'border-emerald-500/15 bg-emerald-900/10' },
+                                { icon: '🔴', text: t('gammaShield.insightShort'), color: 'border-red-500/15 bg-red-900/10' },
+                                { icon: '⚡', text: t('gammaShield.insightSqueeze'), color: 'border-amber-500/15 bg-amber-900/10' },
+                                { icon: '🎯', text: t('gammaShield.insightTrigger'), color: 'border-cyan-500/15 bg-cyan-900/10' },
+                            ].map(({ icon, text, color }, i) => (
+                                <div key={i} className={`p-2 rounded-lg border ${color} flex items-start gap-2`}>
+                                    <span className="text-sm shrink-0">{icon}</span>
+                                    <span className="text-[12px] text-slate-300 leading-relaxed">{text}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+
+                {/* ── Trading Guide ── */}
+                <div className="p-3 rounded-lg bg-emerald-900/15 border border-emerald-500/20 space-y-1">
+                    <span className="text-[13px] font-bold text-emerald-400 flex items-center gap-1.5"><Shield size={13} />{t('gammaShield.tradingGuide')}</span>
+                    <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
+                        <p>• {t.rich('gammaShield.guide1', richTags)}</p>
+                        <p>• {t.rich('gammaShield.guide2', richTags)}</p>
+                        <p>• {t.rich('gammaShield.guide3', richTags)}</p>
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══════════════════════════════════════════════════════════ */}
             {/* Section 2: Top Status Bar                                 */}
             {/* ═══════════════════════════════════════════════════════════ */}
             <section className="space-y-5">

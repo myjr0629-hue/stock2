@@ -1264,6 +1264,39 @@
             "guide2": "5일 추세가 <cyan>음→양 전환</cyan>된 섹터 → <emerald>초기 반등 포착, 선행 진입 기회</emerald>",
             "guide3": "섹터 내 <rose>상위 종목만 상승하고 나머지 하락</rose> → 선별적 종목 매매, <gold>섹터 ETF는 비추</gold>"
         },
+        "gammaShield": {
+            "title": "GAMMA SHIELD™",
+            "badge": "핵심 지표",
+            "desc": "<cyan>S&P 500 옵션 시장</cyan>에서 기관 딜러들의 <gold>감마 헤지 포지션</gold>을 실시간 분석하여, 시장의 <emerald>변동성 방향</emerald>과 <rose>급변동 리스크</rose>를 사전에 감지합니다. 월가의 기관 트레이더들이 사용하는 핵심 변동성 인텔리전스를 개인 투자자도 활용할 수 있게 합니다.",
+            "sampleInsight": "옵션 시장 균형 — 큰 변동 없이 횡보 가능성",
+            "gex": {
+                "title": "Gamma Pressure (GEX 지수)",
+                "desc": "<cyan>SPY + QQQ</cyan>의 옵션 감마 노출(GEX)을 합산하여 -100~+100으로 정규화한 지수입니다. <gold>양수(+)</gold>이면 딜러들이 하락 시 매수 헤지 → 시장 안정. <rose>음수(-)</rose>이면 딜러들이 하락 시 매도 헤지 → 하락 가속 위험.",
+                "long": "안정",
+                "neutral": "중립",
+                "short": "주의"
+            },
+            "squeeze": {
+                "title": "Squeeze Risk (스퀴즈 위험도)",
+                "desc": "옵션 매도자(숏 감마 포지션)가 급격한 가격 변동에 의해 <rose>강제 손절(스퀴즈)</rose>될 확률을 측정합니다. <gold>45% 이상</gold>이면 폭발적 가격 움직임이 임박했을 가능성이 있으며, <rose>70% 이상</rose>은 극단적 위험 구간입니다."
+            },
+            "trigger": {
+                "title": "Trigger Band (옵션 트리거 밴드)",
+                "desc": "S&P 500 <cyan>옵션 체인의 미결제약정(Open Interest)</cyan>을 분석하여 기관들이 설정한 <emerald>가격 지지선(Put Floor)</emerald>과 <rose>저항선(Call Wall)</rose>을 산출합니다. 이 레벨은 실제 시장의 가격 벽 역할을 합니다.",
+                "resistDesc": "콜옵션 집중 구간 → 상승 저항",
+                "supportDesc": "풋옵션 집중 구간 → 하락 방어"
+            },
+            "insightTitle": "실시간 동적 인사이트",
+            "insightDesc": "GAMMA SHIELD는 <cyan>현재 데이터를 기반으로 가장 긴급한 시그널 1개</cyan>를 자동 선별하여 헤더에 표시합니다. 다음은 각 상황별 인사이트 예시입니다:",
+            "insightLong": "대형 기관이 하락 방어 중 — 급락 가능성 낮음 (GEX ≥ +20: 딜러 롱감마, 시장 안정화 작용)",
+            "insightShort": "기관 헤지가 변동을 키우는 중 — 급등락 주의 (GEX ≤ -20: 딜러 숏감마, 변동성 확대)",
+            "insightSqueeze": "옵션 매도자 손절 임박 — 폭발적 움직임 대비 (스퀴즈 리스크 ≥ 45%)",
+            "insightTrigger": "S&P 옵션 벽 근접 — 돌파 시 급등, 실패 시 반락 (현재가가 저항선/지지선 1.5% 이내)",
+            "tradingGuide": "GAMMA SHIELD 활용법",
+            "guide1": "<emerald>GEX +20 이상 + 스퀴즈 LOW</emerald> → 시장 안정기, <gold>변동성 축소 전략</gold> (숏 스트래들, 커버드 콜 유리)",
+            "guide2": "<rose>GEX -20 이하 + 스퀴즈 HIGH</rose> → 급변동 임박, <cyan>방향성 베팅</cyan> 또는 <gold>헤지 강화</gold> 필요",
+            "guide3": "Trigger Band의 <emerald>지지선 근접 시 반등 매수</emerald>, <rose>저항선 근접 시 차익실현</rose> — 옵션 벽이 가격 자석 역할"
+        },
         "strategy": {
             "title": "실전 매매 활용 가이드",
             "desc": "Guardian의 모든 데이터를 <cyan>체계적으로 해석</cyan>하여 매매 의사결정에 활용하는 4단계 프로세스입니다. 거시적 관점에서 미시적 실행까지를 커버합니다.",
