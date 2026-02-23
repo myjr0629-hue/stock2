@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Activity } from "lucide-react";
+import { Activity, AlertTriangle, TrendingUp } from "lucide-react";
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { useTranslations } from 'next-intl';
 import { MiniGauge, DualGauge } from "./MiniGauge";
@@ -17,6 +17,9 @@ interface RealityCheckProps {
         desc: string;
         sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
     };
+    vixTermStructure?: number; // [V9.0]
+    bondFlow?: number;         // [V9.0]
+    goldFlow?: number;         // [V9.0]
 }
 
 /**
@@ -29,6 +32,9 @@ export function RealityCheck({
     divergenceCase = 'N',
     rvolNdx = 1.0,
     rvolDow = 1.0,
+    vixTermStructure,
+    bondFlow,
+    goldFlow,
 }: RealityCheckProps) {
     const t = useTranslations('guardian');
     const isDivergent = divergenceCase === 'A' || divergenceCase === 'B';
@@ -123,6 +129,34 @@ export function RealityCheck({
                     fillPercent={realYield ? Math.min((realYield.realYield + 2) * 25, 100) : 50}
                 />
             </div>
+
+            {/* [V9.0] MACRO TACTICAL ALERTS */}
+            {(vixTermStructure !== undefined && bondFlow !== undefined && goldFlow !== undefined) && (
+                <div className="flex flex-col gap-2 mt-3 flex-none">
+                    {vixTermStructure <= 0.95 && (
+                        <div className="flex items-start gap-2 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5">
+                            <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                                <div className="text-[13px] font-bold text-rose-400 uppercase tracking-wider font-jakarta">VIX Backwardation (Panic)</div>
+                                <div className="text-[13px] text-rose-300/85 mt-0.5 leading-[1.5]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    {t('vixBackwardationDesc')}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                    {(bondFlow + goldFlow) > 0.5 && (
+                        <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5">
+                            <TrendingUp className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                            <div>
+                                <div className="text-[13px] font-bold text-amber-400 uppercase tracking-wider font-jakarta">Risk-Off Rotation</div>
+                                <div className="text-[13px] text-amber-300/85 mt-0.5 leading-[1.5]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    {t('riskOffDesc')} (Bonds: {(bondFlow > 0 ? '+' : '')}{bondFlow.toFixed(1)}%, Gold: {(goldFlow > 0 ? '+' : '')}{goldFlow.toFixed(1)}%)
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

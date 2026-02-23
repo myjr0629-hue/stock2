@@ -13,11 +13,13 @@ import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 
 const SYMBOLS = [
     { yahoo: '^VIX', key: YAHOO_CACHE_KEYS.VIX },
+    { yahoo: '^VIX3M', key: YAHOO_CACHE_KEYS.VIX3M || 'yahoo:vix3m' },
     { yahoo: 'NQ=F', key: YAHOO_CACHE_KEYS.NQ },
     { yahoo: '^TNX', key: YAHOO_CACHE_KEYS.TNX },
     { yahoo: 'ES=F', key: YAHOO_CACHE_KEYS.SPX },
     { yahoo: 'BTC-USD', key: YAHOO_CACHE_KEYS.BTC },
     { yahoo: 'GC=F', key: YAHOO_CACHE_KEYS.GOLD },
+    { yahoo: 'TLT', key: YAHOO_CACHE_KEYS.TLT || 'yahoo:tlt' },
     { yahoo: 'CL=F', key: YAHOO_CACHE_KEYS.OIL },
     { yahoo: 'RTY=F', key: YAHOO_CACHE_KEYS.RUT },
 ];

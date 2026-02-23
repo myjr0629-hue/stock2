@@ -235,6 +235,8 @@
         "volBuyRatio": "매수량 비율",
         "breadthAnalysisPending": "본장에서 Breadth 분석이 진행됩니다",
         "insightPending": "본장에서 실시간 분석이 진행됩니다",
+        "vixBackwardationDesc": "VIX 선물이 근월물로 급하게 쏠리고 있습니다. 표면적인 주가와 상관없이 기관들의 강력한 하락 헷징(Panic)이 진행 중입니다.",
+        "riskOffDesc": "주식에서 채권과 금 등 안전자산으로 자금이 강하게 이동하고 있습니다. 보수적인 리스크 관리가 필요합니다.",
         "yieldInverted": "금리역전",
         "yieldFlattening": "금리둔화",
         "yieldNormal": "금리정상",

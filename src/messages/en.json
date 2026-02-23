@@ -235,6 +235,8 @@
         "volBuyRatio": "Buy Volume Ratio",
         "breadthAnalysisPending": "Breadth analysis available during regular session",
         "insightPending": "Real-time analysis available during regular session",
+        "vixBackwardationDesc": "VIX term structure is in backwardation. Regardless of surface price action, heavy institutional hedging (Panic) is underway.",
+        "riskOffDesc": "Capital is aggressively rotating from equities to safe havens (Bonds & Gold). Conservative risk management is advised.",
         "yieldInverted": "Inverted",
         "yieldFlattening": "Flattening",
         "yieldNormal": "Normal",

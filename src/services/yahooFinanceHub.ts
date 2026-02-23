@@ -22,11 +22,13 @@ export interface YahooQuote {
 // Extend cache keys for new data
 export const YAHOO_CACHE_KEYS = {
     VIX: 'yahoo:vix',
+    VIX3M: 'yahoo:vix3m',
     NQ: 'yahoo:nq',
     TNX: 'yahoo:tnx',
     SPX: 'yahoo:spx',
     BTC: 'yahoo:btc',
     GOLD: 'yahoo:gold',
+    TLT: 'yahoo:tlt',
     OIL: 'yahoo:oil',
     RUT: 'yahoo:rut',
     LAST_FETCH: 'yahoo:last_fetch'
@@ -43,25 +45,29 @@ export const YAHOO_CACHE_KEYS = {
  * Every call reads Redis → always gets the latest cron-written data.
  * If Redis is empty, returns safe defaults.
  */
-export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; nq: YahooQuote; tnx: YahooQuote; spx: YahooQuote; btc: YahooQuote; gold: YahooQuote; oil: YahooQuote; rut: YahooQuote }> {
-    const [redisVix, redisNq, redisTnx, redisSpx, redisBtc, redisGold, redisOil, redisRut] = await Promise.all([
+export async function getYahooDataSSOT(): Promise<{ vix: YahooQuote; vix3m: YahooQuote; nq: YahooQuote; tnx: YahooQuote; spx: YahooQuote; btc: YahooQuote; gold: YahooQuote; tlt: YahooQuote; oil: YahooQuote; rut: YahooQuote }> {
+    const [redisVix, redisVix3m, redisNq, redisTnx, redisSpx, redisBtc, redisGold, redisTlt, redisOil, redisRut] = await Promise.all([
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX),
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX3M),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.NQ),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.TNX),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.SPX),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.BTC),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.GOLD),
+        getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.TLT),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.OIL),
         getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.RUT)
     ]);
 
     return {
         vix: redisVix || getDefaultQuote('^VIX', 15),
+        vix3m: redisVix3m || getDefaultQuote('^VIX3M', 18),
         nq: redisNq || getDefaultQuote('NQ=F', 21000),
         tnx: redisTnx || getDefaultQuote('^TNX', 4.2),
         spx: redisSpx || getDefaultQuote('ES=F', 6800),
         btc: redisBtc || getDefaultQuote('BTC-USD', 97000),
         gold: redisGold || getDefaultQuote('GC=F', 2900),
+        tlt: redisTlt || getDefaultQuote('TLT', 90),
         oil: redisOil || getDefaultQuote('CL=F', 70),
         rut: redisRut || getDefaultQuote('RTY=F', 2650)
     };

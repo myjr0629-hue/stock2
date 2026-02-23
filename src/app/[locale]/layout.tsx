@@ -30,15 +30,17 @@ export default async function LocaleLayout({ children, params }: Props) {
 
     return (
         <NextIntlClientProvider messages={messages}>
-            <ConsentGuard>
-                <AuthGuard>
-                    <DeactivationGuard>
-                        <LandingHeader />
-                        {children}
-                        <Footer />
-                    </DeactivationGuard>
-                </AuthGuard>
-            </ConsentGuard>
+            <div lang={locale} className={`flex flex-col min-h-screen ${locale === 'en' ? 'font-jakarta' : 'font-body'}`}>
+                <ConsentGuard>
+                    <AuthGuard>
+                        <DeactivationGuard>
+                            <LandingHeader />
+                            {children}
+                            <Footer />
+                        </DeactivationGuard>
+                    </AuthGuard>
+                </ConsentGuard>
+            </div>
         </NextIntlClientProvider>
     );
 }

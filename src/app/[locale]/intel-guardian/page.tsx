@@ -389,6 +389,9 @@ export default function GuardianPage() {
                                 desc: verdict.realityInsight || "Gathering Pulse...",
                                 sentiment: verdict.sentiment as 'BULLISH' | 'BEARISH' | 'NEUTRAL'
                             }}
+                            vixTermStructure={data?.rlsi.components?.vixTermStructure}
+                            bondFlow={data?.rlsi.components?.bondFlow}
+                            goldFlow={data?.rlsi.components?.goldFlow}
                         />
                     </div>
 

@@ -39,7 +39,6 @@ export default function RootLayout({
       </head>
       <body
         className="antialiased"
-        style={{ fontFamily: 'Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif' }}
       >
         <GuardianProvider>
           {children}

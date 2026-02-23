@@ -3,6 +3,7 @@ import { fetchMassive } from "@/services/massiveClient";
 import { getTreasuryYields } from "@/services/fedApiClient";
 import { getMacroSnapshotSSOT } from "@/services/macroHubProvider";
 import { getMarketBreadth, BreadthSnapshot } from "./breadthEngine";
+import { getYahooDataSSOT } from "@/services/yahooFinanceHub";
 
 // === CONFIGURATION ===
 const MARKET_CORE_10 = [
@@ -82,7 +83,7 @@ export function getMarketSession(): MarketSession {
     return 'CLOSED';
 }
 
-// === [V5.0] NEW: Pre-market ETF Snapshot ===
+// === [V9.0] Pre-market ETF Snapshot (Liquidity Weighted) ===
 async function getETFPremarketData(tickers: string[]): Promise<{ avgChange: number; upRatio: number }> {
     try {
         const tickerStr = tickers.join(',');
@@ -93,19 +94,31 @@ async function getETFPremarketData(tickers: string[]): Promise<{ avgChange: numb
             return { avgChange: 0, upRatio: 0.5 };
         }
 
-        let totalChange = 0;
+        let totalWeightedChange = 0;
+        let totalWeight = 0;
         let upCount = 0;
+        let validCount = 0;
 
         for (const t of data.tickers) {
             const change = t.todaysChangePerc || 0;
-            totalChange += change;
-            if (change > 0) upCount++;
+            // Pre-market tends to have low volume fake prints. 
+            // We use log10(volume) as a weight to ensure only real flow affects the score.
+            const volume = t.day?.v || t.min?.v || 10;
+
+            if (volume > 100) { // Filter out completely dead tickers
+                const weight = Math.max(1, Math.log10(volume));
+                totalWeightedChange += (change * weight);
+                totalWeight += weight;
+                validCount++;
+
+                if (change > 0) upCount++;
+            }
         }
 
-        const avgChange = totalChange / data.tickers.length;
-        const upRatio = upCount / data.tickers.length;
+        const avgChange = totalWeight > 0 ? totalWeightedChange / totalWeight : 0;
+        const upRatio = validCount > 0 ? (upCount / validCount) : 0.5;
 
-        console.log(`[RLSI V5.0] Pre-market: avgChange=${avgChange.toFixed(2)}%, upRatio=${(upRatio * 100).toFixed(0)}%`);
+        console.log(`[RLSI V9.0] Pre-market Flow-Filtered: avgChange=${avgChange.toFixed(2)}%, upRatio=${(upRatio * 100).toFixed(0)}%, Valid/Total=${validCount}/${data.tickers.length}`);
         return { avgChange, upRatio };
     } catch (e) {
         console.warn("[RLSI] Pre-market ETF fetch failed:", e);
@@ -113,8 +126,8 @@ async function getETFPremarketData(tickers: string[]): Promise<{ avgChange: numb
     }
 }
 
-// === [V5.0] NEW: Price Action Sentiment ===
-// Uses real-time stock performance instead of news
+// === [V9.0] Price Action Sentiment (Liquidity Weighted) ===
+// Uses real-time stock performance instead of news, weighted by true institutional flow
 async function getPriceActionSentiment(): Promise<number> {
     try {
         const tickers = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'QQQ', 'SPY', 'IWM'];
@@ -124,47 +137,55 @@ async function getPriceActionSentiment(): Promise<number> {
 
         if (!data.tickers || data.tickers.length === 0) return 0.5;
 
-        const upCount = data.tickers.filter((t: any) => (t.todaysChangePerc || 0) > 0).length;
-        return upCount / data.tickers.length; // 0-1
+        let totalWeight = 0;
+        let upWeight = 0;
+
+        for (const t of data.tickers) {
+            const change = t.todaysChangePerc || 0;
+            const volume = t.day?.v || t.min?.v || 10;
+
+            // Higher volume threshold for regular trading hours
+            if (volume > 1000) {
+                const weight = Math.max(1, Math.log10(volume));
+                totalWeight += weight;
+                if (change > 0) upWeight += weight;
+            }
+        }
+
+        return totalWeight > 0 ? (upWeight / totalWeight) : 0.5; // Flow-weighted 0-1 up ratio
     } catch (e) {
         console.warn("[RLSI] Price action fetch failed:", e);
         return 0.5; // Neutral
     }
 }
 
-// === [V9.0] NEW: Fetch Additional Flow Data (VIX Term Structure, TLT, GLD) ===
+// === [V9.0] NEW: Fetch Additional Flow Data (VIX Term Structure, TLT, GLD) via Redis SSOT ===
 async function getFlowDataIndicators(): Promise<{ vixContango: number, tltChange: number, gldChange: number }> {
     try {
-        const tickers = ['VIXY', 'VXX', 'TLT', 'GLD'];
-        const tickerStr = tickers.join(',');
-        const endpoint = `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickerStr}`;
-        const data = await fetchMassive(endpoint, {}, true);
+        const macroData = await getYahooDataSSOT();
+
+        const tltChange = macroData.tlt?.changePct || 0;
+        const gldChange = macroData.gold?.changePct || 0;
 
         let vixContango = 1.0;
-        let tltChange = 0;
-        let gldChange = 0;
+        const vix = macroData.vix?.price || 15;
+        const vix3m = macroData.vix3m?.price || 18;
 
-        if (data.tickers && data.tickers.length > 0) {
-            const getChange = (sym: string) => {
-                const t = data.tickers.find((x: any) => x.ticker === sym);
-                return t ? (t.todaysChangePerc || 0) : 0;
-            };
-
-            const getPrice = (sym: string) => {
-                const t = data.tickers.find((x: any) => x.ticker === sym);
-                return t ? (t.min?.c || t.day?.c || t.prevDay?.c || 1) : 1;
-            };
-
-            tltChange = getChange('TLT');
-            gldChange = getChange('GLD');
-
-            // Simplified VIX Term Structure Proxy using VIXY (Short-term) and VIXM (Mid-term) would be better,
-            // but for now, we look at the raw change in VIXY/VXX to gauge immediate stress.
-            // If we only have VIXY and VXX (both short), they act similarly. 
-            // We'll calculate a stress ratio based on VIXY surge. 
-            // Contango (normal) = VIXY fading/stable. Backwardation (stress) = VIXY surging.
-            const vixyChange = getChange('VIXY');
-            vixContango = vixyChange > 5 ? 0.8 : (vixyChange < -2 ? 1.05 : 1.0); // Simple proxy multiplier
+        // VIX Term Structure: VIX vs VIX3M
+        // Backwardation (Panic): VIX > VIX3M (Ratio > 1.0)
+        // Normal Contango: VIX < VIX3M
+        if (vix > 0 && vix3m > 0) {
+            const ratio = vix / vix3m;
+            if (ratio > 1.05) {
+                // Severe backwardation
+                vixContango = 0.8;
+            } else if (ratio > 1.0) {
+                // Mild backwardation
+                vixContango = 0.9;
+            } else if (ratio < 0.85) {
+                // Steep contango (very relaxed)
+                vixContango = 1.05;
+            }
         }
 
         return { vixContango, tltChange, gldChange };
@@ -310,17 +331,21 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
         // Apply VIX Term Structure Multiplier [V9.0]
         vixMultiplier *= flowData.vixContango;
 
-        // H. [V9.0] Bond & Gold Flow Adjustments
-        // If TLT (Bonds) and GLD (Gold) are surging together, it signals Risk-Off.
+        // H. [V9.0] Institutional Safe Haven Rotation (Bond & Gold Flow)
+        // If money is fleeing equities to absolute safety (TLT + GLD), apply a dynamic penalty.
+        // If they are both negative (selling bonds/gold to buy risky assets), it's a Risk-On boost.
         let flowPenalty = 0;
-        if (flowData.tltChange > 0.5 && flowData.gldChange > 0.5) {
-            flowPenalty = 5; // Risk-off penalty
-        } else if (flowData.tltChange < -0.5 && flowData.gldChange < -0.5) {
-            // Risk-on boost (optional, maybe no boost, just less penalty)
-            flowPenalty = -2;
+        const safeHavenFlow = flowData.tltChange + flowData.gldChange;
+
+        if (safeHavenFlow > 0.5) {
+            // Severe capital flight to safety. e.g. combined +2.0% -> 10 point penalty
+            flowPenalty = safeHavenFlow * 5;
+        } else if (safeHavenFlow < -0.5) {
+            // Risk-On rally. e.g. combined -1.0% -> -2 penalty (i.e. +2 boost)
+            flowPenalty = safeHavenFlow * 2;
         }
 
-        // 3. [V6.0] Final Calculation with Breadth Integration
+        // 3. [V9.0] Final Calculation with Safe Haven & Breadth Integration
         // PriceAction 20% + Breadth 20% + News 10% + Momentum 30% + Rotation 10% + Base 10 - Penalty - FlowPenalty
         let baseScore =
             (priceActionScore * WEIGHTS.PRICE_ACTION) +

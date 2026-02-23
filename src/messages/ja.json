@@ -235,6 +235,8 @@
         "volBuyRatio": "買い量比率",
         "breadthAnalysisPending": "レギュラーセッション中にBreadth分析が行われます",
         "insightPending": "レギュラーセッション中にリアルタイム分析が行われます",
+        "vixBackwardationDesc": "VIX先物が期近物に急激に偏っています。表面的な株価に関わらず、機関投資家の強力な下落ヘッジ（パニック）が進行中です。",
+        "riskOffDesc": "株式から債券や金などの安全資産へ資金が強く移動しています。保守的なリスク管理が必要です。",
         "yieldInverted": "金利逆転",
         "yieldFlattening": "金利鈍化",
         "yieldNormal": "金利正常",
