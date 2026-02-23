@@ -1,7 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { usePathname } from 'next/navigation';
+import { useMarketStatus } from '@/hooks/useMarketStatus';
 
 // Re-using types from unifiedDataStream (or similar shape)
 // We might want to import them if they are shared, or define flexible types here.
@@ -35,6 +36,8 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const pathname = usePathname();
+    const { status: mktStatus } = useMarketStatus(); // polls every 60s independently
+    const prevSessionRef = useRef<string | null>(null);
 
     // Extract locale from pathname (e.g., /en/intel-guardian -> 'en')
     const locale = pathname?.split('/')[1] || 'ko';
@@ -71,7 +74,22 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
         refresh(); // Initial fetch uses cached data (force=false to avoid SSG issues)
     }, [validLocale]);
 
-    // [V8.1] Only poll during regular session (REG)
+    // [V9.1] Auto-activate when market transitions to REG
+    // useMarketStatus polls /api/market/status every 60s independently,
+    // so we detect the session change and trigger a Guardian refresh
+    useEffect(() => {
+        const currentSession = mktStatus.session;
+        const prevSession = prevSessionRef.current;
+
+        if (prevSession !== null && prevSession !== 'regular' && currentSession === 'regular') {
+            // Market just opened! Force refresh to get live data
+            console.log('[Guardian] Market session changed to REG — auto-refreshing');
+            refresh(true);
+        }
+        prevSessionRef.current = currentSession;
+    }, [mktStatus.session]);
+
+    // [V8.1] Poll during regular session (REG)
     useEffect(() => {
         const session = data?.rlsi?.session;
         if (session === 'REG') {
@@ -79,7 +97,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
             const interval = setInterval(refresh, 5 * 60 * 1000);
             return () => clearInterval(interval);
         }
-        // After hours: no polling (data is static)
+        // After hours: no polling needed (useMarketStatus handles session detection)
     }, [data?.rlsi?.session, validLocale]);
 
     const value = {

@@ -94,7 +94,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                             {vix > 0 ? vix.toFixed(1) : '—'}
                         </span>
                         {vixChg !== 0 && (
-                            <span className={`text-[11px] font-bold font-mono ${vixChg >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            <span className={`text-[13px] font-bold font-mono ${vixChg >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                                 {vixChg >= 0 ? '+' : ''}{vixChg.toFixed(1)}%
                             </span>
                         )}
@@ -113,7 +113,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                             {dxy > 0 ? dxy.toFixed(1) : '—'}
                         </span>
                         {dxyChg !== 0 && (
-                            <span className={`text-[11px] font-bold font-mono ${dxyChg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            <span className={`text-[13px] font-bold font-mono ${dxyChg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {dxyChg >= 0 ? '+' : ''}{dxyChg.toFixed(1)}%
                             </span>
                         )}
