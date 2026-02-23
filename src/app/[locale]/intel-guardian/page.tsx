@@ -20,6 +20,7 @@ const GravityGauge = dynamic(() => import("@/components/guardian/GravityGauge"),
 const VitalsPanel = dynamic(() => import("@/components/guardian/VitalsPanel").then(m => m.VitalsPanel), { ssr: false });
 const OracleHeader = dynamic(() => import("@/components/guardian/OracleHeader").then(m => m.OracleHeader), { ssr: false });
 const RLSIInsightPanel = dynamic(() => import("@/components/guardian/MarketBreadthPanel"), { ssr: false });
+const GammaShield = dynamic(() => import("@/components/guardian/GammaShield"), { ssr: false });
 
 
 // === TYPES ===
@@ -136,6 +137,8 @@ interface GuardianContext {
     };
     // [V9.0] RLSI Intraday History
     rlsiHistory?: { time: string; score: number }[];
+    // [V10.0] GAMMA SHIELD
+    gammaShield?: any;
     timestamp: string;
 }
 
@@ -423,10 +426,15 @@ export default function GuardianPage() {
                         />
                     </div>
 
+                    {/* [V10.0] GAMMA SHIELD — Market-wide Volatility Intelligence */}
+                    <div className="col-span-12 lg:col-span-8">
+                        <GammaShield data={data?.gammaShield} isMarketActive={isMarketActive} />
+                    </div>
+
                     {/* ROW 2: SPLIT (MAP vs INTELLIGENCE STACK) */}
 
                     {/* LEFT: MAP (Cols 1-8) */}
-                    <div className={`col-span-12 lg:col-span-8 bg-[#0a0e14] border rounded-lg relative overflow-hidden group flex flex-col transition-all duration-500 ${mapBorderClass}`}>
+                    <div className={`col-span-12 lg:col-span-8 bg-[#0a0e14] border rounded-lg relative overflow-hidden group flex flex-col transition-all duration-500 max-h-[520px] ${mapBorderClass}`}>
                         <div className="absolute top-6 left-6 z-10 flex items-center gap-3">
                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block font-jakarta">
                                 Flow Topography Map v3.0

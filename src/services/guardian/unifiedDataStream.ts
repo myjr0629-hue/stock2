@@ -4,6 +4,7 @@ import { getMacroSnapshotSSOT, MacroSnapshot } from "@/services/macroHubProvider
 import { IntelligenceNode } from "./intelligenceNode";
 import { RvolEngine, RvolProfile } from "./rvolEngine";
 import { fetchMassive } from "@/services/massiveClient";
+import { getGammaShield, GammaShieldData } from "./gammaShieldEngine";
 
 // === TYPES ===
 export interface SectorDensity {
@@ -81,6 +82,8 @@ export interface GuardianContext {
     };
     // [V9.0] RLSI Intraday History — 5-min interval sparkline data
     rlsiHistory?: { time: string; score: number }[];
+    // [V10.0] GAMMA SHIELD — Market-wide volatility intelligence
+    gammaShield?: GammaShieldData | null;
     timestamp: string;
 }
 
@@ -340,7 +343,7 @@ export class GuardianDataHub {
             // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
             // [V5.0] Changed order: Sector first, then RLSI with RIS score
             console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
-            const [sectorResult, macro, rvolNdx, rvolDow, marketNews] = await Promise.all([
+            const [sectorResult, macro, rvolNdx, rvolDow, marketNews, gammaShieldData] = await Promise.all([
                 SectorEngine.getSectorFlows(),
                 getMacroSnapshotSSOT(),
                 RvolEngine.getRvol("QQQ"),
@@ -348,7 +351,9 @@ export class GuardianDataHub {
                 // [V8.0] Fetch market news for context-aware Gemini analysis
                 fetchMassive('/v2/reference/news', { ticker: 'SPY', limit: '10', order: 'desc', sort: 'published_utc' }, true)
                     .then((res: any) => (res?.results || []).map((n: any) => n.title).filter(Boolean))
-                    .catch(() => [] as string[])
+                    .catch(() => [] as string[]),
+                // [V10.0] GAMMA SHIELD — market-wide GEX/squeeze/trigger band
+                getGammaShield(force).catch(e => { console.warn('[Guardian] GammaShield failed:', e.message); return null; })
             ]);
 
             const { flows, vectors, source, target, sourceId, targetId, rotationIntensity } = sectorResult;
@@ -715,6 +720,7 @@ export class GuardianDataHub {
                     isDivergent: rlsi.components?.breadthDivergent ?? false
                 },
                 rlsiHistory,  // [V9.0] Intraday sparkline data
+                gammaShield: gammaShieldData,  // [V10.0] Market-wide volatility intelligence
                 timestamp: new Date().toISOString()
             };
 
