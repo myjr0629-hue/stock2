@@ -129,7 +129,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                     <div key={item.range} className="flex items-center gap-2 text-xs">
                                         <div className={`w-2 h-2 rounded-full ${item.color}`} />
                                         <span className={`${item.text} font-bold`}>{item.range}</span>
-                                        <span className="text-slate-400">{item.label}</span>
+                                        <span className="text-slate-300">{item.label}</span>
                                     </div>
                                 ))}
                             </div>
@@ -147,7 +147,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-black text-white">{t('topBar.vix.title')}</h4>
-                                    <p className="text-xs text-slate-400">CBOE Volatility Index</p>
+                                    <p className="text-xs text-slate-300">CBOE Volatility Index</p>
                                 </div>
                             </div>
                             <p className="text-sm text-slate-300 leading-relaxed">{t.rich('topBar.vix.desc', richTags)}</p>
@@ -160,7 +160,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                     <div key={item.range} className="flex items-center gap-2 text-xs">
                                         <div className={`w-2 h-2 rounded-full ${item.color}`} />
                                         <span className={`${item.text} font-bold`}>{item.range}</span>
-                                        <span className="text-slate-400">{item.label}</span>
+                                        <span className="text-slate-300">{item.label}</span>
                                     </div>
                                 ))}
                             </div>
@@ -178,7 +178,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                 </div>
                                 <div>
                                     <h4 className="text-sm font-black text-white">{t('topBar.dxy.title')}</h4>
-                                    <p className="text-xs text-slate-400">US Dollar Index</p>
+                                    <p className="text-xs text-slate-300">US Dollar Index</p>
                                 </div>
                             </div>
                             <p className="text-sm text-slate-300 leading-relaxed">{t.rich('topBar.dxy.desc', richTags)}</p>
@@ -226,36 +226,57 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                 <span className="px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/30 text-xs font-bold text-amber-300">Core</span>
                             </div>
 
-                            <p className="text-sm text-slate-300 leading-relaxed">{t.rich('gravityGauge.desc', richTags)}</p>
+                            <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('gravityGauge.desc', richTags)}</p>
 
                             {/* Gauge Visual */}
-                            <div className="flex flex-col items-center py-3">
-                                <div className="text-5xl font-black text-slate-300">59</div>
-                                <div className="text-xs font-bold text-slate-400 mt-1">NEUTRAL</div>
-                                <div className="w-full max-w-[200px] h-2.5 rounded-full mt-3 bg-gradient-to-r from-rose-500 via-amber-500 to-emerald-500 relative">
+                            <div className="flex flex-col items-center py-2">
+                                <div className="text-5xl font-black text-slate-200">59</div>
+                                <div className="text-xs font-bold text-slate-300 mt-1 tracking-wider">NEUTRAL</div>
+                                <div className="w-full max-w-[220px] h-2.5 rounded-full mt-3 bg-gradient-to-r from-rose-500 via-amber-500 to-emerald-500 relative">
                                     <div className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-slate-700 shadow-lg" style={{ left: '59%' }} />
                                 </div>
                             </div>
 
-                            {/* Interpretation Scale */}
+                            {/* Bullish / Bearish Factors */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-2.5 rounded-lg bg-emerald-900/15 border border-emerald-500/15 space-y-1">
+                                    <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider">{t('gravityGauge.bullishFactors')}</div>
+                                    <div className="text-[13px] text-slate-300 space-y-0.5">
+                                        <p>{t('gravityGauge.priceStocks')}</p>
+                                        <p>{t('gravityGauge.investSentiment')}</p>
+                                    </div>
+                                </div>
+                                <div className="p-2.5 rounded-lg bg-rose-900/15 border border-rose-500/15 space-y-1">
+                                    <div className="text-xs font-bold text-rose-400 uppercase tracking-wider">{t('gravityGauge.bearishFactors')}</div>
+                                    <div className="text-[13px] text-slate-300 space-y-0.5">
+                                        <p>VIX / Volatility</p>
+                                        <p>Yield Pressure</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Interpretation Scale with descriptions */}
                             <div className="grid grid-cols-3 gap-2">
-                                <div className="p-2.5 rounded-xl bg-rose-900/20 border border-rose-500/15 text-center">
-                                    <div className="text-lg font-black text-rose-400">0-40</div>
+                                <div className="p-2.5 rounded-xl bg-rose-900/20 border border-rose-500/15 text-center space-y-0.5">
+                                    <div className="text-base font-black text-rose-400">0-40</div>
                                     <div className="text-xs font-bold text-rose-400">{t('gravityGauge.weak')}</div>
+                                    <div className="text-[12px] text-slate-300 leading-tight">{t('gravityGauge.weakDesc')}</div>
                                 </div>
-                                <div className="p-2.5 rounded-xl bg-slate-800/50 border border-white/5 text-center">
-                                    <div className="text-lg font-black text-slate-300">40-60</div>
-                                    <div className="text-xs font-bold text-slate-400">{t('gravityGauge.neutral')}</div>
+                                <div className="p-2.5 rounded-xl bg-slate-800/50 border border-white/5 text-center space-y-0.5">
+                                    <div className="text-base font-black text-slate-300">40-60</div>
+                                    <div className="text-xs font-bold text-slate-300">{t('gravityGauge.neutral')}</div>
+                                    <div className="text-[12px] text-slate-300 leading-tight">{t('gravityGauge.neutralDesc')}</div>
                                 </div>
-                                <div className="p-2.5 rounded-xl bg-emerald-900/20 border border-emerald-500/15 text-center">
-                                    <div className="text-lg font-black text-emerald-400">60-100</div>
+                                <div className="p-2.5 rounded-xl bg-emerald-900/20 border border-emerald-500/15 text-center space-y-0.5">
+                                    <div className="text-base font-black text-emerald-400">60-100</div>
                                     <div className="text-xs font-bold text-emerald-400">{t('gravityGauge.strong')}</div>
+                                    <div className="text-[12px] text-slate-300 leading-tight">{t('gravityGauge.strongDesc')}</div>
                                 </div>
                             </div>
 
                             <div className="p-3 rounded-lg bg-emerald-900/15 border border-emerald-500/20 space-y-1">
-                                <span className="text-[13px] font-bold text-emerald-400 flex items-center gap-1.5"><TrendingUp size={13} />{t('gravityGauge.tradingGuide')}</span>
-                                <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
+                                <span className="text-[14px] font-bold text-emerald-400 flex items-center gap-1.5"><TrendingUp size={14} />{t('gravityGauge.tradingGuide')}</span>
+                                <div className="text-[14px] text-slate-300 leading-relaxed space-y-0.5">
                                     <p>• {t.rich('gravityGauge.guide1', richTags)}</p>
                                     <p>• {t.rich('gravityGauge.guide2', richTags)}</p>
                                     <p>• {t.rich('gravityGauge.guide3', richTags)}</p>
@@ -279,46 +300,78 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                         <p className="text-xs text-purple-400 font-medium uppercase tracking-wider">Macro Environment Scanner</p>
                                     </div>
                                 </div>
-                                <span className="px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-xs font-bold text-purple-300">Macro</span>
+                                <span className="px-2.5 py-1 rounded-full bg-purple-500/20 border border-purple-500/30 text-xs font-bold text-purple-300">V9.0</span>
                             </div>
 
-                            <p className="text-sm text-slate-300 leading-relaxed">{t.rich('realityCheck.desc', richTags)}</p>
+                            <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('realityCheck.desc', richTags)}</p>
 
-                            {/* 6 Macro Cards — 3x2 grid */}
-                            <div className="grid grid-cols-3 gap-2">
+                            {/* 6 Circular Gauge Indicators */}
+                            <div className="grid grid-cols-3 gap-3">
                                 {[
-                                    { label: 'PRICE FLOW', value: '+0.9%', sub: 'Nasdaq Daily Momentum', positive: true },
-                                    { label: 'NDX 20D', value: '100%', sub: 'Nasdaq 20-Day Health', positive: true },
-                                    { label: 'DOW 20D', value: '100%', sub: 'Dow Jones 20-Day Health', positive: true },
-                                    { label: 'US10Y', value: '4.09%', sub: '10-Year Treasury Yield', positive: false },
-                                    { label: '2S10S', value: '+0.62%', sub: 'Yield Curve Spread', positive: true },
-                                    { label: 'REAL', value: '+1.79%', sub: 'Real Interest Rate', positive: false },
+                                    { label: 'PRICE FLOW', value: '-0.6%', color: 'text-rose-400', ring: 'border-rose-500/40', bg: 'bg-rose-500/10' },
+                                    { label: 'NDX 20D', value: '100%', color: 'text-emerald-400', ring: 'border-emerald-500/40', bg: 'bg-emerald-500/10' },
+                                    { label: 'DOW 20D', value: '100%', color: 'text-emerald-400', ring: 'border-emerald-500/40', bg: 'bg-emerald-500/10' },
+                                    { label: 'US10Y', value: '4.09%', color: 'text-white', ring: 'border-amber-500/40', bg: 'bg-amber-500/10' },
+                                    { label: '2S10S', value: '+0.62%', color: 'text-emerald-400', ring: 'border-emerald-500/40', bg: 'bg-emerald-500/10' },
+                                    { label: 'REAL', value: '+1.79%', color: 'text-white', ring: 'border-rose-500/40', bg: 'bg-rose-500/10' },
                                 ].map((item) => (
-                                    <div key={item.label} className="rounded-xl bg-slate-800/60 border border-white/[0.06] p-2.5 text-center group hover:bg-slate-800/80 transition-colors">
-                                        <div className="text-xs text-slate-300 mb-0.5 font-bold tracking-wider">{item.label}</div>
-                                        <div className={`text-base font-black ${item.positive ? 'text-emerald-400' : 'text-white'}`}>{item.value}</div>
-                                        <div className="text-xs text-slate-400 mt-0.5 leading-tight">{item.sub}</div>
+                                    <div key={item.label} className="flex flex-col items-center gap-1.5">
+                                        <div className={`w-16 h-16 rounded-full border-2 ${item.ring} ${item.bg} flex flex-col items-center justify-center`}>
+                                            <div className={`text-sm font-black ${item.color}`}>{item.value}</div>
+                                        </div>
+                                        <div className="text-[12px] text-slate-300 font-bold tracking-wider text-center">{item.label}</div>
                                     </div>
                                 ))}
                             </div>
 
-                            {/* Indicator Explanation */}
-                            <div className="p-3 rounded-lg bg-slate-800/40 border border-white/5 space-y-2">
-                                <div className="flex items-center gap-1.5">
-                                    <Info size={12} className="text-cyan-400" />
-                                    <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider">Indicator Guide</span>
-                                </div>
-                                <div className="text-[13px] text-slate-400 leading-relaxed space-y-1">
-                                    <p><span className="text-white font-bold">NDX 20D / DOW 20D</span> — {t.rich('realityCheck.priceFlow.desc', richTags)}</p>
-                                    <p><span className="text-white font-bold">2S10S</span> — {t.rich('realityCheck.bonds.desc', richTags)}</p>
+                            {/* RISK-OFF ROTATION Alert Box */}
+                            <div className="flex items-start gap-2 rounded-lg bg-amber-900/20 border border-amber-500/30 p-3">
+                                <Zap size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                                <div>
+                                    <div className="text-[13px] font-bold text-amber-400">RISK-OFF ROTATION</div>
+                                    <p className="text-[12px] text-amber-200/80 mt-0.5">{t.rich('realityCheck.macroAlert.desc', richTags)}</p>
                                 </div>
                             </div>
 
-                            <div className="p-3 rounded-lg bg-emerald-900/15 border border-emerald-500/20 space-y-1">
-                                <span className="text-[13px] font-bold text-emerald-400 flex items-center gap-1.5"><Compass size={13} />{t('realityCheck.tradingGuide')}</span>
-                                <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
+                            {/* Risk-Off / Risk-On States */}
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="p-2 rounded-lg bg-rose-900/20 border border-rose-500/15 text-center">
+                                    <div className="text-xs font-bold text-rose-400">RISK-OFF</div>
+                                    <div className="text-[12px] text-slate-300 mt-0.5">{t('realityCheck.macroAlert.riskOff')}</div>
+                                </div>
+                                <div className="p-2 rounded-lg bg-emerald-900/20 border border-emerald-500/15 text-center">
+                                    <div className="text-xs font-bold text-emerald-400">RISK-ON</div>
+                                    <div className="text-[12px] text-slate-300 mt-0.5">{t('realityCheck.macroAlert.riskOn')}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* ─── Shared: Indicator Guide + Macro Trading Strategy (full-width) ─── */}
+                <div className={`${glassCard} ${glassBg}`}>
+                    <div className="relative">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                            {/* Indicator Guide */}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                    <Info size={14} className="text-cyan-400" />
+                                    <span className="text-sm font-bold text-cyan-400 uppercase tracking-wider">Indicator Guide</span>
+                                </div>
+                                <div className="text-[14px] text-slate-300 leading-relaxed space-y-1.5">
+                                    <p><span className="text-white font-bold">NDX 20D / DOW 20D</span> — {t.rich('realityCheck.priceFlow.desc', richTags)}</p>
+                                    <p><span className="text-white font-bold">2S10S</span> — {t.rich('realityCheck.bonds.desc', richTags)}</p>
+                                    <p><span className="text-amber-400 font-bold">⚡ {t('realityCheck.macroAlert.label')}</span> — {t.rich('realityCheck.macroAlert.desc', richTags)}</p>
+                                </div>
+                            </div>
+
+                            {/* Macro Trading Strategy */}
+                            <div className="p-4 rounded-xl bg-emerald-900/15 border border-emerald-500/20 space-y-2">
+                                <span className="text-[14px] font-bold text-emerald-400 flex items-center gap-1.5"><Compass size={14} />{t('realityCheck.tradingGuide')}</span>
+                                <div className="text-[14px] text-slate-300 leading-relaxed space-y-1">
                                     <p>• {t.rich('realityCheck.guide1', richTags)}</p>
                                     <p>• {t.rich('realityCheck.guide2', richTags)}</p>
+                                    <p>• {t.rich('realityCheck.guide3', richTags)}</p>
                                 </div>
                             </div>
                         </div>
@@ -361,15 +414,15 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="p-2 rounded-lg bg-emerald-900/20 border border-emerald-500/15 text-center">
                                     <div className="text-xs font-bold text-emerald-400">ALIGNMENT OK</div>
-                                    <div className="text-[11px] text-slate-400 mt-0.5">{t('rlsi.alignOk')}</div>
+                                    <div className="text-[12px] text-slate-300 mt-0.5">{t('rlsi.alignOk')}</div>
                                 </div>
                                 <div className="p-2 rounded-lg bg-amber-900/20 border border-amber-500/15 text-center">
                                     <div className="text-xs font-bold text-amber-400">PARTIAL</div>
-                                    <div className="text-[11px] text-slate-400 mt-0.5">{t('rlsi.alignPartial')}</div>
+                                    <div className="text-[12px] text-slate-300 mt-0.5">{t('rlsi.alignPartial')}</div>
                                 </div>
                                 <div className="p-2 rounded-lg bg-slate-800/50 border border-white/5 text-center">
-                                    <div className="text-xs font-bold text-slate-400">OFFLINE</div>
-                                    <div className="text-[11px] text-slate-400 mt-0.5">{t('rlsi.alignOffline')}</div>
+                                    <div className="text-xs font-bold text-slate-300">OFFLINE</div>
+                                    <div className="text-[12px] text-slate-300 mt-0.5">{t('rlsi.alignOffline')}</div>
                                 </div>
                             </div>
 
@@ -406,7 +459,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                             {/* Breadth Visual */}
                             <div className="flex items-center gap-4 py-2">
                                 <div>
-                                    <div className="text-4xl font-black text-emerald-400">61<span className="text-lg text-slate-400">%</span></div>
+                                    <div className="text-4xl font-black text-emerald-400">61<span className="text-lg text-slate-300">%</span></div>
                                     <div className="text-xs text-slate-300">{t('breadth.advanceRatio')}</div>
                                 </div>
                                 <div className="flex-1 space-y-2">
@@ -429,7 +482,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                 </div>
                                 <div className="p-2.5 rounded-lg bg-slate-800/50 border border-white/5">
                                     <div className="text-xs text-slate-300 mb-0.5">{t('breadth.volumeAnalysis')}</div>
-                                    <div className="text-base font-black text-white">54.6<span className="text-sm text-slate-400">%</span></div>
+                                    <div className="text-base font-black text-white">54.6<span className="text-sm text-slate-300">%</span></div>
                                 </div>
                             </div>
 
@@ -482,7 +535,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                         { date: '3/5 수', tag: 'PMI', event: 'ISM Services PMI', tagColor: 'bg-rose-500/30 text-rose-300' },
                                     ].map((e) => (
                                         <div key={e.date} className="flex items-center gap-3 text-xs">
-                                            <span className="text-slate-400 w-10">{e.date}</span>
+                                            <span className="text-slate-300 w-10">{e.date}</span>
                                             <span className={`text-[11px] font-bold px-1 py-0.5 rounded ${e.tagColor}`}>{e.tag}</span>
                                             <span className="text-slate-300">{e.event}</span>
                                         </div>
@@ -542,10 +595,32 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                     <div className="text-xs font-bold text-emerald-400">BULLISH</div>
                                 </div>
                                 <div className="p-2 rounded-lg bg-slate-800/50 border border-white/5 text-center">
-                                    <div className="text-xs font-bold text-slate-400">NEUTRAL</div>
+                                    <div className="text-xs font-bold text-slate-300">NEUTRAL</div>
                                 </div>
                                 <div className="p-2 rounded-lg bg-rose-900/20 border border-rose-500/15 text-center">
                                     <div className="text-xs font-bold text-rose-400">BEARISH</div>
+                                </div>
+                            </div>
+
+                            {/* V9.0 Deep Macro Analysis Indicators */}
+                            <div className="p-3 rounded-lg bg-slate-800/40 border border-white/5 space-y-2">
+                                <div className="flex items-center gap-1.5">
+                                    <Activity size={12} className="text-rose-400" />
+                                    <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">{t('tactical.v9DeepAnalysis.title')}</span>
+                                </div>
+                                <div className="text-[13px] text-slate-300 leading-relaxed space-y-1.5">
+                                    <div className="flex items-start gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 flex-shrink-0" />
+                                        <p>{t('tactical.v9DeepAnalysis.vixTerm')}</p>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0" />
+                                        <p>{t('tactical.v9DeepAnalysis.bondFlow')}</p>
+                                    </div>
+                                    <div className="flex items-start gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
+                                        <p>{t('tactical.v9DeepAnalysis.goldFlow')}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -589,7 +664,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                 {/* Legend + Guide side by side */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div className="p-4 rounded-xl bg-slate-800/40 border border-white/5 space-y-3">
-                        <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">{t('flowMap.legendTitle')}</div>
+                        <div className="text-[13px] font-bold text-slate-300 uppercase tracking-wider">{t('flowMap.legendTitle')}</div>
                         <div className="grid grid-cols-2 gap-3 text-[13px]">
                             <div className="flex items-center gap-2.5">
                                 <div className="w-5 h-5 rounded-full border-2 border-dashed border-emerald-400" />
@@ -606,6 +681,14 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                             <div className="flex items-center gap-2.5">
                                 <div className="w-3 h-3 rounded-full bg-rose-400 animate-pulse" />
                                 <span className="text-slate-300">{t('flowMap.activeFlow')}</span>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-5 h-5 rounded-full border-2 border-dashed border-amber-400" />
+                                <span className="text-amber-300 font-medium">{t('flowMap.safeHaven')}</span>
+                            </div>
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-3 h-3 rounded-sm bg-cyan-500/60" />
+                                <span className="text-cyan-300 font-medium">{t('flowMap.newSectors')}</span>
                             </div>
                         </div>
                     </div>
@@ -653,7 +736,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                 <div className="space-y-1.5">
                                     {['D-4', 'D-3', 'D-2', 'D-1', 'D-0'].map((day, i) => (
                                         <div key={day} className="flex items-center gap-2">
-                                            <span className="text-xs text-slate-400 w-6">{day}</span>
+                                            <span className="text-xs text-slate-300 w-6">{day}</span>
                                             <div className="flex-1 h-2.5 rounded-full bg-slate-800 overflow-hidden">
                                                 <div
                                                     className={`h-full rounded-full ${i < 2 ? 'bg-rose-500' : 'bg-emerald-500'}`}
@@ -670,7 +753,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
 
                             {/* Top Constituents */}
                             <div className="rounded-xl bg-slate-800/40 border border-white/5 p-4 space-y-3">
-                                <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Top Constituents</div>
+                                <div className="text-xs font-bold text-slate-300 uppercase tracking-wider">Top Constituents</div>
                                 <div className="space-y-2.5">
                                     {[
                                         { ticker: 'GOOGL', price: '$184.38', change: '+4.01%', up: true },

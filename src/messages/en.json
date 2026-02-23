@@ -1169,7 +1169,7 @@
         },
         "realityCheck": {
             "title": "REALITY CHECK",
-            "desc": "Diagnose the current macro state through <cyan>PRICE FLOW</cyan>, <gold>NDX/DOW 20-day moving averages</gold>, <rose>US 10-year Treasury yields</rose>, yield curve spread (2S10S), and real interest rates (REAL).",
+            "desc": "Diagnose the current macro state through <cyan>PRICE FLOW</cyan>, <gold>NDX/DOW 20-day moving averages</gold>, <rose>US 10-year Treasury yields</rose>, yield curve spread (2S10S), and real interest rates (REAL). V9.0 adds <emerald>Macro Tactical Alerts</emerald> for real-time detection of bond and gold capital flight.",
             "priceFlow": {
                 "label": "PRICE FLOW & Moving Averages",
                 "desc": "Price Flow shows short-term momentum of major indices. NDX/DOW 20D shows medium-term trend health of tech and industrial stocks. 100% means above the 20-day MA."
@@ -1178,10 +1178,16 @@
                 "label": "Rates & Bond Market",
                 "desc": "USO10Y (US 10-year) is the market-wide discount rate, 2S10S is a recession leading indicator, and REAL is the inflation-adjusted real yield. Watch for yield curve inversion."
             },
+            "macroAlert": {
+                "label": "Macro Tactical Alerts",
+                "desc": "When capital flows simultaneously into bonds (TLT) and gold (GLD), <rose>RISK-OFF ROTATION</rose> alerts trigger automatically. This signals institutional investors moving capital from equities to safe havens — a <gold>crisis precursor</gold>.",
+                "riskOff": "Bonds & Gold rising together → Flight to safety, equity risk management needed",
+                "riskOn": "Bonds & Gold falling together → Risk-on appetite, favorable equity buying environment"
+            },
             "tradingGuide": "Macro Trading Strategy",
             "guide1": "Both NDX/DOW 20D at 100% → Strong uptrend, favorable to buy pullbacks",
             "guide2": "Persistent 2S10S inversion → Possible recession in 6-18 months, increase defensive allocation",
-            "guide3": "Real rates >2% → Valuation pressure on growth stocks, favor value and dividend stocks"
+            "guide3": "<rose>RISK-OFF ROTATION alert triggered</rose> → Avoid new longs, <gold>increase cash and rotate to defensives</gold>"
         },
         "rlsi": {
             "title": "RLSI INSIGHT",
@@ -1218,29 +1224,37 @@
         },
         "tactical": {
             "title": "TACTICAL VERDICT",
-            "desc": "AI analyzes <cyan>all Guardian data</cyan> comprehensively in 3 stages: <gold>Current Situation</gold>, <purple>Deep Analysis</purple>, and <emerald>Action Strategy</emerald>. Powered by Gemini 2.5 FLASH in real-time.",
+            "desc": "Gemini 2.5 FLASH AI comprehensively analyzes <cyan>all Guardian data</cyan> in 3 stages: <gold>Current Situation</gold>, <purple>Deep Analysis</purple>, and <emerald>Action Strategy</emerald>. V9.0 now cross-analyzes <rose>VIX futures structure</rose> and <gold>bond/gold capital flows</gold> to detect crash precursors ahead of time.",
             "currentLabel": "Current",
             "analysisLabel": "Analysis",
             "actionLabel": "Action",
             "sampleCurrent": "5-day trend shows fund rotation from growth preference (RISK_ON_GROWTH) toward value, industrials, and financials.",
             "sampleAnalysis": "Market shows resilient supply-demand dynamics despite FOMC uncertainty, with tech stocks particularly strong from an AI trading perspective.",
             "sampleAction": "A scaled buying strategy focused on tech stocks remains valid given the growth-oriented regime and stable signals.",
+            "v9DeepAnalysis": {
+                "title": "V9.0 Deep Macro Analysis Indicators",
+                "vixTerm": "VIX vs VIX3M (Futures Structure): Contango (VIX < VIX3M) = Market stable, Backwardation (VIX > VIX3M) = Panic surge precursor",
+                "bondFlow": "Bond Capital Flow (TLT): Rising = Flight to safety → Equity downside risk increases",
+                "goldFlow": "Gold Capital Flow (GLD): Rising = Inflation hedge / Crisis sentiment → Volatility expansion signal"
+            },
             "bullish": "Actively buy — Follow the trend",
             "neutralDesc": "Wait — Await directional confirmation",
             "bearish": "Defensive — Increase cash allocation"
         },
         "flowMap": {
             "title": "FLOW TOPOGRAPHY MAP V3.0",
-            "desc": "Visualizes <purple>real-time fund flows</purple> across 11 GICS sectors as a network graph. Node size and color indicate fund inflow/outflow intensity, while connection lines show inter-sector correlations. See where money is moving at a glance.",
+            "desc": "Visualizes <purple>real-time fund flows</purple> across <cyan>14 sectors</cyan> (GICS 11 + <cyan>Semiconductors, Cybersecurity, Clean Energy</cyan>) as a network graph. Node size and color indicate fund inflow/outflow intensity, while connection lines show inter-sector correlations. V9.0 adds a <rose>Safe Haven node</rose> to visualize capital flight to bonds and gold.",
             "legendTitle": "Legend",
             "nodeUp": "Green border = Fund inflow sector",
             "nodeDown": "Red border = Fund outflow sector",
             "flowLine": "Gradient connection = Fund flow path",
             "activeFlow": "Pulsing dot = Currently active flow",
+            "safeHaven": "Yellow node (Safe Haven) = Bond & Gold safe-haven capital flow",
+            "newSectors": "V9.0 New: Semiconductors (SEMIS), Cybersecurity (CYBER), Clean Energy (CLEAN NRG)",
             "tradingGuide": "Flow Map Trading Strategy",
-            "guide1": "Sectors with concentrated inflows (large green nodes) → Top buy candidates among sector leaders",
-            "guide2": "Funds leaving outflow sectors toward inflow sectors → Capture sector rotation",
-            "guide3": "Sectors with many connections to the central node → Core sectors leading the entire market"
+            "guide1": "Sectors with concentrated inflows (<emerald>large green nodes</emerald>) → <gold>Top buy candidates among sector leaders</gold>",
+            "guide2": "Funds leaving outflow sectors (<rose>red nodes</rose>) toward inflow sectors → <cyan>Capture sector rotation</cyan>",
+            "guide3": "Capital concentrating on <gold>Safe Haven node</gold> → <rose>Crisis precursor, consider reducing equity positions</rose>"
         },
         "sectorIntel": {
             "title": "SECTOR INTEL",

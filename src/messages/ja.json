@@ -1169,19 +1169,25 @@
         },
         "realityCheck": {
             "title": "REALITY CHECK",
-            "desc": "<cyan>PRICE FLOW</cyan>、<gold>NDX/DOW 20日移動平均</gold>、<rose>米10年国債利回り</rose>、イールドカーブスプレッド（2S10S）、実質金利（REAL）を通じてマクロ経済の現状を一目で診断します。",
+            "desc": "<cyan>PRICE FLOW</cyan>、<gold>NDX/DOW 20日移動平均</gold>、<rose>米10年国債利回り</rose>、イールドカーブスプレッド（2S10S）、実質金利（REAL）を通じてマクロ経済の現状を一目で診断します。V9.0では<emerald>マクロ戦術アラート</emerald>が追加され、債券・金の資金移動をリアルタイムで検知します。",
             "priceFlow": {
                 "label": "PRICE FLOW & 移動平均",
-                "desc": "Price Flowは主要指数の短期モメンタム、NDX/DOW 20Dはテック株と産業株の中期トレンド健全性を示します。100%は20日移動平均以上にあることを意味します。"
+                "desc": "Price Flowは主要指数の短期モメンタム、NDX/DOW 20Dはテック株と産業株の中期トレンド健全性を示します。20日移動平均以上にあることを意味します。"
             },
             "bonds": {
                 "label": "金利 & 債券市場",
                 "desc": "USO10Y（米10年物）は市場全体のディスカウントレート、2S10Sは景気後退先行指標、REALはインフレ調整後の実質利回りです。逆転時は景気後退に注意。"
             },
+            "macroAlert": {
+                "label": "マクロ戦術アラート",
+                "desc": "債券（TLT）と金（GLD）に同時に資金が流入すると<rose>RISK-OFF ROTATION</rose>アラートが自動発生します。機関投資家が株式から安全資産へ資金を移動させる<gold>危機の前兆シグナル</gold>です。",
+                "riskOff": "債券・金同時上昇 → 安全資産選好、株式リスク管理必要",
+                "riskOn": "債券・金同時下落 → リスクオン選好、積極的な株式購入環境"
+            },
             "tradingGuide": "マクロ経済トレード戦略",
             "guide1": "NDX/DOW 20D両方100% → 強い上昇トレンド、プルバック時に買い有利",
             "guide2": "2S10S逆転（マイナス）持続 → 6-18ヶ月以内に景気後退の可能性、ディフェンシブ比率↑",
-            "guide3": "実質金利2%以上 → グロース株バリュエーション圧力、バリュー株・配当株選好"
+            "guide3": "<rose>RISK-OFF ROTATIONアラート発生</rose> → 新規買い控え、<gold>現金比率拡大およびディフェンシブへ転換</gold>"
         },
         "rlsi": {
             "title": "RLSI INSIGHT",
@@ -1218,29 +1224,37 @@
         },
         "tactical": {
             "title": "TACTICAL VERDICT",
-            "desc": "AIが<cyan>全Guardianデータ</cyan>を総合分析し、<gold>現況診断</gold>、<purple>深層分析</purple>、<emerald>実践戦略</emerald>を3段階で提供します。Gemini 2.5 FLASHモデルがリアルタイムで判断します。",
+            "desc": "Gemini 2.5 FLASH AIが<cyan>全Guardianデータ</cyan>を総合分析し、<gold>現況診断</gold>、<purple>深層分析</purple>、<emerald>実践戦略</emerald>を3段階で提供します。V9.0では<rose>VIX先物構造</rose>と<gold>債券・金の資金移動</gold>までクロス分析し、暴落の前兆を先行検知します。",
             "currentLabel": "現況",
             "analysisLabel": "分析",
             "actionLabel": "アクション",
             "sampleCurrent": "5日トレンドはグロース株選好体質（RISK_ON_GROWTH）からバリュー株、産業財、金融への資金流入が進行中です。",
             "sampleAnalysis": "市場はFOMC議事録の不確実性の中でも堅調な需給を示しており、特にAI関連でテック株が堅調です。",
             "sampleAction": "グロース株選好体質と安定的なシグナルの中、テック株中心の分割買い戦略が有効です。",
+            "v9DeepAnalysis": {
+                "title": "V9.0 深層マクロ分析指標",
+                "vixTerm": "VIX vs VIX3M（先物構造）: コンタンゴ(VIX < VIX3M) = 市場安定、バックワーデーション(VIX > VIX3M) = パニック急騰の前兆",
+                "bondFlow": "債券資金フロー (TLT): 上昇時は安全資産選好 → 株式下方リスク増加",
+                "goldFlow": "金資金フロー (GLD): 上昇時はインフレヘッジ・危機心理 → ボラティリティ拡大シグナル"
+            },
             "bullish": "積極的買い — トレンド追従",
             "neutralDesc": "様子見 — 方向性確認待ち",
             "bearish": "防御的 — 現金比率拡大"
         },
         "flowMap": {
             "title": "FLOW TOPOGRAPHY MAP V3.0",
-            "desc": "11のGICSセクターの<purple>リアルタイム資金フロー</purple>をネットワークグラフで可視化します。各ノードの大きさと色は資金流入/流出の強度、接続線はセクター間相関を表します。",
+            "desc": "<purple>14セクター</purple>（GICS 11 + <cyan>半導体・サイバーセキュリティ・クリーンエネルギー</cyan>）の<purple>リアルタイム資金フロー</purple>をネットワークグラフで可視化します。各ノードの大きさと色は資金流入/流出の強度、接続線はセクター間相関を表します。V9.0で<rose>安全資産（Safe Haven）</rose>ノードが追加され、債券・金への資金逃避も可視化します。",
             "legendTitle": "凡例",
             "nodeUp": "緑のボーダー = 資金流入セクター",
             "nodeDown": "赤のボーダー = 資金流出セクター",
             "flowLine": "グラデーション接続線 = 資金移動経路",
             "activeFlow": "パルスドット = 現在アクティブな資金フロー",
+            "safeHaven": "黄色ノード（Safe Haven） = 債券・金の安全資産資金フロー",
+            "newSectors": "V9.0新規: 半導体(SEMIS), サイバーセキュリティ(CYBER), クリーンエネルギー(CLEAN NRG)",
             "tradingGuide": "Flow Mapトレード戦略",
-            "guide1": "資金集中セクター（大きな緑ノード）リーダー銘柄 → 買い第1候補",
-            "guide2": "資金流出セクター（赤ノード）から流入セクターへの移動 → セクターローテーション捕捉",
-            "guide3": "中心ノードと接続線が多いセクター → 市場全体をリードするコアセクター"
+            "guide1": "資金集中セクター（<emerald>大きな緑ノード</emerald>）リーダー銘柄 → <gold>買い第1候補</gold>",
+            "guide2": "資金流出セクター（<rose>赤ノード</rose>）から流入セクターへの移動 → <cyan>セクターローテーション捕捉</cyan>",
+            "guide3": "<gold>Safe Havenノード</gold>へ資金集中時 → <rose>危機の前兆、株式ポジション縮小検討</rose>"
         },
         "sectorIntel": {
             "title": "SECTOR INTEL",

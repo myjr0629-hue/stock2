@@ -1169,7 +1169,7 @@
         },
         "realityCheck": {
             "title": "REALITY CHECK",
-            "desc": "<cyan>PRICE FLOW</cyan>, <gold>NDX/DOW 20일 이동평균</gold>, <rose>미국 10년물 국채 금리</rose>, 장단기 금리 스프레드(2S10S), 실질금리(REAL)를 통해 거시경제의 현재 상태를 한눈에 진단합니다.",
+            "desc": "<cyan>PRICE FLOW</cyan>, <gold>NDX/DOW 20일 이동평균</gold>, <rose>미국 10년물 국채 금리</rose>, 장단기 금리 스프레드(2S10S), 실질금리(REAL)를 통해 거시경제의 현재 상태를 한눈에 진단합니다. V9.0에서는 <emerald>매크로 전술 경보(Macro Tactical Alerts)</emerald>가 추가되어 채권·금 자금 이동을 실시간 감지합니다.",
             "priceFlow": {
                 "label": "PRICE FLOW & 이동평균",
                 "desc": "<cyan>Price Flow</cyan>는 주요 지수의 <gold>단기 모멘텀</gold>, <emerald>NDX/DOW 20D</emerald>는 기술주와 산업주의 <purple>중기 추세 건전성</purple>을 보여줍니다. <gold>100%</gold>는 20일 이평선 위에 있음을 의미합니다."
@@ -1178,10 +1178,16 @@
                 "label": "금리 & 채권 시장",
                 "desc": "<cyan>USO10Y(미국 10년물)</cyan>는 시장 전체의 할인율, <gold>2S10S</gold>는 경기 침체 선행지표, <purple>REAL</purple>은 인플레이션 감안 실질 수익률입니다. <rose>역전 시 경기 침체 가능성</rose>에 주의합니다."
             },
+            "macroAlert": {
+                "label": "매크로 전술 경보",
+                "desc": "채권(TLT)과 금(GLD)으로 자금이 동시에 유입되면 <rose>RISK-OFF ROTATION</rose> 경보가 자동 발생합니다. 기관 투자자들이 주식에서 안전자산으로 자금을 이동하는 <gold>위기 전조 신호</gold>입니다.",
+                "riskOff": "채권·금 동반 상승 → 안전자산 선호, 주식 리스크 관리 필요",
+                "riskOn": "채권·금 동반 하락 → 위험 선호, 적극적 주식 매수 환경"
+            },
             "tradingGuide": "거시경제 매매 전략",
             "guide1": "<emerald>NDX/DOW 20D 모두 100%</emerald> → 강한 상승 추세, <gold>풀백 시 매수 유리</gold>",
             "guide2": "<rose>2S10S 역전(마이너스) 지속</rose> → 6-18개월 내 경기 침체 가능성, <cyan>방어주 비중↑</cyan>",
-            "guide3": "<rose>실질금리 2% 이상</rose> → 성장주 밸류에이션 압박, <gold>가치주·배당주 선호</gold>"
+            "guide3": "<rose>RISK-OFF ROTATION 경보 발생</rose> → 신규 매수 자제, <gold>현금 비중 확대 및 방어주 전환</gold>"
         },
         "rlsi": {
             "title": "RLSI INSIGHT",
@@ -1218,29 +1224,37 @@
         },
         "tactical": {
             "title": "TACTICAL VERDICT",
-            "desc": "AI가 <cyan>모든 Guardian 데이터</cyan>를 종합 분석하여 <gold>현황 진단</gold>, <purple>심층 분석</purple>, <emerald>실전 전략</emerald>을 3단계로 제공합니다. Gemini 2.5 FLASH 모델이 실시간으로 판단합니다.",
+            "desc": "Gemini 2.5 FLASH AI가 <cyan>모든 Guardian 데이터</cyan>를 종합 분석하여 <gold>현황 진단</gold>, <purple>심층 분석</purple>, <emerald>실전 전략</emerald>을 3단계로 제공합니다. V9.0에서는 <rose>VIX 선물 구조</rose>와 <gold>채권·금 자금 이동</gold>까지 교차 분석하여 폭락 전조를 선행 감지합니다.",
             "currentLabel": "현황",
             "analysisLabel": "분석",
             "actionLabel": "액션",
             "sampleCurrent": "5일 추세는 성장주 선호 체질(RISK_ON_GROWTH)에서 가치주, 산업재, 금융으로 자금 유입이 진행 중입니다.",
             "sampleAnalysis": "시장은 FOMC 의사록 불확실성 속에서도 견조한 수급을 보이며, 특히 AI 관련 매매 관점으로 기술주가 견조합니다.",
             "sampleAction": "성장주 선호 체질과 안정적인 신호 속에서 기술주 중심의 분할 매수 전략이 유효합니다.",
+            "v9DeepAnalysis": {
+                "title": "V9.0 심층 거시 분석 지표",
+                "vixTerm": "VIX vs VIX3M (선물 구조): 콘탱고(VIX < VIX3M) = 시장 안정, 백워데이션(VIX > VIX3M) = 공포 급등 전조",
+                "bondFlow": "채권 자금 흐름 (TLT): 상승 시 안전자산 선호 → 주식 하방 리스크 증가",
+                "goldFlow": "금 자금 흐름 (GLD): 상승 시 인플레 헷지·위기 심리 → 변동성 확대 신호"
+            },
             "bullish": "매수 적극 — 트렌드 추종",
             "neutralDesc": "관망 — 방향 확인 대기",
             "bearish": "방어적 — 현금 비중 확대"
         },
         "flowMap": {
             "title": "FLOW TOPOGRAPHY MAP V3.0",
-            "desc": "<purple>11개 GICS 섹터</purple>의 <cyan>실시간 자금 흐름</cyan>을 네트워크 시각화로 표현합니다. 각 노드의 <emerald>크기와 색상은 자금 유입/유출 강도</emerald>, <gold>연결선은 섹터 간 상관관계</gold>를 나타냅니다. 자금이 어디서 어디로 이동하는지 한눈에 파악할 수 있습니다.",
+            "desc": "<purple>14개 섹터</purple>(GICS 11개 + <cyan>반도체·사이버보안·클린에너지</cyan>)의 <cyan>실시간 자금 흐름</cyan>을 네트워크 시각화로 표현합니다. 각 노드의 <emerald>크기와 색상은 자금 유입/유출 강도</emerald>, <gold>연결선은 섹터 간 상관관계</gold>를 나타냅니다. V9.0에서 <rose>안전자산(Safe Haven)</rose> 노드가 추가되어 채권·금으로의 자금 피난도 시각화합니다.",
             "legendTitle": "범례 해석",
             "nodeUp": "녹색 테두리 = 자금 유입 섹터",
             "nodeDown": "적색 테두리 = 자금 유출 섹터",
             "flowLine": "그라데이션 연결선 = 자금 이동 경로",
             "activeFlow": "펄스 점 = 현재 활성 자금 흐름",
+            "safeHaven": "노란색 노드(Safe Haven) = 채권·금 안전자산 자금 흐름",
+            "newSectors": "V9.0 신규: 반도체(SEMIS), 사이버보안(CYBER), 클린에너지(CLEAN NRG)",
             "tradingGuide": "Flow Map 매매 전략",
             "guide1": "자금이 집중되는 섹터(<emerald>녹색 큰 노드</emerald>)의 대장주 → <gold>매수 1순위 후보</gold>",
             "guide2": "자금이 빠지는 섹터(<rose>적색 노드</rose>)에서 자금 유입 섹터로 이동 → <cyan>섹터 로테이션 포착</cyan>",
-            "guide3": "<purple>중심 노드와 연결선이 많은 섹터</purple> → 시장 전체를 리드하는 <gold>핵심 섹터</gold>"
+            "guide3": "<gold>Safe Haven 노드</gold>로 자금 집중 시 → <rose>위기 전조, 주식 포지션 축소 검토</rose>"
         },
         "sectorIntel": {
             "title": "SECTOR INTEL",
