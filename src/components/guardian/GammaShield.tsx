@@ -3,6 +3,64 @@
 import React from 'react';
 import type { GammaShieldData } from '@/services/guardian/gammaShieldEngine';
 import { Shield, Zap, AlertTriangle, TrendingUp } from 'lucide-react';
+import { useLocale } from 'next-intl';
+
+// === i18n Text Map ===
+type Locale = 'ko' | 'en' | 'ja';
+const T: Record<string, Record<Locale, string>> = {
+    collecting: {
+        ko: '옵션 데이터 수집 중...',
+        en: 'Collecting options data...',
+        ja: 'オプションデータ収集中...',
+    },
+    triggerCollecting: {
+        ko: '데이터 수집 중...',
+        en: 'Loading...',
+        ja: 'データ収集中...',
+    },
+    squeezeWarning: {
+        ko: '급변동 경고',
+        en: 'Volatility Alert',
+        ja: '急変動警告',
+    },
+    // Dynamic insight texts
+    squeezeCritical: {
+        ko: '옵션 매도자 손절 임박 — 폭발적 움직임 대비',
+        en: 'Options sellers near forced exits — brace for explosive moves',
+        ja: 'オプション売り手の損切り迫る — 爆発的な動きに備え',
+    },
+    resistNear: {
+        ko: 'S&P 옵션 벽 {val} 근접 — 돌파 시 급등, 실패 시 반락',
+        en: 'S&P options wall {val} nearby — breakout rally or rejection dip',
+        ja: 'S&P オプション壁 {val} 接近 — 突破で急騰、失敗で反落',
+    },
+    supportNear: {
+        ko: 'S&P 옵션 지지 {val} 근접 — 반등 또는 이탈 주시',
+        en: 'S&P options floor {val} nearby — watch for bounce or breakdown',
+        ja: 'S&P オプション支持 {val} 接近 — 反発または離脱注視',
+    },
+    longGamma: {
+        ko: '대형 기관이 하락 방어 중 — 급락 가능성 낮음',
+        en: 'Major institutions defending downside — low crash risk',
+        ja: '大型機関が下落防御中 — 急落の可能性低い',
+    },
+    shortGamma: {
+        ko: '기관 헤지가 변동을 키우는 중 — 급등락 주의',
+        en: 'Institutional hedging amplifying swings — watch for sharp moves',
+        ja: '機関ヘッジが変動を拡大中 — 急騰落に注意',
+    },
+    neutral: {
+        ko: '옵션 시장 균형 — 큰 변동 없이 횡보 가능성',
+        en: 'Options market balanced — sideways movement likely',
+        ja: 'オプション市場均衡 — 大きな変動なく横ばいの可能性',
+    },
+};
+
+function t(key: string, locale: Locale, vars?: Record<string, string>): string {
+    const text = T[key]?.[locale] || T[key]?.['en'] || key;
+    if (!vars) return text;
+    return Object.entries(vars).reduce((s, [k, v]) => s.replace(`{${k}}`, v), text);
+}
 
 interface Props {
     data: GammaShieldData | null | undefined;
@@ -48,39 +106,30 @@ function getSqueezeBadgeBg(level: string): string {
     switch (level) {
         case 'EXTREME': return 'bg-red-500/20 border-red-500/40';
         case 'HIGH': return 'bg-amber-500/20 border-amber-500/40';
-        case 'MEDIUM': return 'bg-yellow-500/15 border-yellow-500/30';
-        default: return 'bg-emerald-500/15 border-emerald-500/30';
-    }
-}
-
-function getSqueezeRingColor(level: string): string {
-    switch (level) {
-        case 'EXTREME': return 'stroke-red-400';
-        case 'HIGH': return 'stroke-amber-400';
-        case 'MEDIUM': return 'stroke-yellow-300';
-        default: return 'stroke-emerald-400';
+        case 'MEDIUM': return 'bg-yellow-500/20 border-yellow-500/40';
+        default: return 'bg-emerald-500/20 border-emerald-500/40';
     }
 }
 
 // === Squeeze Ring SVG ===
 function SqueezeRing({ value, level }: { value: number; level: string }) {
-    const radius = 32;
-    const circumference = 2 * Math.PI * radius;
-    const offset = circumference - (value / 100) * circumference;
+    const circumference = 2 * Math.PI * 24;
+    const offset = circumference - (Math.min(100, value) / 100) * circumference;
+    const strokeColor = level === 'EXTREME' ? '#f87171' :
+        level === 'HIGH' ? '#fbbf24' :
+            level === 'MEDIUM' ? '#fde047' : '#34d399';
 
     return (
-        <svg className="w-[76px] h-[76px] -rotate-90" viewBox="0 0 76 76">
-            {/* Background ring */}
-            <circle cx="38" cy="38" r={radius} fill="none"
-                stroke="rgba(148,163,184,0.1)" strokeWidth="5" />
-            {/* Value ring */}
-            <circle cx="38" cy="38" r={radius} fill="none"
-                className={getSqueezeRingColor(level)}
-                strokeWidth="5"
+        <svg width="64" height="64" viewBox="0 0 56 56">
+            <circle cx="28" cy="28" r="24"
+                fill="none" stroke="rgba(100,116,139,0.2)" strokeWidth="3" />
+            <circle cx="28" cy="28" r="24"
+                fill="none" stroke={strokeColor} strokeWidth="3"
+                strokeLinecap="round"
                 strokeDasharray={circumference}
                 strokeDashoffset={offset}
-                strokeLinecap="round"
-                style={{ transition: 'stroke-dashoffset 1s ease-in-out' }}
+                transform="rotate(-90 28 28)"
+                className="transition-all duration-700"
             />
         </svg>
     );
@@ -88,12 +137,12 @@ function SqueezeRing({ value, level }: { value: number; level: string }) {
 
 // === Trigger Band Visualization ===
 function TriggerBand({
-    support, current, resistance
-}: { support: number | null; current: number | null; resistance: number | null }) {
+    support, current, resistance, locale
+}: { support: number | null; current: number | null; resistance: number | null; locale: Locale }) {
     if (!support || !current || !resistance || resistance <= support) {
         return (
             <div className="text-[12px] text-slate-400 font-jakarta text-center">
-                데이터 수집 중...
+                {t('triggerCollecting', locale)}
             </div>
         );
     }
@@ -143,8 +192,40 @@ function TriggerBand({
     );
 }
 
+// === Insight Text Generator ===
+function getInsightText(
+    gexIndex: number,
+    squeezeRisk: number,
+    currentPrice: number | null,
+    supportWall: number | null,
+    resistanceWall: number | null,
+    locale: Locale
+): string {
+    // Priority: squeeze ≥ 45% → trigger proximity → GEX extreme → default
+    if (squeezeRisk >= 45) return t('squeezeCritical', locale);
+
+    if (currentPrice && resistanceWall && resistanceWall > 0) {
+        const distToResist = ((resistanceWall - currentPrice) / currentPrice) * 100;
+        if (distToResist <= 1.5 && distToResist > 0) {
+            return t('resistNear', locale, { val: resistanceWall.toLocaleString() });
+        }
+    }
+    if (currentPrice && supportWall && supportWall > 0) {
+        const distToSupport = ((currentPrice - supportWall) / currentPrice) * 100;
+        if (distToSupport <= 1.5 && distToSupport > 0) {
+            return t('supportNear', locale, { val: supportWall.toLocaleString() });
+        }
+    }
+    if (gexIndex >= 20) return t('longGamma', locale);
+    if (gexIndex <= -20) return t('shortGamma', locale);
+    return t('neutral', locale);
+}
+
 // === Main Component ===
 export default function GammaShield({ data, isMarketActive }: Props) {
+    const rawLocale = useLocale();
+    const locale: Locale = (rawLocale === 'ko' || rawLocale === 'en' || rawLocale === 'ja') ? rawLocale : 'en';
+
     if (!data) {
         return (
             <div className="bg-slate-900/40 backdrop-blur-md rounded-xl border border-slate-700/30 p-4">
@@ -155,7 +236,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     </span>
                 </div>
                 <div className="flex items-center justify-center h-[120px] text-[13px] text-slate-400 font-jakarta">
-                    {isMarketActive ? '옵션 데이터 수집 중...' : 'Regular Session Only'}
+                    {isMarketActive ? t('collecting', locale) : 'Regular Session Only'}
                 </div>
             </div>
         );
@@ -181,22 +262,8 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     <span className={`text-[12px] font-bold font-jakarta px-1.5 py-0.5 rounded-sm border shrink-0 ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
                         {confidence}
                     </span>
-                    <span className="text-[12px] font-jakarta text-slate-300 truncate">
-                        · {(() => {
-                            // Priority: squeeze ≥ 45% → trigger proximity → GEX extreme → default
-                            if (squeezeRisk >= 45) return '옵션 매도자 손절 임박 — 폭발적 움직임 대비';
-                            if (currentPrice && resistanceWall && resistanceWall > 0) {
-                                const distToResist = ((resistanceWall - currentPrice) / currentPrice) * 100;
-                                if (distToResist <= 1.5 && distToResist > 0) return `S&P 옵션 벽 ${resistanceWall.toLocaleString()} 근접 — 돌파 시 급등, 실패 시 반락`;
-                            }
-                            if (currentPrice && supportWall && supportWall > 0) {
-                                const distToSupport = ((currentPrice - supportWall) / currentPrice) * 100;
-                                if (distToSupport <= 1.5 && distToSupport > 0) return `S&P 옵션 지지 ${supportWall.toLocaleString()} 근접 — 반등 또는 이탈 주시`;
-                            }
-                            if (gexIndex >= 20) return '대형 기관이 하락 방어 중 — 급락 가능성 낮음';
-                            if (gexIndex <= -20) return '기관 헤지가 변동을 키우는 중 — 급등락 주의';
-                            return '옵션 시장 균형 — 큰 변동 없이 횡보 가능성';
-                        })()}
+                    <span className="text-[13px] font-jakarta text-slate-300 truncate">
+                        · {getInsightText(gexIndex, squeezeRisk, currentPrice, supportWall, resistanceWall, locale)}
                     </span>
                 </div>
                 <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border shrink-0 ml-2 ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-400 border-slate-600/30 bg-slate-600/10'}`}>
@@ -213,7 +280,6 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         Gamma Pressure
                     </span>
 
-                    {/* Big Number */}
                     <div className={`text-[28px] font-black font-jakarta tabular-nums leading-none ${getGexColor(gexIndex)}`}>
                         {gexIndex >= 0 ? '+' : ''}{gexIndex}
                     </div>
@@ -223,24 +289,18 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         {gexLevel.replace('_', ' ')}
                     </div>
 
-                    {/* Gauge bar */}
-                    <div className="w-full mt-1">
-                        <div className="relative h-[6px] bg-slate-800 rounded-full overflow-hidden">
-                            {/* Zero center line */}
-                            <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-600/60 z-10" />
-
-                            {/* Value bar */}
-                            {gexIndex >= 0 ? (
-                                <div
-                                    className={`absolute top-0 bottom-0 left-1/2 bg-gradient-to-r ${getGexBarGradient(gexIndex)} rounded-r-full transition-all duration-700`}
-                                    style={{ width: `${Math.min(50, (gexIndex / 100) * 50)}%` }}
-                                />
-                            ) : (
-                                <div
-                                    className={`absolute top-0 bottom-0 right-1/2 bg-gradient-to-l ${getGexBarGradient(gexIndex)} rounded-l-full transition-all duration-700`}
-                                    style={{ width: `${Math.min(50, (Math.abs(gexIndex) / 100) * 50)}%` }}
-                                />
-                            )}
+                    {/* GEX Bar */}
+                    <div className="w-full max-w-[160px]">
+                        <div className="relative h-[6px] rounded-full bg-slate-800 overflow-hidden">
+                            <div
+                                className={`absolute h-full rounded-full bg-gradient-to-r ${getGexBarGradient(gexIndex)} transition-all duration-700`}
+                                style={{
+                                    left: gexIndex >= 0 ? '50%' : `${50 + (gexIndex / 2)}%`,
+                                    width: `${Math.abs(gexIndex) / 2}%`,
+                                }}
+                            />
+                            {/* Center marker */}
+                            <div className="absolute left-1/2 top-0 w-[1px] h-full bg-slate-500/60" />
                         </div>
                         <div className="flex justify-between mt-1">
                             <span className="text-[12px] font-jakarta text-red-400/70">-100</span>
@@ -282,7 +342,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         <div className="flex items-center gap-1 mt-0.5">
                             <AlertTriangle className="w-3.5 h-3.5 text-red-400 animate-pulse" />
                             <span className="text-[12px] font-jakarta text-red-400">
-                                급변동 경고
+                                {t('squeezeWarning', locale)}
                             </span>
                         </div>
                     )}
@@ -300,6 +360,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         support={supportWall}
                         current={currentPrice}
                         resistance={resistanceWall}
+                        locale={locale}
                     />
                 </div>
             </div>
