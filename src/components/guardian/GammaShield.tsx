@@ -92,7 +92,7 @@ function TriggerBand({
 }: { support: number | null; current: number | null; resistance: number | null }) {
     if (!support || !current || !resistance || resistance <= support) {
         return (
-            <div className="text-[12px] text-slate-500 font-jakarta text-center">
+            <div className="text-[12px] text-slate-400 font-jakarta text-center">
                 데이터 수집 중...
             </div>
         );
@@ -105,7 +105,7 @@ function TriggerBand({
         <div className="flex flex-col gap-1.5">
             {/* Resistance */}
             <div className="flex items-center justify-between">
-                <span className="text-[11px] font-jakarta text-red-400/70 tracking-wide">RESISTANCE</span>
+                <span className="text-[12px] font-jakarta text-red-400 tracking-wide">RESISTANCE</span>
                 <span className="text-[13px] font-black font-jakarta text-red-400 tabular-nums">
                     {resistance.toLocaleString()}
                 </span>
@@ -134,7 +134,7 @@ function TriggerBand({
 
             {/* Support */}
             <div className="flex items-center justify-between">
-                <span className="text-[11px] font-jakarta text-emerald-400/70 tracking-wide">SUPPORT</span>
+                <span className="text-[12px] font-jakarta text-emerald-400 tracking-wide">SUPPORT</span>
                 <span className="text-[13px] font-black font-jakarta text-emerald-400 tabular-nums">
                     {support.toLocaleString()}
                 </span>
@@ -150,11 +150,11 @@ export default function GammaShield({ data, isMarketActive }: Props) {
             <div className="bg-slate-900/40 backdrop-blur-md rounded-xl border border-slate-700/30 p-4">
                 <div className="flex items-center gap-2 mb-3">
                     <Shield className="w-4 h-4 text-cyan-400" />
-                    <span className="text-[13px] font-black font-jakarta tracking-wider text-slate-300">
+                    <span className="text-[14px] font-black font-jakarta tracking-wider text-slate-200">
                         GAMMA SHIELD
                     </span>
                 </div>
-                <div className="flex items-center justify-center h-[120px] text-[12px] text-slate-500 font-jakarta">
+                <div className="flex items-center justify-center h-[120px] text-[13px] text-slate-400 font-jakarta">
                     {isMarketActive ? '옵션 데이터 수집 중...' : 'Regular Session Only'}
                 </div>
             </div>
@@ -175,14 +175,14 @@ export default function GammaShield({ data, isMarketActive }: Props) {
             <div className="flex items-center justify-between px-4 pt-3 pb-2">
                 <div className="flex items-center gap-2">
                     <Shield className={`w-4 h-4 ${gexIndex >= 0 ? 'text-cyan-400' : 'text-amber-400'}`} />
-                    <span className="text-[13px] font-black font-jakarta tracking-[0.08em] text-slate-200">
+                    <span className="text-[14px] font-black font-jakarta tracking-[0.08em] text-slate-200">
                         GAMMA SHIELD
                     </span>
-                    <span className={`text-[10px] font-bold font-jakarta px-1.5 py-0.5 rounded-sm border ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-400 border-slate-500/30 bg-slate-500/10'}`}>
+                    <span className={`text-[12px] font-bold font-jakarta px-1.5 py-0.5 rounded-sm border ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
                         {confidence}
                     </span>
                 </div>
-                <span className={`text-[10px] font-bold font-jakarta px-2 py-0.5 rounded border ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-500 border-slate-600/30 bg-slate-600/10'}`}>
+                <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-400 border-slate-600/30 bg-slate-600/10'}`}>
                     {isMarketActive ? '● LIVE' : 'STANDBY'}
                 </span>
             </div>
@@ -192,7 +192,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                 {/* Column 1: GEX Pressure Index */}
                 <div className="flex flex-col items-center gap-2">
-                    <span className="text-[10px] font-bold font-jakarta tracking-[0.12em] text-slate-400 uppercase">
+                    <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">
                         Gamma Pressure
                     </span>
 
@@ -202,7 +202,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     </div>
 
                     {/* Level Badge */}
-                    <div className={`text-[10px] font-bold font-jakarta px-2 py-0.5 rounded-sm border ${gexLevel === 'LONG_GAMMA' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : gexLevel === 'SHORT_GAMMA' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-slate-400 border-slate-600/30 bg-slate-600/10'}`}>
+                    <div className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded-sm border ${gexLevel === 'LONG_GAMMA' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : gexLevel === 'SHORT_GAMMA' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
                         {gexLevel.replace('_', ' ')}
                     </div>
 
@@ -226,21 +226,21 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             )}
                         </div>
                         <div className="flex justify-between mt-1">
-                            <span className="text-[9px] font-jakarta text-red-400/50">-100</span>
-                            <span className="text-[9px] font-jakarta text-slate-500">0</span>
-                            <span className="text-[9px] font-jakarta text-emerald-400/50">+100</span>
+                            <span className="text-[12px] font-jakarta text-red-400/70">-100</span>
+                            <span className="text-[12px] font-jakarta text-slate-400">0</span>
+                            <span className="text-[12px] font-jakarta text-emerald-400/70">+100</span>
                         </div>
                     </div>
 
                     {/* Label */}
-                    <span className="text-[11px] font-jakarta text-slate-400 mt-0.5">
+                    <span className="text-[12px] font-jakarta text-slate-300 mt-0.5">
                         {gexLabel}
                     </span>
                 </div>
 
                 {/* Column 2: Squeeze Risk */}
                 <div className="flex flex-col items-center gap-2 border-x border-slate-700/25 px-2">
-                    <span className="text-[10px] font-bold font-jakarta tracking-[0.12em] text-slate-400 uppercase">
+                    <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">
                         Squeeze Risk
                     </span>
 
@@ -251,20 +251,20 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             <span className={`text-[18px] font-black font-jakarta tabular-nums leading-none ${getSqueezeColor(squeezeLevel)}`}>
                                 {squeezeRisk}
                             </span>
-                            <span className="text-[10px] font-jakarta text-slate-500">%</span>
+                            <span className="text-[12px] font-jakarta text-slate-400">%</span>
                         </div>
                     </div>
 
                     {/* Level Badge */}
-                    <div className={`text-[10px] font-bold font-jakarta px-2 py-0.5 rounded-sm border ${getSqueezeBadgeBg(squeezeLevel)}`}>
+                    <div className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded-sm border ${getSqueezeBadgeBg(squeezeLevel)}`}>
                         <span className={getSqueezeColor(squeezeLevel)}>{squeezeLevel}</span>
                     </div>
 
                     {/* Warning message at high levels */}
                     {squeezeRisk >= 70 && (
                         <div className="flex items-center gap-1 mt-0.5">
-                            <AlertTriangle className="w-3 h-3 text-red-400 animate-pulse" />
-                            <span className="text-[10px] font-jakarta text-red-400">
+                            <AlertTriangle className="w-3.5 h-3.5 text-red-400 animate-pulse" />
+                            <span className="text-[12px] font-jakarta text-red-400">
                                 급변동 경고
                             </span>
                         </div>
@@ -273,10 +273,10 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                 {/* Column 3: Trigger Band */}
                 <div className="flex flex-col gap-1.5">
-                    <span className="text-[10px] font-bold font-jakarta tracking-[0.12em] text-slate-400 uppercase text-center">
+                    <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase text-center">
                         Trigger Band
                     </span>
-                    <span className="text-[9px] font-jakarta text-slate-500 text-center -mt-1">
+                    <span className="text-[12px] font-jakarta text-slate-400 text-center -mt-1">
                         S&P 500
                     </span>
                     <TriggerBand
