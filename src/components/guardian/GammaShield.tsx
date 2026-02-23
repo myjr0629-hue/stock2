@@ -173,16 +173,33 @@ export default function GammaShield({ data, isMarketActive }: Props) {
         `}>
             {/* Header */}
             <div className="flex items-center justify-between px-4 pt-3 pb-2">
-                <div className="flex items-center gap-2">
-                    <Shield className={`w-4 h-4 ${gexIndex >= 0 ? 'text-cyan-400' : 'text-amber-400'}`} />
-                    <span className="text-[14px] font-black font-jakarta tracking-[0.08em] text-slate-200">
+                <div className="flex items-center gap-2 min-w-0">
+                    <Shield className={`w-4 h-4 shrink-0 ${gexIndex >= 0 ? 'text-cyan-400' : 'text-amber-400'}`} />
+                    <span className="text-[14px] font-black font-jakarta tracking-[0.08em] text-slate-200 shrink-0">
                         GAMMA SHIELD
                     </span>
-                    <span className={`text-[12px] font-bold font-jakarta px-1.5 py-0.5 rounded-sm border ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
+                    <span className={`text-[12px] font-bold font-jakarta px-1.5 py-0.5 rounded-sm border shrink-0 ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
                         {confidence}
                     </span>
+                    <span className="text-[12px] font-jakarta text-slate-300 truncate">
+                        · {(() => {
+                            // Priority: squeeze ≥ 45% → trigger proximity → GEX extreme → default
+                            if (squeezeRisk >= 45) return '옵션 매도자 손절 임박 — 폭발적 움직임 대비';
+                            if (currentPrice && resistanceWall && resistanceWall > 0) {
+                                const distToResist = ((resistanceWall - currentPrice) / currentPrice) * 100;
+                                if (distToResist <= 1.5 && distToResist > 0) return `S&P 옵션 벽 ${resistanceWall.toLocaleString()} 근접 — 돌파 시 급등, 실패 시 반락`;
+                            }
+                            if (currentPrice && supportWall && supportWall > 0) {
+                                const distToSupport = ((currentPrice - supportWall) / currentPrice) * 100;
+                                if (distToSupport <= 1.5 && distToSupport > 0) return `S&P 옵션 지지 ${supportWall.toLocaleString()} 근접 — 반등 또는 이탈 주시`;
+                            }
+                            if (gexIndex >= 20) return '대형 기관이 하락 방어 중 — 급락 가능성 낮음';
+                            if (gexIndex <= -20) return '기관 헤지가 변동을 키우는 중 — 급등락 주의';
+                            return '옵션 시장 균형 — 큰 변동 없이 횡보 가능성';
+                        })()}
+                    </span>
                 </div>
-                <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-400 border-slate-600/30 bg-slate-600/10'}`}>
+                <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border shrink-0 ml-2 ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-400 border-slate-600/30 bg-slate-600/10'}`}>
                     {isMarketActive ? '● LIVE' : 'STANDBY'}
                 </span>
             </div>
