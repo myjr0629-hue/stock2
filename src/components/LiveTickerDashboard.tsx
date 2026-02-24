@@ -353,7 +353,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // SSR data → SWR fallbackData → instant first render → background refresh
     const ssrFallback = React.useMemo(() => {
         if (!initialStockData || initialStockData.price === 0) return undefined;
-        const s = initialStockData.session;
+        const s = (initialStockData.session || '').toLowerCase() as string;
         return {
             price: initialStockData.price,
             prices: {

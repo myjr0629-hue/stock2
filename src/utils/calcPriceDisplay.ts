@@ -133,7 +133,9 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         activeExtType = 'PRE';
         activeExtLabel = 'PRE';
     } else if (s === 'REG' || s === 'RTH' || s === 'MARKET') {
-        activeExtPrice = extended?.preClose || prices?.prePrice || 0;
+        // [FIX] User specifically requested the live PRE price to be shown, not a stale preClose.
+        // We prioritize prePrice (which updates) over preClose (which gets locked at 9:30 AM).
+        activeExtPrice = extended?.prePrice || prices?.prePrice || extended?.preClose || 0;
         if (activeExtPrice > 0) {
             activeExtType = 'PRE_CLOSE';
             activeExtLabel = 'PRE CLOSE';
