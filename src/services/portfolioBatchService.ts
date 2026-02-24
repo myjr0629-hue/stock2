@@ -50,6 +50,7 @@ async function getStockDataLight(symbol: string) {
     const extChangePercent = isExtended ? (changeBase !== 0 ? ((latestPrice - changeBase) / changeBase) * 100 : 0) : undefined;
     const regChange = t?.todaysChange || (todayClose - prevClose);
     const regChangePercent = t?.todaysChangePerc || (prevClose !== 0 ? ((todayClose - prevClose) / prevClose) * 100 : 0);
+    const preMarketVolume = session === 'pre' ? (t?.min?.v || t?.day?.v || 0) : 0; // [V5.5]
 
     const rsi = rsiRes?.results?.values?.[0]?.value ?? null;
 
@@ -81,6 +82,7 @@ async function getStockDataLight(symbol: string) {
         vwap: t?.day?.vw,
         history: sparkline.map((close: number) => ({ close })),
         dailyResults,
+        preMarketVolume, // [V5.5]
     };
 }
 
@@ -232,6 +234,10 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
 
             if (!stockData) return { ticker, error: 'Stock data unavailable' };
 
+            // [V5.5] Determine OpEx Week
+            const d = new Date();
+            const isOpExWeek = d.getDay() <= 5 && d.getDate() >= 15 && d.getDate() <= 21;
+
             const sessionMap: Record<string, AlphaSession> = { pre: 'PRE', reg: 'REG', post: 'POST' };
             const alphaSession: AlphaSession = sessionMap[stockData.session] || 'CLOSED';
             const isREG = alphaSession === 'REG';
@@ -279,12 +285,16 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                     callWall: alphaCallWall, putFloor: alphaPutFloor, gammaFlipLevel: alphaGammaFlip,
                     rawChain: opts?.rawChain || [], squeezeScore: alphaSqueezeScore, relVol,
                     optionsDataAvailable: !!opts, preMarketChangePct: (stockData as any).extendedChangePct ?? null,
+                    preMarketVolume: (stockData as any).preMarketVolume ?? null, // [V5.5]
+                    isOpExWeek, // [V5.5]
                 });
             } catch (e) {
                 console.error(`[Portfolio Batch] Engine failed for ${ticker}:`, e);
                 alphaResult = calculateAlphaScore({
                     ticker: ticker.toUpperCase(), session: alphaSession, price: stockData.price || 0,
                     prevClose: stockData.prevClose || 0, changePct, preMarketChangePct: (stockData as any).extendedChangePct ?? null,
+                    preMarketVolume: (stockData as any).preMarketVolume ?? null,
+                    isOpExWeek,
                 });
             }
 

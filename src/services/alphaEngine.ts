@@ -83,11 +83,13 @@ export interface AlphaInput {
     hasFOMCSoon?: boolean;
     eventDescription?: string | null;
 
-    // === PRE-MARKET VALIDATION data (V3.4) ===
+    // === PRE-MARKET VALIDATION data (V3.4, V5.5) ===
     preMarketPrice?: number | null;       // Pre-market 현재가
     preMarketChangePct?: number | null;   // Pre-market 변동률 (vs prevClose)
+    preMarketVolume?: number | null;      // Pre-market 거래량 (V5.5 가짜 갭업 방어)
 
     // === CONTEXT (optional enrichment) ===
+    isOpExWeek?: boolean;                 // [V5.5] 옵션 만기 주간 여부 (Call Wall 롤오버 노이즈 방어)
     wasInPrevReport?: boolean;
     prevAlphaScore?: number | null;
     rsi14?: number | null;
@@ -139,7 +141,8 @@ export interface AlphaResult {
 // CONSTANTS
 // ============================================================================
 
-const ENGINE_VERSION = '4.6.0';
+const ENGINE_VERSION = '5.5.0';
+const LOW_VOLUME_THRESHOLD = 100000; // [V3] Minimal volume guard max scores
 
 // Pillar max scores
 const PILLAR_MAX = {
@@ -962,6 +965,24 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
         }
     }
 
+    // [V3] Gate 1: CALL WALL REJECTION
+    // 현재가가 Call Wall에 너무 가까우면(1.5% 이내) 50점 미만으로 압사 (상단 저항)
+    const callWall = input.callWall;
+    const price = input.price;
+    if (callWall && callWall > 0 && price < callWall) {
+        const dist = ((callWall - price) / price) * 100;
+        if (dist <= 1.5) {
+            // [V5.5 엔진 튜닝] 옵션 만기 주간(OpEx)에는 Call Wall이 롤오버되면서 왜곡되므로 페널티 완화
+            if (input.isOpExWeek) {
+                gatesApplied.push('CALL_WALL_REJECT_OPEX_RELIEF');
+                score = Math.min(score, 60); // 40점에서 60점으로 완화 (치명상 방지)
+            } else {
+                gatesApplied.push('CALL_WALL_REJECT');
+                score = Math.min(score, 40);
+            }
+        }
+    }
+
     // Gate 3: CALL WALL CONTEXT — [V3.3] 돌파 vs 저항 교차 분석
     // "근처니까 탈락"이 아니라 GEX/Flow/Volume으로 방향 판단
     if (input.callWall && input.callWall > 0 && input.price > 0) {
@@ -1083,43 +1104,50 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
     }
 
     // ================================================================
-    // [V5] Gate 11: PM VERIFICATION — Phase 2 검증 레이어
+    // [V5, V5.5] Gate 11: PM VERIFICATION — Phase 2 검증 레이어
     // 기본분석(직전장) 결과를 PM 실시간 데이터로 확인/부정
     // 철학: 분석은 직전장, 검증은 PM, 최종 확정은 둘의 조합
     // ================================================================
     const pmChg = input.preMarketChangePct;
-    if (pmChg !== null && pmChg !== undefined) {
-        const baseDir = changePct >= 0 ? 1 : -1; // 직전장 방향
-        const pmDir = pmChg >= 0 ? 1 : -1;       // PM 방향
-        const pmAbs = Math.abs(pmChg);
-        const sameDir = baseDir === pmDir;
+    const pmVol = input.preMarketVolume || 0;
 
-        if (sameDir && pmAbs >= 3 && pmAbs < 15) {
-            // PM 3-15%: 직전장과 같은 방향으로 적정 갭 → 강한 확인
-            score = score + 5;
-            gatesApplied.push('PM_CONFIRM');
-        } else if (sameDir && pmAbs >= 1 && pmAbs < 3) {
-            // PM 1-3%: 약한 확인
-            score = score + 3;
-            gatesApplied.push('PM_SOFT_CONFIRM');
-        } else if (sameDir && pmAbs >= 15 && pmAbs < 20) {
-            // PM 15-20%: 확인되지만 갭 부담 있음
-            score = score + 2;
-            gatesApplied.push('PM_MILD_CONFIRM');
-        } else if (sameDir && pmAbs >= 20) {
-            // PM 20%+: Gap Trap 위험 — Sell the News
-            // 보너스 없음 + 경고 태그
-            gatesApplied.push('EXTREME_GAP_RISK');
-        } else if (!sameDir && pmAbs >= 3) {
-            // PM이 직전장 반대 방향으로 3%+ → 기본분석 부정
-            score = Math.min(score, 55);
-            gatesApplied.push('PM_REJECT');
-        } else if (!sameDir && pmAbs >= 1) {
-            // PM이 반대 방향 1-3% → 약한 부정, 가벼운 감점
-            score = score - 3;
-            gatesApplied.push('PM_DIVERGE');
+    if (pmChg !== null && pmChg !== undefined) {
+        // [V5.5 엔진 튜닝] 프리마켓 거래량이 5만 주 미만이면 갭(Gap) 신호 무시 (Liquidity Trap Defense)
+        if (pmVol < 50000 && Math.abs(pmChg) >= 1) {
+            gatesApplied.push('PM_IGNORED_LOW_VOL');
+        } else {
+            const baseDir = changePct >= 0 ? 1 : -1; // 직전장 방향
+            const pmDir = pmChg >= 0 ? 1 : -1;       // PM 방향
+            const pmAbs = Math.abs(pmChg);
+            const sameDir = baseDir === pmDir;
+
+            if (sameDir && pmAbs >= 3 && pmAbs < 15) {
+                // PM 3-15%: 직전장과 같은 방향으로 적정 갭 → 강한 확인
+                score = score + 5;
+                gatesApplied.push('PM_CONFIRM');
+            } else if (sameDir && pmAbs >= 1 && pmAbs < 3) {
+                // PM 1-3%: 약한 확인
+                score = score + 3;
+                gatesApplied.push('PM_SOFT_CONFIRM');
+            } else if (sameDir && pmAbs >= 15 && pmAbs < 20) {
+                // PM 15-20%: 확인되지만 갭 부담 있음
+                score = score + 2;
+                gatesApplied.push('PM_MILD_CONFIRM');
+            } else if (sameDir && pmAbs >= 20) {
+                // PM 20%+: Gap Trap 위험 — Sell the News
+                // 보너스 없음 + 경고 태그
+                gatesApplied.push('EXTREME_GAP_RISK');
+            } else if (!sameDir && pmAbs >= 3) {
+                // PM이 직전장 반대 방향으로 3%+ → 기본분석 부정
+                score = Math.min(score, 55);
+                gatesApplied.push('PM_REJECT');
+            } else if (!sameDir && pmAbs >= 1) {
+                // PM이 반대 방향 1-3% → 약한 부정, 가벼운 감점
+                score = score - 3;
+                gatesApplied.push('PM_DIVERGE');
+            }
+            // PM < 1%: 미세 변동 → gate 개입 없음
         }
-        // PM < 1%: 미세 변동 → gate 개입 없음
     }
 
     return { adjustedScore: score, gatesApplied };

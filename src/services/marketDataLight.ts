@@ -17,12 +17,14 @@ export async function getStockDataLight(symbol: string) {
     const et = getETNow();
     const etTime = et.hour + et.minute / 60;
 
-    let session: 'pre' | 'reg' | 'post' = 'reg';
+    let session: 'pre' | 'reg' | 'post' | 'closed' = 'reg';
     if (!et.isWeekend) {
         if (etTime >= 4 && etTime < 9.5) session = 'pre';
         else if (etTime >= 16 && etTime < 20) session = 'post';
         else if (etTime >= 9.5 && etTime < 16) session = 'reg';
         else session = (etTime >= 20 || etTime < 4) ? 'post' : 'reg';
+    } else {
+        session = 'closed';
     }
 
     const prevClose = t?.prevDay?.c || 0;

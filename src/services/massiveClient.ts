@@ -217,7 +217,7 @@ export async function fetchMassive(
                     fetchOptions = CACHE_POLICY.REPORT_GEN;
                 } else if (!fetchOptions) {
                     // Legacy default for non-critical
-                    fetchOptions = { next: { revalidate: 30 } };
+                    fetchOptions = { next: { revalidate: 30 } } as any;
                 }
 
                 // Create a timeout signal (15 seconds default)
@@ -716,7 +716,7 @@ export async function fetchShortInterest(ticker: string): Promise<ShortInterestD
         const data = await fetchMassive(endpoint, {
             ticker,
             limit: '50',  // Get enough to find latest
-            'settlement_date.gte': '2024-01-01'  // Only recent data
+            "settlement_date.gte": '2024-01-01'  // Only recent data
         }, true);
         const results = data.results || [];
         console.log(`[SI%] Short Interest for ${ticker}: ${results.length} records`);

@@ -24,7 +24,7 @@ export interface StockData {
     dayHigh?: number; dayLow?: number; volume?: number;
     sector?: string; industry?: string; rsi?: number;
     return3d?: number; marketCap?: number; description?: string;
-    extPrice?: number; extChange?: number; extChangePercent?: number; session?: 'pre' | 'reg' | 'post';
+    extPrice?: number; extChange?: number; extChangePercent?: number; session?: 'pre' | 'reg' | 'post' | 'closed';
     vwap?: number;
     prevClose?: number; // [Phase 31] Previous day's close price
     regPrice?: number; regChange?: number; regChangePercent?: number;

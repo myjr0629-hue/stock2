@@ -420,11 +420,12 @@ export const useDashboardStore = create<DashboardState>()(
                                     },
                                     extended: {
                                         ...existing.extended,
-                                        postPrice: q.extendedPrice > 0 && q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
-                                        postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : existing.extended?.postChangePct,
-                                        // [RESTORED] Keep existing prePrice during REG as "PRE CLOSE" badge
-                                        prePrice: q.extendedPrice > 0 && q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
-                                        preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
+                                        postPrice: q.extendedPrice > 0 && q.extendedLabel === 'POST' ? q.extendedPrice : (q.session === 'regular' ? null : existing.extended?.postPrice),
+                                        postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : (q.session === 'regular' ? null : existing.extended?.postChangePct),
+                                        // [FIX] In REG session, do NOT keep stale prePrice from yesterday's cache.
+                                        // If the live feed returns 0 extendedPrice during REG, completely NUKE the cached prePrice.
+                                        prePrice: q.extendedPrice > 0 && q.extendedLabel === 'PRE' ? q.extendedPrice : (q.session === 'regular' ? null : existing.extended?.prePrice),
+                                        preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : (q.session === 'regular' ? null : existing.extended?.preChangePct),
                                     },
                                 };
                                 changed = true;

@@ -748,5 +748,20 @@
       }
     ],
     "calculated": false
+  },
+  {
+    "date": "2026-02-24",
+    "reportType": "draft",
+    "sessionType": "regular",
+    "timestamp": "2026-02-24T14:45:28.525Z",
+    "tickers": [
+      {
+        "symbol": "THR",
+        "rank": 1,
+        "baselinePrice": 56.215,
+        "alphaScore": 0
+      }
+    ],
+    "calculated": false
   }
 ]
