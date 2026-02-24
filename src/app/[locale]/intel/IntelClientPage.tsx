@@ -1086,14 +1086,14 @@ function processTickerData(data: any): any {
         session, relVol: data.relVol || 1, history3d: data.history3d || []
     };
 }
-function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, locale?: string }) {
+function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], locale?: string }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
 
     // [RESTORED] Components now fetch data independently (same as Flow/Command pages)
     // [V7.0] Sector Intel shared data for new components
-    const sectorData = useIntelSharedData();
+    const sectorData = useIntelSharedData(initialM7Data, initialPAIData);
 
     // State
     const [report, setReport] = useState<any>(initialReport || null);
@@ -1997,7 +1997,7 @@ function IntelContent({ initialReport, locale = 'en' }: { initialReport: any, lo
     );
 }
 
-export default function IntelClientPage({ initialReport, locale = 'en' }: { initialReport: any, locale?: string }) {
+export default function IntelClientPage({ initialReport, initialM7Data, initialPAIData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], locale?: string }) {
     return (
         <React.Suspense fallback={
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -2007,7 +2007,7 @@ export default function IntelClientPage({ initialReport, locale = 'en' }: { init
                 </div>
             </div>
         }>
-            <IntelContent initialReport={initialReport} locale={locale} />
+            <IntelContent initialReport={initialReport} initialM7Data={initialM7Data} initialPAIData={initialPAIData} locale={locale} />
         </React.Suspense>
     );
 }

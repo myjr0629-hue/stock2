@@ -56,10 +56,13 @@ async function safeFetch(url: string): Promise<any> {
     } catch { return null; }
 }
 
-export function useIntelSharedData(): IntelSharedData & { refresh: () => void } {
-    const [m7Data, setM7Data] = useState<IntelQuote[]>([]);
-    const [physicalAIData, setPhysicalAIData] = useState<IntelQuote[]>([]);
-    const [loading, setLoading] = useState(true);
+export function useIntelSharedData(
+    initialM7Data?: IntelQuote[],
+    initialPAIData?: IntelQuote[]
+): IntelSharedData & { refresh: () => void } {
+    const [m7Data, setM7Data] = useState<IntelQuote[]>(initialM7Data || []);
+    const [physicalAIData, setPhysicalAIData] = useState<IntelQuote[]>(initialPAIData || []);
+    const [loading, setLoading] = useState(!(initialM7Data?.length && initialPAIData?.length));
     const [refreshing, setRefreshing] = useState(false);
     const [optionsLoading, setOptionsLoading] = useState(true);
     const [fetchedAt, setFetchedAt] = useState<string | null>(null);
@@ -200,8 +203,13 @@ export function useIntelSharedData(): IntelSharedData & { refresh: () => void } 
         if (isInitialized.current) return;
         isInitialized.current = true;
 
-        // Phase 1: Instant prices
-        fetchFast();
+        if (initialM7Data?.length && initialPAIData?.length) {
+            // [SSR HYDRATED] Skip redundant Phase 1 fetch
+            setFetchedAt(new Date().toISOString());
+        } else {
+            // Phase 1: Instant prices (Fallback if CSR)
+            fetchFast();
+        }
 
         // Phase 2: Full data in background (non-blocking)
         fetchFull();

@@ -43,15 +43,20 @@ const fetcher = (url: string) => fetch(url).then(res => {
     return res.json();
 });
 
-export function useWatchlist() {
+export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesData?: any) {
     // Server-side watchlist from Supabase
-    const [watchlistData, setWatchlistData] = useState<WatchlistData>({ items: [], updatedAt: new Date().toISOString() });
-    const [storeLoading, setStoreLoading] = useState(true);
+    const [watchlistData, setWatchlistData] = useState<WatchlistData>({
+        items: initialWatchlist || [],
+        updatedAt: new Date().toISOString()
+    });
+    const [storeLoading, setStoreLoading] = useState(!initialWatchlist);
 
-    // Load watchlist from Supabase on mount
+    // Load watchlist from Supabase on mount only if there is no initial watch list
     useEffect(() => {
-        loadWatchlist();
-    }, []);
+        if (!initialWatchlist) {
+            loadWatchlist();
+        }
+    }, [initialWatchlist]);
 
     const loadWatchlist = async () => {
         setStoreLoading(true);
@@ -83,6 +88,7 @@ export function useWatchlist() {
         tickerString ? `/api/live/quotes?symbols=${tickerString}` : null,
         fetcher,
         {
+            fallbackData: initialQuotesData && Object.keys(initialQuotesData).length > 0 ? { data: initialQuotesData } : undefined,
             refreshInterval: 10000,
             revalidateOnFocus: false,
             dedupingInterval: 3000,

@@ -1,32 +1,54 @@
-
 import React, { Suspense } from 'react';
 import IntelClientPage from './IntelClientPage';
+import { GET as getFastData } from '@/app/api/intel/fast/route';
 
 interface PageProps {
     params: Promise<{ locale: string }>;
 }
 
-// [PERF v2] SSR prefetch REMOVED — was blocking HTML delivery for 2-3s.
-// Client-side useIntelSharedData + fetchReport already loads data in parallel.
-// Removing SSR prefetch lets Next.js send HTML instantly (no server-side await).
+async function fetchInitialSectorData(sector: string) {
+    try {
+        const url = `http://localhost/api/intel/fast?sector=${sector}`;
+        const req = new Request(url);
+        const res = await getFastData(req);
+        if (res.ok) {
+            const json = await res.json();
+            return json.data || [];
+        }
+        console.warn(`[Intel SSR] Fast API returned !ok status for ${sector}:`, res.status);
+    } catch (e) {
+        console.error(`[Intel SSR] Error fetching ${sector} initial data:`, e);
+    }
+    return [];
+}
+
+export const dynamic = 'force-dynamic';
 
 export default async function IntelPage({ params }: PageProps) {
     const { locale } = await params;
 
+    const [m7Data, paiData] = await Promise.all([
+        fetchInitialSectorData('m7'),
+        fetchInitialSectorData('physical_ai')
+    ]);
+
     return (
         <div className="flex flex-col min-h-screen bg-[#0a1120]">
-            <Suspense fallback={null}>
-            </Suspense>
             <div className="flex-1 relative">
                 <Suspense fallback={
                     <div className="min-h-screen bg-slate-950 flex items-center justify-center">
                         <div className="text-center">
                             <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                            <p className="text-slate-400 text-sm">Loading Intel...</p>
+                            <p className="text-slate-400 text-sm">Initializing Tactical Board...</p>
                         </div>
                     </div>
                 }>
-                    <IntelClientPage initialReport={null} locale={locale} />
+                    <IntelClientPage
+                        initialReport={null}
+                        initialM7Data={m7Data}
+                        initialPAIData={paiData}
+                        locale={locale}
+                    />
                 </Suspense>
             </div>
         </div>
