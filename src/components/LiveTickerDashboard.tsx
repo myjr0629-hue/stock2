@@ -351,14 +351,25 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // --- Live Data State ---
     // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
     // SSR data → SWR fallbackData → instant first render → background refresh
-    const ssrFallback = React.useMemo(() => (initialStockData && initialStockData.price > 0) ? {
-        prices: {
-            regularCloseToday: initialStockData.price,
-            prevClose: initialStockData.prevClose || null
-        },
-        session: initialStockData.session === 'reg' ? 'REG' : initialStockData.session === 'pre' ? 'PRE' : initialStockData.session === 'post' ? 'POST' : 'CLOSED',
-        changePercent: initialStockData.changePercent
-    } : undefined, [initialStockData]);
+    const ssrFallback = React.useMemo(() => {
+        if (!initialStockData || initialStockData.price === 0) return undefined;
+        const s = initialStockData.session;
+        return {
+            price: initialStockData.price,
+            prices: {
+                regularCloseToday: s === 'reg' ? initialStockData.price : undefined,
+                prevClose: initialStockData.prevClose || null,
+                prePrice: s === 'pre' ? initialStockData.price : undefined,
+                postPrice: s === 'post' || s === 'closed' ? initialStockData.price : undefined,
+            },
+            extended: {
+                prePrice: s === 'pre' ? initialStockData.price : undefined,
+                postPrice: s === 'post' || s === 'closed' ? initialStockData.price : undefined,
+            },
+            session: s === 'reg' ? 'REG' : s === 'pre' ? 'PRE' : s === 'post' ? 'POST' : 'CLOSED',
+            changePercent: initialStockData.changePercent
+        };
+    }, [initialStockData]);
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
         refreshInterval: 5000,
     });

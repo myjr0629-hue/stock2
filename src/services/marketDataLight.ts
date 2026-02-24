@@ -52,6 +52,10 @@ export async function getStockDataLight(symbol: string) {
         prevClose,
         prevDayVolume: t?.prevDay?.v || 0,
         session,
+        extended: {
+            prePrice: session === 'pre' ? latestPrice : null,
+            postPrice: (session === 'post' || session === 'closed') ? latestPrice : null,
+        },
         rsi,
         return3d,
         vwap: t?.day?.vw,

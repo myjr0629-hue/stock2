@@ -132,23 +132,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         fetchInitialData();
     }, [ticker, range]);
 
-    // [FIX V2] Real-time Chart Update: Update last data point with currentPrice
-    // Added chartData.length to dependency to ensure this runs after new data loads
-    useEffect(() => {
-        if (range === '1d' && currentPrice && chartData && chartData.length > 0) {
-            setChartData(prev => {
-                if (!prev || prev.length === 0) return prev;
-                const newData = [...prev];
-                const lastIdx = newData.length - 1;
-                // Only update if the price actually changed
-                if (newData[lastIdx].close !== currentPrice) {
-                    newData[lastIdx] = { ...newData[lastIdx], close: currentPrice };
-                    return newData;
-                }
-                return prev; // No change, don't trigger re-render
-            });
-        }
-    }, [currentPrice, range, chartData.length]); // [FIX] Added chartData.length
+
 
 
     const handleRangeChange = async (value: string) => {
@@ -646,10 +630,6 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                         <g data-price-badge="prevclose-left">
                                                             <rect x={x - 57} y={y - 10} width={54} height={20} rx={4} fill="#3b82f6" />
                                                             <text x={x - 30} y={y + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">
-                                                                {prevClose.toFixed(2)}
-                                                            </text>
-                                                            <rect x={rightX + 5} y={y - 10} width={54} height={20} rx={4} fill="#3b82f6" />
-                                                            <text x={rightX + 32} y={y + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">
                                                                 {prevClose.toFixed(2)}
                                                             </text>
                                                         </g>
