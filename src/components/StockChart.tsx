@@ -419,28 +419,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                         </span>
                     )}
                 </CardTitle>
-                {/* RSI & 3D Return Indicators */}
-                <div className="flex items-center gap-3 text-[11px]">
-                    {rsi !== undefined && (
-                        <div className="flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1 rounded border border-white/5">
-                            <span className="text-slate-500 font-bold">RSI(14)</span>
-                            <span className={`font-black ${rsi > 70 ? 'text-rose-400' : rsi < 30 ? 'text-emerald-400' : 'text-white'}`}>
-                                {rsi.toFixed(1)}
-                            </span>
-                            <span className={`text-[10px] ${rsi > 70 ? 'text-rose-500' : rsi < 30 ? 'text-emerald-500' : 'text-slate-500'}`}>
-                                {rsi > 70 ? td('overbought') : rsi < 30 ? td('oversold') : td('rsiNeutral')}
-                            </span>
-                        </div>
-                    )}
-                    {return3d !== undefined && (
-                        <div className="flex items-center gap-1.5 bg-slate-800/80 px-2.5 py-1 rounded border border-white/5">
-                            <span className="text-slate-500 font-bold">3D Return</span>
-                            <span className={`font-black ${return3d >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {return3d > 0 ? '+' : ''}{return3d.toFixed(2)}%
-                            </span>
-                        </div>
-                    )}
-                </div>
+
                 <Tabs value={range} onValueChange={handleRangeChange}>
                     <TabsList className="h-8 bg-slate-800 p-1 gap-1 rounded-md">
                         {[
