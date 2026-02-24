@@ -118,6 +118,8 @@ interface DashboardState {
     fetchPriceOnly: (tickerList?: string[]) => Promise<void>;
     // [P0] Immediate single-ticker fetch on click
     fetchSingleTicker: (ticker: string) => Promise<void>;
+    // [SSR] Initialize store with server-fetched props
+    initializeStore: (dashboardTickers: string[], quotes: any) => void;
 }
 
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
@@ -194,6 +196,51 @@ export const useDashboardStore = create<DashboardState>()(
                     console.error('[BOARD] Supabase toggle failed, reverting:', err);
                     set({ dashboardTickers: current }); // revert on error
                 });
+            },
+
+            initializeStore: (dashboardTickers, quotes) => {
+                const currentTickers = { ...get().tickers };
+
+                // Map API session strings
+                const sessionMap: Record<string, string> = {
+                    'pre': 'PRE', 'regular': 'REG', 'post': 'POST', 'closed': 'CLOSED',
+                    'PRE': 'PRE', 'REG': 'REG', 'POST': 'POST', 'CLOSED': 'CLOSED'
+                };
+
+                if (quotes && typeof quotes === 'object') {
+                    for (const [ticker, q] of Object.entries(quotes) as [string, any][]) {
+                        if (!q) continue;
+                        if (!currentTickers[ticker]) {
+                            currentTickers[ticker] = {
+                                underlyingPrice: q.price || 0,
+                                changePercent: q.changesPercentage || 0,
+                                prevClose: q.previousClose || 0,
+                                regularCloseToday: null,
+                                intradayChangePct: null,
+                                display: null,
+                                prevChangePct: null,
+                                prevRegularClose: null,
+                                extended: null,
+                                session: (q.marketState && sessionMap[q.marketState]) || 'REG',
+                                netGex: null, maxPain: null, pcr: null, isGammaSqueeze: false,
+                                gammaFlipLevel: null, atmIv: null, atmIvExpiry: null,
+                                squeezeScore: null, squeezeRisk: null,
+                                vwap: null, darkPoolPct: null, shortVolPct: null,
+                                zeroDtePct: null, impliedMovePct: null, impliedMoveDir: null,
+                                gammaConcentration: null, volumePcr: null, volumePcrCallVol: null,
+                                volumePcrPutVol: null, levels: null, expiration: null, options_status: null
+                            };
+                        } else {
+                            currentTickers[ticker] = deepMergeTicker(currentTickers[ticker], {
+                                underlyingPrice: q.price,
+                                changePercent: q.changesPercentage,
+                                prevClose: q.previousClose,
+                                session: (q.marketState && sessionMap[q.marketState]) || currentTickers[ticker].session
+                            });
+                        }
+                    }
+                }
+                set({ dashboardTickers, tickers: currentTickers });
             },
 
             isDashboardTicker: (ticker) => get().dashboardTickers.includes(ticker.toUpperCase()),
