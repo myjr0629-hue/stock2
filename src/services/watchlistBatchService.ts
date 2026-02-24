@@ -114,10 +114,75 @@ async function getStockDataLight(symbol: string) {
 // Exported separately so it can be called seamlessly during SSR (Server Components)
 // without creating mock Request objects or failing on absolute URL resolution
 // ============================================================================
-export async function processWatchlistBatch(tickers: string[]) {
+export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'price' = 'full') {
     const startTime = Date.now();
 
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
+
+    // ═══ [PRICE-ONLY FAST PATH] Synchronous SSR Data (Under 200ms) ═══
+    if (mode === 'price') {
+        const snapshotData = await fetchMassive(
+            `/v2/snapshot/locale/us/markets/stocks/tickers`,
+            { tickers: tickers.join(',') }
+        ).catch(() => null);
+
+        const { getMarketStatusSSOT } = await import('@/services/marketStatusProvider');
+        const marketStatus = await getMarketStatusSSOT();
+        const currentSession = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
+
+        const results = tickers.map(ticker => {
+            const snap = (snapshotData?.tickers || []).find((t: any) => t.ticker === ticker);
+            if (!snap) return { ticker, realtime: { price: 0, changePct: 0 } };
+
+            const liveLast = snap.lastTrade?.p || 0;
+            const dayClose = snap.day?.c || 0;
+            const prevDayClose = snap.prevDay?.c || 0;
+
+            let displayPrice = 0;
+            if (currentSession === 'regular') {
+                displayPrice = liveLast || dayClose || prevDayClose;
+            } else if (currentSession === 'pre') {
+                displayPrice = prevDayClose;
+            } else {
+                displayPrice = dayClose || prevDayClose; // post or closed
+            }
+
+            let changePct = snap.todaysChangePerc || 0;
+            if (currentSession !== 'regular') {
+                if (dayClose > 0 && prevDayClose > 0) {
+                    changePct = ((dayClose - prevDayClose) / prevDayClose) * 100;
+                }
+            }
+
+            let extendedPrice: number | null = null;
+            let extendedLabel = undefined;
+            if (currentSession === 'pre') {
+                const prePrice = snap.min?.c || liveLast;
+                if (prePrice > 0) { extendedPrice = prePrice; extendedLabel = 'PRE'; }
+            } else if (currentSession === 'post' || currentSession === 'closed') {
+                const postPrice = snap.afterHours?.p || snap.min?.c || liveLast;
+                if (postPrice > 0) { extendedPrice = postPrice; extendedLabel = 'POST'; }
+            }
+
+            return {
+                ticker,
+                realtime: {
+                    price: displayPrice,
+                    changePct,
+                    session: currentSession === 'regular' ? 'reg' : currentSession,
+                    extendedPrice: extendedPrice || null,
+                    extendedChangePct: (extendedPrice && extendedPrice > 0 && displayPrice > 0)
+                        ? ((extendedPrice - displayPrice) / displayPrice) * 100 : null,
+                    extendedLabel
+                }
+            };
+        });
+
+        return {
+            results,
+            meta: { count: tickers.length, elapsed: Date.now() - startTime, source: 'polygon_snapshot_fast' }
+        };
+    }
 
     // ═══ [CACHE WARMER] Cache-first fast path ═══
     // If all tickers have pre-warmed analysis in Redis, return cached analysis + live prices

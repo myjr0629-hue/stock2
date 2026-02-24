@@ -7,8 +7,8 @@ async function getInitialFullData(tickers: string[]) {
     if (!tickers || tickers.length === 0) return [];
     try {
         // Construct a direct function call to leverage the existing internal API logic safely during SSR
-        // This calculates Alpha, Whale, maxPain, flow, etc., for all tickers in parallel
-        const payload = await processPortfolioBatch(tickers, 'full');
+        // [PERF] Only fetch lightweight price/session data synchronously (200ms) to unblock the UI instantly
+        const payload = await processPortfolioBatch(tickers, 'price');
         return payload.results || [];
     } catch (e) {
         console.error('[Portfolio SSR] Failed to fetch initial full data:', e);

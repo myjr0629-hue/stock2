@@ -8,8 +8,9 @@ async function getInitialFullData(tickers: string[]) {
     if (!tickers || tickers.length === 0) return [];
     try {
         // Construct a direct function call to leverage the existing internal API logic safely during SSR
-        // This calculates Alpha, Whale, maxPain, flow, etc., for all tickers in parallel
-        const payload = await processWatchlistBatch(tickers);
+        // [PERF] Only fetch lightweight price/session data synchronously (200ms) to unblock the UI instantly
+        // The client will fetch the heavy Alpha/Whale data asynchronously in the background.
+        const payload = await processWatchlistBatch(tickers, 'price');
         return payload.results || [];
     } catch (e) {
         console.error('[Watchlist SSR] Failed to fetch initial full data:', e);
