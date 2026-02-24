@@ -1,22 +1,15 @@
 import PortfolioClientPage from './PortfolioClientPage';
 import { getPortfolioServer } from '@/lib/storage/portfolioStoreServer';
-import { GET as getPortfolioBatch } from '@/app/api/portfolio/batch/route';
+import { processPortfolioBatch } from '@/services/portfolioBatchService';
 
 // Fetch FULL portfolio data to completely eliminate progressive loading layout shifts (no dashes `-`)
 async function getInitialFullData(tickers: string[]) {
     if (!tickers || tickers.length === 0) return [];
     try {
-        // Construct a dummy request to leverage the existing internal API logic
+        // Construct a direct function call to leverage the existing internal API logic safely during SSR
         // This calculates Alpha, Whale, maxPain, flow, etc., for all tickers in parallel
-        const url = `http://localhost/api/portfolio/batch?tickers=${tickers.join(',')}`;
-        const req = new Request(url);
-
-        const res = await getPortfolioBatch(req);
-        if (res.ok) {
-            const json = await res.json();
-            return json.results || [];
-        }
-        console.warn('[Portfolio SSR] Batch internal fetch returned !ok status:', res.status);
+        const payload = await processPortfolioBatch(tickers, 'full');
+        return payload.results || [];
     } catch (e) {
         console.error('[Portfolio SSR] Failed to fetch initial full data:', e);
     }

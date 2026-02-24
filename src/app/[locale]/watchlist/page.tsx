@@ -1,23 +1,16 @@
 import React from 'react';
 import WatchlistClientPage from './WatchlistClientPage';
 import { getWatchlistServer } from '@/lib/storage/watchlistStoreServer';
-import { GET as getWatchlistBatch } from '@/app/api/watchlist/batch/route';
+import { processWatchlistBatch } from '@/services/watchlistBatchService';
 
 // Fetch FULL watchlist data to completely eliminate progressive loading layout shifts (no dashes `-`)
 async function getInitialFullData(tickers: string[]) {
     if (!tickers || tickers.length === 0) return [];
     try {
-        // Construct a dummy request to leverage the existing internal API logic
+        // Construct a direct function call to leverage the existing internal API logic safely during SSR
         // This calculates Alpha, Whale, maxPain, flow, etc., for all tickers in parallel
-        const url = `http://localhost/api/watchlist/batch?tickers=${tickers.join(',')}`;
-        const req = new Request(url);
-
-        const res = await getWatchlistBatch(req);
-        if (res.ok) {
-            const json = await res.json();
-            return json.results || [];
-        }
-        console.warn('[Watchlist SSR] Batch internal fetch returned !ok status:', res.status);
+        const payload = await processWatchlistBatch(tickers);
+        return payload.results || [];
     } catch (e) {
         console.error('[Watchlist SSR] Failed to fetch initial full data:', e);
     }
