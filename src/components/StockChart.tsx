@@ -477,7 +477,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             if (isIntraday && prevClose !== undefined && Math.abs(value - prevClose) < threshold) return '';
                                             return `${value.toFixed(2)}`;
                                         }}
-                                        width={50}
+                                        width={65}
                                         dx={0}
                                     />
                                     <Tooltip
