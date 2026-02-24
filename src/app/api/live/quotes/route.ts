@@ -81,26 +81,25 @@ export async function GET(request: Request) {
 
             const todaysChangePerc = S.todaysChangePerc || 0;
 
-            // [FIX V2] Session-aware changePct calculation
-            // PROBLEM: Polygon's todaysChangePerc uses the LATEST trade (including after-hours)
-            // vs prevDay.c. During POST, this gives e.g. +1.81% (post-market price) instead of
-            // the correct +1.63% (regular session close). Since we display dayClose as the main price
-            // during POST/CLOSED, the changePct must match: dayClose vs prevDayClose.
-            //
             // REG: Use todaysChangePerc (live last trade is the correct reference)
-            // PRE: Calculate from day.c vs prevDay.c (regular session = yesterday's close)
-            // POST/CLOSED: Calculate from day.c vs prevDay.c (regular session close, NOT post-market)
+            // PRE/POST/CLOSED: Calculate from day.c vs prevDay.c (regular session close)
+            // [FIX] During PRE, day.c might equal prevDay.c. If so, don't force it to 0. Use todaysChangePerc as fallback if day.c === prevDay.c
             let changePercent = 0;
             if (session === 'regular') {
                 // During regular hours: Polygon's live todaysChangePerc is accurate
                 changePercent = todaysChangePerc !== 0 ? todaysChangePerc
                     : ((liveLast > 0 && prevDayClose > 0) ? ((liveLast - prevDayClose) / prevDayClose) * 100 : 0);
             } else {
-                // PRE / POST / CLOSED: Always calculate from dayClose vs prevDayClose
-                // This ensures changePct matches the displayed price (dayClose)
-                changePercent = (dayClose > 0 && prevDayClose > 0 && dayClose !== prevDayClose)
-                    ? ((dayClose - prevDayClose) / prevDayClose) * 100
-                    : 0;
+                // PRE / POST / CLOSED
+                if (dayClose > 0 && prevDayClose > 0 && dayClose !== prevDayClose) {
+                    changePercent = ((dayClose - prevDayClose) / prevDayClose) * 100;
+                } else if (session === 'pre' && todaysChangePerc !== 0) {
+                    // During PRE-market, if dayClose hasn't updated from yesterday, 
+                    // todaysChangePerc might hold the correct previous day's regular change.
+                    changePercent = todaysChangePerc;
+                } else {
+                    changePercent = 0;
+                }
             }
 
             // Session-aware price & extended price selection
