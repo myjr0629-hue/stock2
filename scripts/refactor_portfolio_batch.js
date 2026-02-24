@@ -1,97 +1,18 @@
-// Portfolio Batch API - Optimized multi-ticker analysis
-// Single request for multiple tickers to reduce HTTP overhead
-// [V3.2] Uses Alpha Engine V3 (calculateAlphaScore) - SAME engine as Watchlist
-// [PERF] Uses lightweight stock data (no chart/minute data) for faster response
+const fs = require('fs');
+const path = require('path');
 
+const PORTFOLIO_FILE = path.join('c:', 'Users', 'seamo', 'backup', 'stock2', 'src', 'services', 'portfolioBatchService.ts');
+let portfolioContent = fs.readFileSync(PORTFOLIO_FILE, 'utf8');
 
-import { getOptionsData } from '@/services/stockApi';
-import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData } from '@/services/structureService';
-import { fetchMassive } from '@/services/massiveClient';
-import { getAnalysisCacheForTickers, type AnalysisCacheEntry , writeAnalysisCache } from '@/services/analysisCache';
-
-// [PERF] Lightweight stock data fetcher - same as watchlist batch
-async function getStockDataLight(symbol: string) {
-    const to = new Date().toISOString().split('T')[0];
-    const fromDate = new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0];
-
-    const [snapRes, rsiRes, dailyAggs] = await Promise.all([
-        fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`),
-        fetchMassive(`/v1/indicators/rsi/${symbol}`, { timespan: 'day', window: '14', limit: '1' }).catch(() => null),
-        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${fromDate}/${to}`, { limit: '5000', adjust: 'true', sort: 'asc' }).catch(() => null)
-    ]);
-
-    const t = snapRes?.ticker;
-    if (!t) return null;
-
-    // Session detection (same as watchlist batch)
-    const { getETNow } = await import('@/services/timezoneUtils');
-    const et = getETNow();
-    const etTime = et.hour + et.minute / 60;
-
-    let session: 'pre' | 'reg' | 'post' = 'reg';
-    if (!et.isWeekend) {
-        if (etTime >= 4 && etTime < 9.5) session = 'pre';
-        else if (etTime >= 16 && etTime < 20) session = 'post';
-        else if (etTime >= 9.5 && etTime < 16) session = 'reg';
-        else session = (etTime >= 20 || etTime < 4) ? 'post' : 'reg';
-    }
-
-    // Price calculation (same as watchlist batch)
-    const prevClose = t?.prevDay?.c || 0;
-    const todayClose = t?.day?.c || prevClose;
-    const latestPrice = t?.lastTrade?.p || t?.min?.c || t?.day?.c || t?.prevDay?.c || 0;
-
-    let changeBase = prevClose;
-    if (session === 'post') changeBase = todayClose;
-
-    const isExtended = session !== 'reg';
-    const extChange = isExtended ? (latestPrice - changeBase) : undefined;
-    const extChangePercent = isExtended ? (changeBase !== 0 ? ((latestPrice - changeBase) / changeBase) * 100 : 0) : undefined;
-    const regChange = t?.todaysChange || (todayClose - prevClose);
-    const regChangePercent = t?.todaysChangePerc || (prevClose !== 0 ? ((todayClose - prevClose) / prevClose) * 100 : 0);
-
-    const rsi = rsiRes?.results?.values?.[0]?.value ?? null;
-
-    const dailyResults = (dailyAggs?.results || []).map((r: any) => ({ close: r.c, volume: r.v || 0 }));
-    let return3d = 0;
-    if (dailyResults.length >= 4) {
-        const recentCandles = dailyResults.slice(-4);
-        const price3dAgo = recentCandles[0].close;
-        const currentClose = recentCandles[recentCandles.length - 1].close;
-        return3d = ((currentClose - price3dAgo) / price3dAgo) * 100;
-    }
-
-    const sparkline = dailyResults.slice(-20).map((d: any) => d.close);
-
-    return {
-        symbol,
-        price: latestPrice,
-        change: isExtended ? (extChange || 0) : (regChange || 0),
-        changePercent: isExtended ? (extChangePercent || 0) : (regChangePercent || 0),
-        volume: t?.day?.v,
-        prevClose,
-        prevDayVolume: t?.prevDay?.v || 0,
-        session,
-        isExtended,
-        extPrice: isExtended ? latestPrice : undefined,
-        extChangePercent: isExtended ? extChangePercent : undefined,
-        rsi,
-        return3d,
-        vwap: t?.day?.vw,
-        history: sparkline.map((close: number) => ({ close })),
-        dailyResults,
-    };
+// Ensure writeAnalysisCache is imported
+if (!portfolioContent.includes('writeAnalysisCache')) {
+    portfolioContent = portfolioContent.replace(
+        /getAnalysisCacheForTickers([^}]*)} from '@\/services\/analysisCache'/,
+        'getAnalysisCacheForTickers$1, writeAnalysisCache } from \'@/services/analysisCache\''
+    );
 }
 
-
-
-// ============================================================================
-// CORE BATCH PROCESSING LOGIC
-// Exported separately so it can be called seamlessly during SSR (Server Components)
-// without creating mock Request objects or failing on absolute URL resolution
-// ============================================================================
-export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
+const newBatchLogic = `export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
     const startTime = Date.now();
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
@@ -100,7 +21,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
     const missingTickers = tickers.filter(t => !cached[t]);
 
     // 2. Fetch Snapshot for ALL tickers
-    const snapshotData = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers`, { tickers: tickers.join(',') }).catch(() => null);
+    const snapshotData = await fetchMassive(\`/v2/snapshot/locale/us/markets/stocks/tickers\`, { tickers: tickers.join(',') }).catch(() => null);
     const snapshotMap: Record<string, any> = {};
     (snapshotData?.tickers || []).forEach((t: any) => { snapshotMap[t.ticker] = t; });
 
@@ -281,7 +202,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                     optionsDataAvailable: !!opts, preMarketChangePct: (stockData as any).extendedChangePct ?? null,
                 });
             } catch (e) {
-                console.error(`[Portfolio Batch] Engine failed for ${ticker}:`, e);
+                console.error(\`[Portfolio Batch] Engine failed for \${ticker}:\`, e);
                 alphaResult = calculateAlphaScore({
                     ticker: ticker.toUpperCase(), session: alphaSession, price: stockData.price || 0,
                     prevClose: stockData.prevClose || 0, changePct, preMarketChangePct: (stockData as any).extendedChangePct ?? null,
@@ -320,14 +241,21 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 gexM: fullObj.realtime.gexM, pcr: fullObj.realtime.pcr, gammaFlipLevel: fullObj.realtime.gammaFlipLevel,
                 whaleIndex: 0, whaleConfidence: 'NONE', putFloor: null, callWall: null, netPremium: null,
                 vwapDist: null, volume: null, squeezeScore: null, iv: null
-            }).catch(e => console.error(`Failed to cache ${ticker}`, e));
+            }).catch(e => console.error(\`Failed to cache \${ticker}\`, e));
 
             return fullObj;
         } catch (error) {
-            console.error(`Portfolio batch error for ${ticker}:`, error);
+            console.error(\`Portfolio batch error for \${ticker}:\`, error);
             return { ticker, error: 'Analysis failed' };
         }
     }));
 
     return { results, meta: { count: tickers.length, elapsed: Date.now() - startTime, source: missingTickers.length === 0 ? 'analysis_cache' : 'hybrid_compute', cached: missingTickers.length === 0 } };
 }
+`;
+
+const startIndex = portfolioContent.indexOf('export async function processPortfolioBatch');
+portfolioContent = portfolioContent.substring(0, startIndex) + newBatchLogic;
+fs.writeFileSync(PORTFOLIO_FILE, portfolioContent);
+
+console.log('Portfolio refactor successful!');

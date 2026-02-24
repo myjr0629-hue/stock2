@@ -1,120 +1,18 @@
-// Watchlist Batch Analyze API - Optimized multi-ticker analysis
-// Single request for multiple tickers to reduce HTTP overhead
-// [V5] Uses Alpha Engine V5 (calculateAlphaScore) with FULL data enrichment
-// [V5] Macro + Flow + Catalyst data = absolute alpha scores identical to reports
+const fs = require('fs');
+const path = require('path');
 
-import { NextResponse } from 'next/server';
-import { getOptionsData } from '@/services/stockApi';
-import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
-import { getStructureData } from '@/services/structureService';
-import { fetchMassive } from '@/services/massiveClient';
-import { getAnalysisCacheForTickers, type AnalysisCacheEntry , writeAnalysisCache } from '@/services/analysisCache';
-import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
-import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetricsService';
-import { getFromCache } from '@/services/redisClient';
+const WATCHLIST_FILE = path.join('c:', 'Users', 'seamo', 'backup', 'stock2', 'src', 'services', 'watchlistBatchService.ts');
+let watchlistContent = fs.readFileSync(WATCHLIST_FILE, 'utf8');
 
-// [S-76] Edge cache for 30 seconds - faster repeat loads
-export const revalidate = 30;
-
-// [PERF] Lightweight stock data fetcher - skips chart data entirely
-// Same data sources as getStockData(), minus getStockChartData() (which downloads 1000+ minute bars)
-// All prices, RSI, 3D return, VWAP are identical to getStockData()
-async function getStockDataLight(symbol: string) {
-    const to = new Date().toISOString().split('T')[0];
-    const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]; // 30 days for SMA20
-
-    // [PERF] All 3 calls in parallel (getStockData does snapshot+chart+RSI parallel, then 3D return SEQUENTIAL)
-    const [snapRes, rsiRes, dailyAggs] = await Promise.all([
-        // 1. Snapshot: price, change, volume, VWAP, prevClose (same as getStockData)
-        fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`),
-        // 2. RSI: same API as getTechnicalRSI()
-        fetchMassive(`/v1/indicators/rsi/${symbol}`, { timespan: 'day', window: '14', limit: '1' }).catch(() => null),
-        // 3. Daily aggregates: for 3D return + sparkline (same as getAggregates in getStockData)
-        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${fromDate}/${to}`, { limit: '5000', adjust: 'true', sort: 'asc' }).catch(() => null)
-    ]);
-
-    const t = snapRes?.ticker;
-    if (!t) return null;
-
-    // Session detection (same logic as getStockData lines 800-838)
-    const { getETNow } = await import('@/services/timezoneUtils');
-    const et = getETNow();
-    const etTime = et.hour + et.minute / 60;
-
-    let session: 'pre' | 'reg' | 'post' = 'reg';
-    if (!et.isWeekend) {
-        if (etTime >= 4 && etTime < 9.5) session = 'pre';
-        else if (etTime >= 16 && etTime < 20) session = 'post';
-        else if (etTime >= 9.5 && etTime < 16) session = 'reg';
-        else session = (etTime >= 20 || etTime < 4) ? 'post' : 'reg';
-    }
-
-    // Price calculation (same logic as getStockData lines 842-868)
-    const prevClose = t?.prevDay?.c || 0;
-    const todayClose = t?.day?.c || prevClose;
-    const latestPrice = t?.lastTrade?.p || t?.min?.c || t?.day?.c || t?.prevDay?.c || 0;
-
-    let changeBase = prevClose;
-    if (session === 'post') changeBase = todayClose;
-
-    const isExtended = session !== 'reg';
-    const extChange = isExtended ? (latestPrice - changeBase) : undefined;
-    const extChangePercent = isExtended ? (changeBase !== 0 ? ((latestPrice - changeBase) / changeBase) * 100 : 0) : undefined;
-    const regChange = t?.todaysChange || (todayClose - prevClose);
-    const regChangePercent = t?.todaysChangePerc || (prevClose !== 0 ? ((todayClose - prevClose) / prevClose) * 100 : 0);
-
-    // RSI (same as getTechnicalRSI)
-    const rsi = rsiRes?.results?.values?.[0]?.value ?? null;
-
-    // 3D Return + Sparkline from daily aggregates (same calculation as getStockData lines 870-908)
-    const dailyResults = (dailyAggs?.results || []).map((r: any) => ({ close: r.c, volume: r.v || 0 }));
-    let return3d = 0;
-    if (dailyResults.length >= 4) {
-        const recentCandles = dailyResults.slice(-4);
-        const price3dAgo = recentCandles[0].close;
-        const currentClose = recentCandles[recentCandles.length - 1].close;
-        return3d = ((currentClose - price3dAgo) / price3dAgo) * 100;
-    }
-
-    // Sparkline: last 20 daily closes (shows ~1 month trend at watchlist scale)
-    const sparkline = dailyResults.slice(-20).map((d: any) => d.close);
-
-    // [V5] PM extended change calculation for PM Gate 11
-    // PRE session: PM price vs previous regular close (prevClose)
-    // POST session: PM price vs today's close
-    let extendedChangePct: number | null = null;
-    if (session === 'pre' && prevClose > 0) {
-        extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
-    } else if (session === 'post' && todayClose > 0) {
-        extendedChangePct = ((latestPrice - todayClose) / todayClose) * 100;
-    }
-
-    return {
-        symbol,
-        price: latestPrice,
-        change: isExtended ? (extChange || 0) : (regChange || 0),
-        changePercent: isExtended ? (extChangePercent || 0) : (regChangePercent || 0),
-        volume: t?.day?.v,
-        prevClose,
-        prevDayVolume: t?.prevDay?.v || 0, // [V3.2] For relVol calculation
-        session,
-        rsi,
-        return3d,
-        vwap: t?.day?.vw,
-        history: sparkline.map((close: number) => ({ close })), // Compatible format
-        dailyResults, // [V3.2] For session-aware changePct/relVol
-        extendedChangePct, // [V5] For PM Gate 11 (preMarketChangePct)
-    };
+// Ensure writeAnalysisCache is imported
+if (!watchlistContent.includes('writeAnalysisCache')) {
+    watchlistContent = watchlistContent.replace(
+        /getAnalysisCacheForTickers([^}]*)} from '@\/services\/analysisCache'/,
+        'getAnalysisCacheForTickers$1, writeAnalysisCache } from \'@/services/analysisCache\''
+    );
 }
 
-
-
-// ============================================================================
-// CORE BATCH PROCESSING LOGIC
-// Exported separately so it can be called seamlessly during SSR (Server Components)
-// without creating mock Request objects or failing on absolute URL resolution
-// ============================================================================
-export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
+const newBatchLogic = `export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'price' | 'ssr' = 'full') {
     const startTime = Date.now();
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
@@ -124,7 +22,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
 
     // 2. Fetch Snapshot for ALL tickers (we need live prices for Cached ones AND Missing ones in 'ssr'/'price' mode)
     // In 'full' mode, getStockDataLight also fetches snapshots, but we need it here for the cached ones anyway.
-    const snapshotData = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers`, { tickers: tickers.join(',') }).catch(() => null);
+    const snapshotData = await fetchMassive(\`/v2/snapshot/locale/us/markets/stocks/tickers\`, { tickers: tickers.join(',') }).catch(() => null);
     const snapshotMap: Record<string, any> = {};
     (snapshotData?.tickers || []).forEach((t: any) => { snapshotMap[t.ticker] = t; });
 
@@ -413,7 +311,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     atmIv: structureRes?.atmIv ?? null, fearGreedScore,
                 });
             } catch (e) {
-                console.error(`[Watchlist Batch] V5 Engine failed for ${ticker}:`, e);
+                console.error(\`[Watchlist Batch] V5 Engine failed for \${ticker}:\`, e);
                 alphaResult = calculateAlphaScore({
                     ticker: ticker.toUpperCase(), session: alphaSession, price: currentPrice,
                     prevClose: stockData.prevClose || 0, changePct,
@@ -494,12 +392,12 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 netPremium: fullObj.realtime.netPremium,
                 vwapDist: fullObj.realtime.vwapDist,
                 volume: fullObj.realtime.volume
-            }).catch(e => console.error(`Failed to write analysis cache for ${ticker}`, e));
+            }).catch(e => console.error(\`Failed to write analysis cache for \${ticker}\`, e));
 
             return fullObj;
 
         } catch (error) {
-            console.error(`Batch analyze error for ${ticker}:`, error);
+            console.error(\`Batch analyze error for \${ticker}:\`, error);
             return { ticker, error: 'Analysis failed' };
         }
     }));
@@ -514,3 +412,15 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         }
     };
 }
+`;
+
+const startIndex = watchlistContent.indexOf('export async function processWatchlistBatch');
+let lastIndex = watchlistContent.lastIndexOf('}');
+// find the correct closing brace by counting 
+// Actually, it's just the end of the file. No wait, there could be other exports.
+// Lets just replace from export async function processWatchlistBatch to end of file, assuming it's the last function.
+
+watchlistContent = watchlistContent.substring(0, startIndex) + newBatchLogic;
+fs.writeFileSync(WATCHLIST_FILE, watchlistContent);
+
+console.log('Watchlist refactor successful!');

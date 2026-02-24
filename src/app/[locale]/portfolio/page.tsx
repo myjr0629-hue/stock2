@@ -7,8 +7,10 @@ async function getInitialFullData(tickers: string[]) {
     if (!tickers || tickers.length === 0) return [];
     try {
         // Construct a direct function call to leverage the existing internal API logic safely during SSR
-        // [PERF] Only fetch lightweight price/session data synchronously (200ms) to unblock the UI instantly
-        const payload = await processPortfolioBatch(tickers, 'price');
+        // [PERF] SSR Hybrid Cache Mode: 
+        // 1. Instantly return ALL FULL DATA for previously cached tickers
+        // 2. Instantly fallback to Price-Only (0.2s) for NEW uncached tickers (to prevent 60s freeze)
+        const payload = await processPortfolioBatch(tickers, 'ssr');
         return payload.results || [];
     } catch (e) {
         console.error('[Portfolio SSR] Failed to fetch initial full data:', e);
