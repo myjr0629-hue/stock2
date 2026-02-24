@@ -622,6 +622,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         }
     }, [ticker, range]);
 
+    // [FIX] Clear stale chart data instantly when ticker changes
+    useEffect(() => {
+        setLiveChartData(null);
+    }, [ticker]);
+
     // News & AI Setup (Progressive Hydration - Non blocking)
     useEffect(() => {
         fetchNewsAndScore(); // AI fetch resolves silently in background
