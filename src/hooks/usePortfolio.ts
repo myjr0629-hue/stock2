@@ -55,15 +55,20 @@ const fetcher = (url: string) => fetch(url).then(res => {
     return res.json();
 });
 
-export function usePortfolio() {
+export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[]) {
     // Server-side portfolio from Supabase
-    const [portfolioData, setPortfolioData] = useState<PortfolioData>({ holdings: [], updatedAt: new Date().toISOString() });
-    const [storeLoading, setStoreLoading] = useState(true);
+    const [portfolioData, setPortfolioData] = useState<PortfolioData>({
+        holdings: initialHoldings || [],
+        updatedAt: new Date().toISOString()
+    });
+    const [storeLoading, setStoreLoading] = useState(!initialHoldings);
 
-    // Load portfolio from Supabase on mount
+    // Load portfolio from Supabase on mount only if there is no initial data
     useEffect(() => {
-        loadPortfolio();
-    }, []);
+        if (!initialHoldings) {
+            loadPortfolio();
+        }
+    }, [initialHoldings]);
 
     const loadPortfolio = async () => {
         setStoreLoading(true);
@@ -80,10 +85,13 @@ export function usePortfolio() {
     const tickerString = portfolioData.holdings.map(h => h.ticker).join(',');
 
     // ── SWR: Full data with 30s auto-refresh (Alpha, Signal, Action, etc.) ──
-    const { data: fullData, error: fullError, isLoading, isValidating, mutate } = useSWR(
+    const { data: fullData, error: fullError, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
         tickerString ? `/api/portfolio/batch?tickers=${tickerString}` : null,
         fetcher,
         {
+            fallbackData: initialFullData && initialFullData.length > 0
+                ? { results: initialFullData }
+                : undefined,
             refreshInterval: 30000,      // 30s full refresh
             revalidateOnFocus: false,
             dedupingInterval: 5000,
@@ -91,10 +99,24 @@ export function usePortfolio() {
     );
 
     // ── SWR: Price-only with 5s auto-refresh (lightweight) ──
-    const { data: priceData } = useSWR(
+    const { data: priceData, isLoading: priceLoading } = useSWR(
         tickerString ? `/api/portfolio/batch?tickers=${tickerString}&mode=price` : null,
         fetcher,
         {
+            // Extract lightweight prices from initialFullData
+            fallbackData: initialFullData && initialFullData.length > 0 ? {
+                results: initialFullData.map(r => ({
+                    ticker: r.ticker,
+                    realtime: {
+                        price: r.realtime.price,
+                        changePct: r.realtime.changePct,
+                        session: r.realtime.session,
+                        isExtended: r.realtime.isExtended,
+                        extPrice: r.realtime.extPrice,
+                        extChangePercent: r.realtime.extChangePercent
+                    }
+                }))
+            } : undefined,
             refreshInterval: 5000,       // 5s fast price polling
             revalidateOnFocus: false,
             dedupingInterval: 2000,
@@ -106,6 +128,12 @@ export function usePortfolio() {
         tickerString ? `/api/live/quotes?symbols=${tickerString}` : null,
         fetcher,
         {
+            fallbackData: initialFullData && initialFullData.length > 0 ? {
+                data: initialFullData.reduce((acc, r) => {
+                    acc[r.ticker] = r.realtime;
+                    return acc;
+                }, {} as Record<string, any>)
+            } : undefined,
             refreshInterval: 10000,
             revalidateOnFocus: false,
             dedupingInterval: 3000,
@@ -269,8 +297,8 @@ export function usePortfolio() {
         holdings,
         summary,
         portfolioScore,
-        loading: isLoading || storeLoading,
-        isRefreshing: isValidating && !isLoading,
+        loading: storeLoading || (fullLoading && holdings.length === 0),
+        isRefreshing: fullValidating && !fullLoading,
         error: fullError?.message || null,
         addHolding,
         addHoldingWithAlpha,

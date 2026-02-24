@@ -18,13 +18,13 @@ type SortKey = 'default' | 'alpha' | 'change' | 'whale';
 export default function WatchlistClientPage({
     locale = 'en',
     initialWatchlist,
-    initialQuotesData
+    initialFullData
 }: {
     locale?: string;
     initialWatchlist?: any[];
-    initialQuotesData?: any;
+    initialFullData?: any[];
 }) {
-    const { items, loading, isRefreshing, refresh, addItem, removeItem } = useWatchlist(initialWatchlist, initialQuotesData);
+    const { items, loading, isRefreshing, refresh, addItem, removeItem } = useWatchlist(initialWatchlist, initialFullData);
     const [showAddModal, setShowAddModal] = useState(false);
     const [sortKey, setSortKey] = useState<SortKey>('default');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');

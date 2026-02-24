@@ -24,7 +24,7 @@ export interface PortfolioData {
     updatedAt: string;
 }
 
-// Get portfolio from Supabase
+// Get portfolio from Supabase (Client-side usage during re-hydration or modal updates)
 export async function getPortfolio(): Promise<PortfolioData> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();

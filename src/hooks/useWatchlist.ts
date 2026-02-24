@@ -43,7 +43,7 @@ const fetcher = (url: string) => fetch(url).then(res => {
     return res.json();
 });
 
-export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesData?: any) {
+export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData?: any[]) {
     // Server-side watchlist from Supabase
     const [watchlistData, setWatchlistData] = useState<WatchlistData>({
         items: initialWatchlist || [],
@@ -51,7 +51,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesDa
     });
     const [storeLoading, setStoreLoading] = useState(!initialWatchlist);
 
-    // Load watchlist from Supabase on mount only if there is no initial watch list
+    // Initial load from Supabase if not hydrated via props
     useEffect(() => {
         if (!initialWatchlist) {
             loadWatchlist();
@@ -77,7 +77,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesDa
         tickerString ? `/api/watchlist/batch?tickers=${tickerString}` : null,
         fetcher,
         {
-            fallbackData: initialWatchlist && initialWatchlist.length > 0 ? { results: initialWatchlist } : undefined,
+            fallbackData: initialFullData && initialFullData.length > 0 ? { results: initialFullData } : undefined,
             refreshInterval: 30000,
             revalidateOnFocus: false,
             dedupingInterval: 5000,
@@ -89,7 +89,13 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesDa
         tickerString ? `/api/live/quotes?symbols=${tickerString}` : null,
         fetcher,
         {
-            fallbackData: initialQuotesData && Object.keys(initialQuotesData).length > 0 ? { data: initialQuotesData } : undefined,
+            // If we have initialFullData, we can map price out of it for standard quotes fallback
+            fallbackData: initialFullData && initialFullData.length > 0 ? {
+                data: initialFullData.reduce((acc, r) => {
+                    acc[r.ticker] = r.realtime;
+                    return acc;
+                }, {} as Record<string, any>)
+            } : undefined,
             refreshInterval: 10000,
             revalidateOnFocus: false,
             dedupingInterval: 3000,
