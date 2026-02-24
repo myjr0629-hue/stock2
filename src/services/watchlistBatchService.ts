@@ -8,7 +8,7 @@ import { getOptionsData } from '@/services/stockApi';
 import { calculateAlphaScore, calculateWhaleIndex, computeIVSkew, computeImpliedMovePct, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
-import { getAnalysisCacheForTickers, type AnalysisCacheEntry , writeAnalysisCache } from '@/services/analysisCache';
+import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache } from '@/services/analysisCache';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetricsService';
 import { getFromCache } from '@/services/redisClient';
@@ -119,7 +119,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
     // 1. Fetch Cache for all requested tickers (Non-blocking fallback to empty if Redis fails)
-    const cached = await getAnalysisCacheForTickers(tickers).catch(() => ({}));
+    const cached = await getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>));
     const missingTickers = tickers.filter(t => !cached[t]);
 
     // 2. Fetch Snapshot for ALL tickers (we need live prices for Cached ones AND Missing ones in 'ssr'/'price' mode)
@@ -163,7 +163,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         // --- Helper to build Base Price Object from Snapshot ---
         const buildBasePrice = () => {
             if (!snap) return { displayPrice: 0, changePct: 0, extendedPrice: null, extendedLabel: undefined, vwap: null, volume: 0, prevDayClose: 0 };
-            
+
             const liveLast = snap.lastTrade?.p || 0;
             const dayClose = snap.day?.c || 0;
             const prevDayClose = snap.prevDay?.c || 0;
@@ -201,7 +201,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         // ============================================
         if (analysis) {
             const base = buildBasePrice();
-            
+
             // Override changePct with sparkline if NOT in regular session
             let finalChangePct = base.changePct;
             if (currentSession !== 'regular' && analysis.sparkline && analysis.sparkline.length >= 2) {
@@ -214,7 +214,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 // If liveLast exists and we have prevDayClose
                 const liveLast = snap?.lastTrade?.p || 0;
                 if (base.changePct === 0 && liveLast > 0 && base.prevDayClose > 0) {
-                     finalChangePct = ((liveLast - base.prevDayClose) / base.prevDayClose) * 100;
+                    finalChangePct = ((liveLast - base.prevDayClose) / base.prevDayClose) * 100;
                 }
             }
 
@@ -339,7 +339,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
             const alphaGex = structureRes?.netGex ?? opts?.gems?.gex ?? opts?.gex ?? null;
             const alphaPcr = opts?.putCallRatio ?? null;
             const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
-            
+
             let alphaSqueezeScore = structureRes?.squeezeScore ?? null;
             if (alphaSqueezeScore === null && alphaGex !== null) {
                 let sq = 25;
@@ -429,7 +429,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
             const maxPain = hasOptionsData ? (opts?.maxPain || null) : null;
             const rawGex = opts?.gems?.gex || opts?.gex;
             const gex = hasOptionsData ? (rawGex || null) : null;
-            
+
             let whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE' = 'NONE';
             const pcr = opts?.putCallRatio || 1;
             if (gex !== null && gex !== undefined) {

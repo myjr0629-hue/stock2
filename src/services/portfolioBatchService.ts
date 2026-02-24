@@ -8,7 +8,7 @@ import { getOptionsData } from '@/services/stockApi';
 import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
-import { getAnalysisCacheForTickers, type AnalysisCacheEntry , writeAnalysisCache } from '@/services/analysisCache';
+import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache } from '@/services/analysisCache';
 
 // [PERF] Lightweight stock data fetcher - same as watchlist batch
 async function getStockDataLight(symbol: string) {
@@ -96,7 +96,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
     if (!tickers || tickers.length === 0) return { results: [], meta: { count: 0, elapsed: 0, source: 'empty' } };
 
     // 1. Fetch Cache for all requested tickers
-    const cached = await getAnalysisCacheForTickers(tickers).catch(() => ({}));
+    const cached = await getAnalysisCacheForTickers(tickers).catch(() => ({} as Record<string, any>));
     const missingTickers = tickers.filter(t => !cached[t]);
 
     // 2. Fetch Snapshot for ALL tickers
@@ -114,7 +114,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
 
         const buildBasePrice = () => {
             if (!snap) return { displayPrice: 0, changePct: 0, extendedPrice: null, extendedLabel: undefined, vwap: null, volume: 0, prevDayClose: 0, liveLast: 0, dayClose: 0, change: 0, isExtended: false };
-            
+
             const liveLast = snap.lastTrade?.p || 0;
             const dayClose = snap.day?.c || 0;
             const prevDayClose = snap.prevDay?.c || 0;
@@ -151,7 +151,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
         // A. CACHE HIT
         if (analysis) {
             const base = buildBasePrice();
-            
+
             let finalChangePct = base.changePct;
             if (currentSession !== 'regular' && analysis.sparkline && analysis.sparkline.length >= 2) {
                 const lastClose = analysis.sparkline[analysis.sparkline.length - 1];
@@ -161,14 +161,14 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 }
             } else if (currentSession === 'regular') {
                 if (base.changePct === 0 && base.liveLast > 0 && base.prevDayClose > 0) {
-                     finalChangePct = ((base.liveLast - base.prevDayClose) / base.prevDayClose) * 100;
+                    finalChangePct = ((base.liveLast - base.prevDayClose) / base.prevDayClose) * 100;
                 }
             }
 
             const extendedChangePct = (base.extendedPrice && base.extendedPrice > 0 && base.displayPrice > 0)
                 ? ((base.extendedPrice - base.displayPrice) / base.displayPrice) * 100 : null;
             const refPrice = base.extendedPrice || base.displayPrice;
-            
+
             // Triple A fallback calculation
             const tripleA = {
                 direction: finalChangePct > 0,
