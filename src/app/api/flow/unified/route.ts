@@ -4,7 +4,6 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 // Import individual route GET handlers directly to bypass HTTP overhead
 // DO NOT MODIFY external data-fetching logic inside these files.
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
-import { GET as getWhaleTrades } from '@/app/api/live/options/trades/route';
 import { GET as getDarkPool } from '@/app/api/flow/dark-pool-trades/route';
 import { GET as getRealtimeMetrics } from '@/app/api/flow/realtime-metrics/route';
 
@@ -38,22 +37,20 @@ async function callInternalGet(handler: Function, url: string) {
 async function buildUnifiedFlowData(ticker: string, baseUrl: string) {
     const start = Date.now();
 
-    // 4 Parallel Internal Fetches, executed as pure JS functions running instantly in memory
+    // 3 Parallel Internal Fetches (Whale Trades removed for async Progressive Loading)
     const [
         liveQuote,
-        whaleTrades,
         darkPool,
         realtimeMetrics
     ] = await Promise.all([
         callInternalGet(getLiveTicker, `${baseUrl}/api/live/ticker?t=${ticker}`),
-        callInternalGet(getWhaleTrades, `${baseUrl}/api/live/options/trades?t=${ticker}`),
         callInternalGet(getDarkPool, `${baseUrl}/api/flow/dark-pool-trades?ticker=${ticker}&limit=30`),
         callInternalGet(getRealtimeMetrics, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`)
     ]);
 
     const data = {
         liveQuote,
-        whaleTrades: whaleTrades?.items || [],
+        whaleTrades: null, // Client will fetch this heavy data independently (Progressive Loading)
         darkPoolTrades: darkPool?.items || [],
         realtimeMetrics: realtimeMetrics || { darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null },
         timestamp: Date.now()

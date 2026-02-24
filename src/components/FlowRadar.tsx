@@ -2021,9 +2021,14 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 >
                                     {flowViewMode === 'WHALE' ? (
                                         /* ===== WHALE TRADES VIEW ===== */
-                                        whaleTrades.length === 0 ? (
+                                        tradesLoading ? (
+                                            <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-400 font-mono text-sm border border-cyan-500/30 rounded-xl bg-cyan-950/30 backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.15)] gap-3 animate-pulse">
+                                                <Loader2 size={16} className="animate-spin text-cyan-400" />
+                                                DEEP SCANNING WHALE FLOW...
+                                            </div>
+                                        ) : whaleTrades.length === 0 ? (
                                             <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-500/30 font-mono text-sm border border-cyan-500/10 rounded-xl bg-cyan-950/10 backdrop-blur-sm">
-                                                Scanning for Classified Intel...
+                                                No Classified Intel Found
                                             </div>
                                         ) : (
                                             whaleTrades.map((t: any, i: number) => {
