@@ -1,6 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 
+// Import individual route GET handlers directly to bypass HTTP overhead
+import { GET as getStructure } from '@/app/api/live/options/structure/route';
+import { GET as getAtm } from '@/app/api/live/options/atm/route';
+import { GET as getEarnings } from '@/app/api/live/earnings/route';
+import { GET as getSma } from '@/app/api/live/sma/route';
+import { GET as getRelated } from '@/app/api/live/related/route';
+import { GET as getAnalyst } from '@/app/api/live/analyst/route';
+import { GET as getVolatility } from '@/app/api/live/volatility-regime/route';
+import { GET as getSqueeze } from '@/app/api/live/short-squeeze/route';
+import { GET as getInstitutional } from '@/app/api/flow/realtime-metrics/route';
+import { GET as getFundamentals } from '@/app/api/live/fundamentals/route';
+import { GET as getOverview } from '@/app/api/live/overview/route';
+
 // Configuration
 const CACHE_KEY_PREFIX = 'cache:command:unified:';
 const CACHE_TTL_SEC = 300; // 5 minutes solid cache (Redis TTL)
@@ -23,18 +36,15 @@ function getBaseUrl(request: NextRequest) {
     return `http://localhost:${port}`;
 }
 
-// Internal Fetcher with Timeout Safety
-async function fetchInternalSafe(url: string, timeoutMs = 15000) {
-    const controller = new AbortController();
-    const id = setTimeout(() => controller.abort(), timeoutMs);
+// Bypasses Next.js HTTP routing entirely by calling the GET handler as a standard async function
+async function callInternalGet(handler: Function, url: string) {
     try {
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(id);
-        if (!res.ok) return null;
+        const mockReq = new NextRequest(url);
+        const res = await handler(mockReq);
+        if (!res || !res.ok) return null;
         return await res.json();
     } catch (e) {
-        clearTimeout(id);
-        console.warn(`[Command Unified] Internal fetch failed or timed out: ${url}`, e);
+        console.warn(`[Command Unified] Direct functional call failed: ${url}`, e);
         return null;
     }
 }
@@ -43,7 +53,7 @@ async function fetchInternalSafe(url: string, timeoutMs = 15000) {
 async function buildUnifiedData(ticker: string, baseUrl: string, locale: string) {
     const start = Date.now();
 
-    // 11 Parallel Internal Fetches (Zero code duplication, 100% logic identical)
+    // 11 Parallel Internal Fetches, executed as pure JS functions running instantly in memory
     const [
         structure,
         optionsAtm,
@@ -57,17 +67,17 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
         fundamentals,
         overview
     ] = await Promise.all([
-        fetchInternalSafe(`${baseUrl}/api/live/options/structure?t=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/live/options/atm?t=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/live/earnings?t=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/live/sma?t=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/live/related?t=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/live/analyst?t=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/live/volatility-regime?t=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/live/short-squeeze?t=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/live/fundamentals?t=${ticker}`),
-        fetchInternalSafe(`${baseUrl}/api/live/overview?t=${ticker}&lang=${locale}`)
+        callInternalGet(getStructure, `${baseUrl}/api/live/options/structure?t=${ticker}`),
+        callInternalGet(getAtm, `${baseUrl}/api/live/options/atm?t=${ticker}`),
+        callInternalGet(getEarnings, `${baseUrl}/api/live/earnings?t=${ticker}`),
+        callInternalGet(getSma, `${baseUrl}/api/live/sma?t=${ticker}`),
+        callInternalGet(getRelated, `${baseUrl}/api/live/related?t=${ticker}`),
+        callInternalGet(getAnalyst, `${baseUrl}/api/live/analyst?t=${ticker}`),
+        callInternalGet(getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`),
+        callInternalGet(getSqueeze, `${baseUrl}/api/live/short-squeeze?t=${ticker}`),
+        callInternalGet(getInstitutional, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`),
+        callInternalGet(getFundamentals, `${baseUrl}/api/live/fundamentals?t=${ticker}`),
+        callInternalGet(getOverview, `${baseUrl}/api/live/overview?t=${ticker}&lang=${locale}`)
     ]);
 
     const data = {
@@ -85,7 +95,7 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
         timestamp: Date.now()
     };
 
-    console.log(`[Command Unified] Built aggregation for ${ticker} in ${Date.now() - start}ms`);
+    console.log(`[Command Unified] Built aggregation for ${ticker} in ${Date.now() - start}ms execution time`);
     return data;
 }
 
