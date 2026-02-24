@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "./ui/progress";
 import { useTranslations } from 'next-intl';
 
-interface FlowRadarProps {
+export interface FlowRadarProps {
     ticker: string;
     rawChain: any[];
     allExpiryChain?: any[];  // [GEX REGIME] Multi-expiry probe data
@@ -17,9 +17,10 @@ interface FlowRadarProps {
     currentPrice: number;
     squeezeScore?: number | null;
     squeezeRisk?: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME' | null;
+    initialFlowData?: any;
 }
 
-export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk }: FlowRadarProps) {
+export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oiPcr, currentPrice, squeezeScore: apiSqueezeScore, squeezeRisk: apiSqueezeRisk, initialFlowData }: FlowRadarProps) {
     const t = useTranslations('flowRadar');
     const fm = useTranslations('flowRadarMetrics');
     const ui = useTranslations('flowRadarUI');
@@ -49,9 +50,9 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     // [PERF] SWR-powered data fetching (replaces manual fetch + setInterval)
     // SWR handles: caching, deduplication, background refresh, error retry
     const hasData = rawChain.length > 0;
-    const { trades: whaleTrades, isLoading: tradesLoading } = useWhaleTrades(ticker, hasData);
-    const { metrics: realtimeMetrics } = useRealtimeMetrics(ticker, hasData);
-    const { trades: darkPoolTrades } = useDarkPoolTrades(ticker, hasData);
+    const { trades: whaleTrades, isLoading: tradesLoading } = useWhaleTrades(ticker, hasData, initialFlowData?.whaleTrades);
+    const { metrics: realtimeMetrics } = useRealtimeMetrics(ticker, hasData, initialFlowData?.realtimeMetrics);
+    const { trades: darkPoolTrades } = useDarkPoolTrades(ticker, hasData, initialFlowData?.darkPoolTrades);
     const [flowViewMode, setFlowViewMode] = useState<'WHALE' | 'DARKPOOL'>('WHALE');
     const isSystemReady = hasData && !tradesLoading;
 
