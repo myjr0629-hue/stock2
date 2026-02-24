@@ -81,7 +81,6 @@ function calculateLayerScores(evidence: any): ScoreResult {
 
     // [Phase 36] 3-Day Sniper Logic (v3.0)
     // A) Price Layer
-    let momScore = 0; // [V5.5] Lifted scope for Sector Tailwind logic
     if (evidence?.price?.complete) {
 
         const p = evidence.price;
@@ -100,6 +99,7 @@ function calculateLayerScores(evidence: any): ScoreResult {
         // [V3.7.3 TUNING] Aggressive Momentum Scoring
         // Old: Max 40. New: Max 100.
         // Formula: ChangePct * 15. (+1% = 15pts, +3% = 45pts, +5% = 75pts, +7% = 100pts)
+        let momScore = 0;
         if (p.changePct > 0) {
             momScore = Math.min(100, p.changePct * 20); // Super Aggressive: +5% = 100pts
         }
@@ -589,18 +589,8 @@ export function computeQualityTier(
         // [13.2] Momentum Override
         tier = 'ACTIONABLE';
         const adv = buildAdvancedReason(alphaScore);
-
-        // [V5.5] Sector Tailwind Coupling (테마 동조화 보너스)
-        // Actionable 등급을 받은 주식이 당일 상승 모멘텀을 보일 때 5점 가산
-        let tailwindText = '';
-        if (alphaScore < 100 && momentumBonus > 0) {
-            alphaScore = Math.min(100, alphaScore + 5);
-            tailwindText = ' + 🌪️SECTOR_TAILWIND';
-            triggersKR.push('TAILWIND');
-        }
-
-        reasonKR = `💥 3일 연속 상승(${alphaScore.toFixed(0)})${tailwindText} + ${adv.text} = 강력 매수`;
-        triggersKR = [...triggersKR, ...adv.codes];
+        reasonKR = `💥 3일 연속 상승(${alphaScore.toFixed(0)}) + ${adv.text} = 강력 매수`;
+        triggersKR = adv.codes;
 
         // Event Gate: Block actionable if high impact event imminent
         if (hasHighImpactEvent && tier === 'ACTIONABLE') {

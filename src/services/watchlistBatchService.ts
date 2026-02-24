@@ -83,11 +83,8 @@ async function getStockDataLight(symbol: string) {
     // PRE session: PM price vs previous regular close (prevClose)
     // POST session: PM price vs today's close
     let extendedChangePct: number | null = null;
-    let preMarketVolume = 0; // [V5.5] Extract PM Volume for liquidity trap defense
-
     if (session === 'pre' && prevClose > 0) {
         extendedChangePct = ((latestPrice - prevClose) / prevClose) * 100;
-        preMarketVolume = t?.min?.v || t?.day?.v || 0; // approximate PM volume
     } else if (session === 'post' && todayClose > 0) {
         extendedChangePct = ((latestPrice - todayClose) / todayClose) * 100;
     }
@@ -107,7 +104,6 @@ async function getStockDataLight(symbol: string) {
         history: sparkline.map((close: number) => ({ close })), // Compatible format
         dailyResults, // [V3.2] For session-aware changePct/relVol
         extendedChangePct, // [V5] For PM Gate 11 (preMarketChangePct)
-        preMarketVolume, // [V5.5] Guard against fake gap ups
     };
 }
 
@@ -298,10 +294,6 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
 
             if (!stockData) return { ticker, error: 'Stock data unavailable' };
 
-            // [V5.5] Determine OpEx Week
-            const d = new Date();
-            const isOpExWeek = d.getDay() <= 5 && d.getDate() >= 15 && d.getDate() <= 21;
-
             const sessionMap: Record<string, AlphaSession> = { pre: 'PRE', reg: 'REG', post: 'POST' };
             const alphaSession: AlphaSession = sessionMap[stockData.session] || 'CLOSED';
             const isREG = alphaSession === 'REG';
@@ -409,8 +401,6 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     relVol,
                     optionsDataAvailable: !!opts,
                     preMarketChangePct: (stockData as any).extendedChangePct ?? null,
-                    preMarketVolume: (stockData as any).preMarketVolume ?? null, // [V5.5]
-                    isOpExWeek, // [V5.5]
                     ndxChangePct: macroData?.ndxChangePct ?? null,
                     vixValue: macroData?.vixValue ?? null,
                     vixChangePct: macroData?.vixChangePct ?? null,
@@ -428,8 +418,6 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     ticker: ticker.toUpperCase(), session: alphaSession, price: currentPrice,
                     prevClose: stockData.prevClose || 0, changePct,
                     preMarketChangePct: (stockData as any).extendedChangePct ?? null,
-                    preMarketVolume: (stockData as any).preMarketVolume ?? null,
-                    isOpExWeek,
                     ndxChangePct: macroData?.ndxChangePct ?? null, vixValue: macroData?.vixValue ?? null,
                     tltChangePct: macroData?.tltChangePct ?? null, gldChangePct: macroData?.gldChangePct ?? null,
                 });
