@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from 'react';
+import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
@@ -43,9 +44,12 @@ interface Props {
     range: string;
     buildId?: string;
     chartDiagnostics?: ChartDiagnostics; // [S-56.4.7] No-Silence UX
+    initialUnifiedData?: any; // [PERF] SSR Hydration payload
 }
 
 const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaData, newsScore, liveQuote, analystData, fundamentalData, institutionalData }: any) => {
+    // ... preserving other code
+    // (To make this replace safe, I will only replace the top interface and the SWR call area)
     const t = useTranslations('command');
     const td = useTranslations('dashboard');
 
@@ -343,7 +347,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 
 };
 
-export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics }: Props) {
+export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData }: Props) {
     // --- Live Data State ---
     // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
     // SSR data → SWR fallbackData → instant first render → background refresh
@@ -473,137 +477,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [PERF] fetchQuote removed — replaced by SWR useFlowData hook above
     // SWR handles: caching, deduplication, background refresh (15s), error retry
 
-    const fetchStructure = async (exp?: string, maxRetries: number = 3) => {
-        // [FIX] 기존 데이터가 있으면 로딩 오버레이 표시 안함 (깜빡임 방지)
-        if (!structure) setStructLoading(true);
-        let retryCount = 0;
-
-        const attemptFetch = async (): Promise<any> => {
-            try {
-                const url = `/api/live/options/structure?t=${ticker}${exp ? `&exp=${exp}` : ""}`;
-                const res = await fetch(url);
-                if (!res.ok) return null;
-
-                const data = await res.json();
-
-                // [DATA VALIDATION] Auto-retry if confidence is LOW
-                if (data.validation?.confidence === 'LOW' && retryCount < maxRetries) {
-                    retryCount++;
-                    console.log(`[Structure] Validation LOW, retry ${retryCount}/${maxRetries}...`);
-                    await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
-                    return attemptFetch();
-                }
-
-                return data;
-            } catch (e: any) {
-                if (e?.message?.includes("Failed to fetch") && retryCount < maxRetries) {
-                    retryCount++;
-                    console.warn(`[Structure] Network error, retry ${retryCount}/${maxRetries}...`);
-                    await new Promise(resolve => setTimeout(resolve, 500));
-                    return attemptFetch();
-                }
-                console.error(e);
-                return null;
-            }
-        };
-
-        const data = await attemptFetch();
-        if (data) {
-            setStructure(data);
-            if (!exp && data.expiration) setSelectedExp(data.expiration);
-        }
-        setStructLoading(false);
-    };
-
-    // [PERF] ATM + Structure 병렬 호출 (기존: 순차 → 대기시간 낭비)
-    const fetchOptions = async () => {
-        setOptionsLoading(true);
-        try {
-            const [atmRes] = await Promise.all([
-                fetch(`/api/live/options/atm?t=${ticker}`),
-                fetchStructure() // 병렬 실행
-            ]);
-            if (atmRes.ok) {
-                const data = await atmRes.json();
-                setOptions(data);
-            }
-        } catch (e: any) {
-            if (e?.message?.includes("Failed to fetch")) console.warn("[Options] Network retry...");
-            else console.error(e);
-            setOptions({ options_status: "PENDING" });
-        } finally { setOptionsLoading(false); }
-    };
-
-    // [S-124.6] Fetch News Score
-    const fetchNewsScore = async () => {
-        try {
-            const res = await fetch(`/api/live/news?t=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                // Use API-calculated sentiment if available
-                if (data.sentiment) {
-                    setNewsScore({
-                        score: data.sentiment.score || 50,
-                        label: data.sentiment.label || td('sentimentNeutral'),
-                        breakdown: data.sentiment.breakdown
-                    });
-                } else {
-                    // Fallback calculation
-                    const items = data.items || [];
-                    let score = 50;
-                    let positive = 0, negative = 0, neutral = 0;
-                    items.forEach((item: any) => {
-                        if (item.sentiment === 'positive') { score += 5; positive++; }
-                        else if (item.sentiment === 'negative') { score -= 5; negative++; }
-                        else neutral++;
-                    });
-                    score = Math.max(0, Math.min(100, score));
-                    const label = score >= 70 ? td('sentimentPositive') : score >= 40 ? td('sentimentNeutral') : td('sentimentCaution');
-                    setNewsScore({ score, label, breakdown: { positive, negative, neutral } });
-                }
-            }
-        } catch (e) { console.warn('[NewsScore] Error:', e); }
-    };
-
-    // [V45.15] Fetch Earnings Schedule
-    const fetchEarnings = async () => {
-        try {
-            const res = await fetch(`/api/live/earnings?t=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                setEarningsData({
-                    nextDate: data.nextEarningsDate || null,
-                    daysLabel: data.daysLabel || 'TBD',
-                    epsEstimate: data.epsEstimate || null,
-                    quarter: data.quarter || null,
-                    year: data.year || null,
-                    hourLabel: data.hourLabel || '',
-                    color: data.color || 'text-slate-400'
-                });
-            }
-        } catch (e) { console.warn('[Earnings] Error:', e); }
-    };
-
-    // [PREMIUM] Fetch SMA 50/200 for TREND PHASE™
-    const fetchSma = async () => {
-        try {
-            const res = await fetch(`/api/live/sma?t=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                setSmaData({
-                    cross: data.cross || 'UNKNOWN',
-                    crossType: data.crossType || '',
-                    label: data.label || td('noData'),
-                    sma50: data.sma50 || 0,
-                    sma200: data.sma200 || 0,
-                    distance: data.distance || 0,
-                    isImminent: data.isImminent || false,
-                    phase: data.phase || 'UNKNOWN'
-                });
-            }
-        } catch (e) { console.warn('[SMA] Error:', e); }
-    };
-
     // [PREMIUM] Conviction Matrix: 클라이언트 사이드 융합 점수 (API 호출 없음)
     const calculateConviction = () => {
         let score = 50; // 기본 중립
@@ -646,62 +519,94 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         setConviction({ score, label, grade });
     };
 
-    // [S-124.6] Fetch Related Tickers
-    const fetchRelated = async () => {
-        try {
-            const res = await fetch(`/api/live/related?t=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                setRelatedData({
-                    count: data.count || 0,
-                    topRelated: data.topRelated || []
-                });
-            }
-        } catch (e) { console.warn('[Related] Error:', e); }
-    };
+    // =========================================================================
+    // [V68] COMMAND HYBRID ARCHITECTURE (Unified SWR Cache)
+    // =========================================================================
 
-    // [PREMIUM] Fetch Analyst Target (Finnhub: Recommendations + Price Target)
-    const fetchAnalyst = async () => {
-        try {
-            const res = await fetch(`/api/live/analyst?t=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                setAnalystData(data);
-            }
-        } catch (e) { console.warn('[Analyst] Error:', e); }
-    };
+    // 1. Fetch Unified Backend Data (11-in-1 aggregation + Redis SWR Cache)
+    const { data: unifiedData, error: unifiedError } = useSWR(
+        ticker ? `/api/command/unified?t=${ticker}&lang=${locale}` : null,
+        (url: string) => fetch(url).then(res => res.json()),
+        {
+            fallbackData: initialUnifiedData, // [SSR HYDRATION] Bypass skeleton
+            revalidateOnFocus: false, // Redis handles background freshness
+            revalidateIfStale: false,
+            refreshInterval: 0 // We don't interval-poll heavy data. Live quote takes care of prices.
+        }
+    );
 
-    // [PREMIUM-5x2] Fetch Volatility Regime
-    const fetchVolatilityRegime = async () => {
-        try {
-            const res = await fetch(`/api/live/volatility-regime?t=${ticker}`);
-            if (res.ok) setVolatilityData(await res.json());
-        } catch (e) { console.warn('[VolRegime] Error:', e); }
-    };
+    // 2. Map Unified Data to Components
+    useEffect(() => {
+        if (!unifiedData) return;
 
-    // [PREMIUM-5x2] Fetch Short Squeeze Risk
-    const fetchShortSqueeze = async () => {
-        try {
-            const res = await fetch(`/api/live/short-squeeze?t=${ticker}`);
-            if (res.ok) setSqueezeData(await res.json());
-        } catch (e) { console.warn('[ShortSqueeze] Error:', e); }
-    };
+        // Structure & Options
+        if (unifiedData.structure) setStructure(unifiedData.structure);
+        if (unifiedData.options) setOptions(unifiedData.options);
 
-    // [PREMIUM-5x2] Fetch Institutional Flow (reuses existing realtime-metrics)
-    const fetchInstitutional = async () => {
-        try {
-            const res = await fetch(`/api/flow/realtime-metrics?ticker=${ticker}`);
-            if (res.ok) setInstitutionalData(await res.json());
-        } catch (e) { console.warn('[Institutional] Error:', e); }
-    };
+        // Earnings
+        if (unifiedData.earnings) {
+            setEarningsData({
+                nextDate: unifiedData.earnings.nextEarningsDate || null,
+                daysLabel: unifiedData.earnings.daysLabel || 'TBD',
+                epsEstimate: unifiedData.earnings.epsEstimate || null,
+                quarter: unifiedData.earnings.quarter || null,
+                year: unifiedData.earnings.year || null,
+                hourLabel: unifiedData.earnings.hourLabel || '',
+                color: unifiedData.earnings.color || 'text-slate-400'
+            });
+        }
 
-    // [PREMIUM-5x2] Fetch Fundamental Value
-    const fetchFundamentals = async () => {
-        try {
-            const res = await fetch(`/api/live/fundamentals?t=${ticker}`);
-            if (res.ok) setFundamentalData(await res.json());
-        } catch (e) { console.warn('[Fundamentals] Error:', e); }
-    };
+        // SMA (TREND PHASE)
+        if (unifiedData.sma) {
+            setSmaData({
+                cross: unifiedData.sma.cross || 'UNKNOWN',
+                crossType: unifiedData.sma.crossType || '',
+                label: unifiedData.sma.label || td('noData'),
+                sma50: unifiedData.sma.sma50 || 0,
+                sma200: unifiedData.sma.sma200 || 0,
+                distance: unifiedData.sma.distance || 0,
+                isImminent: unifiedData.sma.isImminent || false,
+                phase: unifiedData.sma.phase || 'UNKNOWN'
+            });
+        }
+
+        // Related
+        if (unifiedData.related) {
+            setRelatedData({
+                count: unifiedData.related.count || 0,
+                topRelated: unifiedData.related.topRelated || []
+            });
+        }
+
+        // Analyst Targets
+        if (unifiedData.analyst) setAnalystData(unifiedData.analyst);
+
+        // Volatility Regime
+        if (unifiedData.volatility) setVolatilityData(unifiedData.volatility);
+
+        // Short Squeeze
+        if (unifiedData.squeeze) setSqueezeData(unifiedData.squeeze);
+
+        // Institutional Flow
+        if (unifiedData.institutional) setInstitutionalData(unifiedData.institutional);
+
+        // Fundamentals
+        if (unifiedData.fundamentals) setFundamentalData(unifiedData.fundamentals);
+
+        // Overview
+        if (unifiedData.overview?.overview) {
+            setCompanyOverview({
+                sector: unifiedData.overview.overview.sector,
+                sectorEN: unifiedData.overview.overview.sectorEN,
+                description: unifiedData.overview.overview.description,
+                descriptionEN: unifiedData.overview.overview.descriptionEN
+            });
+        }
+
+        // Stop loading overlays
+        setStructLoading(false);
+        setOptionsLoading(false);
+    }, [unifiedData]);
 
     // [FIX] Client-side chart refresh on visibility/focus change
     const fetchChartData = useCallback(async () => {
@@ -717,33 +622,19 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         }
     }, [ticker, range]);
 
-    // Initial Load & Polling
+    // News & AI Setup (Progressive Hydration - Non blocking)
     useEffect(() => {
-        // [PERF] fetchQuote removed — SWR handles quote polling automatically
-        fetchNewsAndScore(); // [PERF] 통합: fetchKrNews + fetchNewsScore → 1회 호출
-        fetchEarnings();
-        fetchSma();
-        fetchRelated();
-        fetchAnalyst();
-        fetchVolatilityRegime();
-        fetchShortSqueeze();
-        fetchInstitutional();
-        fetchFundamentals();
-        fetchChartData(); // [FIX] Immediately fetch chart data on mount (prevents empty chart + currentPrice stretch)
+        fetchNewsAndScore(); // AI fetch resolves silently in background
+        fetchChartData();    // Initial chart load
 
-        // [FIX] Re-fetch chart when user returns to this page/tab
-        const handleVisibility = () => {
-            if (document.visibilityState === 'visible') fetchChartData();
-        };
+        const chartInterval = setInterval(fetchChartData, 30000);
+        const newsInterval = setInterval(fetchNewsAndScore, 30 * 60 * 1000);
+
+        const handleVisibility = () => { if (document.visibilityState === 'visible') fetchChartData(); };
         const handleFocus = () => fetchChartData();
+
         document.addEventListener('visibilitychange', handleVisibility);
         window.addEventListener('focus', handleFocus);
-
-        // Silent chart refresh every 30s
-        const chartInterval = setInterval(fetchChartData, 30000);
-
-        // [AI Insight] News auto-refresh every 30min for real-time AI analysis
-        const newsInterval = setInterval(fetchNewsAndScore, 30 * 60 * 1000);
 
         return () => {
             clearInterval(chartInterval);
@@ -751,7 +642,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             document.removeEventListener('visibilitychange', handleVisibility);
             window.removeEventListener('focus', handleFocus);
         };
-    }, [ticker, fetchChartData]);
+    }, [ticker, fetchChartData]); // Re-run when ticker changes
 
     // [PREMIUM] Recalculate conviction when dependencies change
     // [FIX] Use stable scalar values instead of full liveQuote object to prevent infinite loop
@@ -761,53 +652,20 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         calculateConviction();
     }, [smaData, newsScore, liveQuotePrice, liveQuoteNetPremium, structure]);
 
-    useEffect(() => {
-        // [FIX] Reset structure and chart data on ticker change to prevent stale data
-        setStructure(null);
-        setLiveChartData(null);
-        fetchOptions();
-        // [V45.16] Poll options data every 30s for real-time Flow updates
-        const optionsInterval = setInterval(fetchOptions, 30000);
-        return () => {
-            clearInterval(optionsInterval);
-        };
-    }, [ticker]);
-
-    // [Company Profile] Fetch overview (description + sector) with locale translation
-    useEffect(() => {
-        const fetchOverview = async () => {
-            try {
-                const res = await fetch(`/api/live/overview?t=${ticker}&lang=${locale}`);
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data.overview) {
-                        setCompanyOverview({
-                            sector: data.overview.sector,
-                            sectorEN: data.overview.sectorEN,
-                            description: data.overview.description,
-                            descriptionEN: data.overview.descriptionEN
-                        });
-                    }
-                }
-            } catch (e) { console.warn('[Overview] Error:', e); }
-        };
-        fetchOverview();
-    }, [ticker, locale]);
-
     if (!initialStockData) return <div>Data Unavailable</div>;
 
     // [UNIFIED] All price display logic via shared calcPriceDisplay()
     const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct } = calcPriceDisplay({
         livePrice: livePrice?.price,
         liveChangePct: livePrice?.changePercent,
-        apiDisplayPrice: liveQuote?.display?.price,
-        apiDisplayChangePct: liveQuote?.display?.changePctPct,
+        apiDisplayPrice: liveQuote?.display?.price || initialStockData?.price,
+        apiDisplayChangePct: liveQuote?.display?.changePctPct || initialStockData?.changePercent,
         session: effectiveSession,
         prevRegularClose: liveQuote?.prices?.prevRegularClose,
-        prevClose: liveQuote?.prevClose || initialStockData.prevClose,
+        prevClose: liveQuote?.prevClose || (initialStockData && initialStockData.prevClose) || 0,
         regularCloseToday: liveQuote?.prices?.regularCloseToday,
         prevChangePct: liveQuote?.prices?.prevChangePct,
-        fallbackChangePct: initialStockData.changePercent || 0,
+        fallbackChangePct: (initialStockData && initialStockData.changePercent) || 0,
         lastTrade: liveQuote?.prices?.lastTrade || liveQuote?.price,
         extended: liveQuote?.extended,
         prices: liveQuote?.prices,
@@ -830,7 +688,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // === GLOBAL LOADING GATE ===
     // Prevent rendering with zero/stale data (causes $0.00, Infinity%, distorted chart)
     // Wait for: (1) liveQuote with real price ONLY — chart loads independently with its own skeleton
-    const isInitialLoading = !liveQuote || displayPrice === 0;
+    const hasSsrPrice = initialStockData && (initialStockData.price > 0 || (initialStockData.prevClose && initialStockData.prevClose > 0));
+    const isInitialLoading = (!liveQuote && !hasSsrPrice) || displayPrice === 0;
 
     if (isInitialLoading) {
         return (

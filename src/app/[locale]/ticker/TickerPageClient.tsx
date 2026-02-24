@@ -41,27 +41,19 @@ const LiveTickerDashboard = dynamic(
 interface TickerPageClientProps {
     ticker: string;
     range: string;
+    initialStockData: any;
+    initialUnifiedData?: any;
 }
 
-export function TickerPageClient({ ticker, range }: TickerPageClientProps) {
-    // Minimal initialStockData — LiveTickerDashboard will hydrate everything via SWR
-    const minimalStockData = {
-        symbol: ticker,
-        name: ticker,
-        price: 0,
-        change: 0,
-        changePercent: 0,
-        currency: "USD",
-        history: [],
-    };
-
+export function TickerPageClient({ ticker, range, initialStockData, initialUnifiedData }: TickerPageClientProps) {
     return (
         <LiveTickerDashboard
             ticker={ticker}
-            initialStockData={minimalStockData}
+            initialStockData={initialStockData}
+            initialUnifiedData={initialUnifiedData}
             initialNews={[]}
             range={range}
-            buildId="csr"
+            buildId="csr-ssr-hybrid"
         />
     );
 }
