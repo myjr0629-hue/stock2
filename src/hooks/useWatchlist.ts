@@ -73,10 +73,11 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesDa
     const tickerString = watchlistData.items.map(i => i.ticker).join(',');
 
     // SWR: Full data with 30s auto-refresh (Alpha, Whale, GEX, etc.)
-    const { data, error, isLoading, isValidating, mutate } = useSWR(
+    const { data: fullData, error, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
         tickerString ? `/api/watchlist/batch?tickers=${tickerString}` : null,
         fetcher,
         {
+            fallbackData: initialWatchlist && initialWatchlist.length > 0 ? { results: initialWatchlist } : undefined,
             refreshInterval: 30000,
             revalidateOnFocus: false,
             dedupingInterval: 5000,
@@ -84,7 +85,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesDa
     );
 
     // SWR: Price-only with 10s auto-refresh (lightweight)
-    const { data: priceData } = useSWR(
+    const { data: priceData, isLoading: priceLoading } = useSWR(
         tickerString ? `/api/live/quotes?symbols=${tickerString}` : null,
         fetcher,
         {
@@ -100,8 +101,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesDa
         if (watchlistData.items.length === 0) return [];
 
         const apiResults: Record<string, any> = {};
-        if (data?.results) {
-            data.results.forEach((result: any) => {
+        if (fullData?.results) {
+            fullData.results.forEach((result: any) => {
                 if (result && !result.error) {
                     apiResults[result.ticker] = result;
                 }
@@ -204,7 +205,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesDa
             }
             return { ...item, currentPrice: 0, changePct: 0 };
         });
-    }, [data, priceData, watchlistData]);
+    }, [fullData, priceData, watchlistData]);
 
     const addItem = useCallback(async (ticker: string, name: string) => {
         const updated = await storeAdd(ticker, name);
@@ -224,8 +225,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialQuotesDa
 
     return {
         items,
-        loading: isLoading || storeLoading,
-        isRefreshing: isValidating && !isLoading,
+        loading: storeLoading || (fullLoading && items.length === 0),
+        isRefreshing: fullValidating && !fullLoading,
         error: error?.message || null,
         addItem,
         removeItem,
