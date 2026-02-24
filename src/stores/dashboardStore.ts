@@ -122,6 +122,27 @@ interface DashboardState {
 
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
 
+// [FIX] Field-level deep merge helper to preserve existing non-null values
+const deepMergeTicker = (existing: TickerData | undefined, newData: any): TickerData => {
+    if (!existing) return newData as TickerData;
+    const merged = { ...existing } as any;
+    for (const [field, val] of Object.entries(newData)) {
+        if (val !== null && val !== undefined && val !== '') {
+            if (typeof val === 'object' && !Array.isArray(val)) {
+                merged[field] = { ...(existing as any)[field] };
+                for (const [subField, subVal] of Object.entries(val)) {
+                    if (subVal !== null && subVal !== undefined && subVal !== '') {
+                        merged[field][subField] = subVal;
+                    }
+                }
+            } else {
+                merged[field] = val;
+            }
+        }
+    }
+    return merged as TickerData;
+};
+
 // [P1 FIX] Abort controller for fetchDashboardData race condition prevention
 let _dashboardAbort: AbortController | null = null;
 
@@ -238,29 +259,15 @@ export const useDashboardStore = create<DashboardState>()(
                     // Keep max 20 signals (newest first, already sorted by time)
                     const finalSignals = validSignals.slice(0, 20);
 
-                    // Merge new data with existing — never replace with empty
                     const existingTickers = get().tickers;
                     const newTickers = data.tickers || {};
                     const mergedTickers = { ...existingTickers };
 
-                    // [FIX] Field-level merge: preserve existing non-null values when new response has null
                     for (const [key, value] of Object.entries(newTickers)) {
                         if (value && typeof value === 'object' && !(value as any).error) {
-                            const existing = mergedTickers[key];
-                            if (existing) {
-                                // Deep merge: only overwrite fields that have actual values
-                                const merged = { ...existing } as any;
-                                for (const [field, val] of Object.entries(value as any)) {
-                                    if (val !== null && val !== undefined && val !== '') {
-                                        merged[field] = val;
-                                    }
-                                }
-                                mergedTickers[key] = merged as TickerData;
-                            } else {
-                                mergedTickers[key] = value as TickerData;
-                            }
+                            mergedTickers[key] = deepMergeTicker(mergedTickers[key], value);
                         }
-                        // If value has error, keep existing data (mergedTickers[key] already has it)
+                        // If value has error, keep existing data
                     }
 
                     set({
@@ -399,7 +406,7 @@ export const useDashboardStore = create<DashboardState>()(
 
                     const existing = get().tickers;
                     set({
-                        tickers: { ...existing, [ticker]: newTickers[ticker] },
+                        tickers: { ...existing, [ticker]: deepMergeTicker(existing[ticker], newTickers[ticker]) },
                         market: data.market || get().market,
                     });
                 } catch (e) {
