@@ -628,8 +628,8 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                     const rightX = vw ? x + vw : x;
                                                     return (
                                                         <g data-price-badge="prevclose-left">
-                                                            <rect x={x - 57} y={y - 10} width={54} height={20} rx={4} fill="#3b82f6" />
-                                                            <text x={x - 30} y={y + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">
+                                                            <rect x={x + 5} y={y - 10} width={54} height={20} rx={4} fill="#3b82f6" />
+                                                            <text x={x + 32} y={y + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">
                                                                 {prevClose.toFixed(2)}
                                                             </text>
                                                         </g>
@@ -663,12 +663,13 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                     position="right"
                                                     offset={5}
                                                     content={({ viewBox }: any) => {
-                                                        const { x, y } = viewBox || {};
+                                                        const { x, y, width: vw } = viewBox || {};
                                                         if (x === undefined || y === undefined) return null;
+                                                        const rightX = vw ? x + vw : x;
                                                         return (
                                                             <g data-price-badge="current-right">
                                                                 <rect
-                                                                    x={x + 5}
+                                                                    x={rightX + 5}
                                                                     y={y - 10}
                                                                     width={54}
                                                                     height={20}
@@ -676,7 +677,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                                     fill={bgColor}
                                                                 />
                                                                 <text
-                                                                    x={x + 32}
+                                                                    x={rightX + 32}
                                                                     y={y + 4}
                                                                     textAnchor="middle"
                                                                     fill="#ffffff"
