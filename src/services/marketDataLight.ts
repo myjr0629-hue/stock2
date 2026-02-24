@@ -54,7 +54,7 @@ export async function getStockDataLight(symbol: string) {
         session,
         extended: {
             prePrice: session === 'pre' ? latestPrice : null,
-            postPrice: (session === 'post' || session === 'closed') ? latestPrice : null,
+            postPrice: (session === 'post' || (session as string) === 'closed') ? latestPrice : null,
         },
         rsi,
         return3d,
