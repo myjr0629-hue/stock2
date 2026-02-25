@@ -96,7 +96,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     return acc;
                 }, {} as Record<string, any>)
             } : undefined,
-            refreshInterval: 10000,
+            refreshInterval: 2000, // [UX] Near-real-time price feel
             revalidateOnFocus: false,
             dedupingInterval: 3000,
         }

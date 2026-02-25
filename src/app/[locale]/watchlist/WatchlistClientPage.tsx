@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { useWatchlist, type EnrichedWatchlistItem } from '@/hooks/useWatchlist';
+import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
 import { useTranslations } from 'next-intl';
 import {
     Star, Plus, RefreshCw, Trash2, X, Loader2, Activity, Fish, Zap,
@@ -397,6 +398,8 @@ function WatchlistCard({ item, onRemove, locale, index }: {
     const toggleDashboardTicker = useDashboardStore((s) => s.toggleDashboardTicker);
     const dashboardTickers = useDashboardStore((s) => s.dashboardTickers);
     const [isInDashboard, setIsInDashboard] = useState(false);
+    const pFlash = usePriceFlash(item.currentPrice, tickerDelay(item.ticker));
+    const pf = getFlashStyle(pFlash);
 
     useEffect(() => {
         setIsInDashboard(dashboardTickers.includes(item.ticker));
@@ -457,7 +460,7 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                     {/* Price / Change */}
                     <div className="text-center">
                         <div className="flex items-center justify-center gap-1">
-                            <span className="font-bold tabular-nums text-sm text-white">${item.currentPrice.toFixed(2)}</span>
+                            <span className={`font-bold tabular-nums text-sm ${pf.color}`} style={pf.style}>${item.currentPrice.toFixed(2)}</span>
                             {(() => {
                                 const etParts = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
                                 const etMins = parseInt(etParts[0]) * 60 + parseInt(etParts[1]);
