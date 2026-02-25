@@ -117,11 +117,11 @@ const PHYSICAL_AI_TICKERS = ['PLTR', 'ISRG', 'SYM', 'TER', 'RKLB', 'SERV', 'PL']
 // Stage 1: Pre-Market +2h (06:00 ET) - Draft with pre-market data
 // Stage 2: Open -30m (09:00 ET) - Final locked report
 export const REPORT_SCHEDULES: Record<ReportType, { hour: number; minute: number; description: string; labelKR: string }> = {
-    // [V2.0] PRIMARY SCHEDULES (Active)
-    'draft': { hour: 6, minute: 0, description: 'Pre+2h Draft', labelKR: '프리마켓 2시간 후 초안' },
+    // [V5.5] PRIMARY SCHEDULES (Active — 2-Stage Only)
     'final': { hour: 9, minute: 0, description: 'Open-30m Final', labelKR: '본장 30분 전 최종' },
     'live': { hour: 10, minute: 30, description: 'Live Tactical', labelKR: '라이브 스나이퍼 전략' },
     // LEGACY (Deprecated - kept for backward compatibility)
+    'draft': { hour: 6, minute: 0, description: '[LEGACY] Pre+2h Draft', labelKR: '프리마켓 초안 (미사용)' },
     'eod': { hour: 16, minute: 30, description: '[LEGACY] EOD Report', labelKR: '장마감 후 (미사용)' },
     'pre': { hour: 6, minute: 30, description: '[LEGACY] Premarket', labelKR: '프리마켓 (미사용)' },
     'open': { hour: 9, minute: 0, description: '[LEGACY] Open', labelKR: '본장 전 (미사용)' },
