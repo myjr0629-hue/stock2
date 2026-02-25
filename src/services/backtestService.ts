@@ -277,3 +277,45 @@ function addBusinessDays(date: Date, days: number): Date {
     }
     return result;
 }
+
+// ============================================================================
+// SELF-CORRECTION QUERIES
+// ============================================================================
+
+export interface TickerPerformance {
+    ticker: string;
+    total: number;
+    wins: number;
+    losses: number;
+    flat: number;
+    winRate: number;
+    avgReturn: number;
+}
+
+/**
+ * Get historical performance of a specific ticker to feed the self-correction loop.
+ */
+export function getTickerPerformance(ticker: string): TickerPerformance | null {
+    loadRecords();
+    const tRecords = records.filter(r => r.ticker === ticker && r.outcome && r.outcome !== 'PENDING');
+    if (tRecords.length === 0) return null;
+
+    const wins = tRecords.filter(r => r.outcome === 'WIN').length;
+    const losses = tRecords.filter(r => r.outcome === 'LOSS').length;
+    const flat = tRecords.filter(r => r.outcome === 'FLAT').length;
+    const total = tRecords.length;
+    const winRate = total > 0 ? (wins / total) * 100 : 0;
+
+    const returns = tRecords.map(r => r.returnPct || 0);
+    const avgReturn = returns.reduce((a, b) => a + b, 0) / total;
+
+    return {
+        ticker,
+        total,
+        wins,
+        losses,
+        flat,
+        winRate,
+        avgReturn
+    };
+}

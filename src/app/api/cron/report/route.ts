@@ -8,9 +8,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as ReportType | null;
 
-    // [P0] Validate type - 3 fixed reports + legacy morning + [Phase 37] 3-Stage Protocol
-    if (!type || !['eod', 'pre', 'open', 'morning', 'draft', 'revised', 'final'].includes(type)) {
-        return NextResponse.json({ error: 'Invalid type. Use: eod, pre, open, draft, revised, final' }, { status: 400 });
+    // [P0] Validate type - 3 fixed reports + legacy morning + [Phase 37] 3-Stage Protocol + [Business] Live Tactical
+    if (!type || !['eod', 'pre', 'open', 'morning', 'draft', 'revised', 'final', 'live'].includes(type)) {
+        return NextResponse.json({ error: 'Invalid type. Use: eod, pre, open, draft, revised, final, live' }, { status: 400 });
     }
 
     // [P0] Security: Check CRON_SECRET - supports both header and query param
@@ -53,6 +53,26 @@ export async function GET(request: Request) {
     try {
         console.log(`[Cron] Generating ${type} report for ${marketDate}... (force=${force})`);
         const report = await generateReport(type, force, targetDateParam || undefined);
+
+        // [V3.1] Self-Correction Auto-Trigger (D+3 Performance Tracking)
+        try {
+            const { checkPendingOutcomes } = await import('@/services/backtestService');
+            const { verifyPendingTrackRecords } = await import('@/services/trackRecord/trackRecordService');
+
+            // Await the check so Vercel doesn't kill the background task prematurely
+            const checkedCount = await checkPendingOutcomes();
+            if (checkedCount > 0) {
+                console.log(`[Cron] Backtest Auto-Check complete: ${checkedCount} outcomes verified.`);
+            }
+
+            // [Precision Tracker] Validate Track Records
+            const trackRecordResult = await verifyPendingTrackRecords();
+            if (trackRecordResult.processed > 0) {
+                console.log(`[Cron] Precision Track Record Verification complete: ${trackRecordResult.processed} records evaluated.`);
+            }
+        } catch (e: any) {
+            console.error('[Cron] Backtest/TrackRecord Auto-Check failed:', e?.message || e);
+        }
 
         const metaAny = report.meta as any;
         return NextResponse.json({

@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Shield, AlertTriangle, Crosshair, Eye, Target, type LucideIcon } from 'lucide-react';
+import { Shield, AlertTriangle, Crosshair, Eye, Target, Radar, type LucideIcon } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { AlphaCard, AlphaCardCompact } from './AlphaCard';
 
 // =============================================================================
@@ -57,6 +58,39 @@ function SectionHeader({
 }
 
 // =============================================================================
+// LIVE SNIPER PLACEHOLDER (Intraday)
+// =============================================================================
+
+function LiveSniperPlaceholder({ index }: { index: number }) {
+    const t = useTranslations('alphaReport');
+
+    return (
+        <div className="relative rounded-2xl border border-fuchsia-500/30 bg-[#160a1c]/80 backdrop-blur-xl h-[180px] overflow-hidden group flex flex-col items-center justify-center text-center p-6 shadow-[0_4px_20px_rgba(0,0,0,0.4)]">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(217,70,239,0.08)_0%,transparent_70%)]" />
+
+            {/* Top-to-Bottom Data Scan Animation */}
+            <div className="absolute inset-0 pointer-events-none opacity-40">
+                <div className="absolute top-0 left-0 w-full h-[200%] bg-gradient-to-b from-transparent via-fuchsia-400/[0.2] to-transparent"
+                    style={{ animation: `scanVertical ${3 + index * 0.5}s linear infinite` }} />
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:100%_4px]" />
+            </div>
+
+            <div className="relative z-10 w-12 h-12 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/20 flex items-center justify-center mb-3 group-hover:bg-fuchsia-500/30 transition-colors duration-500 shadow-[0_0_15px_rgba(217,70,239,0.3)]">
+                <Radar className="w-5 h-5 text-fuchsia-300 drop-shadow-[0_0_10px_rgba(217,70,239,0.9)] animate-[spin_4s_linear_infinite]" />
+            </div>
+
+            <h3 className="relative z-10 text-sm font-black text-white tracking-widest uppercase font-jakarta mb-1 drop-shadow-md">
+                {t('awaitingProtocol')}
+            </h3>
+            <p className="relative z-10 text-xs text-slate-300 font-semibold font-jakarta max-w-[200px]">
+                {t('liveSniperChecking')}<br />
+                <span className="text-fuchsia-300 font-bold block mt-1 drop-shadow-[0_0_6px_rgba(217,70,239,0.8)]">{t('liveSniperOpenTime')}</span>
+            </p>
+        </div>
+    );
+}
+
+// =============================================================================
 // LOADING SKELETON (Glassmorphic)
 // =============================================================================
 
@@ -92,25 +126,28 @@ function CardSkeleton({ variant = 'large' }: { variant?: 'large' | 'compact' }) 
 // MAIN COMPONENT
 // =============================================================================
 
-export function FinalBattleSection({ items, isLoading = false, onItemClick }: {
+export default function FinalBattleSection({ items, isLoading = false, onItemClick }: {
     items: import('./AlphaCard').AlphaCardProps[];
     isLoading?: boolean;
     onItemClick?: (item: import('./AlphaCard').AlphaCardProps) => void;
 }) {
+    const t = useTranslations('alphaReport');
+
+    // New Split Strategy: Top 3 (PreMkt), Actionable 4-7 (PreMkt).
     const mainCorps = items.filter(i => i.rank <= 3);
-    const core12 = items.filter(i => i.rank >= 4 && i.rank <= 10);
-    const moonshot = items.filter(i => i.rank >= 11);
+    const coreActionable = items.filter(i => i.rank >= 4 && i.rank <= 7);
 
     return (
-        <div className="space-y-10">
+        <div className="space-y-12">
 
             {/* TOP PICKS (Ranks 1-3) */}
             <section>
                 <SectionHeader
-                    icon={Crosshair}
-                    title="TOP PICKS"
-                    subtitle="HIGH CONVICTION — IMMEDIATE REVIEW"
+                    icon={Radar}
+                    title={t('topPicks')}
+                    subtitle={t('topPicksSubtitle')}
                     count={mainCorps.length}
+                    variant="warning"
                 />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
@@ -135,76 +172,78 @@ export function FinalBattleSection({ items, isLoading = false, onItemClick }: {
                 </div>
             </section>
 
-            {/* ACTIONABLE (Ranks 4-10) */}
-            <section>
-                <SectionHeader
-                    icon={Target}
-                    title="ACTIONABLE"
-                    subtitle="CONDITIONAL ENTRY — TRIGGER STANDBY"
-                    count={core12.length}
-                />
+            {/* LIVE TACTICAL (Intraday Slots 1-3) */}
+            <section className="relative p-6 md:p-8 rounded-3xl bg-fuchsia-950/20 border border-fuchsia-500/20 shadow-[0_0_40px_rgba(217,70,239,0.06)] overflow-hidden my-12">
+                {/* Background Glow for container */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-px bg-gradient-to-r from-transparent via-fuchsia-400/60 to-transparent" />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {isLoading ? (
-                        [1, 2, 3, 4, 5, 6, 7].map(i => <CardSkeleton key={i} variant="compact" />)
-                    ) : (
-                        core12.map((item) => (
-                            <motion.div
-                                key={item.ticker}
-                                initial={{ opacity: 0, y: 12 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: item.rank * 0.04, duration: 0.35, ease: 'easeOut' }}
-                            >
-                                <AlphaCardCompact
-                                    {...item}
-                                    onClick={() => onItemClick?.(item)}
-                                />
-                            </motion.div>
-                        ))
-                    )}
+                <div className="flex items-center justify-between mb-8 relative z-10">
+                    <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center border backdrop-blur-sm bg-fuchsia-500/[0.15] border-fuchsia-400/40 shadow-[0_0_20px_rgba(217,70,239,0.25)]">
+                            <Target className="w-5 h-5 text-fuchsia-300" />
+                        </div>
+                        <div>
+                            <h2 className="text-base font-black text-fuchsia-300 tracking-widest uppercase flex items-center gap-2 font-jakarta text-shadow-sm">
+                                {t('liveTactical')}
+                                <span className="text-xs font-mono font-bold px-2 py-0.5 rounded-md bg-fuchsia-500/[0.15] text-fuchsia-200 border border-fuchsia-400/40">
+                                    3
+                                </span>
+                            </h2>
+                            <p className="text-xs text-fuchsia-200/70 tracking-wider mt-0.5 font-semibold font-jakarta">
+                                {t('liveTacticalSubtitle')}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 relative z-10">
+                    {[1, 2, 3].map((idx) => (
+                        <LiveSniperPlaceholder key={idx} index={idx} />
+                    ))}
                 </div>
             </section>
 
-            {/* SPECULATIVE (Ranks 11+) */}
-            {moonshot.length > 0 && (
+            {/* ACTIONABLE (Ranks 4-7) */}
+            {coreActionable.length > 0 && (
                 <section>
                     <SectionHeader
-                        icon={AlertTriangle}
-                        title="SPECULATIVE"
-                        subtitle="HIGH RISK — SMALL POSITION ONLY"
-                        count={moonshot.length}
-                        variant="warning"
+                        icon={Shield}
+                        title={t('actionable')}
+                        subtitle={t('actionableSubtitle')}
+                        count={coreActionable.length}
                     />
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                        {moonshot.map((item) => (
-                            <motion.div
-                                key={item.ticker}
-                                initial={{ opacity: 0, y: 16 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: item.rank * 0.08, duration: 0.4 }}
-                            >
-                                <AlphaCard
-                                    {...item}
-                                    isHighRisk={true}
-                                    variant="compact"
-                                    onClick={() => onItemClick?.(item)}
-                                />
-                            </motion.div>
-                        ))}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {isLoading ? (
+                            [1, 2, 3, 4].map(i => <CardSkeleton key={i} variant="compact" />)
+                        ) : (
+                            coreActionable.map((item) => (
+                                <motion.div
+                                    key={item.ticker}
+                                    initial={{ opacity: 0, y: 12 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: item.rank * 0.04, duration: 0.35, ease: 'easeOut' }}
+                                >
+                                    <AlphaCardCompact
+                                        {...item}
+                                        onClick={() => onItemClick?.(item)}
+                                    />
+                                </motion.div>
+                            ))
+                        )}
                     </div>
                 </section>
             )}
 
             {/* Empty State */}
             {!isLoading && items.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="flex flex-col items-center justify-center py-20 text-center border border-white/5 rounded-2xl bg-[#0a0f1c]/50">
                     <div className="w-16 h-16 rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center mb-4 backdrop-blur-sm">
                         <Shield className="w-7 h-7 text-white/20" />
                     </div>
-                    <h3 className="text-lg font-bold text-white/40 mb-1">No Alpha Detected</h3>
-                    <p className="text-xs text-white/20 max-w-sm">
-                        The engine is scanning the market. Alpha signals will appear when high-probability setups are identified.
+                    <h3 className="text-lg font-black text-white/40 mb-1 font-jakarta uppercase tracking-wider">No Alpha Detected</h3>
+                    <p className="text-sm text-white/30 max-w-sm font-medium font-jakarta">
+                        시장을 스캔 중입니다. 확률이 높은 셋업이 발견되면 신호가 발생합니다.
                     </p>
                 </div>
             )}

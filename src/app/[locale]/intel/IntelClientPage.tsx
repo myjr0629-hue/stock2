@@ -18,7 +18,8 @@ import {
 import { TacticalCard } from "@/components/TacticalCard";
 import { TacticalSidebar } from "@/components/TacticalSidebar";
 import { PremiumBlur } from "@/components/PremiumBlur";
-import { AlphaItem } from "@/components/intel/FinalBattleSection";
+import { type AlphaItem } from '@/components/intel/FinalBattleSection';
+import FinalBattleSection from '@/components/intel/FinalBattleSection';
 import { EarningsEvent, RecommendationTrend } from "@/services/finnhubClient";
 import { m7Config } from "@/configs/m7.config";
 import { physicalAIConfig } from "@/configs/physicalai.config";
@@ -43,7 +44,6 @@ const PhysicalAITacticalDeck = dynamic(() => import("@/components/intel/Physical
 const PhysicalAIAnalystConsensus = dynamic(() => import("@/components/intel/PhysicalAIAnalystConsensus").then(m => m.PhysicalAIAnalystConsensus), { ssr: false });
 const PhysicalAIEarningsCalendar = dynamic(() => import("@/components/intel/PhysicalAIEarningsCalendar").then(m => m.PhysicalAIEarningsCalendar), { ssr: false });
 const PhysicalAIOptionsPulse = dynamic(() => import("@/components/intel/PhysicalAIOptionsPulse").then(m => m.PhysicalAIOptionsPulse), { ssr: false });
-const FinalBattleSection = dynamic(() => import("@/components/intel/FinalBattleSection").then(m => m.FinalBattleSection), { ssr: false });
 const SectorSessionGrid = dynamic(() => import("@/components/intel/SectorSessionGrid").then(m => m.SectorSessionGrid), { ssr: false });
 const SectorPulseDashboard = dynamic(() => import("@/components/intel/SectorPulseDashboard").then(m => m.SectorPulseDashboard), { ssr: false });
 const SectorCommanderLog = dynamic(() => import("@/components/intel/SectorCommanderLog").then(m => m.SectorCommanderLog), { ssr: false });
@@ -291,9 +291,9 @@ const ScoreBreakdown = ({ evidence, item }: { evidence: UnifiedEvidence, item: T
     return (
         <div className="w-full space-y-2 select-none group">
             <div className="flex justify-between items-end">
-                <span className="text-[10px] uppercase font-bold text-slate-500 flex items-center gap-1">
+                <span className="text-xs uppercase font-bold text-slate-300 flex items-center gap-1">
                     Alpha Contribution
-                    <div className="hidden group-hover:flex absolute z-50 bg-slate-800 border border-slate-700 p-2 rounded shadow-xl -mt-8 ml-24 text-[10px] text-slate-300 w-48 flex-col gap-1">
+                    <div className="hidden group-hover:flex absolute z-50 bg-slate-800 border border-slate-700 p-2 rounded shadow-xl -mt-8 ml-24 text-xs text-slate-300 w-48 flex-col gap-1">
                         <div className="font-bold text-slate-200 border-b border-slate-700 pb-1 mb-1">Scoring Factors (Alpha 2.0)</div>
                         <div className="flex justify-between"><span>Momentum:</span> <span className="font-mono text-emerald-400">Price + Vol Surge</span></div>
                         <div className="flex justify-between"><span>Options:</span> <span className="font-mono text-sky-400">PCR + OI Heat</span></div>
@@ -301,10 +301,10 @@ const ScoreBreakdown = ({ evidence, item }: { evidence: UnifiedEvidence, item: T
                         <div className="flex justify-between"><span>Regime:</span> <span className="font-mono text-amber-400">Macro + VIX</span></div>
                         <div className="flex justify-between"><span>Risk:</span> <span className="font-mono text-rose-400">RSI + Variance</span></div>
                     </div>
-                    <Search className="w-3 h-3 text-slate-600" />
+                    <Search className="w-3 h-3 text-slate-300" />
                 </span>
-                <span className="text-[10px] font-mono font-bold text-white bg-slate-800 px-1.5 py-0.5 rounded border border-slate-700">
-                    {score.toFixed(1)} <span className="text-slate-500">/ 100</span>
+                <span className="text-xs font-mono font-bold text-cyan-300 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.3)]">
+                    {score.toFixed(1)} <span className="text-cyan-500/70">/ 100</span>
                 </span>
             </div>
 
@@ -327,7 +327,7 @@ const ScoreBreakdown = ({ evidence, item }: { evidence: UnifiedEvidence, item: T
             )}
 
             {hasDecomp && (
-                <div className="grid grid-cols-5 text-[9px] text-slate-500 font-mono text-center opacity-70">
+                <div className="grid grid-cols-5 text-xs text-slate-300 font-mono text-center opacity-70">
                     <span>MOM</span>
                     <span>OPT</span>
                     <span>STR</span>
@@ -343,9 +343,9 @@ const ScoreBreakdown = ({ evidence, item }: { evidence: UnifiedEvidence, item: T
 // STYLES & UTILS
 // ============================================================================
 const getRegimeColor = (regime?: string) => {
-    if (regime === "RISK_ON") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
-    if (regime === "RISK_OFF") return "text-rose-400 bg-rose-500/10 border-rose-500/20";
-    return "text-amber-400 bg-amber-500/10 border-amber-500/20";
+    if (regime === "RISK_ON") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]";
+    if (regime === "RISK_OFF") return "text-rose-400 bg-rose-500/10 border-rose-500/30 shadow-[0_0_10px_rgba(244,63,94,0.2)]";
+    return "text-amber-400 bg-amber-500/10 border-amber-500/30 shadow-[0_0_10px_rgba(245,158,11,0.2)]";
 };
 
 const getRegimeText = (regime?: string) => {
@@ -357,7 +357,7 @@ const getRegimeText = (regime?: string) => {
 const getTierStyle = (tier?: string) => {
     if (tier === "ACTIONABLE") return "text-emerald-400 border border-emerald-500/30 bg-emerald-500/5";
     if (tier === "WATCH") return "text-slate-300 border border-slate-700 bg-slate-800/50";
-    return "text-slate-500 border border-slate-800 bg-transparent";
+    return "text-slate-300 border border-slate-800 bg-transparent";
 };
 
 const getOptionsStatus = (status?: string) => {
@@ -369,11 +369,11 @@ const getOptionsStatus = (status?: string) => {
 };
 
 const getActionStyle = (action?: string) => {
-    if (action === "ENTER" || action === "STRONG_BUY") return "text-emerald-400 bg-emerald-500/10 border border-emerald-500/20";
-    if (action === "MAINTAIN") return "text-sky-400 bg-sky-500/10 border border-sky-500/20";
-    if (action === "EXIT" || action === "REPLACE") return "text-rose-400 bg-rose-500/10 border border-rose-500/20";
-    if (action === "NO_TRADE") return "text-slate-400 bg-slate-800 border border-slate-700";
-    return "text-amber-400 bg-amber-500/10 border border-amber-500/20";
+    if (action === "ENTER" || action === "STRONG_BUY") return "text-emerald-300 bg-emerald-500/20 border border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]";
+    if (action === "MAINTAIN") return "text-cyan-300 bg-cyan-500/20 border border-cyan-400/50 shadow-[0_0_10px_rgba(6,182,212,0.3)]";
+    if (action === "EXIT" || action === "REPLACE") return "text-rose-300 bg-rose-500/20 border border-rose-400/50 shadow-[0_0_10px_rgba(244,63,94,0.3)]";
+    if (action === "NO_TRADE") return "text-slate-300 bg-slate-800 border border-slate-600 shadow-inner";
+    return "text-amber-300 bg-amber-500/20 border border-amber-400/50 shadow-[0_0_10px_rgba(245,158,11,0.3)]";
 };
 
 // ============================================================================
@@ -383,7 +383,7 @@ const getActionStyle = (action?: string) => {
 // Gate Badge: Text + Dot (Minimalist)
 function GateBadge({ label, pass }: { label: string; pass: boolean }) {
     return (
-        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] font-medium border border-transparent ${pass ? "text-slate-300" : "text-rose-400 bg-rose-500/10 border-rose-500/20"
+        <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium border border-transparent ${pass ? "text-slate-300" : "text-rose-400 bg-rose-500/10 border-rose-500/20"
             }`}>
             <div className={`w-1.5 h-1.5 rounded-full ${pass ? "bg-emerald-500" : "bg-rose-500"}`} />
             <span className="uppercase tracking-wider">{label}</span>
@@ -398,13 +398,16 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
         BULLISH: "text-emerald-400",
         BEARISH: "text-rose-400",
         NEUTRAL: "text-amber-400",
-        PENDING: "text-slate-400"
+        PENDING: "text-slate-300"
     }[card.status];
 
     return (
-        <div className="bg-slate-900 border border-slate-800 rounded p-4 h-full flex flex-col hover:border-slate-700 transition-colors relative overflow-hidden group">
+        <div className="bg-[#0a0f1c]/60 backdrop-blur-xl border border-indigo-500/10 rounded p-4 h-full flex flex-col hover:border-indigo-500/30 hover:shadow-[0_0_15px_rgba(99,102,241,0.1)] transition-all relative overflow-hidden group">
+            {/* Dark Navy Glassmorphism Glow */}
+            <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 blur-3xl group-hover:bg-indigo-500/10 transition-colors pointer-events-none" />
+
             {/* Header */}
-            <div className="flex items-start justify-between mb-4 border-b border-slate-800/50 pb-3 z-10 relative">
+            <div className="flex items-start justify-between mb-4 border-b border-indigo-500/10 pb-3 z-10 relative">
                 <div className="flex items-center gap-2.5">
                     <div className={`p-1.5 rounded bg-slate-800 ${statusColor}`}>
                         {React.cloneElement(card.icon as React.ReactElement<{ className?: string }>, { className: "w-4 h-4" })}
@@ -412,20 +415,20 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
                     <div>
                         <div className="flex items-baseline gap-2">
                             <h4 className="text-sm font-bold text-slate-200 tracking-tight">{card.titleKR}</h4>
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{card.title}</span>
+                            <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">{card.title}</span>
                         </div>
                         {/* vNext Meta Display (Subtle) */}
                         {card.meta?.fetchedAtET && (
-                            <div className="hidden group-hover:block text-[9px] text-slate-600 font-mono mt-0.5">
+                            <div className="hidden group-hover:block text-xs text-slate-300 font-mono mt-0.5">
                                 Updated: {card.meta.fetchedAtET}
                             </div>
                         )}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${card.confidence === "A" ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" :
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${card.confidence === "A" ? "text-emerald-400 border-emerald-500/20 bg-emerald-500/5" :
                         card.confidence === "B" ? "text-amber-400 border-amber-500/20 bg-amber-500/5" :
-                            "text-slate-500 border-slate-700 bg-slate-800"
+                            "text-slate-300 border-slate-700 bg-slate-800"
                         }`}>
                         GR.{card.confidence}
                     </span>
@@ -435,17 +438,17 @@ function EvidenceCardUI({ card }: { card: EvidenceCard }) {
             {/* Body: 3-Row Data Grid */}
             <div className="flex-1 space-y-3 z-10 relative">
                 <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
-                    <span className="text-[10px] text-slate-500 font-medium text-right">{ti('labelMeaning')}</span>
-                    <span className="text-[11px] text-slate-400 leading-tight">{card.meaning}</span>
+                    <span className="text-xs text-slate-300 font-medium text-right">{ti('labelMeaning')}</span>
+                    <span className="text-xs text-slate-300 leading-tight">{card.meaning}</span>
                 </div>
                 <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
-                    <span className="text-[10px] text-slate-500 font-medium text-right">{ti('labelInterpretation')}</span>
+                    <span className="text-xs text-slate-300 font-medium text-right">{ti('labelInterpretation')}</span>
                     <span className="text-[12px] text-slate-200 font-medium tabular-nums leading-tight tracking-tight">
                         {card.interpretation}
                     </span>
                 </div>
                 <div className="grid grid-cols-[3rem_1fr] gap-2 items-baseline">
-                    <span className="text-[10px] text-slate-500 font-medium text-right">{ti('labelAction')}</span>
+                    <span className="text-xs text-slate-300 font-medium text-right">{ti('labelAction')}</span>
                     <span className={`text-[12px] font-bold ${statusColor}`}>
                         {card.action}
                     </span>
@@ -500,8 +503,8 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
     const source = ev?.price?.priceSource;
 
     let tag = "";
-    let tagStyle = "text-slate-500";
-    if (source === "OFFICIAL_CLOSE") { tag = "CLOSE"; tagStyle = "text-slate-500 bg-slate-800/50 border-slate-700"; }
+    let tagStyle = "text-slate-300";
+    if (source === "OFFICIAL_CLOSE") { tag = "CLOSE"; tagStyle = "text-slate-300 bg-slate-800/50 border-slate-700"; }
     else if (source === "POST_CLOSE") { tag = "POST"; tagStyle = "text-indigo-300 bg-indigo-500/10 border-indigo-500/30"; }
     else if (source === "PRE_OPEN") { tag = "PRE"; tagStyle = "text-amber-300 bg-amber-500/10 border-amber-500/30"; }
     else if (source === "LIVE_SNAPSHOT") { tag = "LIVE"; tagStyle = "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"; }
@@ -510,12 +513,12 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
         <div onClick={onClick} className={cn(
             "relative rounded-xl p-6 cursor-pointer transition-all duration-300 overflow-hidden",
             // Glassmorphism Base
-            "bg-slate-900/60 backdrop-blur-md border border-white/5 shadow-2xl shadow-black/50",
+            "bg-[#0a0f1c]/60 backdrop-blur-xl border border-indigo-500/10 shadow-[0_8px_30px_rgba(0,0,0,0.5)]",
 
             // "Active" State (Whale Index > 80) -> Pink Neon Pulse
             (item.decisionSSOT?.whaleIndex || 0) >= 80
                 ? "shadow-[0_0_30px_rgba(255,0,128,0.2)] border-pink-500/30"
-                : "hover:ring-1 hover:ring-emerald-500/40 hover:bg-slate-800/60",
+                : "hover:border-indigo-500/40 hover:shadow-[0_0_20px_rgba(99,102,241,0.2)] hover:bg-[#0f172a]/80",
 
             // Selection Override
             isSelected && "ring-2 ring-emerald-500 shadow-[0_0_50px_rgba(16,185,129,0.2)] bg-slate-800/80"
@@ -537,14 +540,14 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
                                 onError={(e) => {
                                     e.currentTarget.style.display = 'none';
                                     e.currentTarget.parentElement!.style.backgroundColor = '#1e293b'; // slate-800
-                                    e.currentTarget.parentElement!.innerHTML = `<span class="text-[10px] font-bold text-slate-400">${item.ticker[0]}</span>`;
+                                    e.currentTarget.parentElement!.innerHTML = `<span class="text-xs font-bold text-slate-300">${item.ticker[0]}</span>`;
                                 }}
                             />
                         </div>
                         <div className="flex flex-col">
                             <div className="flex items-center gap-2">
                                 <span className="text-xl font-bold text-white tracking-tight leading-none">{item.ticker}</span>
-                                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${getActionStyle(action)}`}>
+                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${getActionStyle(action)}`}>
                                     {action}
                                 </span>
                             </div>
@@ -553,7 +556,7 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
                 </div>
                 <div className="text-right">
                     <div className="flex items-center justify-end gap-2 mb-0.5">
-                        {tag && <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${tagStyle}`}>{tag}</span>}
+                        {tag && <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${tagStyle}`}>{tag}</span>}
                         <p className="text-base font-semibold font-mono text-white tabular-nums tracking-tight">
                             {price > 0 ? price.toFixed(2) : (
                                 (item.evidence.price as any).error ?
@@ -562,44 +565,48 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
                             )}
                         </p>
                     </div>
-                    <p className={`text-[11px] font-medium tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                    <p className={`text-xs font-medium tabular-nums ${changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         {changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}%
                     </p>
                 </div>
             </div>
 
-            {/* Execution Levels - Clean Grid */}
+            {/* Execution Levels - Tactical Panel */}
             {!isNoTrade ? (
-                <div className="space-y-2 relative z-10">
-                    <div className="flex items-center justify-between py-1 border-b border-white/5">
-                        <span className="text-[11px] text-slate-500 font-medium">Entry</span>
+                <div className="mt-4 p-3 bg-[#0f172a]/60 backdrop-blur-md rounded-lg border border-indigo-500/20 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] space-y-2 relative z-10">
+                    <div className="flex items-center justify-between py-1.5 border-b border-indigo-500/10">
+                        <span className="text-[11px] uppercase tracking-widest text-indigo-300 font-bold">🎯 ENTRY ZONE</span>
                         <div className="text-right">
-                            <span className="block text-[13px] font-mono font-medium text-white tabular-nums">
+                            <span className="block text-[14px] font-mono font-bold text-indigo-400 tabular-nums drop-shadow-[0_0_10px_rgba(99,102,241,0.6)]">
                                 ${item.entryBand?.low?.toFixed(2)} - {item.entryBand?.high?.toFixed(2)}
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between py-1 border-b border-white/5">
-                        <span className="text-[11px] text-rose-400/80 font-medium">Cut</span>
+                    <div className="flex items-center justify-between py-1.5 border-b border-rose-500/10">
+                        <span className="text-[11px] uppercase tracking-widest text-rose-400/90 font-bold">🛑 STOP LOSS</span>
                         <div className="text-right">
-                            <span className="block text-[13px] font-mono font-medium text-rose-300 tabular-nums">
+                            <span className="block text-[14px] font-mono font-bold text-rose-400 tabular-nums drop-shadow-[0_0_10px_rgba(251,113,133,0.6)]">
                                 ${item.hardCut?.toFixed(2)}
                             </span>
                         </div>
                     </div>
-                    <div className="flex items-center justify-between py-1">
-                        <span className="text-[11px] text-emerald-400/80 font-medium">Target</span>
-                        <div className="text-right flex items-center gap-3">
-                            <span className="text-[13px] font-mono font-medium text-emerald-300 tabular-nums">${item.tp1?.toFixed(2)}</span>
-                            <span className="text-[11px] text-slate-600">/</span>
-                            <span className="text-[13px] font-mono font-medium text-emerald-300 tabular-nums">${item.tp2?.toFixed(2)}</span>
+                    <div className="flex items-center justify-between py-1.5">
+                        <span className="text-[11px] uppercase tracking-widest text-emerald-400/90 font-bold">🚀 TARGET</span>
+                        <div className="text-right flex items-center gap-2">
+                            <span className="text-[14px] font-mono font-bold text-emerald-400 tabular-nums drop-shadow-[0_0_10px_rgba(52,211,153,0.6)]">${item.tp1?.toFixed(2)}</span>
+                            {item.tp2 && (
+                                <>
+                                    <span className="text-xs text-emerald-500/50">/</span>
+                                    <span className="text-[14px] font-mono font-bold text-emerald-400 tabular-nums">${item.tp2?.toFixed(2)}</span>
+                                </>
+                            )}
                         </div>
                     </div>
                 </div>
             ) : (
                 <div className="h-[92px] flex flex-col items-center justify-center bg-slate-950/30 rounded border border-white/5">
-                    <Lock className="w-4 h-4 text-slate-600 mb-2" />
-                    <p className="text-xs text-slate-500 font-medium">Trading restricted</p>
+                    <Lock className="w-4 h-4 text-slate-300 mb-2" />
+                    <p className="text-xs text-slate-300 font-medium">Trading restricted</p>
                 </div>
             )}
         </div>
@@ -611,12 +618,15 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
 // ============================================================================
 function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; onClose: () => void; liveQuote?: any }) {
     const ev = item?.evidence; // Defensive access
-    const ti = useTranslations('intel');
     const router = useRouter();
+    const t = useTranslations('alphaReport');
+    const ti = useTranslations('intel');    // Hooks
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
+    const reportDate = searchParams.get('date') || '';
+    const reportType = searchParams.get('type') || '';
 
-    // Live Overrides
+    // Auto-refresh mechanismdes
     const currentPrice = liveQuote?.price || ev.price.last;
     const currentChangePct = liveQuote?.changePercent ?? ev?.price?.changePct;
     const isLive = !!liveQuote;
@@ -695,8 +705,8 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                 <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px]" onClick={onClose} />
                 <div className="relative w-full max-w-lg h-full bg-slate-950 border-l border-slate-800 shadow-2xl p-10 flex flex-col items-center justify-center">
                     <div className="animate-spin w-8 h-8 border-4 border-slate-700 border-t-emerald-500 rounded-full mb-4" />
-                    <p className="text-slate-400 font-mono text-sm">Synchronizing Engine Data...</p>
-                    <button onClick={onClose} className="mt-8 text-slate-500 hover:text-white underline text-xs">Close</button>
+                    <p className="text-slate-300 font-mono text-sm">Synchronizing Engine Data...</p>
+                    <button onClick={onClose} className="mt-8 text-slate-300 hover:text-white underline text-xs">Close</button>
                 </div>
             </div>
         );
@@ -711,11 +721,12 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
 
     return (
         <div className="fixed inset-0 z-[100] flex justify-end font-sans">
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
-            <div className="relative w-full max-w-lg h-full bg-slate-950/90 backdrop-blur-2xl border-l border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.8)] overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-md transition-opacity" onClick={onClose} />
+            <div className="relative w-full max-w-lg h-full bg-[#070b14]/80 backdrop-blur-2xl border-l border-indigo-500/20 shadow-[0_0_100px_rgba(16,185,129,0.05),-20px_0_100px_rgba(99,102,241,0.05)] overflow-hidden flex flex-col animate-in slide-in-from-right duration-300">
 
                 {/* Unified HUD Header (Deep Navy Gradient) */}
-                <div className="shrink-0 bg-gradient-to-b from-[#0f172a] to-[#0f172a]/0 p-6 pb-2 select-none z-10">
+                <div className="shrink-0 bg-gradient-to-b from-[#0a0f1c] to-transparent border-b border-white/5 p-6 pb-2 select-none z-10 relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-cyan-500/5 pointer-events-none" />
                     <div className="flex justify-between items-start mb-4">
                         <div className="flex items-center gap-4">
                             {/* Logo */}
@@ -731,18 +742,18 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                     {item.ticker}
                                 </h2>
                                 <div className="flex items-center gap-2 mt-1">
-                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${getActionStyle(action)} ring-1 ring-inset ring-white/10`}>
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${getActionStyle(action)} ring-1 ring-inset ring-white/10`}>
                                         {action}
                                     </span>
                                     {item.qualityReasonKR?.includes('상승') && (
-                                        <span className="text-[10px] font-bold text-indigo-400 flex items-center gap-1">
+                                        <span className="text-xs font-bold text-indigo-400 flex items-center gap-1">
                                             <Zap className="w-3 h-3 text-indigo-500 fill-indigo-500/20" /> MOMENTUM
                                         </span>
                                     )}
                                 </div>
                             </div>
                         </div>
-                        <button onClick={onClose} className="p-2 -mr-2 text-slate-500 hover:text-white transition-colors rounded-full hover:bg-white/5">
+                        <button onClick={onClose} className="p-2 -mr-2 text-slate-300 hover:text-white transition-colors rounded-full hover:bg-white/5">
                             <XCircle className="w-8 h-8 stroke-1 opacity-70" />
                         </button>
                     </div>
@@ -753,7 +764,7 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
 
                     {/* 1. SURGICAL COCKPIT (Merged) */}
                     <section>
-                        {isDebug && <div className="text-right text-[9px] font-mono text-slate-600 mb-2">UPD: {ev.price.fetchedAtET}</div>}
+                        {isDebug && <div className="text-right text-xs font-mono text-slate-300 mb-2">UPD: {ev.price.fetchedAtET}</div>}
 
                         {/* [V3.7.3] Surgical UI Dashboard - [Phase 6] snapshotData fallback */}
                         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -792,12 +803,12 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                     return (
                                         <div key={i} className="group flex items-start gap-3 p-2 rounded border border-transparent hover:border-slate-800 hover:bg-slate-900/50 transition-all">
                                             {/* Badge */}
-                                            <div className={`shrink-0 px-2 py-1 rounded text-[10px] font-bold border ${def.color} shadow-sm w-20 text-center flex items-center justify-center`}>
+                                            <div className={`shrink-0 px-2 py-1 rounded text-xs font-bold border ${def.color} shadow-sm w-20 text-center flex items-center justify-center`}>
                                                 {ti(def.labelKey)}
                                             </div>
                                             {/* Description */}
                                             <div className="flex-1">
-                                                <p className="text-[11px] text-slate-400 leading-relaxed font-medium group-hover:text-slate-300 transition-colors">
+                                                <p className="text-xs text-slate-300 leading-relaxed font-medium group-hover:text-slate-300 transition-colors">
                                                     {ti(def.descKey)}
                                                 </p>
                                             </div>
@@ -818,12 +829,12 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
 
                     {/* 2. PRICE ACTION */}
                     <section>
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <Activity className="w-3.5 h-3.5" /> Price Action
                         </h3>
                         <div className="grid grid-cols-2 gap-px bg-slate-800 border border-slate-800 rounded overflow-hidden">
                             <div className="bg-slate-900 p-3">
-                                <span className="text-[9px] text-slate-500 font-bold uppercase block">Last / Change</span>
+                                <span className="text-xs text-slate-300 font-bold uppercase block">Last / Change</span>
                                 <div className="flex gap-2 items-baseline">
                                     {ev.price.last > 0 ? (
                                         <>
@@ -837,13 +848,13 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                     ) : (
                                         <div className="flex items-center gap-2">
                                             <div className="h-4 w-12 bg-slate-800 animate-pulse rounded" />
-                                            <span className="text-[10px] text-slate-500 animate-pulse">Syncing...</span>
+                                            <span className="text-xs text-slate-300 animate-pulse">Syncing...</span>
                                         </div>
                                     )}
                                 </div>
                             </div>
                             <div className="bg-slate-900 p-3">
-                                <span className="text-[9px] text-slate-500 font-bold uppercase block">VWAP Dist</span>
+                                <span className="text-xs text-slate-300 font-bold uppercase block">VWAP Dist</span>
                                 <div className="flex gap-2 items-baseline">
                                     {ev.price.last > 0 ? (
                                         <>
@@ -858,22 +869,22 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                 </div>
                             </div>
                             <div className="bg-slate-900 p-3">
-                                <span className="text-[9px] text-slate-500 font-bold uppercase block">RSI (14)</span>
+                                <span className="text-xs text-slate-300 font-bold uppercase block">RSI (14)</span>
                                 {ev.price.rsi14 > 0 && ev.price.rsi14 !== 50 ? (
                                     <span className={`text-sm font-mono font-bold ${ev.price.rsi14 > 70 ? 'text-rose-400' : ev.price.rsi14 < 30 ? 'text-emerald-400' : 'text-slate-300'}`}>
                                         {ev.price.rsi14.toFixed(1)}
                                     </span>
                                 ) : (
-                                    <span className="text-xs font-mono text-slate-500">
+                                    <span className="text-xs font-mono text-slate-300">
                                         {ev.price.rsi14 === 50 ? "Low Data" : "Calc..."}
                                     </span>
                                 )}
                             </div>
                             <div className="bg-slate-900 p-3">
-                                <span className="text-[9px] text-slate-500 font-bold uppercase block">Structure</span>
+                                <span className="text-xs text-slate-300 font-bold uppercase block">Structure</span>
                                 <div className="flex flex-col">
                                     <span className="text-xs font-bold text-indigo-400">{ev.price.structureState}</span>
-                                    <span className="text-[9px] text-slate-500 font-medium">
+                                    <span className="text-xs text-slate-300 font-medium">
                                         {ti(STRUCTURE_I18N[ev.price.structureState || ''] || 'structBreakout')}
                                     </span>
                                 </div>
@@ -886,14 +897,14 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                     // ... inside component render ...
                     {/* 3. FLOW DYNAMICS (Institutional) */}
                     <section>
-                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-3 flex items-center gap-2">
                             <Layers className="w-3.5 h-3.5" /> Flow Dynamics
                         </h3>
                         {/* [9.2] Dark Pool / Condition Codes - [Phase 6] snapshotData fallback */}
                         <div className="bg-slate-900 border border-slate-800 rounded p-4 space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Dark Pool (Off-Ex)</span>
+                                    <span className="text-xs text-slate-300 font-bold uppercase block mb-1">Dark Pool (Off-Ex)</span>
                                     <div className="flex items-end gap-2">
                                         {(() => {
                                             const displayOffExPct = ev.flow.offExPct > 0 ? ev.flow.offExPct : (item.decisionSSOT?.snapshotData?.offExPct ?? 0);
@@ -903,13 +914,13 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                                     <span className="text-sm font-mono font-bold text-white">
                                                         {displayOffExPct > 0 ? `${displayOffExPct.toFixed(1)}%` : `VOL: ${(liveQuote.volume / 1000).toFixed(0)}K`}
                                                     </span>
-                                                    <span className="text-[9px] text-slate-500 font-medium">
+                                                    <span className="text-xs text-slate-300 font-medium">
                                                         {isFromSnapshot ? ti('snapshotTimeData') : ti('offExFlowDesc')}
                                                     </span>
-                                                    {isLive && <span className="text-[9px] text-emerald-500 font-bold animate-pulse mt-0.5">● LIVE FLOW</span>}
+                                                    {isLive && <span className="text-xs text-emerald-500 font-bold animate-pulse mt-0.5">● LIVE FLOW</span>}
                                                 </div>
                                             ) : (
-                                                <span className="text-[10px] font-mono text-slate-500">
+                                                <span className="text-xs font-mono text-slate-300">
                                                     Scanning...
                                                 </span>
                                             );
@@ -924,8 +935,8 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                 </div>
                                 <div>
                                     <div className="flex justify-between">
-                                        <span className="text-[9px] text-slate-500 font-bold uppercase block mb-1">Net Whale Flow</span>
-                                        <span className="text-[8px] bg-slate-800 text-slate-400 px-1 rounded">INSTITUTIONAL</span>
+                                        <span className="text-xs text-slate-300 font-bold uppercase block mb-1">Net Whale Flow</span>
+                                        <span className="text-xs bg-slate-800 text-slate-300 px-1 rounded">INSTITUTIONAL</span>
                                     </div>
                                     {/* [Phase 6] Net Premium with snapshotData fallback */}
                                     <div className="flex flex-col">
@@ -940,20 +951,20 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                                                                 ${(displayNetPremium / 1_000_000).toFixed(1)}M
                                                             </span>
                                                         ) : (
-                                                            <span className="text-sm font-mono text-slate-400">$0.0M</span>
+                                                            <span className="text-sm font-mono text-slate-300">$0.0M</span>
                                                         )}
                                                         {ev.flow.vol > 0 && displayNetPremium !== 0 && (
-                                                            <span className={`text-[10px] font-bold mb-0.5 ${displayNetPremium > 0 ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
+                                                            <span className={`text-xs font-bold mb-0.5 ${displayNetPremium > 0 ? 'text-emerald-500/80' : 'text-rose-500/80'}`}>
                                                                 ({((Math.abs(displayNetPremium) / (ev.flow.vol * ev.price.last)) * 100).toFixed(2)}%)
                                                             </span>
                                                         )}
                                                     </div>
                                                     {displayNetPremium === 0 ? (
-                                                        <span className="text-[9px] text-slate-500 font-medium italic">{ti('marketClosedNoFlow')}</span>
+                                                        <span className="text-xs text-slate-300 font-medium italic">{ti('marketClosedNoFlow')}</span>
                                                     ) : isFromSnapshot ? (
-                                                        <span className="text-[9px] text-slate-500 font-medium">{ti('snapshotTimeData')}</span>
+                                                        <span className="text-xs text-slate-300 font-medium">{ti('snapshotTimeData')}</span>
                                                     ) : (
-                                                        <span className="text-[9px] text-slate-500 font-medium">{ti('netBuyPressure')}</span>
+                                                        <span className="text-xs text-slate-300 font-medium">{ti('netBuyPressure')}</span>
                                                     )}
                                                 </>
                                             );
@@ -969,44 +980,44 @@ function TickerEvidenceDrawer({ item, onClose, liveQuote }: { item: TickerItem; 
                     {/* 5. MACRO & STEALTH */}
                     <section className="grid grid-cols-2 gap-4 mt-4">
                         <div>
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-2 flex items-center gap-2">
                                 <Shield className="w-3.5 h-3.5" /> Stealth
                             </h3>
                             <div className="bg-slate-900 border border-slate-800 rounded p-3 h-full">
                                 <div className="flex flex-col gap-1.5 mb-1">
                                     {(ev.stealth?.tags || []).map((tag, i) => (
-                                        <span key={i} className="text-[10px] px-1.5 py-1 bg-slate-800 text-slate-300 rounded border border-slate-700/50 flex items-center gap-1.5">
+                                        <span key={i} className="text-xs px-1.5 py-1 bg-slate-800 text-slate-300 rounded border border-slate-700/50 flex items-center gap-1.5">
                                             <span className="w-1 h-1 rounded-full bg-emerald-500" />
                                             {ti(STEALTH_TAG_I18N[tag] || 'stealthGammaSqueeze') || `#${tag}`}
                                         </span>
                                     ))}
-                                    {(!ev.stealth?.tags || ev.stealth.tags.length === 0) && <span className="text-[9px] text-slate-600">No signals detected</span>}
+                                    {(!ev.stealth?.tags || ev.stealth.tags.length === 0) && <span className="text-xs text-slate-300">No signals detected</span>}
                                 </div>
                             </div>
                         </div>
                         <div>
-                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2 flex items-center gap-2">
+                            <h3 className="text-xs font-bold text-slate-300 uppercase tracking-widest mb-2 flex items-center gap-2">
                                 <TrendingUp className="w-3.5 h-3.5" /> Macro
                             </h3>
                             <div className="bg-slate-900 border border-slate-800 rounded p-3 h-full flex flex-col justify-center">
                                 <div className="flex justify-between items-center mb-1">
-                                    <span className="text-[10px] text-slate-500">NDX</span>
+                                    <span className="text-xs text-slate-300">NDX</span>
                                     {ev.macro?.ndx?.changePct !== undefined ? (
-                                        <span className={`text-[10px] font-bold ${ev.macro?.ndx?.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        <span className={`text-xs font-bold ${ev.macro?.ndx?.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                             {ev.macro?.ndx?.changePct?.toFixed(2)}%
                                         </span>
                                     ) : (
-                                        <span className="text-[10px] text-slate-500 italic">{ti('marketClosed')}</span>
+                                        <span className="text-xs text-slate-300 italic">{ti('marketClosed')}</span>
                                     )}
                                 </div>
                                 <div className="flex justify-between items-center">
-                                    <span className="text-[10px] text-slate-500">VIX</span>
+                                    <span className="text-xs text-slate-300">VIX</span>
                                     {(ev.macro?.vix?.value ?? ev.macro?.vix?.level) ? (
-                                        <span className="text-[10px] font-bold text-slate-300">
+                                        <span className="text-xs font-bold text-slate-300">
                                             {(ev.macro?.vix?.value ?? ev.macro?.vix?.level)?.toFixed(2)}
                                         </span>
                                     ) : (
-                                        <span className="text-[10px] text-slate-500 italic">{ti('marketClosed')}</span>
+                                        <span className="text-xs text-slate-300 italic">{ti('marketClosed')}</span>
                                     )}
                                 </div>
                             </div>
@@ -1090,6 +1101,8 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
     const router = useRouter();
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
+
+    const t = useTranslations('alphaReport');
 
     // [RESTORED] Components now fetch data independently (same as Flow/Command pages)
     // [V7.0] Sector Intel shared data for new components
@@ -1549,7 +1562,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                             <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pt-4">
                                 <div>
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-[10px] font-bold text-amber-500 tracking-widest uppercase flex items-center gap-2">
+                                        <span className="text-xs font-bold text-amber-500 tracking-widest uppercase flex items-center gap-2">
                                             <Zap className="w-3 h-3" />
                                             MOMENTUM SCANNERS
                                         </span>
@@ -1557,7 +1570,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                     <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter flex items-center gap-4">
                                         PROJECT: <span className="text-amber-500">HYPER DISCOVERY</span>
                                     </h1>
-                                    <p className="text-slate-400 font-mono text-xs mt-2">
+                                    <p className="text-slate-300 font-mono text-xs mt-2">
                                         HUNTER CORPS • HIGH VOLATILITY • TIGHT STOPS
                                     </p>
                                 </div>
@@ -1587,7 +1600,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                             </div>
                                         ))
                                     ) : (
-                                        <div className="col-span-full py-20 text-center text-slate-500">
+                                        <div className="col-span-full py-20 text-center text-slate-300">
                                             <p>No high-probability Hunter targets detected today.</p>
                                         </div>
                                     )
@@ -1656,44 +1669,58 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                     {activeTab === 'FINAL' && (
                         <div className="space-y-8">
 
-                            {/* 1. HERO HEADER (Premium Open Design) */}
-                            <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-8 pt-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className="text-xs font-bold text-slate-300 tracking-widest uppercase flex items-center gap-2">
-                                            <Activity className="w-3.5 h-3.5 text-emerald-500" />
+                            {/* 1. HERO HEADER (Premium Open Design -> Glassmorphic) */}
+                            <section className="relative flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10 p-6 rounded-2xl border border-white/[0.08] bg-[#0a0f1c]/60 backdrop-blur-xl shadow-2xl overflow-hidden group">
+                                {/* Top-to-Bottom Flowing Animation Background */}
+                                <div className="absolute inset-0 pointer-events-none">
+                                    <div className="absolute top-0 left-0 w-full h-[150%] bg-gradient-to-b from-transparent via-emerald-500/[0.05] to-transparent animate-[scan_6s_linear_infinite]"
+                                        style={{ animationName: 'scanVertical', animationDuration: '6s', animationIterationCount: 'infinite', animationTimingFunction: 'linear' }} />
+                                    <style>{`
+                                        @keyframes scanVertical {
+                                            0% { transform: translateY(-100%); }
+                                            100% { transform: translateY(100%); }
+                                        }
+                                    `}</style>
+                                    <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:100%_4px] opacity-20" />
+                                </div>
+
+                                <div className="relative z-10">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className="text-xs font-black text-slate-400 tracking-[0.2em] font-jakarta uppercase flex items-center gap-2">
+                                            <Activity className="w-4 h-4 text-emerald-500" />
                                             SIGNUM INTELLIGENCE
                                         </span>
                                     </div>
-                                    <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                                        <span className="text-emerald-500">ALPHA REPORT</span>
+                                    <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3 font-jakarta drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                                        <span className="text-emerald-500 font-jakarta">{t('title')}</span>
                                         <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded border border-opacity-20 flex items-center gap-1.5 align-middle ${getRegimeColor(regime)}`}>
                                             {getRegimeText(regime)}
                                         </span>
                                     </h1>
-                                    <p className="text-slate-300 text-xs mt-1 max-w-2xl font-medium leading-relaxed">
-                                        AI 엔진이 선별한 <span className="text-slate-300 font-bold">오늘의 최적 진입 종목 12선</span>
-                                    </p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-slate-400 font-mono text-xs mt-2 bg-slate-800/50 px-2 py-1 rounded inline-block">
-                                        ID: {report?.meta?.id?.toUpperCase() || "SYNC"} • {report?.meta?.generatedAtET || "WAITING"}
+                                    <p className="text-slate-400 text-[13px] mt-2 max-w-2xl font-medium leading-relaxed font-jakarta">
+                                        INSTITUTIONAL QUANT TACTICS — <span className="text-emerald-400/90 font-bold ml-1">{t('subtitle').split('— ')[1] || t('subtitle')}</span>
                                     </p>
                                 </div>
 
-                                {/* Summary Stats */}
-                                <div className="flex flex-col sm:flex-row items-center gap-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="px-4 py-2 bg-slate-900 border border-slate-700 rounded">
-                                            <span className="text-xs text-slate-300 block font-semibold">분석 종목</span>
-                                            <span className="text-sm font-mono font-bold text-white">{alphaItems?.length || 0}개</span>
+                                <div className="relative z-10 text-left xl:text-right w-full xl:w-auto">
+                                    <p className="text-white/40 font-mono text-xs mb-3 flex items-center xl:justify-end gap-2">
+                                        ID: <span className="text-white/70">{report?.meta?.id?.toUpperCase() || "SYNC"}</span>
+                                        <span className="mx-1">•</span>
+                                        {report?.meta?.generatedAtET || "WAITING"}
+                                    </p>
+
+                                    {/* Summary Stats */}
+                                    <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                                        <div className="px-4 py-2 bg-black/40 border border-white/[0.08] rounded-lg shadow-inner">
+                                            <span className="text-xs text-slate-300 block font-black uppercase tracking-widest font-jakarta mb-0.5">{t('analyzedStocks')}</span>
+                                            <span className="text-sm font-mono font-bold text-white font-jakarta">{Math.min(alphaItems?.length || 0, 7)}{t('itemsCount')}</span>
                                         </div>
-                                        <div className="px-4 py-2 bg-slate-900 border border-slate-700 rounded">
-                                            <span className="text-xs text-slate-300 block font-semibold">옵션 커버리지</span>
+                                        <div className="px-4 py-2 bg-black/40 border border-white/[0.08] rounded-lg shadow-inner">
+                                            <span className="text-xs text-slate-300 block font-black uppercase tracking-widest font-jakarta mb-0.5">{t('optionsCoverage')}</span>
                                             <span className="text-sm font-mono font-bold text-emerald-400">{report?.meta?.optionsStatus?.coveragePct || 0}%</span>
                                         </div>
                                         <div className="px-4 py-2 bg-slate-900 border border-slate-700 rounded">
-                                            <span className="text-xs text-slate-300 block font-semibold">생성 시각</span>
+                                            <span className="text-xs text-slate-300 block font-semibold">{t('generationTime')}</span>
                                             <span className="text-sm font-mono font-bold text-slate-300">{report?.meta?.generatedAtET?.split(' ')[1]?.slice(0, 5) || '—'}</span>
                                         </div>
                                     </div>
@@ -1718,7 +1745,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                         <h2 className="text-lg font-bold text-slate-200 mb-4 flex items-center gap-2">
                                             <Zap className="w-5 h-5 text-emerald-500" />
                                             MAIN CORPS (주력군)
-                                            <span className="text-[10px] text-slate-500 font-normal uppercase tracking-widest ml-2">Data Verified • High Probability</span>
+                                            <span className="text-xs text-slate-300 font-normal uppercase tracking-widest ml-2">Data Verified • High Probability</span>
                                         </h2>
                                         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
                                             {isLoading ? (
@@ -1772,7 +1799,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                     <section>
                                         <div className="flex justify-between items-center mb-4">
                                             <h2 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-                                                <Search className="w-5 h-5 text-slate-400" />
+                                                <Search className="w-5 h-5 text-slate-300" />
                                                 Live Scan (Core)
                                             </h2>
                                         </div>
@@ -1786,7 +1813,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                     `}</style>
                                                 <table className="w-full text-left border-collapse">
                                                     <thead>
-                                                        <tr className="bg-white/5 border-b border-white/5 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                                        <tr className="bg-white/5 border-b border-white/5 text-xs font-bold text-slate-300 uppercase tracking-widest">
                                                             <th className="p-4 w-[60px] text-center">Rank</th>
                                                             <th className="p-4 w-[120px]">Ticker</th>
                                                             <th className="p-4 text-right">Score</th>
@@ -1815,14 +1842,14 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                                                         onClick={() => setSelectedTicker(item)}
                                                                         className={`cursor-pointer transition-all duration-200 hover:bg-white/10 hover:backdrop-blur-md border-b border-white/5 last:border-0 group`}
                                                                     >
-                                                                        <td className="p-4 text-center font-mono text-xs text-slate-400 font-bold group-hover:text-white transition-colors">
+                                                                        <td className="p-4 text-center font-mono text-xs text-slate-300 font-bold group-hover:text-white transition-colors">
                                                                             {realRank}
                                                                         </td>
                                                                         <td className="p-4">
                                                                             <div className="flex items-center gap-3">
                                                                                 <div>
                                                                                     <span className="block text-sm font-black text-slate-100 group-hover:text-cyan-300 transition-colors tracking-tight">{item.ticker}</span>
-                                                                                    <span className="block text-[10px] text-slate-400 group-hover:text-slate-300">{item.symbol || item.ticker}</span>
+                                                                                    <span className="block text-xs text-slate-300 group-hover:text-slate-300">{item.symbol || item.ticker}</span>
                                                                                 </div>
                                                                             </div>
                                                                         </td>
@@ -1837,7 +1864,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                                                         <td className="p-4 text-right">
                                                                             <div className="flex flex-col items-end">
                                                                                 <span className="text-sm font-mono font-bold text-slate-200">${ev.price.last.toFixed(2)}</span>
-                                                                                <span className={`text-[10px] font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                                <span className={`text-xs font-bold ${ev.price.changePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                                                     {ev.price.changePct > 0 ? "+" : ""}{ev.price.changePct.toFixed(2)}%
                                                                                 </span>
                                                                             </div>
@@ -1846,12 +1873,12 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                                                             <div className="flex flex-col items-end">
                                                                                 {ev.flow.complete ? (
                                                                                     <>
-                                                                                        <span className={`text-xs font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-400"}`}>
+                                                                                        <span className={`text-xs font-mono font-bold ${(ev.flow.netPremium || ev.flow.largeTradesUsd || 0) > 0 ? "text-emerald-400" : (ev.flow.netPremium || ev.flow.largeTradesUsd || 0) < 0 ? "text-rose-400" : "text-slate-300"}`}>
                                                                                             {(ev.flow.netPremium ?? ev.flow.largeTradesUsd ?? 0) !== 0 ? `$${((ev.flow.netPremium ?? ev.flow.largeTradesUsd) / 1000000).toFixed(1)}M` : "-"}
                                                                                         </span>
                                                                                     </>
                                                                                 ) : (
-                                                                                    <span className="text-[10px] font-mono text-slate-500">
+                                                                                    <span className="text-xs font-mono text-slate-300">
                                                                                         Waiting...
                                                                                     </span>
                                                                                 )}
@@ -1865,18 +1892,18 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                                                                 {(item.decisionSSOT?.triggersKR || []).length > 0 ? (
                                                                                     (item.decisionSSOT?.triggersKR || []).slice(0, 2).map((code, i) => {
                                                                                         return (
-                                                                                            <span key={i} className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white/5 border border-white/10 text-slate-300">
+                                                                                            <span key={i} className="px-1.5 py-0.5 rounded text-xs font-bold bg-white/5 border border-white/10 text-slate-300">
                                                                                                 {code}
                                                                                             </span>
                                                                                         );
                                                                                     })
                                                                                 ) : (
-                                                                                    <span className="text-[9px] text-slate-500 italic">장 마감</span>
+                                                                                    <span className="text-xs text-slate-300 italic">장 마감</span>
                                                                                 )}
                                                                             </div>
                                                                         </td>
                                                                         <td className="p-4 text-center">
-                                                                            <span className={`px-2 py-1 rounded text-[10px] font-bold border border-opacity-30 backdrop-blur-sm ${actStyle}`}>
+                                                                            <span className={`px-2 py-1 rounded text-xs font-bold border border-opacity-30 backdrop-blur-sm ${actStyle}`}>
                                                                                 {item.decisionSSOT?.action || "WATCH"}
                                                                             </span>
                                                                         </td>
@@ -1914,7 +1941,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                                                 </div>
                                                                 <div>
                                                                     <div className="text-xl font-black text-white">{item.ticker}</div>
-                                                                    <div className="text-[10px] text-rose-400/80 font-bold uppercase tracking-wider">Gamma Play</div>
+                                                                    <div className="text-xs text-rose-400/80 font-bold uppercase tracking-wider">Gamma Play</div>
                                                                 </div>
                                                             </div>
                                                             <div className="text-right">
@@ -1927,7 +1954,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
 
                                                         <div className="space-y-2">
                                                             <div className="flex justify-between text-xs border-t border-rose-900/30 pt-2">
-                                                                <span className="text-slate-500">RSI (14)</span>
+                                                                <span className="text-slate-300">RSI (14)</span>
                                                                 <span className="text-slate-300 font-mono">
                                                                     {item.evidence.price.rsi14 && item.evidence.price.rsi14 !== 50
                                                                         ? item.evidence.price.rsi14.toFixed(0)
@@ -1935,7 +1962,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                                                 </span>
                                                             </div>
                                                             <div className="flex justify-between text-xs">
-                                                                <span className="text-slate-500">Target</span>
+                                                                <span className="text-slate-300">Target</span>
                                                                 <span className="text-rose-300 font-mono">${(item.evidence.price.last * 1.15).toFixed(2)}</span>
                                                             </div>
                                                         </div>
@@ -1954,14 +1981,14 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                     <h3 className="text-xs font-bold text-indigo-400 mb-2 font-mono">DEBUG INSPECTOR (?debug=1)</h3>
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
-                                            <h4 className="text-[10px] font-bold text-slate-500 uppercase">Engine Stats</h4>
-                                            <pre className="text-[10px] text-slate-400 font-mono mt-1">
+                                            <h4 className="text-xs font-bold text-slate-300 uppercase">Engine Stats</h4>
+                                            <pre className="text-xs text-slate-300 font-mono mt-1">
                                                 {JSON.stringify(report.engine?.counts || {}, null, 2)}
                                             </pre>
                                         </div>
                                         <div>
-                                            <h4 className="text-[10px] font-bold text-slate-500 uppercase">Options Status</h4>
-                                            <pre className="text-[10px] text-slate-400 font-mono mt-1">
+                                            <h4 className="text-xs font-bold text-slate-300 uppercase">Options Status</h4>
+                                            <pre className="text-xs text-slate-300 font-mono mt-1">
                                                 {JSON.stringify(report.meta?.optionsStatus || {}, null, 2)}
                                             </pre>
                                         </div>
@@ -1970,7 +1997,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                             )}
 
                             <footer className="text-center pb-8 pt-4">
-                                <p suppressHydrationWarning className="text-[10px] text-slate-600 uppercase tracking-widest font-bold">
+                                <p suppressHydrationWarning className="text-xs text-slate-300 uppercase tracking-widest font-bold">
                                     GEMS v8.1 Unified Engine • Iron Man HUD Active ({new Date().toLocaleTimeString()})
                                 </p>
                             </footer>
@@ -2003,7 +2030,7 @@ export default function IntelClientPage({ initialReport, initialM7Data, initialP
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
                 <div className="text-center">
                     <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                    <p className="text-slate-400 text-sm">Initializing Tactical Board...</p>
+                    <p className="text-slate-300 text-sm">Initializing Tactical Board...</p>
                 </div>
             </div>
         }>
@@ -2022,7 +2049,7 @@ function LiveAlphaAssessment({ reportPrice, liveQuote, cutPrice }: { reportPrice
 
     // Logic: Verdict
     let verdict = "NEUTRAL";
-    let verdictColor = "text-slate-400";
+    let verdictColor = "text-slate-300";
     let verdictDesc = "Price is tracking near report levels.";
 
     if (isStopBreached) {
@@ -2050,11 +2077,11 @@ function LiveAlphaAssessment({ reportPrice, liveQuote, cutPrice }: { reportPrice
     return (
         <div className="bg-slate-900 border border-slate-800 rounded p-4 mb-4 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-2 opacity-10">
-                <Activity className="w-16 h-16 text-slate-500" />
+                <Activity className="w-16 h-16 text-slate-300" />
             </div>
             <div className="flex justify-between items-start mb-2 relative z-10">
                 <div>
-                    <h4 className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-slate-300 uppercase flex items-center gap-2">
                         <Zap className="w-3 h-3 text-cyan-400" />
                         LIVE EVALUATION (Alpha Check)
                     </h4>
@@ -2063,26 +2090,26 @@ function LiveAlphaAssessment({ reportPrice, liveQuote, cutPrice }: { reportPrice
                     </div>
                 </div>
                 <div className="text-right">
-                    <div className="text-[10px] text-slate-500 uppercase font-bold">Live Variance</div>
+                    <div className="text-xs text-slate-300 uppercase font-bold">Live Variance</div>
                     <div className={`text-xs font-mono font-bold ${diffPct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                         {diffPct > 0 ? "+" : ""}{diffPct.toFixed(2)}%
                     </div>
                 </div>
             </div>
 
-            <p className="text-xs text-slate-400 font-medium relative z-10 leading-relaxed max-w-[90%]">
+            <p className="text-xs text-slate-300 font-medium relative z-10 leading-relaxed max-w-[90%]">
                 {verdictDesc}
             </p>
 
             {liveQuote.volume && (
                 <div className="mt-3 pt-3 border-t border-slate-800 flex items-center gap-4 relative z-10">
                     <div>
-                        <span className="text-[9px] text-slate-500 uppercase block">Live Vol</span>
+                        <span className="text-xs text-slate-300 uppercase block">Live Vol</span>
                         <span className="text-xs font-mono text-slate-300">{(liveQuote.volume / 1000).toFixed(0)}K</span>
                     </div>
                     <div>
-                        <span className="text-[9px] text-slate-500 uppercase block">Net Whale Flow</span>
-                        <span className={`text-xs font-mono font-bold ${liveQuote.flowApprox > 0 ? "text-emerald-400" : liveQuote.flowApprox < 0 ? "text-rose-400" : "text-slate-400"}`}>
+                        <span className="text-xs text-slate-300 uppercase block">Net Whale Flow</span>
+                        <span className={`text-xs font-mono font-bold ${liveQuote.flowApprox > 0 ? "text-emerald-400" : liveQuote.flowApprox < 0 ? "text-rose-400" : "text-slate-300"}`}>
                             {liveQuote.flowApprox ? `$${(liveQuote.flowApprox / 1000000).toFixed(1)}M` : "Scanning..."}
                         </span>
                     </div>

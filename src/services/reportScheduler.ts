@@ -30,7 +30,7 @@ import { GuardianSignal } from './powerEngine'; // [Phase 4]
 import crypto from 'crypto';
 
 // [P0] Fixed 3-report schedule + morning for legacy + [Phase 37] 3-Stage Protocol
-export type ReportType = 'eod' | 'pre' | 'open' | 'morning' | 'draft' | 'revised' | 'final';
+export type ReportType = 'eod' | 'pre' | 'open' | 'morning' | 'draft' | 'revised' | 'final' | 'live';
 
 // [S-51.5] Top3 and Baseline interfaces for performance tracking
 export interface Top3Item {
@@ -120,6 +120,7 @@ export const REPORT_SCHEDULES: Record<ReportType, { hour: number; minute: number
     // [V2.0] PRIMARY SCHEDULES (Active)
     'draft': { hour: 6, minute: 0, description: 'Pre+2h Draft', labelKR: '프리마켓 2시간 후 초안' },
     'final': { hour: 9, minute: 0, description: 'Open-30m Final', labelKR: '본장 30분 전 최종' },
+    'live': { hour: 10, minute: 30, description: 'Live Tactical', labelKR: '라이브 스나이퍼 전략' },
     // LEGACY (Deprecated - kept for backward compatibility)
     'eod': { hour: 16, minute: 30, description: '[LEGACY] EOD Report', labelKR: '장마감 후 (미사용)' },
     'pre': { hour: 6, minute: 30, description: '[LEGACY] Premarket', labelKR: '프리마켓 (미사용)' },
@@ -1092,6 +1093,27 @@ async function generateReportFromItems(
             });
         } catch (e) {
             console.warn('[ReportScheduler] Perf save failed', e);
+        }
+    }
+
+    // 11. SUPABASE TRACK RECORD INJECTION
+    if (type === 'final' || type === 'live') {
+        try {
+            const { insertNewTrackRecords } = await import('./trackRecord/trackRecordService');
+            // For FINAL (09:00 ET), save as PRE_MARKET
+            // For LIVE (10:30 ET), save as INTRADAY
+            const recType = type === 'final' ? 'PRE_MARKET' : 'INTRADAY';
+
+            // Map top3Items back to full items to access decisionSSOT
+            const fullTop3 = top3Items.map(t => {
+                return finalItems.find(fi => fi.ticker === t.ticker) ||
+                    finalHunters.find(fh => fh.ticker === t.ticker);
+            }).filter(Boolean);
+
+            const result = await insertNewTrackRecords(fullTop3, recType);
+            console.log(`[TrackRecord] DB Injection complete for ${recType}: ${result.count} records saved.`);
+        } catch (e) {
+            console.error('[TrackRecord] Supabase Injection failed:', e);
         }
     }
 

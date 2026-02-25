@@ -236,31 +236,29 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
                     ) : null}
                 </div>
 
-                {/* FOOTER: ENTRIES & EXITS */}
-                <div className="grid grid-cols-2 gap-2 mt-auto">
-                    {/* Left: Entry Zone */}
-                    <div className="p-3 rounded bg-emerald-500/5 border border-emerald-500/10 hover:bg-emerald-500/10 transition-colors">
-                        <span className="text-[9px] font-bold text-emerald-500/50 uppercase tracking-widest block mb-0.5">Entry Zone</span>
-                        <div className="text-lg font-mono font-bold text-emerald-400 tabular-nums tracking-tight">
-                            ${minEntry.toFixed(2)} <span className="text-slate-600 text-xs mx-0.5">~</span> ${maxEntry.toFixed(2)}
-                        </div>
-                        <div className="text-[9px] text-emerald-500/50 font-medium leading-tight mt-0.5 -mb-0.5 tracking-tight">
-                            {t('whaleAccumulationZone')}
-                        </div>
-                    </div>
-
-                    {/* Right: Targets */}
-                    <div className="space-y-1">
-                        <div className="flex justify-between items-center px-2 py-1.5 rounded bg-white/5 border border-white/5">
-                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Target</span>
-                            <span className="text-sm font-mono font-bold text-sky-300 tabular-nums">
-                                ${(safePrice * 1.05).toFixed(2)}
+                {/* FOOTER: ENTRIES & EXITS (Tactical Boundaries) */}
+                <div className="mt-auto p-3 bg-[#0f172a]/80 backdrop-blur-md rounded-lg border border-indigo-500/20 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)] space-y-2">
+                    <div className="flex items-center justify-between py-1.5 border-b border-indigo-500/10">
+                        <span className="text-[10px] uppercase tracking-widest text-indigo-300 font-bold">🎯 ENTRY ZONE</span>
+                        <div className="text-right">
+                            <span className="block text-[13px] font-mono font-bold text-indigo-400 tabular-nums drop-shadow-[0_0_8px_rgba(99,102,241,0.6)]">
+                                ${minEntry.toFixed(2)} - ${maxEntry.toFixed(2)}
                             </span>
                         </div>
-                        <div className="flex justify-between items-center px-2 py-1.5 rounded bg-rose-500/5 border border-rose-500/10">
-                            <span className="text-[9px] font-bold text-rose-500/50 uppercase tracking-widest">Stop</span>
-                            <span className="text-sm font-mono font-bold text-rose-400 tabular-nums">
+                    </div>
+                    <div className="flex items-center justify-between py-1.5 border-b border-rose-500/10">
+                        <span className="text-[10px] uppercase tracking-widest text-rose-400/90 font-bold">🛑 STOP LOSS</span>
+                        <div className="text-right">
+                            <span className="block text-[13px] font-mono font-bold text-rose-400 tabular-nums drop-shadow-[0_0_8px_rgba(251,113,133,0.6)]">
                                 ${cutPrice?.toFixed(2) || (safePrice * 0.95).toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+                    <div className="flex items-center justify-between py-1.5">
+                        <span className="text-[10px] uppercase tracking-widest text-emerald-400/90 font-bold">🚀 TARGET</span>
+                        <div className="text-right">
+                            <span className="text-[13px] font-mono font-bold text-emerald-400 tabular-nums drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]">
+                                ${(whaleTargetLevel || safePrice * 1.05).toFixed(2)}
                             </span>
                         </div>
                     </div>

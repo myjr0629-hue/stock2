@@ -360,12 +360,26 @@ export function computeQualityTier(
         const ndxChangePct = evidence?.macro?.ndx?.changePct ?? null;
         const vixValue = evidence?.macro?.vix?.value ?? null;
 
+        // [V3.1] Self-Correction (Track Record Fetch)
+        let historicalWinRate: number | null = null;
+        let historicalTotalTrades: number | null = null;
+        try {
+            const { getTickerPerformance } = require('./backtestService');
+            const perf = getTickerPerformance(symbol);
+            if (perf) {
+                historicalWinRate = perf.winRate;
+                historicalTotalTrades = perf.total;
+            }
+        } catch (e) { }
+
         alphaV3 = calculateAlphaScore({
             ticker: symbol,
             session: v3Session,
             price,
             prevClose: prevCloseV3,
             changePct: changePctV3,
+            historicalWinRate,
+            historicalTotalTrades,
             vwap: evidence?.price?.vwap ?? null,
             return3D: evidence?.price?.return3D ?? null,
             rsi14,

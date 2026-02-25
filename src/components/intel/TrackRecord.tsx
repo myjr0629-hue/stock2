@@ -18,6 +18,7 @@ import {
     Minus,
     type LucideIcon
 } from 'lucide-react';
+import { getTrackRecords } from '@/app/actions/trackRecordActions';
 
 // =============================================================================
 // TYPES
@@ -33,8 +34,9 @@ interface BacktestRecord {
     targetCheckDate: string;
     priceAtCheck?: number;
     returnPct?: number;
-    outcome?: 'WIN' | 'LOSS' | 'FLAT' | 'PENDING';
+    outcome?: 'WIN' | 'LOSS' | 'FLAT' | 'PENDING' | 'INVALID_ENTRY';
     checkedAt?: string;
+    recommendationType?: 'PRE_MARKET' | 'INTRADAY';
 }
 
 interface BacktestSummary {
@@ -86,10 +88,10 @@ function StatCard({
     return (
         <div className={`
             relative overflow-hidden rounded-xl border ${c.border}
-            bg-white/[0.03] backdrop-blur-xl
+            bg-[#0a0f1c]/70 backdrop-blur-2xl
             ${size === 'hero' ? 'p-6' : 'p-4'}
-            hover:bg-white/[0.06] transition-all duration-300 group
-            shadow-lg ${c.glow}
+            hover:bg-[#0f172a]/80 transition-all duration-300 group
+            shadow-[0_8px_30px_rgba(0,0,0,0.6)] hover:shadow-[0_0_30px_rgba(99,102,241,0.15)]
         `}>
             {/* Ambient glow */}
             <div className={`absolute -top-8 -right-8 w-24 h-24 ${c.bg} rounded-full blur-2xl opacity-50 group-hover:opacity-80 transition-opacity`} />
@@ -97,13 +99,13 @@ function StatCard({
             <div className="relative z-10">
                 <div className="flex items-center gap-2 mb-2">
                     <Icon className={`w-4 h-4 ${c.text}`} />
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{label}</span>
+                    <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">{label}</span>
                 </div>
                 <div className={`${size === 'hero' ? 'text-3xl' : 'text-2xl'} font-black ${c.text} font-mono tracking-tight`}>
                     {value}
                 </div>
                 {subValue && (
-                    <div className="text-[11px] text-slate-500 mt-1 font-medium">{subValue}</div>
+                    <div className="text-xs text-slate-300 mt-1 font-medium">{subValue}</div>
                 )}
             </div>
         </div>
@@ -130,8 +132,8 @@ function RecordRow({ record, index }: { record: BacktestRecord; index: number })
             case 'S': return 'text-amber-400 bg-amber-500/20 border-amber-500/30';
             case 'A': return 'text-emerald-400 bg-emerald-500/20 border-emerald-500/30';
             case 'B': return 'text-cyan-400 bg-cyan-500/20 border-cyan-500/30';
-            case 'C': return 'text-slate-400 bg-slate-500/20 border-slate-500/30';
-            default: return 'text-slate-500 bg-slate-500/10 border-slate-500/20';
+            case 'C': return 'text-slate-300 bg-slate-500/20 border-slate-500/30';
+            default: return 'text-slate-300 bg-slate-500/10 border-slate-500/20';
         }
     };
 
@@ -167,8 +169,8 @@ function RecordRow({ record, index }: { record: BacktestRecord; index: number })
         // FLAT
         return (
             <div className="flex items-center gap-1.5">
-                <Minus className="w-3.5 h-3.5 text-slate-400" />
-                <span className="text-slate-400 text-sm font-bold font-mono">
+                <Minus className="w-3.5 h-3.5 text-slate-300" />
+                <span className="text-slate-300 text-sm font-bold font-mono">
                     {record.returnPct?.toFixed(2)}%
                 </span>
             </div>
@@ -182,29 +184,51 @@ function RecordRow({ record, index }: { record: BacktestRecord; index: number })
             transition={{ delay: index * 0.03 }}
             className={`
                 flex items-center gap-4 px-4 py-3
-                border-b border-white/[0.03] last:border-b-0
-                hover:bg-white/[0.04] transition-all duration-200 group
-                ${isWin ? 'hover:bg-emerald-500/[0.03]' : ''}
-                ${isLoss ? 'hover:bg-rose-500/[0.03]' : ''}
+                border-b border-indigo-500/10 last:border-b-0
+                hover:bg-[#0f172a]/80 hover:shadow-[0_0_15px_rgba(99,102,241,0.1)] transition-all duration-200 group
+                ${isWin ? 'hover:bg-emerald-500/[0.05] hover:shadow-[0_0_15px_rgba(16,185,129,0.1)]' : ''}
+                ${isLoss ? 'hover:bg-rose-500/[0.05] hover:shadow-[0_0_15px_rgba(244,63,94,0.1)]' : ''}
+                font-jakarta
             `}
         >
-            {/* Date */}
-            <div className="w-16 flex-shrink-0">
-                <span className="text-xs font-bold text-slate-500 font-mono">{date}</span>
-            </div>
-
-            {/* Ticker + Grade */}
-            <div className="w-28 flex items-center gap-2 flex-shrink-0">
-                <span className="text-sm font-black text-white tracking-tight group-hover:text-cyan-300 transition-colors">
-                    {record.ticker}
-                </span>
-                <span className={`text-[9px] font-black px-1.5 py-0.5 rounded border ${getGradeColor(record.grade)}`}>
-                    {record.grade}
-                </span>
+            {/* Ticker Logo + Name + Grade */}
+            <div className="w-40 flex items-center gap-3 flex-shrink-0">
+                <div className="w-8 h-8 rounded-lg bg-white p-0.5 shadow-sm overflow-hidden flex items-center justify-center flex-shrink-0 border border-white/10 group-hover:border-indigo-400/50 transition-colors">
+                    <img
+                        src={`https://assets.parqet.com/logos/symbol/${record.ticker}?format=png`}
+                        alt={record.ticker}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.parentElement!.style.backgroundColor = '#1e293b';
+                            e.currentTarget.parentElement!.innerHTML = `<span class="text-xs font-bold text-slate-300 font-jakarta">${record.ticker[0]}</span>`;
+                        }}
+                    />
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[15px] font-black text-white tracking-tight group-hover:text-cyan-300 transition-colors">
+                        {record.ticker}
+                    </span>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                        <span className={`text-xs w-fit font-black px-2 py-0.5 rounded border ${getGradeColor(record.grade)}`}>
+                            {record.grade}
+                        </span>
+                        {record.recommendationType === 'PRE_MARKET' && (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded border bg-indigo-500/10 text-indigo-300 border-indigo-500/20">
+                                PRE
+                            </span>
+                        )}
+                        {record.recommendationType === 'INTRADAY' && (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded border bg-fuchsia-500/10 text-fuchsia-300 border-fuchsia-500/20 flex items-center gap-1">
+                                <Zap className="w-3 h-3" /> LIVE
+                            </span>
+                        )}
+                    </div>
+                </div>
             </div>
 
             {/* Score */}
-            <div className="w-16 flex-shrink-0">
+            <div className="w-24 flex-shrink-0">
                 <div className="flex items-center gap-1.5">
                     <div className="w-8 h-1 bg-slate-800 rounded-full overflow-hidden">
                         <div
@@ -217,20 +241,20 @@ function RecordRow({ record, index }: { record: BacktestRecord; index: number })
             </div>
 
             {/* Entry Price */}
-            <div className="w-24 flex-shrink-0 hidden md:block">
-                <span className="text-xs font-mono text-slate-400">
+            <div className="w-24 flex-shrink-0 hidden sm:block">
+                <span className="text-xs font-mono text-slate-300">
                     ${record.priceAtRecommendation.toFixed(2)}
                 </span>
             </div>
 
             {/* Check Price */}
-            <div className="w-24 flex-shrink-0 hidden md:block">
+            <div className="w-24 flex-shrink-0 hidden sm:block">
                 {record.priceAtCheck ? (
                     <span className="text-xs font-mono text-slate-300">
                         ${record.priceAtCheck.toFixed(2)}
                     </span>
                 ) : (
-                    <span className="text-xs font-mono text-slate-600">—</span>
+                    <span className="text-xs font-mono text-slate-300">—</span>
                 )}
             </div>
 
@@ -259,18 +283,21 @@ function DateGroup({ date, records, defaultOpen }: { date: string; records: Back
         day: 'numeric',
     });
 
+    const preMarketRecords = records.filter(r => r.recommendationType === 'PRE_MARKET' || !r.recommendationType);
+    const intradayRecords = records.filter(r => r.recommendationType === 'INTRADAY');
+
     return (
         <div className="mb-4">
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className="w-full flex items-center justify-between px-4 py-3 
-                    bg-white/[0.02] backdrop-blur-sm rounded-t-xl border border-white/[0.06]
-                    hover:bg-white/[0.05] transition-all group"
+                    bg-[#0a0f1c]/70 backdrop-blur-2xl rounded-t-xl border border-indigo-500/10 shadow-[0_8px_30px_rgba(0,0,0,0.5)]
+                    hover:bg-[#0f172a]/90 hover:shadow-[0_0_20px_rgba(99,102,241,0.1)] transition-all group"
             >
                 <div className="flex items-center gap-3">
-                    <Calendar className="w-4 h-4 text-slate-500" />
+                    <Calendar className="w-4 h-4 text-slate-300" />
                     <span className="text-sm font-bold text-slate-200">{dateLabel}</span>
-                    <span className="text-[10px] text-slate-600 font-mono">
+                    <span className="text-xs text-slate-300 font-mono">
                         {records.length} recommendation{records.length !== 1 ? 's' : ''}
                     </span>
                 </div>
@@ -286,9 +313,9 @@ function DateGroup({ date, records, defaultOpen }: { date: string; records: Back
                         </span>
                     )}
                     {isOpen ? (
-                        <ChevronUp className="w-4 h-4 text-slate-500" />
+                        <ChevronUp className="w-4 h-4 text-slate-300" />
                     ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-500" />
+                        <ChevronDown className="w-4 h-4 text-slate-300" />
                     )}
                 </div>
             </button>
@@ -302,21 +329,48 @@ function DateGroup({ date, records, defaultOpen }: { date: string; records: Back
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                     >
-                        <div className="bg-white/[0.01] backdrop-blur-sm border border-t-0 border-white/[0.06] rounded-b-xl">
-                            {/* Header Row */}
-                            <div className="flex items-center gap-4 px-4 py-2 border-b border-white/[0.05]">
-                                <div className="w-16 text-[9px] font-bold text-slate-600 uppercase tracking-widest">Date</div>
-                                <div className="w-28 text-[9px] font-bold text-slate-600 uppercase tracking-widest">Ticker</div>
-                                <div className="w-16 text-[9px] font-bold text-slate-600 uppercase tracking-widest">Score</div>
-                                <div className="w-24 text-[9px] font-bold text-slate-600 uppercase tracking-widest hidden md:block">Entry</div>
-                                <div className="w-24 text-[9px] font-bold text-slate-600 uppercase tracking-widest hidden md:block">T+3</div>
-                                <div className="flex-1 text-[9px] font-bold text-slate-600 uppercase tracking-widest text-right">Result</div>
-                            </div>
+                        <div className="bg-[#0f172a]/40 backdrop-blur-md border border-t-0 border-indigo-500/10 rounded-b-xl shadow-[0_8px_30px_rgba(0,0,0,0.3)]">
+                            {/* PRE-MARKET SECTION */}
+                            {preMarketRecords.length > 0 && (
+                                <div className="mb-2">
+                                    <div className="px-4 py-2 bg-indigo-500/5 border-b border-indigo-500/10 flex items-center justify-between">
+                                        <span className="text-xs font-bold text-indigo-300 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Shield className="w-3.5 h-3.5" /> PRE-MARKET TOP PICKS
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-4 px-4 py-2 border-b border-white/[0.02]">
+                                        <div className="w-40 text-xs font-bold text-slate-400 uppercase tracking-widest">Ticker</div>
+                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest">Score</div>
+                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Entry</div>
+                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:block">T+3 Verify</div>
+                                        <div className="flex-1 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Result</div>
+                                    </div>
+                                    {preMarketRecords.map((record, idx) => (
+                                        <RecordRow key={`${record.ticker}-${record.recordedAt}`} record={record} index={idx} />
+                                    ))}
+                                </div>
+                            )}
 
-                            {/* Records */}
-                            {records.map((record, idx) => (
-                                <RecordRow key={`${record.ticker}-${record.recordedAt}`} record={record} index={idx} />
-                            ))}
+                            {/* INTRADAY SECTION */}
+                            {intradayRecords.length > 0 && (
+                                <div className="mt-4 mb-2">
+                                    <div className="px-4 py-2 bg-fuchsia-500/5 border-t border-b border-fuchsia-500/10 flex items-center justify-between">
+                                        <span className="text-xs font-bold text-fuchsia-300 uppercase tracking-widest flex items-center gap-1.5">
+                                            <Zap className="w-3.5 h-3.5" /> LIVE TACTICAL (10:30 ET)
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center gap-4 px-4 py-2 border-b border-white/[0.02]">
+                                        <div className="w-40 text-xs font-bold text-slate-400 uppercase tracking-widest">Ticker</div>
+                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest">Score</div>
+                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Entry</div>
+                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:block">T+3 Verify</div>
+                                        <div className="flex-1 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Result</div>
+                                    </div>
+                                    {intradayRecords.map((record, idx) => (
+                                        <RecordRow key={`${record.ticker}-${record.recordedAt}`} record={record} index={idx} />
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </motion.div>
                 )}
@@ -379,7 +433,7 @@ function WinRateRing({ winRate, size = 140 }: { winRate: number; size?: number }
                 <span className={`text-3xl font-black font-mono ${color.text}`}>
                     {winRate.toFixed(1)}%
                 </span>
-                <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">WIN RATE</span>
+                <span className="text-xs text-slate-300 font-bold uppercase tracking-widest">WIN RATE</span>
             </div>
         </div>
     );
@@ -399,11 +453,96 @@ export function TrackRecord() {
         async function fetchData() {
             try {
                 setIsLoading(true);
-                const res = await fetch('/api/backtest', { cache: 'no-store' });
-                if (!res.ok) throw new Error('Failed to fetch');
-                const data = await res.json();
-                setSummary(data.summary);
-                setRecords(data.records || []);
+                const dbRecords = await getTrackRecords();
+
+                if (!dbRecords || dbRecords.length === 0) {
+                    setSummary({
+                        totalRecords: 0, checkedRecords: 0, pendingRecords: 0,
+                        wins: 0, losses: 0, flat: 0, winRate: 0,
+                        avgWinReturn: 0, avgLossReturn: 0, expectancy: 0, profitFactor: 0,
+                        bestTicker: null, worstTicker: null,
+                        lastUpdated: new Date().toISOString(),
+                        engineVersion: '5.5.0-SNIPER'
+                    });
+                    setRecords([]);
+                    return;
+                }
+
+                // Map DB schema to UI schema
+                const mappedRecords: BacktestRecord[] = dbRecords.map((r: any) => ({
+                    ticker: r.ticker,
+                    recordedAt: r.recorded_date,
+                    alphaScore: r.alpha_score,
+                    grade: r.grade,
+                    action: r.action,
+                    priceAtRecommendation: r.price_at_recommendation,
+                    targetCheckDate: r.target_check_date,
+                    priceAtCheck: r.price_at_check,
+                    returnPct: r.return_pct,
+                    outcome: r.outcome,
+                    checkedAt: r.is_entry_triggered ? new Date().toISOString() : undefined,
+                    recommendationType: r.recommendation_type
+                }));
+
+                // Calculate Summary Stats
+                let wins = 0, losses = 0, flat = 0, pending = 0;
+                let totalWinReturn = 0, totalLossReturn = 0;
+                let bestTicker: string | null = null;
+                let worstTicker: string | null = null;
+                let maxWin = -Infinity;
+                let maxLoss = Infinity;
+
+                // Only count VALID records (exclude INVALID_ENTRY)
+                const validRecords = mappedRecords.filter(r => r.outcome !== 'INVALID_ENTRY');
+
+                for (const r of validRecords) {
+                    if (r.outcome === 'WIN') {
+                        wins++;
+                        totalWinReturn += (r.returnPct || 0);
+                        if ((r.returnPct || 0) > maxWin) { maxWin = r.returnPct || 0; bestTicker = r.ticker; }
+                    } else if (r.outcome === 'LOSS') {
+                        losses++;
+                        totalLossReturn += (r.returnPct || 0);
+                        if ((r.returnPct || 0) < maxLoss) { maxLoss = r.returnPct || 0; worstTicker = r.ticker; }
+                    } else if (r.outcome === 'FLAT') {
+                        flat++;
+                    } else if (r.outcome === 'PENDING') {
+                        pending++;
+                    }
+                }
+
+                const checkedRecords = wins + losses + flat;
+                const winRate = checkedRecords > 0 ? (wins / checkedRecords) * 100 : 0;
+                const avgWin = wins > 0 ? totalWinReturn / wins : 0;
+                const avgLoss = losses > 0 ? Math.abs(totalLossReturn / losses) : 0;
+
+                // Profit Factor = Gross Win / Gross Loss
+                const profitFactor = totalLossReturn === 0 ? (wins > 0 ? Infinity : 0) : Math.abs(totalWinReturn / totalLossReturn);
+
+                // Expectancy = (Win% * AvgWin) - (Loss% * AvgLoss)
+                const winProb = winRate / 100;
+                const lossProb = losses / checkedRecords || 0;
+                const expectancy = checkedRecords > 0 ? (winProb * avgWin) - (lossProb * avgLoss) : 0;
+
+                setSummary({
+                    totalRecords: validRecords.length,
+                    checkedRecords,
+                    pendingRecords: pending,
+                    wins,
+                    losses,
+                    flat,
+                    winRate,
+                    avgWinReturn: avgWin,
+                    avgLossReturn: avgLoss * -1, // Keep it negative for display
+                    expectancy,
+                    profitFactor,
+                    bestTicker,
+                    worstTicker,
+                    lastUpdated: new Date().toISOString(),
+                    engineVersion: '5.5.0-SNIPER'
+                });
+
+                setRecords(validRecords);
             } catch (e: any) {
                 setError(e.message);
             } finally {
@@ -428,7 +567,7 @@ export function TrackRecord() {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh]">
                 <Loader2 className="w-10 h-10 text-emerald-500 animate-spin mb-4" />
-                <p className="text-slate-500 text-sm font-medium">Loading Track Record...</p>
+                <p className="text-slate-300 text-sm font-medium">Loading Track Record...</p>
             </div>
         );
     }
@@ -438,21 +577,21 @@ export function TrackRecord() {
         return (
             <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-6">
                 <div className="w-20 h-20 bg-slate-900/50 rounded-full flex items-center justify-center mb-6 border border-slate-800 shadow-2xl">
-                    <Target className="w-10 h-10 text-slate-600" />
+                    <Target className="w-10 h-10 text-slate-300" />
                 </div>
                 <h2 className="text-2xl font-black text-slate-200 mb-2 tracking-tight">
                     TRACK RECORD INITIALIZING
                 </h2>
                 <div className="w-12 h-1 bg-emerald-500/20 rounded-full mb-6" />
-                <p className="text-slate-400 max-w-md text-sm leading-relaxed">
+                <p className="text-slate-300 max-w-md text-sm leading-relaxed">
                     Alpha Engine V3.1이 추천을 시작하면 여기에서 자동으로 성과를 추적합니다.
                     <br />
-                    <span className="text-slate-500">
+                    <span className="text-slate-300">
                         매 보고서의 ACTIONABLE 종목 → T+3 수익률 자동 검증
                     </span>
                 </p>
                 <div className="mt-8 px-5 py-3 rounded-xl border border-slate-800 bg-white/[0.02] backdrop-blur-sm">
-                    <span className="text-[10px] text-slate-500 font-mono">
+                    <span className="text-xs text-slate-300 font-mono">
                         ENGINE v{summary?.engineVersion || '3.1.0'} • SELF-CORRECTION ACTIVE • AWAITING FIRST SIGNAL
                     </span>
                 </div>
@@ -467,7 +606,7 @@ export function TrackRecord() {
             <section className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 pt-4">
                 <div>
                     <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-bold text-slate-500 tracking-widest uppercase flex items-center gap-2">
+                        <span className="text-xs font-bold text-slate-300 tracking-widest uppercase flex items-center gap-2">
                             <Shield className="w-3 h-3 text-emerald-500" />
                             VERIFIED PERFORMANCE
                         </span>
@@ -475,19 +614,19 @@ export function TrackRecord() {
                     <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
                         <span className="text-emerald-500">TRACK</span> RECORD
                     </h1>
-                    <p className="text-slate-500 text-xs mt-1 max-w-lg font-medium leading-relaxed">
+                    <p className="text-slate-300 text-xs mt-1 max-w-lg font-medium leading-relaxed">
                         Every recommendation tracked. Every outcome verified. No hiding — the numbers speak.
                     </p>
                 </div>
                 <div className="text-right">
-                    <p className="text-slate-600 font-mono text-[10px] bg-slate-800/50 px-2 py-1 rounded inline-block">
+                    <p className="text-slate-300 font-mono text-xs bg-slate-800/50 px-2 py-1 rounded inline-block">
                         ENGINE v{summary.engineVersion} • {summary.totalRecords} TOTAL RECOMMENDATIONS
                     </p>
                 </div>
             </section>
 
             {/* === HERO STATS (Win Rate Ring + Key Stats) === */}
-            <section className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl p-8">
+            <section className="relative overflow-hidden rounded-2xl border border-indigo-500/10 bg-[#0a0f1c]/60 backdrop-blur-2xl p-8 shadow-[0_8px_30px_rgba(0,0,0,0.5)] hover:shadow-[0_0_40px_rgba(99,102,241,0.1)] transition-shadow">
                 {/* Background Ambient */}
                 <div className="absolute -top-20 -left-20 w-60 h-60 bg-emerald-500/5 rounded-full blur-3xl" />
                 <div className="absolute -bottom-20 -right-20 w-60 h-60 bg-cyan-500/5 rounded-full blur-3xl" />
@@ -530,25 +669,25 @@ export function TrackRecord() {
                 </div>
 
                 {/* Bottom Stats Bar */}
-                <div className="relative z-10 mt-6 pt-6 border-t border-white/[0.05] flex flex-wrap items-center gap-6 text-[11px]">
+                <div className="relative z-10 mt-6 pt-6 border-t border-white/[0.05] flex flex-wrap items-center gap-6 text-xs">
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span className="text-slate-400">Checked: <span className="text-white font-bold">{summary.checkedRecords}</span></span>
+                        <span className="text-slate-300">Checked: <span className="text-white font-bold">{summary.checkedRecords}</span></span>
                     </div>
                     <div className="flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-                        <span className="text-slate-400">Pending: <span className="text-white font-bold">{summary.pendingRecords}</span></span>
+                        <span className="text-slate-300">Pending: <span className="text-white font-bold">{summary.pendingRecords}</span></span>
                     </div>
                     {summary.bestTicker && (
                         <div className="flex items-center gap-2">
                             <Trophy className="w-3.5 h-3.5 text-amber-400" />
-                            <span className="text-slate-400">Best: <span className="text-emerald-400 font-bold">{summary.bestTicker}</span></span>
+                            <span className="text-slate-300">Best: <span className="text-emerald-400 font-bold">{summary.bestTicker}</span></span>
                         </div>
                     )}
                     {summary.worstTicker && (
                         <div className="flex items-center gap-2">
                             <TrendingDown className="w-3.5 h-3.5 text-rose-400" />
-                            <span className="text-slate-400">Worst: <span className="text-rose-400 font-bold">{summary.worstTicker}</span></span>
+                            <span className="text-slate-300">Worst: <span className="text-rose-400 font-bold">{summary.worstTicker}</span></span>
                         </div>
                     )}
                 </div>
@@ -565,7 +704,7 @@ export function TrackRecord() {
                             <h2 className="text-lg font-black text-white tracking-tight">
                                 DAILY LOG
                             </h2>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-wider">
+                            <p className="text-xs text-slate-300 uppercase tracking-wider">
                                 Recommendation history by date
                             </p>
                         </div>
@@ -573,7 +712,7 @@ export function TrackRecord() {
                 </div>
 
                 {sortedDates.length === 0 ? (
-                    <div className="text-center py-12 text-slate-500 text-sm">
+                    <div className="text-center py-12 text-slate-300 text-sm">
                         No records yet. First recommendations will appear after the next report.
                     </div>
                 ) : (

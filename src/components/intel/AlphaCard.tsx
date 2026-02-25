@@ -10,6 +10,7 @@ import {
     Building2, Waves, BarChart, Gauge, CircleDot,
     ArrowUp, ArrowDown, Minus
 } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { cn } from '@/lib/utils';
 
 // =============================================================================
@@ -114,8 +115,8 @@ function ScoreRing({ score, size = 64, strokeWidth = 4 }: { score: number; size?
                 />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className={cn("font-black leading-none", c.text, size >= 60 ? "text-[18px]" : "text-[14px]")}>{score.toFixed(1)}</span>
-                <span className={cn("font-bold opacity-70 mt-0.5", c.text, size >= 60 ? "text-[11px]" : "text-[11px]")}>{c.label}</span>
+                <span className={cn("font-black leading-none font-jakarta", c.text, size >= 60 ? "text-[20px]" : "text-[15px]")}>{score.toFixed(1)}</span>
+                <span className={cn("font-bold opacity-70 mt-0.5 font-jakarta", c.text, size >= 60 ? "text-[12px]" : "text-[11px]")}>{c.label}</span>
             </div>
         </div>
     );
@@ -147,7 +148,7 @@ function RankBadge({ rank }: { rank: number }) {
         bg: 'bg-white/[0.08] border border-white/[0.12]',
         text: 'text-white/70',
         shadow: '',
-        size: 'w-5 h-5 text-[10px]',
+        size: 'w-6 h-6 text-xs',
     };
 
     return (
@@ -167,36 +168,36 @@ function RankBadge({ rank }: { rank: number }) {
 type EntryStatus = 'ENTRY_ZONE' | 'WAIT' | 'EXTENDED' | 'CUT_ZONE';
 
 function getEntrySignal(
-    price: number, entryLow: number, entryHigh: number, cutPrice: number, callWall?: number
+    price: number, entryLow: number, entryHigh: number, cutPrice: number, callWall: number | undefined, t: any
 ): { status: EntryStatus; label: string; detail: string; color: string; bgClass: string; icon: React.ReactNode } {
     if (price <= cutPrice) {
         return {
-            status: 'CUT_ZONE', label: '손절 구간',
-            detail: `$${cutPrice.toFixed(0)} 이탈`,
-            color: 'text-rose-300', bgClass: 'bg-rose-500/[0.08] border-rose-500/20',
+            status: 'CUT_ZONE', label: t('cutZone'),
+            detail: `$${cutPrice.toFixed(0)} ${t('cutDetail')}`,
+            color: 'text-rose-400', bgClass: 'bg-[#0f172a] border-slate-700/50',
             icon: <XCircle className="w-3.5 h-3.5" />
         };
     }
     if (callWall && price >= callWall * 0.98) {
         return {
-            status: 'EXTENDED', label: '과열 구간',
-            detail: `CW $${callWall.toFixed(0)} 근접`,
-            color: 'text-amber-300', bgClass: 'bg-amber-500/[0.08] border-amber-500/20',
+            status: 'EXTENDED', label: t('extended'),
+            detail: `CW $${callWall.toFixed(0)} ${t('extendedDetail')}`,
+            color: 'text-amber-400', bgClass: 'bg-[#0f172a] border-slate-700/50',
             icon: <AlertTriangle className="w-3.5 h-3.5" />
         };
     }
     if (price >= entryLow && price <= entryHigh) {
         return {
-            status: 'ENTRY_ZONE', label: '진입 구간',
+            status: 'ENTRY_ZONE', label: t('entryZone'),
             detail: `$${entryLow.toFixed(0)}~$${entryHigh.toFixed(0)}`,
-            color: 'text-emerald-300', bgClass: 'bg-emerald-500/[0.08] border-emerald-500/20',
+            color: 'text-emerald-400', bgClass: 'bg-[#0f172a] border-slate-700/50',
             icon: <CheckCircle className="w-3.5 h-3.5" />
         };
     }
     return {
-        status: 'WAIT', label: '진입 대기',
-        detail: price > entryHigh ? `$${entryHigh.toFixed(0)} 이하 대기` : `$${entryLow.toFixed(0)} 이상 대기`,
-        color: 'text-slate-400', bgClass: 'bg-white/[0.04] border-white/[0.08]',
+        status: 'WAIT', label: t('waitZone'),
+        detail: price > entryHigh ? `$${entryHigh.toFixed(0)} ${t('waitBelow')}` : `$${entryLow.toFixed(0)} ${t('waitAbove')}`,
+        color: 'text-slate-400', bgClass: 'bg-[#0f172a] border-slate-700/50',
         icon: <Clock className="w-3.5 h-3.5" />
     };
 }
@@ -260,14 +261,14 @@ function PillarBar({ name, pillar }: { name: string; pillar: PillarData }) {
     return (
         <div className="flex items-center gap-2 group/pillar">
             <div className={cn("w-4 flex-shrink-0", c.text, "opacity-70")}>{config.icon}</div>
-            <span className="text-[11px] text-white/70 w-12 flex-shrink-0 font-semibold">{config.label}</span>
-            <div className="flex-1 h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+            <span className="text-xs text-white/70 w-14 flex-shrink-0 font-semibold font-jakarta">{config.label}</span>
+            <div className="flex-1 h-2 bg-white/[0.06] rounded-full overflow-hidden">
                 <div
                     className={cn("h-full rounded-full transition-all duration-700", c.bar)}
                     style={{ width: `${pct}%`, opacity: pct > 50 ? 0.9 : 0.5 }}
                 />
             </div>
-            <span className={cn("text-[11px] font-mono font-bold w-7 text-right",
+            <span className={cn("text-xs font-mono font-bold w-10 text-right font-jakarta",
                 pct >= 70 ? c.text : pct >= 40 ? "text-white/70" : "text-white/50"
             )}>
                 {pillar.score}/{pillar.max}
@@ -336,8 +337,8 @@ function InsightPanel({
 // PRICE LEVEL BAR (Visual Entry/Target/Stop Infographic)
 // =============================================================================
 
-function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, callWall }: {
-    price: number; entryLow: number; entryHigh: number; targetPrice: number; cutPrice: number; callWall?: number;
+function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, callWall, t }: {
+    price: number; entryLow: number; entryHigh: number; targetPrice: number; cutPrice: number; callWall?: number; t: any;
 }) {
     const allLevels = [cutPrice, entryLow, entryHigh, targetPrice, price].filter(v => v > 0);
     if (callWall && callWall > 0) allLevels.push(callWall);
@@ -378,20 +379,20 @@ function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, call
             {/* Numeric labels — M7 style grid boxes */}
             <div className="grid grid-cols-3 gap-1">
                 <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-white/[0.08] text-center">
-                    <p className="text-[11px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">STOP</p>
-                    <p className="text-xs font-bold text-rose-300 font-mono">${cutPrice.toFixed(0)}</p>
-                    <p className="text-[11px] text-rose-400/80 font-mono">{downside.toFixed(1)}%</p>
+                    <p className="text-[10px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">{t('cutZone')}</p>
+                    <p className="text-sm font-bold text-rose-300 font-mono font-jakarta">${cutPrice.toFixed(0)}</p>
+                    <p className="text-xs text-rose-400/80 font-mono font-jakarta">{downside.toFixed(1)}%</p>
                 </div>
-                <div className="bg-white/[0.08] rounded-lg py-1.5 px-2 border border-emerald-500/15 text-center">
-                    <p className="text-[11px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">ENTRY</p>
-                    <p className="text-xs font-bold text-white/90 font-mono">
-                        ${entryLow.toFixed(0)}<span className="text-white/50">~</span>${entryHigh.toFixed(0)}
+                <div className="bg-white/[0.08] rounded-lg py-1.5 px-2 border border-emerald-500/15 text-center shadow-[0_0_15px_rgba(16,185,129,0.05)]">
+                    <p className="text-[10px] text-emerald-400/80 uppercase tracking-[0.12em] font-bold font-jakarta">{t('entryZone')}</p>
+                    <p className="text-sm font-bold text-white/90 font-mono font-jakarta">
+                        ${entryLow.toFixed(0)}<span className="text-white/50 px-0.5">~</span>${entryHigh.toFixed(0)}
                     </p>
                 </div>
                 <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-white/[0.08] text-center">
-                    <p className="text-[11px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">TARGET</p>
-                    <p className="text-xs font-bold text-emerald-300 font-mono">${targetPrice.toFixed(0)}</p>
-                    <p className="text-[11px] text-emerald-400/80 font-mono">+{upside.toFixed(1)}%</p>
+                    <p className="text-[10px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">TARGET</p>
+                    <p className="text-sm font-bold text-emerald-300 font-mono font-jakarta">${targetPrice.toFixed(0)}</p>
+                    <p className="text-xs text-emerald-400/80 font-mono font-jakarta">+{upside.toFixed(1)}%</p>
                 </div>
             </div>
         </div>
@@ -410,9 +411,10 @@ export function AlphaCard({
     whyKR, actionKR, grade, triggerCodes, pillars, gatesApplied, dataCompleteness,
 }: AlphaCardProps) {
     const router = useRouter();
+    const t = useTranslations('alphaReport');
     const [showInsight, setShowInsight] = useState(false);
 
-    const entrySignal = getEntrySignal(price, entryLow, entryHigh, cutPrice, callWall);
+    const entrySignal = getEntrySignal(price, entryLow, entryHigh, cutPrice, callWall, t);
     const logoUrl = `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;
 
     const upside = targetPrice > 0 && price > 0 ? ((targetPrice - price) / price * 100) : 0;
@@ -445,8 +447,15 @@ export function AlphaCard({
             onClick={handleClick}
         >
             {/* Glass shine — M7 signature */}
-            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50" />
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50 z-10" />
+
+            {/* Premium Infographic Background (Boosted Visibility) */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl opacity-100 z-0">
+                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:16px_16px]" />
+                <div className="absolute -top-10 -right-10 w-48 h-48 bg-[radial-gradient(circle,rgba(52,211,153,0.15)_0%,transparent_70%)] rounded-full mix-blend-screen" />
+            </div>
+
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10" />
 
             {/* ─── HEADER: Rank + Logo + Ticker | Score Ring ─── */}
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
@@ -476,7 +485,7 @@ export function AlphaCard({
 
             {/* ─── PRICE SECTION (M7 style — centered, large) ─── */}
             <div className="flex flex-col items-center px-4 pb-2">
-                <div className="text-2xl font-black text-white tracking-tighter tabular-nums">
+                <div className="text-3xl font-black text-white tracking-tighter tabular-nums font-jakarta drop-shadow-md">
                     ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className={cn(
@@ -500,11 +509,13 @@ export function AlphaCard({
                     <span className={cn("mt-0.5 flex-shrink-0", entrySignal.color)}>{entrySignal.icon}</span>
                     <div className="flex-1">
                         <div className="flex items-center justify-between">
-                            <span className={cn("text-[13px] font-bold", entrySignal.color)}>{entrySignal.label}</span>
-                            <span className={cn("text-xs font-mono font-semibold", entrySignal.color)}>{entrySignal.detail}</span>
+                            <span className={cn("text-[13px] font-bold font-jakarta border-b border-current pb-0.5", entrySignal.color)}>{entrySignal.label}</span>
+                            <span className={cn("text-[13px] font-mono font-bold font-jakarta", entrySignal.color)}>{entrySignal.detail}</span>
                         </div>
                         {actionKR && (
-                            <p className="text-[11px] text-white/70 mt-1 leading-relaxed">{actionKR}</p>
+                            <p className="text-xs text-white/80 mt-1.5 leading-relaxed font-jakarta font-medium">
+                                {actionKR.replace(/[🔥✅👀⏸️⚠️🚫]/g, '').trim()}
+                            </p>
                         )}
                     </div>
                 </div>
@@ -520,13 +531,14 @@ export function AlphaCard({
                         targetPrice={targetPrice}
                         cutPrice={cutPrice}
                         callWall={callWall}
+                        t={t}
                     />
                 </div>
             )}
 
             {/* ─── QUICK STATS (M7 grid style) ─── */}
             <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-white/[0.08] border border-white/[0.10]">
-                <div className="flex items-center justify-between text-[11px] text-white/60">
+                <div className="flex items-center justify-between text-xs text-white/60">
                     <div className="flex items-center gap-3">
                         {callWall ? <span>CW <span className="text-white/80 font-mono font-bold">${callWall.toFixed(0)}</span></span> : null}
                         {putFloor ? <span>PF <span className="text-white/80 font-mono font-bold">${putFloor.toFixed(0)}</span></span> : null}
@@ -549,25 +561,26 @@ export function AlphaCard({
 
             {/* ─── WHY (Analysis text — M7 card analysis style) ─── */}
             {whyKR && (
-                <div className="mx-4 mb-3 px-3 py-2 rounded-lg bg-white/[0.08] border border-white/[0.10]">
-                    <p className="text-[11px] text-white/70 leading-relaxed line-clamp-3">{whyKR}</p>
+                <div className="mx-4 mb-3 px-3 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] shadow-[inset_0_1px_4px_rgba(0,0,0,0.2)]">
+                    <p className="text-xs text-white/80 leading-relaxed font-jakarta font-medium">{whyKR}</p>
                 </div>
             )}
 
             {/* ─── TRIGGER BADGES (M7 tag style) ─── */}
             {triggerCodes && triggerCodes.length > 0 && (
-                <div className="mx-4 mb-3 px-3 py-2 rounded-lg bg-white/[0.08] border border-white/[0.10] flex flex-wrap gap-1">
+                <div className="mx-4 mb-3 px-3 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] flex flex-wrap gap-1.5 shadow-[inset_0_1px_4px_rgba(0,0,0,0.1)]">
                     {triggerCodes.slice(0, 6).map(code => {
                         const t = TRIGGER_CONFIG[code];
                         if (!t) return null;
                         return (
                             <span key={code} className={cn(
-                                "text-[11px] font-bold px-1.5 py-1 rounded-md border flex items-center gap-1",
-                                t.type === 'positive' ? "bg-emerald-500/[0.08] text-emerald-300 border-emerald-500/15" :
-                                    t.type === 'negative' ? "bg-rose-500/[0.08] text-rose-300 border-rose-500/15" :
-                                        "bg-white/[0.06] text-white/60 border-white/[0.08]"
+                                "text-xs font-bold px-2 py-1 rounded-md border flex items-center gap-1.5 font-jakarta shadow-sm",
+                                "bg-[#0f172a] text-slate-300 border-slate-700/50" // Monolithic tech style to look more serious
                             )}>
-                                {t.icon}
+                                <span className={cn(
+                                    t.type === 'positive' ? 'text-emerald-400' :
+                                        t.type === 'negative' ? 'text-rose-400' : 'text-slate-400'
+                                )}>{t.icon}</span>
                                 {t.label}
                             </span>
                         );
@@ -580,14 +593,14 @@ export function AlphaCard({
                 <button
                     onClick={handleInsightToggle}
                     className={cn(
-                        "w-full flex items-center justify-center gap-2 py-2 rounded-lg text-[11px] font-bold transition-all duration-300 border",
+                        "w-full flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all duration-300 border",
                         showInsight
                             ? "bg-white/[0.08] border-white/[0.15] text-white/80"
                             : "bg-white/[0.04] border-white/[0.08] text-white/60 hover:text-white/80 hover:bg-white/[0.06]"
                     )}
                 >
                     <Gauge className="w-3.5 h-3.5" />
-                    {showInsight ? '엔진 분석 접기' : '엔진 분석 보기'}
+                    {showInsight ? t('insightFold') : t('insightUnfold')}
                     {showInsight ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
 

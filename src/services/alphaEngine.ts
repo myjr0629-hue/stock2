@@ -87,6 +87,10 @@ export interface AlphaInput {
     preMarketPrice?: number | null;       // Pre-market 현재가
     preMarketChangePct?: number | null;   // Pre-market 변동률 (vs prevClose)
 
+    // === SELF-CORRECTION (Track Record) ===
+    historicalWinRate?: number | null;
+    historicalTotalTrades?: number | null;
+
     // === CONTEXT (optional enrichment) ===
     wasInPrevReport?: boolean;
     prevAlphaScore?: number | null;
@@ -219,6 +223,23 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
         rawScore += trendAdjust;
     }
 
+    // 4c. [V3.1] Self-Correction Loop (D+3 Track Record)
+    // Adjust score based on past win/loss logs
+    const hWinRate = input.historicalWinRate;
+    const hTotal = input.historicalTotalTrades;
+    let trackRecordAdjust = 0;
+
+    if (hWinRate !== null && hWinRate !== undefined && hTotal && hTotal >= 1) {
+        if (hWinRate >= 70) {
+            trackRecordAdjust = 5; // Serial Winner Bonus
+        } else if (hWinRate <= 30 && hTotal >= 2) {
+            trackRecordAdjust = -10; // Serial Loser Penalty (Requires at least 2 trades to penalize heavily)
+        } else if (hWinRate <= 50 && hTotal >= 3) {
+            trackRecordAdjust = -5; // Consistent Underperformer
+        }
+        rawScore += trackRecordAdjust;
+    }
+
     // 5. Apply absolute gates
     const gatesResult = applyAbsoluteGates(rawScore, input);
     const finalScore = Math.round(Math.max(0, Math.min(100, gatesResult.adjustedScore)));
@@ -229,9 +250,22 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
     const { action, actionKR } = determineAction(grade, input);
 
     // 7. Build WHY explanation
-    const { whyKR, whyFactors, triggerCodes } = buildExplanation(
+    const explanation = buildExplanation(
         input, momentum, structure, flow, regime, catalyst, gatesResult, grade
     );
+    let whyKR = explanation.whyKR;
+    const whyFactors = [...explanation.whyFactors];
+    const triggerCodes = [...explanation.triggerCodes];
+
+    if (trackRecordAdjust > 0) {
+        whyKR += ' [⭐연승보너스]';
+        whyFactors.push('SERIAL_WINNER');
+        triggerCodes.push('SERIAL_WINNER');
+    } else if (trackRecordAdjust < 0) {
+        whyKR += ' [⚠️연패페널티]';
+        whyFactors.push('SERIAL_LOSER');
+        triggerCodes.push('SERIAL_LOSER');
+    }
 
     // 8. Session adjustment flag
     const sessionAdjusted = input.session !== 'REG';
@@ -1155,12 +1189,12 @@ function determineGrade(score: number): AlphaGrade {
 
 function determineAction(grade: AlphaGrade, input: AlphaInput): { action: AlphaAction; actionKR: string } {
     switch (grade) {
-        case 'S': return { action: 'STRONG_BUY', actionKR: '🔥 즉시 매수' };
-        case 'A': return { action: 'BUY', actionKR: '✅ 매수 적합' };
-        case 'B': return { action: 'WATCH', actionKR: '👀 관심 등록' };
-        case 'C': return { action: 'HOLD', actionKR: '⏸️ 관망' };
-        case 'D': return { action: 'REDUCE', actionKR: '⚠️ 축소' };
-        case 'F': return { action: 'EXIT', actionKR: '🚫 즉시 이탈' };
+        case 'S': return { action: 'STRONG_BUY', actionKR: '즉시 매수' };
+        case 'A': return { action: 'BUY', actionKR: '매수 적합' };
+        case 'B': return { action: 'WATCH', actionKR: '관심 등록' };
+        case 'C': return { action: 'HOLD', actionKR: '관망' };
+        case 'D': return { action: 'REDUCE', actionKR: '비중 축소' };
+        case 'F': return { action: 'EXIT', actionKR: '리스크 이탈' };
     }
 }
 
@@ -1632,42 +1666,49 @@ export function calculateTradePlan(input: TradePlanInput): TradePlan | null {
         entry = regClose;
         entryLow = regClose - atr * 0.2;
         entryHigh = regClose + atr * 0.3;
-        entryStrategy = 'PM 데이터 없음 — 시가 근처 진입, 첫 5분 VWAP 확인';
+        entryStrategy = 'PM 거래량 미달/데이터 부재 — 시초가 관찰 후 첫 5분 VWAP 지지선에서 진입';
     } else if (pmAbs < 3) {
         // 갭 < 3%: 적은 갭 → 시가 진입 가능
         entry = pmPrice;
         entryLow = pmPrice - atr * 0.2;
         entryHigh = pmPrice + atr * 0.2;
-        entryStrategy = 'PM 갭 소폭 — 시가 근처 진입 유효';
+        entryStrategy = `PM 약보합 (${pmGapPct >= 0 ? '+' : ''}${pmGapPct.toFixed(1)}%) — 시가 근처 분할 진입 유효`;
     } else if (pmAbs < 8) {
         // 갭 3-8%: 적정 갭 → 첫 하락에 진입
-        const pullback = atr * 0.3;
-        entry = pmPrice - pullback;
-        entryLow = pmPrice - atr * 0.5;
-        entryHigh = pmPrice;
-        entryStrategy = `PM 갭 ${pmGapPct >= 0 ? '+' : ''}${pmGapPct.toFixed(1)}% — 시가 후 첫 풀백($${pullback.toFixed(2)} 조정) 대기`;
+        const pullback = atr * 0.4;
+        entry = Math.max(regClose, pmPrice - pullback);
+        entryLow = entry - atr * 0.3;
+        entryHigh = entry + atr * 0.2;
+        entryStrategy = `PM 갭업 (+${pmGapPct.toFixed(1)}%) — 시초가 직후 첫 풀백(약 $${pullback.toFixed(2)} 하락) 대기 후 진입`;
     } else if (pmAbs < 15) {
         // 갭 8-15%: 큰 갭 → 의미있는 되돌림 대기
-        const pullback = atr * 0.7;
+        const pullback = atr * 0.8;
         entry = pmPrice - pullback;
-        entryLow = pmPrice - atr * 1.0;
-        entryHigh = pmPrice - atr * 0.3;
-        entryStrategy = `PM 갭 ${pmGapPct >= 0 ? '+' : ''}${pmGapPct.toFixed(1)}% — 큰 갭, 의미있는 풀백 대기 필수`;
+        entryLow = entry - atr * 0.5;
+        entryHigh = entry + atr * 0.3;
+        entryStrategy = `PM 높은 갭업 (+${pmGapPct.toFixed(1)}%) — 장 초반 차익실현 물량(약 $${pullback.toFixed(2)} 깊이) 소화 확인 필수`;
     } else {
         // 갭 15%+: 극단적 갭 → 대폭 되돌림 또는 진입 보류
-        const pullback = atr * 1.2;
-        entry = pmPrice - pullback;
-        entryLow = pmPrice - atr * 1.5;
-        entryHigh = pmPrice - atr * 0.8;
-        entryStrategy = `PM 갭 ${pmGapPct >= 0 ? '+' : ''}${pmGapPct.toFixed(1)}% — 극단적 갭, Gap Trap 주의. VWAP 리테스트 이후만 진입`;
+        const pullback = atr * 1.5;
+        entry = Math.max(regClose * 1.05, pmPrice - pullback);
+        entryLow = entry - atr * 0.8;
+        entryHigh = entry + atr * 0.5;
+        entryStrategy = `PM 폭등 (+${pmGapPct.toFixed(1)}%) — 🚨 Gap Trap 극도 위험. 추격 매수 절대 금지, 충분한 눌림목($${pullback.toFixed(2)}+ 하락) 통과 후 VWAP 반등 시 진입`;
     }
 
     // PM이 하락일 경우 진입가 조정: 하락 갭은 되돌림을 기대하지 않고 시가에서 관찰
     if (pmGapPct < 0 && pmPrice && pmPrice > 0) {
-        entry = pmPrice;
-        entryLow = pmPrice - atr * 0.3;
-        entryHigh = pmPrice + atr * 0.2;
-        entryStrategy = `PM 하락 ${pmGapPct.toFixed(1)}% — 시가 관찰 후 반등 확인 시 진입`;
+        if (pmGapPct < -8) {
+            entry = pmPrice;
+            entryLow = pmPrice - atr * 0.6;
+            entryHigh = pmPrice + atr * 0.2;
+            entryStrategy = `PM 급락 (${pmGapPct.toFixed(1)}%) — 🚨 Catching Knife 위험. 장 초반 바닥 다짐 및 VWAP 강력 돌파 전까지 진입 보류`;
+        } else {
+            entry = pmPrice;
+            entryLow = pmPrice - atr * 0.4;
+            entryHigh = pmPrice + atr * 0.2;
+            entryStrategy = `PM 하락 (${pmGapPct.toFixed(1)}%) — 시가 관찰 후 이중 바닥(Double Bottom) 등 반등 패턴 형성 시 진입`;
+        }
     }
 
     // ── TARGET (목표가) 계산 ──
