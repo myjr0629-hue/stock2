@@ -108,6 +108,28 @@ export function usePriceFlash(price: number): 'up' | 'down' | null {
     return flash;
 }
 
+/** Returns inline style + className for price flash. Reusable across pages. */
+export function getFlashStyle(flash: 'up' | 'down' | null) {
+    const color = flash === 'up' ? 'text-green-200' :
+        flash === 'down' ? 'text-red-200' : 'text-white';
+    const style: React.CSSProperties = flash ? {
+        transition: 'color 0.1s ease-in, text-shadow 0.1s ease-in, background-color 0.1s ease-in',
+        textShadow: flash === 'up' ? '0 0 12px rgba(74,222,128,0.8)' : '0 0 12px rgba(248,113,113,0.8)',
+        backgroundColor: flash === 'up' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
+        borderRadius: '4px',
+        padding: '0 4px',
+        margin: '0 -4px',
+    } : {
+        transition: 'color 0.5s ease-out, text-shadow 0.5s ease-out, background-color 0.5s ease-out',
+        textShadow: 'none',
+        backgroundColor: 'transparent',
+        borderRadius: '4px',
+        padding: '0 4px',
+        margin: '0 -4px',
+    };
+    return { color, style };
+}
+
 // ============================================
 // COMPONENT
 // ============================================
@@ -143,15 +165,30 @@ export function PriceDisplay({
     // Flash color: text briefly turns bright green/red then fades back (Yahoo style)
     const priceColor = flash === 'up' ? 'text-green-200' :
         flash === 'down' ? 'text-red-200' : 'text-white';
-    const flashGlow = flash === 'up' ? '0 0 8px rgba(74,222,128,0.6)' :
-        flash === 'down' ? '0 0 8px rgba(248,113,113,0.6)' : 'none';
+
+    // [STRONG] Triple combo: background highlight + text color + glow
+    const flashStyle: React.CSSProperties = flash ? {
+        transition: 'color 0.1s ease-in, text-shadow 0.1s ease-in, background-color 0.1s ease-in',
+        textShadow: flash === 'up' ? '0 0 12px rgba(74,222,128,0.8)' : '0 0 12px rgba(248,113,113,0.8)',
+        backgroundColor: flash === 'up' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
+        borderRadius: '4px',
+        padding: '0 4px',
+        margin: '0 -4px',
+    } : {
+        transition: 'color 0.5s ease-out, text-shadow 0.5s ease-out, background-color 0.5s ease-out',
+        textShadow: 'none',
+        backgroundColor: 'transparent',
+        borderRadius: '4px',
+        padding: '0 4px',
+        margin: '0 -4px',
+    };
 
     return (
         <div className={containerClass}>
             {/* ===== Intraday (Main) Price ===== */}
             <div className={`flex items-center ${config.gap}`}>
                 <span className={`font-mono font-bold ${priceColor} ${config.price}`}
-                    style={{ transition: flash ? 'color 0.1s ease-in, text-shadow 0.1s ease-in' : 'color 0.5s ease-out, text-shadow 0.5s ease-out', textShadow: flashGlow }}>
+                    style={flashStyle}>
                     ${intradayPrice.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
