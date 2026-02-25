@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
 import { useShallow } from "zustand/react/shallow";
-import { PriceDisplay } from "@/components/ui/PriceDisplay";
+import { PriceDisplay, usePriceFlash, getFlashStyle, tickerDelay } from "@/components/ui/PriceDisplay";
 import { calcPriceDisplay } from "@/utils/calcPriceDisplay";
 
 // Dynamic import for StockChart (no SSR for chart component)
@@ -259,6 +259,8 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
     const extChangePct = priceResult.activeExtPct;
     const extLabel = priceResult.activeExtLabel;
     const isPositive = mainChangePct >= 0;
+    const wlFlash = usePriceFlash(mainPrice, tickerDelay(ticker));
+    const wf = getFlashStyle(wlFlash);
     const extColor = extLabel?.includes('PRE') ? 'text-amber-400' : extLabel?.includes('POST') ? 'text-purple-400' : 'text-indigo-400';
     // Simplify labels: "PRE CLOSE" -> "PRE", "POST (CLOSED)" -> "POST", etc.
     const displayExtLabel = extLabel?.replace(/\s*\(.*\)/, '').replace(/\s*(CLOSE|CLOSED)$/i, '').trim() || extLabel;
@@ -306,7 +308,8 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                     {/* Main Price + Change - Skeleton when loading */}
                     {mainPrice > 0 ? (
                         <div className="flex items-center gap-1.5">
-                            <span className="font-mono text-sm text-white">
+                            <span className={`font-mono text-sm ${wf.color}`}
+                                style={wf.style}>
                                 ${mainPrice.toFixed(2)}
                             </span>
                             <span className={`text-[13px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
@@ -553,7 +556,7 @@ function MainChartPanel() {
                                 extendedChangePct={p.activeExtPct}
                                 extendedLabel={p.activeExtLabel}
                                 sessionStatus={data?.session === 'CLOSED' ? 'CLOSED' : ''}
-                                size="md"
+                                size="lg"
                                 showExtended={p.activeExtPrice > 0}
                             />
                         );

@@ -88,24 +88,51 @@ const EXT_LABEL_COLORS: Record<string, string> = {
 // FLASH ANIMATION HOOK
 // ============================================
 
-export function usePriceFlash(price: number): 'up' | 'down' | null {
+export function usePriceFlash(price: number, staggerDelay = 0): 'up' | 'down' | null {
     const prevPriceRef = useRef(price);
     const [flash, setFlash] = useState<'up' | 'down' | null>(null);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const delayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     useEffect(() => {
         const prev = prevPriceRef.current;
         if (prev !== 0 && price !== 0 && prev !== price) {
+            // Clear any pending timers
             if (timerRef.current) clearTimeout(timerRef.current);
-            setFlash(price > prev ? 'up' : 'down');
-            timerRef.current = setTimeout(() => setFlash(null), 900);
+            if (delayRef.current) clearTimeout(delayRef.current);
+
+            const direction: 'up' | 'down' = price > prev ? 'up' : 'down';
+
+            if (staggerDelay > 0) {
+                // Staggered: delay the flash start for a live-feed feel
+                delayRef.current = setTimeout(() => {
+                    setFlash(direction);
+                    timerRef.current = setTimeout(() => setFlash(null), 900);
+                }, staggerDelay);
+            } else {
+                setFlash(direction);
+                timerRef.current = setTimeout(() => setFlash(null), 900);
+            }
         }
         prevPriceRef.current = price;
 
-        return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-    }, [price]);
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            if (delayRef.current) clearTimeout(delayRef.current);
+        };
+    }, [price, staggerDelay]);
 
     return flash;
+}
+
+/** Generate a stable 0–800ms delay from ticker string (for staggered flash) */
+export function tickerDelay(ticker: string): number {
+    let hash = 0;
+    for (let i = 0; i < ticker.length; i++) {
+        hash = ((hash << 5) - hash) + ticker.charCodeAt(i);
+        hash |= 0;
+    }
+    return Math.abs(hash) % 800;
 }
 
 /** Returns inline style + className for price flash. Reusable across pages. */
