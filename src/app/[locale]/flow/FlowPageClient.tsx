@@ -8,6 +8,7 @@ import { FavoriteToggle } from '@/components/FavoriteToggle';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
+import { usePriceFlash } from '@/components/ui/PriceDisplay';
 import useSWR from 'swr';
 import type { FlowRadarProps } from '@/components/FlowRadar';
 
@@ -25,7 +26,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
     // - Background refresh every 15s
     // - Deduplication prevents concurrent duplicate requests
     const { data: liveQuote, isLoading: loading, isValidating: quoteLoading } = useFlowData(ticker, {
-        refreshInterval: 15000,
+        refreshInterval: 2000, // [UX] Near-real-time price feel
         fallbackData: initialFlowData?.liveQuote
     });
 
@@ -80,6 +81,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
     });
 
     const isPositive = displayChangePct >= 0;
+    const priceFlash = usePriceFlash(displayPrice || 0);
 
     // EXACT SAME rawChain source as COMMAND (L1152)
     const rawChain = liveQuote?.flow?.rawChain || [];
@@ -129,7 +131,8 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
 
                             {/* Row 2: Price + Extended Badge (fixed position, independent of ticker) */}
                             <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px]">
-                                <div className="text-2xl font-black text-white tracking-tighter tabular-nums leading-none">
+                                <div className={`text-2xl font-black tracking-tighter tabular-nums leading-none ${priceFlash === 'up' ? 'text-green-300' : priceFlash === 'down' ? 'text-red-300' : 'text-white'}`}
+                                    style={{ transition: priceFlash ? 'color 0.1s ease-in' : 'color 0.5s ease-out' }}>
                                     ${displayPrice?.toFixed(2) || '—'}
                                 </div>
                                 <div className={`text-sm font-bold tabular-nums tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
@@ -185,7 +188,8 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                         {/* Mobile Price Row */}
                         <div className="flex flex-col gap-2 sm:hidden">
                             <div className="flex items-baseline gap-3">
-                                <div className="text-4xl font-black text-white tracking-tighter tabular-nums">
+                                <div className={`text-4xl font-black tracking-tighter tabular-nums ${priceFlash === 'up' ? 'text-green-300' : priceFlash === 'down' ? 'text-red-300' : 'text-white'}`}
+                                    style={{ transition: priceFlash ? 'color 0.1s ease-in' : 'color 0.5s ease-out' }}>
                                     ${displayPrice?.toFixed(2) || '—'}
                                 </div>
                                 <div className={`text-xl font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>

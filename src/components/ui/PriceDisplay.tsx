@@ -88,7 +88,7 @@ const EXT_LABEL_COLORS: Record<string, string> = {
 // FLASH ANIMATION HOOK
 // ============================================
 
-function usePriceFlash(price: number): 'up' | 'down' | null {
+export function usePriceFlash(price: number): 'up' | 'down' | null {
     const prevPriceRef = useRef(price);
     const [flash, setFlash] = useState<'up' | 'down' | null>(null);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -140,24 +140,16 @@ export function PriceDisplay({
         ? `flex items-center ${config.gap}`
         : `flex flex-col ${config.gap}`;
 
-    // Flash style: brief background highlight
-    const flashStyle: React.CSSProperties = flash ? {
-        transition: 'background-color 0.15s ease-in',
-        backgroundColor: flash === 'up' ? 'rgba(52, 211, 153, 0.25)' : 'rgba(251, 113, 133, 0.25)',
-        borderRadius: '4px',
-        padding: '0 4px',
-    } : {
-        transition: 'background-color 0.4s ease-out',
-        backgroundColor: 'transparent',
-        borderRadius: '4px',
-        padding: '0 4px',
-    };
+    // Flash color: text briefly turns bright green/red then fades back (Yahoo style)
+    const priceColor = flash === 'up' ? 'text-green-300' :
+        flash === 'down' ? 'text-red-300' : 'text-white';
 
     return (
         <div className={containerClass}>
             {/* ===== Intraday (Main) Price ===== */}
-            <div className={`flex items-center ${config.gap}`} style={flashStyle}>
-                <span className={`font-mono font-bold text-white ${config.price}`}>
+            <div className={`flex items-center ${config.gap}`}>
+                <span className={`font-mono font-bold ${priceColor} ${config.price}`}
+                    style={{ transition: flash ? 'color 0.1s ease-in' : 'color 0.5s ease-out' }}>
                     ${intradayPrice.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2

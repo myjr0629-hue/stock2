@@ -6,6 +6,7 @@ import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
+import { usePriceFlash } from '@/components/ui/PriceDisplay';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown, Crosshair, Radar, Shield, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
@@ -371,7 +372,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         };
     }, [initialStockData]);
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
-        refreshInterval: 5000,
+        refreshInterval: 2000, // [UX] Near-real-time price feel
     });
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
     const livePrice = useLivePrice(ticker);
@@ -691,6 +692,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     });
 
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;
+    const priceFlash = usePriceFlash(displayPrice || 0);
     let pTag = "";
     let pTagStyle = "";
 
@@ -855,7 +857,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                         {/* Row 2: Price + Extended Badge + Sector Badge */}
                         <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px]">
-                            <div className="text-2xl font-black text-white tracking-tighter tabular-nums leading-none">
+                            <div className={`text-2xl font-black tracking-tighter tabular-nums leading-none ${priceFlash === 'up' ? 'text-green-300' : priceFlash === 'down' ? 'text-red-300' : 'text-white'}`}
+                                style={{ transition: priceFlash ? 'color 0.1s ease-in' : 'color 0.5s ease-out' }}>
                                 ${displayPrice?.toFixed(2) || '—'}
                             </div>
                             <div className={`text-sm font-bold tabular-nums tracking-tighter ${displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
@@ -926,7 +929,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 {/* [Fix] ALWAYS use displayPrice = Intraday Close. No fallback to lastTrade. */}
                 <div className="flex flex-col gap-2 sm:hidden">
                     <div className="flex items-baseline gap-3">
-                        <div className="text-4xl font-black text-white tracking-tighter tabular-nums">
+                        <div className={`text-4xl font-black tracking-tighter tabular-nums ${priceFlash === 'up' ? 'text-green-300' : priceFlash === 'down' ? 'text-red-300' : 'text-white'}`}
+                            style={{ transition: priceFlash ? 'color 0.1s ease-in' : 'color 0.5s ease-out' }}>
                             ${displayPrice?.toFixed(2) || '—'}
                         </div>
                         <div className={`text-xl font-bold font-mono tracking-tighter ${displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
