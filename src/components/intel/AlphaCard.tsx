@@ -53,6 +53,7 @@ export interface AlphaCardProps {
     callWall?: number;
     putFloor?: number;
     isLive?: boolean;
+    isEntryTriggered?: boolean;  // [V6.0] Real-time entry zone triggered flag
     isHighRisk?: boolean;
     variant?: 'hero' | 'compact';
     onClick?: () => void;
@@ -447,8 +448,8 @@ function InsightPanel({
 // PRICE LEVEL BAR (Visual Entry/Target/Stop Infographic)
 // =============================================================================
 
-function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, callWall, t }: {
-    price: number; entryLow: number; entryHigh: number; targetPrice: number; cutPrice: number; callWall?: number; t: any;
+function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, callWall, isEntryTriggered, t }: {
+    price: number; entryLow: number; entryHigh: number; targetPrice: number; cutPrice: number; callWall?: number; isEntryTriggered?: boolean; t: any;
 }) {
     const allLevels = [cutPrice, entryLow, entryHigh, targetPrice, price].filter(v => v > 0);
     if (callWall && callWall > 0) allLevels.push(callWall);
@@ -493,8 +494,14 @@ function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, call
                     <p className="text-sm font-bold text-rose-300 font-mono font-jakarta truncate">${cutPrice.toFixed(0)}</p>
                     <p className="text-[13px] text-rose-400 font-bold font-mono font-jakarta">{downside.toFixed(1)}%</p>
                 </div>
-                <div className="bg-white/[0.08] rounded-lg py-1.5 px-1.5 border border-emerald-500/15 text-center shadow-[0_0_15px_rgba(16,185,129,0.05)] min-w-0 overflow-hidden">
+                <div className="bg-white/[0.08] rounded-lg py-1.5 px-1.5 border border-emerald-500/15 text-center shadow-[0_0_15px_rgba(16,185,129,0.05)] min-w-0 overflow-hidden relative">
                     <p className="text-xs text-emerald-400 uppercase tracking-[0.08em] font-bold font-jakarta">{t('entryZone')}</p>
+                    {isEntryTriggered && (
+                        <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-emerald-500 border border-emerald-300" />
+                        </span>
+                    )}
                     <p className="text-sm font-bold text-white/90 font-mono font-jakarta leading-snug">
                         <span className="whitespace-nowrap">${entryLow.toFixed(0)}</span>
                         <span className="text-white/50">~</span>
@@ -518,7 +525,7 @@ function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, call
 export function AlphaCard({
     ticker, rank, price, changePct, volume, alphaScore,
     entryLow = 0, entryHigh = 0, targetPrice = 0, cutPrice = 0,
-    whaleNetM, callWall, putFloor, isLive = false, isHighRisk = false,
+    whaleNetM, callWall, putFloor, isLive = false, isEntryTriggered = false, isHighRisk = false,
     variant = 'compact', onClick,
     whyKR, actionKR, action, grade, triggerCodes, whyFactors,
     darkPoolPct, shortVolPct, relVol,
@@ -692,6 +699,7 @@ export function AlphaCard({
                         targetPrice={targetPrice}
                         cutPrice={cutPrice}
                         callWall={callWall}
+                        isEntryTriggered={isEntryTriggered}
                         t={t}
                     />
                 </div>

@@ -411,6 +411,70 @@ export async function GET(request: Request) {
 
     console.log(`[WARM] ✅ Complete: ${succeeded}/${ALL_TICKERS.length} tickers cached (${failed} failed) in ${totalMs}ms (avg ${avgMs}ms/ticker)`);
 
+    // ================================================================
+    // [V6.0] Entry Zone Detection — Check today's recommendations
+    // After warming, check if any recommended stock entered entry zone
+    // Store flags in Redis for real-time AlphaCard badge display
+    // ================================================================
+    let entryCheckCount = 0;
+    try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const { setInCache } = await import('@/services/redisClient');
+
+        const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        );
+
+        // Get today's date in ET
+        const { getETNow } = await import('@/services/timezoneUtils');
+        const et = getETNow();
+        const todayStr = `${et.year}-${String(et.month).padStart(2, '0')}-${String(et.day).padStart(2, '0')}`;
+
+        // Only check during trading hours (9:30-16:00 ET)
+        const etTime = et.hour + et.minute / 60;
+        if (etTime >= 9.5 && etTime < 16) {
+            const { data: todayRecords } = await supabase
+                .from('alpha_track_records')
+                .select('ticker, entry_zone_lower, entry_zone_upper, is_entry_triggered')
+                .eq('recorded_date', todayStr)
+                .eq('outcome', 'PENDING');
+
+            if (todayRecords && todayRecords.length > 0) {
+                for (const rec of todayRecords) {
+                    try {
+                        // Fetch current price from Polygon snapshot
+                        const snap = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${rec.ticker}`);
+                        const currentPrice = snap?.ticker?.lastTrade?.p || snap?.ticker?.min?.c || snap?.ticker?.day?.c || 0;
+
+                        if (currentPrice > 0) {
+                            const inZone = currentPrice >= rec.entry_zone_lower && currentPrice <= rec.entry_zone_upper;
+                            const belowZone = currentPrice < rec.entry_zone_lower;
+
+                            if (inZone || belowZone) {
+                                // Price entered or dropped below entry zone → triggered
+                                await setInCache(`entry_triggered:${rec.ticker}:${todayStr}`, true, 86400);
+                                entryCheckCount++;
+                                console.log(`[WARM] 🟢 ${rec.ticker}: Entry zone triggered! Price=$${currentPrice.toFixed(2)} Zone=$${rec.entry_zone_lower}~$${rec.entry_zone_upper}`);
+
+                                // Also update Supabase if not already triggered
+                                if (!rec.is_entry_triggered) {
+                                    await supabase
+                                        .from('alpha_track_records')
+                                        .update({ is_entry_triggered: true })
+                                        .eq('ticker', rec.ticker)
+                                        .eq('recorded_date', todayStr);
+                                }
+                            }
+                        }
+                    } catch (e) { /* skip individual ticker errors */ }
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[WARM] Entry zone check failed (non-critical):', e);
+    }
+
     return NextResponse.json({
         success: true,
         cached: succeeded,
@@ -418,6 +482,7 @@ export async function GET(request: Request) {
         total: ALL_TICKERS.length,
         elapsedMs: totalMs,
         avgMs,
+        entryZoneTriggered: entryCheckCount,
         failedTickers: results.filter((r: any) => !r.ok).map((r: any) => r.ticker),
     });
 }
