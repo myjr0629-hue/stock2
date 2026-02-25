@@ -21,13 +21,15 @@ function SectionHeader({
     title,
     subtitle,
     count,
-    variant = 'default'
+    variant = 'default',
+    rightContent
 }: {
     icon: LucideIcon;
     title: string;
     subtitle: string;
     count: number;
     variant?: 'default' | 'warning';
+    rightContent?: React.ReactNode;
 }) {
     const isWarning = variant === 'warning';
 
@@ -53,6 +55,11 @@ function SectionHeader({
                     <p className="text-xs text-white/50 tracking-wider mt-0.5 font-semibold">{subtitle}</p>
                 </div>
             </div>
+            {rightContent && (
+                <div className="hidden md:block">
+                    {rightContent}
+                </div>
+            )}
         </div>
     );
 }
@@ -148,6 +155,11 @@ export default function FinalBattleSection({ items, isLoading = false, onItemCli
                     subtitle={t('topPicksSubtitle')}
                     count={mainCorps.length}
                     variant="warning"
+                    rightContent={
+                        <span className="text-xs text-slate-400 font-medium font-jakarta tracking-wide">
+                            {t('disclaimer')}
+                        </span>
+                    }
                 />
 
                 <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
