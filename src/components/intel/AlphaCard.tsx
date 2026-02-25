@@ -59,8 +59,13 @@ export interface AlphaCardProps {
     // === Engine data ===
     whyKR?: string;
     actionKR?: string;
+    action?: string;
     grade?: string;
     triggerCodes?: string[];
+    whyFactors?: string[];
+    darkPoolPct?: number;
+    shortVolPct?: number;
+    relVol?: number;
     pillars?: {
         momentum: PillarData;
         structure: PillarData;
@@ -76,23 +81,26 @@ export interface AlphaCardProps {
 // SVG SCORE RING (Circular Progress)
 // =============================================================================
 
-function ScoreRing({ score, size = 64, strokeWidth = 4 }: { score: number; size?: number; strokeWidth?: number }) {
+// Grade-to-color mapping (single source of truth)
+const GRADE_COLORS: Record<string, { stroke: string; glow: string; text: string; bg: string; border: string }> = {
+    S: { stroke: '#f59e0b', glow: 'rgba(245,158,11,0.30)', text: 'text-amber-300', bg: 'bg-amber-500/15', border: 'border-amber-500/30' },
+    A: { stroke: '#22d3ee', glow: 'rgba(34,211,238,0.25)', text: 'text-cyan-300', bg: 'bg-cyan-500/15', border: 'border-cyan-500/30' },
+    B: { stroke: '#34d399', glow: 'rgba(52,211,153,0.20)', text: 'text-emerald-300', bg: 'bg-emerald-500/15', border: 'border-emerald-500/30' },
+    C: { stroke: '#94a3b8', glow: 'rgba(148,163,184,0.10)', text: 'text-slate-300', bg: 'bg-slate-500/15', border: 'border-slate-500/30' },
+    D: { stroke: '#fb923c', glow: 'rgba(251,146,60,0.15)', text: 'text-orange-300', bg: 'bg-orange-500/15', border: 'border-orange-500/30' },
+    F: { stroke: '#f87171', glow: 'rgba(248,113,113,0.15)', text: 'text-rose-300', bg: 'bg-rose-500/15', border: 'border-rose-500/30' },
+};
+const DEFAULT_GRADE_COLOR = GRADE_COLORS.C;
+
+function ScoreRing({ score, grade, size = 64, strokeWidth = 4 }: { score: number; grade?: string; size?: number; strokeWidth?: number }) {
     const radius = (size - strokeWidth) / 2;
     const circumference = 2 * Math.PI * radius;
     const pct = Math.min(100, Math.max(0, score));
     const offset = circumference - (pct / 100) * circumference;
     const center = size / 2;
 
-    // Color gradient based on score
-    const getColor = () => {
-        if (score >= 80) return { stroke: '#22d3ee', glow: 'rgba(34,211,238,0.25)', text: 'text-cyan-300', label: 'S' };
-        if (score >= 65) return { stroke: '#34d399', glow: 'rgba(52,211,153,0.20)', text: 'text-emerald-300', label: 'A' };
-        if (score >= 50) return { stroke: '#60a5fa', glow: 'rgba(96,165,250,0.15)', text: 'text-blue-300', label: 'B' };
-        if (score >= 35) return { stroke: '#94a3b8', glow: 'rgba(148,163,184,0.10)', text: 'text-slate-300', label: 'C' };
-        return { stroke: '#f87171', glow: 'rgba(248,113,113,0.15)', text: 'text-rose-300', label: 'D' };
-    };
-
-    const c = getColor();
+    const c = GRADE_COLORS[grade || ''] || DEFAULT_GRADE_COLOR;
+    const label = grade || (score >= 85 ? 'S' : score >= 70 ? 'A' : score >= 55 ? 'B' : score >= 40 ? 'C' : score >= 25 ? 'D' : 'F');
 
     return (
         <div className="relative" style={{ width: size, height: size }}>
@@ -116,7 +124,7 @@ function ScoreRing({ score, size = 64, strokeWidth = 4 }: { score: number; size?
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
                 <span className={cn("font-black leading-none font-jakarta", c.text, size >= 60 ? "text-[20px]" : "text-[15px]")}>{score.toFixed(1)}</span>
-                <span className={cn("font-bold opacity-70 mt-0.5 font-jakarta", c.text, size >= 60 ? "text-[12px]" : "text-[11px]")}>{c.label}</span>
+                <span className={cn("font-bold opacity-80 mt-0.5 font-jakarta", c.text, "text-xs")}>{label}</span>
             </div>
         </div>
     );
@@ -138,12 +146,12 @@ function RankBadge({ rank }: { rank: number }) {
         bg: 'bg-gradient-to-br from-slate-200 via-slate-300 to-slate-400',
         text: 'text-slate-800',
         shadow: 'shadow-[0_0_8px_rgba(148,163,184,0.3)]',
-        size: 'w-6 h-6 text-[11px]',
+        size: 'w-6 h-6 text-xs',
     } : rank === 3 ? {
         bg: 'bg-gradient-to-br from-amber-500 via-amber-600 to-amber-700',
         text: 'text-amber-100',
         shadow: 'shadow-[0_0_8px_rgba(217,119,6,0.3)]',
-        size: 'w-6 h-6 text-[11px]',
+        size: 'w-6 h-6 text-xs',
     } : {
         bg: 'bg-white/[0.08] border border-white/[0.12]',
         text: 'text-white/70',
@@ -244,6 +252,107 @@ const PILLAR_I18N_KEY: Record<string, { key: string; icon: React.ReactNode; colo
     catalyst: { key: 'pillarCatalyst', icon: <Zap className="w-3 h-3" />, color: 'cyan' },
 };
 
+// =============================================================================
+// SIGNAL GRID CONFIG (Maps whyFactor codes to i18n + UI)
+// =============================================================================
+
+const SIGNAL_CONFIG: Record<string, { i18nKey: string; icon: React.ReactNode; color: string }> = {
+    STRONG_MOMENTUM: { i18nKey: 'sigMomStrong', icon: <TrendingUp className="w-3.5 h-3.5" />, color: 'emerald' },
+    MOMENTUM_UP: { i18nKey: 'sigMomUp', icon: <ArrowUp className="w-3.5 h-3.5" />, color: 'emerald' },
+    TREND_3D: { i18nKey: 'sigTrend3D', icon: <BarChart className="w-3.5 h-3.5" />, color: 'emerald' },
+    SMART_DIP: { i18nKey: 'sigSmartDip', icon: <Building2 className="w-3.5 h-3.5" />, color: 'cyan' },
+    GEX_SAFE: { i18nKey: 'sigGexSafe', icon: <Shield className="w-3.5 h-3.5" />, color: 'cyan' },
+    GEX_NEGATIVE: { i18nKey: 'sigGexNeg', icon: <AlertTriangle className="w-3.5 h-3.5" />, color: 'amber' },
+    SQUEEZE_READY: { i18nKey: 'sigSqueeze', icon: <Zap className="w-3.5 h-3.5" />, color: 'violet' },
+    CALL_DOMINANT: { i18nKey: 'sigCallDom', icon: <ArrowUp className="w-3.5 h-3.5" />, color: 'emerald' },
+    DARK_POOL_HIGH: { i18nKey: 'sigDarkPool', icon: <Eye className="w-3.5 h-3.5" />, color: 'violet' },
+    WHALE_IN: { i18nKey: 'sigWhaleIn', icon: <Waves className="w-3.5 h-3.5" />, color: 'cyan' },
+    SHORT_ALERT: { i18nKey: 'sigShortAlert', icon: <AlertTriangle className="w-3.5 h-3.5" />, color: 'rose' },
+    VOL_EXPLOSION: { i18nKey: 'sigVolBoom', icon: <Activity className="w-3.5 h-3.5" />, color: 'amber' },
+    REGIME_FAVORABLE: { i18nKey: 'sigRegimeFav', icon: <Radio className="w-3.5 h-3.5" />, color: 'emerald' },
+    REGIME_ADVERSE: { i18nKey: 'sigRegimeOff', icon: <Radio className="w-3.5 h-3.5" />, color: 'rose' },
+    SERIAL_WINNER: { i18nKey: 'sigSerialWin', icon: <Target className="w-3.5 h-3.5" />, color: 'amber' },
+    SERIAL_LOSER: { i18nKey: 'sigSerialLose', icon: <AlertTriangle className="w-3.5 h-3.5" />, color: 'rose' },
+};
+
+const SIGNAL_COLOR_MAP: Record<string, { bg: string; border: string; iconColor: string; label: string }> = {
+    emerald: { bg: 'bg-emerald-500/[0.08]', border: 'border-emerald-500/20', iconColor: 'text-emerald-400', label: 'text-emerald-300/80' },
+    cyan: { bg: 'bg-cyan-500/[0.08]', border: 'border-cyan-500/20', iconColor: 'text-cyan-400', label: 'text-cyan-300/80' },
+    violet: { bg: 'bg-violet-500/[0.08]', border: 'border-violet-500/20', iconColor: 'text-violet-400', label: 'text-violet-300/80' },
+    amber: { bg: 'bg-amber-500/[0.08]', border: 'border-amber-500/20', iconColor: 'text-amber-400', label: 'text-amber-300/80' },
+    rose: { bg: 'bg-rose-500/[0.08]', border: 'border-rose-500/20', iconColor: 'text-rose-400', label: 'text-rose-300/80' },
+};
+
+function getSignalValue(code: string, data: AlphaCardProps): string | null {
+    switch (code) {
+        case 'STRONG_MOMENTUM':
+        case 'MOMENTUM_UP': return data.pillars?.momentum?.pct ? `${data.pillars.momentum.pct}%` : null;
+        case 'DARK_POOL_HIGH': return data.darkPoolPct ? `DP ${Math.round(data.darkPoolPct)}%` : null;
+        case 'SHORT_ALERT': return data.shortVolPct ? `${Math.round(data.shortVolPct)}%` : null;
+        case 'WHALE_IN': return data.whaleNetM ? `${data.whaleNetM >= 0 ? '+' : ''}${data.whaleNetM.toFixed(1)}M` : null;
+        case 'VOL_EXPLOSION': return data.relVol ? `${data.relVol.toFixed(1)}x` : null;
+        case 'GEX_SAFE':
+        case 'GEX_NEGATIVE': return data.pillars?.structure?.pct ? `${data.pillars.structure.pct}%` : null;
+        case 'SQUEEZE_READY': return data.pillars?.structure?.pct ? `${data.pillars.structure.pct}%` : null;
+        default: return null;
+    }
+}
+
+// =============================================================================
+// AI ANALYSIS GENERATOR (Natural language from structured data)
+// =============================================================================
+
+function generateAlphaAnalysis(data: AlphaCardProps, t: (key: string, params?: Record<string, any>) => string): string {
+    const parts: string[] = [];
+
+    const momPct = data.pillars?.momentum?.pct || 0;
+    if (momPct >= 80) parts.push(t('analysisMomStrong'));
+    else if (momPct >= 60) parts.push(t('analysisMomModerate'));
+
+    if (data.whyFactors?.includes('TREND_3D')) parts.push(t('analysisTrend3D'));
+
+    if (data.whyFactors?.includes('GEX_SAFE')) parts.push(t('analysisGexSafe'));
+    else if (data.whyFactors?.includes('GEX_NEGATIVE')) parts.push(t('analysisGexNeg'));
+
+    if (data.darkPoolPct && data.darkPoolPct >= 50)
+        parts.push(t('analysisDarkPool', { pct: Math.round(data.darkPoolPct) }));
+
+    if (data.whyFactors?.includes('WHALE_IN')) parts.push(t('analysisWhaleIn'));
+
+    if (data.shortVolPct && data.shortVolPct >= 50)
+        parts.push(t('analysisShortHigh', { pct: Math.round(data.shortVolPct) }));
+
+    if (data.whyFactors?.includes('SQUEEZE_READY')) parts.push(t('analysisSqueeze'));
+
+    if (data.relVol && data.relVol >= 2.5)
+        parts.push(t('analysisVolBoom', { rv: data.relVol.toFixed(1) }));
+
+    if (data.callWall && data.price >= data.callWall * 0.98)
+        parts.push(t('analysisNearCW', { cw: data.callWall.toFixed(0) }));
+    else if (data.putFloor && data.price <= data.putFloor * 1.03)
+        parts.push(t('analysisNearPF', { pf: data.putFloor.toFixed(0) }));
+
+    if (data.gatesApplied?.includes('EXHAUSTION')) parts.push(t('analysisGateExhaust'));
+    if (data.gatesApplied?.includes('FAKE_PUMP')) parts.push(t('analysisGateFake'));
+
+    if (data.entryLow && data.cutPrice && data.targetPrice && data.cutPrice > 0) {
+        const entry = (data.entryLow + (data.entryHigh || data.entryLow)) / 2;
+        const risk = entry - data.cutPrice;
+        const reward = data.targetPrice - entry;
+        if (risk > 0) parts.push(t('analysisRR', { rr: (reward / risk).toFixed(1) }));
+    }
+
+    if (data.grade) {
+        const key = (data.grade === 'S' || data.grade === 'A') ? 'conclusionBuy'
+            : data.grade === 'B' ? 'conclusionWatch'
+                : data.grade === 'C' ? 'conclusionHold'
+                    : 'conclusionCaution';
+        parts.push(t(key, { grade: data.grade }));
+    }
+
+    return parts.join(' ');
+}
+
 function PillarBar({ name, pillar, t }: { name: string; pillar: PillarData; t: any }) {
     const config = PILLAR_I18N_KEY[name];
     if (!config) return null;
@@ -260,7 +369,7 @@ function PillarBar({ name, pillar, t }: { name: string; pillar: PillarData; t: a
 
     return (
         <div className="flex items-center gap-2 group/pillar">
-            <div className={cn("w-4 flex-shrink-0", c.text, "opacity-70")}>{config.icon}</div>
+            <div className={cn("w-4 flex-shrink-0", c.text, "opacity-80")}>{config.icon}</div>
             <span className="text-xs text-slate-300 w-14 flex-shrink-0 font-semibold font-jakarta">{t(config.key)}</span>
             <div className="flex-1 h-2 bg-white/[0.06] rounded-full overflow-hidden">
                 <div
@@ -269,7 +378,7 @@ function PillarBar({ name, pillar, t }: { name: string; pillar: PillarData; t: a
                 />
             </div>
             <span className={cn("text-xs font-mono font-bold w-10 text-right font-jakarta",
-                pct >= 70 ? c.text : pct >= 40 ? "text-slate-300" : "text-slate-300/60"
+                pct >= 70 ? c.text : pct >= 40 ? "text-slate-300" : "text-slate-400"
             )}>
                 {pillar.score}/{pillar.max}
             </span>
@@ -320,7 +429,7 @@ function InsightPanel({
                 )}
                 {dataCompleteness !== undefined && (
                     <div className="flex items-center gap-1.5">
-                        <Database className="w-3.5 h-3.5 text-white/40" />
+                        <Database className="w-3.5 h-3.5 text-white/60" />
                         <span className={cn("font-mono font-bold",
                             dataCompleteness >= 80 ? "text-emerald-300" :
                                 dataCompleteness >= 50 ? "text-amber-300" : "text-slate-400"
@@ -354,46 +463,48 @@ function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, call
     return (
         <div className="space-y-2">
             {/* Visual bar */}
-            <div className="relative h-2 bg-white/[0.04] rounded-full overflow-visible">
+            <div className="relative h-3 bg-white/[0.10] rounded-full overflow-visible">
                 {entryLow > 0 && entryHigh > 0 && (
                     <div
-                        className="absolute top-0 h-full bg-emerald-500/15 rounded-full"
+                        className="absolute top-0 h-full bg-emerald-500/35 rounded-full shadow-[0_0_8px_rgba(16,185,129,0.25)]"
                         style={{ left: `${pos(entryLow)}%`, width: `${pos(entryHigh) - pos(entryLow)}%` }}
                     />
                 )}
                 {cutPrice > 0 && (
-                    <div className="absolute top-0 w-0.5 h-full bg-rose-400/60 rounded-full"
+                    <div className="absolute top-0 w-[3px] h-full bg-rose-400 rounded-full shadow-[0_0_6px_rgba(251,113,133,0.5)]"
                         style={{ left: `${pos(cutPrice)}%` }}
                     />
                 )}
                 {targetPrice > 0 && (
-                    <div className="absolute top-0 w-0.5 h-full bg-emerald-400/60 rounded-full"
+                    <div className="absolute top-0 w-[3px] h-full bg-emerald-400 rounded-full shadow-[0_0_6px_rgba(52,211,153,0.5)]"
                         style={{ left: `${pos(targetPrice)}%` }}
                     />
                 )}
                 <div
-                    className="absolute w-3 h-3 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)] border-2 border-white/90 z-10"
+                    className="absolute w-4 h-4 rounded-full bg-white shadow-[0_0_12px_rgba(255,255,255,0.6)] border-2 border-white z-10"
                     style={{ left: `${pos(price)}%`, top: '50%', transform: 'translate(-50%,-50%)' }}
                 />
             </div>
 
             {/* Numeric labels — M7 style grid boxes */}
             <div className="grid grid-cols-3 gap-1">
-                <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-white/[0.08] text-center">
-                    <p className="text-xs text-slate-300 uppercase tracking-[0.12em] font-bold font-jakarta">{t('cutZone')}</p>
-                    <p className="text-sm font-bold text-rose-300 font-mono font-jakarta">${cutPrice.toFixed(0)}</p>
-                    <p className="text-xs text-rose-400/80 font-mono font-jakarta">{downside.toFixed(1)}%</p>
+                <div className="bg-white/[0.06] rounded-lg py-1.5 px-1.5 border border-white/[0.08] text-center min-w-0 overflow-hidden">
+                    <p className="text-xs text-slate-300 uppercase tracking-[0.08em] font-bold font-jakarta">{t('cutZone')}</p>
+                    <p className="text-sm font-bold text-rose-300 font-mono font-jakarta truncate">${cutPrice.toFixed(0)}</p>
+                    <p className="text-[13px] text-rose-400 font-bold font-mono font-jakarta">{downside.toFixed(1)}%</p>
                 </div>
-                <div className="bg-white/[0.08] rounded-lg py-1.5 px-2 border border-emerald-500/15 text-center shadow-[0_0_15px_rgba(16,185,129,0.05)]">
-                    <p className="text-xs text-emerald-400/80 uppercase tracking-[0.12em] font-bold font-jakarta">{t('entryZone')}</p>
-                    <p className="text-sm font-bold text-white/90 font-mono font-jakarta">
-                        ${entryLow.toFixed(0)}<span className="text-white/50 px-0.5">~</span>${entryHigh.toFixed(0)}
+                <div className="bg-white/[0.08] rounded-lg py-1.5 px-1.5 border border-emerald-500/15 text-center shadow-[0_0_15px_rgba(16,185,129,0.05)] min-w-0 overflow-hidden">
+                    <p className="text-xs text-emerald-400 uppercase tracking-[0.08em] font-bold font-jakarta">{t('entryZone')}</p>
+                    <p className="text-sm font-bold text-white/90 font-mono font-jakarta leading-snug">
+                        <span className="whitespace-nowrap">${entryLow.toFixed(0)}</span>
+                        <span className="text-white/50">~</span>
+                        <span className="whitespace-nowrap">${entryHigh.toFixed(0)}</span>
                     </p>
                 </div>
-                <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-white/[0.08] text-center">
-                    <p className="text-xs text-slate-300 uppercase tracking-[0.12em] font-bold font-jakarta">TARGET</p>
-                    <p className="text-sm font-bold text-emerald-300 font-mono font-jakarta">${targetPrice.toFixed(0)}</p>
-                    <p className="text-xs text-emerald-400/80 font-mono font-jakarta">+{upside.toFixed(1)}%</p>
+                <div className="bg-white/[0.06] rounded-lg py-1.5 px-1.5 border border-white/[0.08] text-center min-w-0 overflow-hidden">
+                    <p className="text-xs text-slate-300 uppercase tracking-[0.08em] font-bold font-jakarta">TARGET</p>
+                    <p className="text-sm font-bold text-emerald-300 font-mono font-jakarta truncate">${targetPrice.toFixed(0)}</p>
+                    <p className="text-[13px] text-emerald-400 font-bold font-mono font-jakarta">+{upside.toFixed(1)}%</p>
                 </div>
             </div>
         </div>
@@ -409,7 +520,9 @@ export function AlphaCard({
     entryLow = 0, entryHigh = 0, targetPrice = 0, cutPrice = 0,
     whaleNetM, callWall, putFloor, isLive = false, isHighRisk = false,
     variant = 'compact', onClick,
-    whyKR, actionKR, grade, triggerCodes, pillars, gatesApplied, dataCompleteness,
+    whyKR, actionKR, action, grade, triggerCodes, whyFactors,
+    darkPoolPct, shortVolPct, relVol,
+    pillars, gatesApplied, dataCompleteness,
 }: AlphaCardProps) {
     const router = useRouter();
     const t = useTranslations('alphaReport');
@@ -425,14 +538,17 @@ export function AlphaCard({
     const handleClick = () => router.push(`/ticker?ticker=${ticker}`);
     const handleInsightToggle = (e: React.MouseEvent) => { e.stopPropagation(); setShowInsight(!showInsight); };
 
-    // Dynamic border based on conviction
-    const borderColor = alphaScore >= 80
-        ? 'border-cyan-400/30 hover:border-cyan-400/50'
-        : alphaScore >= 65
-            ? 'border-emerald-400/25 hover:border-emerald-400/40'
-            : isHighRisk
-                ? 'border-rose-500/20 hover:border-rose-500/35'
-                : 'border-white/[0.12] hover:border-white/[0.22]';
+    // Dynamic border based on grade
+    const gradeColor = GRADE_COLORS[grade || ''] || DEFAULT_GRADE_COLOR;
+    const borderColor = grade === 'S'
+        ? 'border-amber-400/30 hover:border-amber-400/50'
+        : grade === 'A'
+            ? 'border-cyan-400/30 hover:border-cyan-400/50'
+            : grade === 'B'
+                ? 'border-emerald-400/25 hover:border-emerald-400/40'
+                : isHighRisk
+                    ? 'border-rose-500/20 hover:border-rose-500/35'
+                    : 'border-white/[0.12] hover:border-white/[0.22]';
 
     const isUp = changePct >= 0;
 
@@ -447,16 +563,50 @@ export function AlphaCard({
             )}
             onClick={handleClick}
         >
-            {/* Glass shine — M7 signature */}
-            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent opacity-50 z-10" />
+            {/* Glass shine — top edge reflection */}
+            <div className="absolute inset-x-0 top-0 h-[1px] bg-gradient-to-r from-transparent via-white/30 to-transparent z-10" />
 
-            {/* Premium Infographic Background (Boosted Visibility) */}
-            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl opacity-100 z-0">
-                <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:16px_16px]" />
-                <div className="absolute -top-10 -right-10 w-48 h-48 bg-[radial-gradient(circle,rgba(52,211,153,0.15)_0%,transparent_70%)] rounded-full mix-blend-screen" />
+            {/* ═══ Premium Infographic Background ═══ */}
+            <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-xl z-0">
+                {/* 1. Large radial grade glow — top right */}
+                <div
+                    className={cn(
+                        "absolute -top-20 -right-20 w-72 h-72 rounded-full",
+                        grade === 'S' ? 'bg-amber-500/25' :
+                            grade === 'A' ? 'bg-cyan-500/20' :
+                                grade === 'B' ? 'bg-emerald-500/[0.18]' :
+                                    grade === 'C' ? 'bg-blue-500/[0.12]' :
+                                        'bg-slate-400/10'
+                    )}
+                    style={{ filter: 'blur(50px)' }}
+                />
+                {/* 2. Secondary glow — bottom left */}
+                <div
+                    className={cn(
+                        "absolute -bottom-16 -left-16 w-48 h-48 rounded-full",
+                        grade === 'S' ? 'bg-orange-500/[0.15]' :
+                            grade === 'A' ? 'bg-blue-500/[0.12]' :
+                                grade === 'B' ? 'bg-teal-500/10' :
+                                    'bg-indigo-500/[0.08]'
+                    )}
+                    style={{ filter: 'blur(40px)' }}
+                />
+                {/* 3. Fine dot pattern — tech HUD feel */}
+                <div
+                    className="absolute inset-0"
+                    style={{
+                        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.12) 1px, transparent 1px)',
+                        backgroundSize: '20px 20px',
+                        opacity: 0.4
+                    }}
+                />
+                {/* 4. Frosted white highlight — top band */}
+                <div className="absolute top-0 left-0 right-0 h-24 bg-gradient-to-b from-white/[0.06] to-transparent" />
+                {/* 5. Bottom vignette for readability */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
             </div>
 
-            <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10" />
+            <div className="absolute inset-0 bg-gradient-to-br from-white/[0.08] to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none z-10" />
 
             {/* ─── HEADER: Rank + Logo + Ticker | Score Ring ─── */}
             <div className="flex items-center justify-between px-4 pt-4 pb-2">
@@ -472,7 +622,13 @@ export function AlphaCard({
                     </div>
                     <div>
                         <div className="flex items-center gap-2">
-                            <h3 className="text-sm font-black text-white tracking-tight font-jakarta">{ticker}</h3>
+                            <h3 className="text-base font-black text-white tracking-tight font-jakarta">{ticker}</h3>
+                            {grade && (
+                                <span className={cn(
+                                    "text-xs font-black px-1.5 py-0.5 rounded border backdrop-blur-sm font-jakarta tracking-wide",
+                                    gradeColor.bg, gradeColor.border, gradeColor.text
+                                )}>{grade}</span>
+                            )}
                             {isHighRisk && (
                                 <span className="text-xs font-bold bg-rose-500/15 text-rose-300 px-1.5 py-0.5 rounded border border-rose-500/20 uppercase tracking-wider font-jakarta">
                                     SPEC
@@ -481,7 +637,7 @@ export function AlphaCard({
                         </div>
                     </div>
                 </div>
-                <ScoreRing score={alphaScore} size={52} strokeWidth={3.5} />
+                <ScoreRing score={alphaScore} grade={grade} size={52} strokeWidth={3.5} />
             </div>
 
             {/* ─── PRICE SECTION (M7 style — centered, large) ─── */}
@@ -490,7 +646,7 @@ export function AlphaCard({
                     ${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </div>
                 <div className={cn(
-                    "flex items-center gap-0.5 text-sm font-bold mt-0.5",
+                    "flex items-center gap-0.5 text-sm font-black mt-0.5 font-jakarta",
                     isUp ? "text-emerald-400" : "text-rose-400"
                 )}>
                     {isUp
@@ -510,14 +666,18 @@ export function AlphaCard({
                     <span className={cn("mt-0.5 flex-shrink-0", entrySignal.color)}>{entrySignal.icon}</span>
                     <div className="flex-1">
                         <div className="flex items-center justify-between">
-                            <span className={cn("text-[13px] font-bold font-jakarta border-b border-current pb-0.5", entrySignal.color)}>{entrySignal.label}</span>
-                            <span className={cn("text-[13px] font-mono font-bold font-jakarta", entrySignal.color)}>{entrySignal.detail}</span>
+                            <span className={cn("text-sm font-bold font-jakarta border-b border-current pb-0.5", entrySignal.color)}>{entrySignal.label}</span>
+                            <span className={cn("text-sm font-mono font-bold font-jakarta", entrySignal.color)}>{entrySignal.detail}</span>
                         </div>
-                        {actionKR && (
-                            <p className="text-xs text-white/80 mt-1.5 leading-relaxed font-jakarta font-medium">
+                        {action ? (
+                            <p className={cn("text-xs mt-1.5 leading-relaxed font-jakarta font-bold tracking-wide uppercase", gradeColor.text)}>
+                                {t(`action_${action.toLowerCase()}`)}
+                            </p>
+                        ) : actionKR ? (
+                            <p className="text-xs text-white/85 mt-1.5 leading-relaxed font-jakarta font-medium">
                                 {actionKR.replace(/[🔥✅👀⏸️⚠️🚫]/g, '').trim()}
                             </p>
-                        )}
+                        ) : null}
                     </div>
                 </div>
             </div>
@@ -539,7 +699,7 @@ export function AlphaCard({
 
             {/* ─── QUICK STATS (M7 grid style) ─── */}
             <div className="mx-4 mb-2 px-3 py-2 rounded-lg bg-white/[0.08] border border-white/[0.10]">
-                <div className="flex items-center justify-between text-xs text-white/60">
+                <div className="flex items-center justify-between text-xs text-white/70 font-jakarta">
                     <div className="flex items-center gap-3">
                         {callWall ? <span>CW <span className="text-white/80 font-mono font-bold">${callWall.toFixed(0)}</span></span> : null}
                         {putFloor ? <span>PF <span className="text-white/80 font-mono font-bold">${putFloor.toFixed(0)}</span></span> : null}
@@ -560,12 +720,68 @@ export function AlphaCard({
                 </div>
             </div>
 
-            {/* ─── WHY (Analysis text — M7 card analysis style) ─── */}
-            {whyKR && (
-                <div className="mx-4 mb-3 px-3 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] shadow-[inset_0_1px_4px_rgba(0,0,0,0.2)]">
-                    <p className="text-xs text-white/80 leading-relaxed font-jakarta font-medium">{whyKR}</p>
+            {/* ─── SIGNAL GRID (M7-style mini-cards — replaces whyKR) ─── */}
+            {whyFactors && whyFactors.length > 0 ? (
+                <div className="mx-4 mb-3">
+                    <div className={cn(
+                        "grid gap-1.5",
+                        whyFactors.filter(c => SIGNAL_CONFIG[c]).length <= 2 ? 'grid-cols-2' : 'grid-cols-3'
+                    )}>
+                        {whyFactors.slice(0, 4).map(code => {
+                            const cfg = SIGNAL_CONFIG[code];
+                            if (!cfg) return null;
+                            const colors = SIGNAL_COLOR_MAP[cfg.color] || SIGNAL_COLOR_MAP.emerald;
+                            const val = getSignalValue(code, { ticker, rank, price, changePct, alphaScore, whaleNetM, pillars, darkPoolPct, shortVolPct, relVol } as AlphaCardProps);
+                            return (
+                                <div key={code} className={cn(
+                                    "rounded-lg p-2 text-center border transition-all duration-300",
+                                    colors.bg, colors.border
+                                )}>
+                                    <div className="flex items-center justify-center gap-1 mb-1.5">
+                                        <span className={colors.iconColor}>{cfg.icon}</span>
+                                    </div>
+                                    {val && (
+                                        <div className={cn("text-sm font-black font-mono tracking-tight mb-0.5", colors.iconColor)}>
+                                            {val}
+                                        </div>
+                                    )}
+                                    <div className={cn("text-xs font-bold uppercase tracking-wider font-jakarta", colors.label)}>
+                                        {t(cfg.i18nKey)}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
-            )}
+            ) : whyKR ? (
+                <div className="mx-4 mb-3 px-3 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] shadow-[inset_0_1px_4px_rgba(0,0,0,0.2)]">
+                    <p className="text-xs text-white/85 leading-relaxed font-jakarta font-medium">{whyKR}</p>
+                </div>
+            ) : null}
+
+            {/* ─── AI ANALYSIS (Natural language — M7 TacticalDeck style) ─── */}
+            {(() => {
+                const analysisText = generateAlphaAnalysis(
+                    {
+                        ticker, rank, price, changePct, alphaScore, whaleNetM, callWall, putFloor,
+                        entryLow, entryHigh, targetPrice, cutPrice, grade, whyFactors,
+                        darkPoolPct, shortVolPct, relVol, pillars, gatesApplied
+                    } as AlphaCardProps,
+                    t
+                );
+                if (!analysisText) return null;
+                return (
+                    <div className="mx-4 mb-3">
+                        <div className="flex items-center gap-1.5 mb-1.5">
+                            <Crosshair className="w-3 h-3 text-violet-400" />
+                            <span className="text-xs font-bold text-white/60 uppercase tracking-wider font-jakarta">AI Analysis</span>
+                        </div>
+                        <div className="px-3 py-2.5 rounded-lg bg-violet-500/[0.06] border border-violet-500/15 shadow-[inset_0_1px_4px_rgba(0,0,0,0.15)]">
+                            <p className="text-xs text-white/85 leading-[1.6] font-medium font-jakarta">{analysisText}</p>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* ─── TRIGGER BADGES (M7 tag style) ─── */}
             {triggerCodes && triggerCodes.length > 0 && (

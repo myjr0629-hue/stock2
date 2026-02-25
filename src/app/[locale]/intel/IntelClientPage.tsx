@@ -1373,8 +1373,13 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                 // === Engine "속살" data ===
                 whyKR: av3?.whyKR,
                 actionKR: av3?.actionKR,
+                action: av3?.action,
                 grade: av3?.grade,
                 triggerCodes: av3?.triggerCodes,
+                whyFactors: av3?.whyFactors,
+                darkPoolPct: av3?.darkPoolPct ?? (item as any).evidence?.flow?.darkPoolPct,
+                shortVolPct: av3?.shortVolPct ?? (item as any).evidence?.flow?.shortVolPct,
+                relVol: av3?.relVol ?? (item as any).evidence?.flow?.relVol,
                 pillars: av3?.pillars,
                 gatesApplied: av3?.gatesApplied,
                 dataCompleteness: av3?.dataCompleteness,
@@ -1671,9 +1676,10 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
 
                             {/* 1. HERO HEADER (Premium Open Design -> Glassmorphic) */}
                             <section className="relative flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10 p-6 rounded-2xl border border-white/[0.08] bg-[#0a0f1c]/60 backdrop-blur-xl shadow-2xl overflow-hidden group">
-                                {/* Top-to-Bottom Flowing Animation Background */}
-                                <div className="absolute inset-0 pointer-events-none">
-                                    <div className="absolute top-0 left-0 w-full h-[150%] bg-gradient-to-b from-transparent via-emerald-500/[0.05] to-transparent animate-[scan_6s_linear_infinite]"
+                                {/* ═══ Premium Infographic Background ═══ */}
+                                <div className="absolute inset-0 pointer-events-none overflow-hidden rounded-2xl">
+                                    {/* Scan animation */}
+                                    <div className="absolute top-0 left-0 w-full h-[150%] bg-gradient-to-b from-transparent via-emerald-500/[0.06] to-transparent"
                                         style={{ animationName: 'scanVertical', animationDuration: '6s', animationIterationCount: 'infinite', animationTimingFunction: 'linear' }} />
                                     <style>{`
                                         @keyframes scanVertical {
@@ -1681,7 +1687,22 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                             100% { transform: translateY(100%); }
                                         }
                                     `}</style>
-                                    <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.015)_1px,transparent_1px)] bg-[size:100%_4px] opacity-20" />
+                                    {/* 1. Radial glow — top right (emerald) */}
+                                    <div className="absolute -top-20 -right-20 w-80 h-80 rounded-full bg-emerald-500/20" style={{ filter: 'blur(60px)' }} />
+                                    {/* 2. Radial glow — bottom left (cyan) */}
+                                    <div className="absolute -bottom-16 -left-16 w-56 h-56 rounded-full bg-cyan-500/[0.12]" style={{ filter: 'blur(50px)' }} />
+                                    {/* 3. Fine dot pattern — tech grid */}
+                                    <div className="absolute inset-0" style={{
+                                        backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.10) 1px, transparent 1px)',
+                                        backgroundSize: '24px 24px',
+                                        opacity: 0.35
+                                    }} />
+                                    {/* 4. Diagonal gradient overlay */}
+                                    <div className="absolute inset-0 bg-gradient-to-br from-emerald-900/[0.08] via-transparent to-cyan-900/[0.05]" />
+                                    {/* 5. Top frost band */}
+                                    <div className="absolute top-0 left-0 right-0 h-20 bg-gradient-to-b from-white/[0.04] to-transparent" />
+                                    {/* 6. Bottom vignette */}
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/25 via-transparent to-transparent" />
                                 </div>
 
                                 <div className="relative z-10">
@@ -1998,7 +2019,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
 
                             <footer className="text-center pb-8 pt-4">
                                 <p suppressHydrationWarning className="text-xs text-slate-300 uppercase tracking-widest font-bold">
-                                    GEMS v8.1 Unified Engine • Iron Man HUD Active ({new Date().toLocaleTimeString()})
+                                    Alpha Engine v5.5 • SIGNUM Intelligence Active ({new Date().toLocaleTimeString()})
                                 </p>
                             </footer>
 
