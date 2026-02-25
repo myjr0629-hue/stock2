@@ -1727,6 +1727,13 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                 </div>
                             </section>
 
+                            {/* Disclaimer */}
+                            <div className="text-center py-2 px-4">
+                                <p className="text-xs text-slate-400 font-medium font-jakarta tracking-wide">
+                                    {t('disclaimer')}
+                                </p>
+                            </div>
+
                             {/* [V6.0] PREMIUM ALPHA CARD GRID */}
                             <FinalBattleSection
                                 items={alphaItems}

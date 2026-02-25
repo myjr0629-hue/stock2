@@ -206,46 +206,46 @@ function getEntrySignal(
 // TRIGGER BADGE CONFIG
 // =============================================================================
 
-const TRIGGER_CONFIG: Record<string, { label: string; icon: React.ReactNode; type: 'positive' | 'negative' | 'neutral' }> = {
-    MOM_STRONG: { label: '모멘텀', icon: <TrendingUp className="w-3 h-3" />, type: 'positive' },
-    MOMENTUM_UP: { label: '상승세', icon: <ArrowUp className="w-3 h-3" />, type: 'positive' },
-    TREND_3D: { label: '3일상승', icon: <BarChart className="w-3 h-3" />, type: 'positive' },
-    SMART_DIP: { label: '기관매집', icon: <Building2 className="w-3 h-3" />, type: 'positive' },
-    GEX_SAFE: { label: 'GEX+', icon: <Shield className="w-3 h-3" />, type: 'positive' },
-    GEX_NEG: { label: 'GEX−', icon: <AlertTriangle className="w-3 h-3" />, type: 'negative' },
-    GEX_SQZ: { label: '스퀴즈', icon: <Zap className="w-3 h-3" />, type: 'positive' },
-    SQUEEZE: { label: '스퀴즈', icon: <Zap className="w-3 h-3" />, type: 'positive' },
-    DP_HIGH: { label: '다크풀', icon: <Eye className="w-3 h-3" />, type: 'positive' },
-    WHALE_IN: { label: '고래유입', icon: <Waves className="w-3 h-3" />, type: 'positive' },
-    SHORT_ALERT: { label: '공매도', icon: <ArrowDown className="w-3 h-3" />, type: 'negative' },
-    VOL_BOOM: { label: '거래폭발', icon: <Activity className="w-3 h-3" />, type: 'positive' },
-    REGIME_OFF: { label: '시장악화', icon: <Radio className="w-3 h-3" />, type: 'negative' },
-    CALL_DOMINANT: { label: '콜우세', icon: <ArrowUp className="w-3 h-3" />, type: 'positive' },
-    PUT_DOMINANT: { label: '풋우세', icon: <ArrowDown className="w-3 h-3" />, type: 'negative' },
-    GATE_EXHAUST: { label: '과열', icon: <Flame className="w-3 h-3" />, type: 'negative' },
-    GATE_FAKE: { label: '가짜상승', icon: <AlertTriangle className="w-3 h-3" />, type: 'negative' },
-    GATE_WALL: { label: '벽저항', icon: <Shield className="w-3 h-3" />, type: 'negative' },
-    GATE_SHORT: { label: 'Short폭풍', icon: <Activity className="w-3 h-3" />, type: 'negative' },
-    SUPPRESSED: { label: '상방억제', icon: <Minus className="w-3 h-3" />, type: 'neutral' },
-    ACCEL_DROP: { label: '가속하락', icon: <ArrowDown className="w-3 h-3" />, type: 'negative' },
-    CORRECTION: { label: '조정', icon: <ArrowDown className="w-3 h-3" />, type: 'negative' },
-    REGIME_FAVORABLE: { label: '시장우호', icon: <Radio className="w-3 h-3" />, type: 'positive' },
+const TRIGGER_I18N_KEY: Record<string, { key: string; icon: React.ReactNode; type: 'positive' | 'negative' | 'neutral' }> = {
+    MOM_STRONG: { key: 'trigMomStrong', icon: <TrendingUp className="w-3 h-3" />, type: 'positive' },
+    MOMENTUM_UP: { key: 'trigMomUp', icon: <ArrowUp className="w-3 h-3" />, type: 'positive' },
+    TREND_3D: { key: 'trigTrend3D', icon: <BarChart className="w-3 h-3" />, type: 'positive' },
+    SMART_DIP: { key: 'trigSmartDip', icon: <Building2 className="w-3 h-3" />, type: 'positive' },
+    GEX_SAFE: { key: 'trigGexSafe', icon: <Shield className="w-3 h-3" />, type: 'positive' },
+    GEX_NEG: { key: 'trigGexNeg', icon: <AlertTriangle className="w-3 h-3" />, type: 'negative' },
+    GEX_SQZ: { key: 'trigGexSqz', icon: <Zap className="w-3 h-3" />, type: 'positive' },
+    SQUEEZE: { key: 'trigSqueeze', icon: <Zap className="w-3 h-3" />, type: 'positive' },
+    DP_HIGH: { key: 'trigDpHigh', icon: <Eye className="w-3 h-3" />, type: 'positive' },
+    WHALE_IN: { key: 'trigWhaleIn', icon: <Waves className="w-3 h-3" />, type: 'positive' },
+    SHORT_ALERT: { key: 'trigShortAlert', icon: <ArrowDown className="w-3 h-3" />, type: 'negative' },
+    VOL_BOOM: { key: 'trigVolBoom', icon: <Activity className="w-3 h-3" />, type: 'positive' },
+    REGIME_OFF: { key: 'trigRegimeOff', icon: <Radio className="w-3 h-3" />, type: 'negative' },
+    CALL_DOMINANT: { key: 'trigCallDom', icon: <ArrowUp className="w-3 h-3" />, type: 'positive' },
+    PUT_DOMINANT: { key: 'trigPutDom', icon: <ArrowDown className="w-3 h-3" />, type: 'negative' },
+    GATE_EXHAUST: { key: 'trigGateExhaust', icon: <Flame className="w-3 h-3" />, type: 'negative' },
+    GATE_FAKE: { key: 'trigGateFake', icon: <AlertTriangle className="w-3 h-3" />, type: 'negative' },
+    GATE_WALL: { key: 'trigGateWall', icon: <Shield className="w-3 h-3" />, type: 'negative' },
+    GATE_SHORT: { key: 'trigGateShort', icon: <Activity className="w-3 h-3" />, type: 'negative' },
+    SUPPRESSED: { key: 'trigSuppressed', icon: <Minus className="w-3 h-3" />, type: 'neutral' },
+    ACCEL_DROP: { key: 'trigAccelDrop', icon: <ArrowDown className="w-3 h-3" />, type: 'negative' },
+    CORRECTION: { key: 'trigCorrection', icon: <ArrowDown className="w-3 h-3" />, type: 'negative' },
+    REGIME_FAVORABLE: { key: 'trigRegimeFav', icon: <Radio className="w-3 h-3" />, type: 'positive' },
 };
 
 // =============================================================================
 // PILLAR BAR CONFIG
 // =============================================================================
 
-const PILLAR_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
-    momentum: { label: '모멘텀', icon: <TrendingUp className="w-3 h-3" />, color: 'emerald' },
-    structure: { label: '옵션구조', icon: <BarChart3 className="w-3 h-3" />, color: 'blue' },
-    flow: { label: '자금흐름', icon: <Activity className="w-3 h-3" />, color: 'violet' },
-    regime: { label: '시장환경', icon: <Radio className="w-3 h-3" />, color: 'amber' },
-    catalyst: { label: '촉매', icon: <Zap className="w-3 h-3" />, color: 'cyan' },
+const PILLAR_I18N_KEY: Record<string, { key: string; icon: React.ReactNode; color: string }> = {
+    momentum: { key: 'pillarMomentum', icon: <TrendingUp className="w-3 h-3" />, color: 'emerald' },
+    structure: { key: 'pillarStructure', icon: <BarChart3 className="w-3 h-3" />, color: 'blue' },
+    flow: { key: 'pillarFlow', icon: <Activity className="w-3 h-3" />, color: 'violet' },
+    regime: { key: 'pillarRegime', icon: <Radio className="w-3 h-3" />, color: 'amber' },
+    catalyst: { key: 'pillarCatalyst', icon: <Zap className="w-3 h-3" />, color: 'cyan' },
 };
 
-function PillarBar({ name, pillar }: { name: string; pillar: PillarData }) {
-    const config = PILLAR_CONFIG[name];
+function PillarBar({ name, pillar, t }: { name: string; pillar: PillarData; t: any }) {
+    const config = PILLAR_I18N_KEY[name];
     if (!config) return null;
     const pct = Math.min(100, pillar.pct);
 
@@ -261,7 +261,7 @@ function PillarBar({ name, pillar }: { name: string; pillar: PillarData }) {
     return (
         <div className="flex items-center gap-2 group/pillar">
             <div className={cn("w-4 flex-shrink-0", c.text, "opacity-70")}>{config.icon}</div>
-            <span className="text-xs text-white/70 w-14 flex-shrink-0 font-semibold font-jakarta">{config.label}</span>
+            <span className="text-xs text-slate-300 w-14 flex-shrink-0 font-semibold font-jakarta">{t(config.key)}</span>
             <div className="flex-1 h-2 bg-white/[0.06] rounded-full overflow-hidden">
                 <div
                     className={cn("h-full rounded-full transition-all duration-700", c.bar)}
@@ -269,7 +269,7 @@ function PillarBar({ name, pillar }: { name: string; pillar: PillarData }) {
                 />
             </div>
             <span className={cn("text-xs font-mono font-bold w-10 text-right font-jakarta",
-                pct >= 70 ? c.text : pct >= 40 ? "text-white/70" : "text-white/50"
+                pct >= 70 ? c.text : pct >= 40 ? "text-slate-300" : "text-slate-300/60"
             )}>
                 {pillar.score}/{pillar.max}
             </span>
@@ -282,16 +282,17 @@ function PillarBar({ name, pillar }: { name: string; pillar: PillarData }) {
 // =============================================================================
 
 function InsightPanel({
-    pillars, gatesApplied, dataCompleteness
+    pillars, gatesApplied, dataCompleteness, t
 }: {
     pillars: AlphaCardProps['pillars'];
     gatesApplied?: string[];
     dataCompleteness?: number;
+    t: any;
 }) {
     if (!pillars) {
         return (
             <div className="mt-3 py-4 text-center">
-                <p className="text-slate-500 text-xs">엔진 데이터 미수집</p>
+                <p className="text-slate-300 text-xs">{t('noEngineData')}</p>
             </div>
         );
     }
@@ -301,11 +302,11 @@ function InsightPanel({
     return (
         <div className="mt-3 pt-3 border-t border-white/[0.06] space-y-1.5">
             {pillarEntries.map(([key, pillar]) => (
-                <PillarBar key={key} name={key} pillar={pillar} />
+                <PillarBar key={key} name={key} pillar={pillar} t={t} />
             ))}
 
             {/* Gates & Data Quality footer */}
-            <div className="flex items-center justify-between pt-2 text-[11px]">
+            <div className="flex items-center justify-between pt-2 text-xs">
                 {gatesApplied && gatesApplied.length > 0 ? (
                     <div className="flex items-center gap-1.5 text-rose-400">
                         <Shield className="w-3.5 h-3.5" />
@@ -314,7 +315,7 @@ function InsightPanel({
                 ) : (
                     <div className="flex items-center gap-1.5 text-emerald-400/70">
                         <Shield className="w-3.5 h-3.5" />
-                        <span className="font-semibold">게이트 통과</span>
+                        <span className="font-semibold">{t('gatesPassed')}</span>
                     </div>
                 )}
                 {dataCompleteness !== undefined && (
@@ -371,26 +372,26 @@ function PriceLevelBar({ price, entryLow, entryHigh, targetPrice, cutPrice, call
                     />
                 )}
                 <div
-                    className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.4)] border border-white/80"
-                    style={{ left: `${pos(price)}%`, transform: 'translate(-50%,-50%)' }}
+                    className="absolute w-3 h-3 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.5)] border-2 border-white/90 z-10"
+                    style={{ left: `${pos(price)}%`, top: '50%', transform: 'translate(-50%,-50%)' }}
                 />
             </div>
 
             {/* Numeric labels — M7 style grid boxes */}
             <div className="grid grid-cols-3 gap-1">
                 <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-white/[0.08] text-center">
-                    <p className="text-[10px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">{t('cutZone')}</p>
+                    <p className="text-xs text-slate-300 uppercase tracking-[0.12em] font-bold font-jakarta">{t('cutZone')}</p>
                     <p className="text-sm font-bold text-rose-300 font-mono font-jakarta">${cutPrice.toFixed(0)}</p>
                     <p className="text-xs text-rose-400/80 font-mono font-jakarta">{downside.toFixed(1)}%</p>
                 </div>
                 <div className="bg-white/[0.08] rounded-lg py-1.5 px-2 border border-emerald-500/15 text-center shadow-[0_0_15px_rgba(16,185,129,0.05)]">
-                    <p className="text-[10px] text-emerald-400/80 uppercase tracking-[0.12em] font-bold font-jakarta">{t('entryZone')}</p>
+                    <p className="text-xs text-emerald-400/80 uppercase tracking-[0.12em] font-bold font-jakarta">{t('entryZone')}</p>
                     <p className="text-sm font-bold text-white/90 font-mono font-jakarta">
                         ${entryLow.toFixed(0)}<span className="text-white/50 px-0.5">~</span>${entryHigh.toFixed(0)}
                     </p>
                 </div>
                 <div className="bg-white/[0.06] rounded-lg py-1.5 px-2 border border-white/[0.08] text-center">
-                    <p className="text-[10px] text-white/60 uppercase tracking-[0.12em] font-bold font-jakarta">TARGET</p>
+                    <p className="text-xs text-slate-300 uppercase tracking-[0.12em] font-bold font-jakarta">TARGET</p>
                     <p className="text-sm font-bold text-emerald-300 font-mono font-jakarta">${targetPrice.toFixed(0)}</p>
                     <p className="text-xs text-emerald-400/80 font-mono font-jakarta">+{upside.toFixed(1)}%</p>
                 </div>
@@ -473,7 +474,7 @@ export function AlphaCard({
                         <div className="flex items-center gap-2">
                             <h3 className="text-sm font-black text-white tracking-tight font-jakarta">{ticker}</h3>
                             {isHighRisk && (
-                                <span className="text-[11px] font-bold bg-rose-500/15 text-rose-300 px-1.5 py-0.5 rounded border border-rose-500/20 uppercase tracking-wider font-jakarta">
+                                <span className="text-xs font-bold bg-rose-500/15 text-rose-300 px-1.5 py-0.5 rounded border border-rose-500/20 uppercase tracking-wider font-jakarta">
                                     SPEC
                                 </span>
                             )}
@@ -570,18 +571,18 @@ export function AlphaCard({
             {triggerCodes && triggerCodes.length > 0 && (
                 <div className="mx-4 mb-3 px-3 py-2.5 rounded-lg bg-white/[0.06] border border-white/[0.08] flex flex-wrap gap-1.5 shadow-[inset_0_1px_4px_rgba(0,0,0,0.1)]">
                     {triggerCodes.slice(0, 6).map(code => {
-                        const t = TRIGGER_CONFIG[code];
-                        if (!t) return null;
+                        const trigCfg = TRIGGER_I18N_KEY[code];
+                        if (!trigCfg) return null;
                         return (
                             <span key={code} className={cn(
                                 "text-xs font-bold px-2 py-1 rounded-md border flex items-center gap-1.5 font-jakarta shadow-sm",
-                                "bg-[#0f172a] text-slate-300 border-slate-700/50" // Monolithic tech style to look more serious
+                                "bg-[#0f172a] text-slate-300 border-slate-700/50"
                             )}>
                                 <span className={cn(
-                                    t.type === 'positive' ? 'text-emerald-400' :
-                                        t.type === 'negative' ? 'text-rose-400' : 'text-slate-400'
-                                )}>{t.icon}</span>
-                                {t.label}
+                                    trigCfg.type === 'positive' ? 'text-emerald-400' :
+                                        trigCfg.type === 'negative' ? 'text-rose-400' : 'text-slate-300'
+                                )}>{trigCfg.icon}</span>
+                                {t(trigCfg.key)}
                             </span>
                         );
                     })}
@@ -606,7 +607,7 @@ export function AlphaCard({
 
                 {/* INSIGHT LAYER */}
                 {showInsight && (
-                    <InsightPanel pillars={pillars} gatesApplied={gatesApplied} dataCompleteness={dataCompleteness} />
+                    <InsightPanel pillars={pillars} gatesApplied={gatesApplied} dataCompleteness={dataCompleteness} t={t} />
                 )}
             </div>
         </div>
