@@ -44,6 +44,11 @@ export interface AlphaInput {
     return3D?: number | null;
     sma20?: number | null;
 
+    // === MACD (Momentum Enhancement V5.5+) ===
+    macdLine?: number | null;       // MACD line (12-EMA minus 26-EMA)
+    macdSignal?: number | null;     // Signal line (9-EMA of MACD)
+    macdHistogram?: number | null;  // MACD - Signal (positive = bullish crossover)
+
     // === STRUCTURE data (Options) ===
     pcr?: number | null;
     gex?: number | null;
@@ -67,6 +72,7 @@ export interface AlphaInput {
     ndxChangePct?: number | null;
     vixValue?: number | null;
     vixChangePct?: number | null;
+    vix3mValue?: number | null;     // [V5.5+] VIX3M for term structure analysis
     tltChangePct?: number | null;
     gldChangePct?: number | null;
 
@@ -486,6 +492,34 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     }
     total += preMarketScore;
 
+    // Factor 8: [V5.5+] MACD Trend Crossover (−2 to +3)
+    // MACD histogram > 0 = 골든크로스 (상승 초반), < 0 = 데드크로스 (하락 전환)
+    // RSI만으로는 잡지 못하는 "추세의 위치"를 판단하는 핵심 팩터
+    let macdScore = 0;
+    const macdHist = input.macdHistogram;
+    if (macdHist !== null && macdHist !== undefined) {
+        if (macdHist > 0.5) {
+            // 강한 골든크로스 — 상승 추세 초중반
+            macdScore = 3;
+            factors.push({ name: 'macdCross', value: 3, max: 3, detail: `MACD+ ${macdHist.toFixed(2)} 골든크로스` });
+        } else if (macdHist > 0) {
+            // 약한 골든크로스 — 추세 전환 시작
+            macdScore = 2;
+            factors.push({ name: 'macdCross', value: 2, max: 3, detail: `MACD+ ${macdHist.toFixed(2)} 전환중` });
+        } else if (macdHist > -0.3) {
+            // 약한 데드크로스 — 경고
+            macdScore = 0;
+            factors.push({ name: 'macdCross', value: 0, max: 3, detail: `MACD- ${macdHist.toFixed(2)} 주의` });
+        } else {
+            // 강한 데드크로스 — 하락 추세 확인
+            macdScore = -2;
+            factors.push({ name: 'macdCross', value: -2, max: 3, detail: `MACD- ${macdHist.toFixed(2)} 데드크로스⚠` });
+        }
+    } else {
+        factors.push({ name: 'macdCross', value: 0, max: 0, detail: 'MACD 없음' });
+    }
+    total += macdScore;
+
     total = clamp(total, 0, PILLAR_MAX.MOMENTUM);
 
     return {
@@ -836,6 +870,31 @@ function calculateRegime(input: AlphaInput): PillarDetail {
         else if (input.realYieldStance === 'TIGHT') { yieldBonus = -1; }
         total += yieldBonus;
         factors.push({ name: 'realYield', value: yieldBonus, max: 1, detail: `금리 ${input.realYieldStance}` });
+    }
+
+    // [V5.5+] Factor 7: VIX Term Structure (−2 to +1)
+    // VIX/VIX3M 비율로 "진짜 공포 vs 일시적 불안" 구분
+    // Backwardation (VIX > VIX3M) = 임박한 위험 → 추천 점수 전체 하향
+    // Contango (VIX < VIX3M) = 정상 시장 → 소폭 보너스
+    const vix3m = input.vix3mValue;
+    if (vix !== null && vix !== undefined && vix > 0 &&
+        vix3m !== null && vix3m !== undefined && vix3m > 0) {
+        const termRatio = vix / vix3m;
+        let termBonus = 0;
+        if (termRatio > 1.05) {
+            // 백워데이션: VIX > VIX3M 5%이상 → 진짜 패닉 (시장 임박 위험 인식)
+            termBonus = -2;
+            factors.push({ name: 'vixTerm', value: -2, max: 1, detail: `VIX/VIX3M ${termRatio.toFixed(2)} 백워데이션⚠` });
+        } else if (termRatio > 0.95) {
+            // Flat: 거의 같음 → 불확실
+            termBonus = 0;
+            factors.push({ name: 'vixTerm', value: 0, max: 1, detail: `VIX/VIX3M ${termRatio.toFixed(2)} 중립` });
+        } else {
+            // 콘탱고: VIX < VIX3M → 정상 시장
+            termBonus = 1;
+            factors.push({ name: 'vixTerm', value: 1, max: 1, detail: `VIX/VIX3M ${termRatio.toFixed(2)} 콘탱고(안정)` });
+        }
+        total += termBonus;
     }
 
     total = clamp(total, 0, PILLAR_MAX.REGIME);

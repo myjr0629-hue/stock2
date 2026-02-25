@@ -314,7 +314,18 @@ export async function GET(req: NextRequest) {
         }
     };
 
-    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData, truePmRes] = await Promise.all([
+    // [V5.5+] Fetch MACD for Momentum pillar — trend crossover detection
+    const fetchMACD = async () => {
+        try {
+            const macdUrl = `${MASSIVE_BASE_URL}/v1/indicators/macd/${ticker}?timespan=day&short_window=12&long_window=26&signal_window=9&limit=1&apiKey=${MASSIVE_API_KEY}`;
+            const res = await fetchMassiveWithRetry(macdUrl);
+            return res.data?.results?.values?.[0] ?? null;
+        } catch {
+            return null;
+        }
+    };
+
+    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData, truePmRes, macdData, vix3mCacheData] = await Promise.all([
         fetchOC(),
         fetchFlow(),
         fetchStructure(),
@@ -323,6 +334,8 @@ export async function GET(req: NextRequest) {
         fetchSMA20(),
         getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),
         fetchTruePreMarket(ticker), // [V5.5 FIX] Parallel True PM Fetcher
+        fetchMACD(),  // [V5.5+] MACD for trend crossover
+        getFromCache<{ price: number; changePct: number }>('yahoo:vix3m').catch(() => null),  // [V5.5+] VIX3M for term structure
     ]);
 
     // Phase 2 results - extract OC data and compute derived values
@@ -699,6 +712,10 @@ export async function GET(req: NextRequest) {
                     // Catalyst data
                     impliedMovePct,
                     optionsDataAvailable: !!(alphaRawChain.length),
+                    // [V5.5+] MACD Trend Crossover
+                    macdHistogram: macdData?.histogram ?? null,
+                    // [V5.5+] VIX Term Structure
+                    vix3mValue: vix3mCacheData?.price ?? null,
                     // [V3.4] Pre-Market Validation
                     preMarketPrice: prePrice ?? null,
                     preMarketChangePct: changePctFrac_PRE !== null ? changePctFrac_PRE * 100 : null,
@@ -713,10 +730,10 @@ export async function GET(req: NextRequest) {
                     whyFactors: result.whyFactors,
                     triggerCodes: result.triggerCodes,
                     pillars: {
-                        momentum: { score: result.pillars.momentum.score, max: result.pillars.momentum.max },
+                        momentum: { score: result.pillars.momentum.score, max: result.pillars.momentum.max, factors: result.pillars.momentum.factors },
                         structure: { score: result.pillars.structure.score, max: result.pillars.structure.max },
                         flow: { score: result.pillars.flow.score, max: result.pillars.flow.max },
-                        regime: { score: result.pillars.regime.score, max: result.pillars.regime.max },
+                        regime: { score: result.pillars.regime.score, max: result.pillars.regime.max, factors: result.pillars.regime.factors },
                         catalyst: { score: result.pillars.catalyst.score, max: result.pillars.catalyst.max },
                     },
                     gatesApplied: result.gatesApplied,

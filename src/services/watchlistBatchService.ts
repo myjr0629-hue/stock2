@@ -23,14 +23,16 @@ async function getStockDataLight(symbol: string) {
     const to = new Date().toISOString().split('T')[0];
     const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0]; // 30 days for SMA20
 
-    // [PERF] All 3 calls in parallel (getStockData does snapshot+chart+RSI parallel, then 3D return SEQUENTIAL)
-    const [snapRes, rsiRes, dailyAggs] = await Promise.all([
+    // [PERF] All 4 calls in parallel (getStockData does snapshot+chart+RSI parallel, then 3D return SEQUENTIAL)
+    const [snapRes, rsiRes, dailyAggs, macdRes] = await Promise.all([
         // 1. Snapshot: price, change, volume, VWAP, prevClose (same as getStockData)
         fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`),
         // 2. RSI: same API as getTechnicalRSI()
         fetchMassive(`/v1/indicators/rsi/${symbol}`, { timespan: 'day', window: '14', limit: '1' }).catch(() => null),
         // 3. Daily aggregates: for 3D return + sparkline (same as getAggregates in getStockData)
-        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${fromDate}/${to}`, { limit: '5000', adjust: 'true', sort: 'asc' }).catch(() => null)
+        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${fromDate}/${to}`, { limit: '5000', adjust: 'true', sort: 'asc' }).catch(() => null),
+        // 4. [V5.5+] MACD: for trend crossover detection in Momentum pillar
+        fetchMassive(`/v1/indicators/macd/${symbol}`, { timespan: 'day', short_window: '12', long_window: '26', signal_window: '9', limit: '1' }).catch(() => null)
     ]);
 
     const t = snapRes?.ticker;
@@ -104,6 +106,8 @@ async function getStockDataLight(symbol: string) {
         history: sparkline.map((close: number) => ({ close })), // Compatible format
         dailyResults, // [V3.2] For session-aware changePct/relVol
         extendedChangePct, // [V5] For PM Gate 11 (preMarketChangePct)
+        // [V5.5+] MACD histogram for trend crossover
+        macdHistogram: macdRes?.results?.values?.[0]?.histogram ?? null,
     };
 }
 
@@ -153,6 +157,14 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         try {
             const fgData = await getFromCache<{ score: number; rating: string }>('cnn:feargreed');
             fearGreedScore = fgData?.score ?? null;
+        } catch { /* ignore */ }
+
+        // [V5.5+] Read VIX3M from Redis for term structure analysis
+        try {
+            const vix3mData = await getFromCache<{ price: number; changePct: number }>('yahoo:vix3m');
+            if (vix3mData?.price) {
+                if (macroData) macroData.vix3mValue = vix3mData.price;
+            }
         } catch { /* ignore */ }
     }
 
@@ -411,6 +423,9 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     darkPoolPct, shortVolPct, blockTrades: blockTradesCount,
                     whaleIndex, netFlow: netPremium, sma20, ivSkew, impliedMovePct,
                     atmIv: structureRes?.atmIv ?? null, fearGreedScore,
+                    // [V5.5+] MACD + VIX Term Structure
+                    macdHistogram: (stockData as any).macdHistogram ?? null,
+                    vix3mValue: macroData?.vix3mValue ?? null,
                 });
             } catch (e) {
                 console.error(`[Watchlist Batch] V5 Engine failed for ${ticker}:`, e);

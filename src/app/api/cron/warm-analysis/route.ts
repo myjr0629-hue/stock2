@@ -38,10 +38,11 @@ async function getStockDataLight(symbol: string) {
     const to = new Date().toISOString().split('T')[0];
     const fromDate = new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0];
 
-    const [snapRes, rsiRes, dailyAggs] = await Promise.all([
+    const [snapRes, rsiRes, dailyAggs, macdRes] = await Promise.all([
         fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`),
         fetchMassive(`/v1/indicators/rsi/${symbol}`, { timespan: 'day', window: '14', limit: '1' }).catch(() => null),
-        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${fromDate}/${to}`, { limit: '5000', adjust: 'true', sort: 'asc' }).catch(() => null)
+        fetchMassive(`/v2/aggs/ticker/${symbol}/range/1/day/${fromDate}/${to}`, { limit: '5000', adjust: 'true', sort: 'asc' }).catch(() => null),
+        fetchMassive(`/v1/indicators/macd/${symbol}`, { timespan: 'day', short_window: '12', long_window: '26', signal_window: '9', limit: '1' }).catch(() => null)
     ]);
 
     const t = snapRes?.ticker;
@@ -81,6 +82,11 @@ async function getStockDataLight(symbol: string) {
 
     const sparkline = dailyResults.slice(-20).map((d: any) => d.close);
 
+    // [V5.5+] MACD histogram from Polygon indicator API
+    const macdValues = macdRes?.results?.values;
+    const latestMacd = macdValues && macdValues.length > 0 ? macdValues[0] : null;
+    const macdHistogram = latestMacd?.histogram ?? null;
+
     return {
         symbol,
         price: latestPrice,
@@ -94,11 +100,12 @@ async function getStockDataLight(symbol: string) {
         vwap: t?.day?.vw,
         sparkline,
         dailyResults,
+        macdHistogram,  // [V5.5+] MACD histogram for trend crossover
     };
 }
 
 // ── Shared macro data (fetched ONCE per warm cycle, reused by all tickers) ──
-let _sharedMacro: { ndxChangePct: number | null; vixValue: number | null; vixChangePct: number | null; tltChangePct: number | null; gldChangePct: number | null; dxy: number | null; realYieldStance: 'TIGHT' | 'NEUTRAL' | 'EASY' | null } | null = null;
+let _sharedMacro: { ndxChangePct: number | null; vixValue: number | null; vixChangePct: number | null; vix3mValue: number | null; tltChangePct: number | null; gldChangePct: number | null; dxy: number | null; realYieldStance: 'TIGHT' | 'NEUTRAL' | 'EASY' | null } | null = null;
 
 async function getSharedMacro() {
     if (_sharedMacro) return _sharedMacro;
@@ -108,15 +115,25 @@ async function getSharedMacro() {
             ndxChangePct: macro.nqChangePercent ?? null,
             vixValue: macro.vix ?? null,
             vixChangePct: macro.factors?.vix?.chgPct ?? null,
+            vix3mValue: null as number | null,  // filled below from Redis
             tltChangePct: macro.tltChangePct ?? null,
             gldChangePct: macro.gldChangePct ?? null,
             dxy: macro.dxy ?? null,
             realYieldStance: (macro.realYield?.stance === 'LOOSE' ? 'EASY' : macro.realYield?.stance ?? null) as 'TIGHT' | 'NEUTRAL' | 'EASY' | null,
         };
-        console.log(`[WARM] Macro loaded: NQ=${_sharedMacro.ndxChangePct?.toFixed(2)}% VIX=${_sharedMacro.vixValue}`);
+
+        // [V5.5+] Read VIX3M from Redis (written by market-feed cron every 1min)
+        try {
+            const vix3mData = await getFromCache<{ price: number; changePct: number }>('yahoo:vix3m');
+            if (vix3mData?.price) {
+                _sharedMacro.vix3mValue = vix3mData.price;
+            }
+        } catch { /* VIX3M is optional, regime still works without it */ }
+
+        console.log(`[WARM] Macro loaded: NQ=${_sharedMacro.ndxChangePct?.toFixed(2)}% VIX=${_sharedMacro.vixValue} VIX3M=${_sharedMacro.vix3mValue || 'N/A'}`);
     } catch (e) {
         console.warn('[WARM] Macro fetch failed, regime data will be missing:', e);
-        _sharedMacro = { ndxChangePct: null, vixValue: null, vixChangePct: null, tltChangePct: null, gldChangePct: null, dxy: null, realYieldStance: null };
+        _sharedMacro = { ndxChangePct: null, vixValue: null, vixChangePct: null, vix3mValue: null, tltChangePct: null, gldChangePct: null, dxy: null, realYieldStance: null };
     }
     return _sharedMacro;
 }
@@ -263,10 +280,13 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
                 relVol,
                 optionsDataAvailable: !!opts,
                 preMarketChangePct: null,
+                // [V5.5+] MACD Trend Crossover
+                macdHistogram: stockData.macdHistogram ?? null,
                 // Macro Regime
                 ndxChangePct: macroData?.ndxChangePct ?? null,
                 vixValue: macroData?.vixValue ?? null,
                 vixChangePct: macroData?.vixChangePct ?? null,
+                vix3mValue: macroData?.vix3mValue ?? null,  // [V5.5+] VIX Term Structure
                 tltChangePct: macroData?.tltChangePct ?? null,
                 gldChangePct: macroData?.gldChangePct ?? null,
                 dxy: macroData?.dxy ?? null,
