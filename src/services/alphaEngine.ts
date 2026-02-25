@@ -90,6 +90,7 @@ export interface AlphaInput {
     // === SELF-CORRECTION (Track Record) ===
     historicalWinRate?: number | null;
     historicalTotalTrades?: number | null;
+    historicalEntryAccuracy?: number | null;  // Entry zone trigger rate (0-100%)
 
     // === CONTEXT (optional enrichment) ===
     wasInPrevReport?: boolean;
@@ -223,20 +224,29 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
         rawScore += trendAdjust;
     }
 
-    // 4c. [V3.1] Self-Correction Loop (D+3 Track Record)
-    // Adjust score based on past win/loss logs
+    // 4c. [V3.1 → V6.0] Self-Correction Loop (Supabase TrackRecord)
+    // Adjust score based on persistent win/loss logs + entry zone accuracy
     const hWinRate = input.historicalWinRate;
     const hTotal = input.historicalTotalTrades;
+    const hEntryAcc = input.historicalEntryAccuracy;
     let trackRecordAdjust = 0;
 
     if (hWinRate !== null && hWinRate !== undefined && hTotal && hTotal >= 1) {
         if (hWinRate >= 70) {
             trackRecordAdjust = 5; // Serial Winner Bonus
         } else if (hWinRate <= 30 && hTotal >= 2) {
-            trackRecordAdjust = -10; // Serial Loser Penalty (Requires at least 2 trades to penalize heavily)
+            trackRecordAdjust = -10; // Serial Loser Penalty (Requires at least 2 trades)
         } else if (hWinRate <= 50 && hTotal >= 3) {
             trackRecordAdjust = -5; // Consistent Underperformer
         }
+
+        // [V6.0] Entry Accuracy Modifier — penalize if entry zone consistently misses
+        if (hEntryAcc !== null && hEntryAcc !== undefined && hTotal >= 3) {
+            if (hEntryAcc < 30) {
+                trackRecordAdjust -= 3; // Entry zone rarely triggered → reduce confidence
+            }
+        }
+
         rawScore += trackRecordAdjust;
     }
 

@@ -360,15 +360,18 @@ export function computeQualityTier(
         const ndxChangePct = evidence?.macro?.ndx?.changePct ?? null;
         const vixValue = evidence?.macro?.vix?.value ?? null;
 
-        // [V3.1] Self-Correction (Track Record Fetch)
+        // [V3.1 → V6.0] Self-Correction (Supabase TrackRecord — Persistent)
+        // Cache is pre-loaded by enrichItemsWithQualityTier before this is called.
         let historicalWinRate: number | null = null;
         let historicalTotalTrades: number | null = null;
+        let historicalEntryAccuracy: number | null = null;
         try {
-            const { getTickerPerformance } = require('./backtestService');
-            const perf = getTickerPerformance(symbol);
+            const { getTickerPerformanceSync } = require('./trackRecord/supabaseTrackQuery');
+            const perf = getTickerPerformanceSync(symbol);
             if (perf) {
                 historicalWinRate = perf.winRate;
                 historicalTotalTrades = perf.total;
+                historicalEntryAccuracy = perf.entryAccuracy;
             }
         } catch (e) { }
 
@@ -380,6 +383,7 @@ export function computeQualityTier(
             changePct: changePctV3,
             historicalWinRate,
             historicalTotalTrades,
+            historicalEntryAccuracy,
             vwap: evidence?.price?.vwap ?? null,
             return3D: evidence?.price?.return3D ?? null,
             rsi14,

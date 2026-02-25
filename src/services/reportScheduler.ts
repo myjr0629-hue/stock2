@@ -542,6 +542,12 @@ async function generateReportFromItems(
     if (!news) news = await getNewsHubSnapshot();
     if (!guardian) guardian = await GuardianDataHub.getGuardianSnapshot(force); // Fetch if missing
 
+    // [V6.0] Preload Supabase TrackRecord cache for Self-Correction
+    try {
+        const { preloadPerformanceCache } = await import('./trackRecord/supabaseTrackQuery');
+        await preloadPerformanceCache();
+    } catch (e) { }
+
     const now = new Date();
     // Re-determine session for context
     const sessionInfo = determineSessionInfo(now);
