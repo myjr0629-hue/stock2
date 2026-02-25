@@ -1115,6 +1115,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
     const [error, setError] = useState<string | null>(null);
     const [liveQuotes, setLiveQuotes] = useState<Record<string, any>>({}); // [Live Overlay]
     const [selectedTicker, setSelectedTicker] = useState<TickerItem | null>(null);
+    const [liveReport, setLiveReport] = useState<any>(null); // [LIVE TACTICAL] live report data
 
     // [13.1] Timeline State (Time Machine)
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -1287,6 +1288,23 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
         fetchM7Calendar();
     }, []);
 
+    // [LIVE TACTICAL] Fetch live report for intraday Top 3
+    useEffect(() => {
+        async function fetchLiveReport() {
+            try {
+                const res = await fetch('/api/reports/latest?type=live', { cache: 'no-store' });
+                if (!res.ok) return;
+                const text = await res.text();
+                if (!text) return;
+                const data = (() => { try { return JSON.parse(text); } catch { return null; } })();
+                if (data?.items?.length > 0) setLiveReport(data);
+            } catch (e) {
+                console.error('[LIVE TACTICAL] Fetch failed:', e);
+            }
+        }
+        fetchLiveReport();
+    }, []);
+
     // Derived Lists with Live Overlay
     const rawItems: TickerItem[] = report?.items || [];
 
@@ -1386,6 +1404,51 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
             };
         });
     }, [sortedItems]);
+
+    // [LIVE TACTICAL] Map live report Top 3 → AlphaItem[]
+    const liveAlphaItems: AlphaItem[] = useMemo(() => {
+        if (!liveReport?.items) return [];
+        const liveSorted = [...liveReport.items].sort((a: any, b: any) => ((a as any).rank || 99) - ((b as any).rank || 99));
+        return liveSorted.slice(0, 3).map((item: any, idx: number) => {
+            const av3 = item.alphaV3;
+            const ds = item.decisionSSOT;
+            const price = item.evidence?.price?.last || 0;
+            const eb = ds?.entryBand;
+            let eLow = 0, eHigh = 0;
+            if (Array.isArray(eb)) { eLow = eb[0] || 0; eHigh = eb[1] || 0; }
+            else if (eb && typeof eb === 'object') { eLow = eb.min || eb.low || 0; eHigh = eb.max || eb.high || 0; }
+            if (eLow === 0 && price > 0) eLow = price * 0.98;
+            if (eHigh === 0 && price > 0) eHigh = price * 1.02;
+            return {
+                ticker: item.ticker,
+                rank: idx + 1,
+                price,
+                changePct: item.evidence?.price?.changePct || 0,
+                volume: item.evidence?.flow?.vol,
+                alphaScore: item.alphaScore || 70,
+                scoreBreakdown: item.scoreDecomposition || undefined,
+                entryLow: eLow,
+                entryHigh: eHigh,
+                targetPrice: (ds?.whaleTargetLevel || ds?.targetPrice || price * 1.05),
+                cutPrice: (ds?.cutPrice || price * 0.96),
+                callWall: item.evidence?.options?.callWall,
+                putFloor: item.evidence?.options?.putFloor,
+                isLive: true,
+                whyKR: av3?.whyKR,
+                actionKR: av3?.actionKR,
+                action: av3?.action,
+                grade: av3?.grade,
+                triggerCodes: av3?.triggerCodes,
+                whyFactors: av3?.whyFactors,
+                darkPoolPct: av3?.darkPoolPct ?? item.evidence?.flow?.darkPoolPct,
+                shortVolPct: av3?.shortVolPct ?? item.evidence?.flow?.shortVolPct,
+                relVol: av3?.relVol ?? item.evidence?.flow?.relVol,
+                pillars: av3?.pillars,
+                gatesApplied: av3?.gatesApplied,
+                dataCompleteness: av3?.dataCompleteness,
+            };
+        });
+    }, [liveReport]);
 
     // [V4.7] M7 Filter (Extract M7 from available report items)
     // [V4.7] M7 Filter (Extract M7 from available report items OR Segregated Sector)
@@ -1751,10 +1814,16 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                             {/* [V6.0] PREMIUM ALPHA CARD GRID */}
                             <FinalBattleSection
                                 items={alphaItems}
+                                liveItems={liveAlphaItems}
                                 isLoading={isLoading}
                                 onItemClick={(item) => {
                                     const tickerItem = sortedItems.find(t => t.ticker === item.ticker);
                                     if (tickerItem) setSelectedTicker(tickerItem);
+                                    // Also check live report items
+                                    if (!tickerItem && liveReport?.items) {
+                                        const liveItem = liveReport.items.find((t: any) => t.ticker === item.ticker);
+                                        if (liveItem) setSelectedTicker(liveItem);
+                                    }
                                 }}
                             />
 

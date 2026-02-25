@@ -133,8 +133,9 @@ function CardSkeleton({ variant = 'large' }: { variant?: 'large' | 'compact' }) 
 // MAIN COMPONENT
 // =============================================================================
 
-export default function FinalBattleSection({ items, isLoading = false, onItemClick }: {
+export default function FinalBattleSection({ items, liveItems, isLoading = false, onItemClick }: {
     items: import('./AlphaCard').AlphaCardProps[];
+    liveItems?: import('./AlphaCard').AlphaCardProps[];
     isLoading?: boolean;
     onItemClick?: (item: import('./AlphaCard').AlphaCardProps) => void;
 }) {
@@ -209,9 +210,25 @@ export default function FinalBattleSection({ items, isLoading = false, onItemCli
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 relative z-10">
-                    {[1, 2, 3].map((idx) => (
-                        <LiveSniperPlaceholder key={idx} index={idx} />
-                    ))}
+                    {liveItems && liveItems.length > 0 ? (
+                        liveItems.slice(0, 3).map((item) => (
+                            <motion.div
+                                key={item.ticker}
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                transition={{ delay: item.rank * 0.1, duration: 0.5, ease: 'easeOut' }}
+                            >
+                                <AlphaCardCompact
+                                    {...item}
+                                    onClick={() => onItemClick?.(item)}
+                                />
+                            </motion.div>
+                        ))
+                    ) : (
+                        [1, 2, 3].map((idx) => (
+                            <LiveSniperPlaceholder key={idx} index={idx} />
+                        ))
+                    )}
                 </div>
             </section>
 
