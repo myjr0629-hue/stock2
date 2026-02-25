@@ -5,10 +5,11 @@
  * - Left (main): Intraday close price + change %
  * - Right (separate): POST/PRE extended price (when available)
  * 
- * @version 1.0.0
+ * @version 1.1.0 — Added price flash animation on change
  */
 'use client';
 
+import { useRef, useEffect, useState } from 'react';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 
 // ============================================
@@ -84,6 +85,30 @@ const EXT_LABEL_COLORS: Record<string, string> = {
 };
 
 // ============================================
+// FLASH ANIMATION HOOK
+// ============================================
+
+function usePriceFlash(price: number): 'up' | 'down' | null {
+    const prevPriceRef = useRef(price);
+    const [flash, setFlash] = useState<'up' | 'down' | null>(null);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        const prev = prevPriceRef.current;
+        if (prev !== 0 && price !== 0 && prev !== price) {
+            if (timerRef.current) clearTimeout(timerRef.current);
+            setFlash(price > prev ? 'up' : 'down');
+            timerRef.current = setTimeout(() => setFlash(null), 600);
+        }
+        prevPriceRef.current = price;
+
+        return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    }, [price]);
+
+    return flash;
+}
+
+// ============================================
 // COMPONENT
 // ============================================
 
@@ -100,6 +125,7 @@ export function PriceDisplay({
     showArrows = false,
 }: PriceDisplayProps) {
     const config = SIZE_CONFIG[size];
+    const flash = usePriceFlash(intradayPrice);
 
     // Determine colors
     const isIntradayUp = intradayChangePct >= 0;
@@ -114,10 +140,23 @@ export function PriceDisplay({
         ? `flex items-center ${config.gap}`
         : `flex flex-col ${config.gap}`;
 
+    // Flash style: brief background highlight
+    const flashStyle: React.CSSProperties = flash ? {
+        transition: 'background-color 0.15s ease-in',
+        backgroundColor: flash === 'up' ? 'rgba(52, 211, 153, 0.25)' : 'rgba(251, 113, 133, 0.25)',
+        borderRadius: '4px',
+        padding: '0 4px',
+    } : {
+        transition: 'background-color 0.4s ease-out',
+        backgroundColor: 'transparent',
+        borderRadius: '4px',
+        padding: '0 4px',
+    };
+
     return (
         <div className={containerClass}>
             {/* ===== Intraday (Main) Price ===== */}
-            <div className={`flex items-center ${config.gap}`}>
+            <div className={`flex items-center ${config.gap}`} style={flashStyle}>
                 <span className={`font-mono font-bold text-white ${config.price}`}>
                     ${intradayPrice.toLocaleString(undefined, {
                         minimumFractionDigits: 2,

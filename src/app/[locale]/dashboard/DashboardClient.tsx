@@ -1274,7 +1274,7 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
     }, [searchParams, setSelectedTicker]);
 
     // [OPTIMIZED] Visibility-aware polling — pauses when tab hidden, resumes on focus
-    // Price interval: 3s (was 5s) for near-real-time feel
+    // Price interval: 2s for near-real-time feel
     useEffect(() => {
         if (!initialized) return;
 
@@ -1292,7 +1292,7 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
 
             priceInterval = setInterval(() => {
                 fetchPriceOnly(getTickerList());
-            }, 3000);
+            }, 2000);
         };
 
         const stopPolling = () => {
