@@ -24,7 +24,14 @@ export async function fetchTruePreMarket(symbol: string): Promise<number | null>
             const res = await fetchMassive(url).catch(() => null);
             if (res && res.results && res.results.length > 0) {
                 const pmClose = res.results[0].c;
-                await setInCache(cacheKey, pmClose, 24 * 60 * 60); // cache for 24 hours
+                // [FIX] Only cache if pre-market has ended (9:30+ AM ET)
+                // During PRE session, the "last bar" is still changing — caching it
+                // would lock in an intermediate price instead of the true 9:29 close
+                const etTime = et.hour + et.minute / 60;
+                const preMarketEnded = etTime >= 9.5 || et.isWeekend;
+                if (preMarketEnded) {
+                    await setInCache(cacheKey, pmClose, 24 * 60 * 60);
+                }
                 return pmClose;
             }
         } catch (e) {
