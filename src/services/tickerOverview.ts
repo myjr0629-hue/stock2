@@ -16,6 +16,7 @@ import { getBuildId, getEnvType } from "./buildIdSSOT";
 import { CentralDataHub } from "./centralDataHub";
 import { fetchStockNews } from "./newsHubProvider";
 import { getStockChartData } from "./stockApi"; // [S-76] For complete chart data with etMinute/session
+import { fetchTruePreMarket } from "./marketDataLight"; // [V5.5 FIX] True PM Fetcher
 
 // --- Types ---
 export interface TickerOverviewMeta {
@@ -233,7 +234,12 @@ export async function getTickerOverview(
     // 1. Price Data Task
     const priceTask = async () => {
         try {
-            const unified = await CentralDataHub.getUnifiedData(tickerUpper);
+            // [V5.5 FIX] Parallel True PM Fetch to bypass Polygon snapshot freeze
+            const [unified, truePmRes] = await Promise.all([
+                CentralDataHub.getUnifiedData(tickerUpper),
+                fetchTruePreMarket(tickerUpper)
+            ]);
+
             const S = unified.snapshot || {};
             const day = S.day || {};
             const prevDay = S.prevDay || {};
@@ -274,8 +280,14 @@ export async function getTickerOverview(
             }
 
             // Extended Hours
-            if (S.preMarket?.p) result.price.preMarketLast = S.preMarket.p;
-            else if (unified.session === "PRE") result.price.preMarketLast = unified.price;
+            // [V5.5 FIX] Reliable Pre-Market Source
+            if (unified.session === "PRE") {
+                result.price.preMarketLast = unified.price;
+            } else if (truePmRes !== null) {
+                result.price.preMarketLast = truePmRes;
+            } else if (S.preMarket?.p) {
+                result.price.preMarketLast = S.preMarket.p;
+            }
 
             if (S.afterHours?.p) result.price.afterHoursLast = S.afterHours.p;
             else if (unified.session === "POST") result.price.afterHoursLast = unified.price;

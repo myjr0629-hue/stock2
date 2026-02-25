@@ -674,6 +674,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct } = calcPriceDisplay({
         livePrice: livePrice?.price,
         liveChangePct: livePrice?.changePercent,
+        liveExtPrice: livePrice?.extendedPrice,
+        liveExtChangePct: livePrice?.extendedChangePercent,
+        liveExtLabel: livePrice?.extendedLabel,
         apiDisplayPrice: liveQuote?.display?.price || initialStockData?.price,
         apiDisplayChangePct: liveQuote?.display?.changePctPct || initialStockData?.changePercent,
         session: effectiveSession,

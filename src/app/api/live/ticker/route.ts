@@ -8,6 +8,7 @@ import { CentralDataHub } from "@/services/centralDataHub";
 import { getStructureData } from "@/services/structureService"; // [SQUEEZE FIX]
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 import { getFromCache, setInCache } from '@/services/redisClient'; // [PERF] Redis caching
+import { fetchTruePreMarket } from '@/services/marketDataLight'; // [V5.5 FIX] True PM Fetcher
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
@@ -313,7 +314,7 @@ export async function GET(req: NextRequest) {
         }
     };
 
-    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData] = await Promise.all([
+    const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData, truePmRes] = await Promise.all([
         fetchOC(),
         fetchFlow(),
         fetchStructure(),
@@ -321,6 +322,7 @@ export async function GET(req: NextRequest) {
         fetchMacro(),
         fetchSMA20(),
         getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),
+        fetchTruePreMarket(ticker), // [V5.5 FIX] Parallel True PM Fetcher
     ]);
 
     // Phase 2 results - extract OC data and compute derived values
@@ -329,25 +331,42 @@ export async function GET(req: NextRequest) {
     const hasMarketClosed = session === "POST" || session === "CLOSED";
     const regularCloseToday = hasMarketClosed ? (S.day?.c || OC.close || null) : null;
 
-    // [FIX] Pre-market price: during PRE session use live price, otherwise use today's OC.preMarket
-    // If OC.preMarket === prevRegularClose, it's yesterday's stale data → read from Redis cache instead
+    // [FIX] Pre-market price: during PRE session use live price, otherwise use true 09:29 close
     let prePrice: number | null = null;
     if (session === "PRE") {
         prePrice = liveLast;
+    } else if (truePmRes !== null) {
+        prePrice = truePmRes;
     } else {
-        // Try today's OC preMarket first
+        // Absolute Fallbacks
         const ocPre = OC.preMarket || S.preMarket?.p || null;
-        if (ocPre && prevRegularClose && Math.abs(ocPre - prevRegularClose) > 0.01) {
-            // OC.preMarket is different from prevClose → it's a real pre-market price
+
+        // Validation: If it's too close to yesterday's close, it's likely a stale early-morning snapshot.
+        let isStale = false;
+        if (ocPre && prevRegularClose) {
+            const diffPct = Math.abs((ocPre - prevRegularClose) / prevRegularClose) * 100;
+            if (liveLast && liveLast > 0 && Math.abs((ocPre - liveLast) / liveLast) > 0.03) {
+                isStale = true;
+            } else if (diffPct < 0.1) {
+                isStale = true;
+            }
+        }
+
+        if (ocPre && !isStale) {
             prePrice = ocPre;
         } else {
-            // OC.preMarket is same as prevClose or missing → use Redis cache from PRE session
+            // OC.preMarket is stale or missing → use Redis cache strictly
             try {
                 const cachedExt = await getFromCache<any>(`flow:extended:${ticker}`);
                 if (cachedExt?.prePrice && cachedExt.prePrice > 0) {
                     prePrice = cachedExt.prePrice;
+                } else if (ocPre) {
+                    // Fallback to ocPre only if Redis is completely empty
+                    prePrice = ocPre;
                 }
-            } catch { /* ignore */ }
+            } catch {
+                if (ocPre) prePrice = ocPre;
+            }
         }
     }
 
