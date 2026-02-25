@@ -98,7 +98,7 @@ export function usePriceFlash(price: number): 'up' | 'down' | null {
         if (prev !== 0 && price !== 0 && prev !== price) {
             if (timerRef.current) clearTimeout(timerRef.current);
             setFlash(price > prev ? 'up' : 'down');
-            timerRef.current = setTimeout(() => setFlash(null), 600);
+            timerRef.current = setTimeout(() => setFlash(null), 900);
         }
         prevPriceRef.current = price;
 
@@ -141,15 +141,17 @@ export function PriceDisplay({
         : `flex flex-col ${config.gap}`;
 
     // Flash color: text briefly turns bright green/red then fades back (Yahoo style)
-    const priceColor = flash === 'up' ? 'text-green-300' :
-        flash === 'down' ? 'text-red-300' : 'text-white';
+    const priceColor = flash === 'up' ? 'text-green-200' :
+        flash === 'down' ? 'text-red-200' : 'text-white';
+    const flashGlow = flash === 'up' ? '0 0 8px rgba(74,222,128,0.6)' :
+        flash === 'down' ? '0 0 8px rgba(248,113,113,0.6)' : 'none';
 
     return (
         <div className={containerClass}>
             {/* ===== Intraday (Main) Price ===== */}
             <div className={`flex items-center ${config.gap}`}>
                 <span className={`font-mono font-bold ${priceColor} ${config.price}`}
-                    style={{ transition: flash ? 'color 0.1s ease-in' : 'color 0.5s ease-out' }}>
+                    style={{ transition: flash ? 'color 0.1s ease-in, text-shadow 0.1s ease-in' : 'color 0.5s ease-out, text-shadow 0.5s ease-out', textShadow: flashGlow }}>
                     ${intradayPrice.toLocaleString(undefined, {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
