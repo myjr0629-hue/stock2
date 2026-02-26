@@ -134,7 +134,7 @@ export default async function FlowGuidePage() {
                             {mockupSub && <span className={`text-[12px] ${mockupSubColor || 'text-slate-400'}`}>{mockupSub}</span>}
                         </div>
                         {subMetrics && (
-                            <div className="flex gap-3 mt-1 text-[11px] tabular-nums">
+                            <div className="flex gap-3 mt-1 text-[12px] tabular-nums">
                                 {subMetrics.map((m, i) => (
                                     <span key={i} className="text-white/60">{m.label} <span className={`font-bold ${m.color}`}>{m.value}</span></span>
                                 ))}
@@ -433,15 +433,15 @@ export default async function FlowGuidePage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                             <div className="p-3 rounded-lg bg-emerald-900/20 border border-emerald-500/20">
                                 <span className="text-[13px] font-bold text-emerald-400">{t('battlefield.callLabel')}</span>
-                                <p className="text-[12px] text-slate-300 mt-1">{t('battlefield.callDesc')}</p>
+                                <p className="text-[13px] text-slate-300 mt-1">{t('battlefield.callDesc')}</p>
                             </div>
                             <div className="p-3 rounded-lg bg-rose-900/20 border border-rose-500/20">
                                 <span className="text-[13px] font-bold text-rose-400">{t('battlefield.putLabel')}</span>
-                                <p className="text-[12px] text-slate-300 mt-1">{t('battlefield.putDesc')}</p>
+                                <p className="text-[13px] text-slate-300 mt-1">{t('battlefield.putDesc')}</p>
                             </div>
                             <div className="p-3 rounded-lg bg-cyan-900/20 border border-cyan-500/20">
                                 <span className="text-[13px] font-bold text-cyan-400">{t('battlefield.priceLabel')}</span>
-                                <p className="text-[12px] text-slate-300 mt-1">{t('battlefield.priceDesc')}</p>
+                                <p className="text-[13px] text-slate-300 mt-1">{t('battlefield.priceDesc')}</p>
                             </div>
                         </div>
                     </div>
@@ -457,7 +457,7 @@ export default async function FlowGuidePage() {
                     </div>
                     <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30">
                         <span className="text-[12px] font-bold text-indigo-300">Volume</span>
-                        <span className="text-[10px] text-slate-500">/</span>
+                        <span className="text-[12px] text-slate-500">/</span>
                         <span className="text-[12px] font-bold text-indigo-300">OI</span>
                     </div>
                 </div>
@@ -528,10 +528,10 @@ export default async function FlowGuidePage() {
                                 {/* Volume explanation box */}
                                 <rect x="35" y="230" width="340" height="95" rx="8" fill="rgba(99,102,241,0.08)" stroke="rgba(99,102,241,0.15)" strokeWidth="0.5" />
                                 <text x="55" y="250" fill="#c4b5fd" fontSize="10" fontWeight="700">⚡ {t('volumeOi.volumeBoxTitle')}</text>
-                                <text x="55" y="268" fill="#94a3b8" fontSize="9">{t('volumeOi.volumeBoxLine1')}</text>
-                                <text x="55" y="283" fill="#94a3b8" fontSize="9">{t('volumeOi.volumeBoxLine2')}</text>
-                                <text x="55" y="298" fill="#94a3b8" fontSize="9">{t('volumeOi.volumeBoxLine3')}</text>
-                                <text x="55" y="313" fill="#67e8f9" fontSize="9" fontWeight="600">{t('volumeOi.volumeBoxUse')}</text>
+                                <text x="55" y="268" fill="#94a3b8" fontSize="11">{t('volumeOi.volumeBoxLine1')}</text>
+                                <text x="55" y="285" fill="#94a3b8" fontSize="11">{t('volumeOi.volumeBoxLine2')}</text>
+                                <text x="55" y="302" fill="#94a3b8" fontSize="11">{t('volumeOi.volumeBoxLine3')}</text>
+                                <text x="55" y="319" fill="#67e8f9" fontSize="11" fontWeight="600">{t('volumeOi.volumeBoxUse')}</text>
 
                                 {/* ── RIGHT PANEL: OI VIEW ── */}
                                 <rect x="410" y="15" width="370" height="320" rx="12" fill="rgba(168,85,247,0.05)" stroke="rgba(168,85,247,0.15)" strokeWidth="1" />
@@ -568,10 +568,10 @@ export default async function FlowGuidePage() {
                                 {/* OI explanation box */}
                                 <rect x="425" y="230" width="340" height="95" rx="8" fill="rgba(168,85,247,0.08)" stroke="rgba(168,85,247,0.15)" strokeWidth="0.5" />
                                 <text x="445" y="250" fill="#c4b5fd" fontSize="10" fontWeight="700">🏗️ {t('volumeOi.oiBoxTitle')}</text>
-                                <text x="445" y="268" fill="#94a3b8" fontSize="9">{t('volumeOi.oiBoxLine1')}</text>
-                                <text x="445" y="283" fill="#94a3b8" fontSize="9">{t('volumeOi.oiBoxLine2')}</text>
-                                <text x="445" y="298" fill="#94a3b8" fontSize="9">{t('volumeOi.oiBoxLine3')}</text>
-                                <text x="445" y="313" fill="#a78bfa" fontSize="9" fontWeight="600">{t('volumeOi.oiBoxUse')}</text>
+                                <text x="445" y="268" fill="#94a3b8" fontSize="11">{t('volumeOi.oiBoxLine1')}</text>
+                                <text x="445" y="285" fill="#94a3b8" fontSize="11">{t('volumeOi.oiBoxLine2')}</text>
+                                <text x="445" y="302" fill="#94a3b8" fontSize="11">{t('volumeOi.oiBoxLine3')}</text>
+                                <text x="445" y="319" fill="#a78bfa" fontSize="11" fontWeight="600">{t('volumeOi.oiBoxUse')}</text>
                             </svg>
                         </div>
                     </div>
@@ -593,7 +593,7 @@ export default async function FlowGuidePage() {
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-lg font-black text-indigo-400">0-7 DTE</span>
                                     </div>
-                                    <div className="text-[10px] text-slate-500 mt-0.5">{t('volumeOi.volumeMockHint')}</div>
+                                    <div className="text-[12px] text-slate-500 mt-0.5">{t('volumeOi.volumeMockHint')}</div>
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
@@ -652,7 +652,7 @@ export default async function FlowGuidePage() {
                                     <div className="flex items-baseline gap-2">
                                         <span className="text-lg font-black text-purple-400">0-35 DTE</span>
                                     </div>
-                                    <div className="text-[10px] text-slate-500 mt-0.5">{t('volumeOi.oiMockHint')}</div>
+                                    <div className="text-[12px] text-slate-500 mt-0.5">{t('volumeOi.oiMockHint')}</div>
                                 </div>
                                 <div>
                                     <div className="flex items-center gap-2">
