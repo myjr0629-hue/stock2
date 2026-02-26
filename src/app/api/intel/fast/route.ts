@@ -9,6 +9,7 @@ import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { getFromCache } from '@/services/redisClient';
 import { CentralDataHub } from '@/services/centralDataHub';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
+import { fetchTruePreMarket } from '@/services/marketDataLight';
 
 // Sector ticker maps
 const SECTOR_TICKERS: Record<string, string[]> = {
@@ -17,7 +18,7 @@ const SECTOR_TICKERS: Record<string, string[]> = {
     silicon_core: ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'],
     power_matrix: ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'],
     bio_pulse: ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'],
-    cyber_shield: ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'CYBR', 'NET'],
+    cyber_shield: ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'],
     orbit_defense: ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'],
 };
 
@@ -106,6 +107,23 @@ export async function GET(request: Request) {
             });
         }
 
+        // [FIX] During REG, pre-fetch true PM prices for tickers missing from persistent cache
+        // This ensures ALL sector tickers consistently show PRE badge
+        let truePmMap: Record<string, number> = {};
+        if (session === 'REG') {
+            const tickersNeedingPm = tickers.filter((_, i) => !(extendedCache[i]?.prePrice > 0));
+            if (tickersNeedingPm.length > 0) {
+                const pmResults = await Promise.all(
+                    tickersNeedingPm.map(t => fetchTruePreMarket(t).catch(() => null))
+                );
+                tickersNeedingPm.forEach((t, idx) => {
+                    if (pmResults[idx] && pmResults[idx]! > 0) {
+                        truePmMap[t] = pmResults[idx]!;
+                    }
+                });
+            }
+        }
+
         // ── Phase 2: Build unified quotes ──
         const quotes = tickers.map((ticker, i) => {
             const snap = snapshotMap[ticker];
@@ -175,6 +193,11 @@ export async function GET(request: Request) {
                     extendedPrice = cachedPrePrice;
                     extendedLabel = 'PRE';
                     extendedChangePct = persistedExt?.preChangePct || 0;
+                } else if (truePmMap[ticker]) {
+                    // [FIX] Fallback: use true PM close fetched in parallel batch above
+                    extendedPrice = truePmMap[ticker];
+                    extendedLabel = 'PRE';
+                    extendedChangePct = prevClose > 0 ? ((truePmMap[ticker] - prevClose) / prevClose) * 100 : 0;
                 }
             }
 

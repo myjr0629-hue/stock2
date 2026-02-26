@@ -32,7 +32,7 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
         { key: 'siliconCore', icon: <Cpu size={16} className="text-white" />, accent: 'from-amber-300 to-yellow-600', tickers: 'AMD · AVGO · TSM · ARM · MU · ASML · MRVL', color: 'text-amber-300', ring: 'border-amber-400/20 bg-amber-400/[0.06]' },
         { key: 'powerMatrix', icon: <Zap size={16} className="text-white" />, accent: 'from-emerald-400 to-green-600', tickers: 'CEG · VST · GEV · PWR · CCJ · SMR · ETN', color: 'text-emerald-400', ring: 'border-emerald-500/20 bg-emerald-500/[0.06]' },
         { key: 'bioPulse', icon: <Activity size={16} className="text-white" />, accent: 'from-rose-400 to-pink-600', tickers: 'LLY · NVO · VRTX · REGN · VKTX · AMGN · GILD', color: 'text-rose-400', ring: 'border-rose-500/20 bg-rose-500/[0.06]' },
-        { key: 'cyberShield', icon: <Shield size={16} className="text-white" />, accent: 'from-cyan-400 to-blue-600', tickers: 'CRWD · PANW · FTNT · ZS · S · CYBR · NET', color: 'text-cyan-400', ring: 'border-cyan-500/20 bg-cyan-500/[0.06]' },
+        { key: 'cyberShield', icon: <Shield size={16} className="text-white" />, accent: 'from-cyan-400 to-blue-600', tickers: 'CRWD · PANW · FTNT · ZS · S · OKTA · NET', color: 'text-cyan-400', ring: 'border-cyan-500/20 bg-cyan-500/[0.06]' },
         { key: 'orbitDefense', icon: <Rocket size={16} className="text-white" />, accent: 'from-sky-400 to-blue-600', tickers: 'LMT · RTX · AXON · KTOS · LDOS · ASTS · LUNR', color: 'text-sky-400', ring: 'border-sky-500/20 bg-sky-500/[0.06]' },
     ];
 

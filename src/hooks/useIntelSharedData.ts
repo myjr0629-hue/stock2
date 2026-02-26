@@ -13,7 +13,7 @@ const PHYSICAL_AI_TICKERS = ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG']
 const SILICON_CORE_TICKERS = ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'];
 const POWER_MATRIX_TICKERS = ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'];
 const BIO_PULSE_TICKERS = ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'];
-const CYBER_SHIELD_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'CYBR', 'NET'];
+const CYBER_SHIELD_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'];
 const ORBIT_DEFENSE_TICKERS = ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'];
 
 // Types for shared data
@@ -39,6 +39,7 @@ export interface IntelQuote {
     netPremium: number;
     rsi: number;
     rvol: number;
+    priceFlash?: 'up' | 'down' | null; // flash animation direction
 }
 
 export interface IntelSharedData {
@@ -197,21 +198,37 @@ export function useIntelSharedData(
 
             const updateFn = (prev: IntelQuote[]) => {
                 if (prev.length === 0) return prev;
-                return prev.map(q => {
+                let hasAnyChange = false;
+                const updated = prev.map(q => {
                     const p = priceMap[q.ticker];
-                    if (!p || !p.price) return q;
+                    if (!p || !p.price) return q; // same reference — no re-render
+
+                    // Skip update if price is identical
+                    if (p.price === q.price) return q;
+
+                    hasAnyChange = true;
+
+                    // [FIX] During PRE/POST, don't override changePct from fast API
+                    const isRegular = (p.session === 'regular' || p.session === 'REG');
+                    const newChangePct = isRegular ? (p.changePercent ?? q.changePct) : q.changePct;
+
+                    // Flash direction
+                    const flash: 'up' | 'down' | null = p.price > q.price ? 'up' : 'down';
+
                     return {
                         ...q,
                         price: p.price,
-                        changePct: p.changePercent || q.changePct,
+                        changePct: newChangePct,
                         prevClose: p.prevClose ?? q.prevClose,
                         volume: p.volume ?? q.volume,
                         extendedPrice: (p.extendedPrice && p.extendedPrice > 0) ? p.extendedPrice : q.extendedPrice,
                         extendedChangePct: (p.extendedPrice && p.extendedPrice > 0) ? (p.extendedChangePercent ?? q.extendedChangePct) : q.extendedChangePct,
                         extendedLabel: (p.extendedPrice && p.extendedPrice > 0) ? (p.extendedLabel ?? q.extendedLabel) : q.extendedLabel,
                         session: p.session ?? q.session,
+                        priceFlash: flash,
                     };
                 });
+                return hasAnyChange ? updated : prev; // same array ref if nothing changed
             };
 
             setM7Data(updateFn);
@@ -239,8 +256,6 @@ export function useIntelSharedData(
 
     // Initial load + intervals
     useEffect(() => {
-        if (isInitialized.current) return;
-        isInitialized.current = true;
 
         if (initialM7Data?.length && initialPAIData?.length) {
             // [SSR HYDRATED] Skip redundant Phase 1 fetch
@@ -253,12 +268,12 @@ export function useIntelSharedData(
         // Phase 2: Full data in background (non-blocking)
         fetchFull();
 
-        // Price-only refresh every 5 seconds (ultra-fast, lightweight snapshot)
+        // Price-only refresh every 2 seconds (ultra-fast, lightweight snapshot)
         const priceInterval = setInterval(() => {
             if (!isPriceFetching.current) {
                 fetchPriceOnly();
             }
-        }, 5000);
+        }, 2000);
 
         // Fast refresh every 30 seconds (sparklines, extended prices stay fresh)
         const fastInterval = setInterval(() => {

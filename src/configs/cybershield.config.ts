@@ -14,7 +14,7 @@ export const cyberShieldConfig: SectorConfig = {
         glow: 'shadow-[0_0_20px_rgba(6,182,212,0.15)]',
         gradient: 'from-cyan-500/20 to-transparent',
     },
-    tickers: ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'CYBR', 'NET'],
+    tickers: ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'],
     apiEndpoints: {
         live: '/api/intel/cybershield',
         snapshot: '/api/intel/snapshot?sector=cyber_shield',

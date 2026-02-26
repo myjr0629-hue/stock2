@@ -9,7 +9,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
 import { CentralDataHub } from '@/services/centralDataHub';
 
-const SECTOR_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'CYBR', 'NET'];
+const SECTOR_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'];
 const SECTOR_LABEL = 'CyberShield';
 
 export const revalidate = 15;

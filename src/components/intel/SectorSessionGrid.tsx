@@ -484,6 +484,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                         extendedChangePct={q.extendedChangePct}
                                         extendedLabel={q.extendedLabel as 'POST' | 'PRE' | ''}
                                         showArrows={true}
+                                        priceFlash={q.priceFlash}
                                     />
                                 </div>
 

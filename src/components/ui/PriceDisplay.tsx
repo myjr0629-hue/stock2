@@ -275,6 +275,8 @@ export interface PriceDisplayCardProps {
 
     /** Show arrows in change percentage */
     showArrows?: boolean;
+    /** Flash direction for price update animation */
+    priceFlash?: 'up' | 'down' | null;
 }
 
 /**
@@ -288,6 +290,7 @@ export function PriceDisplayCard({
     extendedChangePct = 0,
     extendedLabel = '',
     showArrows = true,
+    priceFlash,
 }: PriceDisplayCardProps) {
     const isIntradayUp = intradayChangePct >= 0;
     const intradayColor = isIntradayUp ? 'text-emerald-400' : 'text-rose-400';
@@ -298,10 +301,20 @@ export function PriceDisplayCard({
     // Show extended data even when session is over (user wants to see last known POST/PRE data)
     const hasExtended = extendedPrice && extendedPrice > 0;
 
+    // Flash animation class
+    const flashClass = priceFlash === 'up'
+        ? 'animate-[priceFlashUp_0.6s_ease-out]'
+        : priceFlash === 'down'
+            ? 'animate-[priceFlashDown_0.6s_ease-out]'
+            : '';
+
     return (
         <div className="flex flex-col items-center">
             {/* Main Price */}
-            <div className="text-2xl font-bold text-white tracking-tighter drop-shadow-sm font-jakarta font-num">
+            <div
+                key={priceFlash ? `${intradayPrice}-${Date.now()}` : undefined}
+                className={`text-2xl font-bold text-white tracking-tighter drop-shadow-sm font-jakarta font-num ${flashClass}`}
+            >
                 ${intradayPrice.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2

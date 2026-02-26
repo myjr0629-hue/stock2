@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEarningsCalendar, getRecommendationTrends, EarningsEvent, RecommendationTrend } from '@/services/finnhubClient';
 
-const CYBER_SHIELD_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'CYBR', 'NET'];
+const CYBER_SHIELD_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'];
 
 export async function GET(req: NextRequest) {
     try {
