@@ -14,7 +14,7 @@ export function Footer() {
     // Guide pages have a fixed sidebar — offset footer to match
     const isGuide = pathname.includes('/how-it-works');
     // Intel page has a side nav — offset footer to avoid overlap
-    const isIntel = pathname.includes('/intel');
+    const isIntel = pathname.includes('/intel') && !pathname.includes('/intel-guardian');
     const needsOffset = isGuide || isIntel;
 
     return (
