@@ -491,13 +491,13 @@ export function applyUniversePolicyWithBackfill(
 
 
 // [V4.0] EXPANDED UNIVERSE POOL (Dynamic Stock Discovery)
-import { fetchTopGainers, getTopVolumeStocks } from './massiveClient';
+import { getTopQualityGainers, getTopVolumeStocks } from './massiveClient';
 
 export interface ExpandedUniverseResult {
     symbols: string[];
     sources: {
         fixedLeaders: number;
-        topGainers: number;
+        qualityGainers: number;
         topVolume: number;
         total: number;
         deduplicated: number;
@@ -506,12 +506,12 @@ export interface ExpandedUniverseResult {
 }
 
 /**
- * [V4.0] Get Expanded Universe Pool
- * Combines: Fixed Leaders (17) + Top Gainers (20) + Top Volume (200)
+ * [V5.0] Get Expanded Universe Pool
+ * Combines: Fixed Leaders (23) + Quality Gainers (20, snapshot-filtered) + Top Volume (200)
  * Returns deduplicated, ETF-filtered stock symbols
  */
 export async function getExpandedUniversePool(): Promise<ExpandedUniverseResult> {
-    console.log('[V4.0] Building Expanded Universe Pool...');
+    console.log('[V5.0] Building Expanded Universe Pool...');
 
     // 1. Fixed Leaders (always included) - V4.1 with Physical AI
     const fixedLeaders = [
@@ -521,20 +521,13 @@ export async function getExpandedUniversePool(): Promise<ExpandedUniverseResult>
         ...PHYSICAL_AI_TOP6
     ];
 
-    // 2. Top Gainers (momentum stocks) with Quality Gate
-    let topGainers: string[] = [];
+    // 2. Quality Gainers (replaces fetchTopGainers — snapshot-filtered)
+    // Filters: $15+, Vol 500K+, changePct 2~10%, ETF excluded
+    let qualityGainers: string[] = [];
     try {
-        const gainersRaw = await fetchTopGainers();
-        // Quality Gate: $5+, Volume 100K+
-        topGainers = gainersRaw
-            .filter((g: any) => {
-                const price = g.day?.c || g.prevDay?.c || 0;
-                const volume = g.day?.v || g.prevDay?.v || 0;
-                return price >= 5 && price <= 2000 && volume >= 100000;
-            })
-            .map((g: any) => g.ticker);
+        qualityGainers = await getTopQualityGainers(20);
     } catch (e) {
-        console.warn('[V4.0] Failed to fetch top gainers:', e);
+        console.warn('[V5.0] Failed to fetch quality gainers:', e);
     }
 
     // 3. Top Volume Stocks (whale activity candidates)
@@ -542,11 +535,11 @@ export async function getExpandedUniversePool(): Promise<ExpandedUniverseResult>
     try {
         topVolume = await getTopVolumeStocks(200);
     } catch (e) {
-        console.warn('[V4.0] Failed to fetch top volume stocks:', e);
+        console.warn('[V5.0] Failed to fetch top volume stocks:', e);
     }
 
     // 4. Combine and deduplicate
-    const combinedRaw = [...fixedLeaders, ...topGainers, ...topVolume];
+    const combinedRaw = [...fixedLeaders, ...qualityGainers, ...topVolume];
     const totalRaw = combinedRaw.length;
 
     // 5. Deduplicate
@@ -558,18 +551,18 @@ export async function getExpandedUniversePool(): Promise<ExpandedUniverseResult>
         return !classification.isETF;
     });
 
-    console.log(`[V4.0] Universe Expansion Complete: ${fixedLeaders.length} fixed + ${topGainers.length} gainers + ${topVolume.length} volume = ${filteredSymbols.length} unique stocks`);
+    console.log(`[V5.0] Universe Expansion Complete: ${fixedLeaders.length} fixed + ${qualityGainers.length} quality gainers + ${topVolume.length} volume = ${filteredSymbols.length} unique stocks`);
 
     return {
         symbols: filteredSymbols,
         sources: {
             fixedLeaders: fixedLeaders.length,
-            topGainers: topGainers.length,
+            qualityGainers: qualityGainers.length,
             topVolume: topVolume.length,
             total: totalRaw,
             deduplicated: filteredSymbols.length
         },
-        noteKR: `V4.0 확장 유니버스: 고정 ${fixedLeaders.length}개 + 상승률 ${topGainers.length}개 + 거래량 ${topVolume.length}개 → 중복제거 후 ${filteredSymbols.length}개`
+        noteKR: `V5.0 확장 유니버스: 고정 ${fixedLeaders.length}개 + 품질 상승 ${qualityGainers.length}개 + 거래량 ${topVolume.length}개 → 중복제거 후 ${filteredSymbols.length}개`
     };
 }
 

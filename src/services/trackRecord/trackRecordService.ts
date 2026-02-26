@@ -154,7 +154,7 @@ export async function verifyPendingTrackRecords(): Promise<{ success: boolean; p
             try {
                 // Polygon aggregates API expects: /v2/aggs/ticker/{ticker}/range/1/day/{start}/{end}
                 // We will construct this call using the massive pipeline or direct fetch
-                const polyUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${startDate}/${endDate}?apiKey=${process.env.FINNHUB_API_KEY}`;
+                const polyUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/day/${startDate}/${endDate}?apiKey=${process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY}`;
                 const res = await fetch(polyUrl);
                 const data = await res.json();
                 if (data.results && data.results.length > 0) {

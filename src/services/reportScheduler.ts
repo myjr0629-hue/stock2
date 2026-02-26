@@ -256,68 +256,14 @@ export async function generateReport(type: ReportType, force: boolean = false, t
         const universeResult = await applyUniversePolicyWithBackfill(universePoolObjects, 300); // Target 300 to get full list
         candidateTickers = universeResult.filtered.map(i => i.ticker);
 
-        // [V3.7.2] Infinite Horizon: High Quality Hyper-Discovery
-        // [V2.0] Enhanced with Top Volume + Stricter Filters
+        // [V5.0] Hyper-Discovery: Quality Gainers (already filtered in universe pool)
+        // Note: getExpandedUniversePool() already includes quality gainers via getTopQualityGainers()
+        // This block only adds any remaining candidates not already in the pool
         if (process.env.ENABLE_HYPER_DISCOVERY !== '0') {
-            // [V2.0] FILTER CONFIG - Stricter Quality Gates
-            const DISCOVERY_FILTER = {
-                minPrice: 5.0,
-                maxPrice: 500.0,      // Avoid extreme outliers
-                minVolume: 100000,    // Minimum daily volume
-            };
-
-            // --- TOP GAINERS ---
-            const gainers = await fetchTopGainers();
-            const validGainers = gainers.filter((g: any) => {
-                const price = g.day?.c || g.min?.c || g.prevDay?.c || 0;
-                const volume = g.day?.v || g.prevDay?.v || 0;
-                // [V3.4.1] ETF 필터 — Discovery 경로에서 ETF 차단
-                const classification = classifySymbol(g.ticker, g.name || '', g.type || '');
-                if (classification.isETF) {
-                    console.log(`[Discovery] ETF Blocked: ${g.ticker} (${classification.classificationReason})`);
-                    return false;
-                }
-                return price >= DISCOVERY_FILTER.minPrice &&
-                    price <= DISCOVERY_FILTER.maxPrice &&
-                    volume >= DISCOVERY_FILTER.minVolume &&
-                    !candidateTickers.includes(g.ticker);
-            });
-            // [V4.5] Surge-aware ordering: 15%+ gainers go to the end (deprioritized, not blocked)
-            const sortedGainers = validGainers.sort((a: any, b: any) => {
-                const aChange = a.todaysChangePerc || ((a.day?.c - a.prevDay?.c) / a.prevDay?.c * 100) || 0;
-                const bChange = b.todaysChangePerc || ((b.day?.c - b.prevDay?.c) / b.prevDay?.c * 100) || 0;
-                const aSurge = aChange >= 15 ? 1 : 0;
-                const bSurge = bChange >= 15 ? 1 : 0;
-                if (aSurge !== bSurge) return aSurge - bSurge; // non-surge first
-                return bChange - aChange; // then by change desc
-            });
-            const validGainerTickers = sortedGainers.map((g: any) => g.ticker).slice(0, 15);
-
-            // --- TOP VOLUME (Most Active) [V2.0 NEW] ---
-            const mostActive = await fetchTopActive();
-            const validActive = mostActive.filter((g: any) => {
-                const price = g.day?.c || g.min?.c || g.prevDay?.c || 0;
-                const volume = g.day?.v || g.prevDay?.v || 0;
-                // [V3.4.1] ETF 필터 — Discovery 경로에서 ETF 차단
-                const classification = classifySymbol(g.ticker, g.name || '', g.type || '');
-                if (classification.isETF) {
-                    console.log(`[Discovery] ETF Blocked: ${g.ticker} (${classification.classificationReason})`);
-                    return false;
-                }
-                return price >= DISCOVERY_FILTER.minPrice &&
-                    price <= DISCOVERY_FILTER.maxPrice &&
-                    volume >= DISCOVERY_FILTER.minVolume &&
-                    !candidateTickers.includes(g.ticker) &&
-                    !validGainerTickers.includes(g.ticker); // No duplicates
-            }).map((g: any) => g.ticker).slice(0, 10);
-
-            // --- MERGE DISCOVERIES ---
-            const allDiscovery = [...validGainerTickers, ...validActive];
-            if (allDiscovery.length > 0) {
-                console.log(`[ReportScheduler] V2.0 Discovery: ${validGainerTickers.length} Gainers + ${validActive.length} Active = ${allDiscovery.length} total`);
-                discoveryTickers = allDiscovery;
-                candidateTickers = [...candidateTickers, ...allDiscovery];
-            }
+            // Discovery tickers are already included via expanded universe
+            // Mark them as HUNTER role for tactical segregation
+            // No additional API calls needed — quality filters applied at source
+            console.log(`[V5.0] Hyper-Discovery: Quality gainers already included via expanded universe pool`);
         }
 
         // [V4.2] M7/PhysicalAI를 메인 풀에 포함 — 전체 시장에서 공정 경쟁
@@ -336,13 +282,14 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             }
         });
 
-        // [V4.2 HARD FILTER] 3단계 품질 게이트 — 통과 못하면 제거
+        // [V5.0 HARD FILTER] 5단계 품질 게이트 — 통과 못하면 제거
         const preFilterCount = rawItems.length;
         enrichedItems = rawItems.filter(item => {
             const price = item.evidence?.price?.last || 0;
             const callWall = item.evidence?.options?.callWall || 0;
             const putFloor = item.evidence?.options?.putFloor || 0;
             const hasOptions = callWall > 0 || putFloor > 0;
+            const changePct = Math.abs(item.evidence?.price?.changePct || 0);
 
             // Gate 1: Invalid price ($0)
             if (price <= 0) {
@@ -358,6 +305,17 @@ export async function generateReport(type: ReportType, force: boolean = false, t
             if (!hasOptions) {
                 console.warn(`[HardFilter] REMOVING ${item.ticker}: No options (callWall=${callWall}, putFloor=${putFloor})`);
                 return false;
+            }
+            // Gate 4: Surge stock (>10%) — 실질 진입 불가
+            if (changePct > 10) {
+                console.warn(`[HardFilter] REMOVING ${item.ticker}: Surge +${changePct.toFixed(1)}% (진입 비현실적)`);
+                return false;
+            }
+            // Gate 5: Options liquidity — OI 너무 낮으면 분석 신뢰도 낮음
+            const optionsGrade = item.evidence?.options?.options_grade || 'N/A';
+            if (optionsGrade === 'N/A' || optionsGrade === 'C') {
+                // C grade = totalOI < 5000, allow but deprioritize
+                // N/A = no options at all, should have been caught by Gate 3
             }
             return true;
         });

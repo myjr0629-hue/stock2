@@ -66,7 +66,7 @@ export async function GET(request: Request) {
             for (const record of todayRecords) {
                 try {
                     // Use Polygon day aggregate for today
-                    const polyUrl = `https://api.polygon.io/v2/aggs/ticker/${record.ticker}/range/1/day/${todayStr}/${todayStr}?apiKey=${process.env.FINNHUB_API_KEY}`;
+                    const polyUrl = `https://api.polygon.io/v2/aggs/ticker/${record.ticker}/range/1/day/${todayStr}/${todayStr}?apiKey=${process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY}`;
                     const res = await fetch(polyUrl);
                     const data = await res.json();
 

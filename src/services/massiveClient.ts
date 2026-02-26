@@ -697,6 +697,49 @@ export async function getTopVolumeStocks(topN: number = 200, budget?: RunBudget)
     }
 }
 
+// [V5.0] GET TOP QUALITY GAINERS (Full Snapshot Based)
+// Replaces fetchTopGainers() — filters from full snapshot instead of Polygon Gainers API
+// Ensures 20 quality stocks pass all gates instead of 20 unfiltered junk
+export async function getTopQualityGainers(topN: number = 20, budget?: RunBudget): Promise<string[]> {
+    try {
+        const fullSnapshot = await getFullMarketSnapshot(budget);
+
+        const { classifySymbol } = await import('./universePolicy');
+
+        const qualityGainers = fullSnapshot.filter(s => {
+            if (!s.ticker || !s.day?.c || !s.day?.v) return false;
+
+            const price = s.day.c;
+            const volume = s.day.v;
+            const changePct = s.todaysChangePerc || 0;
+
+            // Quality Gates
+            if (price < 15 || price > 1000) return false;     // $15~$1000
+            if (volume < 500000) return false;                 // 500K+ volume
+            if (changePct < 2 || changePct > 10) return false; // 2~10% (actionable range)
+            if (s.ticker.includes('.')) return false;           // No special tickers
+            if (s.ticker.length > 5) return false;             // No complex symbols
+
+            // ETF exclusion
+            const classification = classifySymbol(s.ticker);
+            if (classification.isETF) return false;
+
+            return true;
+        });
+
+        // Sort by changePct descending (best gainers first)
+        qualityGainers.sort((a, b) => (b.todaysChangePerc || 0) - (a.todaysChangePerc || 0));
+
+        const result = qualityGainers.slice(0, topN).map(s => s.ticker);
+        console.log(`[V5.0] Top ${topN} Quality Gainers (2~10%, $15+, 500K+ vol): ${result.slice(0, 10).join(', ')}${result.length > 10 ? '...' : ''}`);
+
+        return result;
+    } catch (e) {
+        console.warn(`[V5.0] getTopQualityGainers failed:`, e);
+        return [];
+    }
+}
+
 // [SI%] Short Interest API - 공매도 잔고 데이터
 // FINRA 보고 데이터, 격월 업데이트
 export interface ShortInterestData {

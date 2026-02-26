@@ -1090,31 +1090,43 @@ export function computePowerMeta(
     };
 }
 
-// === [V3.0] FINAL LIST SELECTION (10 Best + 2 Discovery) ===
-// [V2.0] Enhanced with Multi-Factor Ranking
+// === [V5.0] FINAL LIST SELECTION (Top 7 Clean Selection + Sector Diversity) ===
+// Removed Discovery wildcards (dead code) — UI only uses rank 1-7
 export function selectFinalList(allScoredItems: any[]): any[] {
-    // [V2.0] MULTI-FACTOR RANKING FORMULA
-    // finalRank = Alpha(50%) + Whale(20%) + Momentum(20%) + Options Quality(10%)
+    // [V5.0] ACTIONABILITY-FIRST RANKING FORMULA
+    // finalRank = Alpha(50%) + Whale(20%) + Momentum(15%) + Options Quality(10%) + Entry Zone(5%)
     const calculateFinalRank = (item: any): number => {
         const alphaScore = item.powerScore || item.alphaScore || 0;
         const whaleIndex = item.decisionSSOT?.whaleIndex || 0;
         const relVol = item.evidence?.flow?.relVol || 1;
         const changePct = Math.abs(item.evidence?.price?.changePct || 0);
+        const price = item.evidence?.price?.last || 0;
 
         // Options Quality: Based on coverage and completeness
         const optionsComplete = item.evidence?.options?.complete ? 1 : 0;
         const optionsCoverage = item.evidence?.options?.coveragePct || 0;
         const optionsQuality = (optionsComplete * 50) + (optionsCoverage / 2);
 
-        // Momentum: Combine RelVol and Change%
-        const momentumScore = Math.min(100, (relVol * 20) + (changePct * 5));
+        // [V5.0] Momentum: Surge Penalty applied
+        // Cap changePct at 8% for momentum contribution
+        const cappedChange = Math.min(changePct, 8);
+        const rawMomentum = (relVol * 15) + (cappedChange * 3);
+        // 10%+ surge penalty: already filtered by Hard Filter, but double-guard here
+        const surgePenalty = changePct > 10 ? (changePct - 10) * 3 : 0;
+        const momentumScore = Math.max(0, Math.min(80, rawMomentum - surgePenalty));
+
+        // [V5.0] Entry Zone Approach Bonus
+        // Stocks near their entry band get bonus — practically actionable
+        const entryUpper = item.decisionSSOT?.entryBand?.[1] || 0;
+        const approachBonus = (entryUpper > 0 && price > 0 && price <= entryUpper * 1.02) ? 10 : 0;
 
         // Final Rank (0-100 scale)
         const finalRank = (
-            (alphaScore * 0.5) +
-            (whaleIndex * 0.2) +
-            (momentumScore * 0.2) +
-            (optionsQuality * 0.1)
+            (alphaScore * 0.50) +
+            (whaleIndex * 0.20) +
+            (momentumScore * 0.15) +
+            (optionsQuality * 0.10) +
+            (approachBonus * 0.05)
         );
 
         return finalRank;
@@ -1129,60 +1141,39 @@ export function selectFinalList(allScoredItems: any[]): any[] {
     // 2. Sort by finalRank Descending
     const sorted = [...itemsWithRank].sort((a, b) => (b.finalRank || 0) - (a.finalRank || 0));
 
-    // 3. Take Top 10 (Standard Elite)
-    const top10 = sorted.slice(0, 10);
-    const top10Ids = new Set(top10.map(i => i.ticker));
+    // 3. [V5.0] Sector Diversity: Max 2 per sector in Top 7
+    const { getSectorForTicker } = require('./universePolicy');
+    const sectorCount: Record<string, number> = {};
+    const diversified: any[] = [];
 
-    // 3. Find Discovery Candidates (Wildcards) from remaining
-    // Criteria: High RVOL (> 2.5) OR High GEX (> 3M) OR Strong Momentum (> 4%)
-    const remaining = sorted.slice(10);
+    for (const item of sorted) {
+        if (diversified.length >= 7) break;
 
-    const candidates = remaining.filter(item => {
-        if (top10Ids.has(item.ticker)) return false;
+        const sector = getSectorForTicker(item.ticker) || 'UNKNOWN';
+        const currentCount = sectorCount[sector] || 0;
 
-        const rvol = item.evidence?.flow?.relVol || 0;
-        const gex = Math.abs(item.evidence?.options?.gex || 0);
-        const change = item.evidence?.price?.changePct || 0;
-
-        // Wildcard Logic
-        const isVolumeExplosion = rvol >= 2.5;
-        const isGammaNuke = gex >= 3000000; // 3M
-        const isMomentumRocket = change >= 4.0;
-
-        return isVolumeExplosion || isGammaNuke || isMomentumRocket;
-    });
-
-    // Sort candidates by RVOL (Explosiveness)
-    candidates.sort((a, b) => (b.evidence?.flow?.relVol || 0) - (a.evidence?.flow?.relVol || 0));
-
-    // 4. Fill Slots 11 & 12
-    const discoverySlots = [];
-    if (candidates.length > 0) discoverySlots.push(candidates[0]);
-    if (candidates.length > 1) discoverySlots.push(candidates[1]);
-
-    // 5. If not enough candidates, fill with next best score
-    let nextIdx = 10; // Start from 11th best by score
-    while (discoverySlots.length < 2 && nextIdx < sorted.length) {
-        const candidate = sorted[nextIdx];
-        if (!top10Ids.has(candidate.ticker) && !discoverySlots.find(d => d.ticker === candidate.ticker)) {
-            discoverySlots.push(candidate);
+        if (currentCount < 2) {
+            diversified.push(item);
+            sectorCount[sector] = currentCount + 1;
+        } else {
+            // Skip: sector already has 2 representatives
+            console.log(`[V5.0 SectorDiv] Skipping ${item.ticker} (${sector}): sector cap reached`);
         }
-        nextIdx++;
     }
 
-    // 6. Combine & Mark Discovery
-    const final12 = [...top10, ...discoverySlots];
-
-    // Mark Discovery items for UI
-    return final12.map((item, idx) => {
-        const isDiscovery = idx >= 10; // 11th and 12th
-        if (isDiscovery) {
-            // Append Discovery Tag if not already there
-            // We modify the reasonKR slightly to indicate it's a discovery slot if it was a low score entry
-            if (item.powerScore < 50) {
-                return { ...item, qualityReasonKR: item.qualityReasonKR + ' [🧪 Discovery Slot: 변동성 베팅]' };
+    // 4. If not enough after diversity filter, fill from remaining
+    if (diversified.length < 7) {
+        const selectedTickers = new Set(diversified.map(d => d.ticker));
+        for (const item of sorted) {
+            if (diversified.length >= 7) break;
+            if (!selectedTickers.has(item.ticker)) {
+                diversified.push(item);
+                selectedTickers.add(item.ticker);
             }
         }
-        return item;
-    });
+    }
+
+    console.log(`[V5.0] Final Selection: ${diversified.length} items (Sector-diversified Top 7)`);
+
+    return diversified;
 }
