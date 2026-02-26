@@ -5,7 +5,7 @@
 
 import { NextResponse } from 'next/server';
 
-const SECTORS = ['m7', 'physical_ai'];
+const SECTORS = ['m7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse'];
 
 export async function GET(request: Request) {
     // [Security] CRON_SECRET 검증

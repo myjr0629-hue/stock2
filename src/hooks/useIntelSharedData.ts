@@ -1,15 +1,18 @@
-// Intel Shared Data Hook - Centralized data fetching for M7 and Physical AI
+// Intel Shared Data Hook - Centralized data fetching for all sector reports
 // [PERF v2] Two-Phase Loading: fast API (prices ~1s) → full API (options/alpha ~15s)
 // Phase 1: Polygon batch snapshot → instant price display
-// Phase 2: Full /api/intel/m7 + /api/intel/physicalai → complete data with options
+// Phase 2: Full watchlist/batch → complete data with options
 // [FIXED] Keeps existing data during refresh, no page reset
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 
 // Ticker lists
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
 const PHYSICAL_AI_TICKERS = ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG'];
+const SILICON_CORE_TICKERS = ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'];
+const POWER_MATRIX_TICKERS = ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'];
+const BIO_PULSE_TICKERS = ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'];
 
 // Types for shared data
 export interface IntelQuote {
@@ -39,6 +42,9 @@ export interface IntelQuote {
 export interface IntelSharedData {
     m7: IntelQuote[];
     physicalAI: IntelQuote[];
+    siliconCore: IntelQuote[];
+    powerMatrix: IntelQuote[];
+    bioPulse: IntelQuote[];
     loading: boolean;
     refreshing: boolean;
     optionsLoading: boolean;
@@ -62,6 +68,9 @@ export function useIntelSharedData(
 ): IntelSharedData & { refresh: () => void } {
     const [m7Data, setM7Data] = useState<IntelQuote[]>(initialM7Data || []);
     const [physicalAIData, setPhysicalAIData] = useState<IntelQuote[]>(initialPAIData || []);
+    const [siliconCoreData, setSiliconCoreData] = useState<IntelQuote[]>([]);
+    const [powerMatrixData, setPowerMatrixData] = useState<IntelQuote[]>([]);
+    const [bioPulseData, setBioPulseData] = useState<IntelQuote[]>([]);
     const [loading, setLoading] = useState(!(initialM7Data?.length && initialPAIData?.length));
     const [refreshing, setRefreshing] = useState(false);
     const [optionsLoading, setOptionsLoading] = useState(true);
@@ -78,29 +87,30 @@ export function useIntelSharedData(
         isFastFetching.current = true;
 
         try {
-            const [m7Res, paiRes] = await Promise.all([
+            const [m7Res, paiRes, scRes, pmRes, bpRes] = await Promise.all([
                 safeFetch('/api/intel/fast?sector=m7'),
-                safeFetch('/api/intel/fast?sector=physical_ai')
+                safeFetch('/api/intel/fast?sector=physical_ai'),
+                safeFetch('/api/intel/fast?sector=silicon_core'),
+                safeFetch('/api/intel/fast?sector=power_matrix'),
+                safeFetch('/api/intel/fast?sector=bio_pulse'),
             ]);
 
-            if (m7Res?.data?.length > 0) {
-                setM7Data(prev => {
-                    // If we already have full data, merge: keep options from prev, update prices from fast
-                    if (hasFullData.current && prev.length > 0) {
-                        return mergeFastIntoFull(prev, m7Res.data);
-                    }
-                    return m7Res.data;
-                });
-            }
+            const mergeOrSet = (res: any, setter: React.Dispatch<React.SetStateAction<IntelQuote[]>>) => {
+                if (res?.data?.length > 0) {
+                    setter(prev => {
+                        if (hasFullData.current && prev.length > 0) {
+                            return mergeFastIntoFull(prev, res.data);
+                        }
+                        return res.data;
+                    });
+                }
+            };
 
-            if (paiRes?.data?.length > 0) {
-                setPhysicalAIData(prev => {
-                    if (hasFullData.current && prev.length > 0) {
-                        return mergeFastIntoFull(prev, paiRes.data);
-                    }
-                    return paiRes.data;
-                });
-            }
+            mergeOrSet(m7Res, setM7Data);
+            mergeOrSet(paiRes, setPhysicalAIData);
+            mergeOrSet(scRes, setSiliconCoreData);
+            mergeOrSet(pmRes, setPowerMatrixData);
+            mergeOrSet(bpRes, setBioPulseData);
 
             setFetchedAt(new Date().toISOString());
             setLoading(false);
@@ -121,19 +131,24 @@ export function useIntelSharedData(
         setOptionsLoading(true);
 
         try {
-            const [m7Batch, paiBatch] = await Promise.all([
+            const [m7Batch, paiBatch, scBatch, pmBatch, bpBatch] = await Promise.all([
                 safeFetch(`/api/watchlist/batch?tickers=${M7_TICKERS.join(',')}`),
-                safeFetch(`/api/watchlist/batch?tickers=${PHYSICAL_AI_TICKERS.join(',')}`)
+                safeFetch(`/api/watchlist/batch?tickers=${PHYSICAL_AI_TICKERS.join(',')}`),
+                safeFetch(`/api/watchlist/batch?tickers=${SILICON_CORE_TICKERS.join(',')}`),
+                safeFetch(`/api/watchlist/batch?tickers=${POWER_MATRIX_TICKERS.join(',')}`),
+                safeFetch(`/api/watchlist/batch?tickers=${BIO_PULSE_TICKERS.join(',')}`),
             ]);
 
             // Merge batch results into existing Phase 1 data
-            if (m7Batch?.results) {
-                setM7Data(prev => mergeWatchlistBatchIntoQuotes(prev, m7Batch.results));
-            }
+            const mergeIfPresent = (batch: any, setter: React.Dispatch<React.SetStateAction<IntelQuote[]>>) => {
+                if (batch?.results) setter(prev => mergeWatchlistBatchIntoQuotes(prev, batch.results));
+            };
 
-            if (paiBatch?.results) {
-                setPhysicalAIData(prev => mergeWatchlistBatchIntoQuotes(prev, paiBatch.results));
-            }
+            mergeIfPresent(m7Batch, setM7Data);
+            mergeIfPresent(paiBatch, setPhysicalAIData);
+            mergeIfPresent(scBatch, setSiliconCoreData);
+            mergeIfPresent(pmBatch, setPowerMatrixData);
+            mergeIfPresent(bpBatch, setBioPulseData);
 
             hasFullData.current = true;
             setOptionsLoading(false);
@@ -155,7 +170,7 @@ export function useIntelSharedData(
         isPriceFetching.current = true;
 
         try {
-            const allTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS].join(',');
+            const allTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS].join(',');
             const res = await safeFetch(`/api/live/quotes?symbols=${allTickers}`);
             if (!res?.data) return;
 
@@ -182,6 +197,9 @@ export function useIntelSharedData(
 
             setM7Data(updateFn);
             setPhysicalAIData(updateFn);
+            setSiliconCoreData(updateFn);
+            setPowerMatrixData(updateFn);
+            setBioPulseData(updateFn);
         } catch (e) {
             // silent fail — prices will refresh on next cycle
         } finally {
@@ -245,6 +263,9 @@ export function useIntelSharedData(
     return {
         m7: m7Data,
         physicalAI: physicalAIData,
+        siliconCore: siliconCoreData,
+        powerMatrix: powerMatrixData,
+        bioPulse: bioPulseData,
         loading,
         refreshing,
         optionsLoading,
@@ -281,7 +302,7 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
 }
 
 // Export ticker constants for components
-export { M7_TICKERS, PHYSICAL_AI_TICKERS };
+export { M7_TICKERS, PHYSICAL_AI_TICKERS, SILICON_CORE_TICKERS, POWER_MATRIX_TICKERS, BIO_PULSE_TICKERS };
 
 /**
  * Merge watchlist/batch results (alpha + options) into existing Phase 1 quotes.

@@ -17,6 +17,18 @@
             "schedule": "5 21 * * 1-5"
         },
         {
+            "path": "/api/cron/snapshot?sector=silicon_core",
+            "schedule": "10 21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/snapshot?sector=power_matrix",
+            "schedule": "15 21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/snapshot?sector=bio_pulse",
+            "schedule": "20 21 * * 1-5"
+        },
+        {
             "path": "/api/cron/warm-analysis",
             "schedule": "*/5 * * * 1-5"
         },

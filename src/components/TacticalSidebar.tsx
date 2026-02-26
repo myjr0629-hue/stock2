@@ -173,6 +173,33 @@ export function TacticalSidebar({ activeTab, onTabChange }: TacticalSidebarProps
                     accentColor="text-amber-500"
                 />
 
+                <SidebarItem
+                    icon={<Zap />}
+                    label="SILICON CORE"
+                    subLabel="AI INFRA & CHIPS"
+                    isActive={activeTab === 'SILICON_CORE'}
+                    onClick={() => onTabChange('SILICON_CORE')}
+                    accentColor="text-amber-400"
+                />
+
+                <SidebarItem
+                    icon={<Activity />}
+                    label="POWER MATRIX"
+                    subLabel="ENERGY & NUCLEAR"
+                    isActive={activeTab === 'POWER_MATRIX'}
+                    onClick={() => onTabChange('POWER_MATRIX')}
+                    accentColor="text-emerald-400"
+                />
+
+                <SidebarItem
+                    icon={<ShieldAlert />}
+                    label="BIO PULSE"
+                    subLabel="GLP-1 & BIOTECH"
+                    isActive={activeTab === 'BIO_PULSE'}
+                    onClick={() => onTabChange('BIO_PULSE')}
+                    accentColor="text-rose-400"
+                />
+
 
             </div>
 

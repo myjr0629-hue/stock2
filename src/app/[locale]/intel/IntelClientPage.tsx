@@ -23,6 +23,9 @@ import FinalBattleSection from '@/components/intel/FinalBattleSection';
 import { EarningsEvent, RecommendationTrend } from "@/services/finnhubClient";
 import { m7Config } from "@/configs/m7.config";
 import { physicalAIConfig } from "@/configs/physicalai.config";
+import { siliconCoreConfig } from "@/configs/siliconcore.config";
+import { powerMatrixConfig } from "@/configs/powermatrix.config";
+import { bioPulseConfig } from "@/configs/biopulse.config";
 import { useIntelSharedData } from "@/hooks/useIntelSharedData";
 
 // [PERF] Lazy-loaded heavy components — reduces initial JS bundle by ~150KB
@@ -1730,6 +1733,63 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, locale = '
                                 <TacticalReportDeck config={m7Config} />
                             </section>
 
+                        </div>
+                    )}
+
+                    {/* SILICON CORE CONTENT — AI Semiconductor & Infrastructure */}
+                    {activeTab === 'SILICON_CORE' && (
+                        <div className="space-y-4">
+                            <section>
+                                <SectorSessionGrid config={siliconCoreConfig} quotes={sectorData.siliconCore} />
+                            </section>
+                            <section>
+                                <SectorRankingRow config={siliconCoreConfig} quotes={sectorData.siliconCore} />
+                            </section>
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={siliconCoreConfig} />
+                                <SectorEarningsCalendar config={siliconCoreConfig} />
+                            </section>
+                            <section>
+                                <TacticalReportDeck config={siliconCoreConfig} />
+                            </section>
+                        </div>
+                    )}
+
+                    {/* POWER MATRIX CONTENT — Next-Gen Energy & Nuclear */}
+                    {activeTab === 'POWER_MATRIX' && (
+                        <div className="space-y-4">
+                            <section>
+                                <SectorSessionGrid config={powerMatrixConfig} quotes={sectorData.powerMatrix} />
+                            </section>
+                            <section>
+                                <SectorRankingRow config={powerMatrixConfig} quotes={sectorData.powerMatrix} />
+                            </section>
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={powerMatrixConfig} />
+                                <SectorEarningsCalendar config={powerMatrixConfig} />
+                            </section>
+                            <section>
+                                <TacticalReportDeck config={powerMatrixConfig} />
+                            </section>
+                        </div>
+                    )}
+
+                    {/* BIO PULSE CONTENT — GLP-1 & Biotech */}
+                    {activeTab === 'BIO_PULSE' && (
+                        <div className="space-y-4">
+                            <section>
+                                <SectorSessionGrid config={bioPulseConfig} quotes={sectorData.bioPulse} />
+                            </section>
+                            <section>
+                                <SectorRankingRow config={bioPulseConfig} quotes={sectorData.bioPulse} />
+                            </section>
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={bioPulseConfig} />
+                                <SectorEarningsCalendar config={bioPulseConfig} />
+                            </section>
+                            <section>
+                                <TacticalReportDeck config={bioPulseConfig} />
+                            </section>
                         </div>
                     )}
 
