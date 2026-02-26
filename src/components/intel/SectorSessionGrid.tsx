@@ -305,6 +305,64 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
         return { totalGex, avgPcr, gammaLong, gammaShort, callDom, gexInsight, pcrInsight };
     }, [sorted]);
 
+    // ── Sector Summary One-Liner ──
+    const sectorSummary = useMemo(() => {
+        if (sorted.length === 0) return { text: ss('summNoData'), color: 'rgb(148,163,184)' };
+        const up = sorted.filter(q => q.changePct > 0).length;
+        const down = sorted.filter(q => q.changePct < 0).length;
+        const total = sorted.length;
+        const leader = sorted[0]; // highest changePct (sorted desc)
+        const laggard = sorted[sorted.length - 1]; // lowest
+        const avgChange = (sorted.reduce((s, q) => s + q.changePct, 0) / total);
+
+        if (session === 'CLOSED') {
+            const closedColor = avgChange > 0 ? '#34d399' : avgChange < 0 ? '#fb7185' : 'rgb(148,163,184)';
+            return {
+                text: ss('summClosed', {
+                    avg: (avgChange >= 0 ? '+' : '') + avgChange.toFixed(1),
+                    leader: leader.ticker,
+                    pct: (leader.changePct >= 0 ? '+' : '') + leader.changePct.toFixed(1)
+                }),
+                color: closedColor
+            };
+        }
+
+        // Bullish: majority up and leader is positive
+        if (up > down && leader.changePct > 0) {
+            return {
+                text: ss('summBullish', {
+                    leader: leader.ticker,
+                    pct: leader.changePct.toFixed(1),
+                    up: String(up),
+                    total: String(total)
+                }),
+                color: '#34d399'
+            };
+        }
+        // Bearish: majority down
+        if (down > up && laggard.changePct < 0) {
+            return {
+                text: ss('summBearish', {
+                    leader: laggard.ticker,
+                    pct: laggard.changePct.toFixed(1),
+                    down: String(down),
+                    total: String(total)
+                }),
+                color: '#fb7185'
+            };
+        }
+        // Mixed
+        return {
+            text: ss('summMixed', {
+                leader: leader.ticker,
+                lpct: '+' + leader.changePct.toFixed(1),
+                laggard: laggard.ticker,
+                dpct: laggard.changePct.toFixed(1)
+            }),
+            color: 'rgba(255,255,255,0.6)'
+        };
+    }, [sorted, session, ss]);
+
     if (loading) {
         return (
             <div className="w-full bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-8 flex items-center justify-center min-h-[300px]">
@@ -321,13 +379,18 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
 
             {/* ── Header ── */}
             <div className="flex items-center justify-between mb-5 relative z-10">
-                <h3 className="text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2 font-jakarta"
+                <h3 className="text-sm font-bold uppercase tracking-[0.2em] flex items-center gap-2 font-jakarta flex-shrink-0"
                     style={{ color: accentColor }}>
                     <Activity className="w-4 h-4 animate-pulse" style={{ color: accentColor }} />
                     {config.icon} {config.shortName} SESSION GRID
                 </h3>
-                <div className="flex items-center gap-3">
-                    <span className="text-[11px] text-white/60 font-medium tracking-wider hidden md:inline px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
+                {/* Sector Status One-Liner (fills gap) */}
+                <span className="flex-1 text-center text-[13px] font-medium font-jakarta px-4 truncate hidden md:inline"
+                    style={{ color: sectorSummary.color }}>
+                    {sectorSummary.text}
+                </span>
+                <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-[11px] text-white/60 font-medium tracking-wider hidden lg:inline px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
                         {DISCLAIMER[locale] || DISCLAIMER.en}
                     </span>
                     {refreshing && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: `${accentColor}99` }} />}

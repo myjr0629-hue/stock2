@@ -1967,7 +1967,7 @@
         "overbought": "Overbought",
         "oversold": "Oversold",
         "rsiNeutral": "Neutral",
-        "todayPicks": "Today's Top 12 Picks",
+        "todayPicks": "Today's Top 10 Picks",
         "convDescStrongBuy": "Strong Buy Signal",
         "convDescBuy": "Buy Bias",
         "convDescSell": "Sell Signal",
@@ -2561,7 +2561,12 @@
         "oversold": "Oversold",
         "overbought": "Overbought",
         "volumeSurge": "Volume Surge",
-        "volumeWeak": "Low Volume"
+        "volumeWeak": "Low Volume",
+        "summBullish": "Bullish — {leader} +{pct}% leading, {up}/{total} up · positive momentum",
+        "summBearish": "Bearish — {leader} {pct}% leading decline, {down}/{total} down · sell pressure",
+        "summMixed": "Mixed — {leader} {lpct}% strong vs {laggard} {dpct}% weak, direction unclear",
+        "summClosed": "Closed — {leader} {pct}% led, avg move {avg}%",
+        "summNoData": "Collecting data..."
     },
     "sectorRanking": {
         "moneyFlowSub": "Money Flow Ranking",

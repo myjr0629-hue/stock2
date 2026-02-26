@@ -1967,7 +1967,7 @@
         "overbought": "과매수",
         "oversold": "과매도",
         "rsiNeutral": "중립",
-        "todayPicks": "오늘의 진입 종목 12선",
+        "todayPicks": "오늘의 진입 종목 10선",
         "convDescStrongBuy": "강한 매수 시그널",
         "convDescBuy": "매수 우위",
         "convDescSell": "매도 시그널",
@@ -2561,7 +2561,12 @@
         "oversold": "과매도",
         "overbought": "과매수",
         "volumeSurge": "거래량 급증",
-        "volumeWeak": "거래량 부진"
+        "volumeWeak": "거래량 부진",
+        "summBullish": "강세 — {leader} +{pct}% 주도, {up}/{total}종 상승 · 평균 변동 양호",
+        "summBearish": "약세 — {leader} {pct}% 주도 하락, {down}/{total}종 하락 · 매도 압력 우세",
+        "summMixed": "혼조 — {leader} {lpct}% 강세 vs {laggard} {dpct}% 약세, 방향 탐색 중",
+        "summClosed": "장 마감 — {leader} {pct}% 주도, 평균 변동 {avg}%",
+        "summNoData": "데이터 수집 중..."
     },
     "sectorRanking": {
         "moneyFlowSub": "자금력 랭킹",

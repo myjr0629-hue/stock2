@@ -1967,7 +1967,7 @@
         "overbought": "買われすぎ",
         "oversold": "売られすぎ",
         "rsiNeutral": "中立",
-        "todayPicks": "本日の注目12銘柄",
+        "todayPicks": "本日の注目10銘柄",
         "convDescStrongBuy": "強い買いシグナル",
         "convDescBuy": "買い優位",
         "convDescSell": "売りシグナル",
@@ -2561,7 +2561,12 @@
         "oversold": "売られすぎ",
         "overbought": "買われすぎ",
         "volumeSurge": "出来高急増",
-        "volumeWeak": "出来高低迷"
+        "volumeWeak": "出来高低迷",
+        "summBullish": "強気 — {leader} +{pct}%が主導, {up}/{total}銘柄上昇 · モメンタム良好",
+        "summBearish": "弱気 — {leader} {pct}%が下落主導, {down}/{total}銘柄下落 · 売り圧力",
+        "summMixed": "まちまち — {leader} {lpct}%堅調 vs {laggard} {dpct}%軟調, 方向模索中",
+        "summClosed": "取引終了 — {leader} {pct}%が主導, 平均変動 {avg}%",
+        "summNoData": "データ収集中..."
     },
     "sectorRanking": {
         "moneyFlowSub": "資金力ランキング",

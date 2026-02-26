@@ -41,7 +41,7 @@ function AlertDot({ alert }: { alert: AlertLevel }) {
     };
     return (
         <span className={cn(
-            "absolute top-3 right-3 w-2 h-2 rounded-full animate-pulse shadow-[0_0_6px]",
+            "absolute top-1/2 -translate-y-1/2 right-4 w-2 h-2 rounded-full animate-pulse shadow-[0_0_6px]",
             colors[alert]
         )} />
     );
@@ -200,12 +200,12 @@ export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: Tactic
 
                 {/* ═══ SECTOR INTEL GROUP ═══ */}
                 <div className="mt-3 mb-1 px-4 flex items-center gap-2">
-                    <div className="h-px flex-1 bg-white/[0.06]" />
-                    <span className="text-[10px] font-bold tracking-[0.2em] text-slate-500 uppercase whitespace-nowrap">Sector Intel</span>
-                    <div className="h-px flex-1 bg-white/[0.06]" />
+                    <div className="h-px flex-1 bg-white/[0.10]" />
+                    <span className="text-[13px] font-extrabold tracking-[0.15em] text-slate-400 uppercase whitespace-nowrap">Sector Intel</span>
+                    <div className="h-px flex-1 bg-white/[0.10]" />
                 </div>
 
-                <div className="relative bg-white/[0.015] border-l border-indigo-500/10 ml-1 rounded-r-lg">
+                <div className="relative bg-white/[0.05] border-l-[1.5px] border-indigo-500/25">
                     <SidebarItem icon={<Orbit />} label="M7 REPORT" subLabel="DAILY ANALYSIS" isActive={activeTab === 'M7'} onClick={() => onTabChange('M7')} accentColor="text-indigo-400" alert={alerts.m7} />
                     <SidebarItem icon={<Bot />} label="PHYSICAL AI" subLabel="ROBOTICS & EMBODIED" isActive={activeTab === 'PHYSICAL_AI'} onClick={() => onTabChange('PHYSICAL_AI')} accentColor="text-amber-500" alert={alerts.physicalAI} />
                     <SidebarItem icon={<Zap />} label="SILICON CORE" subLabel="AI INFRA & CHIPS" isActive={activeTab === 'SILICON_CORE'} onClick={() => onTabChange('SILICON_CORE')} accentColor="text-amber-400" alert={alerts.siliconCore} />
