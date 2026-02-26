@@ -27,9 +27,12 @@ export const dynamic = 'force-dynamic';
 export default async function IntelPage({ params }: PageProps) {
     const { locale } = await params;
 
-    const [m7Data, paiData] = await Promise.all([
+    const [m7Data, paiData, scData, pmData, bpData] = await Promise.all([
         fetchInitialSectorData('m7'),
-        fetchInitialSectorData('physical_ai')
+        fetchInitialSectorData('physical_ai'),
+        fetchInitialSectorData('silicon_core'),
+        fetchInitialSectorData('power_matrix'),
+        fetchInitialSectorData('bio_pulse'),
     ]);
 
     return (
@@ -47,6 +50,9 @@ export default async function IntelPage({ params }: PageProps) {
                         initialReport={null}
                         initialM7Data={m7Data}
                         initialPAIData={paiData}
+                        initialSCData={scData}
+                        initialPMData={pmData}
+                        initialBPData={bpData}
                         locale={locale}
                     />
                 </Suspense>

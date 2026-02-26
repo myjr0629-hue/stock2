@@ -17,18 +17,21 @@ import { getFromCache } from '@/services/redisClient';
 // ── Ticker Lists ──
 const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
 const PHYSICAL_AI_TICKERS = ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG'];
+const SILICON_CORE_TICKERS = ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'];
+const POWER_MATRIX_TICKERS = ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'];
+const BIO_PULSE_TICKERS = ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'];
 
 // Popular tickers that are frequently viewed (top dashboard/watchlist selections)
 const POPULAR_TICKERS = [
-    'SPY', 'QQQ', 'IWM', 'AMD', 'INTC', 'SOFI', 'COIN', 'MSTR',
-    'SMCI', 'ARM', 'AVGO', 'CRM', 'SNOW', 'NET', 'UBER', 'SQ',
+    'SPY', 'QQQ', 'IWM', 'INTC', 'SOFI', 'COIN', 'MSTR',
+    'SMCI', 'CRM', 'SNOW', 'NET', 'UBER', 'SQ',
     'SHOP', 'SE', 'BABA', 'JD', 'NIO', 'LI', 'RIVN', 'LCID',
     'BA', 'DIS', 'NFLX', 'PYPL', 'V', 'MA', 'JPM', 'GS',
-    'XOM', 'CVX', 'LLY', 'UNH', 'WDC', 'MCD', 'CEG',
+    'XOM', 'CVX', 'UNH', 'WDC', 'MCD',
 ];
 
-// Deduplicated unified list
-const ALL_TICKERS = [...new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...POPULAR_TICKERS])];
+// Deduplicated unified list (all 5 sectors + popular)
+const ALL_TICKERS = [...new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS, ...POPULAR_TICKERS])];
 
 // Concurrency control — max 5 tickers in parallel to avoid API rate limits
 const CONCURRENCY = 5;

@@ -64,13 +64,16 @@ async function safeFetch(url: string): Promise<any> {
 
 export function useIntelSharedData(
     initialM7Data?: IntelQuote[],
-    initialPAIData?: IntelQuote[]
+    initialPAIData?: IntelQuote[],
+    initialSCData?: IntelQuote[],
+    initialPMData?: IntelQuote[],
+    initialBPData?: IntelQuote[]
 ): IntelSharedData & { refresh: () => void } {
     const [m7Data, setM7Data] = useState<IntelQuote[]>(initialM7Data || []);
     const [physicalAIData, setPhysicalAIData] = useState<IntelQuote[]>(initialPAIData || []);
-    const [siliconCoreData, setSiliconCoreData] = useState<IntelQuote[]>([]);
-    const [powerMatrixData, setPowerMatrixData] = useState<IntelQuote[]>([]);
-    const [bioPulseData, setBioPulseData] = useState<IntelQuote[]>([]);
+    const [siliconCoreData, setSiliconCoreData] = useState<IntelQuote[]>(initialSCData || []);
+    const [powerMatrixData, setPowerMatrixData] = useState<IntelQuote[]>(initialPMData || []);
+    const [bioPulseData, setBioPulseData] = useState<IntelQuote[]>(initialBPData || []);
     const [loading, setLoading] = useState(!(initialM7Data?.length && initialPAIData?.length));
     const [refreshing, setRefreshing] = useState(false);
     const [optionsLoading, setOptionsLoading] = useState(true);
