@@ -133,14 +133,10 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
 
                     // Display price: extended if available, else regular
                     const displayPrice = hasExtended ? d.extendedPrice : d.price;
-                    // Total change from prevClose to current display price
-                    const totalChangePct = hasExtended && prevClose > 0
-                        ? ((d.extendedPrice - prevClose) / prevClose) * 100
-                        : regChangePct;
 
                     priceMap[ticker] = {
                         price: displayPrice,
-                        changePct: totalChangePct,
+                        changePct: regChangePct,
                         regChangePct,
                         extChangePct: hasExtended ? (d.extendedChangePercent || 0) : undefined,
                         extLabel: hasExtended ? (d.extendedLabel || undefined) : undefined,
@@ -155,28 +151,13 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             if (apiData?.alphaSnapshot && apiData?.realtime) {
                 return {
                     ...item,
-                    // Use 10s fast price if available, otherwise 30s batch
+                    // Price: fast poll (2s) for real-time feel, batch (30s) fallback
                     currentPrice: fastPrice?.price ?? apiData.realtime.price ?? 0,
-                    changePct: fastPrice?.changePct ?? apiData.realtime.changePct ?? 0,
-                    // [FIX] regChangePct = 직전 정규장 등락률 (PRE/POST에서 sparkline으로 계산)
-                    regChangePct: (() => {
-                        // 1. Fast price provides regChangePct (from quotes API)
-                        const fpReg = fastPrice?.regChangePct;
-                        if (fpReg !== undefined && fpReg !== 0) return fpReg;
-                        // 2. Batch API provides changePct
-                        const batchReg = apiData.realtime.changePct;
-                        if (batchReg !== undefined && batchReg !== 0) return batchReg;
-                        // 3. Fallback: calculate from sparkline (last 2 closes = yesterday vs day before)
-                        const sparkline = apiData.realtime.sparkline;
-                        if (sparkline && sparkline.length >= 2) {
-                            const lastClose = sparkline[sparkline.length - 1];
-                            const prevClose2 = sparkline[sparkline.length - 2];
-                            if (prevClose2 > 0 && lastClose > 0) {
-                                return ((lastClose - prevClose2) / prevClose2) * 100;
-                            }
-                        }
-                        return 0;
-                    })(),
+                    // changePct: ALWAYS prefer batch API (correct regular session %) over fast poll
+                    // Fast poll's changePct from Polygon todaysChangePerc is combined (prevClose→preMarket) during PRE/POST
+                    changePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,
+                    // regChangePct: batch API is the reliable source (correct regular session %)
+                    regChangePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,
                     extChangePct: fastPrice?.extChangePct ?? apiData.realtime.extendedChangePct ?? undefined,
                     extLabel: fastPrice?.extLabel ?? (apiData.realtime.extendedLabel as 'PRE' | 'POST' | undefined),
                     session: apiData.realtime.session,

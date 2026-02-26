@@ -31,6 +31,8 @@ export const YAHOO_CACHE_KEYS = {
     TLT: 'yahoo:tlt',
     OIL: 'yahoo:oil',
     RUT: 'yahoo:rut',
+    USDKRW: 'yahoo:usdkrw',
+    USDJPY: 'yahoo:usdjpy',
     LAST_FETCH: 'yahoo:last_fetch'
 };
 

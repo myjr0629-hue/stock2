@@ -6,10 +6,27 @@ import { useTranslations, useLocale } from 'next-intl';
 import {
     TrendingUp, TrendingDown, Plus, RefreshCw, Briefcase, ChevronRight,
     Trash2, ArrowUpRight, ArrowDownRight, Wallet, PiggyBank, Activity,
-    Zap, Target, Edit3, Star, Search, X, Loader2, Clock, LayoutDashboard
+    Zap, Target, Edit3, Star, Search, X, Loader2, Clock, LayoutDashboard,
+    ArrowRightLeft
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
+import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
+import useSWR from 'swr';
+
+// Exchange rate fetcher
+const fxFetcher = (url: string) => fetch(url).then(r => r.json());
+
+function useExchangeRate(locale: string) {
+    const { data } = useSWR('/api/exchange-rates', fxFetcher, {
+        refreshInterval: 60_000,
+        dedupingInterval: 30_000,
+    });
+    const rate = locale === 'ko' ? data?.usdkrw : locale === 'ja' ? data?.usdjpy : null;
+    const symbol = locale === 'ko' ? '₩' : locale === 'ja' ? '¥' : '$';
+    const label = locale === 'ko' ? 'KRW' : locale === 'ja' ? 'JPY' : 'USD';
+    return { rate, symbol, label, changePct: locale === 'ko' ? data?.usdkrwChange : locale === 'ja' ? data?.usdjpyChange : null };
+}
 
 export default function PortfolioClientPage({
     initialHoldings,
@@ -24,6 +41,8 @@ export default function PortfolioClientPage({
     const t = useTranslations('portfolio');
     const tCommon = useTranslations('common');
     const locale = useLocale();
+    const [currencyMode, setCurrencyMode] = useState<'usd' | 'local'>('usd');
+    const fx = useExchangeRate(locale);
 
     // SWR handles dual-interval polling automatically:
     // - Price/P&L: every 5 seconds (lightweight, price-only API)
@@ -42,8 +61,9 @@ export default function PortfolioClientPage({
                 <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                         <Briefcase className="w-4 h-4 text-emerald-400/80" />
-                        <span className="text-sm font-bold tracking-wide text-white/90">PORTFOLIO</span>
-                        <span className="text-[8px] font-medium text-emerald-400/60 tracking-widest bg-emerald-400/[0.08] px-1.5 py-0.5 rounded">PREMIUM</span>
+                        <span className="text-lg font-black tracking-wider text-white">PORTFOLIO</span>
+                        <span className="text-[12px] font-bold text-emerald-400/70 tracking-widest bg-emerald-400/[0.08] px-2 py-0.5 rounded">PREMIUM</span>
+                        <ExchangeRateBadge locale={locale} />
                     </div>
                     <div className="flex items-center gap-3">
                         <button
@@ -69,7 +89,7 @@ export default function PortfolioClientPage({
 
             <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
                 {/* Stats Dashboard */}
-                <PortfolioStatsBar summary={summary} portfolioScore={portfolioScore} holdingsCount={holdings.length} />
+                <PortfolioStatsBar summary={summary} portfolioScore={portfolioScore} holdingsCount={holdings.length} locale={locale} />
 
                 {/* Premium Holdings Table - Glassmorphism */}
                 {loading ? (
@@ -93,7 +113,7 @@ export default function PortfolioClientPage({
                             <Briefcase className="w-10 h-10 text-emerald-400/40" />
                         </div>
                         <p className="text-slate-300 font-bold text-lg mb-1">{t('noHoldings')}</p>
-                        <p className="text-slate-500 text-sm mb-6">{t('startPortfolio')}</p>
+                        <p className="text-slate-300 text-sm mb-6">{t('startPortfolio')}</p>
                         <button onClick={() => setShowAddModal(true)} className="px-6 py-2.5 bg-gradient-to-r from-emerald-500/20 to-cyan-500/15 border border-emerald-500/30 text-emerald-400 text-sm font-bold rounded-xl hover:from-emerald-500/30 hover:to-cyan-500/20 transition-all">
                             {t('addFirstHolding')}
                         </button>
@@ -103,13 +123,28 @@ export default function PortfolioClientPage({
                         {/* Column Headers (glassmorphism bar — same as watchlist) */}
                         <div className="flex items-center rounded-lg border border-white/[0.04] bg-white/[0.03] backdrop-blur-sm">
                             <div className="w-11 flex-shrink-0" />
-                            <div className={`flex-1 ${PORTFOLIO_GRID} px-3 py-2.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider`}>
+                            <div className={`flex-1 ${PORTFOLIO_GRID} px-3 py-2.5 text-[13px] font-bold text-slate-300 uppercase tracking-wider`}>
                                 <div className="pl-1">{t('ticker')}</div>
                                 <div className="text-center">Chart</div>
                                 <div className="text-center">{t('avgPrice') || '매입가'}</div>
                                 <div className="text-center">{t('currentPrice')}</div>
                                 <div className="text-center">{t('quantity')}</div>
-                                <div className="text-center">{t('profitLoss')}</div>
+                                <div className="flex items-center justify-center gap-1">
+                                    {t('profitLoss')}
+                                    {fx.rate && locale !== 'en' && (
+                                        <button onClick={() => setCurrencyMode(m => m === 'usd' ? 'local' : 'usd')} className={`p-0.5 rounded transition-colors ${currencyMode === 'local' ? 'text-cyan-400' : 'text-emerald-400/60 hover:text-emerald-400'}`} title={locale === 'ko' ? `${fx.label} 전환` : locale === 'ja' ? `${fx.label} 切替` : `${fx.label} switch`}>
+                                            <ArrowRightLeft className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="flex items-center justify-center gap-1">
+                                    Today
+                                    {fx.rate && locale !== 'en' && (
+                                        <button onClick={() => setCurrencyMode(m => m === 'usd' ? 'local' : 'usd')} className={`p-0.5 rounded transition-colors ${currencyMode === 'local' ? 'text-cyan-400' : 'text-emerald-400/60 hover:text-emerald-400'}`} title={locale === 'ko' ? `${fx.label} 전환` : locale === 'ja' ? `${fx.label} 切替` : `${fx.label} switch`}>
+                                            <ArrowRightLeft className="w-3 h-3" />
+                                        </button>
+                                    )}
+                                </div>
                                 <div className="text-center">{t('weight')}</div>
                                 <div className="text-center">{t('daysHeld')}</div>
                                 <div className="text-center">Alpha</div>
@@ -120,7 +155,7 @@ export default function PortfolioClientPage({
                         </div>
                         {/* Cards */}
                         {holdings.map((holding, i) => (
-                            <PremiumHoldingRow key={holding.ticker} holding={holding} onRemove={() => removeHolding(holding.ticker)} onEdit={() => setEditingHolding(holding)} totalValue={summary.totalValue} index={i} />
+                            <PremiumHoldingRow key={holding.ticker} holding={holding} onRemove={() => removeHolding(holding.ticker)} onEdit={() => setEditingHolding(holding)} totalValue={summary.totalValue} index={i} currencyMode={currencyMode} fxRate={fx.rate} fxSymbol={fx.symbol} />
                         ))}
                     </div>
                 )}
@@ -149,7 +184,7 @@ export default function PortfolioClientPage({
 
 // === PORTFOLIO STATS BAR ===
 
-function PortfolioStatsBar({ summary, portfolioScore, holdingsCount }: { summary: { totalValue: number; totalCost: number; totalGainLoss: number; totalGainLossPct: number; holdingsCount: number }; portfolioScore: number; holdingsCount: number }) {
+function PortfolioStatsBar({ summary, portfolioScore, holdingsCount, locale }: { summary: { totalValue: number; totalCost: number; totalGainLoss: number; totalGainLossPct: number; holdingsCount: number }; portfolioScore: number; holdingsCount: number; locale: string }) {
     const t = useTranslations('portfolio');
     const [now, setNow] = useState(new Date());
     useEffect(() => { const tm = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(tm); }, []);
@@ -184,8 +219,9 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount }: { summary
             {/* Portfolio Value */}
             <div className="group relative overflow-hidden rounded-xl border border-emerald-500/[0.18] bg-gradient-to-br from-emerald-500/[0.12] via-white/[0.06] to-emerald-500/[0.04] backdrop-blur-xl p-4 hover:border-emerald-500/[0.35] transition-all duration-300" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(52,211,153,0.08)' }}>
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />
-                <div className="flex items-center gap-2 mb-2"><Wallet className="w-4 h-4 text-emerald-400" style={{ filter: 'drop-shadow(0 0 4px rgba(52,211,153,0.5))' }} /><span className="text-[10px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('totalEvaluation')}</span></div>
+                <div className="flex items-center gap-2 mb-2"><Wallet className="w-4 h-4 text-emerald-400" style={{ filter: 'drop-shadow(0 0 4px rgba(52,211,153,0.5))' }} /><span className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('totalEvaluation')}</span></div>
                 <div className="text-2xl font-black text-white tabular-nums tracking-tight" style={{ textShadow: '0 0 30px rgba(255,255,255,0.15)' }}>${summary.totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <CurrencySubText usd={summary.totalValue} locale={locale} />
                 <svg className="absolute right-0 top-0 w-32 h-full opacity-[0.1]" viewBox="0 0 100 60" preserveAspectRatio="none"><polyline points="0,30 15,30 20,10 25,50 30,20 35,40 40,30 55,30 60,15 65,45 70,25 75,35 80,30 100,30" fill="none" stroke="#34d399" strokeWidth="2" /></svg>
                 <div className="absolute top-0 right-0 w-28 h-28 bg-gradient-to-bl from-emerald-400/[0.15] to-transparent rounded-bl-[3rem]" />
                 <div className="absolute -bottom-4 -left-4 w-20 h-20 bg-emerald-500/[0.06] rounded-full blur-xl" />
@@ -194,8 +230,9 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount }: { summary
             {/* Total Cost */}
             <div className="group relative overflow-hidden rounded-xl border border-cyan-500/[0.18] bg-gradient-to-br from-cyan-500/[0.1] via-white/[0.06] to-cyan-500/[0.04] backdrop-blur-xl p-4 hover:border-cyan-500/[0.35] transition-all duration-300" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(34,211,238,0.07)' }}>
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
-                <div className="flex items-center gap-2 mb-2"><PiggyBank className="w-4 h-4 text-cyan-400" style={{ filter: 'drop-shadow(0 0 4px rgba(34,211,238,0.5))' }} /><span className="text-[10px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('totalInvestment')}</span></div>
+                <div className="flex items-center gap-2 mb-2"><PiggyBank className="w-4 h-4 text-cyan-400" style={{ filter: 'drop-shadow(0 0 4px rgba(34,211,238,0.5))' }} /><span className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('totalInvestment')}</span></div>
                 <div className="text-2xl font-black text-white tabular-nums tracking-tight" style={{ textShadow: '0 0 30px rgba(255,255,255,0.15)' }}>${summary.totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <CurrencySubText usd={summary.totalCost} locale={locale} />
                 <svg className="absolute right-1 top-1 w-20 h-20 opacity-[0.08]" viewBox="0 0 60 60"><rect x="10" y="25" width="40" height="25" rx="4" fill="none" stroke="#22d3ee" strokeWidth="1.5" /><rect x="18" y="18" width="24" height="10" rx="3" fill="none" stroke="#22d3ee" strokeWidth="1" /></svg>
                 <div className="absolute -bottom-4 -right-4 w-20 h-20 bg-cyan-500/[0.06] rounded-full blur-xl" />
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.04] bg-gradient-to-r from-transparent via-cyan-400 to-transparent transition-opacity duration-500" style={{ animation: 'shimmer 3s ease-in-out infinite' }} />
@@ -203,11 +240,13 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount }: { summary
             {/* P&L — Clean Modern */}
             <div className={`group relative overflow-hidden rounded-xl border ${isPos ? 'border-emerald-500/[0.25]' : 'border-rose-500/[0.25]'} bg-gradient-to-br ${isPos ? 'from-emerald-500/[0.12] via-white/[0.07] to-emerald-500/[0.04]' : 'from-rose-500/[0.12] via-white/[0.07] to-rose-500/[0.04]'} backdrop-blur-xl p-4 hover:border-white/[0.35] transition-all duration-300`} style={{ boxShadow: isPos ? '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(52,211,153,0.12)' : '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(251,113,133,0.12)' }}>
                 <div className={`absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent ${isPos ? 'via-emerald-400/50' : 'via-rose-400/50'} to-transparent`} />
-                <div className="flex items-center gap-2 mb-2"><Activity className={`w-4 h-4 ${isPos ? 'text-emerald-400' : 'text-rose-400'}`} style={{ filter: isPos ? 'drop-shadow(0 0 4px rgba(52,211,153,0.5))' : 'drop-shadow(0 0 4px rgba(251,113,133,0.5))' }} /><span className="text-[10px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('returnRate')}</span></div>
+                <div className="flex items-center gap-2 mb-2"><Activity className={`w-4 h-4 ${isPos ? 'text-emerald-400' : 'text-rose-400'}`} style={{ filter: isPos ? 'drop-shadow(0 0 4px rgba(52,211,153,0.5))' : 'drop-shadow(0 0 4px rgba(251,113,133,0.5))' }} /><span className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('returnRate')}</span></div>
                 <div className="flex items-baseline gap-2">
                     <div className={`text-2xl font-black tabular-nums tracking-tight ${isPos ? 'text-emerald-400' : 'text-rose-400'}`} style={{ textShadow: isPos ? '0 0 24px rgba(52,211,153,0.4)' : '0 0 24px rgba(251,113,133,0.4)' }}>{isPos ? '+' : ''}{summary.totalGainLossPct.toFixed(2)}%</div>
-                    <div className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] tabular-nums font-black ${isPos ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20' : 'bg-rose-500/15 text-rose-300 border border-rose-500/20'}`}>{isPos ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}${Math.abs(summary.totalGainLoss).toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
+                    <div className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[12px] tabular-nums font-black ${isPos ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/20' : 'bg-rose-500/15 text-rose-300 border border-rose-500/20'}`}>{isPos ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}${Math.abs(summary.totalGainLoss).toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
                 </div>
+                <CurrencySubText usd={summary.totalGainLoss} locale={locale} showSign />
+
                 <div className="mt-1.5 w-full h-1 rounded-full bg-slate-800/60 overflow-hidden">
                     <div className={`h-full rounded-full transition-all duration-1000 ease-out ${isPos ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-rose-500 to-rose-400'}`} style={{ width: `${Math.min(Math.abs(summary.totalGainLossPct) * 2, 100)}%`, boxShadow: isPos ? '0 0 10px rgba(52,211,153,0.5)' : '0 0 10px rgba(251,113,133,0.5)' }} />
                 </div>
@@ -216,13 +255,13 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount }: { summary
             {/* Portfolio Score */}
             <div className="group relative overflow-hidden rounded-xl border border-indigo-500/[0.18] bg-gradient-to-br from-indigo-500/[0.1] via-white/[0.06] to-indigo-500/[0.04] backdrop-blur-xl p-4 hover:border-indigo-500/[0.35] transition-all duration-300" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(129,140,248,0.08)' }}>
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-indigo-400/50 to-transparent" />
-                <div className="flex items-center gap-2 mb-2"><Target className="w-4 h-4 text-indigo-400" style={{ filter: 'drop-shadow(0 0 4px rgba(129,140,248,0.5))' }} /><span className="text-[10px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('portfolioScore')}</span></div>
+                <div className="flex items-center gap-2 mb-2"><Target className="w-4 h-4 text-indigo-400" style={{ filter: 'drop-shadow(0 0 4px rgba(129,140,248,0.5))' }} /><span className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('portfolioScore')}</span></div>
                 <div className="flex items-center gap-3">
                     <div className="relative w-11 h-11 flex-shrink-0">
                         <svg className="w-11 h-11 -rotate-90" style={{ filter: `drop-shadow(0 0 8px ${grade === 'A' ? 'rgba(52,211,153,0.4)' : grade === 'B' ? 'rgba(34,211,238,0.4)' : grade === 'C' ? 'rgba(251,191,36,0.4)' : 'rgba(251,113,133,0.4)'})` }}><circle cx="22" cy="22" r="15" fill="none" stroke="#1e293b" strokeWidth="3" /><circle cx="22" cy="22" r="15" fill="none" className={gradeColor} strokeWidth="3" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 1s ease-out' }} /></svg>
                         <div className={`absolute inset-0 flex items-center justify-center text-xs font-black ${gradeColor}`}>{grade}</div>
                     </div>
-                    <div><div className="text-xl font-black text-white tabular-nums" style={{ textShadow: '0 0 20px rgba(255,255,255,0.12)' }}>{portfolioScore}</div><div className="text-[10px] text-slate-400">{holdingsCount} {t('avgOfHoldings')}</div></div>
+                    <div><div className="text-xl font-black text-white tabular-nums" style={{ textShadow: '0 0 20px rgba(255,255,255,0.12)' }}>{portfolioScore}</div><div className="text-[12px] text-slate-300">{holdingsCount} {t('avgOfHoldings')}</div></div>
                 </div>
                 <svg className="absolute right-0 top-0 w-28 h-full opacity-[0.08]" viewBox="0 0 80 80"><circle cx="60" cy="40" r="12" fill="none" stroke="#818cf8" strokeWidth="1" /><circle cx="60" cy="40" r="22" fill="none" stroke="#818cf8" strokeWidth="0.8" /><circle cx="60" cy="40" r="32" fill="none" stroke="#818cf8" strokeWidth="0.5" /></svg>
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.03] bg-gradient-to-r from-transparent via-indigo-400 to-transparent transition-opacity duration-500" style={{ animation: 'shimmer 3s ease-in-out infinite' }} />
@@ -234,11 +273,11 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount }: { summary
                     <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${sc === 'emerald' ? 'bg-emerald-400 animate-pulse' : sc === 'cyan' ? 'bg-cyan-400 animate-pulse' : sc === 'amber' ? 'bg-amber-400 animate-pulse' : 'bg-slate-600'}`} style={{ boxShadow: sc === 'emerald' ? '0 0 14px rgba(52,211,153,0.6)' : sc === 'cyan' ? '0 0 14px rgba(34,211,238,0.6)' : sc === 'amber' ? '0 0 14px rgba(251,191,36,0.6)' : 'none' }} />
                     <span className="text-sm font-black text-white uppercase tracking-wide leading-none">{etInfo.session === 'reg' ? 'REGULAR' : etInfo.session === 'pre' ? 'PRE-MARKET' : etInfo.session === 'post' ? 'POST-MARKET' : 'CLOSED'}</span>
                 </div>
-                <div className="text-[13px] font-bold tabular-nums text-white mt-1.5">{etInfo.etStr} <span className="text-[10px] text-slate-400 font-bold">ET</span></div>
-                <div className="text-[10px] text-white tabular-nums">{etInfo.etDateStr}</div>
+                <div className="text-[13px] font-bold tabular-nums text-white mt-1.5">{etInfo.etStr} <span className="text-[12px] text-slate-300 font-bold">ET</span></div>
+                <div className="text-[12px] text-white tabular-nums">{etInfo.etDateStr}</div>
                 <div className="mt-1 flex items-center gap-1.5">
-                    <span className={`text-[10px] font-bold ${sc === 'emerald' ? 'text-emerald-400' : sc === 'cyan' ? 'text-cyan-400' : sc === 'amber' ? 'text-amber-400' : 'text-slate-400'}`}>{etInfo.nextLabel}</span>
-                    <span className="text-[11px] font-black tabular-nums text-white/70">{etInfo.countdown}</span>
+                    <span className={`text-[12px] font-bold ${sc === 'emerald' ? 'text-emerald-400' : sc === 'cyan' ? 'text-cyan-400' : sc === 'amber' ? 'text-amber-400' : 'text-slate-300'}`}>{etInfo.nextLabel}</span>
+                    <span className="text-[12px] font-black tabular-nums text-white/70">{etInfo.countdown}</span>
                 </div>
                 <svg className="absolute right-1 top-1 w-16 h-16 opacity-[0.08] text-white" viewBox="0 0 60 60"><circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" strokeWidth="1.5" /><line x1="30" y1="30" x2="30" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /><line x1="30" y1="30" x2="42" y2="30" stroke="currentColor" strokeWidth="1" strokeLinecap="round" /><circle cx="30" cy="30" r="2" fill="currentColor" /></svg>
             </div>
@@ -247,16 +286,19 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount }: { summary
 }
 
 // ─── GRID TEMPLATE (shared between header & cards) ──────────────────────
-const PORTFOLIO_GRID = 'grid grid-cols-[0.8fr_0.8fr_0.7fr_1.1fr_0.6fr_1fr_0.8fr_0.6fr_0.8fr_0.9fr_0.9fr]';
+const PORTFOLIO_GRID = 'grid grid-cols-[0.8fr_0.8fr_0.7fr_1.1fr_0.6fr_1fr_0.8fr_0.8fr_0.6fr_0.8fr_0.9fr_0.9fr]';
 
 // === PREMIUM HOLDING CARD (Watchlist-style) ===
 
-function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0 }: {
+function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, currencyMode = 'usd', fxRate, fxSymbol }: {
     holding: EnrichedHolding;
     onRemove: () => void;
     onEdit: () => void;
     totalValue: number;
     index?: number;
+    currencyMode?: 'usd' | 'local';
+    fxRate?: number | null;
+    fxSymbol?: string;
 }) {
     const isPositive = holding.gainLossPct >= 0;
     const weight = totalValue > 0 ? (holding.marketValue / totalValue) * 100 : 0;
@@ -264,6 +306,8 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0 }:
     const toggleDashboardTicker = useDashboardStore((s) => s.toggleDashboardTicker);
     const dashboardTickers = useDashboardStore((s) => s.dashboardTickers);
     const [isInDashboard, setIsInDashboard] = useState(false);
+    const pFlash = usePriceFlash(holding.currentPrice, tickerDelay(holding.ticker));
+    const pf = getFlashStyle(pFlash);
 
     useEffect(() => {
         setIsInDashboard(dashboardTickers.includes(holding.ticker));
@@ -323,7 +367,6 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0 }:
                         </div>
                         <div className="min-w-0">
                             <div className="font-black text-[13px] text-white tracking-wide">{holding.ticker}</div>
-                            <div className="text-[10px] text-slate-500 truncate">{holding.name}</div>
                         </div>
                     </div>
 
@@ -338,22 +381,22 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0 }:
 
                     {/* Cost Basis (매입가) */}
                     <div className="text-center">
-                        <span className="font-bold tabular-nums text-[13px] text-slate-400">${holding.avgPrice.toFixed(2)}</span>
+                        <span className="font-bold tabular-nums text-[13px] text-slate-300">${holding.avgPrice.toFixed(2)}</span>
                     </div>
 
                     {/* Price / Change — session-aware */}
                     <div className="text-center">
                         <div className="flex items-center justify-center gap-1">
-                            <span className="font-bold tabular-nums text-sm text-white">${holding.currentPrice.toFixed(2)}</span>
+                            <span className={`font-bold tabular-nums text-sm ${pf.color}`} style={pf.style}>${holding.currentPrice.toFixed(2)}</span>
                             {(() => {
                                 const etParts = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
                                 const etMins = parseInt(etParts[0]) * 60 + parseInt(etParts[1]);
                                 const etDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
                                 const isWeekend = etDow === 0 || etDow === 6;
                                 const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < 960 ? 'reg' : etMins < 1200 ? 'post' : 'closed';
-                                if (realSession === 'pre') return <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400">PRE</span>;
-                                if (realSession === 'post') return <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-400">POST</span>;
-                                if (realSession === 'closed') return <span className="text-[7px] font-bold px-1 py-0.5 rounded bg-slate-500/20 text-slate-400">CLOSED</span>;
+                                if (realSession === 'pre') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-cyan-500/20 text-cyan-400">PRE</span>;
+                                if (realSession === 'post') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-400">POST</span>;
+                                if (realSession === 'closed') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-slate-500/20 text-slate-300">CLOSED</span>;
                                 return null;
                             })()}
                         </div>
@@ -363,7 +406,7 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0 }:
                                 <span className={holding.regChangePct !== undefined && holding.regChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
                                     {holding.regChangePct !== undefined && holding.regChangePct >= 0 ? '+' : ''}{(holding.regChangePct ?? 0).toFixed(2)}%
                                 </span>
-                                <span className={`text-[11px] font-bold opacity-70 ${holding.extChangePct >= 0 ? 'text-cyan-400' : 'text-rose-400/80'}`}>
+                                <span className={`text-[12px] font-bold ${holding.extChangePct >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
                                     {holding.extLabel} {holding.extChangePct >= 0 ? '+' : ''}{holding.extChangePct.toFixed(2)}%
                                 </span>
                             </div>
@@ -377,11 +420,39 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0 }:
                     {/* Quantity */}
                     <div className="text-center font-bold tabular-nums text-sm text-slate-300">{holding.quantity}</div>
 
-                    {/* P&L */}
+                    {/* P&L (Total) */}
                     <div className="text-center">
-                        <div className={`font-bold tabular-nums text-sm ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>{isPositive ? '+' : ''}${holding.gainLoss.toFixed(0)}</div>
-                        <div className={`text-[10px] tabular-nums font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>{isPositive ? '+' : ''}{holding.gainLossPct.toFixed(1)}%</div>
+                        {(() => {
+                            const isLocal = currencyMode === 'local' && fxRate;
+                            const val = isLocal ? holding.gainLoss * fxRate : holding.gainLoss;
+                            const sym = isLocal ? fxSymbol : '$';
+                            return (
+                                <>
+                                    <div className={`font-bold tabular-nums text-sm ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>{isPositive ? '+' : ''}{sym}{Math.abs(val).toLocaleString('en-US', { maximumFractionDigits: 0 })}</div>
+                                    <div className={`text-[12px] tabular-nums font-bold ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>{isPositive ? '+' : ''}{holding.gainLossPct.toFixed(1)}%</div>
+                                </>
+                            );
+                        })()}
                     </div>
+
+                    {/* Today P&L */}
+                    {(() => {
+                        const todayDollar = (holding.changePct / 100) * holding.currentPrice * holding.quantity;
+                        const isTodayPos = todayDollar >= 0;
+                        const isLocal = currencyMode === 'local' && fxRate;
+                        const todayVal = isLocal ? todayDollar * fxRate : todayDollar;
+                        const sym = isLocal ? fxSymbol : '$';
+                        return (
+                            <div className="text-center">
+                                <div className={`font-bold tabular-nums text-sm ${isTodayPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {isTodayPos ? '+' : ''}{sym}{Math.abs(todayVal).toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                                </div>
+                                <div className={`text-[12px] tabular-nums font-bold ${isTodayPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {holding.changePct >= 0 ? '+' : ''}{holding.changePct.toFixed(2)}%
+                                </div>
+                            </div>
+                        );
+                    })()}
 
                     {/* Weight */}
                     <div className="flex flex-col items-center gap-1">
@@ -392,7 +463,7 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0 }:
                     </div>
 
                     {/* Days Held */}
-                    <div className={`text-center tabular-nums text-sm ${daysHeld > 365 ? 'text-cyan-400' : 'text-slate-400'}`} title={daysHeld > 365 ? 'Long-term' : 'Short-term'}>D+{daysHeld}</div>
+                    <div className={`text-center tabular-nums text-sm ${daysHeld > 365 ? 'text-cyan-400' : 'text-slate-300'}`} title={daysHeld > 365 ? 'Long-term' : 'Short-term'}>D+{daysHeld}</div>
 
                     {/* Alpha */}
                     <div className="flex items-center justify-center">
@@ -430,10 +501,10 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
             <div className="flex items-center gap-2">
                 <div className="relative w-10 h-10">
                     <div className="w-10 h-10 rounded-full border-2 border-slate-700 flex items-center justify-center">
-                        <span className="text-[9px] text-slate-500">N/A</span>
+                        <span className="text-[12px] text-slate-300">N/A</span>
                     </div>
                 </div>
-                <div className="text-sm font-bold font-num text-slate-500">-</div>
+                <div className="text-sm font-bold font-num text-slate-300">-</div>
             </div>
         );
     }
@@ -518,7 +589,7 @@ function PortfolioActionBadge({ action }: { action: 'RUN' | 'HOLD' | 'TAKE' | 'E
             title={c.tooltip}
         >
             <span className={c.text}>{c.icon}</span>
-            <span className={`text-[11px] font-black tracking-wide ${c.text}`}>{action}</span>
+            <span className={`text-[12px] font-black tracking-wide ${c.text}`}>{action}</span>
         </div>
     );
 }
@@ -529,7 +600,7 @@ function SignalBadge({ action, confidence, triggers }: { action?: string; confid
     if (!action) {
         return (
             <div className="flex items-center gap-2 px-2.5 py-1 rounded-lg bg-slate-800/50 border border-slate-700">
-                <span className="text-[10px] font-bold text-slate-500">N/A</span>
+                <span className="text-[12px] font-bold text-slate-300">N/A</span>
             </div>
         );
     }
@@ -552,9 +623,9 @@ function SignalBadge({ action, confidence, triggers }: { action?: string; confid
             className={`flex items-center gap-2 px-2.5 py-1 rounded-lg ${c.bg} border ${c.border} cursor-help`}
             title={tooltipText}
         >
-            <span className={`text-[10px] font-black ${c.text}`}>{action}</span>
+            <span className={`text-[12px] font-black ${c.text}`}>{action}</span>
             {confidence !== undefined && (
-                <span className="text-[9px] font-bold font-num text-slate-400">{confidence}%</span>
+                <span className="text-[12px] font-bold font-num text-slate-300">{confidence}%</span>
             )}
         </div>
     );
@@ -566,7 +637,7 @@ function MaxPainIndicator({ dist, price }: { dist?: number; price?: number }) {
     if (dist === undefined || dist === null) {
         return (
             <div className="flex flex-col items-center animate-pulse">
-                <span className="text-xs text-slate-500">⏳ 로딩</span>
+                <span className="text-xs text-slate-300">⏳ 로딩</span>
             </div>
         );
     }
@@ -587,7 +658,7 @@ function MaxPainIndicator({ dist, price }: { dist?: number; price?: number }) {
                 </span>
             </div>
             {price !== undefined && (
-                <span className="text-[10px] font-num text-slate-400">${price.toFixed(0)}</span>
+                <span className="text-[12px] font-num text-slate-300">${price.toFixed(0)}</span>
             )}
         </div>
     );
@@ -598,7 +669,7 @@ function GexIndicator({ gexM }: { gexM?: number }) {
     // Loading state
     if (gexM === undefined || gexM === null) {
         return (
-            <div className="px-1.5 py-0.5 rounded border text-[10px] font-bold text-slate-500 bg-slate-800/50 border-slate-700 animate-pulse">
+            <div className="px-1.5 py-0.5 rounded border text-[12px] font-bold text-slate-300 bg-slate-800/50 border-slate-700 animate-pulse">
                 ⏳ 로딩
             </div>
         );
@@ -612,7 +683,7 @@ function GexIndicator({ gexM }: { gexM?: number }) {
 
     return (
         <div
-            className={`px-1.5 py-0.5 rounded border text-[10px] font-bold ${color}`}
+            className={`px-1.5 py-0.5 rounded border text-[12px] font-bold ${color}`}
             title={`감마 노출(GEX): ${gexM > 0 ? '+' : ''}${gexM.toFixed(1)}M\n${gexM > 0 ? '딜러가 변동성 억제 (안정적)' : gexM < 0 ? '딜러가 변동성 가속 (주의)' : '데이터 없음'}`}
         >
             {icon} {label}
@@ -795,12 +866,12 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                             </div>
                             <div>
                                 <h2 className="text-lg font-black text-white">종목 추가</h2>
-                                <p className="text-[10px] text-slate-500 mt-0.5">포트폴리오에 새 종목을 추가합니다</p>
+                                <p className="text-[12px] text-slate-300 mt-0.5">포트폴리오에 새 종목을 추가합니다</p>
                             </div>
                         </div>
                         <button
                             onClick={onClose}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/[0.08] text-slate-500 hover:text-white transition-colors"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/[0.08] text-slate-300 hover:text-white transition-colors"
                         >
                             ✕
                         </button>
@@ -809,7 +880,7 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                     <form onSubmit={handleSubmit} className="space-y-5">
                         {/* Ticker Input with Validation */}
                         <div>
-                            <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                            <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
                                 티커 심볼
                             </label>
                             <div className="relative">
@@ -852,7 +923,7 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                         {/* Quantity & Price Grid */}
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
                                     보유 수량
                                 </label>
                                 <input
@@ -866,7 +937,7 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
                                     평균 매수가 ($)
                                 </label>
                                 <input
@@ -884,15 +955,15 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                         {/* Investment Preview */}
                         {qty > 0 && avg > 0 && (
                             <div className="bg-gradient-to-br from-white/[0.04] to-white/[0.02] border border-white/[0.1] rounded-xl p-4">
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-3 font-bold">투자 요약</div>
+                                <div className="text-[12px] text-slate-300 uppercase tracking-wider mb-3 font-bold">투자 요약</div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <div className="text-[10px] text-slate-600 mb-0.5">총 투자금액</div>
+                                        <div className="text-[12px] text-slate-300 mb-0.5">총 투자금액</div>
                                         <div className="text-lg font-bold font-num text-white">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                     </div>
                                     {currentPrice && currentPrice !== avg && (
                                         <div>
-                                            <div className="text-[10px] text-slate-600 mb-0.5">예상 손익</div>
+                                            <div className="text-[12px] text-slate-300 mb-0.5">예상 손익</div>
                                             <div className={`text-lg font-bold font-num ${estimatedPL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                 {estimatedPL >= 0 ? '+' : ''}${estimatedPL.toFixed(2)}
                                                 <span className="text-xs ml-1">({estimatedPLPct >= 0 ? '+' : ''}{estimatedPLPct.toFixed(1)}%)</span>
@@ -908,7 +979,7 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="flex-1 py-3 border border-white/[0.1] rounded-xl text-slate-400 hover:bg-white/[0.05] transition-all font-bold"
+                                className="flex-1 py-3 border border-white/[0.1] rounded-xl text-slate-300 hover:bg-white/[0.05] transition-all font-bold"
                             >
                                 취소
                             </button>
@@ -917,7 +988,7 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                                 disabled={!canSubmit}
                                 className={`flex-1 py-3 rounded-xl font-bold transition-all ${canSubmit
                                     ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 text-white hover:from-emerald-400 hover:to-cyan-400 shadow-lg shadow-emerald-500/25'
-                                    : 'bg-white/[0.05] text-slate-600 cursor-not-allowed'
+                                    : 'bg-white/[0.05] text-slate-300 cursor-not-allowed'
                                     }`}
                             >
                                 포트폴리오에 추가
@@ -1011,9 +1082,9 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                         <div>
                             <h2 className="text-xl font-bold flex items-center gap-2">
                                 <span className="text-cyan-400">{holding.ticker}</span>
-                                <span className="text-slate-400">수정</span>
+                                <span className="text-slate-300">수정</span>
                             </h2>
-                            <p className="text-[11px] text-slate-500 mt-0.5">{holding.name}</p>
+                            <p className="text-[12px] text-slate-300 mt-0.5">{holding.name}</p>
                         </div>
                         <button
                             onClick={onClose}
@@ -1029,7 +1100,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                             onClick={() => setMode('edit')}
                             className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${mode === 'edit'
                                 ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                                : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:bg-slate-800'
+                                : 'bg-slate-800/50 text-slate-300 border border-slate-700 hover:bg-slate-800'
                                 }`}
                         >
                             직접 수정
@@ -1049,7 +1120,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                         /* Edit Mode */
                         <div className="space-y-4">
                             <div>
-                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
                                     수량
                                 </label>
                                 <input
@@ -1060,7 +1131,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
                                     평균 매입가 ($)
                                 </label>
                                 <input
@@ -1075,7 +1146,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                             <div className="flex gap-3 pt-2">
                                 <button
                                     onClick={onClose}
-                                    className="flex-1 py-3 border border-slate-700 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors font-bold"
+                                    className="flex-1 py-3 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 transition-colors font-bold"
                                 >
                                     취소
                                 </button>
@@ -1092,7 +1163,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                         /* Add Shares Mode (물타기/불타기) */
                         <div className="space-y-4">
                             <div>
-                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
                                     추가 수량
                                 </label>
                                 <input
@@ -1104,7 +1175,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                                 />
                             </div>
                             <div>
-                                <label className="text-[10px] text-slate-500 uppercase tracking-wider block mb-1.5 font-bold">
+                                <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
                                     매수 가격 ($)
                                 </label>
                                 <input
@@ -1119,22 +1190,22 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                             {/* Preview */}
                             {newQty > 0 && (
                                 <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                                    <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2 font-bold">변경 예상</div>
+                                    <div className="text-[12px] text-slate-300 uppercase tracking-wider mb-2 font-bold">변경 예상</div>
                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div>
-                                            <div className="text-slate-500 text-[10px]">총 수량</div>
+                                            <div className="text-slate-300 text-[12px]">총 수량</div>
                                             <div className="font-bold font-num text-white">{holding.quantity} → {totalShares}</div>
                                         </div>
                                         <div>
-                                            <div className="text-slate-500 text-[10px]">평균단가</div>
+                                            <div className="text-slate-300 text-[12px]">평균단가</div>
                                             <div className="font-bold font-num text-white">${holding.avgPrice.toFixed(2)} → ${newAvgPrice.toFixed(2)}</div>
                                         </div>
                                     </div>
                                     {newPrice < holding.avgPrice && (
-                                        <div className="mt-2 text-[10px] text-emerald-400 font-bold">💧 물타기: 평단가 {((1 - newAvgPrice / holding.avgPrice) * 100).toFixed(1)}% 하락</div>
+                                        <div className="mt-2 text-[12px] text-emerald-400 font-bold">💧 물타기: 평단가 {((1 - newAvgPrice / holding.avgPrice) * 100).toFixed(1)}% 하락</div>
                                     )}
                                     {newPrice > holding.avgPrice && (
-                                        <div className="mt-2 text-[10px] text-rose-400 font-bold">🔥 불타기: 평단가 {((newAvgPrice / holding.avgPrice - 1) * 100).toFixed(1)}% 상승</div>
+                                        <div className="mt-2 text-[12px] text-rose-400 font-bold">🔥 불타기: 평단가 {((newAvgPrice / holding.avgPrice - 1) * 100).toFixed(1)}% 상승</div>
                                     )}
                                 </div>
                             )}
@@ -1158,6 +1229,46 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                     )}
                 </div>
             </div>
+        </div>
+    );
+}
+
+// === EXCHANGE RATE BADGE (Header) ===
+function ExchangeRateBadge({ locale }: { locale: string }) {
+    const { rate, symbol, label, changePct } = useExchangeRate(locale);
+    if (!rate || locale === 'en') return null;
+
+    return (
+        <div className="flex items-center gap-1.5 ml-2 px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08]">
+            <ArrowRightLeft className="w-3 h-3 text-slate-300" />
+            <span className="text-[12px] font-bold tabular-nums text-white">
+                $1 = {symbol}{rate.toLocaleString(locale === 'ko' ? 'ko-KR' : 'ja-JP', { maximumFractionDigits: 1 })}
+            </span>
+            {changePct !== null && changePct !== undefined && (
+                <span className={`text-[12px] font-bold tabular-nums ${changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
+                </span>
+            )}
+        </div>
+    );
+}
+
+// === CURRENCY SUB-TEXT (Stats Cards) ===
+function CurrencySubText({ usd, locale, showSign }: { usd: number; locale: string; showSign?: boolean }) {
+    const { rate, symbol } = useExchangeRate(locale);
+    if (!rate || locale === 'en') return null;
+
+    const converted = usd * rate;
+    const formatted = Math.abs(converted).toLocaleString(
+        locale === 'ko' ? 'ko-KR' : 'ja-JP',
+        { maximumFractionDigits: 0 }
+    );
+    const sign = showSign && converted >= 0 ? '+' : showSign && converted < 0 ? '-' : '';
+    const displayVal = showSign ? `${sign}${symbol}${formatted}` : `${symbol}${formatted}`;
+
+    return (
+        <div className="text-[13px] font-bold tabular-nums text-slate-200 mt-0.5">
+            ≈ {displayVal}
         </div>
     );
 }

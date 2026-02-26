@@ -22,6 +22,8 @@ const SYMBOLS = [
     { yahoo: 'TLT', key: YAHOO_CACHE_KEYS.TLT || 'yahoo:tlt' },
     { yahoo: 'CL=F', key: YAHOO_CACHE_KEYS.OIL },
     { yahoo: 'RTY=F', key: YAHOO_CACHE_KEYS.RUT },
+    { yahoo: 'KRW=X', key: YAHOO_CACHE_KEYS.USDKRW },
+    { yahoo: 'JPY=X', key: YAHOO_CACHE_KEYS.USDJPY },
 ];
 
 async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {

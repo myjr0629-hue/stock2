@@ -117,7 +117,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                     }
                 }))
             } : undefined,
-            refreshInterval: 5000,       // 5s fast price polling
+            refreshInterval: 2000,       // 2s fast price polling (matches watchlist)
             revalidateOnFocus: false,
             dedupingInterval: 2000,
         }
@@ -134,7 +134,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                     return acc;
                 }, {} as Record<string, any>)
             } : undefined,
-            refreshInterval: 10000,
+            refreshInterval: 2000,      // 2s near-real-time (matches watchlist)
             revalidateOnFocus: false,
             dedupingInterval: 3000,
         }
@@ -181,14 +181,12 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
             const alpha = fullApi?.alphaSnapshot; // Alpha only from full data
 
             // Session-aware extended price decomposition from /api/live/quotes
-            let regChangePct: number | undefined;
             let extChangePct: number | undefined;
             let extLabel: 'PRE' | 'POST' | undefined;
             let displayPrice: number | undefined;
 
             if (liveQ) {
                 const hasExtended = liveQ.extendedPrice && liveQ.extendedPrice > 0;
-                regChangePct = liveQ.changePercent || 0;
                 if (hasExtended) {
                     extChangePct = liveQ.extendedChangePercent || 0;
                     extLabel = liveQ.extendedLabel || undefined;
@@ -199,9 +197,11 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
             if (rt) {
                 // Price: prefer extended live > fast 5s poll > full 30s
                 const price = displayPrice || priceRt?.price || fullRt?.price || 0;
-                const changePct = displayPrice && liveQ
-                    ? ((displayPrice - (liveQ.previousClose || liveQ.prevClose || price)) / (liveQ.previousClose || liveQ.prevClose || price)) * 100
-                    : (priceRt?.changePct ?? fullRt?.changePct ?? 0);
+                // changePct: ALWAYS prefer batch API (correct regular session %)
+                // liveQ.changePercent from Polygon todaysChangePerc is combined (prevClose→preMarket) during PRE/POST
+                const changePct = fullRt?.changePct ?? priceRt?.changePct ?? 0;
+                // regChangePct for UI decomposition: same reliable source
+                const regChangePct = fullRt?.changePct ?? priceRt?.changePct ?? 0;
                 const marketValue = holding.quantity * price;
                 const costBasis = holding.quantity * holding.avgPrice;
                 const gainLoss = marketValue - costBasis;
