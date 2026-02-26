@@ -26,6 +26,8 @@ import { physicalAIConfig } from "@/configs/physicalai.config";
 import { siliconCoreConfig } from "@/configs/siliconcore.config";
 import { powerMatrixConfig } from "@/configs/powermatrix.config";
 import { bioPulseConfig } from "@/configs/biopulse.config";
+import { cyberShieldConfig } from "@/configs/cybershield.config";
+import { orbitDefenseConfig } from "@/configs/orbitdefense.config";
 import { useIntelSharedData } from "@/hooks/useIntelSharedData";
 
 // [PERF] Lazy-loaded heavy components — reduces initial JS bundle by ~150KB
@@ -1100,7 +1102,7 @@ function processTickerData(data: any): any {
         session, relVol: data.relVol || 1, history3d: data.history3d || []
     };
 }
-function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], initialSCData?: any[], initialPMData?: any[], initialBPData?: any[], locale?: string }) {
+function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], initialSCData?: any[], initialPMData?: any[], initialBPData?: any[], initialCSData?: any[], initialODData?: any[], locale?: string }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
@@ -1109,7 +1111,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
     // [RESTORED] Components now fetch data independently (same as Flow/Command pages)
     // [V7.0] Sector Intel shared data for new components
-    const sectorData = useIntelSharedData(initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData);
+    const sectorData = useIntelSharedData(initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData);
 
     // State
     const [report, setReport] = useState<any>(initialReport || null);
@@ -1604,7 +1606,15 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
             <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/5 blur-[150px] rounded-full pointer-events-none mix-blend-screen z-0" />
 
             {/* 0. TACTICAL SIDEBAR (Fixed Left) */}
-            <TacticalSidebar activeTab={activeTab} onTabChange={setActiveTab} />
+            <TacticalSidebar activeTab={activeTab} onTabChange={setActiveTab} sectorQuotes={{
+                m7: sectorData.m7,
+                physicalAI: sectorData.physicalAI,
+                siliconCore: sectorData.siliconCore,
+                powerMatrix: sectorData.powerMatrix,
+                bioPulse: sectorData.bioPulse,
+                cyberShield: sectorData.cyberShield,
+                orbitDefense: sectorData.orbitDefense,
+            }} />
 
             {/* 1. MAIN CONTENT (Offset 208px) */}
             <div className="flex-1 ml-52 relative min-h-screen backdrop-blur-[0px]"> {/* ml-52 matches sidebar width */}
@@ -1789,6 +1799,44 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                             </section>
                             <section>
                                 <TacticalReportDeck config={bioPulseConfig} />
+                            </section>
+                        </div>
+                    )}
+
+                    {/* CYBER SHIELD CONTENT — AI Cybersecurity */}
+                    {activeTab === 'CYBER_SHIELD' && (
+                        <div className="space-y-4">
+                            <section>
+                                <SectorSessionGrid config={cyberShieldConfig} quotes={sectorData.cyberShield} />
+                            </section>
+                            <section>
+                                <SectorRankingRow config={cyberShieldConfig} quotes={sectorData.cyberShield} />
+                            </section>
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={cyberShieldConfig} />
+                                <SectorEarningsCalendar config={cyberShieldConfig} />
+                            </section>
+                            <section>
+                                <TacticalReportDeck config={cyberShieldConfig} />
+                            </section>
+                        </div>
+                    )}
+
+                    {/* ORBIT DEFENSE CONTENT — Space & Defense */}
+                    {activeTab === 'ORBIT_DEFENSE' && (
+                        <div className="space-y-4">
+                            <section>
+                                <SectorSessionGrid config={orbitDefenseConfig} quotes={sectorData.orbitDefense} />
+                            </section>
+                            <section>
+                                <SectorRankingRow config={orbitDefenseConfig} quotes={sectorData.orbitDefense} />
+                            </section>
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={orbitDefenseConfig} />
+                                <SectorEarningsCalendar config={orbitDefenseConfig} />
+                            </section>
+                            <section>
+                                <TacticalReportDeck config={orbitDefenseConfig} />
                             </section>
                         </div>
                     )}
@@ -2174,7 +2222,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
     );
 }
 
-export default function IntelClientPage({ initialReport, initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], initialSCData?: any[], initialPMData?: any[], initialBPData?: any[], locale?: string }) {
+export default function IntelClientPage({ initialReport, initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], initialSCData?: any[], initialPMData?: any[], initialBPData?: any[], initialCSData?: any[], initialODData?: any[], locale?: string }) {
     return (
         <React.Suspense fallback={
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -2184,7 +2232,7 @@ export default function IntelClientPage({ initialReport, initialM7Data, initialP
                 </div>
             </div>
         }>
-            <IntelContent initialReport={initialReport} initialM7Data={initialM7Data} initialPAIData={initialPAIData} initialSCData={initialSCData} initialPMData={initialPMData} initialBPData={initialBPData} locale={locale} />
+            <IntelContent initialReport={initialReport} initialM7Data={initialM7Data} initialPAIData={initialPAIData} initialSCData={initialSCData} initialPMData={initialPMData} initialBPData={initialBPData} initialCSData={initialCSData} initialODData={initialODData} locale={locale} />
         </React.Suspense>
     );
 }

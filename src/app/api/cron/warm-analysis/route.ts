@@ -20,18 +20,20 @@ const PHYSICAL_AI_TICKERS = ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG']
 const SILICON_CORE_TICKERS = ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'];
 const POWER_MATRIX_TICKERS = ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'];
 const BIO_PULSE_TICKERS = ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'];
+const CYBER_SHIELD_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'CYBR', 'NET'];
+const ORBIT_DEFENSE_TICKERS = ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'];
 
 // Popular tickers that are frequently viewed (top dashboard/watchlist selections)
 const POPULAR_TICKERS = [
     'SPY', 'QQQ', 'IWM', 'INTC', 'SOFI', 'COIN', 'MSTR',
-    'SMCI', 'CRM', 'SNOW', 'NET', 'UBER', 'SQ',
+    'SMCI', 'CRM', 'SNOW', 'UBER', 'SQ',
     'SHOP', 'SE', 'BABA', 'JD', 'NIO', 'LI', 'RIVN', 'LCID',
     'BA', 'DIS', 'NFLX', 'PYPL', 'V', 'MA', 'JPM', 'GS',
     'XOM', 'CVX', 'UNH', 'WDC', 'MCD',
 ];
 
-// Deduplicated unified list (all 5 sectors + popular)
-const ALL_TICKERS = [...new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS, ...POPULAR_TICKERS])];
+// Deduplicated unified list (all 7 sectors + popular)
+const ALL_TICKERS = [...new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS, ...CYBER_SHIELD_TICKERS, ...ORBIT_DEFENSE_TICKERS, ...POPULAR_TICKERS])];
 
 // Concurrency control — max 5 tickers in parallel to avoid API rate limits
 const CONCURRENCY = 5;

@@ -13,6 +13,8 @@ const PHYSICAL_AI_TICKERS = ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG']
 const SILICON_CORE_TICKERS = ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'];
 const POWER_MATRIX_TICKERS = ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'];
 const BIO_PULSE_TICKERS = ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'];
+const CYBER_SHIELD_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'CYBR', 'NET'];
+const ORBIT_DEFENSE_TICKERS = ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'];
 
 // Types for shared data
 export interface IntelQuote {
@@ -45,6 +47,8 @@ export interface IntelSharedData {
     siliconCore: IntelQuote[];
     powerMatrix: IntelQuote[];
     bioPulse: IntelQuote[];
+    cyberShield: IntelQuote[];
+    orbitDefense: IntelQuote[];
     loading: boolean;
     refreshing: boolean;
     optionsLoading: boolean;
@@ -67,13 +71,17 @@ export function useIntelSharedData(
     initialPAIData?: IntelQuote[],
     initialSCData?: IntelQuote[],
     initialPMData?: IntelQuote[],
-    initialBPData?: IntelQuote[]
+    initialBPData?: IntelQuote[],
+    initialCSData?: IntelQuote[],
+    initialODData?: IntelQuote[]
 ): IntelSharedData & { refresh: () => void } {
     const [m7Data, setM7Data] = useState<IntelQuote[]>(initialM7Data || []);
     const [physicalAIData, setPhysicalAIData] = useState<IntelQuote[]>(initialPAIData || []);
     const [siliconCoreData, setSiliconCoreData] = useState<IntelQuote[]>(initialSCData || []);
     const [powerMatrixData, setPowerMatrixData] = useState<IntelQuote[]>(initialPMData || []);
     const [bioPulseData, setBioPulseData] = useState<IntelQuote[]>(initialBPData || []);
+    const [cyberShieldData, setCyberShieldData] = useState<IntelQuote[]>(initialCSData || []);
+    const [orbitDefenseData, setOrbitDefenseData] = useState<IntelQuote[]>(initialODData || []);
     const [loading, setLoading] = useState(!(initialM7Data?.length && initialPAIData?.length));
     const [refreshing, setRefreshing] = useState(false);
     const [optionsLoading, setOptionsLoading] = useState(true);
@@ -90,12 +98,14 @@ export function useIntelSharedData(
         isFastFetching.current = true;
 
         try {
-            const [m7Res, paiRes, scRes, pmRes, bpRes] = await Promise.all([
+            const [m7Res, paiRes, scRes, pmRes, bpRes, csRes, odRes] = await Promise.all([
                 safeFetch('/api/intel/fast?sector=m7'),
                 safeFetch('/api/intel/fast?sector=physical_ai'),
                 safeFetch('/api/intel/fast?sector=silicon_core'),
                 safeFetch('/api/intel/fast?sector=power_matrix'),
                 safeFetch('/api/intel/fast?sector=bio_pulse'),
+                safeFetch('/api/intel/fast?sector=cyber_shield'),
+                safeFetch('/api/intel/fast?sector=orbit_defense'),
             ]);
 
             const mergeOrSet = (res: any, setter: React.Dispatch<React.SetStateAction<IntelQuote[]>>) => {
@@ -114,6 +124,8 @@ export function useIntelSharedData(
             mergeOrSet(scRes, setSiliconCoreData);
             mergeOrSet(pmRes, setPowerMatrixData);
             mergeOrSet(bpRes, setBioPulseData);
+            mergeOrSet(csRes, setCyberShieldData);
+            mergeOrSet(odRes, setOrbitDefenseData);
 
             setFetchedAt(new Date().toISOString());
             setLoading(false);
@@ -134,12 +146,14 @@ export function useIntelSharedData(
         setOptionsLoading(true);
 
         try {
-            const [m7Batch, paiBatch, scBatch, pmBatch, bpBatch] = await Promise.all([
+            const [m7Batch, paiBatch, scBatch, pmBatch, bpBatch, csBatch, odBatch] = await Promise.all([
                 safeFetch(`/api/watchlist/batch?tickers=${M7_TICKERS.join(',')}`),
                 safeFetch(`/api/watchlist/batch?tickers=${PHYSICAL_AI_TICKERS.join(',')}`),
                 safeFetch(`/api/watchlist/batch?tickers=${SILICON_CORE_TICKERS.join(',')}`),
                 safeFetch(`/api/watchlist/batch?tickers=${POWER_MATRIX_TICKERS.join(',')}`),
                 safeFetch(`/api/watchlist/batch?tickers=${BIO_PULSE_TICKERS.join(',')}`),
+                safeFetch(`/api/watchlist/batch?tickers=${CYBER_SHIELD_TICKERS.join(',')}`),
+                safeFetch(`/api/watchlist/batch?tickers=${ORBIT_DEFENSE_TICKERS.join(',')}`),
             ]);
 
             // Merge batch results into existing Phase 1 data
@@ -152,6 +166,8 @@ export function useIntelSharedData(
             mergeIfPresent(scBatch, setSiliconCoreData);
             mergeIfPresent(pmBatch, setPowerMatrixData);
             mergeIfPresent(bpBatch, setBioPulseData);
+            mergeIfPresent(csBatch, setCyberShieldData);
+            mergeIfPresent(odBatch, setOrbitDefenseData);
 
             hasFullData.current = true;
             setOptionsLoading(false);
@@ -173,7 +189,7 @@ export function useIntelSharedData(
         isPriceFetching.current = true;
 
         try {
-            const allTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS].join(',');
+            const allTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS, ...CYBER_SHIELD_TICKERS, ...ORBIT_DEFENSE_TICKERS].join(',');
             const res = await safeFetch(`/api/live/quotes?symbols=${allTickers}`);
             if (!res?.data) return;
 
@@ -203,6 +219,8 @@ export function useIntelSharedData(
             setSiliconCoreData(updateFn);
             setPowerMatrixData(updateFn);
             setBioPulseData(updateFn);
+            setCyberShieldData(updateFn);
+            setOrbitDefenseData(updateFn);
         } catch (e) {
             // silent fail — prices will refresh on next cycle
         } finally {
@@ -269,6 +287,8 @@ export function useIntelSharedData(
         siliconCore: siliconCoreData,
         powerMatrix: powerMatrixData,
         bioPulse: bioPulseData,
+        cyberShield: cyberShieldData,
+        orbitDefense: orbitDefenseData,
         loading,
         refreshing,
         optionsLoading,
@@ -305,7 +325,7 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
 }
 
 // Export ticker constants for components
-export { M7_TICKERS, PHYSICAL_AI_TICKERS, SILICON_CORE_TICKERS, POWER_MATRIX_TICKERS, BIO_PULSE_TICKERS };
+export { M7_TICKERS, PHYSICAL_AI_TICKERS, SILICON_CORE_TICKERS, POWER_MATRIX_TICKERS, BIO_PULSE_TICKERS, CYBER_SHIELD_TICKERS, ORBIT_DEFENSE_TICKERS };
 
 /**
  * Merge watchlist/batch results (alpha + options) into existing Phase 1 quotes.

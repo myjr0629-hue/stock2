@@ -29,6 +29,14 @@
             "schedule": "20 21 * * 1-5"
         },
         {
+            "path": "/api/cron/snapshot?sector=cyber_shield",
+            "schedule": "25 21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/snapshot?sector=orbit_defense",
+            "schedule": "30 21 * * 1-5"
+        },
+        {
             "path": "/api/cron/warm-analysis",
             "schedule": "*/5 * * * 1-5"
         },
