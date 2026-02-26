@@ -533,7 +533,7 @@ export async function getExpandedUniversePool(): Promise<ExpandedUniverseResult>
     // 3. Top Volume Stocks (whale activity candidates)
     let topVolume: string[] = [];
     try {
-        topVolume = await getTopVolumeStocks(30);
+        topVolume = await getTopVolumeStocks(80);
     } catch (e) {
         console.warn('[V5.0] Failed to fetch top volume stocks:', e);
     }
