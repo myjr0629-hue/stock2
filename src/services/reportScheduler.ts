@@ -22,7 +22,7 @@ import { fetchMassive, RunBudget, fetchTopGainers, fetchTopActive, fetchNewsForS
 import { enrichTop3Candidates, generateTop3WHY, getVelocitySymbol, EnrichedCandidate } from './top3Enrichment';
 import { generateContinuationReport, ContinuationReport } from './continuationEngine';
 import { generateReportDiff } from './reportDiff'; // [S-56.1] Decision Continuity
-import { applyUniversePolicy, applyUniversePolicyWithBackfill, buildLeadersTrack, getMacroSSOT, validateNoETFInItems, loadStockUniversePool, getExpandedUniversePool, classifySymbol } from './universePolicy'; // [S-56.2] + [S-56.3] + [V4.0]
+import { applyUniversePolicy, applyUniversePolicyWithBackfill, buildLeadersTrack, getMacroSSOT, validateNoETFInItems, loadStockUniversePool, getExpandedUniversePool, classifySymbol, BIO_LEADERS_TOP5, DATACENTER_TOP5 } from './universePolicy'; // [S-56.2] + [S-56.3] + [V4.0]
 import { applyQualityTiers, selectTop3, determineRegime, computePowerMeta, computeQualityTier, selectFinalList } from './powerEngine'; // [S-56.4]
 import { BUILD_PIPELINE_VERSION, orchestrateGemsEngine } from '../engine/reportOrchestrator'; // [S-56.4.5c]
 import { GuardianDataHub } from './guardian/unifiedDataStream'; // [Phase 4]
@@ -301,10 +301,17 @@ export async function generateReport(type: ReportType, force: boolean = false, t
                 console.warn(`[HardFilter] REMOVING ${item.ticker}: Penny Stock ($${price.toFixed(2)})`);
                 return false;
             }
-            // Gate 3: No options data — 엔진 분석 불가
-            if (!hasOptions) {
+            // Gate 3: No options data — 리더 종목은 보호 (장전에 옵션 데이터 지연 가능)
+            const isLeaderTicker = M7_TICKERS.includes(item.ticker) ||
+                PHYSICAL_AI_TICKERS.includes(item.ticker) ||
+                (BIO_LEADERS_TOP5 as readonly string[]).indexOf(item.ticker) >= 0 ||
+                (DATACENTER_TOP5 as readonly string[]).indexOf(item.ticker) >= 0;
+            if (!hasOptions && !isLeaderTicker) {
                 console.warn(`[HardFilter] REMOVING ${item.ticker}: No options (callWall=${callWall}, putFloor=${putFloor})`);
                 return false;
+            }
+            if (!hasOptions && isLeaderTicker) {
+                console.warn(`[HardFilter] PROTECTED ${item.ticker}: Leader with no options (pre-market grace)`);
             }
             // Gate 4: Surge stock (>10%) — 실질 진입 불가
             if (changePct > 10) {

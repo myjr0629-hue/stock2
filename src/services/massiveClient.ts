@@ -647,11 +647,12 @@ export interface MarketSnapshotTicker {
 
 export async function getFullMarketSnapshot(budget?: RunBudget): Promise<MarketSnapshotTicker[]> {
     // /v2/snapshot/locale/us/markets/stocks/tickers
-    // This returns ALL US stocks (10,000+)
+    // This returns ALL US stocks (10,000+) in a SINGLE response (no pagination)
+    // CRITICAL: Response format is { tickers: [...] }, NOT { results: [...] }
     const endpoint = `/v2/snapshot/locale/us/markets/stocks/tickers`;
     try {
-        const data = await fetchMassiveAll(endpoint, { limit: '500' }, true, budget);
-        const tickers = data.results || [];
+        const data = await fetchMassive(endpoint, {}, false, budget);
+        const tickers = data.tickers || data.results || [];
 
         console.log(`[V4.0] Full Market Snapshot: Loaded ${tickers.length} stocks`);
 

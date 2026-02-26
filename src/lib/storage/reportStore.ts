@@ -108,7 +108,9 @@ export function validateReportShape(report: any): { valid: boolean; reasons: str
     const fullUniverseCount = report.alphaGrid?.fullUniverse?.length ?? 0;
 
     // Required validations
-    if (itemsCount < 12) reasons.push('ITEMS_LT_12');
+    // [FIX] INCOMPLETE threshold lowered: 5 = critical failure, 12 = soft warning
+    if (itemsCount < 5) reasons.push('ITEMS_LT_5');
+    else if (itemsCount < 12) reasons.push('ITEMS_LT_12_PARTIAL');
     if (top3Count < 3) reasons.push('TOP3_LT_3');
     // [P0] REMOVED UNIVERSE_LT_100 - we only store 12 items, not 100
     if (!report.macro) reasons.push('MACRO_MISSING');
@@ -118,12 +120,12 @@ export function validateReportShape(report: any): { valid: boolean; reasons: str
     const optionsGate: 'READY' | 'PENDING' | 'DISABLED' =
         pendingTickers.length === 0 ? 'READY' : 'PENDING';
 
-    // [P0] Determine integrity status - more lenient for Top3
+    // [FIX] Determine integrity status — only ITEMS_LT_5 or MACRO_MISSING triggers INCOMPLETE (rollback)
+    // ITEMS_LT_12_PARTIAL = warning only, report still saved
     let status: IntegrityStatus = 'OK';
-    if (reasons.some(r => ['ITEMS_LT_12', 'MACRO_MISSING'].includes(r))) {
+    if (reasons.some(r => ['ITEMS_LT_5', 'MACRO_MISSING'].includes(r))) {
         status = 'INCOMPLETE';
-    } else if (reasons.includes('TOP3_LT_3')) {
-        // [P0] TOP3_LT_3 should not happen with new logic, but still mark partial
+    } else if (reasons.includes('TOP3_LT_3') || reasons.includes('ITEMS_LT_12_PARTIAL')) {
         status = 'PARTIAL';
     }
     // [P0] Options PENDING no longer affects integrity status
@@ -254,7 +256,7 @@ export async function saveReport(date: string, type: string, reportJson: any, fo
     }
 
     // [S-52.7] Calculate validation score (0-100)
-    const hardFails = validation.integrity.reasons.filter(r => ['ITEMS_LT_12', 'MACRO_MISSING', 'TOP3_LT_3'].includes(r));
+    const hardFails = validation.integrity.reasons.filter(r => ['ITEMS_LT_5', 'MACRO_MISSING', 'TOP3_LT_3'].includes(r));
     const softFails = validation.integrity.reasons.filter(r => !['ITEMS_LT_12', 'MACRO_MISSING', 'TOP3_LT_3'].includes(r));
     const hardPenalty = hardFails.length * 30;
     const softPenalty = softFails.length * 10;
