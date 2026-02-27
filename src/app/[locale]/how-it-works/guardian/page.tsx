@@ -21,7 +21,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
     };
 
     /* ── reusable glass card ── */
-    const glassCard = "relative overflow-hidden rounded-2xl border border-white/[0.12] p-5 backdrop-blur-2xl";
+    const glassCard = "relative overflow-hidden rounded-2xl border border-white/[0.12] p-5 bg-slate-900/60";
     const glassBg = "bg-gradient-to-br from-white/[0.07] via-white/[0.03] to-transparent";
 
     return (
@@ -42,16 +42,16 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                     {t.rich('overviewDesc', richTags)}
                 </p>
 
-                <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-slate-900/30 backdrop-blur-sm shadow-2xl">
+                <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-slate-900/40 shadow-2xl">
                     <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.04] via-transparent to-cyan-500/[0.03] pointer-events-none" />
                     <Image
                         src={guardianFullImg}
                         alt="Guardian Full View"
                         width={2048}
                         height={1200}
-                        quality={100}
-                        unoptimized
+                        quality={85}
                         className="w-full h-auto relative"
+                        loading="lazy"
                     />
                 </div>
             </section>
@@ -968,9 +968,9 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                         alt="Flow Topography Map"
                         width={2048}
                         height={1200}
-                        quality={100}
-                        unoptimized
+                        quality={85}
                         className="w-full h-auto relative"
+                        loading="lazy"
                     />
                 </div>
 

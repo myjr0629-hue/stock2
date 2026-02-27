@@ -74,9 +74,9 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                         alt="Intel Page Full View"
                         width={2048}
                         height={1200}
-                        quality={100}
-                        unoptimized
+                        quality={85}
                         className="w-full h-auto"
+                        loading="lazy"
                     />
                 </div>
             </section>
@@ -325,9 +325,9 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                         alt="M7 Report Tab View"
                         width={1920}
                         height={1080}
-                        quality={100}
-                        unoptimized
+                        quality={85}
                         className="w-full h-auto"
+                        loading="lazy"
                     />
                 </div>
 
