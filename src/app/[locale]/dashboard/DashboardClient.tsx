@@ -202,11 +202,6 @@ function AlphaStatusBar() {
                     <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-cyan-400 transition-colors" />
                     <span className="text-[12px] text-slate-300 group-hover:text-cyan-300 font-medium transition-colors">실전 가이드</span>
                 </Link>
-                {lastUpdated && (
-                    <span className="text-[12px] text-slate-400">
-                        Updated: {lastUpdated.toLocaleTimeString(locale === 'ja' ? 'ja-JP' : locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                    </span>
-                )}
                 <button
                     onClick={handleRefresh}
                     disabled={isLoading}
