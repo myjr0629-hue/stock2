@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown, DollarSign, Radio, RefreshCw, HardHat } from 'lucide-react';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
-import { PriceDisplayCard } from '@/components/ui/PriceDisplay';
+import { PriceDisplayCard, tickerDelay } from '@/components/ui/PriceDisplay';
 
 const PHYSICAL_AI_TICKERS = ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG'];
 
@@ -258,6 +258,7 @@ export function PhysicalAISessionSummary({ sharedData, sharedRefreshing }: Physi
                                 extendedChangePct={q.extendedChangePct}
                                 extendedLabel={q.extendedLabel as 'POST' | 'PRE' | ''}
                                 showArrows={true}
+                                staggerMs={tickerDelay(q.ticker)}
                             />
                         </div>
                     );

@@ -4,7 +4,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { ArrowUpRight, ArrowDownRight, TrendingUp, TrendingDown, DollarSign, Radio, RefreshCw, Activity } from 'lucide-react';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
-import { PriceDisplayCard } from '@/components/ui/PriceDisplay';
+import { PriceDisplayCard, tickerDelay } from '@/components/ui/PriceDisplay';
 
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
 
@@ -264,6 +264,7 @@ export function M7SessionSummary({ sharedData, sharedRefreshing }: M7SessionSumm
                                 extendedChangePct={q.extendedChangePct}
                                 extendedLabel={q.extendedLabel as 'POST' | 'PRE' | ''}
                                 showArrows={true}
+                                staggerMs={tickerDelay(q.ticker)}
                             />
                         </div>
                     );

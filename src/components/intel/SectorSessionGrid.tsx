@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import type { SectorConfig } from '@/types/sector';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
-import { PriceDisplayCard } from '@/components/ui/PriceDisplay';
+import { PriceDisplayCard, tickerDelay } from '@/components/ui/PriceDisplay';
 
 interface SectorSessionGridProps {
     config: SectorConfig;
@@ -485,6 +485,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                         extendedLabel={q.extendedLabel as 'POST' | 'PRE' | ''}
                                         showArrows={true}
                                         priceFlash={q.priceFlash}
+                                        staggerMs={tickerDelay(q.ticker)}
                                     />
                                 </div>
 

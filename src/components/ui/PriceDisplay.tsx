@@ -235,8 +235,8 @@ export function PriceDisplay({
             {/* ===== Extended (POST/PRE) Price — Command-style pill ===== */}
             {hasExtended && (
                 <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border backdrop-blur-md ml-2 transition-all duration-300 ${extFlash === 'up' ? 'bg-emerald-500/10 border-emerald-500/30' :
-                        extFlash === 'down' ? 'bg-rose-500/10 border-rose-500/30' :
-                            'bg-slate-800/50 border-slate-700/50'
+                    extFlash === 'down' ? 'bg-rose-500/10 border-rose-500/30' :
+                        'bg-slate-800/50 border-slate-700/50'
                     }`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${extendedLabel.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'
                         } animate-pulse`} />
@@ -245,8 +245,8 @@ export function PriceDisplay({
                             {extendedLabel}
                         </span>
                         <span className={`text-xs font-mono font-bold transition-all duration-300 ${extFlash === 'up' ? 'text-green-200' :
-                                extFlash === 'down' ? 'text-red-200' :
-                                    'text-slate-200'
+                            extFlash === 'down' ? 'text-red-200' :
+                                'text-slate-200'
                             }`}
                             style={extFlash ? {
                                 textShadow: extFlash === 'up' ? '0 0 10px rgba(74,222,128,0.6)' : '0 0 10px rgba(248,113,113,0.6)',
@@ -287,6 +287,8 @@ export interface PriceDisplayCardProps {
     showArrows?: boolean;
     /** Flash direction for price update animation */
     priceFlash?: 'up' | 'down' | null;
+    /** Stagger delay in ms to prevent all cards flashing simultaneously */
+    staggerMs?: number;
 }
 
 /**
@@ -301,6 +303,7 @@ export function PriceDisplayCard({
     extendedLabel = '',
     showArrows = true,
     priceFlash,
+    staggerMs = 0,
 }: PriceDisplayCardProps) {
     const isIntradayUp = intradayChangePct >= 0;
     const intradayColor = isIntradayUp ? 'text-emerald-400' : 'text-rose-400';
@@ -311,10 +314,41 @@ export function PriceDisplayCard({
     // Show extended data even when session is over (user wants to see last known POST/PRE data)
     const hasExtended = extendedPrice && extendedPrice > 0;
 
+    // Staggered flash — delay the flash by staggerMs so cards don't all flash at once
+    const [delayedFlash, setDelayedFlash] = useState<'up' | 'down' | null>(null);
+    const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const clearTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+        if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+
+        if (priceFlash) {
+            if (staggerMs > 0) {
+                flashTimerRef.current = setTimeout(() => {
+                    setDelayedFlash(priceFlash);
+                    clearTimerRef.current = setTimeout(() => setDelayedFlash(null), 700);
+                }, staggerMs);
+            } else {
+                setDelayedFlash(priceFlash);
+                clearTimerRef.current = setTimeout(() => setDelayedFlash(null), 700);
+            }
+        } else {
+            setDelayedFlash(null);
+        }
+
+        return () => {
+            if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+            if (clearTimerRef.current) clearTimeout(clearTimerRef.current);
+        };
+    }, [priceFlash, staggerMs]);
+
+    const activeFlash = staggerMs > 0 ? delayedFlash : priceFlash;
+
     // Flash animation class
-    const flashClass = priceFlash === 'up'
+    const flashClass = activeFlash === 'up'
         ? 'animate-[priceFlashUp_0.6s_ease-out]'
-        : priceFlash === 'down'
+        : activeFlash === 'down'
             ? 'animate-[priceFlashDown_0.6s_ease-out]'
             : '';
 
@@ -322,7 +356,7 @@ export function PriceDisplayCard({
         <div className="flex flex-col items-center">
             {/* Main Price */}
             <div
-                key={priceFlash ? `${intradayPrice}-${Date.now()}` : undefined}
+                key={activeFlash ? `${intradayPrice}-${Date.now()}` : undefined}
                 className={`text-2xl font-bold text-white tracking-tighter drop-shadow-sm font-jakarta font-num ${flashClass}`}
             >
                 ${intradayPrice.toLocaleString(undefined, {
