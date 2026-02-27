@@ -527,13 +527,13 @@ async function generateReportFromItems(
             if (wEntry === 0) wEntry = currentPrice;
 
             // 1. Calculate Levels (Whale Priority -> Technical Fallback)
-            let wTarget = forensicResult.details.whaleTargetLevel;
+            let wTarget: number = forensicResult.details.whaleTargetLevel || 0;
             if (!wTarget || wTarget === 0) {
                 // Fallback Target: Call Wall or +3% (Day Trade)
                 wTarget = (callWall > wEntry) ? callWall : (wEntry * 1.03);
             }
 
-            let wStop = forensicResult.details.whaleStopLevel;
+            let wStop: number = forensicResult.details.whaleStopLevel || 0;
             if (!wStop || wStop === 0) {
                 // Fallback Stop: Put Floor or -2% (Tight Stop)
                 // If PutFloor is too far away (>5%), use -2%
@@ -542,9 +542,22 @@ async function generateReportFromItems(
                 else wStop = wEntry * 0.98;
             }
 
+            // [SANITY] Target must be ABOVE entry — put-derived targets produce inverted values
+            if (wTarget <= wEntry) {
+                const cwUpside = (callWall > wEntry) ? callWall : 0;
+                wTarget = cwUpside || (wEntry * 1.05);
+                console.warn(`[Sanity] ${item.ticker}: Target ($${wTarget.toFixed(2)}) was ≤ entry ($${wEntry.toFixed(2)}), corrected to +5% or CW`);
+            }
+
+            // [SANITY] Stop must be BELOW entry
+            if (wStop >= wEntry) {
+                wStop = wEntry * 0.96;
+                console.warn(`[Sanity] ${item.ticker}: Stop ($${wStop.toFixed(2)}) was ≥ entry ($${wEntry.toFixed(2)}), corrected to -4%`);
+            }
+
             // 2. Inject Prices
-            const finalWTarget = wTarget || (wEntry * 1.03);
-            const finalWStop = wStop || (wEntry * 0.98);
+            const finalWTarget = wTarget || (wEntry * 1.05);
+            const finalWStop = wStop || (wEntry * 0.96);
 
             item.decisionSSOT.whaleEntryLevel = wEntry;
             item.decisionSSOT.whaleTargetLevel = finalWTarget;
@@ -552,11 +565,10 @@ async function generateReportFromItems(
             item.decisionSSOT.cutPrice = Number(finalWStop.toFixed(2));
             item.decisionSSOT.dominantContract = forensicResult.details.dominantContract;
 
-            // Entry Band: +/- 0.5% of Entry
-            item.decisionSSOT.entryBand = [
-                Number((wEntry * 0.995).toFixed(2)),
-                Number((wEntry * 1.005).toFixed(2))
-            ];
+            // Entry Band: +/- 0.5% of Entry (clamped to stop/target range)
+            const bandLow = Math.max(Number((wEntry * 0.995).toFixed(2)), Number(finalWStop.toFixed(2)));
+            const bandHigh = Math.min(Number((wEntry * 1.005).toFixed(2)), Number(finalWTarget.toFixed(2)));
+            item.decisionSSOT.entryBand = [bandLow, bandHigh];
 
             // 3. Generate Whale Narrative (whaleReasonKR) with High-Fidelity Observation
             const details = forensicResult.details;
