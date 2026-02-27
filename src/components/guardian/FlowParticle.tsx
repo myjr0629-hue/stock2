@@ -52,7 +52,6 @@ export function FlowParticle({ curve, delay, speed = 0.3, size = 1.0, color = "#
                 transparent
                 opacity={0}
             />
-            <pointLight color={color} intensity={2} distance={1} />
         </mesh>
     );
 }

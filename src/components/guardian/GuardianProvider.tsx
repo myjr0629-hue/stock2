@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 
@@ -100,14 +100,14 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
         // After hours: no polling needed (useMarketStatus handles session detection)
     }, [data?.rlsi?.session, validLocale]);
 
-    const value = {
+    const value = useMemo(() => ({
         data,
         rlsi: data?.rlsi || null,
         marketStatus: data?.marketStatus || 'WAIT',
         verdict: data?.verdict || null,
         refresh,
         loading
-    };
+    }), [data, loading]);
 
     return (
         <GuardianContext.Provider value={value}>
