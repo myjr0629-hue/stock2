@@ -410,9 +410,7 @@ export default function PricingPage() {
             {/* ============================================================ */}
             <section className="px-6 pb-24">
                 <div className="max-w-3xl mx-auto">
-                    <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] p-10 md:p-12 shadow-2xl shadow-black/20">
-                        {/* Static gradient accent — no animation */}
-                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent" />
+                    <div className="relative overflow-hidden rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-10 md:p-12 shadow-2xl shadow-black/30">
 
                         <div className="relative z-10">
                             {/* Badge */}
@@ -436,7 +434,7 @@ export default function PricingPage() {
                             {/* Price Grid — Monthly Founding (Hero) */}
                             <div className="grid grid-cols-2 gap-4 mb-6">
                                 {/* PRO */}
-                                <div className="rounded-xl bg-white/[0.025] border border-white/[0.06] p-6 text-center">
+                                <div className="rounded-xl bg-white/[0.06] border border-amber-500/15 p-6 text-center">
                                     <p className="text-[11px] text-amber-400 font-bold uppercase tracking-widest mb-4 font-jakarta">PRO</p>
                                     <div className="flex items-baseline justify-center gap-1.5">
                                         <span className="text-slate-500 line-through text-sm font-medium font-jakarta">$69</span>
@@ -446,7 +444,7 @@ export default function PricingPage() {
                                     <p className="text-emerald-400 text-xs font-semibold mt-3 font-jakarta">{t("foundingAnnualPro")}</p>
                                 </div>
                                 {/* ELITE */}
-                                <div className="rounded-xl bg-cyan-500/[0.03] border border-cyan-500/10 p-6 text-center">
+                                <div className="rounded-xl bg-cyan-500/[0.08] border border-cyan-500/20 p-6 text-center">
                                     <p className="text-[11px] text-cyan-400 font-bold uppercase tracking-widest mb-4 font-jakarta">ELITE</p>
                                     <div className="flex items-baseline justify-center gap-1.5">
                                         <span className="text-slate-500 line-through text-sm font-medium font-jakarta">$149</span>
