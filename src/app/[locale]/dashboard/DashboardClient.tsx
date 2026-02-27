@@ -3,6 +3,7 @@
 import React, { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
 import { useShallow } from "zustand/react/shallow";
@@ -27,7 +28,8 @@ import {
     List,
     Loader2,
     X,
-    Plus
+    Plus,
+    BookOpen
 } from "lucide-react";
 
 // Market status badge colors
@@ -191,8 +193,15 @@ function AlphaStatusBar() {
                 <MarketCountdown marketStatus={market?.marketStatus} isHoliday={market?.isHoliday} />
             </div>
 
-            {/* Right: Last Updated & Refresh */}
+            {/* Right: Guide Link + Last Updated & Refresh */}
             <div className="flex items-center gap-3">
+                <Link
+                    href="/how-it-works/dashboard"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/[0.08] backdrop-blur-sm transition-all duration-300 group"
+                >
+                    <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-cyan-400 transition-colors" />
+                    <span className="text-[12px] text-slate-300 group-hover:text-cyan-300 font-medium transition-colors">실전 가이드</span>
+                </Link>
                 {lastUpdated && (
                     <span className="text-[12px] text-slate-400">
                         Updated: {lastUpdated.toLocaleTimeString(locale === 'ja' ? 'ja-JP' : locale === 'en' ? 'en-US' : 'ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
