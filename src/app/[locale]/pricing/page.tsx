@@ -410,88 +410,78 @@ export default function PricingPage() {
             {/* ============================================================ */}
             <section className="px-6 pb-24">
                 <div className="max-w-3xl mx-auto">
-                    <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-cyan-500/25 p-10 md:p-12 text-center shadow-[0_0_80px_rgba(34,211,238,0.06)]">
-                        {/* Subtle ambient glow */}
-                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.03] via-transparent to-amber-500/[0.02] pointer-events-none" />
-                        {/* Top edge highlight */}
-                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
+                    <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] p-10 md:p-12 shadow-2xl shadow-black/20">
+                        {/* Static gradient accent — no animation */}
+                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/25 to-transparent" />
 
                         <div className="relative z-10">
-                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-7 backdrop-blur-sm">
-                                <Zap className="w-4 h-4 text-cyan-400" />
-                                <span className="text-xs font-bold text-cyan-400 uppercase tracking-[0.15em] font-jakarta">
-                                    FOUNDING MEMBER
-                                </span>
+                            {/* Badge */}
+                            <div className="flex justify-center mb-8">
+                                <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/15">
+                                    <Zap className="w-3.5 h-3.5 text-cyan-400" />
+                                    <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-[0.15em] font-jakarta">
+                                        FOUNDING MEMBER
+                                    </span>
+                                </div>
                             </div>
 
-                            <h3 className="text-2xl md:text-3xl font-black text-white mb-4 font-jakarta">
+                            {/* Title */}
+                            <h3 className="text-2xl md:text-3xl font-black text-white mb-3 text-center font-jakarta">
                                 {t("foundingTitle")}
                             </h3>
-                            <p className="text-slate-300 text-base mb-8 max-w-xl mx-auto leading-relaxed">
+                            <p className="text-slate-400 text-[15px] mb-10 max-w-lg mx-auto leading-relaxed text-center">
                                 {t("foundingDesc")}
                             </p>
 
-                            <div className="space-y-5 mb-8">
-                                {/* Monthly Founding */}
-                                <div>
-                                    <p className="text-[11px] text-slate-500 uppercase tracking-wider font-bold mb-3 font-jakarta">{t("foundingMonthlyLabel")}</p>
-                                    <div className="flex items-center justify-center gap-8">
-                                        <div className="text-center px-6 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm">
-                                            <p className="text-[11px] text-slate-400 mb-1 font-bold font-jakarta">PRO</p>
-                                            <p>
-                                                <span className="text-red-500 line-through text-sm mr-1.5 font-bold font-jakarta">$69</span>
-                                                <span className="text-2xl font-black text-amber-400 font-jakarta">$49</span>
-                                                <span className="text-slate-400 text-xs">/mo</span>
-                                            </p>
-                                        </div>
-                                        <div className="text-center px-6 py-3.5 rounded-xl bg-cyan-500/[0.04] border border-cyan-500/15 backdrop-blur-sm">
-                                            <p className="text-[11px] text-cyan-400/80 mb-1 font-bold font-jakarta">ELITE</p>
-                                            <p>
-                                                <span className="text-red-500 line-through text-sm mr-1.5 font-bold font-jakarta">$149</span>
-                                                <span className="text-2xl font-black text-cyan-400 font-jakarta">$79</span>
-                                                <span className="text-slate-400 text-xs">/mo</span>
-                                            </p>
-                                        </div>
+                            {/* Price Grid — Monthly Founding (Hero) */}
+                            <div className="grid grid-cols-2 gap-4 mb-6">
+                                {/* PRO */}
+                                <div className="rounded-xl bg-white/[0.025] border border-white/[0.06] p-6 text-center">
+                                    <p className="text-[11px] text-amber-400 font-bold uppercase tracking-widest mb-4 font-jakarta">PRO</p>
+                                    <div className="flex items-baseline justify-center gap-1.5">
+                                        <span className="text-slate-500 line-through text-sm font-medium font-jakarta">$69</span>
+                                        <span className="text-4xl font-black text-white font-jakarta">$49</span>
+                                        <span className="text-slate-500 text-sm">/mo</span>
                                     </div>
+                                    <p className="text-emerald-400 text-xs font-semibold mt-3 font-jakarta">{t("foundingAnnualPro")}</p>
                                 </div>
-
-                                {/* Divider */}
-                                <div className="flex items-center gap-4">
-                                    <div className="flex-1 h-px bg-white/[0.06]" />
-                                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest font-jakarta">+ {t("foundingAnnualSave")}</span>
-                                    <div className="flex-1 h-px bg-white/[0.06]" />
+                                {/* ELITE */}
+                                <div className="rounded-xl bg-cyan-500/[0.03] border border-cyan-500/10 p-6 text-center">
+                                    <p className="text-[11px] text-cyan-400 font-bold uppercase tracking-widest mb-4 font-jakarta">ELITE</p>
+                                    <div className="flex items-baseline justify-center gap-1.5">
+                                        <span className="text-slate-500 line-through text-sm font-medium font-jakarta">$149</span>
+                                        <span className="text-4xl font-black text-white font-jakarta">$79</span>
+                                        <span className="text-slate-500 text-sm">/mo</span>
+                                    </div>
+                                    <p className="text-emerald-400 text-xs font-semibold mt-3 font-jakarta">{t("foundingAnnualElite")}</p>
                                 </div>
+                            </div>
 
-                                {/* Annual Founding */}
-                                <div>
-                                    <p className="text-[11px] text-emerald-400/80 uppercase tracking-wider font-bold mb-3 font-jakarta">{t("foundingAnnualLabel")}</p>
-                                    <div className="flex items-center justify-center gap-8">
-                                        <div className="text-center px-6 py-3.5 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/10 backdrop-blur-sm">
-                                            <p className="text-[11px] text-slate-400 mb-1 font-bold font-jakarta">PRO</p>
-                                            <p>
-                                                <span className="text-red-500 line-through text-sm mr-1.5 font-bold font-jakarta">$49</span>
-                                                <span className="text-2xl font-black text-emerald-400 font-jakarta">$39</span>
-                                                <span className="text-slate-400 text-xs">/mo</span>
-                                            </p>
-                                        </div>
-                                        <div className="text-center px-6 py-3.5 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/10 backdrop-blur-sm">
-                                            <p className="text-[11px] text-cyan-400/80 mb-1 font-bold font-jakarta">ELITE</p>
-                                            <p>
-                                                <span className="text-red-500 line-through text-sm mr-1.5 font-bold font-jakarta">$79</span>
-                                                <span className="text-2xl font-black text-emerald-400 font-jakarta">$59</span>
-                                                <span className="text-slate-400 text-xs">/mo</span>
-                                            </p>
-                                        </div>
+                            {/* Annual Savings Callout */}
+                            <div className="rounded-xl bg-emerald-500/[0.04] border border-emerald-500/10 px-6 py-4 mb-8">
+                                <div className="flex items-center justify-between flex-wrap gap-3">
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                        <span className="text-[13px] text-slate-300 font-medium">{t("foundingAnnualCta")}</span>
+                                    </div>
+                                    <div className="flex items-center gap-6">
+                                        <span className="text-sm font-jakarta">
+                                            <span className="text-slate-500">PRO </span>
+                                            <span className="text-emerald-400 font-bold">$39<span className="text-slate-500 font-normal">/mo</span></span>
+                                        </span>
+                                        <span className="text-sm font-jakarta">
+                                            <span className="text-slate-500">ELITE </span>
+                                            <span className="text-emerald-400 font-bold">$59<span className="text-slate-500 font-normal">/mo</span></span>
+                                        </span>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Restoration warning */}
-                            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                            {/* Restoration + Urgency */}
+                            <p className="text-xs text-slate-500 text-center mb-3 leading-relaxed">
                                 {t("foundingRestore")}
                             </p>
-
-                            <p className="text-sm text-amber-400/90 font-semibold">
+                            <p className="text-sm text-amber-400/90 font-semibold text-center">
                                 {t("foundingUrgency")}
                             </p>
                         </div>
