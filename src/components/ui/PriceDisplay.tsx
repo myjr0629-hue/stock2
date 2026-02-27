@@ -175,6 +175,7 @@ export function PriceDisplay({
 }: PriceDisplayProps) {
     const config = SIZE_CONFIG[size];
     const flash = usePriceFlash(intradayPrice);
+    const extFlash = usePriceFlash(extendedPrice || 0);
 
     // Determine colors
     const isIntradayUp = intradayChangePct >= 0;
@@ -233,14 +234,23 @@ export function PriceDisplay({
 
             {/* ===== Extended (POST/PRE) Price — Command-style pill ===== */}
             {hasExtended && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/50 border border-slate-700/50 backdrop-blur-md ml-2">
+                <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-md border backdrop-blur-md ml-2 transition-all duration-300 ${extFlash === 'up' ? 'bg-emerald-500/10 border-emerald-500/30' :
+                        extFlash === 'down' ? 'bg-rose-500/10 border-rose-500/30' :
+                            'bg-slate-800/50 border-slate-700/50'
+                    }`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${extendedLabel.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'
                         } animate-pulse`} />
                     <div className="flex items-baseline gap-1.5">
                         <span className={`text-[11px] font-black uppercase tracking-widest ${EXT_LABEL_COLORS[extendedLabel]}`}>
                             {extendedLabel}
                         </span>
-                        <span className="text-xs font-mono font-bold text-slate-200">
+                        <span className={`text-xs font-mono font-bold transition-all duration-300 ${extFlash === 'up' ? 'text-green-200' :
+                                extFlash === 'down' ? 'text-red-200' :
+                                    'text-slate-200'
+                            }`}
+                            style={extFlash ? {
+                                textShadow: extFlash === 'up' ? '0 0 10px rgba(74,222,128,0.6)' : '0 0 10px rgba(248,113,113,0.6)',
+                            } : { textShadow: 'none' }}>
                             ${extendedPrice.toLocaleString(undefined, {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2

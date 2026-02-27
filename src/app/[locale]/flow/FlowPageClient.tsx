@@ -161,40 +161,42 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                             </div>
                         </div>
 
-                        {/* Guide Link */}
-                        <Link
-                            href="/how-it-works/flow"
-                            className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/[0.08] backdrop-blur-sm transition-all duration-300 group"
-                        >
-                            <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
-                            <span className="text-[12px] text-slate-300 group-hover:text-indigo-300 font-medium transition-colors">실전 가이드</span>
-                        </Link>
+                        {/* Guide Link + Sparkline grouped together */}
+                        <div className="hidden sm:flex items-center gap-2 self-end mb-0.5">
+                            <Link
+                                href="/how-it-works/flow"
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/[0.08] backdrop-blur-sm transition-all duration-300 group"
+                            >
+                                <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
+                                <span className="text-[12px] text-slate-300 group-hover:text-indigo-300 font-medium transition-colors">실전 가이드</span>
+                            </Link>
 
-                        {/* Mini Sparkline Chart (right side) */}
-                        {sparklinePath && (
-                            <div className="hidden sm:flex items-center pr-1">
-                                <svg width="120" height="32" viewBox="0 0 120 32" className="opacity-70">
-                                    <defs>
-                                        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor={sparklinePath.isUp ? '#10b981' : '#f43f5e'} stopOpacity="0.3" />
-                                            <stop offset="100%" stopColor={sparklinePath.isUp ? '#10b981' : '#f43f5e'} stopOpacity="0" />
-                                        </linearGradient>
-                                    </defs>
-                                    <polygon
-                                        points={`0,32 ${sparklinePath.path} 120,32`}
-                                        fill="url(#sparkGrad)"
-                                    />
-                                    <polyline
-                                        points={sparklinePath.path}
-                                        fill="none"
-                                        stroke={sparklinePath.isUp ? '#10b981' : '#f43f5e'}
-                                        strokeWidth="1.5"
-                                        strokeLinejoin="round"
-                                        strokeLinecap="round"
-                                    />
-                                </svg>
-                            </div>
-                        )}
+                            {/* Mini Sparkline Chart */}
+                            {sparklinePath && (
+                                <div className="flex items-center">
+                                    <svg width="120" height="32" viewBox="0 0 120 32" className="opacity-70">
+                                        <defs>
+                                            <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="0%" stopColor={sparklinePath.isUp ? '#10b981' : '#f43f5e'} stopOpacity="0.3" />
+                                                <stop offset="100%" stopColor={sparklinePath.isUp ? '#10b981' : '#f43f5e'} stopOpacity="0" />
+                                            </linearGradient>
+                                        </defs>
+                                        <polygon
+                                            points={`0,32 ${sparklinePath.path} 120,32`}
+                                            fill="url(#sparkGrad)"
+                                        />
+                                        <polyline
+                                            points={sparklinePath.path}
+                                            fill="none"
+                                            stroke={sparklinePath.isUp ? '#10b981' : '#f43f5e'}
+                                            strokeWidth="1.5"
+                                            strokeLinejoin="round"
+                                            strokeLinecap="round"
+                                        />
+                                    </svg>
+                                </div>
+                            )}
+                        </div>
 
                         {/* Mobile Price Row */}
                         <div className="flex flex-col gap-2 sm:hidden">
@@ -209,6 +211,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                             </div>
                         </div>
                     </div>
+
 
                     {/* Flow Radar Component */}
                     {isDataMissing ? (

@@ -350,7 +350,6 @@ export const CustomTickerBar = memo(() => {
                             key={item.key}
                             className={`flex items-center gap-[6px] h-full px-4 ${flash === 'up' ? 'tv-flash-up-bg' : flash === 'down' ? 'tv-flash-down-bg' : ''}`}
                             style={{
-                                borderRight: idx < items.length - 1 ? '1px solid #2a2e39' : 'none',
                                 transition: 'background-color 0.15s'
                             }}
                         >

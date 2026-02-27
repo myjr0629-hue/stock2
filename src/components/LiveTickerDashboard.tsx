@@ -9,7 +9,7 @@ import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { usePriceFlash, getFlashStyle } from '@/components/ui/PriceDisplay';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown, Crosshair, Radar, Shield, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown, Crosshair, Radar, Shield, ChevronDown, ChevronUp, Sparkles, BookOpen } from "lucide-react";
 import { StockData, OptionData, NewsItem } from "@/services/stockTypes";
 import { OIChart } from "@/components/OIChart";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
@@ -885,40 +885,72 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             )}
 
                             {/* Sector Badge */}
-                            {companyOverview?.sector && (
-                                <span className="text-[12px] px-2.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 font-semibold whitespace-nowrap"
-                                    style={{ fontFamily: locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif" }}>
-                                    {companyOverview.sector.split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')}
-                                </span>
-                            )}
+                            {companyOverview?.sector && (() => {
+                                const s = companyOverview.sector.toLowerCase();
+                                const sectorColor =
+                                    s.includes('tech') ? { bg: 'rgba(6,182,212,0.15)', text: 'rgb(103,232,249)', border: 'rgba(6,182,212,0.25)' } :
+                                        s.includes('health') || s.includes('pharma') || s.includes('bio') ? { bg: 'rgba(16,185,129,0.15)', text: 'rgb(110,231,183)', border: 'rgba(16,185,129,0.25)' } :
+                                            s.includes('financ') || s.includes('bank') ? { bg: 'rgba(234,179,8,0.15)', text: 'rgb(253,224,71)', border: 'rgba(234,179,8,0.25)' } :
+                                                s.includes('energy') || s.includes('oil') ? { bg: 'rgba(249,115,22,0.15)', text: 'rgb(253,186,116)', border: 'rgba(249,115,22,0.25)' } :
+                                                    s.includes('consumer') && s.includes('defen') ? { bg: 'rgba(168,85,247,0.15)', text: 'rgb(216,180,254)', border: 'rgba(168,85,247,0.25)' } :
+                                                        s.includes('consumer') ? { bg: 'rgba(236,72,153,0.15)', text: 'rgb(249,168,212)', border: 'rgba(236,72,153,0.25)' } :
+                                                            s.includes('commun') || s.includes('media') || s.includes('telecom') ? { bg: 'rgba(239,68,68,0.15)', text: 'rgb(252,165,165)', border: 'rgba(239,68,68,0.25)' } :
+                                                                s.includes('industr') || s.includes('aero') || s.includes('defense') ? { bg: 'rgba(100,116,139,0.20)', text: 'rgb(203,213,225)', border: 'rgba(100,116,139,0.30)' } :
+                                                                    s.includes('real') || s.includes('estate') ? { bg: 'rgba(20,184,166,0.15)', text: 'rgb(153,246,228)', border: 'rgba(20,184,166,0.25)' } :
+                                                                        s.includes('utilit') ? { bg: 'rgba(132,204,22,0.15)', text: 'rgb(190,242,100)', border: 'rgba(132,204,22,0.25)' } :
+                                                                            s.includes('material') || s.includes('basic') ? { bg: 'rgba(217,119,6,0.15)', text: 'rgb(252,211,77)', border: 'rgba(217,119,6,0.25)' } :
+                                                                                s.includes('semi') || s.includes('chip') ? { bg: 'rgba(59,130,246,0.15)', text: 'rgb(147,197,253)', border: 'rgba(59,130,246,0.25)' } :
+                                                                                    { bg: 'rgba(99,102,241,0.15)', text: 'rgb(165,180,252)', border: 'rgba(99,102,241,0.25)' };
+                                return (
+                                    <span className="text-[12px] px-2.5 py-0.5 rounded-full font-semibold whitespace-nowrap"
+                                        style={{
+                                            backgroundColor: sectorColor.bg,
+                                            color: sectorColor.text,
+                                            borderWidth: '1px',
+                                            borderColor: sectorColor.border,
+                                            fontFamily: locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif"
+                                        }}>
+                                        {companyOverview.sector.split(' ').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')}
+                                    </span>
+                                );
+                            })()}
                         </div>
+                    </div>
+
+                    {/* Guide Link - pushed right via ml-auto, tight height */}
+                    <div className="ml-auto hidden sm:flex items-center self-end mb-1">
+                        <a href={`/how-it-works/command`} className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/[0.08] backdrop-blur-sm transition-all duration-300 group whitespace-nowrap">
+                            <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-cyan-400 transition-colors" />
+                            <span className="text-[12px] text-slate-300 group-hover:text-cyan-300 font-medium transition-colors leading-tight">실전 가이드</span>
+                        </a>
                     </div>
 
                     {/* Right Column: Company Description with infographic background */}
                     {companyOverview?.description && (
-                        <div className="ml-auto hidden lg:flex items-center max-w-[45%] relative overflow-hidden rounded-lg px-4 py-2"
-                            style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.15) 0%, rgba(59,130,246,0.10) 50%, rgba(99,102,241,0.05) 100%)' }}>
+                        <div className="hidden lg:flex items-center max-w-[45%] relative overflow-hidden rounded-xl px-5 py-2.5 border border-white/[0.06]"
+                            style={{
+                                background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(59,130,246,0.05) 50%, rgba(15,23,42,0.3) 100%)',
+                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(99,102,241,0.06)'
+                            }}>
                             {/* Infographic SVG background */}
-                            <svg className="absolute inset-0 w-full h-full opacity-[0.25]" preserveAspectRatio="none" viewBox="0 0 400 80">
-                                {/* Grid dots */}
-                                <pattern id="headerDots" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
-                                    <circle cx="2" cy="2" r="0.8" fill="rgb(165,180,252)" />
+                            <svg className="absolute inset-0 w-full h-full opacity-[0.12]" preserveAspectRatio="none" viewBox="0 0 400 80">
+                                {/* Subtle grid dots */}
+                                <pattern id="headerDots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+                                    <circle cx="2" cy="2" r="0.5" fill="rgb(148,163,184)" />
                                 </pattern>
                                 <rect width="400" height="80" fill="url(#headerDots)" />
-                                {/* Chart line */}
-                                <polyline points="0,60 40,55 80,40 120,50 160,30 200,35 240,20 280,25 320,15 360,18 400,10"
-                                    fill="none" stroke="rgb(129,140,248)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                {/* Smooth chart line */}
+                                <polyline points="0,60 40,55 80,42 120,48 160,32 200,36 240,22 280,26 320,16 360,19 400,12"
+                                    fill="none" stroke="rgb(129,140,248)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
                                 {/* Area fill under chart */}
-                                <polygon points="0,60 40,55 80,40 120,50 160,30 200,35 240,20 280,25 320,15 360,18 400,10 400,80 0,80"
+                                <polygon points="0,60 40,55 80,42 120,48 160,32 200,36 240,22 280,26 320,16 360,19 400,12 400,80 0,80"
                                     fill="url(#headerAreaGrad)" />
                                 <linearGradient id="headerAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="rgb(129,140,248)" stopOpacity="0.3" />
+                                    <stop offset="0%" stopColor="rgb(129,140,248)" stopOpacity="0.15" />
                                     <stop offset="100%" stopColor="rgb(129,140,248)" stopOpacity="0" />
                                 </linearGradient>
                             </svg>
-                            {/* Subtle left accent line */}
-                            <div className="absolute left-0 top-2 bottom-2 w-[2px] rounded-full bg-gradient-to-b from-indigo-400/70 via-blue-400/40 to-transparent" />
-                            <p className="relative text-[13px] text-slate-200 leading-snug text-justify z-10"
+                            <p className="relative text-[13px] text-slate-300/90 leading-relaxed z-10"
                                 style={{ fontFamily: locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif" }}>
                                 {companyOverview.description}
                             </p>
