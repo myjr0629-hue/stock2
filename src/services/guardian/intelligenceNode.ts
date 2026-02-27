@@ -381,6 +381,13 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         [시장 참여도 — Breadth]
         ${breadthLine}
 
+        ${ctx.gexIndex !== undefined ? `[옵션 구조 — GAMMA SHIELD]
+        - GEX 지수: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'}) → ${ctx.gexIndex >= 20 ? '딜러 감마 방어(안정)' : ctx.gexIndex <= -20 ? '딜러 매도 증폭(불안정)' : '약한 감마 방어(취약)'}
+        - 스퀴즈 리스크: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'}) → ${ctx.squeezeRisk! >= 55 ? '폭발 임박' : ctx.squeezeRisk! >= 30 ? '에너지 축적 중' : '안정'}
+        ${ctx.triggerCurrent ? `- S&P 500 현재: ${ctx.triggerCurrent.toLocaleString()}` : ''}
+        ${ctx.triggerSupport ? `- 옵션 지지선: ${ctx.triggerSupport.toLocaleString()} (${ctx.triggerCurrent ? (((ctx.triggerCurrent - ctx.triggerSupport) / ctx.triggerCurrent) * 100).toFixed(1) + '% 아래' : ''})` : ''}
+        ${ctx.triggerResistance ? `- 옵션 저항선: ${ctx.triggerResistance.toLocaleString()} (${ctx.triggerCurrent ? (((ctx.triggerResistance - ctx.triggerCurrent) / ctx.triggerCurrent) * 100).toFixed(1) + '% 위' : ''})` : ''}` : ''}
+
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[📰 실시간 시장 뉴스 — 거시경제 이벤트]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
@@ -408,6 +415,13 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         15. CPI/PPI/고용 관련 뉴스 → 금리 정책 방향 + 시장 반응 함께 평가
         16. 연준 관련 뉴스 → 금리 선물 반영 여부까지 교차 확인
         17. 지정학 뉴스 → 유가/금/달러 반응으로 실제 영향 판단
+
+        [옵션 구조 분석 규칙 — GAMMA SHIELD]
+        18. GEX +20 이상 → 딜러 감마 클램핑, 큰 변동 억제, 레인지 바운드 예상
+        19. GEX -20 이하 → 딜러 매도 헤지로 하락 가속, 변동성 확대 경고, 하방 리스크 강조
+        20. Squeeze 55%+ → 옵션 매도자 강제 청산 임박, 방향 불문 급변동 가능성 경고
+        21. 옵션 지지선/저항선 3% 이내 접근 → 해당 레벨 돌파/이탈 시나리오 언급
+        22. GEX 약(−19~+19) + Squeeze 30%+ → "감마 방어력 부족, Squeeze 에너지 축적" 언급
 
         **✍️ 출력 (정확히 이 형식으로):**
         현재 시장의 거시경제 상황과 핵심 상태를 투자자가 바로 이해할 수 있도록 자연스러운 한국어 3-4문장으로 작성하세요.
@@ -452,10 +466,17 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.breadthPct !== undefined ? `- Breadth: ${Math.round(ctx.breadthPct)}% [${ctx.breadthSignal || '?'}]` : ''}
         ${assetBlock}
 
+        ${ctx.gexIndex !== undefined ? `[Gamma Shield — Options Structure]
+        - GEX: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
+        - Squeeze: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
+        ${ctx.triggerCurrent ? `- S&P 500: ${ctx.triggerCurrent.toLocaleString()}` : ''}
+        ${ctx.triggerSupport ? `- Support: ${ctx.triggerSupport.toLocaleString()}` : ''}
+        ${ctx.triggerResistance ? `- Resistance: ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
+
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[News]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **Output:** 2-3 sentences. Lead with the key macro driver, follow with market state, end with actionable guidance. Max 200 chars.
+        **Output:** 2-3 sentences. Lead with the key macro driver, follow with market state (include gamma/options structure when relevant), end with actionable guidance. Max 200 chars.
     `;
     },
     ja: (ctx) => {
@@ -484,10 +505,17 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.breadthPct !== undefined ? `- Breadth: ${Math.round(ctx.breadthPct)}% [${ctx.breadthSignal || '?'}]` : ''}
         ${assetBlock}
 
+        ${ctx.gexIndex !== undefined ? `[ガンマシールド — オプション構造]
+        - GEX: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
+        - スクイーズ: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
+        ${ctx.triggerCurrent ? `- S&P 500: ${ctx.triggerCurrent.toLocaleString()}` : ''}
+        ${ctx.triggerSupport ? `- サポート: ${ctx.triggerSupport.toLocaleString()}` : ''}
+        ${ctx.triggerResistance ? `- レジスタンス: ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
+
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[ニュース]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **出力:** 2-3文。マクロ要因→市場状態→アクション。250字以内。
+        **出力:** 2-3文。マクロ要因→市場状態（ガンマ/オプション構造含む）→アクション。250字以内。
     `;
     }
 };
