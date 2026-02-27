@@ -58,6 +58,7 @@ export interface AnalysisCacheEntry {
     // Extra indicators
     whaleIndex: number;
     whaleConfidence: 'HIGH' | 'MED' | 'LOW' | 'NONE';
+    darkPoolPct: number;   // [V5] Off-exchange / dark pool volume percentage
     netPremium: number | null;
     vwapDist: number | null;   // cached for reference, UI recalculates with live price
     volume: number | null;     // for reference

@@ -37,6 +37,18 @@
             "schedule": "30 21 * * 1-5"
         },
         {
+            "path": "/api/cron/snapshot?sector=quantum_edge",
+            "schedule": "35 21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/snapshot?sector=fintech_pulse",
+            "schedule": "40 21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/snapshot?sector=cloud_fortress",
+            "schedule": "45 21 * * 1-5"
+        },
+        {
             "path": "/api/cron/warm-analysis",
             "schedule": "*/5 * * * 1-5"
         },

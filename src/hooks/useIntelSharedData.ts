@@ -15,6 +15,9 @@ const POWER_MATRIX_TICKERS = ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'];
 const BIO_PULSE_TICKERS = ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'];
 const CYBER_SHIELD_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'];
 const ORBIT_DEFENSE_TICKERS = ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'];
+const QUANTUM_EDGE_TICKERS = ['SMCI', 'SNOW', 'IONQ', 'DELL', 'AI', 'PATH', 'TWLO'];
+const FINTECH_PULSE_TICKERS = ['XYZ', 'PYPL', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'UPST'];
+const CLOUD_FORTRESS_TICKERS = ['CRM', 'NOW', 'DDOG', 'WDAY', 'MDB', 'TEAM', 'HUBS'];
 
 // Types for shared data
 export interface IntelQuote {
@@ -39,6 +42,8 @@ export interface IntelQuote {
     netPremium: number;
     rsi: number;
     rvol: number;
+    whaleIndex: number;
+    darkPoolPct: number;
     priceFlash?: 'up' | 'down' | null; // flash animation direction
 }
 
@@ -50,6 +55,9 @@ export interface IntelSharedData {
     bioPulse: IntelQuote[];
     cyberShield: IntelQuote[];
     orbitDefense: IntelQuote[];
+    quantumEdge: IntelQuote[];
+    fintechPulse: IntelQuote[];
+    cloudFortress: IntelQuote[];
     loading: boolean;
     refreshing: boolean;
     optionsLoading: boolean;
@@ -83,6 +91,9 @@ export function useIntelSharedData(
     const [bioPulseData, setBioPulseData] = useState<IntelQuote[]>(initialBPData || []);
     const [cyberShieldData, setCyberShieldData] = useState<IntelQuote[]>(initialCSData || []);
     const [orbitDefenseData, setOrbitDefenseData] = useState<IntelQuote[]>(initialODData || []);
+    const [quantumEdgeData, setQuantumEdgeData] = useState<IntelQuote[]>([]);
+    const [fintechPulseData, setFintechPulseData] = useState<IntelQuote[]>([]);
+    const [cloudFortressData, setCloudFortressData] = useState<IntelQuote[]>([]);
     const [loading, setLoading] = useState(!(initialM7Data?.length && initialPAIData?.length));
     const [refreshing, setRefreshing] = useState(false);
     const [optionsLoading, setOptionsLoading] = useState(true);
@@ -128,6 +139,16 @@ export function useIntelSharedData(
             mergeOrSet(csRes, setCyberShieldData);
             mergeOrSet(odRes, setOrbitDefenseData);
 
+            // New sectors — use full API (no fast endpoint yet)
+            const [qeRes, fpRes, cfRes] = await Promise.all([
+                safeFetch('/api/intel/quantumedge'),
+                safeFetch('/api/intel/fintechpulse'),
+                safeFetch('/api/intel/cloudfortress'),
+            ]);
+            mergeOrSet(qeRes, setQuantumEdgeData);
+            mergeOrSet(fpRes, setFintechPulseData);
+            mergeOrSet(cfRes, setCloudFortressData);
+
             setFetchedAt(new Date().toISOString());
             setLoading(false);
         } catch (e) {
@@ -169,6 +190,9 @@ export function useIntelSharedData(
             mergeIfPresent(bpBatch, setBioPulseData);
             mergeIfPresent(csBatch, setCyberShieldData);
             mergeIfPresent(odBatch, setOrbitDefenseData);
+            mergeIfPresent(await safeFetch(`/api/watchlist/batch?tickers=${QUANTUM_EDGE_TICKERS.join(',')}`), setQuantumEdgeData);
+            mergeIfPresent(await safeFetch(`/api/watchlist/batch?tickers=${FINTECH_PULSE_TICKERS.join(',')}`), setFintechPulseData);
+            mergeIfPresent(await safeFetch(`/api/watchlist/batch?tickers=${CLOUD_FORTRESS_TICKERS.join(',')}`), setCloudFortressData);
 
             hasFullData.current = true;
             setOptionsLoading(false);
@@ -190,7 +214,7 @@ export function useIntelSharedData(
         isPriceFetching.current = true;
 
         try {
-            const allTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS, ...CYBER_SHIELD_TICKERS, ...ORBIT_DEFENSE_TICKERS].join(',');
+            const allTickers = [...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS, ...CYBER_SHIELD_TICKERS, ...ORBIT_DEFENSE_TICKERS, ...QUANTUM_EDGE_TICKERS, ...FINTECH_PULSE_TICKERS, ...CLOUD_FORTRESS_TICKERS].join(',');
             const res = await safeFetch(`/api/live/quotes?symbols=${allTickers}`);
             if (!res?.data) return;
 
@@ -238,6 +262,9 @@ export function useIntelSharedData(
             setBioPulseData(updateFn);
             setCyberShieldData(updateFn);
             setOrbitDefenseData(updateFn);
+            setQuantumEdgeData(updateFn);
+            setFintechPulseData(updateFn);
+            setCloudFortressData(updateFn);
         } catch (e) {
             // silent fail — prices will refresh on next cycle
         } finally {
@@ -304,6 +331,9 @@ export function useIntelSharedData(
         bioPulse: bioPulseData,
         cyberShield: cyberShieldData,
         orbitDefense: orbitDefenseData,
+        quantumEdge: quantumEdgeData,
+        fintechPulse: fintechPulseData,
+        cloudFortress: cloudFortressData,
         loading,
         refreshing,
         optionsLoading,
@@ -340,7 +370,7 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
 }
 
 // Export ticker constants for components
-export { M7_TICKERS, PHYSICAL_AI_TICKERS, SILICON_CORE_TICKERS, POWER_MATRIX_TICKERS, BIO_PULSE_TICKERS, CYBER_SHIELD_TICKERS, ORBIT_DEFENSE_TICKERS };
+export { M7_TICKERS, PHYSICAL_AI_TICKERS, SILICON_CORE_TICKERS, POWER_MATRIX_TICKERS, BIO_PULSE_TICKERS, CYBER_SHIELD_TICKERS, ORBIT_DEFENSE_TICKERS, QUANTUM_EDGE_TICKERS, FINTECH_PULSE_TICKERS, CLOUD_FORTRESS_TICKERS };
 
 /**
  * Merge watchlist/batch results (alpha + options) into existing Phase 1 quotes.
@@ -375,6 +405,8 @@ function mergeWatchlistBatchIntoQuotes(existingQuotes: IntelQuote[], batchResult
             netPremium: rt.netPremium || existing.netPremium,
             rsi: rt.rsi || existing.rsi || 0,
             rvol: rt.relVol || existing.rvol || 0,
+            whaleIndex: rt.whaleIndex || existing.whaleIndex || 0,
+            darkPoolPct: rt.darkPoolPct || existing.darkPoolPct || 0,
         };
     });
 }

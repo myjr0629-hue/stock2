@@ -29,6 +29,9 @@ import { powerMatrixConfig } from "@/configs/powermatrix.config";
 import { bioPulseConfig } from "@/configs/biopulse.config";
 import { cyberShieldConfig } from "@/configs/cybershield.config";
 import { orbitDefenseConfig } from "@/configs/orbitdefense.config";
+import { quantumEdgeConfig } from "@/configs/quantumedge.config";
+import { fintechPulseConfig } from "@/configs/fintechpulse.config";
+import { cloudFortressConfig } from "@/configs/cloudfortress.config";
 import { useIntelSharedData } from "@/hooks/useIntelSharedData";
 
 // [PERF] Lazy-loaded heavy components — reduces initial JS bundle by ~150KB
@@ -57,6 +60,7 @@ const TacticalReportDeck = dynamic(() => import("@/components/intel/TacticalRepo
 const SectorRankingRow = dynamic(() => import("@/components/intel/SectorRankingRow").then(m => m.SectorRankingRow), { ssr: false });
 const SectorAnalystConsensus = dynamic(() => import("@/components/intel/SectorAnalystConsensus").then(m => m.SectorAnalystConsensus), { ssr: false });
 const SectorEarningsCalendar = dynamic(() => import("@/components/intel/SectorEarningsCalendar").then(m => m.SectorEarningsCalendar), { ssr: false });
+const SectorCommandCenter = dynamic(() => import("@/components/intel/SectorCommandCenter").then(m => m.SectorCommandCenter), { ssr: false });
 
 
 
@@ -1117,7 +1121,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
     // State
     const [report, setReport] = useState<any>(initialReport || null);
-    const [activeTab, setActiveTab] = useState('FINAL');
+    const [activeTab, setActiveTab] = useState('SECTOR_COMMAND');
     const [isLoading, setIsLoading] = useState(!initialReport);
     const [error, setError] = useState<string | null>(null);
     const [liveQuotes, setLiveQuotes] = useState<Record<string, any>>({}); // [Live Overlay]
@@ -1623,6 +1627,9 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                 bioPulse: sectorData.bioPulse,
                 cyberShield: sectorData.cyberShield,
                 orbitDefense: sectorData.orbitDefense,
+                quantumEdge: sectorData.quantumEdge,
+                fintechPulse: sectorData.fintechPulse,
+                cloudFortress: sectorData.cloudFortress,
             }} />
 
             {/* 1. MAIN CONTENT (Offset 208px) */}
@@ -1639,8 +1646,13 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                 <div className="max-w-[1920px] mx-auto px-8 py-8 space-y-8 relative z-10">
 
-                    {/* TRACK RECORD CONTENT */}
-                    {activeTab === 'TRACK_RECORD' && (
+                    {/* SECTOR COMMAND DASHBOARD — Main Landing View */}
+                    {activeTab === 'SECTOR_COMMAND' && (
+                        <SectorCommandCenter sectorData={sectorData} onNavigate={setActiveTab} />
+                    )}
+
+                    {/* TRACK RECORD CONTENT — [DISABLED] Alpha Report removed */}
+                    {false && activeTab === 'TRACK_RECORD' && (
                         <div className="space-y-8">
                             <TrackRecord />
                         </div>
@@ -1850,8 +1862,62 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                         </div>
                     )}
 
-                    {/* FINAL BATTLE CONTENT */}
-                    {activeTab === 'FINAL' && (
+                    {activeTab === 'QUANTUM_EDGE' && (
+                        <div className="space-y-4">
+                            <section>
+                                <SectorSessionGrid config={quantumEdgeConfig} quotes={sectorData.quantumEdge} />
+                            </section>
+                            <section>
+                                <SectorRankingRow config={quantumEdgeConfig} quotes={sectorData.quantumEdge} />
+                            </section>
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={quantumEdgeConfig} />
+                                <SectorEarningsCalendar config={quantumEdgeConfig} />
+                            </section>
+                            <section>
+                                <TacticalReportDeck config={quantumEdgeConfig} />
+                            </section>
+                        </div>
+                    )}
+
+                    {activeTab === 'FINTECH_PULSE' && (
+                        <div className="space-y-4">
+                            <section>
+                                <SectorSessionGrid config={fintechPulseConfig} quotes={sectorData.fintechPulse} />
+                            </section>
+                            <section>
+                                <SectorRankingRow config={fintechPulseConfig} quotes={sectorData.fintechPulse} />
+                            </section>
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={fintechPulseConfig} />
+                                <SectorEarningsCalendar config={fintechPulseConfig} />
+                            </section>
+                            <section>
+                                <TacticalReportDeck config={fintechPulseConfig} />
+                            </section>
+                        </div>
+                    )}
+
+                    {activeTab === 'CLOUD_FORTRESS' && (
+                        <div className="space-y-4">
+                            <section>
+                                <SectorSessionGrid config={cloudFortressConfig} quotes={sectorData.cloudFortress} />
+                            </section>
+                            <section>
+                                <SectorRankingRow config={cloudFortressConfig} quotes={sectorData.cloudFortress} />
+                            </section>
+                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                <SectorAnalystConsensus config={cloudFortressConfig} />
+                                <SectorEarningsCalendar config={cloudFortressConfig} />
+                            </section>
+                            <section>
+                                <TacticalReportDeck config={cloudFortressConfig} />
+                            </section>
+                        </div>
+                    )}
+
+                    {/* FINAL BATTLE CONTENT — [DISABLED] Alpha Report removed */}
+                    {false && activeTab === 'FINAL' && (
                         <div className="space-y-8">
 
                             {/* 1. HERO HEADER (Premium Open Design -> Glassmorphic) */}

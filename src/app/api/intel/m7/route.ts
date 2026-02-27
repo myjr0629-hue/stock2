@@ -38,6 +38,8 @@ export interface M7Quote {
     netPremium: number;
     rsi: number;
     rvol: number;
+    whaleIndex: number;
+    darkPoolPct: number;
 }
 
 export async function GET(request: Request) {
@@ -133,6 +135,8 @@ export async function GET(request: Request) {
                     netPremium: analysis.netPremium || 0,
                     rsi: analysis.rsi || 0,
                     rvol: analysis.relVol || 0,
+                    whaleIndex: analysis.whaleIndex || 0,
+                    darkPoolPct: analysis.darkPoolPct || 0,
                 };
             });
 
@@ -213,7 +217,9 @@ export async function GET(request: Request) {
                     sparkline: [],
                     netPremium: 0,
                     rsi: 0,
-                    rvol: 0
+                    rvol: 0,
+                    whaleIndex: 0,
+                    darkPoolPct: 0
                 });
                 return;
             }
@@ -292,7 +298,9 @@ export async function GET(request: Request) {
                 sparkline: rt.sparkline || [],
                 netPremium: rt.netPremium || 0,
                 rsi: rt.rsi || 0,
-                rvol: rt.relVol || 0
+                rvol: rt.relVol || 0,
+                whaleIndex: rt.whaleIndex || 0,
+                darkPoolPct: rt.darkPoolPct || 0
             });
         });
 

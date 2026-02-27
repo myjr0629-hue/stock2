@@ -22,18 +22,21 @@ const POWER_MATRIX_TICKERS = ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'];
 const BIO_PULSE_TICKERS = ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'];
 const CYBER_SHIELD_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'];
 const ORBIT_DEFENSE_TICKERS = ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'];
+const QUANTUM_EDGE_TICKERS = ['SMCI', 'SNOW', 'IONQ', 'DELL', 'AI', 'PATH', 'TWLO'];
+const FINTECH_PULSE_TICKERS = ['XYZ', 'PYPL', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'UPST'];
+const CLOUD_FORTRESS_TICKERS = ['CRM', 'NOW', 'DDOG', 'WDAY', 'MDB', 'TEAM', 'HUBS'];
 
 // Popular tickers that are frequently viewed (top dashboard/watchlist selections)
 const POPULAR_TICKERS = [
     'SPY', 'QQQ', 'IWM', 'INTC', 'SOFI', 'COIN', 'MSTR',
-    'SMCI', 'CRM', 'SNOW', 'UBER', 'SQ',
+    'SMCI', 'CRM', 'SNOW', 'UBER', 'XYZ',
     'SHOP', 'SE', 'BABA', 'JD', 'NIO', 'LI', 'RIVN', 'LCID',
     'BA', 'DIS', 'NFLX', 'PYPL', 'V', 'MA', 'JPM', 'GS',
     'XOM', 'CVX', 'UNH', 'WDC', 'MCD',
 ];
 
 // Deduplicated unified list (all 7 sectors + popular)
-const ALL_TICKERS = [...new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS, ...CYBER_SHIELD_TICKERS, ...ORBIT_DEFENSE_TICKERS, ...POPULAR_TICKERS])];
+const ALL_TICKERS = [...new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS, ...CYBER_SHIELD_TICKERS, ...ORBIT_DEFENSE_TICKERS, ...QUANTUM_EDGE_TICKERS, ...FINTECH_PULSE_TICKERS, ...CLOUD_FORTRESS_TICKERS, ...POPULAR_TICKERS])];
 
 // Concurrency control — max 5 tickers in parallel to avoid API rate limits
 const CONCURRENCY = 5;
@@ -383,6 +386,7 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
             iv,
             whaleIndex: Math.round(whaleIndex),
             whaleConfidence,
+            darkPoolPct: darkPoolPct ?? 0,
             netPremium: structureRes?.netPremium ?? null,
             vwapDist: (stockData.vwap && stockData.price)
                 ? Number(((stockData.price - stockData.vwap) / stockData.vwap * 100).toFixed(2))

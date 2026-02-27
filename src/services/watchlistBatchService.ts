@@ -214,6 +214,17 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         if (analysis) {
             const base = buildBasePrice();
 
+            // [FIX] Live dark pool enrichment when cache has stale 0 value
+            let liveDarkPoolPct = analysis.darkPoolPct ?? 0;
+            if (liveDarkPoolPct === 0) {
+                try {
+                    const tradeData = await fetchTradeData(ticker);
+                    if (tradeData && tradeData.darkPoolPercent > 0) {
+                        liveDarkPoolPct = tradeData.darkPoolPercent;
+                    }
+                } catch { /* silent */ }
+            }
+
             // Override changePct with sparkline if NOT in regular session
             let finalChangePct = base.changePct;
             if (currentSession !== 'regular' && analysis.sparkline && analysis.sparkline.length >= 2) {
@@ -253,6 +264,8 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     pcr: analysis.pcr,
                     whaleIndex: analysis.whaleIndex,
                     whaleConfidence: analysis.whaleConfidence,
+                    darkPoolPct: liveDarkPoolPct,
+                    squeezeScore: analysis.squeezeScore,
                     gammaFlipLevel: analysis.gammaFlipLevel,
                     iv: analysis.iv,
                     vwap: base.vwap,
@@ -508,7 +521,8 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 whaleConfidence: fullObj.realtime.whaleConfidence,
                 netPremium: fullObj.realtime.netPremium,
                 vwapDist: fullObj.realtime.vwapDist,
-                volume: fullObj.realtime.volume
+                volume: fullObj.realtime.volume,
+                darkPoolPct: darkPoolPct ?? 0
             }).catch(e => console.error(`Failed to write analysis cache for ${ticker}`, e));
 
             return fullObj;

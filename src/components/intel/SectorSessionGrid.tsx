@@ -183,7 +183,30 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
         parts.push(`RVOL ${rvol.toFixed(1)}x(${ss('volumeWeak')}).`);
     }
 
+    // 6. Whale Index & Dark Pool
+    const whaleIdx = (q as any).whaleIndex || 0;
+    const darkPool = (q as any).darkPoolPct || 0;
+    if (whaleIdx >= 70) {
+        parts.push(ss('whaleHeavyAnalysis') || `🐋 Whale Index ${whaleIdx}. ${ss('institutionalActivity') || 'Heavy institutional positioning detected.'}`);
+    } else if (whaleIdx >= 40 && darkPool >= 40) {
+        parts.push(ss('whaleDarkPoolCombo') || `🐋${whaleIdx} + 🕶️D.Pool ${darkPool.toFixed(0)}%. ${ss('stealthAccumulation') || 'Stealth accumulation signal.'}`);
+    } else if (darkPool >= 45) {
+        parts.push(ss('darkPoolHighAnalysis') || `🕶️ Dark Pool ${darkPool.toFixed(0)}%. ${ss('offExchangeHeavy') || 'Heavy off-exchange activity.'}`);
+    }
+
     return parts.join(' ') || ss('collectingData');
+}
+
+function getWhaleLabel(idx: number, ss: any): string {
+    if (idx >= 70) return ss('whaleHeavy') || 'WHALE HEAVY';
+    if (idx >= 40) return ss('whaleMedium') || 'WHALE ACTIVE';
+    return '';
+}
+
+function getDarkPoolLabel(pct: number, ss: any): string {
+    if (pct >= 50) return ss('darkPoolDominant') || 'DARK POOL DOMINANT';
+    if (pct >= 40) return ss('darkPoolHigh') || 'DARK POOL HIGH';
+    return '';
 }
 
 // ── Format helpers ──
@@ -527,6 +550,18 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                             ${q.callWall > 0 ? q.callWall.toFixed(0) : '-'}
                                         </div>
                                     </div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.whaleIndex >= 60 ? 'bg-violet-500/10 border-violet-500/25' : q.whaleIndex >= 30 ? 'bg-white/[0.04] border-white/[0.10]' : 'bg-white/[0.02] border-white/[0.06]'}`}>
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">🐋 WHALE</div>
+                                        <div className={`text-sm font-bold font-num ${q.whaleIndex >= 60 ? 'text-violet-300' : q.whaleIndex >= 30 ? 'text-white/70' : 'text-white/40'}`}>
+                                            {q.whaleIndex > 0 ? q.whaleIndex : '-'}
+                                        </div>
+                                    </div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.darkPoolPct >= 40 ? 'bg-slate-500/15 border-slate-400/30' : 'bg-white/[0.02] border-white/[0.06]'}`}>
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">🕶️ D.POOL</div>
+                                        <div className={`text-sm font-bold font-num ${q.darkPoolPct >= 40 ? 'text-slate-200' : 'text-white/40'}`}>
+                                            {q.darkPoolPct > 0 ? `${q.darkPoolPct.toFixed(0)}%` : '-'}
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {/* Row 4: Position Bar */}
@@ -572,6 +607,16 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                         {isExtremePcr && (
                                             <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-amber-500/15 text-amber-300 rounded border border-amber-500/25 font-jakarta">
                                                 PCR ⚠
+                                            </span>
+                                        )}
+                                        {q.whaleIndex >= 60 && (
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-violet-500/15 text-violet-300 rounded border border-violet-500/25 font-jakarta">
+                                                🐋 Whale
+                                            </span>
+                                        )}
+                                        {q.darkPoolPct >= 40 && (
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-slate-500/15 text-slate-300 rounded border border-slate-400/25 font-jakarta">
+                                                🕶️ D.Pool
                                             </span>
                                         )}
                                     </div>

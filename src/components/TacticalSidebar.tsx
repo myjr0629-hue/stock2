@@ -1,20 +1,11 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { cn } from "@/lib/utils";
 import {
-    Archive,
-    BarChart3,
-    Zap,
-    ShieldAlert,
-    Activity,
-    ChevronRight,
-    Orbit,
-    Bot,
-    Shield,
-    Rocket
-} from "lucide-react";
+    Shield, Activity, ShieldAlert, Rocket, Zap, ChevronRight, Orbit, Bot, BookOpen, Cpu, CreditCard, Cloud, Eye
+} from 'lucide-react';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
 
 // ── Sector Alert Logic ──
@@ -114,28 +105,14 @@ export interface TacticalSidebarProps {
         bioPulse?: IntelQuote[];
         cyberShield?: IntelQuote[];
         orbitDefense?: IntelQuote[];
+        quantumEdge?: IntelQuote[];
+        fintechPulse?: IntelQuote[];
+        cloudFortress?: IntelQuote[];
     };
 }
 
 export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: TacticalSidebarProps) {
     const td = useTranslations('dashboard');
-    const [winRate, setWinRate] = useState<number | null>(null);
-    const [totalTrades, setTotalTrades] = useState(0);
-
-    useEffect(() => {
-        async function fetchWinRate() {
-            try {
-                const res = await fetch('/api/backtest', { cache: 'no-store' });
-                if (!res.ok) return;
-                const data = await res.json();
-                if (data.summary?.checkedRecords > 0) {
-                    setWinRate(data.summary.winRate);
-                    setTotalTrades(data.summary.checkedRecords);
-                }
-            } catch { }
-        }
-        fetchWinRate();
-    }, []);
 
     const alerts = useMemo(() => ({
         m7: getSectorAlert(sectorQuotes?.m7 || []),
@@ -145,21 +122,10 @@ export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: Tactic
         bioPulse: getSectorAlert(sectorQuotes?.bioPulse || []),
         cyberShield: getSectorAlert(sectorQuotes?.cyberShield || []),
         orbitDefense: getSectorAlert(sectorQuotes?.orbitDefense || []),
+        quantumEdge: getSectorAlert(sectorQuotes?.quantumEdge || []),
+        fintechPulse: getSectorAlert(sectorQuotes?.fintechPulse || []),
+        cloudFortress: getSectorAlert(sectorQuotes?.cloudFortress || []),
     }), [sectorQuotes]);
-
-    const getWinRateColor = () => {
-        if (winRate === null) return 'text-slate-500';
-        if (winRate >= 70) return 'text-emerald-400';
-        if (winRate >= 50) return 'text-amber-400';
-        return 'text-rose-400';
-    };
-
-    const getBarColor = () => {
-        if (winRate === null) return 'bg-slate-700';
-        if (winRate >= 70) return 'bg-emerald-500';
-        if (winRate >= 50) return 'bg-amber-400';
-        return 'bg-rose-400';
-    };
 
     return (
         <aside className="w-52 h-[calc(100vh-4rem)] border-r border-white/[0.06] flex flex-col fixed left-0 top-16 z-40 overflow-y-auto scrollbar-hide bg-[#070b14]/80 backdrop-blur-xl">
@@ -179,23 +145,12 @@ export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: Tactic
             <div className="relative z-10 flex-1 py-4 space-y-1">
 
                 <SidebarItem
-                    icon={<Archive />}
-                    label="TRACK RECORD"
-                    subLabel="PERFORMANCE & HISTORY"
-                    isActive={activeTab === 'TRACK_RECORD'}
-                    onClick={() => onTabChange('TRACK_RECORD')}
-                    accentColor="text-emerald-400"
-                />
-
-                <div className="my-2 px-4"><div className="h-px bg-white/[0.06]" /></div>
-
-                <SidebarItem
-                    icon={<BarChart3 />}
-                    label="ALPHA REPORT"
-                    subLabel={td('todayPicks')}
-                    isActive={activeTab === 'FINAL'}
-                    onClick={() => onTabChange('FINAL')}
-                    accentColor="text-emerald-400"
+                    icon={<Eye />}
+                    label="SECTOR COMMAND"
+                    subLabel="ALL SECTORS OVERVIEW"
+                    isActive={activeTab === 'SECTOR_COMMAND'}
+                    onClick={() => onTabChange('SECTOR_COMMAND')}
+                    accentColor="text-cyan-400"
                 />
 
                 {/* ═══ SECTOR INTEL GROUP ═══ */}
@@ -213,34 +168,13 @@ export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: Tactic
                     <SidebarItem icon={<ShieldAlert />} label="BIO PULSE" subLabel="GLP-1 & BIOTECH" isActive={activeTab === 'BIO_PULSE'} onClick={() => onTabChange('BIO_PULSE')} accentColor="text-rose-400" alert={alerts.bioPulse} />
                     <SidebarItem icon={<Shield />} label="CYBER SHIELD" subLabel="AI SECURITY & ZERO TRUST" isActive={activeTab === 'CYBER_SHIELD'} onClick={() => onTabChange('CYBER_SHIELD')} accentColor="text-cyan-400" alert={alerts.cyberShield} />
                     <SidebarItem icon={<Rocket />} label="ORBIT DEFENSE" subLabel="SPACE & DEFENSE" isActive={activeTab === 'ORBIT_DEFENSE'} onClick={() => onTabChange('ORBIT_DEFENSE')} accentColor="text-sky-400" alert={alerts.orbitDefense} />
+                    <SidebarItem icon={<Cpu />} label="QUANTUM EDGE" subLabel="QUANTUM & AI INFRA" isActive={activeTab === 'QUANTUM_EDGE'} onClick={() => onTabChange('QUANTUM_EDGE')} accentColor="text-fuchsia-400" alert={alerts.quantumEdge} />
+                    <SidebarItem icon={<CreditCard />} label="FINTECH PULSE" subLabel="DIGITAL FINANCE" isActive={activeTab === 'FINTECH_PULSE'} onClick={() => onTabChange('FINTECH_PULSE')} accentColor="text-lime-400" alert={alerts.fintechPulse} />
+                    <SidebarItem icon={<Cloud />} label="CLOUD FORTRESS" subLabel="CLOUD & SAAS" isActive={activeTab === 'CLOUD_FORTRESS'} onClick={() => onTabChange('CLOUD_FORTRESS')} accentColor="text-sky-300" alert={alerts.cloudFortress} />
                 </div>
 
             </div>
 
-            {/* Footer — Real Win Rate */}
-            <div className="relative z-10 p-5 border-t border-white/[0.06]">
-                <div className="flex items-center justify-between text-xs font-bold mb-2 font-jakarta">
-                    <span className="text-slate-400 tracking-wider">WIN RATE</span>
-                    <span className={cn("font-mono font-black", getWinRateColor())}>
-                        {winRate !== null ? `${winRate.toFixed(1)}%` : '—'}
-                    </span>
-                </div>
-                <div className="w-full h-2 bg-white/[0.06] rounded-full overflow-hidden">
-                    <div
-                        className={`h-full ${getBarColor()} transition-all duration-700 rounded-full`}
-                        style={{ width: winRate !== null ? `${winRate}%` : '0%' }}
-                    />
-                </div>
-                {winRate !== null ? (
-                    <p className="mt-2 text-xs text-slate-400 font-mono font-jakarta">
-                        {totalTrades} verified trades
-                    </p>
-                ) : (
-                    <p className="mt-2 text-xs text-slate-400 font-mono font-jakarta">
-                        COLLECTING DATA...
-                    </p>
-                )}
-            </div>
         </aside>
     );
 }
