@@ -329,8 +329,41 @@ export default function PricingPage() {
                         </Link>
                     </div>
 
-                    {/* 👑 ELITE Card — CENTER (Visual Dominance, Center-Stage Effect) */}
-                    <div className="relative p-8 pt-9 rounded-2xl bg-white/[0.04] border border-cyan-500/30 transition-all duration-500 shadow-[0_0_40px_rgba(34,211,238,0.12),inset_0_0_30px_rgba(34,211,238,0.03)] md:scale-105 md:-mt-3 md:mb-[-12px] order-last md:order-none">
+                    {/* PRO Card — Center */}
+                    <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-amber-500/20 hover:border-amber-500/35 transition-all duration-500 shadow-[0_0_20px_rgba(245,158,11,0.06)] hover:shadow-[0_0_35px_rgba(245,158,11,0.12)]">
+                        <div className="mb-7">
+                            <h3 className="text-xl font-black text-white mb-1.5 font-jakarta">PRO</h3>
+                            <p className="text-sm text-slate-400 leading-relaxed">{t("proDesc")}</p>
+                        </div>
+                        <div className="mb-7 flex items-baseline flex-wrap gap-x-1">
+                            <span className="text-lg text-red-500 line-through font-bold font-jakarta">${proOriginal}</span>
+                            <span className="text-5xl font-black text-white font-jakarta">${proPrice}</span>
+                            <span className="text-slate-400 text-base ml-0.5">/mo</span>
+                            {!isAnnual ? (
+                                <span className="ml-2 text-[11px] text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
+                                    FOUNDING
+                                </span>
+                            ) : (
+                                <span className="ml-2 text-[11px] text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
+                                    SAVE 20%
+                                </span>
+                            )}
+                        </div>
+                        <ul className="space-y-3.5 mb-9 text-sm">
+                            {[t("proF1"), t("proF2"), t("proF3"), t("proF4"), t("proF5")].map((f, i) => (
+                                <li key={i} className="flex items-start gap-3 text-slate-300 leading-relaxed">
+                                    <Check className="w-4.5 h-4.5 text-amber-400 shrink-0 mt-0.5" />
+                                    {f}
+                                </li>
+                            ))}
+                        </ul>
+                        <button className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta">
+                            {t("proCta")}
+                        </button>
+                    </div>
+
+                    {/* 👑 ELITE Card — Right (Visual Dominance) */}
+                    <div className="relative p-8 pt-9 rounded-2xl bg-white/[0.04] border border-cyan-500/30 transition-all duration-500 shadow-[0_0_40px_rgba(34,211,238,0.12),inset_0_0_30px_rgba(34,211,238,0.03)] md:scale-105 md:-mt-3 md:mb-[-12px]">
                         {/* MOST POPULAR badge */}
                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-cyan-600 text-[11px] font-black text-black uppercase tracking-[0.15em] shadow-[0_0_20px_rgba(34,211,238,0.3)] font-jakarta">
                             MOST POPULAR
@@ -365,39 +398,6 @@ export default function PricingPage() {
                         </ul>
                         <button className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta">
                             {t("eliteCta")} <ArrowRight className="w-4 h-4" />
-                        </button>
-                    </div>
-
-                    {/* PRO Card — Right (Value compromise) */}
-                    <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-amber-500/20 hover:border-amber-500/35 transition-all duration-500 shadow-[0_0_20px_rgba(245,158,11,0.06)] hover:shadow-[0_0_35px_rgba(245,158,11,0.12)]">
-                        <div className="mb-7">
-                            <h3 className="text-xl font-black text-white mb-1.5 font-jakarta">PRO</h3>
-                            <p className="text-sm text-slate-400 leading-relaxed">{t("proDesc")}</p>
-                        </div>
-                        <div className="mb-7 flex items-baseline flex-wrap gap-x-1">
-                            <span className="text-lg text-red-500 line-through font-bold font-jakarta">${proOriginal}</span>
-                            <span className="text-5xl font-black text-white font-jakarta">${proPrice}</span>
-                            <span className="text-slate-400 text-base ml-0.5">/mo</span>
-                            {!isAnnual ? (
-                                <span className="ml-2 text-[11px] text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
-                                    FOUNDING
-                                </span>
-                            ) : (
-                                <span className="ml-2 text-[11px] text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
-                                    SAVE 20%
-                                </span>
-                            )}
-                        </div>
-                        <ul className="space-y-3.5 mb-9 text-sm">
-                            {[t("proF1"), t("proF2"), t("proF3"), t("proF4"), t("proF5")].map((f, i) => (
-                                <li key={i} className="flex items-start gap-3 text-slate-300 leading-relaxed">
-                                    <Check className="w-4.5 h-4.5 text-amber-400 shrink-0 mt-0.5" />
-                                    {f}
-                                </li>
-                            ))}
-                        </ul>
-                        <button className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta">
-                            {t("proCta")}
                         </button>
                     </div>
                 </div>
