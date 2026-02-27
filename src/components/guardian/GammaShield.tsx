@@ -207,7 +207,7 @@ function TriggerBand({
     );
 }
 
-// === Insight Text Generator ===
+// === Directional Insight Generator (v3) ===
 function getInsightText(
     gexIndex: number,
     squeezeRisk: number,
@@ -216,33 +216,79 @@ function getInsightText(
     resistanceWall: number | null,
     locale: Locale
 ): string {
-    // Priority 1: Squeeze critical (≥45%) — imminent volatility explosion
-    if (squeezeRisk >= 45) return t('squeezeCritical', locale);
+    // If no price data, fallback
+    if (!currentPrice) return t('neutral', locale);
 
-    // Priority 2: Short Gamma danger zone — dealers amplifying moves
-    if (gexIndex <= -20) return t('shortGamma', locale);
+    const sp = currentPrice.toLocaleString();
+    const sup = supportWall && supportWall > 0 ? supportWall.toLocaleString() : null;
+    const res = resistanceWall && resistanceWall > 0 ? resistanceWall.toLocaleString() : null;
+    const distDown = supportWall && supportWall > 0 ? (((currentPrice - supportWall) / currentPrice) * 100).toFixed(1) : null;
+    const distUp = resistanceWall && resistanceWall > 0 ? (((resistanceWall - currentPrice) / currentPrice) * 100).toFixed(1) : null;
 
-    // Priority 3: Squeeze building (25-44%) — most actionable during volatile days
-    if (squeezeRisk >= 25) return t('squeezeBuilding', locale, { val: String(squeezeRisk) });
+    // GEX strength label
+    const gexStr = (l: Locale) => {
+        if (gexIndex <= -30) return { ko: '매도 증폭', en: 'sell amplified', ja: '売り増幅' }[l];
+        if (gexIndex <= -20) return { ko: '숏 감마', en: 'short gamma', ja: 'ショートガンマ' }[l];
+        if (gexIndex < 20) return { ko: '감마 약', en: 'weak gamma', ja: 'ガンマ弱' }[l];
+        if (gexIndex < 40) return { ko: '감마 방어', en: 'gamma defense', ja: 'ガンマ防御' }[l];
+        return { ko: '감마 강', en: 'strong gamma', ja: 'ガンマ強' }[l];
+    };
 
-    // Priority 4: Trigger band proximity (3% threshold) — only when squeeze is calm
-    if (currentPrice && resistanceWall && resistanceWall > 0) {
-        const distToResist = ((resistanceWall - currentPrice) / currentPrice) * 100;
-        if (distToResist <= 3 && distToResist > 0) {
-            return t('resistNear', locale, { val: resistanceWall.toLocaleString() });
-        }
+    // Priority 1: Squeeze critical (≥55%)
+    if (squeezeRisk >= 55 && sup && res) {
+        const base = {
+            ko: `S&P ${sp} — Squeeze ${squeezeRisk}% 폭발 임박, 이탈 방향 급가속 · ${sup}↔${res}`,
+            en: `S&P ${sp} — Squeeze ${squeezeRisk}% explosion imminent, breakout accelerates · ${sup}↔${res}`,
+            ja: `S&P ${sp} — Squeeze ${squeezeRisk}%爆発迫る、突破方向急加速 · ${sup}↔${res}`
+        };
+        return base[locale];
     }
-    if (currentPrice && supportWall && supportWall > 0) {
-        const distToSupport = ((currentPrice - supportWall) / currentPrice) * 100;
-        if (distToSupport <= 3 && distToSupport > 0) {
-            return t('supportNear', locale, { val: supportWall.toLocaleString() });
-        }
+
+    // Priority 2: Short Gamma danger (≤-20) — directional with emphasis on downside
+    if (gexIndex <= -20 && sup && distDown) {
+        const base = {
+            ko: `S&P ${sp} — ${gexStr(locale)}(${gexIndex}), ▼${sup}(-${distDown}%) 급락 경고${res ? ` · 상한 ${res}` : ''}`,
+            en: `S&P ${sp} — ${gexStr(locale)}(${gexIndex}), ▼${sup}(-${distDown}%) crash warning${res ? ` · cap ${res}` : ''}`,
+            ja: `S&P ${sp} — ${gexStr(locale)}(${gexIndex}), ▼${sup}(-${distDown}%) 急落警告${res ? ` · 上限 ${res}` : ''}`
+        };
+        return base[locale];
     }
 
-    // Priority 5: Long Gamma stability
-    if (gexIndex >= 20) return t('longGamma', locale);
+    // Priority 3: Directional bias based on GEX + price targets
+    if (sup && res && distDown && distUp) {
+        // Strong upside bias (GEX ≥ 40)
+        if (gexIndex >= 40) {
+            const base = {
+                ko: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) 상방 편향 · 하한 ${sup}`,
+                en: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) upside bias · floor ${sup}`,
+                ja: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) 上方偏向 · 下限 ${sup}`
+            };
+            return base[locale];
+        }
+        // Mild upside bias (GEX 20-39)
+        if (gexIndex >= 20) {
+            const base = {
+                ko: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) 돌파 시도 예상 · 하한 ${sup}`,
+                en: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) breakout attempt · floor ${sup}`,
+                ja: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) 突破試行予想 · 下限 ${sup}`
+            };
+            return base[locale];
+        }
+        // Weak/neutral GEX (−19 to +19) — downside bias
+        const gexSign = gexIndex >= 0 ? `+${gexIndex}` : `${gexIndex}`;
+        // Add squeeze context if meaningful
+        const sqCtx = squeezeRisk >= 30
+            ? { ko: `, Squeeze ${squeezeRisk}%`, en: `, Squeeze ${squeezeRisk}%`, ja: `, Squeeze ${squeezeRisk}%` }[locale]
+            : '';
+        const base = {
+            ko: `S&P ${sp} — ${gexStr(locale)}(${gexSign})${sqCtx}, ▼${sup}(-${distDown}%) 하방 편향 · 상한 ${res}`,
+            en: `S&P ${sp} — ${gexStr(locale)}(${gexSign})${sqCtx}, ▼${sup}(-${distDown}%) downside bias · cap ${res}`,
+            ja: `S&P ${sp} — ${gexStr(locale)}(${gexSign})${sqCtx}, ▼${sup}(-${distDown}%) 下方偏向 · 上限 ${res}`
+        };
+        return base[locale];
+    }
 
-    // Priority 6: Neutral fallback
+    // Fallback if missing support/resistance
     return t('neutral', locale);
 }
 
