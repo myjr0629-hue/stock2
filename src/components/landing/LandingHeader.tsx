@@ -114,7 +114,8 @@ export function LandingHeader() {
                             { label: "INTEL", href: "/intel", path: "/intel", hasLive: false },
                             { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", hasLive: false },
                             { label: "WATCHLIST", href: "/watchlist", path: "/watchlist", hasLive: false },
-                            { label: "GUIDE", href: "/how-it-works", path: "/how-it-works", hasLive: false }
+                            { label: "GUIDE", href: "/how-it-works", path: "/how-it-works", hasLive: false },
+                            { label: "PRICING", href: "/pricing", path: "/pricing", hasLive: false }
                         ].map((item) => {
                             const isActive = item.path
                                 ? (item.path === "/intel" ? pathname === "/intel" : pathname?.startsWith(item.path))
@@ -298,7 +299,8 @@ export function LandingHeader() {
                                     { label: "INTEL", href: "/intel" },
                                     { label: "PORTFOLIO", href: "/portfolio" },
                                     { label: "WATCHLIST", href: "/watchlist" },
-                                    { label: "GUIDE", href: "/how-it-works" }
+                                    { label: "GUIDE", href: "/how-it-works" },
+                                    { label: "PRICING", href: "/pricing" }
                                 ].map((item) => (
                                     <Link
                                         key={item.label}
