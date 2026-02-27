@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   ArrowRight,
   X,
@@ -285,6 +285,7 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
 
 export default function Page() {
   const t = useTranslations();
+  const pathname = usePathname();
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
   useEffect(() => {
@@ -580,14 +581,24 @@ export default function Page() {
             </svg>
             <span className="font-bold text-sm text-white/60 font-jakarta">SIGNUM HQ</span>
           </div>
-          <div className="flex items-center gap-6 text-xs text-white/70">
+          <div className="flex items-center gap-6 text-xs text-slate-500">
             <Link href="/privacy" className="hover:text-white transition-colors">{t('footer.privacy')}</Link>
             <Link href="/terms" className="hover:text-white transition-colors">{t('footer.terms')}</Link>
             <a href="mailto:contact@signumhq.com" className="hover:text-white transition-colors">{t('footer.contact')}</a>
           </div>
-          <p className="text-[12px] text-slate-400">{t('footer.copyright')}</p>
+          <p className="text-[12px] text-slate-500">{t('footer.copyright')}</p>
         </div>
         <div className="max-w-5xl mx-auto mt-4 pt-3 border-t border-white/[0.04]">
+          {pathname.startsWith('/ko') && (
+            <div className="text-[12px] text-slate-400 text-center mb-4 space-y-1">
+              <p>
+                상호명: 은훈마스터 &nbsp;|&nbsp; 대표자: 김지영 &nbsp;|&nbsp; 사업자등록번호: 473-15-01443 &nbsp;|&nbsp; 통신판매업 신고번호: 제 2024-경기안산-2779호
+              </p>
+              <p>
+                사업장 소재지: 경기도 안산시 단원구 선부로 286, 3층 302호 G4 &nbsp;|&nbsp; 고객센터: 070-000-000 &nbsp;|&nbsp; 이메일: contact@signumhq.com
+              </p>
+            </div>
+          )}
           <p className="text-[12px] leading-relaxed text-slate-400 text-center">{t('footer.disclaimer')}</p>
         </div>
       </footer>
