@@ -128,13 +128,13 @@ export default function PricingPage() {
     const proFoundingMonthly = 49;
     const elitePriceMonthly = 149;
     const eliteFoundingMonthly = 79;
-    const proAnnualMonthly = 57;
-    const eliteAnnualMonthly = 124;
+    const proAnnualMonthly = 39;   // Founding annual: $49 base, ~20% off  → $39/mo ($468/yr)
+    const eliteAnnualMonthly = 59; // Founding annual: $79 base, ~25% off → $59/mo ($708/yr)
 
     const proPrice = isAnnual ? proAnnualMonthly : proFoundingMonthly;
-    const proOriginal = isAnnual ? proPriceMonthly : proPriceMonthly;
+    const proOriginal = isAnnual ? proFoundingMonthly : proPriceMonthly;
     const elitePrice = isAnnual ? eliteAnnualMonthly : eliteFoundingMonthly;
-    const eliteOriginal = isAnnual ? elitePriceMonthly : elitePriceMonthly;
+    const eliteOriginal = isAnnual ? eliteFoundingMonthly : elitePriceMonthly;
 
     // ============================================================
     // FEATURE MATRIX DATA
@@ -347,9 +347,13 @@ export default function PricingPage() {
                             <span className="text-lg text-red-500 line-through font-bold font-jakarta">${eliteOriginal}</span>
                             <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-white font-jakarta">${elitePrice}</span>
                             <span className="text-slate-400 text-base ml-0.5">/mo</span>
-                            {!isAnnual && (
+                            {!isAnnual ? (
                                 <span className="ml-2 text-[11px] text-cyan-400 bg-cyan-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
                                     FOUNDING
+                                </span>
+                            ) : (
+                                <span className="ml-2 text-[11px] text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
+                                    SAVE 25%
                                 </span>
                             )}
                         </div>
@@ -376,9 +380,13 @@ export default function PricingPage() {
                             <span className="text-lg text-red-500 line-through font-bold font-jakarta">${proOriginal}</span>
                             <span className="text-5xl font-black text-white font-jakarta">${proPrice}</span>
                             <span className="text-slate-400 text-base ml-0.5">/mo</span>
-                            {!isAnnual && (
+                            {!isAnnual ? (
                                 <span className="ml-2 text-[11px] text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
                                     FOUNDING
+                                </span>
+                            ) : (
+                                <span className="ml-2 text-[11px] text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
+                                    SAVE 20%
                                 </span>
                             )}
                         </div>
