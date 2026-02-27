@@ -243,7 +243,7 @@ export default function PricingPage() {
             {/* ============================================================ */}
             {/* HERO SECTION */}
             {/* ============================================================ */}
-            <section className="relative pt-28 pb-20 px-6 overflow-hidden">
+            <section className="relative pt-20 pb-20 px-6 overflow-hidden">
                 {/* Background effects */}
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-gradient-radial from-cyan-500/10 via-transparent to-transparent blur-[120px]" />
@@ -655,7 +655,7 @@ export default function PricingPage() {
             {/* ============================================================ */}
             <section className="px-6 pb-24">
                 <div className="max-w-3xl mx-auto text-center">
-                    <div className="relative overflow-hidden rounded-2xl border border-white/15 p-12 shadow-[0_0_50px_rgba(34,211,238,0.06)]"
+                    <div className="relative overflow-hidden rounded-2xl border border-white/15 px-12 py-8 shadow-[0_0_50px_rgba(34,211,238,0.06)]"
                         style={{ background: 'linear-gradient(165deg, rgba(25,40,70,0.95) 0%, rgba(15,28,50,0.98) 50%, rgba(20,35,60,0.95) 100%)' }}>
 
                         {/* Infographic SVG background */}
@@ -683,7 +683,7 @@ export default function PricingPage() {
 
                         <div className="relative z-10">
                             <h3 className="text-2xl md:text-3xl font-black text-white mb-4 font-jakarta">{t("ctaTitle")}</h3>
-                            <p className="text-slate-300 text-base mb-10 leading-relaxed">{t("ctaDesc")}</p>
+                            <p className="text-slate-300 text-base mb-6 leading-relaxed">{t("ctaDesc")}</p>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                                 <button className="px-8 py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_25px_rgba(34,211,238,0.2)] flex items-center gap-2 font-jakarta">
                                     {t("ctaButton")} <ArrowRight className="w-4 h-4" />
