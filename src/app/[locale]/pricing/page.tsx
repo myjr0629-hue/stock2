@@ -239,7 +239,7 @@ export default function PricingPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-[#060a12] text-slate-200">
+        <div className="min-h-screen bg-[#0d1220] text-slate-200">
             {/* ============================================================ */}
             {/* HERO SECTION */}
             {/* ============================================================ */}
@@ -408,7 +408,7 @@ export default function PricingPage() {
             <section className="px-6 pb-24">
                 <div className="max-w-2xl mx-auto">
                     <div className="relative overflow-hidden rounded-2xl border border-white/[0.12] p-8 md:p-10 shadow-2xl shadow-black/50"
-                        style={{ background: 'linear-gradient(165deg, rgba(15,25,50,0.97) 0%, rgba(8,16,35,0.99) 50%, rgba(12,22,45,0.97) 100%)' }}>
+                        style={{ background: 'linear-gradient(165deg, rgba(25,40,70,0.92) 0%, rgba(18,30,55,0.95) 50%, rgba(22,35,65,0.92) 100%)' }}>
 
                         {/* ── Infographic SVG background ── */}
                         <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">

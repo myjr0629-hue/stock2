@@ -299,7 +299,7 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-[#060a12] text-slate-200 font-sans">
+    <div className="min-h-screen bg-[#0d1220] text-slate-200 font-sans">
       {/* HERO SECTION */}
       <section className="relative pt-20 pb-16 px-6 overflow-hidden">
         {/* Layer 1: Light Grid */}
@@ -415,7 +415,7 @@ export default function Page() {
             </div>
 
             {/* Bottom Gradient Fade — aggressive */}
-            <div className="absolute bottom-0 left-0 right-0 h-[30%] bg-gradient-to-t from-[#060a12] via-[#060a12]/60 to-transparent pointer-events-none z-20" />
+            <div className="absolute bottom-0 left-0 right-0 h-[30%] bg-gradient-to-t from-[#0d1220] via-[#0d1220]/60 to-transparent pointer-events-none z-20" />
           </div>
         </div>
       </section>
