@@ -533,10 +533,11 @@ export default function Page() {
 
           {/* Consolidated Pricing Badge */}
           <div className="mt-16 flex justify-center">
-            <div className="inline-flex items-center gap-3 px-8 py-3 rounded-full bg-[#0a1628] border border-[#1e293b]">
+            <Link href="/pricing" className="inline-flex items-center gap-3 px-8 py-3 rounded-full bg-[#0a1628] border border-[#1e293b] hover:border-cyan-500/40 hover:shadow-[0_0_20px_rgba(34,211,238,0.1)] transition-all duration-300 group cursor-pointer">
               <span className="text-sm text-slate-500 line-through">{t('home.priceStrikethrough')}</span>
-              <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400">{t('home.consolidatedPricing')}</span>
-            </div>
+              <span className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-amber-400 group-hover:from-cyan-300 group-hover:to-amber-300 transition-all">{t('home.consolidatedPricing')}</span>
+              <ChevronRight size={14} className="text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+            </Link>
           </div>
         </div>
       </section>
