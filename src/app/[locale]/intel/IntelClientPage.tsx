@@ -1302,7 +1302,16 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                 const text = await res.text();
                 if (!text) return;
                 const data = (() => { try { return JSON.parse(text); } catch { return null; } })();
-                if (data?.items?.length > 0) setLiveReport(data);
+                if (!data?.items?.length) return;
+
+                // [FIX] Stale-guard: only show live report if it's from today (ET)
+                const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+                if (data.meta?.marketDate && data.meta.marketDate !== todayET) {
+                    console.log(`[LIVE TACTICAL] Stale report skipped (report: ${data.meta.marketDate}, today: ${todayET})`);
+                    return;
+                }
+
+                setLiveReport(data);
             } catch (e) {
                 console.error('[LIVE TACTICAL] Fetch failed:', e);
             }
