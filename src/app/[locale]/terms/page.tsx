@@ -78,10 +78,10 @@ export default function TermsPage() {
                                             <Icon className={`w-4.5 h-4.5 ${color} drop-shadow-[0_0_8px_currentColor]`} />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <h2 className="text-[15px] font-bold text-white mb-3 tracking-wide">
+                                            <h2 className="text-lg font-bold text-white mb-3 tracking-wide">
                                                 {title}
                                             </h2>
-                                            <div className="text-slate-300 text-sm leading-[1.9] [&_strong]:text-white [&_strong]:font-semibold [&_li]:mb-1">
+                                            <div className="text-slate-300 text-[15px] leading-[1.85] [&_strong]:text-white [&_strong]:font-semibold [&_li]:mb-1.5">
                                                 {content}
                                             </div>
                                         </div>

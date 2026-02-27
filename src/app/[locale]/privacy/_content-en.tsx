@@ -106,7 +106,7 @@ export const sections: PrivacySection[] = [
                     <li>In <strong>anonymized or aggregated form</strong> for statistical or research purposes</li>
                 </ol>
                 <div className="mt-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-                    <p className="text-xs text-slate-400"><strong className="text-amber-400">CCPA Notice (California Residents):</strong> Under the California Consumer Privacy Act, you have the right to know what personal information we collect, request its deletion, and opt out of any sale of personal data. We do not sell personal information.</p>
+                    <p className="text-sm text-slate-400"><strong className="text-amber-400">CCPA Notice (California Residents):</strong> Under the California Consumer Privacy Act, you have the right to know what personal information we collect, request its deletion, and opt out of any sale of personal data. We do not sell personal information.</p>
                 </div>
             </div>
         ),
@@ -120,7 +120,7 @@ export const sections: PrivacySection[] = [
             <div className="space-y-4">
                 <p>We use the following service providers to operate the Service. Your data may be processed outside your country of residence:</p>
                 <div className="overflow-x-auto mt-3">
-                    <table className="w-full text-left text-xs border-collapse">
+                    <table className="w-full text-left text-[13px] border-collapse">
                         <thead>
                             <tr className="border-b border-white/10">
                                 <th className="py-2 pr-4 text-white font-semibold">Provider</th>
@@ -159,7 +159,7 @@ export const sections: PrivacySection[] = [
             <div className="space-y-4">
                 <p><strong>Principle:</strong> We delete personal data promptly when it is no longer needed. However, certain data may be retained as required by applicable law:</p>
                 <div className="overflow-x-auto mt-3">
-                    <table className="w-full text-left text-xs border-collapse">
+                    <table className="w-full text-left text-[13px] border-collapse">
                         <thead>
                             <tr className="border-b border-white/10">
                                 <th className="py-2 pr-4 text-white font-semibold">Data Category</th>
