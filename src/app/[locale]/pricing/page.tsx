@@ -127,7 +127,7 @@ export default function PricingPage() {
     const proPriceMonthly = 69;
     const proFoundingMonthly = 49;
     const elitePriceMonthly = 149;
-    const eliteFoundingMonthly = 99;
+    const eliteFoundingMonthly = 79;
     const proAnnualMonthly = 57;
     const eliteAnnualMonthly = 124;
 
@@ -303,7 +303,7 @@ export default function PricingPage() {
             {/* ============================================================ */}
             <section className="px-6 pb-24">
                 <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
-                    {/* FREE Card */}
+                    {/* FREE Card — Left (Budget anchor) */}
                     <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 hover:border-white/20 transition-all duration-500">
                         <div className="mb-7">
                             <h3 className="text-xl font-black text-white mb-1.5 font-jakarta">FREE</h3>
@@ -329,37 +329,8 @@ export default function PricingPage() {
                         </Link>
                     </div>
 
-                    {/* PRO Card */}
-                    <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-amber-500/20 hover:border-amber-500/40 transition-all duration-500 hover:shadow-[0_0_40px_rgba(245,158,11,0.06)]">
-                        <div className="mb-7">
-                            <h3 className="text-xl font-black text-white mb-1.5 font-jakarta">PRO</h3>
-                            <p className="text-sm text-slate-400 leading-relaxed">{t("proDesc")}</p>
-                        </div>
-                        <div className="mb-7">
-                            <span className="text-sm text-rose-400 line-through mr-2 font-jakarta">${proOriginal}</span>
-                            <span className="text-5xl font-black text-white font-jakarta">${proPrice}</span>
-                            <span className="text-slate-400 text-base ml-1.5">/mo</span>
-                            {!isAnnual && (
-                                <span className="ml-2.5 text-[11px] text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
-                                    FOUNDING
-                                </span>
-                            )}
-                        </div>
-                        <ul className="space-y-3.5 mb-9 text-sm">
-                            {[t("proF1"), t("proF2"), t("proF3"), t("proF4"), t("proF5")].map((f, i) => (
-                                <li key={i} className="flex items-start gap-3 text-slate-300 leading-relaxed">
-                                    <Check className="w-4.5 h-4.5 text-amber-400 shrink-0 mt-0.5" />
-                                    {f}
-                                </li>
-                            ))}
-                        </ul>
-                        <button className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta">
-                            {t("proCta")}
-                        </button>
-                    </div>
-
-                    {/* ELITE Card — Visual Dominance */}
-                    <div className="relative p-8 pt-9 rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-cyan-500/40 transition-all duration-500 shadow-[0_0_60px_rgba(34,211,238,0.08)] md:scale-105 md:-mt-3 md:mb-[-12px]">
+                    {/* 👑 ELITE Card — CENTER (Visual Dominance, Center-Stage Effect) */}
+                    <div className="relative p-8 pt-9 rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-cyan-500/40 transition-all duration-500 shadow-[0_0_60px_rgba(34,211,238,0.08)] md:scale-105 md:-mt-3 md:mb-[-12px] order-last md:order-none">
                         {/* MOST POPULAR badge */}
                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-cyan-600 text-[11px] font-black text-black uppercase tracking-[0.15em] shadow-[0_0_20px_rgba(34,211,238,0.3)] font-jakarta">
                             MOST POPULAR
@@ -372,12 +343,12 @@ export default function PricingPage() {
                             <h3 className="text-xl font-black text-white mb-1.5 font-jakarta">ELITE</h3>
                             <p className="text-sm text-slate-400 leading-relaxed">{t("eliteDesc")}</p>
                         </div>
-                        <div className="mb-7">
-                            <span className="text-sm text-rose-400 line-through mr-2 font-jakarta">${eliteOriginal}</span>
+                        <div className="mb-7 flex items-baseline flex-wrap gap-x-1">
+                            <span className="text-lg text-red-500 line-through font-bold font-jakarta">${eliteOriginal}</span>
                             <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-white font-jakarta">${elitePrice}</span>
-                            <span className="text-slate-400 text-base ml-1.5">/mo</span>
+                            <span className="text-slate-400 text-base ml-0.5">/mo</span>
                             {!isAnnual && (
-                                <span className="ml-2.5 text-[11px] text-cyan-400 bg-cyan-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
+                                <span className="ml-2 text-[11px] text-cyan-400 bg-cyan-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
                                     FOUNDING
                                 </span>
                             )}
@@ -394,6 +365,35 @@ export default function PricingPage() {
                             {t("eliteCta")} <ArrowRight className="w-4 h-4" />
                         </button>
                     </div>
+
+                    {/* PRO Card — Right (Value compromise) */}
+                    <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-amber-500/20 hover:border-amber-500/40 transition-all duration-500 hover:shadow-[0_0_40px_rgba(245,158,11,0.06)]">
+                        <div className="mb-7">
+                            <h3 className="text-xl font-black text-white mb-1.5 font-jakarta">PRO</h3>
+                            <p className="text-sm text-slate-400 leading-relaxed">{t("proDesc")}</p>
+                        </div>
+                        <div className="mb-7 flex items-baseline flex-wrap gap-x-1">
+                            <span className="text-lg text-red-500 line-through font-bold font-jakarta">${proOriginal}</span>
+                            <span className="text-5xl font-black text-white font-jakarta">${proPrice}</span>
+                            <span className="text-slate-400 text-base ml-0.5">/mo</span>
+                            {!isAnnual && (
+                                <span className="ml-2 text-[11px] text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
+                                    FOUNDING
+                                </span>
+                            )}
+                        </div>
+                        <ul className="space-y-3.5 mb-9 text-sm">
+                            {[t("proF1"), t("proF2"), t("proF3"), t("proF4"), t("proF5")].map((f, i) => (
+                                <li key={i} className="flex items-start gap-3 text-slate-300 leading-relaxed">
+                                    <Check className="w-4.5 h-4.5 text-amber-400 shrink-0 mt-0.5" />
+                                    {f}
+                                </li>
+                            ))}
+                        </ul>
+                        <button className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta">
+                            {t("proCta")}
+                        </button>
+                    </div>
                 </div>
             </section>
 
@@ -402,12 +402,14 @@ export default function PricingPage() {
             {/* ============================================================ */}
             <section className="px-6 pb-24">
                 <div className="max-w-3xl mx-auto">
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0a1628] to-[#0d1b30] border border-cyan-500/20 p-10 md:p-12 text-center">
-                        {/* Background glow */}
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-cyan-500/5 blur-[100px] pointer-events-none" />
+                    <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-cyan-500/25 p-10 md:p-12 text-center shadow-[0_0_80px_rgba(34,211,238,0.06)]">
+                        {/* Subtle ambient glow */}
+                        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.03] via-transparent to-amber-500/[0.02] pointer-events-none" />
+                        {/* Top edge highlight */}
+                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/30 to-transparent" />
 
                         <div className="relative z-10">
-                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-7">
+                            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-7 backdrop-blur-sm">
                                 <Zap className="w-4 h-4 text-cyan-400" />
                                 <span className="text-xs font-bold text-cyan-400 uppercase tracking-[0.15em] font-jakarta">
                                     FOUNDING MEMBER
@@ -422,20 +424,22 @@ export default function PricingPage() {
                             </p>
 
                             <div className="flex items-center justify-center gap-10 mb-8">
-                                <div className="text-center">
+                                {/* PRO price pill */}
+                                <div className="text-center px-6 py-4 rounded-xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm">
                                     <p className="text-xs text-slate-400 mb-1.5 font-bold font-jakarta">PRO</p>
                                     <p>
-                                        <span className="text-rose-400 line-through text-sm mr-2 font-jakarta">$69</span>
+                                        <span className="text-red-500 line-through text-base mr-2 font-bold font-jakarta">$69</span>
                                         <span className="text-3xl font-black text-amber-400 font-jakarta">$49</span>
                                         <span className="text-slate-400 text-sm">/mo</span>
                                     </p>
                                 </div>
-                                <div className="w-px h-14 bg-white/10" />
-                                <div className="text-center">
-                                    <p className="text-xs text-slate-400 mb-1.5 font-bold font-jakarta">ELITE</p>
+                                <div className="w-px h-16 bg-gradient-to-b from-transparent via-cyan-400/20 to-transparent" />
+                                {/* ELITE price pill */}
+                                <div className="text-center px-6 py-4 rounded-xl bg-cyan-500/[0.04] border border-cyan-500/15 backdrop-blur-sm">
+                                    <p className="text-xs text-cyan-400/80 mb-1.5 font-bold font-jakarta">ELITE</p>
                                     <p>
-                                        <span className="text-rose-400 line-through text-sm mr-2 font-jakarta">$149</span>
-                                        <span className="text-3xl font-black text-cyan-400 font-jakarta">$99</span>
+                                        <span className="text-red-500 line-through text-base mr-2 font-bold font-jakarta">$149</span>
+                                        <span className="text-3xl font-black text-cyan-400 font-jakarta">$79</span>
                                         <span className="text-slate-400 text-sm">/mo</span>
                                     </p>
                                 </div>
@@ -508,7 +512,7 @@ export default function PricingPage() {
                             <div className="px-6 py-4 text-slate-500">{t("matrixFeature")}</div>
                             <div className="px-4 py-4 text-center text-slate-500">FREE</div>
                             <div className="px-4 py-4 text-center text-amber-400/80">PRO</div>
-                            <div className="px-4 py-4 text-center text-cyan-400 bg-white/[0.03] border-l border-r border-cyan-500/10">
+                            <div className="px-4 py-4 text-center text-cyan-400 font-black bg-cyan-500/[0.04] border-l border-r border-cyan-500/15 shadow-[inset_0_-1px_0_rgba(34,211,238,0.1)]">
                                 ELITE
                             </div>
                         </div>
@@ -518,10 +522,11 @@ export default function PricingPage() {
                             <div key={ci}>
                                 {/* Category header */}
                                 <div className="grid grid-cols-4 border-b border-white/[0.06] bg-white/[0.015]">
-                                    <div className="col-span-4 px-6 py-3.5 flex items-center gap-2.5">
+                                    <div className="col-span-3 px-6 py-3.5 flex items-center gap-2.5">
                                         {cat.icon}
                                         <span className="text-xs font-black text-white uppercase tracking-wider font-jakarta">{cat.title}</span>
                                     </div>
+                                    <div className="bg-cyan-500/[0.04] border-l border-r border-cyan-500/15" />
                                 </div>
                                 {/* Rows */}
                                 {cat.rows.map((row, ri) => (
@@ -545,7 +550,7 @@ export default function PricingPage() {
                                                 <StatusCell status={row.pro as FeatureStatus} note={row.proNote} />
                                             )}
                                         </div>
-                                        <div className="px-4 py-4 bg-white/[0.02] border-l border-r border-cyan-500/5">
+                                        <div className="px-4 py-4 bg-cyan-500/[0.04] border-l border-r border-cyan-500/15">
                                             {row.elite === "5s" || row.elite === "15s" || row.elite === "60s" ? (
                                                 <div className="text-center">
                                                     <span className={row.eliteNote}>{row.elite}</span>
