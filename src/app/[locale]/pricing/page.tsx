@@ -431,27 +431,65 @@ export default function PricingPage() {
                                 {t("foundingDesc")}
                             </p>
 
-                            <div className="flex items-center justify-center gap-10 mb-8">
-                                {/* PRO price pill */}
-                                <div className="text-center px-6 py-4 rounded-xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm">
-                                    <p className="text-xs text-slate-400 mb-1.5 font-bold font-jakarta">PRO</p>
-                                    <p>
-                                        <span className="text-red-500 line-through text-base mr-2 font-bold font-jakarta">$69</span>
-                                        <span className="text-3xl font-black text-amber-400 font-jakarta">$49</span>
-                                        <span className="text-slate-400 text-sm">/mo</span>
-                                    </p>
+                            <div className="space-y-5 mb-8">
+                                {/* Monthly Founding */}
+                                <div>
+                                    <p className="text-[11px] text-slate-500 uppercase tracking-wider font-bold mb-3 font-jakarta">{t("foundingMonthlyLabel")}</p>
+                                    <div className="flex items-center justify-center gap-8">
+                                        <div className="text-center px-6 py-3.5 rounded-xl bg-white/[0.03] border border-white/[0.06] backdrop-blur-sm">
+                                            <p className="text-[11px] text-slate-400 mb-1 font-bold font-jakarta">PRO</p>
+                                            <p>
+                                                <span className="text-red-500 line-through text-sm mr-1.5 font-bold font-jakarta">$69</span>
+                                                <span className="text-2xl font-black text-amber-400 font-jakarta">$49</span>
+                                                <span className="text-slate-400 text-xs">/mo</span>
+                                            </p>
+                                        </div>
+                                        <div className="text-center px-6 py-3.5 rounded-xl bg-cyan-500/[0.04] border border-cyan-500/15 backdrop-blur-sm">
+                                            <p className="text-[11px] text-cyan-400/80 mb-1 font-bold font-jakarta">ELITE</p>
+                                            <p>
+                                                <span className="text-red-500 line-through text-sm mr-1.5 font-bold font-jakarta">$149</span>
+                                                <span className="text-2xl font-black text-cyan-400 font-jakarta">$79</span>
+                                                <span className="text-slate-400 text-xs">/mo</span>
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="w-px h-16 bg-gradient-to-b from-transparent via-cyan-400/20 to-transparent" />
-                                {/* ELITE price pill */}
-                                <div className="text-center px-6 py-4 rounded-xl bg-cyan-500/[0.04] border border-cyan-500/15 backdrop-blur-sm">
-                                    <p className="text-xs text-cyan-400/80 mb-1.5 font-bold font-jakarta">ELITE</p>
-                                    <p>
-                                        <span className="text-red-500 line-through text-base mr-2 font-bold font-jakarta">$149</span>
-                                        <span className="text-3xl font-black text-cyan-400 font-jakarta">$79</span>
-                                        <span className="text-slate-400 text-sm">/mo</span>
-                                    </p>
+
+                                {/* Divider */}
+                                <div className="flex items-center gap-4">
+                                    <div className="flex-1 h-px bg-white/[0.06]" />
+                                    <span className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest font-jakarta">+ {t("foundingAnnualSave")}</span>
+                                    <div className="flex-1 h-px bg-white/[0.06]" />
+                                </div>
+
+                                {/* Annual Founding */}
+                                <div>
+                                    <p className="text-[11px] text-emerald-400/80 uppercase tracking-wider font-bold mb-3 font-jakarta">{t("foundingAnnualLabel")}</p>
+                                    <div className="flex items-center justify-center gap-8">
+                                        <div className="text-center px-6 py-3.5 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/10 backdrop-blur-sm">
+                                            <p className="text-[11px] text-slate-400 mb-1 font-bold font-jakarta">PRO</p>
+                                            <p>
+                                                <span className="text-red-500 line-through text-sm mr-1.5 font-bold font-jakarta">$49</span>
+                                                <span className="text-2xl font-black text-emerald-400 font-jakarta">$39</span>
+                                                <span className="text-slate-400 text-xs">/mo</span>
+                                            </p>
+                                        </div>
+                                        <div className="text-center px-6 py-3.5 rounded-xl bg-emerald-500/[0.03] border border-emerald-500/10 backdrop-blur-sm">
+                                            <p className="text-[11px] text-cyan-400/80 mb-1 font-bold font-jakarta">ELITE</p>
+                                            <p>
+                                                <span className="text-red-500 line-through text-sm mr-1.5 font-bold font-jakarta">$79</span>
+                                                <span className="text-2xl font-black text-emerald-400 font-jakarta">$59</span>
+                                                <span className="text-slate-400 text-xs">/mo</span>
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+
+                            {/* Restoration warning */}
+                            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+                                {t("foundingRestore")}
+                            </p>
 
                             <p className="text-sm text-amber-400/90 font-semibold">
                                 {t("foundingUrgency")}
