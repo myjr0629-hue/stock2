@@ -304,7 +304,7 @@ export default function PricingPage() {
             <section className="px-6 pb-24">
                 <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                     {/* FREE Card — Left (Budget anchor) */}
-                    <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 hover:border-white/20 transition-all duration-500">
+                    <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 hover:border-white/20 transition-all duration-500 shadow-[0_0_20px_rgba(148,163,184,0.04)] hover:shadow-[0_0_30px_rgba(148,163,184,0.08)]">
                         <div className="mb-7">
                             <h3 className="text-xl font-black text-white mb-1.5 font-jakarta">FREE</h3>
                             <p className="text-sm text-slate-400 leading-relaxed">{t("freeDesc")}</p>
@@ -330,7 +330,7 @@ export default function PricingPage() {
                     </div>
 
                     {/* 👑 ELITE Card — CENTER (Visual Dominance, Center-Stage Effect) */}
-                    <div className="relative p-8 pt-9 rounded-2xl bg-white/[0.04] border border-cyan-500/40 transition-all duration-500 shadow-[0_0_60px_rgba(34,211,238,0.08)] md:scale-105 md:-mt-3 md:mb-[-12px] order-last md:order-none">
+                    <div className="relative p-8 pt-9 rounded-2xl bg-white/[0.04] border border-cyan-500/30 transition-all duration-500 shadow-[0_0_40px_rgba(34,211,238,0.12),inset_0_0_30px_rgba(34,211,238,0.03)] md:scale-105 md:-mt-3 md:mb-[-12px] order-last md:order-none">
                         {/* MOST POPULAR badge */}
                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-cyan-600 text-[11px] font-black text-black uppercase tracking-[0.15em] shadow-[0_0_20px_rgba(34,211,238,0.3)] font-jakarta">
                             MOST POPULAR
@@ -369,7 +369,7 @@ export default function PricingPage() {
                     </div>
 
                     {/* PRO Card — Right (Value compromise) */}
-                    <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-amber-500/20 hover:border-amber-500/40 transition-all duration-500 hover:shadow-[0_0_40px_rgba(245,158,11,0.06)]">
+                    <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-amber-500/20 hover:border-amber-500/35 transition-all duration-500 shadow-[0_0_20px_rgba(245,158,11,0.06)] hover:shadow-[0_0_35px_rgba(245,158,11,0.12)]">
                         <div className="mb-7">
                             <h3 className="text-xl font-black text-white mb-1.5 font-jakarta">PRO</h3>
                             <p className="text-sm text-slate-400 leading-relaxed">{t("proDesc")}</p>
