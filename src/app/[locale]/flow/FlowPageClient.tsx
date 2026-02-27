@@ -3,7 +3,8 @@
 import React, { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Loader2, BookOpen } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
@@ -159,6 +160,15 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                 )}
                             </div>
                         </div>
+
+                        {/* Guide Link */}
+                        <Link
+                            href="/how-it-works/flow"
+                            className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/[0.08] backdrop-blur-sm transition-all duration-300 group"
+                        >
+                            <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
+                            <span className="text-[12px] text-slate-300 group-hover:text-indigo-300 font-medium transition-colors">실전 가이드</span>
+                        </Link>
 
                         {/* Mini Sparkline Chart (right side) */}
                         {sparklinePath && (

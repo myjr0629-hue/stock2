@@ -11,7 +11,8 @@ import {
     Lock, Unlock, Eye, ArrowUpRight, ArrowDownRight,
     Search, Layers, CheckCircle2,
     Orbit,
-    Bot
+    Bot,
+    BookOpen
 } from "lucide-react";
 
 // Static imports — lightweight or needed immediately
@@ -1880,6 +1881,10 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                                             <Activity className="w-4 h-4 text-emerald-500" />
                                             SIGNUM INTELLIGENCE
                                         </span>
+                                        <a href="/how-it-works/intel" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
+                                            <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
+                                            <span className="text-[12px] text-slate-300 group-hover:text-indigo-300 font-medium transition-colors">실전 가이드</span>
+                                        </a>
                                     </div>
                                     <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3 font-jakarta drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]">
                                         <span className="text-emerald-500 font-jakarta">{t('title')}</span>

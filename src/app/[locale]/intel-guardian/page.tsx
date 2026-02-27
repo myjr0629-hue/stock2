@@ -3,7 +3,7 @@
 
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslations, useLocale } from 'next-intl';
-import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock } from "lucide-react";
+import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock, BookOpen } from "lucide-react";
 
 import { Link } from "@/i18n/routing";
 
@@ -322,6 +322,13 @@ export default function GuardianPage() {
 
             {/* MAIN HUD CONTAINER */}
             <main className="pb-4 px-4 min-h-[calc(100vh-110px)] max-w-[1920px] mx-auto flex flex-col gap-4 mt-4">
+                {/* Guide Link */}
+                <div className="flex justify-end">
+                    <Link href="/how-it-works/guardian" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
+                        <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-emerald-400 transition-colors" />
+                        <span className="text-[12px] text-slate-300 group-hover:text-emerald-300 font-medium transition-colors">실전 가이드</span>
+                    </Link>
+                </div>
 
                 {/* --- TOP ROW: GAUGE | REALITY | MAP | VERDICT (GRID) --- */}
                 {/* 

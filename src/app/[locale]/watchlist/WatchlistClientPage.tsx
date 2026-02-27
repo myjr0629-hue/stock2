@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import {
     Star, Plus, RefreshCw, Trash2, X, Loader2, Activity, Fish, Zap,
     Target, Shield, RefreshCcw, Crosshair, LayoutDashboard,
-    ArrowUpRight, ArrowDownRight, TrendingUp, Search
+    ArrowUpRight, ArrowDownRight, TrendingUp, Search, BookOpen
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
@@ -73,6 +73,10 @@ export default function WatchlistClientPage({
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
+                        <Link href="/how-it-works/watchlist" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-amber-500/30 hover:bg-amber-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
+                            <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-amber-400 transition-colors" />
+                            <span className="text-[12px] text-slate-300 group-hover:text-amber-300 font-medium transition-colors">실전 가이드</span>
+                        </Link>
                         <button
                             onClick={() => refresh()}
                             className="relative p-2.5 rounded-xl hover:bg-white/[0.04] border border-transparent hover:border-white/[0.06] transition-all duration-200"

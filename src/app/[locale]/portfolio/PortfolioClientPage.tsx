@@ -7,7 +7,7 @@ import {
     TrendingUp, TrendingDown, Plus, RefreshCw, Briefcase, ChevronRight,
     Trash2, ArrowUpRight, ArrowDownRight, Wallet, PiggyBank, Activity,
     Zap, Target, Edit3, Star, Search, X, Loader2, Clock, LayoutDashboard,
-    ArrowRightLeft
+    ArrowRightLeft, BookOpen
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
@@ -66,6 +66,10 @@ export default function PortfolioClientPage({
                         <ExchangeRateBadge locale={locale} />
                     </div>
                     <div className="flex items-center gap-3">
+                        <Link href="/how-it-works/portfolio" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
+                            <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-emerald-400 transition-colors" />
+                            <span className="text-[12px] text-slate-300 group-hover:text-emerald-300 font-medium transition-colors">실전 가이드</span>
+                        </Link>
                         <button
                             onClick={() => refresh()}
                             className="p-2 hover:bg-white/5 rounded transition-all relative"
