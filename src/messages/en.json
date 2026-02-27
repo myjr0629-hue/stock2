@@ -1577,13 +1577,13 @@
       "guide3": "Only top stocks rising while rest decline → Selective stock picking, avoid sector ETF"
     },
     "gammaShield": {
-      "title": "GAMMA SHIELD™",
+      "title": "GAMMA SHIELD™ V3",
       "badge": "Critical",
-      "desc": "Analyzes <cyan>S&P 500 options market</cyan> dealer <gold>gamma hedge positions</gold> in real-time to detect <emerald>volatility direction</emerald> and <rose>sudden move risk</rose> before they happen. Makes Wall Street's institutional volatility intelligence accessible to individual investors.",
-      "sampleInsight": "Options market balanced — sideways movement likely",
+      "desc": "Analyzes <cyan>S&P 500 options market</cyan> dealer <gold>gamma hedge positions</gold> in real-time to detect <emerald>volatility direction</emerald> and <rose>sudden move risk</rose> before they happen. V3 adds <gold>GEX trend tracking</gold>, <cyan>SPY/QQQ individual GEX</cyan>, <emerald>Gamma Flip Point</emerald>, and integrates with <gold>Tactical Insight AI</gold> for comprehensive analysis.",
+      "sampleInsight": "S&P 6,893 — Gamma weak(+13), Squeeze 38%, ▼6,500(-5.7%) bearish bias · cap 7,000",
       "gex": {
         "title": "Gamma Pressure (GEX Index)",
-        "desc": "Combines <cyan>SPY + QQQ</cyan> options gamma exposure (GEX) into a normalized -100 to +100 index. <gold>Positive (+)</gold> means dealers hedge by buying dips → market stabilizes. <rose>Negative (-)</rose> means dealers hedge by selling dips → accelerates decline.",
+        "desc": "Combines <cyan>SPY + QQQ</cyan> options gamma exposure (GEX) into a normalized -100 to +100 index. <gold>Positive (+)</gold> means dealers hedge by buying dips → market stabilizes. <rose>Negative (-)</rose> means dealers hedge by selling dips → accelerates decline. V3 adds <emerald>▲/▼ trend arrows</emerald> showing day-over-day GEX direction.",
         "long": "Stable",
         "neutral": "Neutral",
         "short": "Caution"
@@ -1594,20 +1594,36 @@
       },
       "trigger": {
         "title": "Trigger Band (Options Price Walls)",
-        "desc": "Analyzes S&P 500 <cyan>options chain open interest</cyan> to calculate institutional <emerald>support levels (Put Floor)</emerald> and <rose>resistance levels (Call Wall)</rose>. These levels act as real price magnets in the market.",
+        "desc": "Analyzes S&P 500 <cyan>options chain open interest</cyan> to calculate institutional <emerald>support levels (Put Floor)</emerald> and <rose>resistance levels (Call Wall)</rose>. V3 also displays the <gold>Gamma Flip Point</gold> where dealers transition from long gamma to short gamma.",
         "resistDesc": "Call concentration → upside resistance",
         "supportDesc": "Put concentration → downside defense"
       },
+      "spySplit": {
+        "title": "SPY / QQQ Individual GEX",
+        "desc": "New in V3: displays GEX for SPY (S&P 500) and QQQ (Nasdaq 100) <cyan>individually</cyan>. Compare gamma states between the two ETFs to detect <gold>structural divergences</gold> within the market."
+      },
+      "flipPoint": {
+        "title": "Gamma Flip Point",
+        "desc": "The <gold>critical price level</gold> where dealer positioning transitions from <emerald>long gamma (stable)</emerald> to <rose>short gamma (unstable)</rose>. Distance from current price shown as %. <rose>Amber warning triggered within 2%</rose> proximity."
+      },
+      "directionalInsight": {
+        "title": "Directional Insight (V3 New)",
+        "desc": "V3 replaces static insights with dynamic one-line headers containing <cyan>price targets and direction</cyan> based on current data. Instantly grasp <gold>GEX strength</gold>, <emerald>Squeeze level</emerald>, and <rose>directional bias with price targets</rose>."
+      },
+      "aiIntegration": {
+        "title": "AI Integration (V3 New)",
+        "desc": "Gamma Shield data (GEX, Squeeze, Support/Resistance) is fed directly to <cyan>Tactical Insight AI</cyan>, which generates comprehensive analysis combining RLSI+Breadth+Macro+<gold>Options Structure</gold>. AI automatically incorporates dealer gamma clamping, squeeze imminence, and options wall proximity into its analysis."
+      },
       "insightTitle": "Real-Time Dynamic Insights",
-      "insightDesc": "GAMMA SHIELD automatically <cyan>selects the most urgent signal</cyan> and displays it in the header. Here are examples for each scenario:",
-      "insightLong": "Major institutions defending downside — low crash risk (GEX ≥ +20: dealer long gamma, market stabilizing)",
-      "insightShort": "Institutional hedging amplifying swings — watch for sharp moves (GEX ≤ -20: dealer short gamma, volatility expanding)",
-      "insightSqueeze": "Options sellers near forced exits — brace for explosive moves (squeeze risk ≥ 45%)",
-      "insightTrigger": "S&P options wall nearby — breakout rally or rejection dip (price within 1.5% of resistance/support)",
-      "tradingGuide": "How to Use GAMMA SHIELD",
+      "insightDesc": "GAMMA SHIELD V3 automatically <cyan>generates directional insights</cyan> displayed in the header. Here are examples for each scenario:",
+      "insightLong": "S&P 6,893 — Gamma strong(+45), Squeeze 12%, ▲7,000(+1.6%) bullish bias · floor 6,800 (GEX ≥ +20: stable, range-bound)",
+      "insightShort": "S&P 6,893 — Gamma weak(-30), Squeeze 62%, ▼6,500(-5.7%) bearish bias · cap 7,000 (GEX ≤ -20: volatility expanding)",
+      "insightSqueeze": "S&P 6,893 — Gamma weak(+8), Squeeze 71%, direction-agnostic explosive move imminent · asset defense priority (Squeeze ≥ 70%)",
+      "insightTrigger": "S&P 6,893 — Gamma neutral(+15), Squeeze 28%, ▲7,000(+1.6%) · resistance 1.2% away — breakout rally or rejection dip",
+      "tradingGuide": "How to Use GAMMA SHIELD V3",
       "guide1": "<emerald>GEX +20 or above + Squeeze LOW</emerald> → Market stability, <gold>volatility selling strategies</gold> favorable (short straddle, covered call)",
       "guide2": "<rose>GEX -20 or below + Squeeze HIGH</rose> → Explosive move incoming, <cyan>directional bets</cyan> or <gold>strengthen hedges</gold>",
-      "guide3": "Trigger Band: <emerald>buy bounces near support</emerald>, <rose>take profits near resistance</rose> — options walls act as price magnets"
+      "guide3": "<emerald>Gamma Flip Point within 2%</emerald> → Dealer regime shift imminent, <rose>reduce positions and tighten stop-loss</rose>"
     },
     "strategy": {
       "title": "Practical Trading Guide",

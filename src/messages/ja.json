@@ -1577,13 +1577,13 @@
       "guide3": "セクター内上位銘柄のみ上昇し残りは下落 → 選別的な銘柄売買、セクターETFは非推奨"
     },
     "gammaShield": {
-      "title": "GAMMA SHIELD™",
+      "title": "GAMMA SHIELD™ V3",
       "badge": "重要指標",
-      "desc": "<cyan>S&P 500オプション市場</cyan>の機関ディーラーの<gold>ガンマヘッジポジション</gold>をリアルタイムで分析し、市場の<emerald>ボラティリティ方向</emerald>と<rose>急変動リスク</rose>を事前に検知します。ウォール街の機関トレーダーが使用する核心的なボラティリティインテリジェンスを個人投資家にも提供します。",
-      "sampleInsight": "オプション市場均衡 — 大きな変動なく横ばいの可能性",
+      "desc": "<cyan>S&P 500オプション市場</cyan>の機関ディーラーの<gold>ガンマヘッジポジション</gold>をリアルタイムで分析し、市場の<emerald>ボラティリティ方向</emerald>と<rose>急変動リスク</rose>を事前に検知します。V3では<gold>GEXトレンド追跡</gold>、<cyan>SPY/QQQ個別GEX</cyan>、<emerald>Gamma Flip Point</emerald>が追加され、<gold>Tactical Insight AI</gold>との連携で総合分析が可能です。",
+      "sampleInsight": "S&P 6,893 — ガンマ弱(+13), Squeeze 38%, ▼6,500(-5.7%) 下方偏向 · 上限 7,000",
       "gex": {
         "title": "Gamma Pressure（GEX指数）",
-        "desc": "<cyan>SPY + QQQ</cyan>のオプションガンマエクスポージャー(GEX)を合算し-100～+100に正規化した指数です。<gold>プラス(+)</gold>ならディーラーが下落時に買いヘッジ→市場安定。<rose>マイナス(-)</rose>ならディーラーが下落時に売りヘッジ→下落加速リスク。",
+        "desc": "<cyan>SPY + QQQ</cyan>のオプションガンマエクスポージャー(GEX)を合算し-100～+100に正規化した指數です。<gold>プラス(+)</gold>ならディーラーが下落時に買いヘッジ→市場安定。<rose>マイナス(-)</rose>ならディーラーが下落時に売りヘッジ→下落加速リスク。V3では<emerald>▲/▼トレンド矢印</emerald>で前日比GEX方向も表示されます。",
         "long": "安定",
         "neutral": "中立",
         "short": "注意"
@@ -1594,20 +1594,36 @@
       },
       "trigger": {
         "title": "Trigger Band（オプショントリガーバンド）",
-        "desc": "S&P 500 <cyan>オプションチェーンの建玉（Open Interest）</cyan>を分析し、機関が設定した<emerald>サポートレベル（Put Floor）</emerald>と<rose>レジスタンスレベル（Call Wall）</rose>を算出します。このレベルは実際の市場で価格の壁として機能します。",
+        "desc": "S&P 500 <cyan>オプションチェーンの建玉（Open Interest）</cyan>を分析し、機関が設定した<emerald>サポートレベル（Put Floor）</emerald>と<rose>レジスタンスレベル（Call Wall）</rose>を算出します。V3では<gold>Gamma Flip Point</gold>も表示され、ディーラーがロングガンマ→ショートガンマに転換する臨界価格を確認できます。",
         "resistDesc": "コールオプション集中 → 上昇抵抗",
         "supportDesc": "プットオプション集中 → 下落防御"
       },
+      "spySplit": {
+        "title": "SPY / QQQ 個別GEX",
+        "desc": "V3で追加された機能で、SPY（S&P 500）とQQQ（ナスダック100）の<cyan>GEXを個別に</cyan>表示します。両ETFのガンマ状態を比較して<gold>市場内部構造の乖離</gold>を捕捉できます。"
+      },
+      "flipPoint": {
+        "title": "Gamma Flip Point",
+        "desc": "ディーラーポジションが<emerald>ロングガンマ（安定）</emerald>から<rose>ショートガンマ（不安定）</rose>に転換する<gold>臨界価格</gold>です。現在価格との距離（%）も表示され、<rose>2%以内の接近時</rose>にアンバー警告が発動します。"
+      },
+      "directionalInsight": {
+        "title": "方向性インサイト (V3新規)",
+        "desc": "V3で既存の静的インサイトを置き換え、現在データを基に<cyan>価格ターゲットと方向性</cyan>を含む動的インサイトをヘッダーに表示します。<gold>GEX強度</gold>、<emerald>Squeezeレベル</emerald>、<rose>方向偏向と価格目標</rose>を一目で把握できます。"
+      },
+      "aiIntegration": {
+        "title": "AI連携 (V3新規)",
+        "desc": "Gamma Shieldデータ（GEX、Squeeze、サポート/レジスタンス）が<cyan>Tactical Insight AI</cyan>に直接伝達され、RLSI+Breadth+マクロ+<gold>オプション構造</gold>を総合した専門分析を生成します。ディーラーガンマクランピング、スクイーズ迫る、オプション壁接近時にAIが自動的にコンテキストを分析に反映します。"
+      },
       "insightTitle": "リアルタイム動的インサイト",
-      "insightDesc": "GAMMA SHIELDは<cyan>現在のデータに基づき最も緊急なシグナル1つ</cyan>を自動選別してヘッダーに表示します。各状況のインサイト例:",
-      "insightLong": "大型機関が下落防御中 — 急落の可能性低い（GEX ≥ +20: ディーラーロングガンマ、市場安定化）",
-      "insightShort": "機関ヘッジが変動を拡大中 — 急騰落に注意（GEX ≤ -20: ディーラーショートガンマ、ボラティリティ拡大）",
-      "insightSqueeze": "オプション売り手の損切り迫る — 爆発的な動きに備え（スクイーズリスク ≥ 45%）",
-      "insightTrigger": "S&Pオプション壁接近 — 突破で急騰、失敗で反落（現在価がレジスタンス/サポートの1.5%以内）",
-      "tradingGuide": "GAMMA SHIELD活用法",
+      "insightDesc": "GAMMA SHIELD V3は<cyan>現在のデータを基に方向性インサイト</cyan>を自動生成しヘッダーに表示します。各状況のインサイト例:",
+      "insightLong": "S&P 6,893 — ガンマ強(+45), Squeeze 12%, ▲7,000(+1.6%) 上方偏向 · 下限 6,800 (GEX ≥ +20: 安定、レンジ相場)",
+      "insightShort": "S&P 6,893 — ガンマ弱(-30), Squeeze 62%, ▼6,500(-5.7%) 下方偏向 · 上限 7,000 (GEX ≤ -20: ボラティリティ拡大警告)",
+      "insightSqueeze": "S&P 6,893 — ガンマ弱(+8), Squeeze 71%, 方向不問の急変動迫る · 資産防御最優先 (Squeeze ≥ 70%)",
+      "insightTrigger": "S&P 6,893 — ガンマ中立(+15), Squeeze 28%, ▲7,000(+1.6%) · レジスタンスまで1.2% — 突破で急騰、失敗で反落",
+      "tradingGuide": "GAMMA SHIELD V3活用法",
       "guide1": "<emerald>GEX +20以上 + スクイーズ LOW</emerald> → 市場安定期、<gold>ボラティリティ縮小戦略</gold>有利（ショートストラドル、カバードコール）",
       "guide2": "<rose>GEX -20以下 + スクイーズ HIGH</rose> → 急変動迫る、<cyan>方向性ベット</cyan>または<gold>ヘッジ強化</gold>が必要",
-      "guide3": "Trigger Bandの<emerald>サポート接近時に反発買い</emerald>、<rose>レジスタンス接近時に利確</rose> — オプション壁が価格マグネットの役割"
+      "guide3": "<emerald>Gamma Flip Point 2%以内接近</emerald> → ディーラーレジーム転換迫る、<rose>ポジション縮小およびストップロス確認</rose>"
     },
     "strategy": {
       "title": "実践トレード活用ガイド",

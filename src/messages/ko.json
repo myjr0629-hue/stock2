@@ -1577,13 +1577,13 @@
       "guide3": "섹터 내 <rose>상위 종목만 상승하고 나머지 하락</rose> → 선별적 종목 매매, <gold>섹터 ETF는 비추</gold>"
     },
     "gammaShield": {
-      "title": "GAMMA SHIELD™",
+      "title": "GAMMA SHIELD™ V3",
       "badge": "핵심 지표",
-      "desc": "<cyan>S&P 500 옵션 시장</cyan>에서 기관 딜러들의 <gold>감마 헤지 포지션</gold>을 실시간 분석하여, 시장의 <emerald>변동성 방향</emerald>과 <rose>급변동 리스크</rose>를 사전에 감지합니다. 월가의 기관 트레이더들이 사용하는 핵심 변동성 인텔리전스를 개인 투자자도 활용할 수 있게 합니다.",
-      "sampleInsight": "옵션 시장 균형 — 큰 변동 없이 횡보 가능성",
+      "desc": "<cyan>S&P 500 옵션 시장</cyan>에서 기관 딜러들의 <gold>감마 헤지 포지션</gold>을 실시간 분석하여, 시장의 <emerald>변동성 방향</emerald>과 <rose>급변동 리스크</rose>를 사전에 감지합니다. V3에서는 <gold>GEX 트렌드</gold>, <cyan>SPY/QQQ 개별 GEX</cyan>, <emerald>Gamma Flip Point</emerald>가 추가되어 더 정밀한 분석이 가능합니다. 또한 Tactical Insight AI와 연동되어 종합 분석에 활용됩니다.",
+      "sampleInsight": "S&P 6,893 — 감마 약(+13), Squeeze 38%, ▼6,500(-5.7%) 하방 편향 · 상한 7,000",
       "gex": {
         "title": "Gamma Pressure (GEX 지수)",
-        "desc": "<cyan>SPY + QQQ</cyan>의 옵션 감마 노출(GEX)을 합산하여 -100~+100으로 정규화한 지수입니다. <gold>양수(+)</gold>이면 딜러들이 하락 시 매수 헤지 → 시장 안정. <rose>음수(-)</rose>이면 딜러들이 하락 시 매도 헤지 → 하락 가속 위험.",
+        "desc": "<cyan>SPY + QQQ</cyan>의 옵션 감마 노출(GEX)을 합산하여 -100~+100으로 정규화한 지수입니다. <gold>양수(+)</gold>이면 딜러들이 하락 시 매수 헤지 → 시장 안정. <rose>음수(-)</rose>이면 딜러들이 하락 시 매도 헤지 → 하락 가속 위험. V3에서는 <emerald>▲/▼ 트렌드 화살표</emerald>로 전일 대비 GEX 방향도 표시됩니다.",
         "long": "안정",
         "neutral": "중립",
         "short": "주의"
@@ -1594,20 +1594,36 @@
       },
       "trigger": {
         "title": "Trigger Band (옵션 트리거 밴드)",
-        "desc": "S&P 500 <cyan>옵션 체인의 미결제약정(Open Interest)</cyan>을 분석하여 기관들이 설정한 <emerald>가격 지지선(Put Floor)</emerald>과 <rose>저항선(Call Wall)</rose>을 산출합니다. 이 레벨은 실제 시장의 가격 벽 역할을 합니다.",
+        "desc": "S&P 500 <cyan>옵션 체인의 미결제약정(Open Interest)</cyan>을 분석하여 기관들이 설정한 <emerald>가격 지지선(Put Floor)</emerald>과 <rose>저항선(Call Wall)</rose>을 산출합니다. V3에서는 <gold>Gamma Flip Point</gold>도 함께 표시되어, 딜러가 롱감마→숏감마 전환하는 임계 가격을 확인할 수 있습니다.",
         "resistDesc": "콜옵션 집중 구간 → 상승 저항",
         "supportDesc": "풋옵션 집중 구간 → 하락 방어"
       },
+      "spySplit": {
+        "title": "SPY / QQQ 개별 GEX",
+        "desc": "V3에서 추가된 기능으로, SPY(S&P 500)와 QQQ(나스닥 100)의 <cyan>GEX를 개별적으로</cyan> 표시합니다. 두 ETF의 감마 상태 차이를 비교하여 <gold>시장 내부 구조의 괴리</gold>를 포착할 수 있습니다."
+      },
+      "flipPoint": {
+        "title": "Gamma Flip Point",
+        "desc": "딜러 포지션이 <emerald>롱감마(안정)</emerald>에서 <rose>숏감마(불안정)</rose>로 전환되는 <gold>임계 가격</gold>입니다. 현재가와의 거리(%)가 함께 표시되며, <rose>2% 이내 접근 시</rose> amber 경고가 발동합니다."
+      },
+      "directionalInsight": {
+        "title": "방향성 인사이트 (V3 신규)",
+        "desc": "V3에서 기존 정적 인사이트를 대체하여, 현재 데이터를 기반으로 <cyan>가격 타겟과 방향성</cyan>을 포함한 동적 한 줄 인사이트를 헤더에 표시합니다. <gold>GEX 강도</gold>, <emerald>Squeeze 레벨</emerald>, <rose>방향 편향과 가격 목표</rose>를 한눈에 파악할 수 있습니다."
+      },
+      "aiIntegration": {
+        "title": "AI 연동 (V3 신규)",
+        "desc": "Gamma Shield 데이터(GEX, Squeeze, 지지/저항선)가 <cyan>Tactical Insight AI</cyan>에 직접 전달되어, RLSI+Breadth+매크로+<gold>옵션 구조</gold>를 종합한 전문 분석을 생성합니다. 딜러 감마 클램핑, 스퀴즈 임박, 옵션 벽 접근 시 AI가 자동으로 해당 컨텍스트를 분석에 반영합니다."
+      },
       "insightTitle": "실시간 동적 인사이트",
-      "insightDesc": "GAMMA SHIELD는 <cyan>현재 데이터를 기반으로 가장 긴급한 시그널 1개</cyan>를 자동 선별하여 헤더에 표시합니다. 다음은 각 상황별 인사이트 예시입니다:",
-      "insightLong": "대형 기관이 하락 방어 중 — 급락 가능성 낮음 (GEX ≥ +20: 딜러 롱감마, 시장 안정화 작용)",
-      "insightShort": "기관 헤지가 변동을 키우는 중 — 급등락 주의 (GEX ≤ -20: 딜러 숏감마, 변동성 확대)",
-      "insightSqueeze": "옵션 매도자 손절 임박 — 폭발적 움직임 대비 (스퀴즈 리스크 ≥ 45%)",
-      "insightTrigger": "S&P 옵션 벽 근접 — 돌파 시 급등, 실패 시 반락 (현재가가 저항선/지지선 1.5% 이내)",
-      "tradingGuide": "GAMMA SHIELD 활용법",
+      "insightDesc": "GAMMA SHIELD V3는 <cyan>현재 데이터를 기반으로 방향성 인사이트</cyan>를 자동 생성하여 헤더에 표시합니다. 다음은 각 상황별 인사이트 예시입니다:",
+      "insightLong": "S&P 6,893 — 감마 강(+45), Squeeze 12%, ▲7,000(+1.6%) 상방 편향 · 하한 6,800 (GEX ≥ +20: 안정, 레인지 바운드)",
+      "insightShort": "S&P 6,893 — 감마 약(-30), Squeeze 62%, ▼6,500(-5.7%) 하방 편향 · 상한 7,000 (GEX ≤ -20: 변동성 확대 경고)",
+      "insightSqueeze": "S&P 6,893 — 감마 약(+8), Squeeze 71%, 방향 불문 급변동 임박 · 자산 방어 최우선 (Squeeze ≥ 70%)",
+      "insightTrigger": "S&P 6,893 — 감마 중립(+15), Squeeze 28%, ▲7,000(+1.6%) · 저항선 1.2% 접근 — 돌파 시 급등, 실패 시 반락",
+      "tradingGuide": "GAMMA SHIELD V3 활용법",
       "guide1": "<emerald>GEX +20 이상 + 스퀴즈 LOW</emerald> → 시장 안정기, <gold>변동성 축소 전략</gold> (숏 스트래들, 커버드 콜 유리)",
       "guide2": "<rose>GEX -20 이하 + 스퀴즈 HIGH</rose> → 급변동 임박, <cyan>방향성 베팅</cyan> 또는 <gold>헤지 강화</gold> 필요",
-      "guide3": "Trigger Band의 <emerald>지지선 근접 시 반등 매수</emerald>, <rose>저항선 근접 시 차익실현</rose> — 옵션 벽이 가격 자석 역할"
+      "guide3": "<emerald>Gamma Flip Point 2% 이내 접근</emerald> → 딜러 레짐 전환 임박, <rose>포지션 축소 및 스톱로스 점검</rose>"
     },
     "strategy": {
       "title": "실전 매매 활용 가이드",

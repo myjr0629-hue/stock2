@@ -239,6 +239,100 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                     </div>
                 </div>
 
+                {/* ── V3 New Feature Cards ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* SPY/QQQ Split */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-purple-500/[0.05] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center">
+                                    <Layers size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.spySplit.title')}</h4>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 border border-purple-500/30 text-purple-300">V3</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.spySplit.desc', richTags)}</p>
+                            <div className="space-y-1.5">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold text-cyan-400 w-10">SPY</span>
+                                    <div className="flex-1 h-[6px] rounded-full bg-slate-800 overflow-hidden">
+                                        <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400" style={{ width: '60%' }} />
+                                    </div>
+                                    <span className="text-[11px] font-bold text-cyan-400 tabular-nums">+12</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-bold text-amber-400 w-10">QQQ</span>
+                                    <div className="flex-1 h-[6px] rounded-full bg-slate-800 overflow-hidden">
+                                        <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400" style={{ width: '45%' }} />
+                                    </div>
+                                    <span className="text-[11px] font-bold text-amber-400 tabular-nums">+5</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Gamma Flip Point */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -left-6 -bottom-6 w-28 h-28 rounded-full bg-amber-500/[0.05] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-red-600 flex items-center justify-center">
+                                    <Target size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.flipPoint.title')}</h4>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300">V3</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.flipPoint.desc', richTags)}</p>
+                            <div className="p-2 rounded-lg bg-slate-800/50 border border-white/5 flex items-center justify-between">
+                                <span className="text-[11px] text-slate-400">GAMMA FLIP</span>
+                                <div className="flex items-center gap-2">
+                                    <span className="text-[13px] font-black text-amber-400 tabular-nums">6,720</span>
+                                    <span className="text-[11px] text-slate-400">(-1.6%)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Directional Insight */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-cyan-500/[0.05] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-cyan-400 to-teal-600 flex items-center justify-center">
+                                    <Compass size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.directionalInsight.title')}</h4>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/30 text-cyan-300">V3</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.directionalInsight.desc', richTags)}</p>
+                            <div className="p-2 rounded-lg bg-slate-800/50 border border-white/5">
+                                <span className="text-[12px] text-slate-300 font-mono">S&P 6,893 — 감마 약(+13), Squeeze 38%, ▼6,500(-5.7%) 하방 편향 · 상한 7,000</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* AI Integration */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -left-6 -top-6 w-28 h-28 rounded-full bg-emerald-500/[0.05] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-400 to-green-600 flex items-center justify-center">
+                                    <Brain size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.aiIntegration.title')}</h4>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30 text-emerald-300">V3</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.aiIntegration.desc', richTags)}</p>
+                            <div className="flex items-center gap-2">
+                                <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30 text-emerald-300 font-bold">GEX → AI</span>
+                                <span className="text-[11px] px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold">Squeeze → AI</span>
+                                <span className="text-[11px] px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/30 text-cyan-300 font-bold">Trigger → AI</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* ── Dynamic Insight Examples ── */}
                 <div className={`${glassCard} ${glassBg}`}>
                     <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-indigo-500/[0.05] blur-3xl pointer-events-none" />
