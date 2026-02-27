@@ -2090,7 +2090,7 @@
       "q3": "Is there an annual billing discount?",
       "a3": "Yes, annual billing includes 2 months free. PRO $57/mo, ELITE $124/mo.",
       "q4": "What's the refund policy?",
-      "a4": "We offer a full refund within the first 7 days, no questions asked.",
+      "a4": "A full refund is available if requested via customer support within 24 hours of payment. After that, refunds are not available due to the nature of digital data products. You can cancel your subscription at any time to prevent future charges.",
       "q5": "What currency is pricing in?",
       "a5": "All prices are in USD. Local currency estimates (KRW/JPY) are shown for reference."
     },
@@ -2164,7 +2164,7 @@
       "dataTitle": "Data Warranty Disclaimer",
       "dataContent": "We do not guarantee the accuracy, completeness, or timeliness of the Service. We shall not be held liable for any damages arising from system errors, data delays, third-party API failures, or other technical issues.",
       "refundTitle": "Refund Policy",
-      "refundContent": "Due to the nature of digital content services, refunds may be limited after information has been accessed or data has been viewed. Refund requests will only be considered within 7 days of payment and before substantial use of the Service.",
+      "refundContent": "SIGNUM HQ provides real-time information and data (digital content). A full refund is available if requested via customer support within 24 hours of payment. After 24 hours, refunds are not available under applicable e-commerce regulations. We encourage you to explore the FREE tier to fully evaluate the service before subscribing. You may cancel your subscription at any time, and no further charges will be made from the next billing date.",
       "ageTitle": "Age Restriction",
       "ageContent": "This Service is available only to users aged 18 or older. By signing up and using the Service, you confirm that you are at least 18 years old. We are not responsible for any issues arising from use by minors.",
       "changesTitle": "Changes to Terms",
