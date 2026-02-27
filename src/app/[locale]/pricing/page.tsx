@@ -330,14 +330,12 @@ export default function PricingPage() {
                     </div>
 
                     {/* 👑 ELITE Card — CENTER (Visual Dominance, Center-Stage Effect) */}
-                    <div className="relative p-8 pt-9 rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-cyan-500/40 transition-all duration-500 shadow-[0_0_60px_rgba(34,211,238,0.08)] md:scale-105 md:-mt-3 md:mb-[-12px] order-last md:order-none">
+                    <div className="relative p-8 pt-9 rounded-2xl bg-white/[0.04] border border-cyan-500/40 transition-all duration-500 shadow-[0_0_60px_rgba(34,211,238,0.08)] md:scale-105 md:-mt-3 md:mb-[-12px] order-last md:order-none">
                         {/* MOST POPULAR badge */}
                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-cyan-600 text-[11px] font-black text-black uppercase tracking-[0.15em] shadow-[0_0_20px_rgba(34,211,238,0.3)] font-jakarta">
                             MOST POPULAR
                         </div>
 
-                        {/* Ambient glow */}
-                        <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-400/50 to-transparent" />
 
                         <div className="mb-7 mt-2">
                             <h3 className="text-xl font-black text-white mb-1.5 font-jakarta">ELITE</h3>
@@ -404,18 +402,53 @@ export default function PricingPage() {
                     </div>
                 </div>
             </section>
-
             {/* ============================================================ */}
             {/* FOUNDING MEMBER FOMO BANNER */}
             {/* ============================================================ */}
             <section className="px-6 pb-24">
-                <div className="max-w-3xl mx-auto">
-                    <div className="relative overflow-hidden rounded-2xl bg-white/[0.04] backdrop-blur-xl border border-white/[0.08] p-10 md:p-12 shadow-2xl shadow-black/30">
+                <div className="max-w-2xl mx-auto">
+                    <div className="relative overflow-hidden rounded-2xl border border-white/[0.12] p-8 md:p-10 shadow-2xl shadow-black/50"
+                        style={{ background: 'linear-gradient(165deg, rgba(15,25,50,0.97) 0%, rgba(8,16,35,0.99) 50%, rgba(12,22,45,0.97) 100%)' }}>
+
+                        {/* ── Infographic SVG background ── */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.06]" xmlns="http://www.w3.org/2000/svg">
+                            {/* Grid */}
+                            <defs>
+                                <pattern id="fomo-grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(148,163,184,0.4)" strokeWidth="0.5" />
+                                </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill="url(#fomo-grid)" />
+                            {/* Uptrend line */}
+                            <polyline points="0,280 80,260 160,240 240,200 320,210 400,160 480,140 560,100 640,80 720,40" fill="none" stroke="rgba(34,211,238,0.6)" strokeWidth="1.5" />
+                            {/* Candlestick silhouettes */}
+                            <g stroke="rgba(34,211,238,0.4)" strokeWidth="1" fill="none">
+                                <line x1="120" y1="230" x2="120" y2="190" /><rect x="115" y="200" width="10" height="20" rx="1" fill="rgba(34,211,238,0.15)" />
+                                <line x1="200" y1="220" x2="200" y2="170" /><rect x="195" y="180" width="10" height="25" rx="1" fill="rgba(16,185,129,0.15)" />
+                                <line x1="280" y1="200" x2="280" y2="150" /><rect x="275" y="155" width="10" height="30" rx="1" fill="rgba(16,185,129,0.15)" />
+                                <line x1="360" y1="190" x2="360" y2="140" /><rect x="355" y="150" width="10" height="25" rx="1" fill="rgba(34,211,238,0.15)" />
+                                <line x1="440" y1="160" x2="440" y2="110" /><rect x="435" y="115" width="10" height="30" rx="1" fill="rgba(16,185,129,0.15)" />
+                                <line x1="520" y1="130" x2="520" y2="80" /><rect x="515" y="85" width="10" height="30" rx="1" fill="rgba(16,185,129,0.15)" />
+                            </g>
+                            {/* Volume bars */}
+                            <g fill="rgba(34,211,238,0.08)">
+                                <rect x="110" y="290" width="20" height="15" rx="1" />
+                                <rect x="190" y="285" width="20" height="20" rx="1" />
+                                <rect x="270" y="278" width="20" height="27" rx="1" />
+                                <rect x="350" y="282" width="20" height="23" rx="1" />
+                                <rect x="430" y="275" width="20" height="30" rx="1" />
+                                <rect x="510" y="270" width="20" height="35" rx="1" />
+                            </g>
+                        </svg>
+
+                        {/* Ambient glow — static */}
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[250px] bg-cyan-500/[0.05] rounded-full blur-[100px] pointer-events-none" />
+                        <div className="absolute bottom-0 right-0 w-[350px] h-[250px] bg-indigo-500/[0.04] rounded-full blur-[100px] pointer-events-none" />
 
                         <div className="relative z-10">
                             {/* Badge */}
-                            <div className="flex justify-center mb-8">
-                                <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-cyan-500/10 border border-cyan-500/15">
+                            <div className="flex justify-center mb-5">
+                                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 backdrop-blur-sm">
                                     <Zap className="w-3.5 h-3.5 text-cyan-400" />
                                     <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-[0.15em] font-jakarta">
                                         FOUNDING MEMBER
@@ -424,62 +457,64 @@ export default function PricingPage() {
                             </div>
 
                             {/* Title */}
-                            <h3 className="text-2xl md:text-3xl font-black text-white mb-3 text-center font-jakarta">
+                            <h3 className="text-xl md:text-2xl font-black text-white mb-2 text-center font-jakarta">
                                 {t("foundingTitle")}
                             </h3>
-                            <p className="text-slate-400 text-[15px] mb-10 max-w-lg mx-auto leading-relaxed text-center">
+                            <p className="text-slate-300 text-sm mb-6 max-w-md mx-auto leading-relaxed text-center">
                                 {t("foundingDesc")}
                             </p>
 
                             {/* Price Grid — Monthly Founding (Hero) */}
-                            <div className="grid grid-cols-2 gap-4 mb-6">
+                            <div className="grid grid-cols-2 gap-3 mb-4">
                                 {/* PRO */}
-                                <div className="rounded-xl bg-white/[0.06] border border-amber-500/15 p-6 text-center">
-                                    <p className="text-[11px] text-amber-400 font-bold uppercase tracking-widest mb-4 font-jakarta">PRO</p>
-                                    <div className="flex items-baseline justify-center gap-1.5">
-                                        <span className="text-slate-500 line-through text-sm font-medium font-jakarta">$69</span>
-                                        <span className="text-4xl font-black text-white font-jakarta">$49</span>
-                                        <span className="text-slate-500 text-sm">/mo</span>
+                                <div className="rounded-xl p-5 text-center backdrop-blur-sm"
+                                    style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                                    <p className="text-xs text-amber-400 font-bold uppercase tracking-widest mb-2.5 font-jakarta">PRO</p>
+                                    <div className="flex items-baseline justify-center gap-1">
+                                        <span className="text-slate-400 line-through text-sm font-medium font-jakarta">$69</span>
+                                        <span className="text-3xl font-black text-white font-jakarta">$49</span>
+                                        <span className="text-slate-300 text-xs">/mo</span>
                                     </div>
-                                    <p className="text-emerald-400 text-xs font-semibold mt-3 font-jakarta">{t("foundingAnnualPro")}</p>
+                                    <p className="text-emerald-400 text-xs font-semibold mt-2 font-jakarta">{t("foundingAnnualPro")}</p>
                                 </div>
                                 {/* ELITE */}
-                                <div className="rounded-xl bg-cyan-500/[0.08] border border-cyan-500/20 p-6 text-center">
-                                    <p className="text-[11px] text-cyan-400 font-bold uppercase tracking-widest mb-4 font-jakarta">ELITE</p>
-                                    <div className="flex items-baseline justify-center gap-1.5">
-                                        <span className="text-slate-500 line-through text-sm font-medium font-jakarta">$149</span>
-                                        <span className="text-4xl font-black text-white font-jakarta">$79</span>
-                                        <span className="text-slate-500 text-sm">/mo</span>
+                                <div className="rounded-xl p-5 text-center backdrop-blur-sm"
+                                    style={{ background: 'linear-gradient(145deg, rgba(34,211,238,0.1) 0%, rgba(34,211,238,0.03) 100%)', border: '1px solid rgba(34,211,238,0.25)' }}>
+                                    <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest mb-2.5 font-jakarta">ELITE</p>
+                                    <div className="flex items-baseline justify-center gap-1">
+                                        <span className="text-slate-400 line-through text-sm font-medium font-jakarta">$149</span>
+                                        <span className="text-3xl font-black text-white font-jakarta">$79</span>
+                                        <span className="text-slate-300 text-xs">/mo</span>
                                     </div>
-                                    <p className="text-emerald-400 text-xs font-semibold mt-3 font-jakarta">{t("foundingAnnualElite")}</p>
+                                    <p className="text-emerald-400 text-xs font-semibold mt-2 font-jakarta">{t("foundingAnnualElite")}</p>
                                 </div>
                             </div>
 
                             {/* Annual Savings Callout */}
-                            <div className="rounded-xl bg-emerald-500/[0.04] border border-emerald-500/10 px-6 py-4 mb-8">
-                                <div className="flex items-center justify-between flex-wrap gap-3">
+                            <div className="rounded-lg px-5 py-3.5 mb-5 backdrop-blur-sm" style={{ background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                                <div className="flex items-center justify-between flex-wrap gap-2">
                                     <div className="flex items-center gap-2">
                                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                        <span className="text-[13px] text-slate-300 font-medium">{t("foundingAnnualCta")}</span>
+                                        <span className="text-sm text-slate-200 font-medium">{t("foundingAnnualCta")}</span>
                                     </div>
-                                    <div className="flex items-center gap-6">
+                                    <div className="flex items-center gap-5">
                                         <span className="text-sm font-jakarta">
-                                            <span className="text-slate-500">PRO </span>
-                                            <span className="text-emerald-400 font-bold">$39<span className="text-slate-500 font-normal">/mo</span></span>
+                                            <span className="text-slate-300 font-bold">PRO </span>
+                                            <span className="text-emerald-400 font-bold">$39<span className="text-slate-300 font-normal">/mo</span></span>
                                         </span>
                                         <span className="text-sm font-jakarta">
-                                            <span className="text-slate-500">ELITE </span>
-                                            <span className="text-emerald-400 font-bold">$59<span className="text-slate-500 font-normal">/mo</span></span>
+                                            <span className="text-slate-300 font-bold">ELITE </span>
+                                            <span className="text-emerald-400 font-bold">$59<span className="text-slate-300 font-normal">/mo</span></span>
                                         </span>
                                     </div>
                                 </div>
                             </div>
 
                             {/* Restoration + Urgency */}
-                            <p className="text-xs text-slate-500 text-center mb-3 leading-relaxed">
+                            <p className="text-sm text-slate-300 text-center mb-2.5 leading-relaxed">
                                 {t("foundingRestore")}
                             </p>
-                            <p className="text-sm text-amber-400/90 font-semibold text-center">
+                            <p className="text-sm text-amber-400 font-semibold text-center">
                                 {t("foundingUrgency")}
                             </p>
                         </div>
