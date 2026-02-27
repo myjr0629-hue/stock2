@@ -17,7 +17,7 @@ export const quantumEdgeConfig: SectorConfig = {
     tickers: ['SMCI', 'SNOW', 'IONQ', 'DELL', 'AI', 'PATH', 'TWLO'],
     apiEndpoints: {
         live: '/api/intel/quantumedge',
-        snapshot: '/api/intel/snapshot?sector=quantumedge',
+        snapshot: '/api/intel/snapshot?sector=quantum_edge',
         calendar: '/api/intel/quantumedge-calendar',
     },
 };

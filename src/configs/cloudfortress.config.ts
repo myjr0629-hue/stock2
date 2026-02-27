@@ -17,7 +17,7 @@ export const cloudFortressConfig: SectorConfig = {
     tickers: ['CRM', 'NOW', 'DDOG', 'WDAY', 'MDB', 'TEAM', 'HUBS'],
     apiEndpoints: {
         live: '/api/intel/cloudfortress',
-        snapshot: '/api/intel/snapshot?sector=cloudfortress',
+        snapshot: '/api/intel/snapshot?sector=cloud_fortress',
         calendar: '/api/intel/cloudfortress-calendar',
     },
 };

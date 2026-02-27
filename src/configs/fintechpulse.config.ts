@@ -17,7 +17,7 @@ export const fintechPulseConfig: SectorConfig = {
     tickers: ['XYZ', 'PYPL', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'UPST'],
     apiEndpoints: {
         live: '/api/intel/fintechpulse',
-        snapshot: '/api/intel/snapshot?sector=fintechpulse',
+        snapshot: '/api/intel/snapshot?sector=fintech_pulse',
         calendar: '/api/intel/fintechpulse-calendar',
     },
 };
