@@ -21,6 +21,14 @@ export interface GammaShieldData {
     currentPrice: number | null;    // SPY × 10 ≈ S&P
     gammaFlipPoint: number | null;  // GEX sign change point
 
+    // v2: GEX Trend (24h comparison)
+    prevGexIndex: number | null;    // Previous GEX index from last calculation
+    gexChange: number | null;       // Current - Previous (direction)
+
+    // v2: SPY/QQQ Split Indices
+    spyGexIndex: number;            // SPY-only normalized GEX
+    qqqGexIndex: number;            // QQQ-only normalized GEX
+
     // Metadata
     confidence: 'HIGH' | 'MEDIUM' | 'LOW';
     spyGex: number | null;
@@ -31,6 +39,7 @@ export interface GammaShieldData {
 
 // === Constants ===
 const REDIS_KEY = 'guardian:gammaShield';
+const REDIS_PREV_KEY = 'guardian:gammaShield:prev';
 const CACHE_TTL_SEC = 5 * 60; // 5 minutes (matches Guardian polling)
 const OFF_HOURS_TTL_SEC = 12 * 60 * 60; // 12 hours
 
@@ -65,13 +74,22 @@ function normalizeGexToIndex(rawGex: number): number {
     const EXTREME_LONG = 6_000_000_000;   // +6B = extreme long gamma
 
     if (rawGex >= 0) {
-        // Positive GEX → 0 to +100
-        const normalized = Math.min(100, Math.round((rawGex / EXTREME_LONG) * 100));
-        return normalized;
+        return Math.min(100, Math.round((rawGex / EXTREME_LONG) * 100));
     } else {
-        // Negative GEX → 0 to -100
-        const normalized = Math.max(-100, Math.round((rawGex / Math.abs(EXTREME_SHORT)) * -100));
-        return normalized;
+        return Math.max(-100, Math.round((rawGex / EXTREME_SHORT) * -100));
+    }
+}
+
+// Normalize individual ETF GEX separately (different baselines)
+function normalizeEtfGex(rawGex: number, etf: 'SPY' | 'QQQ'): number {
+    const extremes = etf === 'SPY'
+        ? { long: 4_000_000_000, short: -2_000_000_000 }
+        : { long: 2_000_000_000, short: -1_000_000_000 };
+
+    if (rawGex >= 0) {
+        return Math.min(100, Math.round((rawGex / extremes.long) * 100));
+    } else {
+        return Math.max(-100, Math.round((rawGex / extremes.short) * -100));
     }
 }
 
@@ -124,6 +142,10 @@ export async function calculateGammaShield(): Promise<GammaShieldData> {
         const gexLevel = getGexLevel(gexIndex);
         const gexLabel = getGexLabel(gexIndex, gexLevel);
 
+        // v2: Individual ETF GEX indices
+        const spyGexIndex = spyGex !== null ? normalizeEtfGex(spyGex, 'SPY') : 0;
+        const qqqGexIndex = qqqGex !== null ? normalizeEtfGex(qqqGex, 'QQQ') : 0;
+
         // Aggregate Squeeze Risk (weighted: SPY 60%, QQQ 40%)
         const spySqueezeScore = spyData?.squeezeScore ?? 0;
         const qqoSqueezeScore = qqqData?.squeezeScore ?? 0;
@@ -151,6 +173,21 @@ export async function calculateGammaShield(): Promise<GammaShieldData> {
             hasSpyGex && hasQqqGex ? 'HIGH' :
                 hasSpyGex || hasQqqGex ? 'MEDIUM' : 'LOW';
 
+        // v2: Get previous GEX from Redis for trend comparison
+        let prevGexIndex: number | null = null;
+        try {
+            const redis = getRedis();
+            if (redis) {
+                const prevData = await redis.get<string>(REDIS_PREV_KEY);
+                if (prevData) {
+                    const prev = typeof prevData === 'string' ? JSON.parse(prevData) : prevData;
+                    prevGexIndex = prev.gexIndex ?? null;
+                }
+            }
+        } catch { /* ignore prev read failure */ }
+
+        const gexChange = prevGexIndex !== null ? gexIndex - prevGexIndex : null;
+
         const result: GammaShieldData = {
             gexIndex,
             gexLevel,
@@ -161,6 +198,10 @@ export async function calculateGammaShield(): Promise<GammaShieldData> {
             resistanceWall: toSP500(spyCallWall),
             currentPrice: toSP500(spyPrice),
             gammaFlipPoint: toSP500(spyGammaFlip),
+            prevGexIndex,
+            gexChange,
+            spyGexIndex,
+            qqqGexIndex,
             confidence,
             spyGex,
             qqqGex,
@@ -168,12 +209,14 @@ export async function calculateGammaShield(): Promise<GammaShieldData> {
             source: 'LIVE'
         };
 
-        // Cache to Redis
+        // Cache to Redis + save previous GEX for trend
         try {
             const redis = getRedis();
             if (redis) {
                 const ttl = isOffHours() ? OFF_HOURS_TTL_SEC : CACHE_TTL_SEC;
                 await redis.set(REDIS_KEY, JSON.stringify(result), { ex: ttl });
+                // Save current as 'previous' with longer TTL (24h) for trend comparison
+                await redis.set(REDIS_PREV_KEY, JSON.stringify({ gexIndex, updatedAt: result.updatedAt }), { ex: 24 * 60 * 60 });
                 console.log(`[GAMMA SHIELD] Cached to Redis (TTL: ${ttl}s)`);
             }
         } catch (e) {
@@ -183,7 +226,7 @@ export async function calculateGammaShield(): Promise<GammaShieldData> {
         // Memory cache fallback
         memoryCache = { data: result, timestamp: Date.now() };
 
-        console.log(`[GAMMA SHIELD] Complete — GEX: ${gexIndex} (${gexLevel}), Squeeze: ${combinedSqueeze}% (${squeezeLevel}), Support: ${result.supportWall}, Resistance: ${result.resistanceWall}`);
+        console.log(`[GAMMA SHIELD] Complete — GEX: ${gexIndex} (${gexLevel}), SPY: ${spyGexIndex}, QQQ: ${qqqGexIndex}, Squeeze: ${combinedSqueeze}% (${squeezeLevel}), Flip: ${result.gammaFlipPoint}, Trend: ${gexChange !== null ? (gexChange >= 0 ? '+' : '') + gexChange : 'N/A'}`);
 
         return result;
     } catch (error: any) {

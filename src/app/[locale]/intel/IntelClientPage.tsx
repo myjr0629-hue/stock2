@@ -1238,18 +1238,16 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
     useEffect(() => {
         if (!report?.items || activeTab !== 'FINAL') return;
 
-        // Filter out tickers already covered by useIntelSharedData
-        const fixedSet = new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS]);
-        const reportOnlyTickers = report.items
-            .map((i: any) => i.ticker as string)
-            .filter((t: string) => !fixedSet.has(t));
+        // All report tickers get independent live polling (15s)
+        const reportTickers = report.items
+            .map((i: any) => i.ticker as string);
 
-        if (reportOnlyTickers.length === 0) return;
+        if (reportTickers.length === 0) return;
 
         const fetchReport = async () => {
             try {
                 const results = await Promise.all(
-                    reportOnlyTickers.map(async (ticker: string) => {
+                    reportTickers.map(async (ticker: string) => {
                         try {
                             const res = await fetch(`/api/live/ticker?t=${ticker}`, { cache: 'no-store' });
                             if (!res.ok) return { ticker, data: null };

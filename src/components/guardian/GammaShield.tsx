@@ -44,10 +44,25 @@ const T: Record<string, Record<Locale, string>> = {
         en: 'Major institutions defending downside — low crash risk',
         ja: '大型機関が下落防御中 — 急落の可能性低い',
     },
+    longGammaButSelling: {
+        ko: '기관 감마 방어 중이나 매도 압력 우세 — 점진적 하락 주의',
+        en: 'Gamma cushion active but sell pressure dominant — gradual decline risk',
+        ja: 'ガンマ防御中も売り圧力優勢 — 段階的な下落に注意',
+    },
     shortGamma: {
         ko: '기관 헤지가 변동을 키우는 중 — 급등락 주의',
         en: 'Institutional hedging amplifying swings — watch for sharp moves',
         ja: '機関ヘッジが変動を拡大中 — 急騰落に注意',
+    },
+    shortGammaDropping: {
+        ko: 'Short Gamma + 시장 하락 — 딜러 매도 증폭 구간, 포지션 축소 권고',
+        en: 'Short Gamma + market dropping — dealer selling amplified, reduce exposure',
+        ja: 'ショートガンマ + 市場下落 — ディーラー売り増幅、ポジション縮小推奨',
+    },
+    squeezeBuilding: {
+        ko: 'Squeeze {val}% — 45% 돌파 시 변동성 폭발 구간, 현재 경계 레벨',
+        en: 'Squeeze {val}% — volatility explosion zone above 45%, currently at warning level',
+        ja: 'Squeeze {val}% — 45%突破時ボラティリティ爆発圈、現在警戒レベル',
     },
     neutral: {
         ko: '옵션 시장 균형 — 큰 변동 없이 횡보 가능성',
@@ -201,23 +216,33 @@ function getInsightText(
     resistanceWall: number | null,
     locale: Locale
 ): string {
-    // Priority: squeeze ≥ 45% → trigger proximity → GEX extreme → default
+    // Priority 1: Squeeze critical (≥45%) — imminent volatility explosion
     if (squeezeRisk >= 45) return t('squeezeCritical', locale);
 
+    // Priority 2: Short Gamma danger zone — dealers amplifying moves
+    if (gexIndex <= -20) return t('shortGamma', locale);
+
+    // Priority 3: Squeeze building (25-44%) — most actionable during volatile days
+    if (squeezeRisk >= 25) return t('squeezeBuilding', locale, { val: String(squeezeRisk) });
+
+    // Priority 4: Trigger band proximity (3% threshold) — only when squeeze is calm
     if (currentPrice && resistanceWall && resistanceWall > 0) {
         const distToResist = ((resistanceWall - currentPrice) / currentPrice) * 100;
-        if (distToResist <= 1.5 && distToResist > 0) {
+        if (distToResist <= 3 && distToResist > 0) {
             return t('resistNear', locale, { val: resistanceWall.toLocaleString() });
         }
     }
     if (currentPrice && supportWall && supportWall > 0) {
         const distToSupport = ((currentPrice - supportWall) / currentPrice) * 100;
-        if (distToSupport <= 1.5 && distToSupport > 0) {
+        if (distToSupport <= 3 && distToSupport > 0) {
             return t('supportNear', locale, { val: supportWall.toLocaleString() });
         }
     }
+
+    // Priority 5: Long Gamma stability
     if (gexIndex >= 20) return t('longGamma', locale);
-    if (gexIndex <= -20) return t('shortGamma', locale);
+
+    // Priority 6: Neutral fallback
     return t('neutral', locale);
 }
 
@@ -242,7 +267,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
         );
     }
 
-    const { gexIndex, gexLevel, gexLabel, squeezeRisk, squeezeLevel, supportWall, resistanceWall, currentPrice, confidence } = data;
+    const { gexIndex, gexLevel, gexLabel, squeezeRisk, squeezeLevel, supportWall, resistanceWall, currentPrice, gammaFlipPoint, confidence, prevGexIndex, gexChange, spyGexIndex, qqqGexIndex } = data;
 
     return (
         <div className={`
@@ -313,6 +338,44 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     <span className="text-[12px] font-jakarta text-slate-300 mt-0.5">
                         {gexLabel}
                     </span>
+
+                    {/* v2: GEX Trend */}
+                    {gexChange !== null && (
+                        <div className="flex items-center gap-1 mt-0.5">
+                            <span className={`text-[12px] font-black font-jakarta tabular-nums ${gexChange > 0 ? 'text-emerald-400' : gexChange < 0 ? 'text-red-400' : 'text-slate-400'}`}>
+                                {gexChange > 0 ? '▲' : gexChange < 0 ? '▼' : '—'}{Math.abs(gexChange)}
+                            </span>
+                            <span className="text-[10px] font-jakarta text-slate-500">vs prev</span>
+                        </div>
+                    )}
+
+                    {/* v2: SPY / QQQ Split */}
+                    <div className="w-full max-w-[160px] mt-1">
+                        <div className="flex items-center justify-between gap-1">
+                            <span className="text-[10px] font-bold font-jakarta text-slate-400 w-[26px]">SPY</span>
+                            <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-700 ${spyGexIndex >= 0 ? 'bg-emerald-400/70' : 'bg-red-400/70'}`}
+                                    style={{ width: `${Math.min(100, Math.abs(spyGexIndex))}%`, marginLeft: spyGexIndex < 0 ? 'auto' : undefined }}
+                                />
+                            </div>
+                            <span className={`text-[10px] font-bold font-jakarta tabular-nums w-[28px] text-right ${spyGexIndex >= 20 ? 'text-emerald-400' : spyGexIndex <= -20 ? 'text-red-400' : 'text-slate-400'}`}>
+                                {spyGexIndex >= 0 ? '+' : ''}{spyGexIndex}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-1 mt-0.5">
+                            <span className="text-[10px] font-bold font-jakarta text-slate-400 w-[26px]">QQQ</span>
+                            <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-700 ${qqqGexIndex >= 0 ? 'bg-emerald-400/70' : 'bg-red-400/70'}`}
+                                    style={{ width: `${Math.min(100, Math.abs(qqqGexIndex))}%`, marginLeft: qqqGexIndex < 0 ? 'auto' : undefined }}
+                                />
+                            </div>
+                            <span className={`text-[10px] font-bold font-jakarta tabular-nums w-[28px] text-right ${qqqGexIndex >= 20 ? 'text-emerald-400' : qqqGexIndex <= -20 ? 'text-red-400' : 'text-slate-400'}`}>
+                                {qqqGexIndex >= 0 ? '+' : ''}{qqqGexIndex}
+                            </span>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Column 2: Squeeze Risk */}
@@ -362,6 +425,18 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         resistance={resistanceWall}
                         locale={locale}
                     />
+                    {/* v2: Gamma Flip Point */}
+                    {gammaFlipPoint && currentPrice && (
+                        <div className="flex items-center justify-between mt-1">
+                            <span className="text-[12px] font-bold font-jakarta text-amber-400/90">⚡ FLIP</span>
+                            <span className={`text-[12px] font-bold font-jakarta tabular-nums ${Math.abs(currentPrice - gammaFlipPoint) / currentPrice < 0.02 ? 'text-amber-400 animate-pulse' : 'text-slate-300'}`}>
+                                {gammaFlipPoint.toLocaleString()}
+                            </span>
+                            <span className="text-[12px] font-jakarta text-slate-300">
+                                ({currentPrice > gammaFlipPoint ? '+' : ''}{(((currentPrice - gammaFlipPoint) / gammaFlipPoint) * 100).toFixed(1)}%)
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
