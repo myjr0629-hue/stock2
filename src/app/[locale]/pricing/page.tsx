@@ -655,13 +655,37 @@ export default function PricingPage() {
             {/* ============================================================ */}
             <section className="px-6 pb-24">
                 <div className="max-w-3xl mx-auto text-center">
-                    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#0a1628] to-[#0d1b30] border border-white/10 p-12">
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[200px] bg-cyan-500/5 blur-[100px] pointer-events-none" />
+                    <div className="relative overflow-hidden rounded-2xl border border-white/15 p-12 shadow-[0_0_50px_rgba(34,211,238,0.06)]"
+                        style={{ background: 'linear-gradient(165deg, rgba(25,40,70,0.95) 0%, rgba(15,28,50,0.98) 50%, rgba(20,35,60,0.95) 100%)' }}>
+
+                        {/* Infographic SVG background */}
+                        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.05]" xmlns="http://www.w3.org/2000/svg">
+                            <defs>
+                                <pattern id="cta-grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                                    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="rgba(148,163,184,0.3)" strokeWidth="0.5" />
+                                </pattern>
+                            </defs>
+                            <rect width="100%" height="100%" fill="url(#cta-grid)" />
+                            {/* Uptrend line */}
+                            <polyline points="0,160 120,140 240,120 360,90 480,70 600,50 720,25" fill="none" stroke="rgba(34,211,238,0.5)" strokeWidth="1.5" />
+                            {/* Candlestick silhouettes */}
+                            <g stroke="rgba(34,211,238,0.3)" strokeWidth="1" fill="none">
+                                <line x1="180" y1="135" x2="180" y2="105" /><rect x="175" y="110" width="10" height="18" rx="1" fill="rgba(16,185,129,0.12)" />
+                                <line x1="300" y1="115" x2="300" y2="80" /><rect x="295" y="85" width="10" height="22" rx="1" fill="rgba(16,185,129,0.12)" />
+                                <line x1="420" y1="90" x2="420" y2="55" /><rect x="415" y="60" width="10" height="22" rx="1" fill="rgba(16,185,129,0.12)" />
+                                <line x1="540" y1="70" x2="540" y2="35" /><rect x="535" y="40" width="10" height="22" rx="1" fill="rgba(34,211,238,0.12)" />
+                            </g>
+                        </svg>
+
+                        {/* Ambient glows */}
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[250px] bg-cyan-500/[0.06] rounded-full blur-[100px] pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-[400px] h-[200px] bg-indigo-500/[0.04] rounded-full blur-[100px] pointer-events-none" />
+
                         <div className="relative z-10">
                             <h3 className="text-2xl md:text-3xl font-black text-white mb-4 font-jakarta">{t("ctaTitle")}</h3>
                             <p className="text-slate-300 text-base mb-10 leading-relaxed">{t("ctaDesc")}</p>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                                <button className="px-8 py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(34,211,238,0.15)] flex items-center gap-2 font-jakarta">
+                                <button className="px-8 py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_25px_rgba(34,211,238,0.2)] flex items-center gap-2 font-jakarta">
                                     {t("ctaButton")} <ArrowRight className="w-4 h-4" />
                                 </button>
                                 <Link
