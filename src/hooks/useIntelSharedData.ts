@@ -110,7 +110,7 @@ export function useIntelSharedData(
         isFastFetching.current = true;
 
         try {
-            const [m7Res, paiRes, scRes, pmRes, bpRes, csRes, odRes] = await Promise.all([
+            const [m7Res, paiRes, scRes, pmRes, bpRes, csRes, odRes, qeRes, fpRes, cfRes] = await Promise.all([
                 safeFetch('/api/intel/fast?sector=m7'),
                 safeFetch('/api/intel/fast?sector=physical_ai'),
                 safeFetch('/api/intel/fast?sector=silicon_core'),
@@ -118,6 +118,9 @@ export function useIntelSharedData(
                 safeFetch('/api/intel/fast?sector=bio_pulse'),
                 safeFetch('/api/intel/fast?sector=cyber_shield'),
                 safeFetch('/api/intel/fast?sector=orbit_defense'),
+                safeFetch('/api/intel/fast?sector=quantum_edge'),
+                safeFetch('/api/intel/fast?sector=fintech_pulse'),
+                safeFetch('/api/intel/fast?sector=cloud_fortress'),
             ]);
 
             const mergeOrSet = (res: any, setter: React.Dispatch<React.SetStateAction<IntelQuote[]>>) => {
@@ -138,13 +141,6 @@ export function useIntelSharedData(
             mergeOrSet(bpRes, setBioPulseData);
             mergeOrSet(csRes, setCyberShieldData);
             mergeOrSet(odRes, setOrbitDefenseData);
-
-            // New sectors — use full API (no fast endpoint yet)
-            const [qeRes, fpRes, cfRes] = await Promise.all([
-                safeFetch('/api/intel/quantumedge'),
-                safeFetch('/api/intel/fintechpulse'),
-                safeFetch('/api/intel/cloudfortress'),
-            ]);
             mergeOrSet(qeRes, setQuantumEdgeData);
             mergeOrSet(fpRes, setFintechPulseData);
             mergeOrSet(cfRes, setCloudFortressData);
@@ -168,7 +164,7 @@ export function useIntelSharedData(
         setOptionsLoading(true);
 
         try {
-            const [m7Batch, paiBatch, scBatch, pmBatch, bpBatch, csBatch, odBatch] = await Promise.all([
+            const [m7Batch, paiBatch, scBatch, pmBatch, bpBatch, csBatch, odBatch, qeBatch, fpBatch, cfBatch] = await Promise.all([
                 safeFetch(`/api/watchlist/batch?tickers=${M7_TICKERS.join(',')}`),
                 safeFetch(`/api/watchlist/batch?tickers=${PHYSICAL_AI_TICKERS.join(',')}`),
                 safeFetch(`/api/watchlist/batch?tickers=${SILICON_CORE_TICKERS.join(',')}`),
@@ -176,6 +172,9 @@ export function useIntelSharedData(
                 safeFetch(`/api/watchlist/batch?tickers=${BIO_PULSE_TICKERS.join(',')}`),
                 safeFetch(`/api/watchlist/batch?tickers=${CYBER_SHIELD_TICKERS.join(',')}`),
                 safeFetch(`/api/watchlist/batch?tickers=${ORBIT_DEFENSE_TICKERS.join(',')}`),
+                safeFetch(`/api/watchlist/batch?tickers=${QUANTUM_EDGE_TICKERS.join(',')}`),
+                safeFetch(`/api/watchlist/batch?tickers=${FINTECH_PULSE_TICKERS.join(',')}`),
+                safeFetch(`/api/watchlist/batch?tickers=${CLOUD_FORTRESS_TICKERS.join(',')}`),
             ]);
 
             // Merge batch results into existing Phase 1 data
@@ -190,9 +189,9 @@ export function useIntelSharedData(
             mergeIfPresent(bpBatch, setBioPulseData);
             mergeIfPresent(csBatch, setCyberShieldData);
             mergeIfPresent(odBatch, setOrbitDefenseData);
-            mergeIfPresent(await safeFetch(`/api/watchlist/batch?tickers=${QUANTUM_EDGE_TICKERS.join(',')}`), setQuantumEdgeData);
-            mergeIfPresent(await safeFetch(`/api/watchlist/batch?tickers=${FINTECH_PULSE_TICKERS.join(',')}`), setFintechPulseData);
-            mergeIfPresent(await safeFetch(`/api/watchlist/batch?tickers=${CLOUD_FORTRESS_TICKERS.join(',')}`), setCloudFortressData);
+            mergeIfPresent(qeBatch, setQuantumEdgeData);
+            mergeIfPresent(fpBatch, setFintechPulseData);
+            mergeIfPresent(cfBatch, setCloudFortressData);
 
             hasFullData.current = true;
             setOptionsLoading(false);
