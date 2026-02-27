@@ -52,7 +52,8 @@
     "caution": "注意",
     "noDataAvailable": "データなし",
     "upPressure": "上昇圧力",
-    "downPressure": "下落圧力"
+    "downPressure": "下落圧力",
+    "guideLink": "実践ガイド"
   },
   "home": {
     "badge": "リアルタイム米国マーケットデータ",

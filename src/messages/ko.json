@@ -52,7 +52,8 @@
     "caution": "주의",
     "noDataAvailable": "데이터 없음",
     "upPressure": "상승압력",
-    "downPressure": "하락압력"
+    "downPressure": "하락압력",
+    "guideLink": "실전 가이드"
   },
   "home": {
     "badge": "실시간 미국 마켓 데이터",

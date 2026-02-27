@@ -68,7 +68,7 @@ export default function PortfolioClientPage({
                     <div className="flex items-center gap-3">
                         <Link href="/how-it-works/portfolio" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
                             <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-emerald-400 transition-colors" />
-                            <span className="text-[12px] text-slate-300 group-hover:text-emerald-300 font-medium transition-colors">실전 가이드</span>
+                            <span className="text-[12px] text-slate-300 group-hover:text-emerald-300 font-medium transition-colors">{tCommon('guideLink')}</span>
                         </Link>
                         <button
                             onClick={() => refresh()}

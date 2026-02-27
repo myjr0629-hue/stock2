@@ -52,7 +52,8 @@
     "caution": "Caution",
     "noDataAvailable": "No Data",
     "upPressure": "Upward Pressure",
-    "downPressure": "Downward Pressure"
+    "downPressure": "Downward Pressure",
+    "guideLink": "Guide"
   },
   "home": {
     "badge": "Real-time US Market Data",

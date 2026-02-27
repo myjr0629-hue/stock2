@@ -349,6 +349,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 };
 
 export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData }: Props) {
+    const tCommon = useTranslations('common');
     // --- Live Data State ---
     // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
     // SSR data → SWR fallbackData → instant first render → background refresh
@@ -921,7 +922,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     <div className="ml-auto hidden sm:flex items-center self-end mb-1">
                         <a href={`/how-it-works/command`} className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/[0.05] border border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/[0.08] backdrop-blur-sm transition-all duration-300 group whitespace-nowrap">
                             <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-cyan-400 transition-colors" />
-                            <span className="text-[12px] text-slate-300 group-hover:text-cyan-300 font-medium transition-colors leading-tight">실전 가이드</span>
+                            <span className="text-[12px] text-slate-300 group-hover:text-cyan-300 font-medium transition-colors leading-tight">{tCommon('guideLink')}</span>
                         </a>
                     </div>
 

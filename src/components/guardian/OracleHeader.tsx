@@ -4,6 +4,7 @@ import React from 'react';
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
 import { useGuardian } from "@/components/guardian/GuardianProvider";
 import { Link } from "@/i18n/routing";
+import { useTranslations } from 'next-intl';
 import { BookOpen } from "lucide-react";
 
 interface OracleHeaderProps {
@@ -17,6 +18,7 @@ interface OracleHeaderProps {
 export function OracleHeader({ }: OracleHeaderProps) {
     const { snapshot } = useMacroSnapshot();
     const { rlsi } = useGuardian();
+    const tCommon = useTranslations('common');
 
     // CNN Fear & Greed data from RLSI components
     const fgScore = rlsi?.components?.sentimentScore ?? 0;
@@ -130,7 +132,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
             <div className="flex items-center gap-3">
                 <Link href="/how-it-works/guardian" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-emerald-500/30 hover:bg-emerald-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
                     <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-emerald-400 transition-colors" />
-                    <span className="text-[12px] text-slate-300 group-hover:text-emerald-300 font-medium transition-colors">실전 가이드</span>
+                    <span className="text-[12px] text-slate-300 group-hover:text-emerald-300 font-medium transition-colors">{tCommon('guideLink')}</span>
                 </Link>
                 <div className="text-[11px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
                     V8.2 CORE ACTIVE

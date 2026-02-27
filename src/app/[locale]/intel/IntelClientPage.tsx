@@ -1109,6 +1109,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
     const isDebug = searchParams.get('debug') === '1';
 
     const t = useTranslations('alphaReport');
+    const tCommon = useTranslations('common');
 
     // [RESTORED] Components now fetch data independently (same as Flow/Command pages)
     // [V7.0] Sector Intel shared data for new components
@@ -1883,7 +1884,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                                         </span>
                                         <a href="/how-it-works/intel" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
                                             <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
-                                            <span className="text-[12px] text-slate-300 group-hover:text-indigo-300 font-medium transition-colors">실전 가이드</span>
+                                            <span className="text-[12px] text-slate-300 group-hover:text-indigo-300 font-medium transition-colors">{tCommon('guideLink')}</span>
                                         </a>
                                     </div>
                                     <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3 font-jakarta drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]">

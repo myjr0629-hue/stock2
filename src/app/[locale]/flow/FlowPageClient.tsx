@@ -4,6 +4,7 @@ import React, { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
+import { useTranslations } from 'next-intl';
 import { Loader2, BookOpen } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
 import { useFlowData } from '@/hooks/useFlowData';
@@ -22,6 +23,7 @@ interface FlowPageClientProps {
 }
 
 export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps) {
+    const tCommon = useTranslations('common');
     // [PERF] SWR replaces useState+useEffect+fetch+setInterval
     // - Cached data returned instantly on revisit (0ms) via fallbackData
     // - Background refresh every 15s
@@ -168,7 +170,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                 className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/[0.08] backdrop-blur-sm transition-all duration-300 group"
                             >
                                 <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
-                                <span className="text-[12px] text-slate-300 group-hover:text-indigo-300 font-medium transition-colors">실전 가이드</span>
+                                <span className="text-[12px] text-slate-300 group-hover:text-indigo-300 font-medium transition-colors">{tCommon('guideLink')}</span>
                             </Link>
 
                             {/* Mini Sparkline Chart */}

@@ -131,6 +131,7 @@ function MarketCountdown({ marketStatus, isHoliday }: { marketStatus?: string; i
 // Alpha Status Bar Component
 function AlphaStatusBar() {
     const locale = useLocale();
+    const tCommon = useTranslations('common');
     const market = useDashboardStore(s => s.market);
     const lastUpdated = useDashboardStore(s => s.lastUpdated);
     const isLoading = useDashboardStore(s => s.isLoading);
@@ -200,7 +201,7 @@ function AlphaStatusBar() {
                     className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/[0.08] backdrop-blur-sm transition-all duration-300 group"
                 >
                     <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-cyan-400 transition-colors" />
-                    <span className="text-[12px] text-slate-300 group-hover:text-cyan-300 font-medium transition-colors">실전 가이드</span>
+                    <span className="text-[12px] text-slate-300 group-hover:text-cyan-300 font-medium transition-colors">{tCommon('guideLink')}</span>
                 </Link>
                 <button
                     onClick={handleRefresh}
