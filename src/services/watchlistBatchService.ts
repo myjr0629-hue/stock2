@@ -266,6 +266,8 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     whaleConfidence: analysis.whaleConfidence,
                     darkPoolPct: liveDarkPoolPct,
                     squeezeScore: analysis.squeezeScore,
+                    ivSkew: analysis.ivSkew ?? null,
+                    impliedMovePct: analysis.impliedMovePct ?? null,
                     gammaFlipLevel: analysis.gammaFlipLevel,
                     iv: analysis.iv,
                     vwap: base.vwap,
@@ -495,7 +497,9 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     relVol: relVol ?? 0,
                     extendedPrice: (stockData as any).extendedPrice || null,
                     extendedChangePct: (stockData as any).extendedChangePct || null,
-                    extendedLabel: (stockData as any).extendedLabel || undefined
+                    extendedLabel: (stockData as any).extendedLabel || undefined,
+                    ivSkew: typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null,
+                    impliedMovePct: impliedMovePct ?? null,
                 }
             };
 

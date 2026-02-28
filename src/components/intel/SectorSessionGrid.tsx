@@ -199,24 +199,26 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     const skew = q.ivSkew || 0;
     if (Math.abs(skew) >= 3) {
         if (skew > 0 && Math.abs(q.changePct) < 1) {
-            parts.push(`🕵️ IV Skew +${skew.toFixed(1)}%. 주가 안정인데 풋 프리미엄 급등 — 스마트 머니 하방 헤지 중.`);
+            parts.push(`🕵️ ${q.ticker} IV Skew +${skew.toFixed(1)}%. 주가 안정인데 풋 프리미엄 급등 — 스마트 머니 하방 헤지 중.`);
         } else if (skew > 5) {
-            parts.push(`🔴 IV Skew +${skew.toFixed(1)}%. 극단적 풋 공포 — 기관 하락 방어 돌입.`);
+            parts.push(`🔴 ${q.ticker} IV Skew +${skew.toFixed(1)}%. 극단적 풋 공포 — 기관 하락 방어 돌입.`);
         } else if (skew > 0) {
-            parts.push(`⚠️ IV Skew +${skew.toFixed(1)}%. 풋 쪽 프리미엄 우세 — 하방 경계.`);
+            parts.push(`⚠️ ${q.ticker} IV Skew +${skew.toFixed(1)}%. 풋 쪽 프리미엄 우세 — 하방 경계.`);
         } else if (skew < -5) {
-            parts.push(`🟢 IV Skew ${skew.toFixed(1)}%. 콜 프리미엄 과열 — 투기적 상승 기대.`);
+            parts.push(`🟢 ${q.ticker} IV Skew ${skew.toFixed(1)}%. 콜 프리미엄 과열 — 투기적 상승 기대.`);
         } else {
-            parts.push(`⚡ IV Skew ${skew.toFixed(1)}%. 콜 쪽 프리미엄 우세 — 상승 기대.`);
+            parts.push(`⚡ ${q.ticker} IV Skew ${skew.toFixed(1)}%. 콜 쪽 프리미엄 우세 — 상승 기대.`);
         }
     }
 
     // 8. Implied Move % 분석
     const im = q.impliedMovePct || 0;
     if (im >= 5) {
-        parts.push(`📊 Implied Move ±${im.toFixed(1)}%. 시장이 대형 변동을 예상 중 — 어닝/이벤트 경계.`);
+        parts.push(`📊 시장은 ${q.ticker}이(가) ±${im.toFixed(1)}% 움직일 것으로 예상. 어닝/이벤트 경계 구간.`);
     } else if (im >= 3) {
-        parts.push(`📊 Implied Move ±${im.toFixed(1)}%. 변동성 확대 구간.`);
+        parts.push(`📊 시장은 ${q.ticker}이(가) ±${im.toFixed(1)}% 변동을 예상 중.`);
+    } else if (im > 0) {
+        parts.push(`📊 ${q.ticker} Implied Move ±${im.toFixed(1)}%.`);
     }
 
     return parts.join(' ') || ss('collectingData');
