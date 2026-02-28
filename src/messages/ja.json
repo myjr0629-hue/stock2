@@ -2912,7 +2912,19 @@
     "summBearish": "弱気 — {leader} {pct}%が下落主導, {down}/{total}銘柄下落 · 売り圧力",
     "summMixed": "まちまち — {leader} {lpct}%堅調 vs {laggard} {dpct}%軟調, 方向模索中",
     "summClosed": "取引終了 — {leader} {pct}%が主導, 平均変動 {avg}%",
-    "summNoData": "データ収集中..."
+    "summNoData": "データ収集中...",
+    "squeezeHigh": "🔥 Squeeze {val}%。ボラティリティ爆発迫る。",
+    "squeezeMid": "⚡ Squeeze {val}%。エネルギー蓄積中。",
+    "netPremCallInflow": "コール純流入 +${val}M。機関ロングポジション構築。",
+    "netPremPutInflow": "プット純流入 -${val}M。ヘッジ/下落ベット。",
+    "ivSkewStealthHedge": "🕵️ {ticker} IV Skew +{val}%。株価安定もプットプレミアム急騰 — スマートマネーが下方ヘッジ中。",
+    "ivSkewExtremePut": "🔴 {ticker} IV Skew +{val}%。極端なプット恐怖 — 機関下落防御突入。",
+    "ivSkewPutBias": "⚠️ {ticker} IV Skew +{val}%。プット側プレミアム優勢 — 下方警戒。",
+    "ivSkewExtremeCall": "🟢 {ticker} IV Skew {val}%。コールプレミアム過熱 — 投機的上昇期待。",
+    "ivSkewCallBias": "⚡ {ticker} IV Skew {val}%。コール側プレミアム優勢 — 上昇期待。",
+    "impliedMoveLarge": "📊 市場は{ticker}が±{val}%動くと予想。決算/イベント警戒区間。",
+    "impliedMoveMid": "📊 市場は{ticker}が±{val}%の変動を予想中。",
+    "impliedMoveSmall": "📊 {ticker} Implied Move ±{val}%。"
   },
   "sectorRanking": {
     "moneyFlowSub": "資金力ランキング",

@@ -2912,7 +2912,19 @@
     "summBearish": "Bearish — {leader} {pct}% leading decline, {down}/{total} down · sell pressure",
     "summMixed": "Mixed — {leader} {lpct}% strong vs {laggard} {dpct}% weak, direction unclear",
     "summClosed": "Closed — {leader} {pct}% led, avg move {avg}%",
-    "summNoData": "Collecting data..."
+    "summNoData": "Collecting data...",
+    "squeezeHigh": "🔥 Squeeze {val}%. Volatility explosion imminent.",
+    "squeezeMid": "⚡ Squeeze {val}%. Energy accumulating.",
+    "netPremCallInflow": "Call net inflow +${val}M. Institutional long positioning.",
+    "netPremPutInflow": "Put net inflow -${val}M. Hedging/bearish bets.",
+    "ivSkewStealthHedge": "🕵️ {ticker} IV Skew +{val}%. Price stable but put premium surging — smart money hedging downside.",
+    "ivSkewExtremePut": "🔴 {ticker} IV Skew +{val}%. Extreme put fear — institutional downside defense.",
+    "ivSkewPutBias": "⚠️ {ticker} IV Skew +{val}%. Put premium dominance — downside caution.",
+    "ivSkewExtremeCall": "🟢 {ticker} IV Skew {val}%. Call premium overheated — speculative upside bets.",
+    "ivSkewCallBias": "⚡ {ticker} IV Skew {val}%. Call premium dominant — upside expected.",
+    "impliedMoveLarge": "📊 Market expects {ticker} to move ±{val}%. Earnings/event alert zone.",
+    "impliedMoveMid": "📊 Market expects {ticker} to move ±{val}%.",
+    "impliedMoveSmall": "📊 {ticker} Implied Move ±{val}%."
   },
   "sectorRanking": {
     "moneyFlowSub": "Money Flow Ranking",

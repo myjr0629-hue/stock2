@@ -168,9 +168,9 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     // 4. Squeeze Score 분석
     const squeeze = (q as any).squeezeScore || 0;
     if (squeeze >= 70) {
-        parts.push(`🔥 Squeeze ${Math.round(squeeze)}%. 변동성 폭발 임박.`);
+        parts.push(ss('squeezeHigh', { val: Math.round(squeeze).toString() }));
     } else if (squeeze >= 40) {
-        parts.push(`⚡ Squeeze ${Math.round(squeeze)}%. 에너지 축적 중.`);
+        parts.push(ss('squeezeMid', { val: Math.round(squeeze).toString() }));
     }
 
     // 5. Net Premium 분석
@@ -178,9 +178,9 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     const npM = np / 1e6;
     if (Math.abs(npM) >= 1) {
         if (npM > 0) {
-            parts.push(`콜 순유입 +$${npM.toFixed(1)}M. 기관 롱 포지션 적립.`);
+            parts.push(ss('netPremCallInflow', { val: npM.toFixed(1) }));
         } else {
-            parts.push(`풋 순유입 -$${Math.abs(npM).toFixed(1)}M. 헤지/하락 베팅.`);
+            parts.push(ss('netPremPutInflow', { val: Math.abs(npM).toFixed(1) }));
         }
     }
 
@@ -188,37 +188,37 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     const whaleIdx = (q as any).whaleIndex || 0;
     const darkPool = (q as any).darkPoolPct || 0;
     if (whaleIdx >= 70) {
-        parts.push(ss('whaleHeavyAnalysis') || `🐋 Whale Index ${whaleIdx}. ${ss('institutionalActivity') || 'Heavy institutional positioning detected.'}`);
+        parts.push(ss('whaleHeavyAnalysis', { idx: whaleIdx }));
     } else if (whaleIdx >= 40 && darkPool >= 40) {
-        parts.push(ss('whaleDarkPoolCombo', { idx: whaleIdx, pct: darkPool.toFixed(0) }) || `🐋${whaleIdx} + 🕶️D.Pool ${darkPool.toFixed(0)}%. ${ss('stealthAccumulation') || 'Stealth accumulation signal.'}`);
+        parts.push(ss('whaleDarkPoolCombo', { idx: whaleIdx, pct: darkPool.toFixed(0) }));
     } else if (darkPool >= 45) {
-        parts.push(ss('darkPoolHighAnalysis', { pct: darkPool.toFixed(0) }) || `🕶️ Dark Pool ${darkPool.toFixed(0)}%. ${ss('offExchangeHeavy') || 'Heavy off-exchange activity.'}`);
+        parts.push(ss('darkPoolHighAnalysis', { pct: darkPool.toFixed(0) }));
     }
 
     // 7. IV Skew 분석 (풋/콜 비대칭)
     const skew = q.ivSkew || 0;
     if (Math.abs(skew) >= 3) {
         if (skew > 0 && Math.abs(q.changePct) < 1) {
-            parts.push(`🕵️ ${q.ticker} IV Skew +${skew.toFixed(1)}%. 주가 안정인데 풋 프리미엄 급등 — 스마트 머니 하방 헤지 중.`);
+            parts.push(ss('ivSkewStealthHedge', { ticker: q.ticker, val: skew.toFixed(1) }));
         } else if (skew > 5) {
-            parts.push(`🔴 ${q.ticker} IV Skew +${skew.toFixed(1)}%. 극단적 풋 공포 — 기관 하락 방어 돌입.`);
+            parts.push(ss('ivSkewExtremePut', { ticker: q.ticker, val: skew.toFixed(1) }));
         } else if (skew > 0) {
-            parts.push(`⚠️ ${q.ticker} IV Skew +${skew.toFixed(1)}%. 풋 쪽 프리미엄 우세 — 하방 경계.`);
+            parts.push(ss('ivSkewPutBias', { ticker: q.ticker, val: skew.toFixed(1) }));
         } else if (skew < -5) {
-            parts.push(`🟢 ${q.ticker} IV Skew ${skew.toFixed(1)}%. 콜 프리미엄 과열 — 투기적 상승 기대.`);
+            parts.push(ss('ivSkewExtremeCall', { ticker: q.ticker, val: skew.toFixed(1) }));
         } else {
-            parts.push(`⚡ ${q.ticker} IV Skew ${skew.toFixed(1)}%. 콜 쪽 프리미엄 우세 — 상승 기대.`);
+            parts.push(ss('ivSkewCallBias', { ticker: q.ticker, val: skew.toFixed(1) }));
         }
     }
 
     // 8. Implied Move % 분석
     const im = q.impliedMovePct || 0;
     if (im >= 5) {
-        parts.push(`📊 시장은 ${q.ticker}이(가) ±${im.toFixed(1)}% 움직일 것으로 예상. 어닝/이벤트 경계 구간.`);
+        parts.push(ss('impliedMoveLarge', { ticker: q.ticker, val: im.toFixed(1) }));
     } else if (im >= 3) {
-        parts.push(`📊 시장은 ${q.ticker}이(가) ±${im.toFixed(1)}% 변동을 예상 중.`);
+        parts.push(ss('impliedMoveMid', { ticker: q.ticker, val: im.toFixed(1) }));
     } else if (im > 0) {
-        parts.push(`📊 ${q.ticker} Implied Move ±${im.toFixed(1)}%.`);
+        parts.push(ss('impliedMoveSmall', { ticker: q.ticker, val: im.toFixed(1) }));
     }
 
     return parts.join(' ') || ss('collectingData');

@@ -2912,7 +2912,19 @@
     "summBearish": "약세 — {leader} {pct}% 주도 하락, {down}/{total}종 하락 · 매도 압력 우세",
     "summMixed": "혼조 — {leader} {lpct}% 강세 vs {laggard} {dpct}% 약세, 방향 탐색 중",
     "summClosed": "장 마감 — {leader} {pct}% 주도, 평균 변동 {avg}%",
-    "summNoData": "데이터 수집 중..."
+    "summNoData": "데이터 수집 중...",
+    "squeezeHigh": "🔥 Squeeze {val}%. 변동성 폭발 임박.",
+    "squeezeMid": "⚡ Squeeze {val}%. 에너지 축적 중.",
+    "netPremCallInflow": "콜 순유입 +${val}M. 기관 롱 포지션 적립.",
+    "netPremPutInflow": "풋 순유입 -${val}M. 헤지/하락 베팅.",
+    "ivSkewStealthHedge": "🕵️ {ticker} IV Skew +{val}%. 주가 안정인데 풋 프리미엄 급등 — 스마트 머니 하방 헤지 중.",
+    "ivSkewExtremePut": "🔴 {ticker} IV Skew +{val}%. 극단적 풋 공포 — 기관 하락 방어 돌입.",
+    "ivSkewPutBias": "⚠️ {ticker} IV Skew +{val}%. 풋 쪽 프리미엄 우세 — 하방 경계.",
+    "ivSkewExtremeCall": "🟢 {ticker} IV Skew {val}%. 콜 프리미엄 과열 — 투기적 상승 기대.",
+    "ivSkewCallBias": "⚡ {ticker} IV Skew {val}%. 콜 쪽 프리미엄 우세 — 상승 기대.",
+    "impliedMoveLarge": "📊 시장은 {ticker}이(가) ±{val}% 움직일 것으로 예상. 어닝/이벤트 경계 구간.",
+    "impliedMoveMid": "📊 시장은 {ticker}이(가) ±{val}% 변동을 예상 중.",
+    "impliedMoveSmall": "📊 {ticker} Implied Move ±{val}%."
   },
   "sectorRanking": {
     "moneyFlowSub": "자금력 랭킹",
