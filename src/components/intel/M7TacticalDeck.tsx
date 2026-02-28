@@ -289,7 +289,7 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                             {/* Header */}
                             <div className="flex items-center justify-between p-3 bg-slate-800/30 border-b border-slate-700/50">
                                 <div className="flex items-center gap-2">
-                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded font-num ${idx < 3 ? 'bg-amber-500/30 text-amber-300' : 'bg-slate-700 text-slate-400'}`}>
+                                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded font-num ${idx < 3 ? 'bg-amber-500/30 text-amber-300' : 'bg-slate-700 text-slate-300'}`}>
                                         #{idx + 1}
                                     </span>
                                     <div className={`w-9 h-9 rounded-full border-2 overflow-hidden ${isUp ? 'border-emerald-500' : 'border-rose-500'}`}>

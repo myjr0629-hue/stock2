@@ -339,11 +339,11 @@ function DateGroup({ date, records, defaultOpen }: { date: string; records: Back
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-4 px-4 py-2 border-b border-white/[0.02]">
-                                        <div className="w-40 text-xs font-bold text-slate-400 uppercase tracking-widest">Ticker</div>
-                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest">Score</div>
-                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Entry</div>
-                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:block">T+3 Verify</div>
-                                        <div className="flex-1 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Result</div>
+                                        <div className="w-40 text-xs font-bold text-slate-300 uppercase tracking-widest">Ticker</div>
+                                        <div className="w-24 text-xs font-bold text-slate-300 uppercase tracking-widest">Score</div>
+                                        <div className="w-24 text-xs font-bold text-slate-300 uppercase tracking-widest hidden sm:block">Entry</div>
+                                        <div className="w-24 text-xs font-bold text-slate-300 uppercase tracking-widest hidden sm:block">T+3 Verify</div>
+                                        <div className="flex-1 text-xs font-bold text-slate-300 uppercase tracking-widest text-right">Result</div>
                                     </div>
                                     {preMarketRecords.map((record, idx) => (
                                         <RecordRow key={`${record.ticker}-${record.recordedAt}`} record={record} index={idx} />
@@ -360,11 +360,11 @@ function DateGroup({ date, records, defaultOpen }: { date: string; records: Back
                                         </span>
                                     </div>
                                     <div className="flex items-center gap-4 px-4 py-2 border-b border-white/[0.02]">
-                                        <div className="w-40 text-xs font-bold text-slate-400 uppercase tracking-widest">Ticker</div>
-                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest">Score</div>
-                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:block">Entry</div>
-                                        <div className="w-24 text-xs font-bold text-slate-400 uppercase tracking-widest hidden sm:block">T+3 Verify</div>
-                                        <div className="flex-1 text-xs font-bold text-slate-400 uppercase tracking-widest text-right">Result</div>
+                                        <div className="w-40 text-xs font-bold text-slate-300 uppercase tracking-widest">Ticker</div>
+                                        <div className="w-24 text-xs font-bold text-slate-300 uppercase tracking-widest">Score</div>
+                                        <div className="w-24 text-xs font-bold text-slate-300 uppercase tracking-widest hidden sm:block">Entry</div>
+                                        <div className="w-24 text-xs font-bold text-slate-300 uppercase tracking-widest hidden sm:block">T+3 Verify</div>
+                                        <div className="flex-1 text-xs font-bold text-slate-300 uppercase tracking-widest text-right">Result</div>
                                     </div>
                                     {intradayRecords.map((record, idx) => (
                                         <RecordRow key={`${record.ticker}-${record.recordedAt}`} record={record} index={idx} />

@@ -208,13 +208,13 @@ export function PhysicalAISessionSummary({ sharedData, sharedRefreshing }: Physi
                                     ? 'bg-orange-500/20 text-orange-300 border border-orange-500/30'
                                     : idx === quotes.length - 1
                                         ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                        : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'
+                                        : 'bg-slate-700/50 text-slate-300 border border-slate-600/30'
                                     }`}>
                                     {idx + 1}.
                                 </span>
                                 <div className={`flex items-center gap-1.5 px-2 py-1 rounded-md border backdrop-blur-md shadow-sm transition-all duration-300 ${q.alphaScore >= 75 ? 'bg-amber-500/10 border-amber-500/30 text-amber-300 shadow-[0_0_10px_rgba(245,158,11,0.2)]' :
                                     q.alphaScore >= 50 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
-                                        'bg-slate-700/30 border-slate-600/30 text-slate-400'
+                                        'bg-slate-700/30 border-slate-600/30 text-slate-300'
                                     }`}>
                                     <span className="text-[9px] font-bold opacity-70">ALPHA</span>
                                     <span className="text-xs font-black tracking-tight">
@@ -269,7 +269,7 @@ export function PhysicalAISessionSummary({ sharedData, sharedRefreshing }: Physi
             <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between text-[10px] text-slate-500 relative z-10">
                 <div className="flex items-center gap-4">
                     <span className="flex items-center gap-1.5 opacity-70 hover:opacity-100 transition-opacity">
-                        <DollarSign className="w-3 h-3 text-slate-400" />
+                        <DollarSign className="w-3 h-3 text-slate-300" />
                         Total Volume: <span className="text-slate-300 font-mono">{(stats.totalVolume / 1e6).toFixed(0)}M</span>
                     </span>
                     <span className="flex items-center gap-1.5 opacity-70 hover:opacity-100 transition-opacity">

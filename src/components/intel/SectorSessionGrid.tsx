@@ -93,7 +93,7 @@ function FlowBar({ pcr, changePct, ss }: { pcr: number; changePct: number; ss: a
 
     return (
         <div className="flex items-center gap-2">
-            <span className={`text-[11px] font-semibold w-12 font-jakarta ${isCall ? 'text-emerald-400' : isPut ? 'text-rose-400' : 'text-slate-400'}`}>
+            <span className={`text-[11px] font-semibold w-12 font-jakarta ${isCall ? 'text-emerald-400' : isPut ? 'text-rose-400' : 'text-slate-300'}`}>
                 {label}
             </span>
             <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
@@ -189,9 +189,9 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     if (whaleIdx >= 70) {
         parts.push(ss('whaleHeavyAnalysis') || `🐋 Whale Index ${whaleIdx}. ${ss('institutionalActivity') || 'Heavy institutional positioning detected.'}`);
     } else if (whaleIdx >= 40 && darkPool >= 40) {
-        parts.push(ss('whaleDarkPoolCombo') || `🐋${whaleIdx} + 🕶️D.Pool ${darkPool.toFixed(0)}%. ${ss('stealthAccumulation') || 'Stealth accumulation signal.'}`);
+        parts.push(ss('whaleDarkPoolCombo', { idx: whaleIdx, pct: darkPool.toFixed(0) }) || `🐋${whaleIdx} + 🕶️D.Pool ${darkPool.toFixed(0)}%. ${ss('stealthAccumulation') || 'Stealth accumulation signal.'}`);
     } else if (darkPool >= 45) {
-        parts.push(ss('darkPoolHighAnalysis') || `🕶️ Dark Pool ${darkPool.toFixed(0)}%. ${ss('offExchangeHeavy') || 'Heavy off-exchange activity.'}`);
+        parts.push(ss('darkPoolHighAnalysis', { pct: darkPool.toFixed(0) }) || `🕶️ Dark Pool ${darkPool.toFixed(0)}%. ${ss('offExchangeHeavy') || 'Heavy off-exchange activity.'}`);
     }
 
     return parts.join(' ') || ss('collectingData');

@@ -206,7 +206,7 @@ function getEntrySignal(
     return {
         status: 'WAIT', label: t('waitZone'),
         detail: price > entryHigh ? `$${entryHigh.toFixed(0)} ${t('waitBelow')}` : `$${entryLow.toFixed(0)} ${t('waitAbove')}`,
-        color: 'text-slate-400', bgClass: 'bg-[#0f172a] border-slate-700/50',
+        color: 'text-slate-300', bgClass: 'bg-[#0f172a] border-slate-700/50',
         icon: <Clock className="w-3.5 h-3.5" />
     };
 }
@@ -379,7 +379,7 @@ function PillarBar({ name, pillar, t }: { name: string; pillar: PillarData; t: a
                 />
             </div>
             <span className={cn("text-xs font-mono font-bold w-10 text-right font-jakarta",
-                pct >= 70 ? c.text : pct >= 40 ? "text-slate-300" : "text-slate-400"
+                pct >= 70 ? c.text : pct >= 40 ? "text-slate-300" : "text-slate-300"
             )}>
                 {pillar.score}/{pillar.max}
             </span>
@@ -433,7 +433,7 @@ function InsightPanel({
                         <Database className="w-3.5 h-3.5 text-white/60" />
                         <span className={cn("font-mono font-bold",
                             dataCompleteness >= 80 ? "text-emerald-300" :
-                                dataCompleteness >= 50 ? "text-amber-300" : "text-slate-400"
+                                dataCompleteness >= 50 ? "text-amber-300" : "text-slate-300"
                         )}>
                             {dataCompleteness}%
                         </span>

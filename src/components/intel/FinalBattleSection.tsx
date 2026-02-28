@@ -157,7 +157,7 @@ export default function FinalBattleSection({ items, liveItems, isLoading = false
                     count={mainCorps.length}
                     variant="warning"
                     rightContent={
-                        <span className="text-xs text-slate-400 font-medium font-jakarta tracking-wide">
+                        <span className="text-xs text-slate-300 font-medium font-jakarta tracking-wide">
                             {t('disclaimer')}
                         </span>
                     }

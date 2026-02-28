@@ -169,7 +169,7 @@ export function SectorPulseDashboard({ config, quotes }: SectorPulseDashboardPro
                             <div className="flex items-center justify-between mb-1.5">
                                 <div className="flex items-center gap-2.5">
                                     <span className="text-xs font-black text-white/90 w-12">{t.ticker}</span>
-                                    <span className={`text-[10px] font-semibold ${isCall ? 'text-emerald-400' : isPut ? 'text-rose-400' : 'text-slate-400'}`}>
+                                    <span className={`text-[10px] font-semibold ${isCall ? 'text-emerald-400' : isPut ? 'text-rose-400' : 'text-slate-300'}`}>
                                         {flowLabel(t.flowDirection)}
                                     </span>
                                 </div>

@@ -414,7 +414,7 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                         ) : (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span className="text-[8px] font-bold text-slate-400">{t.closed}</span>
+                                <span className="text-[8px] font-bold text-slate-300">{t.closed}</span>
                             </div>
                         )}
                     </div>
@@ -472,7 +472,7 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                         ) : (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span className="text-[8px] font-bold text-slate-400">{t.closed}</span>
+                                <span className="text-[8px] font-bold text-slate-300">{t.closed}</span>
                             </div>
                         )}
                     </div>
@@ -538,7 +538,7 @@ export function SectorRankingRow({ config, quotes }: SectorRankingRowProps) {
                         ) : (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span className="text-[8px] font-bold text-slate-400">{t.closed}</span>
+                                <span className="text-[8px] font-bold text-slate-300">{t.closed}</span>
                             </div>
                         )}
                     </div>

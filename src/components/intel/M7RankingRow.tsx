@@ -417,7 +417,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                         ) : (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span className="text-[11px] font-bold text-slate-400 font-jakarta">{t.closed}</span>
+                                <span className="text-[11px] font-bold text-slate-300 font-jakarta">{t.closed}</span>
                             </div>
                         )}
                     </div>
@@ -477,7 +477,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                         ) : (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span className="text-[11px] font-bold text-slate-400 font-jakarta">{t.closed}</span>
+                                <span className="text-[11px] font-bold text-slate-300 font-jakarta">{t.closed}</span>
                             </div>
                         )}
                     </div>
@@ -543,7 +543,7 @@ export function M7RankingRow({ quotes }: { quotes: IntelQuote[] }) {
                         ) : (
                             <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-slate-500/10 border border-slate-500/20">
                                 <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                <span className="text-[11px] font-bold text-slate-400 font-jakarta">{t.closed}</span>
+                                <span className="text-[11px] font-bold text-slate-300 font-jakarta">{t.closed}</span>
                             </div>
                         )}
                     </div>
