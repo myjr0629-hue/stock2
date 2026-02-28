@@ -27,16 +27,16 @@ interface SectorDef {
 }
 
 const SECTORS: SectorDef[] = [
-    { key: 'm7', tabKey: 'M7', label: 'Magnificent 7', shortLabel: 'M7', icon: <Orbit className="w-4 h-4" />, accent: 'text-cyan-400', accentBg: 'bg-cyan-500/10', accentBorder: 'border-cyan-500/30', accentHex: '#06b6d4', emoji: '⚡' },
-    { key: 'physicalAI', tabKey: 'PHYSICAL_AI', label: 'Physical AI', shortLabel: 'PHYS AI', icon: <Bot className="w-4 h-4" />, accent: 'text-amber-400', accentBg: 'bg-amber-500/10', accentBorder: 'border-amber-500/30', accentHex: '#f59e0b', emoji: '🤖' },
-    { key: 'siliconCore', tabKey: 'SILICON_CORE', label: 'Silicon Core', shortLabel: 'SILICON', icon: <Zap className="w-4 h-4" />, accent: 'text-amber-300', accentBg: 'bg-amber-400/10', accentBorder: 'border-amber-400/30', accentHex: '#fbbf24', emoji: '⚡' },
-    { key: 'powerMatrix', tabKey: 'POWER_MATRIX', label: 'Power Matrix', shortLabel: 'POWER', icon: <Activity className="w-4 h-4" />, accent: 'text-emerald-400', accentBg: 'bg-emerald-500/10', accentBorder: 'border-emerald-500/30', accentHex: '#10b981', emoji: '🟢' },
-    { key: 'bioPulse', tabKey: 'BIO_PULSE', label: 'Bio Pulse', shortLabel: 'BIO', icon: <ShieldAlert className="w-4 h-4" />, accent: 'text-rose-400', accentBg: 'bg-rose-500/10', accentBorder: 'border-rose-500/30', accentHex: '#f43f5e', emoji: '🧬' },
-    { key: 'cyberShield', tabKey: 'CYBER_SHIELD', label: 'Cyber Shield', shortLabel: 'CYBER', icon: <Shield className="w-4 h-4" />, accent: 'text-cyan-300', accentBg: 'bg-cyan-400/10', accentBorder: 'border-cyan-400/30', accentHex: '#22d3ee', emoji: '🛡️' },
-    { key: 'orbitDefense', tabKey: 'ORBIT_DEFENSE', label: 'Orbit Defense', shortLabel: 'ORBIT', icon: <Rocket className="w-4 h-4" />, accent: 'text-sky-400', accentBg: 'bg-sky-500/10', accentBorder: 'border-sky-500/30', accentHex: '#0ea5e9', emoji: '🚀' },
-    { key: 'quantumEdge', tabKey: 'QUANTUM_EDGE', label: 'Quantum Edge', shortLabel: 'QUANTUM', icon: <Cpu className="w-4 h-4" />, accent: 'text-fuchsia-400', accentBg: 'bg-fuchsia-500/10', accentBorder: 'border-fuchsia-500/30', accentHex: '#d946ef', emoji: '🔮' },
-    { key: 'fintechPulse', tabKey: 'FINTECH_PULSE', label: 'Fintech Pulse', shortLabel: 'FINTECH', icon: <CreditCard className="w-4 h-4" />, accent: 'text-lime-400', accentBg: 'bg-lime-500/10', accentBorder: 'border-lime-500/30', accentHex: '#84cc16', emoji: '💳' },
-    { key: 'cloudFortress', tabKey: 'CLOUD_FORTRESS', label: 'Cloud Fortress', shortLabel: 'CLOUD', icon: <Cloud className="w-4 h-4" />, accent: 'text-sky-300', accentBg: 'bg-sky-400/10', accentBorder: 'border-sky-400/30', accentHex: '#38bdf8', emoji: '☁️' },
+    { key: 'm7', tabKey: 'M7', label: 'Magnificent 7', shortLabel: 'M7', icon: <Orbit className="w-4 h-4" />, accent: 'text-cyan-400', accentBg: 'bg-cyan-500/10', accentBorder: 'border-cyan-500/30', accentHex: '#06b6d4', emoji: '' },
+    { key: 'physicalAI', tabKey: 'PHYSICAL_AI', label: 'Physical AI', shortLabel: 'PHYS AI', icon: <Bot className="w-4 h-4" />, accent: 'text-amber-400', accentBg: 'bg-amber-500/10', accentBorder: 'border-amber-500/30', accentHex: '#f59e0b', emoji: '' },
+    { key: 'siliconCore', tabKey: 'SILICON_CORE', label: 'Silicon Core', shortLabel: 'SILICON', icon: <Zap className="w-4 h-4" />, accent: 'text-amber-300', accentBg: 'bg-amber-400/10', accentBorder: 'border-amber-400/30', accentHex: '#fbbf24', emoji: '' },
+    { key: 'powerMatrix', tabKey: 'POWER_MATRIX', label: 'Power Matrix', shortLabel: 'POWER', icon: <Activity className="w-4 h-4" />, accent: 'text-emerald-400', accentBg: 'bg-emerald-500/10', accentBorder: 'border-emerald-500/30', accentHex: '#10b981', emoji: '' },
+    { key: 'bioPulse', tabKey: 'BIO_PULSE', label: 'Bio Pulse', shortLabel: 'BIO', icon: <ShieldAlert className="w-4 h-4" />, accent: 'text-rose-400', accentBg: 'bg-rose-500/10', accentBorder: 'border-rose-500/30', accentHex: '#f43f5e', emoji: '' },
+    { key: 'cyberShield', tabKey: 'CYBER_SHIELD', label: 'Cyber Shield', shortLabel: 'CYBER', icon: <Shield className="w-4 h-4" />, accent: 'text-cyan-300', accentBg: 'bg-cyan-400/10', accentBorder: 'border-cyan-400/30', accentHex: '#22d3ee', emoji: '' },
+    { key: 'orbitDefense', tabKey: 'ORBIT_DEFENSE', label: 'Orbit Defense', shortLabel: 'ORBIT', icon: <Rocket className="w-4 h-4" />, accent: 'text-sky-400', accentBg: 'bg-sky-500/10', accentBorder: 'border-sky-500/30', accentHex: '#0ea5e9', emoji: '' },
+    { key: 'quantumEdge', tabKey: 'QUANTUM_EDGE', label: 'Quantum Edge', shortLabel: 'QUANTUM', icon: <Cpu className="w-4 h-4" />, accent: 'text-fuchsia-400', accentBg: 'bg-fuchsia-500/10', accentBorder: 'border-fuchsia-500/30', accentHex: '#d946ef', emoji: '' },
+    { key: 'fintechPulse', tabKey: 'FINTECH_PULSE', label: 'Fintech Pulse', shortLabel: 'FINTECH', icon: <CreditCard className="w-4 h-4" />, accent: 'text-lime-400', accentBg: 'bg-lime-500/10', accentBorder: 'border-lime-500/30', accentHex: '#84cc16', emoji: '' },
+    { key: 'cloudFortress', tabKey: 'CLOUD_FORTRESS', label: 'Cloud Fortress', shortLabel: 'CLOUD', icon: <Cloud className="w-4 h-4" />, accent: 'text-sky-300', accentBg: 'bg-sky-400/10', accentBorder: 'border-sky-400/30', accentHex: '#38bdf8', emoji: '' },
 ];
 
 // ── Helpers ──
@@ -200,9 +200,9 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                 <div className="relative z-10 mt-4 grid grid-cols-3 gap-3">
                     {marketOverview.topSector && (
                         <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-emerald-500/8 border border-emerald-500/20">
-                            <span className="text-[13px] text-emerald-300 font-bold uppercase tracking-wider">🔥 TOP</span>
-                            <span className={`text-sm font-bold ${marketOverview.topSector.def.accent}`}>
-                                {marketOverview.topSector.def.emoji} {marketOverview.topSector.def.shortLabel}
+                            <span className="text-[13px] text-emerald-300 font-bold uppercase tracking-wider flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" /> TOP</span>
+                            <span className={`text-base font-bold ${marketOverview.topSector.def.accent} flex items-center gap-1`}>
+                                {marketOverview.topSector.def.icon} {marketOverview.topSector.def.shortLabel}
                             </span>
                             <span className="text-[13px] font-mono font-bold text-emerald-300 ml-auto">
                                 +{marketOverview.topSector.stats.avgChange.toFixed(2)}%
@@ -211,9 +211,9 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                     )}
                     {marketOverview.bottomSector && (
                         <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-rose-500/8 border border-rose-500/20">
-                            <span className="text-[13px] text-rose-300 font-bold uppercase tracking-wider">❄️ BOT</span>
-                            <span className={`text-sm font-bold ${marketOverview.bottomSector.def.accent}`}>
-                                {marketOverview.bottomSector.def.emoji} {marketOverview.bottomSector.def.shortLabel}
+                            <span className="text-[13px] text-rose-300 font-bold uppercase tracking-wider flex items-center gap-1"><TrendingDown className="w-3.5 h-3.5" /> BOT</span>
+                            <span className={`text-base font-bold ${marketOverview.bottomSector.def.accent} flex items-center gap-1`}>
+                                {marketOverview.bottomSector.def.icon} {marketOverview.bottomSector.def.shortLabel}
                             </span>
                             <span className="text-[13px] font-mono font-bold text-rose-300 ml-auto">
                                 {marketOverview.bottomSector.stats.avgChange.toFixed(2)}%
@@ -222,9 +222,9 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                     )}
                     {marketOverview.hotWhale && (
                         <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-violet-500/8 border border-violet-500/20">
-                            <span className="text-[13px] text-violet-300 font-bold uppercase tracking-wider">🐋 WHALE</span>
-                            <span className={`text-sm font-bold ${marketOverview.hotWhale.def.accent}`}>
-                                {marketOverview.hotWhale.def.emoji} {marketOverview.hotWhale.def.shortLabel}
+                            <span className="text-[13px] text-violet-300 font-bold uppercase tracking-wider flex items-center gap-1"><BarChart3 className="w-3.5 h-3.5" /> WHALE</span>
+                            <span className={`text-base font-bold ${marketOverview.hotWhale.def.accent} flex items-center gap-1`}>
+                                {marketOverview.hotWhale.def.icon} {marketOverview.hotWhale.def.shortLabel}
                             </span>
                             <span className="text-[13px] font-mono font-bold text-violet-300 ml-auto">
                                 IDX {marketOverview.hotWhale.stats.avgWhale.toFixed(0)}
@@ -233,6 +233,130 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                     )}
                 </div>
             </section>
+
+            {/* ═══ ALPHA LEADERS / LAGGARDS ═══ */}
+            {(() => {
+                // Aggregate all 70 tickers with sector info
+                const allWithSector = sectorStats.flatMap(s =>
+                    s.quotes.filter(q => q.price > 0 && q.alphaScore > 0).map(q => ({
+                        ...q,
+                        sectorLabel: s.def.shortLabel,
+                        sectorTabKey: s.def.tabKey,
+                        sectorIcon: s.def.icon,
+                        sectorAccent: s.def.accent,
+                    }))
+                );
+                const sorted = [...allWithSector].sort((a, b) => b.alphaScore - a.alphaScore);
+                const top3 = sorted.slice(0, 3);
+                const bottom3 = sorted.slice(-3).reverse();
+
+                const getLogoUrl = (ticker: string) => `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;
+
+                const getGradeColor = (score: number) => {
+                    if (score >= 70) return { stroke: '#34d399', text: 'text-emerald-400', label: 'A' };
+                    if (score >= 55) return { stroke: '#60a5fa', text: 'text-blue-400', label: 'B' };
+                    if (score >= 40) return { stroke: '#fbbf24', text: 'text-amber-400', label: 'C' };
+                    return { stroke: '#f87171', text: 'text-rose-400', label: 'D' };
+                };
+
+                const CircularGauge = ({ score, size = 56 }: { score: number; size?: number }) => {
+                    const { stroke, text, label } = getGradeColor(score);
+                    const radius = (size - 6) / 2;
+                    const circumference = 2 * Math.PI * radius;
+                    const progress = (score / 100) * circumference;
+                    return (
+                        <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
+                            <svg width={size} height={size} className="transform -rotate-90">
+                                <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={3} />
+                                <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={stroke} strokeWidth={3}
+                                    strokeDasharray={circumference} strokeDashoffset={circumference - progress}
+                                    strokeLinecap="round" className="transition-all duration-700" />
+                            </svg>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <span className={`text-[14px] font-black ${text} leading-none`}>{label}</span>
+                                <span className="text-[13px] font-mono text-slate-200">{Math.round(score)}</span>
+                            </div>
+                        </div>
+                    );
+                };
+
+                const AlphaCard = ({ ticker, alphaScore, changePct, sectorLabel, sectorTabKey, sectorIcon, sectorAccent, rank, isTop }: any) => (
+                    <div
+                        onClick={() => onNavigate(sectorTabKey)}
+                        className={`group relative cursor-pointer rounded-xl overflow-hidden transition-all duration-300 hover:scale-[1.02]
+                            border backdrop-blur-md
+                            ${isTop
+                                ? 'border-emerald-500/20 bg-emerald-500/[0.08] hover:border-emerald-400/40 hover:bg-emerald-500/[0.14]'
+                                : 'border-rose-500/20 bg-rose-500/[0.08] hover:border-rose-400/40 hover:bg-rose-500/[0.14]'
+                            }`}
+                    >
+                        {/* Glassmorphism inner glow */}
+                        <div className="absolute inset-0 pointer-events-none">
+                            <div className={`absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl ${isTop ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`} />
+                        </div>
+
+                        <div className="relative z-10 py-2.5 px-4 flex items-center gap-3">
+                            {/* Rank Badge */}
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center text-[13px] font-black
+                                ${isTop ? 'bg-emerald-500/20 text-emerald-200' : 'bg-rose-500/20 text-rose-200'}`}>
+                                {rank}
+                            </div>
+
+                            {/* Logo with fallback initial */}
+                            <div className="w-9 h-9 rounded-full overflow-hidden bg-white/10 border border-white/10 flex-shrink-0 relative flex items-center justify-center">
+                                <span className="text-[13px] font-bold text-slate-200 absolute">{ticker.slice(0, 2)}</span>
+                                <img src={getLogoUrl(ticker)} alt={ticker} className="w-full h-full object-cover absolute inset-0"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            </div>
+
+                            {/* Ticker → Change% → Sector (한줄) */}
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <span className="text-[17px] font-bold text-white">{ticker}</span>
+                                <span className={`text-[15px] ${changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-mono font-bold`}>
+                                    {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
+                                </span>
+                                <span className="text-slate-200/40">|</span>
+                                <span className={`${sectorAccent}`}>{sectorIcon}</span>
+                                <span className="text-[17px] text-slate-200 font-mono">{sectorLabel}</span>
+                            </div>
+
+                            {/* Alpha Gauge */}
+                            <CircularGauge score={alphaScore} />
+
+                            {/* Navigate arrow */}
+                            <ChevronRight className="w-4 h-4 text-slate-200 group-hover:text-white transition-colors flex-shrink-0" />
+                        </div>
+                    </div>
+                );
+
+                return allWithSector.length > 0 ? (
+                    <section className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                        {/* TOP 3 */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 px-1 mb-3">
+                                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                                <span className="text-[13px] font-bold text-emerald-400 uppercase tracking-wider">ALPHA LEADERS</span>
+                                <span className="text-[13px] text-slate-200 font-mono ml-auto">TOP 3 / {allWithSector.length}</span>
+                            </div>
+                            {top3.map((q, i) => (
+                                <AlphaCard key={q.ticker} {...q} rank={i + 1} isTop={true} />
+                            ))}
+                        </div>
+
+                        {/* BOTTOM 3 */}
+                        <div className="space-y-2">
+                            <div className="flex items-center gap-2 px-1 mb-3">
+                                <TrendingDown className="w-4 h-4 text-rose-400" />
+                                <span className="text-[13px] font-bold text-rose-400 uppercase tracking-wider">ALPHA LAGGARDS</span>
+                                <span className="text-[13px] text-slate-200 font-mono ml-auto">BOTTOM 3 / {allWithSector.length}</span>
+                            </div>
+                            {bottom3.map((q, i) => (
+                                <AlphaCard key={q.ticker} {...q} rank={allWithSector.length - 2 + i} isTop={false} />
+                            ))}
+                        </div>
+                    </section>
+                ) : null;
+            })()}
 
             {/* ═══ SECTOR GRID (5×2) ═══ */}
             <section className="relative z-10 grid grid-cols-2 lg:grid-cols-5 gap-3">
