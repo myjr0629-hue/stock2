@@ -2969,5 +2969,27 @@
     "noData": "データ収集中...",
     "correction": "下方調整",
     "rebound": "上方反発"
+  },
+  "gate": {
+    "upgradeTitle": "{tier}にアップグレード",
+    "proFeature1": "AI Verdict フルアクセス",
+    "proFeature2": "FLOW 12/16指標アンロック",
+    "proFeature3": "INTEL 全10セクターレポート",
+    "proFeature4": "GUARDIAN フルアクセス",
+    "proFeature5": "ウォッチリスト 15銘柄",
+    "eliteFeature1": "Classified Flow（ホエールテープ）リアルタイム",
+    "eliteFeature2": "DEX（デルタエクスポージャー）フルアクセス",
+    "eliteFeature3": "スマートマネーインデックス",
+    "eliteFeature4": "ウォッチリスト無制限 + 5秒更新",
+    "foundingBadge": "Founding Member 限定価格",
+    "foundingDesc": "今ご登録いただくとFounding Member価格が永久適用されます。後のご登録者には定価が適用されます。",
+    "viewPricing": "料金プランを見る",
+    "guarantee": "いつでも解約可能 · 追加料金なし",
+    "unlockWith": "{tier}でロック解除",
+    "guestWallTitle": "機関投資家は今もこのデータを見ています",
+    "guestWallSubtitle": "10秒で登録して閲覧を続けましょう",
+    "guestWallCta": "無料で始める",
+    "guestWallRemaining": "無料プレビュー: 残り{count}回",
+    "refreshSpeed": "PROメンバーは4倍速くデータを受信しています"
   }
 }

@@ -5,8 +5,10 @@ import { createClient } from '@/lib/supabase/client';
 import { User } from '@supabase/supabase-js';
 import { useRouter } from 'next/navigation';
 import { useTranslations, useLocale } from 'next-intl';
-import { Pencil, Check, LogOut, AlertTriangle, ChevronRight, Sparkles, Shield, Globe, Calendar, Mail, TrendingUp, BarChart3, Activity } from 'lucide-react';
+import { Pencil, Check, LogOut, AlertTriangle, ChevronRight, Sparkles, Shield, Globe, Calendar, Mail, TrendingUp, BarChart3, Activity, Crown, Zap, ArrowRight } from 'lucide-react';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
+import { useTier } from '@/contexts/TierContext';
+import { Link } from '@/i18n/routing';
 
 export default function SettingsPage() {
     const t = useTranslations('settings');
@@ -22,6 +24,7 @@ export default function SettingsPage() {
     const [saveSuccess, setSaveSuccess] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [stats, setStats] = useState({ watchlist: 0, portfolio: 0 });
+    const { tier } = useTier();
 
     useEffect(() => { loadProfile(); }, []);
 
@@ -202,14 +205,29 @@ export default function SettingsPage() {
                                 <div className="w-px h-10 bg-white/[0.08]" />
                                 <div className="flex-1 flex flex-col items-center">
                                     <div className="flex items-center gap-1.5">
-                                        <Sparkles className="w-4 h-4" style={{ color: '#d4a853' }} />
+                                        {tier === 'elite' ? (
+                                            <Crown className="w-4 h-4 text-cyan-400" />
+                                        ) : tier === 'pro' ? (
+                                            <Sparkles className="w-4 h-4" style={{ color: '#d4a853' }} />
+                                        ) : (
+                                            <Zap className="w-4 h-4 text-slate-400" />
+                                        )}
                                         <span className="text-lg font-black tracking-wide" style={{
-                                            background: 'linear-gradient(135deg, #d4a853, #f0d68a, #c9944a)',
+                                            background: tier === 'elite'
+                                                ? 'linear-gradient(135deg, #22d3ee, #06b6d4, #0891b2)'
+                                                : tier === 'pro'
+                                                    ? 'linear-gradient(135deg, #d4a853, #f0d68a, #c9944a)'
+                                                    : 'linear-gradient(135deg, #94a3b8, #cbd5e1)',
                                             WebkitBackgroundClip: 'text',
                                             WebkitTextFillColor: 'transparent',
-                                        }}>PRO</span>
+                                        }}>{tier === 'elite' ? 'ELITE' : tier === 'pro' ? 'PRO' : 'FREE'}</span>
                                     </div>
                                     <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] mt-1.5 font-semibold">Plan</p>
+                                    {tier === 'free' && (
+                                        <Link href="/pricing" className="mt-2 px-3 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-[10px] font-bold text-amber-400 uppercase tracking-wider hover:bg-amber-500/20 transition-colors flex items-center gap-1">
+                                            Upgrade <ArrowRight className="w-3 h-3" />
+                                        </Link>
+                                    )}
                                 </div>
                             </div>
                         </div>

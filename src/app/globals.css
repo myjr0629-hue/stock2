@@ -273,6 +273,26 @@
   animation-play-state: paused;
 }
 
+/* ===== [LANDING] LiveFeedTicker Marquee ===== */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(-33.33%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  width: max-content;
+}
+
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
 /* ===== [VIP DASHBOARD] PULSE ANIMATIONS ===== */
 
 /* Subtle pulse for watchlist items */

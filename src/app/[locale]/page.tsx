@@ -19,6 +19,7 @@ import {
 
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
+import { LiveFeedTicker } from '@/components/landing/LiveFeedTicker';
 
 // --- Sparkline Component ---
 function Sparkline({ data, color = "#22d3ee" }: { data: number[], color?: string }) {
@@ -419,6 +420,9 @@ export default function Page() {
           </div>
         </div>
       </section>
+
+      {/* LIVE FEED MARQUEE — FOMO TRIGGER */}
+      <LiveFeedTicker />
 
       {/* FEATURES SECTION */}
       <section id="features" className="-mt-20 relative z-30 pt-0 pb-20 px-6">

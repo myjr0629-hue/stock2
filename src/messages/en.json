@@ -2969,5 +2969,27 @@
     "noData": "Collecting data...",
     "correction": "Downside correction",
     "rebound": "Upside rebound"
+  },
+  "gate": {
+    "upgradeTitle": "Upgrade to {tier}",
+    "proFeature1": "AI Verdict full access",
+    "proFeature2": "FLOW 12/16 indicators unlocked",
+    "proFeature3": "INTEL all 10 sector reports",
+    "proFeature4": "GUARDIAN full access",
+    "proFeature5": "Watchlist 15 stocks",
+    "eliteFeature1": "Classified Flow (Whale Tape) real-time",
+    "eliteFeature2": "DEX (Delta Exposure) full access",
+    "eliteFeature3": "Smart Money Index",
+    "eliteFeature4": "Unlimited Watchlist + 5s refresh",
+    "foundingBadge": "Founding Member Exclusive",
+    "foundingDesc": "Lock in the Founding Member price forever. Future subscribers will pay full price.",
+    "viewPricing": "View Plans",
+    "guarantee": "Cancel anytime · No hidden fees",
+    "unlockWith": "Unlock with {tier}",
+    "guestWallTitle": "Institutions are watching this data right now",
+    "guestWallSubtitle": "Sign up in 10 seconds to keep watching",
+    "guestWallCta": "Start for Free",
+    "guestWallRemaining": "Free preview: {count} remaining",
+    "refreshSpeed": "PRO members receive data 4x faster"
   }
 }

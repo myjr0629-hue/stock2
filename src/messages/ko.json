@@ -2969,5 +2969,27 @@
     "noData": "데이터 수집 중...",
     "correction": "하방 조정",
     "rebound": "상방 반등"
+  },
+  "gate": {
+    "upgradeTitle": "{tier}로 업그레이드",
+    "proFeature1": "AI Verdict 풀 액세스",
+    "proFeature2": "FLOW 12/16 지표 잠금 해제",
+    "proFeature3": "INTEL 10개 섹터 전체 리포트",
+    "proFeature4": "GUARDIAN 풀 액세스",
+    "proFeature5": "Watchlist 15종목",
+    "eliteFeature1": "Classified Flow (고래 테이프) 실시간",
+    "eliteFeature2": "DEX (델타 익스포저) 풀 액세스",
+    "eliteFeature3": "Smart Money 인덱스",
+    "eliteFeature4": "Watchlist 무제한 + 5초 갱신",
+    "foundingBadge": "Founding Member 전용 가격",
+    "foundingDesc": "지금 가입하면 Founding Member 가격이 영구 적용됩니다. 이후 가입자는 정가가 적용됩니다.",
+    "viewPricing": "요금제 보기",
+    "guarantee": "언제든지 해지 가능 · 추가 비용 없음",
+    "unlockWith": "{tier}로 잠금 해제",
+    "guestWallTitle": "지금 이 순간에도 기관들은 이 데이터를 보고 있습니다",
+    "guestWallSubtitle": "10초 만에 가입하고 계속 보세요",
+    "guestWallCta": "무료로 시작하기",
+    "guestWallRemaining": "무료 미리보기: {count}회 남음",
+    "refreshSpeed": "PRO 회원은 4배 빠르게 데이터를 받고 있습니다"
   }
 }

@@ -5,7 +5,9 @@ import { locales, type Locale } from '@/i18n/routing';
 import { ConsentGuard } from '@/components/ConsentGuard';
 import { AuthGuard } from '@/components/AuthGuard';
 import { DeactivationGuard } from '@/components/DeactivationGuard';
+import { TierProvider } from '@/contexts/TierContext';
 import { LandingHeader } from '@/components/landing/LandingHeader';
+import { StickyFoundingBar } from '@/components/landing/StickyFoundingBar';
 import { Footer } from '@/components/Footer';
 
 export function generateStaticParams() {
@@ -32,13 +34,16 @@ export default async function LocaleLayout({ children, params }: Props) {
         <NextIntlClientProvider messages={messages}>
             <div lang={locale} className={`flex flex-col min-h-screen ${locale === 'en' ? 'font-jakarta' : 'font-body'}`}>
                 <ConsentGuard>
-                    <AuthGuard>
-                        <DeactivationGuard>
-                            <LandingHeader />
-                            {children}
-                            <Footer />
-                        </DeactivationGuard>
-                    </AuthGuard>
+                    <TierProvider>
+                        <AuthGuard>
+                            <DeactivationGuard>
+                                <LandingHeader />
+                                {children}
+                                <Footer />
+                                <StickyFoundingBar />
+                            </DeactivationGuard>
+                        </AuthGuard>
+                    </TierProvider>
                 </ConsentGuard>
             </div>
         </NextIntlClientProvider>
