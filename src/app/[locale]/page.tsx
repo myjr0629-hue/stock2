@@ -377,12 +377,16 @@ export default function Page() {
             </Link>
           </div>
 
-          {/* Early Access CTA */}
           <div className="inline-flex items-center gap-2 text-sm text-slate-400">
             <Zap className="w-4 h-4 text-amber-400" />
             <span className="font-jakarta">{t('home.earlyAccessLabel')}</span>
             <span className="text-white/60">|</span>
             <span className="text-slate-300">{t('home.earlyAccessCta')}</span>
+          </div>
+
+          {/* LIVE FEED MARQUEE — contained within hero width */}
+          <div className="w-full max-w-3xl mt-6">
+            <LiveFeedTicker />
           </div>
 
           {/* Hero Dashboard Mockup — Perspective Preview */}
@@ -420,9 +424,6 @@ export default function Page() {
           </div>
         </div>
       </section>
-
-      {/* LIVE FEED MARQUEE — FOMO TRIGGER */}
-      <LiveFeedTicker />
 
       {/* FEATURES SECTION */}
       <section id="features" className="-mt-20 relative z-30 pt-0 pb-20 px-6">

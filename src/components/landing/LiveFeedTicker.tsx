@@ -138,7 +138,7 @@ export function LiveFeedTicker() {
 
     if (loading || feedItems.length === 0) {
         return (
-            <div className="w-full py-2.5 bg-[#070e1b]/80 border-y border-white/5">
+            <div className="w-full py-2.5 rounded-xl bg-[#070e1b]/80 border border-white/10">
                 <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
                     <span className="relative flex h-1.5 w-1.5">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -153,7 +153,7 @@ export function LiveFeedTicker() {
     }
 
     return (
-        <div className="w-full py-2.5 bg-[#070e1b]/80 border-y border-white/5 overflow-hidden">
+        <div className="w-full py-2.5 rounded-xl bg-[#070e1b]/80 border border-white/10 overflow-hidden">
             <div className="flex items-center">
                 {/* LIVE badge */}
                 <div className="flex-shrink-0 flex items-center gap-1.5 px-4 border-r border-white/10">
