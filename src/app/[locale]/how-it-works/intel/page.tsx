@@ -5,7 +5,8 @@ import {
     Activity, TrendingUp, Shield, BarChart3, Lightbulb, Zap, Brain, Target,
     Layers, ChevronRight, Orbit, Bot, AlertTriangle, Cpu, Rocket,
     ArrowRight, Gauge, Radio, Eye, Globe, Flame, Archive,
-    Trophy, Calendar, Users, Crosshair
+    Trophy, Calendar, Users, Crosshair, CreditCard, Cloud,
+    LayoutGrid, Crown, TrendingDown, FileText, Sparkles
 } from 'lucide-react';
 
 export default async function IntelGuidePage({ params }: { params: Promise<{ locale: string }> }) {
@@ -22,10 +23,9 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
         purple: (chunks: React.ReactNode) => <span className="text-purple-400 font-semibold">{chunks}</span>,
     };
 
-    /* ── Simplified card style ── */
     const card = "rounded-xl border border-white/[0.08] bg-white/[0.03] p-4";
 
-    /* Sector data */
+    /* 10 Sectors */
     const sectors = [
         { key: 'm7', icon: <Orbit size={16} className="text-white" />, accent: 'from-indigo-400 to-indigo-600', tickers: 'AAPL · NVDA · MSFT · GOOGL · AMZN · META · TSLA', color: 'text-indigo-400', ring: 'border-indigo-500/20 bg-indigo-500/[0.06]' },
         { key: 'physicalAI', icon: <Bot size={16} className="text-white" />, accent: 'from-amber-400 to-orange-600', tickers: 'PLTR · SERV · PL · TER · SYM · RKLB · ISRG', color: 'text-amber-400', ring: 'border-amber-500/20 bg-amber-500/[0.06]' },
@@ -34,6 +34,9 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
         { key: 'bioPulse', icon: <Activity size={16} className="text-white" />, accent: 'from-rose-400 to-pink-600', tickers: 'LLY · NVO · VRTX · REGN · VKTX · AMGN · GILD', color: 'text-rose-400', ring: 'border-rose-500/20 bg-rose-500/[0.06]' },
         { key: 'cyberShield', icon: <Shield size={16} className="text-white" />, accent: 'from-cyan-400 to-blue-600', tickers: 'CRWD · PANW · FTNT · ZS · S · OKTA · NET', color: 'text-cyan-400', ring: 'border-cyan-500/20 bg-cyan-500/[0.06]' },
         { key: 'orbitDefense', icon: <Rocket size={16} className="text-white" />, accent: 'from-sky-400 to-blue-600', tickers: 'LMT · RTX · AXON · KTOS · LDOS · ASTS · LUNR', color: 'text-sky-400', ring: 'border-sky-500/20 bg-sky-500/[0.06]' },
+        { key: 'quantumEdge', icon: <Cpu size={16} className="text-white" />, accent: 'from-fuchsia-400 to-purple-600', tickers: 'IONQ · RGTI · QBTS · QUBT · ARQQ · D-WAVE · FORM', color: 'text-fuchsia-400', ring: 'border-fuchsia-500/20 bg-fuchsia-500/[0.06]' },
+        { key: 'fintechPulse', icon: <CreditCard size={16} className="text-white" />, accent: 'from-lime-400 to-green-600', tickers: 'SQ · AFRM · UPST · SOFI · XYZ · COIN · NU', color: 'text-lime-400', ring: 'border-lime-500/20 bg-lime-500/[0.06]' },
+        { key: 'cloudFortress', icon: <Cloud size={16} className="text-white" />, accent: 'from-sky-300 to-blue-500', tickers: 'NOW · TEAM · DDOG · MDB · SNOW · NET · CRWD', color: 'text-sky-300', ring: 'border-sky-400/20 bg-sky-400/[0.06]' },
     ];
 
     /* 5 Pillars */
@@ -46,8 +49,10 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
     ];
 
     const sectorDisplayNames: Record<string, string> = {
-        m7: 'M7 REPORT', physicalAI: 'PHYSICAL AI', siliconCore: 'SILICON CORE',
-        powerMatrix: 'POWER MATRIX', bioPulse: 'BIO PULSE', cyberShield: 'CYBER SHIELD', orbitDefense: 'ORBIT DEFENSE',
+        m7: 'M7', physicalAI: 'PHYSICAL AI', siliconCore: 'SILICON CORE',
+        powerMatrix: 'POWER MATRIX', bioPulse: 'BIO PULSE', cyberShield: 'CYBER SHIELD',
+        orbitDefense: 'ORBIT DEFENSE', quantumEdge: 'QUANTUM EDGE',
+        fintechPulse: 'FINTECH PULSE', cloudFortress: 'CLOUD FORTRESS',
     };
 
     return (
@@ -55,9 +60,9 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
             title="INTEL"
             subtitle={t('subtitle')}
         >
-            {/* ─────────────────────────────────────────────── */}
+            {/* ═══════════════════════════════════════════════ */}
             {/* Section 1: Hero Overview                        */}
-            {/* ─────────────────────────────────────────────── */}
+            {/* ═══════════════════════════════════════════════ */}
             <section className="space-y-4">
                 <div>
                     <h3 className="text-lg font-bold text-white mb-1">{t('overviewTitle')}</h3>
@@ -81,9 +86,107 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                 </div>
             </section>
 
-            {/* ─────────────────────────────────────────────── */}
-            {/* Section 2: Alpha Score Deep-Dive                */}
-            {/* ─────────────────────────────────────────────── */}
+            {/* ═══════════════════════════════════════════════ */}
+            {/* Section 2: SECTOR COMMAND                       */}
+            {/* ═══════════════════════════════════════════════ */}
+            <section className="space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-600 flex items-center justify-center">
+                        <LayoutGrid size={16} className="text-white" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-white">{t('sectorCommand.title')}</h3>
+                        <p className="text-[13px] text-slate-400 font-medium uppercase tracking-wider">{t('sectorCommand.tagline')}</p>
+                    </div>
+                </div>
+
+                <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('sectorCommand.desc', richTags)}</p>
+
+                {/* Macro Quick Strip */}
+                <div className={card}>
+                    <h4 className="text-[14px] font-semibold text-white mb-2 flex items-center gap-2">
+                        <Activity size={14} className="text-cyan-400" />
+                        {t('sectorCommand.macroTitle')}
+                    </h4>
+                    <p className="text-[13px] text-slate-300 leading-relaxed mb-3">{t('sectorCommand.macroDesc')}</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {[
+                            { label: 'TOP', color: 'text-emerald-400 border-emerald-500/20', icon: <TrendingUp size={12} /> },
+                            { label: 'BOT', color: 'text-rose-400 border-rose-500/20', icon: <TrendingDown size={12} /> },
+                            { label: 'WHALE', color: 'text-violet-400 border-violet-500/20', icon: <BarChart3 size={12} /> },
+                        ].map(s => (
+                            <span key={s.label} className={`text-[12px] font-bold px-2.5 py-1 rounded-full border ${s.color} bg-white/[0.03] flex items-center gap-1.5`}>
+                                {s.icon} {s.label}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Alpha Leaders/Laggards */}
+                <div className={card}>
+                    <h4 className="text-[14px] font-semibold text-white mb-2 flex items-center gap-2">
+                        <Crown size={14} className="text-amber-400" />
+                        {t('sectorCommand.alphaLeadersTitle')}
+                    </h4>
+                    <p className="text-[13px] text-slate-300 leading-relaxed mb-3">{t.rich('sectorCommand.alphaLeadersDesc', richTags)}</p>
+
+                    {/* Visual Example */}
+                    <div className="grid grid-cols-2 gap-3 mb-3">
+                        <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
+                            <span className="text-[12px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <TrendingUp size={12} /> ALPHA LEADERS
+                            </span>
+                            <p className="text-[13px] text-slate-300 mt-1.5">{t('sectorCommand.leadersDesc')}</p>
+                        </div>
+                        <div className="rounded-lg border border-rose-500/20 bg-rose-500/[0.06] p-3">
+                            <span className="text-[12px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                                <TrendingDown size={12} /> ALPHA LAGGARDS
+                            </span>
+                            <p className="text-[13px] text-slate-300 mt-1.5">{t('sectorCommand.laggardsDesc')}</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                        {[
+                            { key: 'cardLogo', icon: <Eye size={12} className="text-cyan-400" /> },
+                            { key: 'cardGauge', icon: <Gauge size={12} className="text-amber-400" /> },
+                            { key: 'cardClick', icon: <ArrowRight size={12} className="text-emerald-400" /> },
+                        ].map(el => (
+                            <div key={el.key} className="flex items-start gap-2 py-1.5 px-2.5 rounded-md bg-white/[0.02]">
+                                <span className="mt-0.5 shrink-0">{el.icon}</span>
+                                <span className="text-[13px] text-slate-300">{t(`sectorCommand.${el.key}`)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 10 Sector Cards Grid */}
+                <div className={card}>
+                    <h4 className="text-[14px] font-semibold text-white mb-2 flex items-center gap-2">
+                        <Layers size={14} className="text-cyan-400" />
+                        {t('sectorCommand.gridTitle')}
+                    </h4>
+                    <p className="text-[13px] text-slate-300 leading-relaxed mb-3">{t('sectorCommand.gridDesc')}</p>
+
+                    <div className="space-y-1.5">
+                        {[
+                            { key: 'gridAvg', icon: <BarChart3 size={12} className="text-emerald-400" /> },
+                            { key: 'gridLeadLag', icon: <Target size={12} className="text-amber-400" /> },
+                            { key: 'gridMetrics', icon: <Activity size={12} className="text-cyan-400" /> },
+                            { key: 'gridNav', icon: <ArrowRight size={12} className="text-purple-400" /> },
+                        ].map(el => (
+                            <div key={el.key} className="flex items-start gap-2 py-1.5 px-2.5 rounded-md bg-white/[0.02]">
+                                <span className="mt-0.5 shrink-0">{el.icon}</span>
+                                <span className="text-[13px] text-slate-300">{t(`sectorCommand.${el.key}`)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══════════════════════════════════════════════ */}
+            {/* Section 3: Alpha Score Deep-Dive                */}
+            {/* ═══════════════════════════════════════════════ */}
             <section className="space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center">
@@ -109,7 +212,7 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                         <div className="flex flex-col items-center gap-1.5">
                             <span className="text-[12px] font-bold tracking-widest text-slate-400 uppercase">Score</span>
                             <div className="text-[38px] font-black text-amber-400 tabular-nums leading-none">78</div>
-                            <div className="text-[12px] font-bold px-2 py-0.5 rounded border text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.08]">BUY</div>
+                            <div className="text-[12px] font-bold px-2 py-0.5 rounded border text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.08]">WATCH</div>
                         </div>
 
                         <div className="flex flex-col gap-1.5 col-span-2">
@@ -214,97 +317,9 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                 </div>
             </section>
 
-            {/* ─────────────────────────────────────────────── */}
-            {/* Section 3: Sidebar Navigation                   */}
-            {/* ─────────────────────────────────────────────── */}
-            <section className="space-y-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-400 to-slate-600 flex items-center justify-center">
-                        <BarChart3 size={16} className="text-white" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-white">{t('sidebar.title')}</h3>
-                        <p className="text-[13px] text-slate-400 font-medium uppercase tracking-wider">{t('sidebar.tagline')}</p>
-                    </div>
-                </div>
-
-                <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('sidebar.desc', richTags)}</p>
-
-                <div className="space-y-1.5">
-                    {[
-                        { icon: <Archive size={14} className="text-cyan-400" />, text: t('sidebar.trackRecord') },
-                        { icon: <BarChart3 size={14} className="text-cyan-400" />, text: t('sidebar.alphaReport') },
-                        { icon: <Layers size={14} className="text-cyan-400" />, text: t('sidebar.sectorGroup') },
-                        { icon: <Trophy size={14} className="text-cyan-400" />, text: t('sidebar.winRate') },
-                    ].map((item, i) => (
-                        <div key={i} className="p-2.5 rounded-lg border border-white/[0.06] bg-white/[0.02] flex items-start gap-2.5">
-                            <span className="mt-0.5 shrink-0">{item.icon}</span>
-                            <span className="text-[13px] text-slate-300">{item.text}</span>
-                        </div>
-                    ))}
-                </div>
-            </section>
-
-            {/* ─────────────────────────────────────────────── */}
-            {/* Section 4: Alpha Report Tab                     */}
-            {/* ─────────────────────────────────────────────── */}
-            <section className="space-y-4">
-                <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center">
-                        <Target size={16} className="text-white" />
-                    </div>
-                    <div>
-                        <h3 className="text-lg font-bold text-white">{t('alphaReport.title')}</h3>
-                        <p className="text-[13px] text-slate-400 font-medium uppercase tracking-wider">{t('alphaReport.tagline')}</p>
-                    </div>
-                </div>
-
-                <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('alphaReport.desc', richTags)}</p>
-
-                {/* Top Picks / Live Tactical / Actionable */}
-                <div className="space-y-2">
-                    {[
-                        { title: t('alphaReport.topPicksTitle'), desc: t.rich('alphaReport.topPicksDesc', richTags), icon: <Crosshair size={14} className="text-amber-400" /> },
-                        { title: t('alphaReport.liveTacticalTitle'), desc: t.rich('alphaReport.liveTacticalDesc', richTags), icon: <Radio size={14} className="text-cyan-400" /> },
-                        { title: t('alphaReport.actionableTitle'), desc: t.rich('alphaReport.actionableDesc', richTags), icon: <Shield size={14} className="text-cyan-400" /> },
-                    ].map((section, i) => (
-                        <div key={i} className="p-3 rounded-lg border border-white/[0.06] bg-white/[0.02]">
-                            <div className="flex items-center gap-2 mb-1">
-                                {section.icon}
-                                <span className="text-[13px] font-bold text-white">{section.title}</span>
-                            </div>
-                            <p className="text-[13px] text-slate-300 leading-relaxed">{section.desc}</p>
-                        </div>
-                    ))}
-                </div>
-
-                {/* AlphaCard Elements */}
-                <div className={card}>
-                    <h4 className="text-[14px] font-semibold text-white mb-2 flex items-center gap-2">
-                        <Eye size={14} className="text-cyan-400" />
-                        {t('alphaReport.cardElements')}
-                    </h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                        {[
-                            { key: 'scoreRing', icon: <Gauge size={12} className="text-amber-400" /> },
-                            { key: 'gradeAction', icon: <Target size={12} className="text-cyan-400" /> },
-                            { key: 'entryLevels', icon: <Crosshair size={12} className="text-cyan-400" /> },
-                            { key: 'pillarBars', icon: <BarChart3 size={12} className="text-cyan-400" /> },
-                            { key: 'triggerBadges', icon: <Zap size={12} className="text-amber-400" /> },
-                            { key: 'gateStatus', icon: <Shield size={12} className="text-slate-400" /> },
-                        ].map(el => (
-                            <div key={el.key} className="flex items-start gap-2 py-1.5 px-2 rounded-md bg-white/[0.02]">
-                                <span className="mt-0.5 shrink-0">{el.icon}</span>
-                                <span className="text-[13px] text-slate-300">{t(`alphaReport.${el.key}`)}</span>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
-
-            {/* ─────────────────────────────────────────────── */}
-            {/* Section 5: Sector Zones                         */}
-            {/* ─────────────────────────────────────────────── */}
+            {/* ═══════════════════════════════════════════════ */}
+            {/* Section 4: Sector Zones (Sector Detail Tab)     */}
+            {/* ═══════════════════════════════════════════════ */}
             <section className="space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-indigo-600 flex items-center justify-center">
@@ -356,7 +371,6 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                     </div>
 
                     <div className="border-t border-white/[0.06] pt-4 mb-4">
-                        {/* Zone A-2: Ranking Row */}
                         <h4 className="text-[14px] font-semibold text-white mb-1 flex items-center gap-2">
                             <TrendingUp size={14} className="text-cyan-400" />
                             {t('sectorZones.rankingTitle')}
@@ -377,7 +391,6 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                     </div>
 
                     <div className="border-t border-white/[0.06] pt-4 mb-4">
-                        {/* Zone B */}
                         <h4 className="text-[14px] font-semibold text-white mb-1 flex items-center gap-2">
                             <Users size={14} className="text-cyan-400" />
                             {t('sectorZones.consensusTitle')}
@@ -394,24 +407,83 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                     </div>
 
                     <div className="border-t border-white/[0.06] pt-4">
-                        {/* Zone C */}
                         <h4 className="text-[14px] font-semibold text-white mb-1 flex items-center gap-2">
                             <Lightbulb size={14} className="text-cyan-400" />
                             {t('sectorZones.reportDeckTitle')}
                         </h4>
                         <p className="text-[13px] text-slate-300 leading-relaxed mb-2">{t.rich('sectorZones.reportDeckDesc', richTags)}</p>
                         <div className="flex items-center gap-2">
-                            <span className="px-2.5 py-1 rounded-md text-[12px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/[0.06]">BUY</span>
+                            <span className="px-2.5 py-1 rounded-md text-[12px] font-bold text-emerald-400 border border-emerald-500/20 bg-emerald-500/[0.06]">WATCH</span>
                             <span className="px-2.5 py-1 rounded-md text-[12px] font-bold text-cyan-400 border border-cyan-500/20 bg-cyan-500/[0.06]">HOLD</span>
-                            <span className="px-2.5 py-1 rounded-md text-[12px] font-bold text-rose-400 border border-rose-500/20 bg-rose-500/[0.06]">SELL</span>
+                            <span className="px-2.5 py-1 rounded-md text-[12px] font-bold text-rose-400 border border-rose-500/20 bg-rose-500/[0.06]">REDUCE</span>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* ─────────────────────────────────────────────── */}
-            {/* Section 6: 7 Sectors Catalog                    */}
-            {/* ─────────────────────────────────────────────── */}
+            {/* ═══════════════════════════════════════════════ */}
+            {/* Section 5: POST-MARKET BRIEF                    */}
+            {/* ═══════════════════════════════════════════════ */}
+            <section className="space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center">
+                        <FileText size={16} className="text-white" />
+                    </div>
+                    <div>
+                        <h3 className="text-lg font-bold text-white">{t('postMarket.title')}</h3>
+                        <p className="text-[13px] text-slate-400 font-medium uppercase tracking-wider">{t('postMarket.tagline')}</p>
+                    </div>
+                </div>
+
+                <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('postMarket.desc', richTags)}</p>
+
+                {/* AI Cross-Sector Intelligence */}
+                <div className={card}>
+                    <h4 className="text-[14px] font-semibold text-white mb-2 flex items-center gap-2">
+                        <Sparkles size={14} className="text-amber-400" />
+                        {t('postMarket.aiTitle')}
+                    </h4>
+                    <p className="text-[13px] text-slate-300 leading-relaxed mb-3">{t.rich('postMarket.aiDesc', richTags)}</p>
+                    <div className="space-y-1.5">
+                        {[
+                            { key: 'aiTiming', icon: <Calendar size={12} className="text-emerald-400" /> },
+                            { key: 'aiContent', icon: <Brain size={12} className="text-cyan-400" /> },
+                            { key: 'aiSectors', icon: <Layers size={12} className="text-purple-400" /> },
+                        ].map(el => (
+                            <div key={el.key} className="flex items-start gap-2 py-1.5 px-2.5 rounded-md bg-white/[0.02]">
+                                <span className="mt-0.5 shrink-0">{el.icon}</span>
+                                <span className="text-[13px] text-slate-300">{t(`postMarket.${el.key}`)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Accordion Reports */}
+                <div className={card}>
+                    <h4 className="text-[14px] font-semibold text-white mb-2 flex items-center gap-2">
+                        <Archive size={14} className="text-cyan-400" />
+                        {t('postMarket.reportsTitle')}
+                    </h4>
+                    <p className="text-[13px] text-slate-300 leading-relaxed mb-3">{t.rich('postMarket.reportsDesc', richTags)}</p>
+                    <div className="space-y-1.5">
+                        {[
+                            { key: 'reportAccordion', icon: <Layers size={12} className="text-cyan-400" /> },
+                            { key: 'reportMVP', icon: <Trophy size={12} className="text-amber-400" /> },
+                            { key: 'reportAlpha', icon: <Gauge size={12} className="text-emerald-400" /> },
+                            { key: 'reportGamma', icon: <Activity size={12} className="text-rose-400" /> },
+                        ].map(el => (
+                            <div key={el.key} className="flex items-start gap-2 py-1.5 px-2.5 rounded-md bg-white/[0.02]">
+                                <span className="mt-0.5 shrink-0">{el.icon}</span>
+                                <span className="text-[13px] text-slate-300">{t(`postMarket.${el.key}`)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══════════════════════════════════════════════ */}
+            {/* Section 6: 10 Sectors Catalog                   */}
+            {/* ═══════════════════════════════════════════════ */}
             <section className="space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-400 to-purple-600 flex items-center justify-center">
@@ -425,7 +497,7 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
 
                 <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('sectors.desc', richTags)}</p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                     {sectors.map(s => (
                         <div key={s.key} className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3">
                             <div className="flex items-center gap-2 mb-1.5">
@@ -443,26 +515,49 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                 </div>
             </section>
 
-            {/* ─────────────────────────────────────────────── */}
-            {/* Section 7: Track Record                         */}
-            {/* ─────────────────────────────────────────────── */}
+            {/* ═══════════════════════════════════════════════ */}
+            {/* Section 7: Key Indicators Reference              */}
+            {/* ═══════════════════════════════════════════════ */}
             <section className="space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center">
-                        <Trophy size={16} className="text-white" />
+                        <BarChart3 size={16} className="text-white" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-bold text-white">{t('trackRecord.title')}</h3>
-                        <p className="text-[13px] text-slate-400 font-medium uppercase tracking-wider">{t('trackRecord.tagline')}</p>
+                        <h3 className="text-lg font-bold text-white">{t('indicators.title')}</h3>
+                        <p className="text-[13px] text-slate-400 font-medium uppercase tracking-wider">{t('indicators.tagline')}</p>
                     </div>
                 </div>
 
-                <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('trackRecord.desc', richTags)}</p>
+                <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('indicators.desc', richTags)}</p>
+
+                <div className="space-y-2">
+                    {[
+                        { key: 'gex', icon: <Activity size={14} className="text-emerald-400" />, color: 'border-emerald-500/20' },
+                        { key: 'darkPool', icon: <Eye size={14} className="text-purple-400" />, color: 'border-purple-500/20' },
+                        { key: 'pcr', icon: <BarChart3 size={14} className="text-cyan-400" />, color: 'border-cyan-500/20' },
+                        { key: 'squeeze', icon: <Zap size={14} className="text-amber-400" />, color: 'border-amber-500/20' },
+                        { key: 'netPremium', icon: <TrendingUp size={14} className="text-emerald-400" />, color: 'border-emerald-500/20' },
+                        { key: 'whaleIndex', icon: <Globe size={14} className="text-violet-400" />, color: 'border-violet-500/20' },
+                    ].map(ind => (
+                        <div key={ind.key} className={`p-3 rounded-lg border ${ind.color} bg-white/[0.02]`}>
+                            <div className="flex items-center gap-2 mb-1">
+                                {ind.icon}
+                                <span className="text-[13px] font-bold text-white">{t(`indicators.${ind.key}Title`)}</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed mb-1.5">{t(`indicators.${ind.key}Desc`)}</p>
+                            <p className="text-[13px] text-amber-400/90 leading-relaxed flex items-start gap-1.5">
+                                <Crosshair size={12} className="mt-0.5 shrink-0" />
+                                {t(`indicators.${ind.key}Trading`)}
+                            </p>
+                        </div>
+                    ))}
+                </div>
             </section>
 
-            {/* ─────────────────────────────────────────────── */}
-            {/* Section 8: Usage Guide                          */}
-            {/* ─────────────────────────────────────────────── */}
+            {/* ═══════════════════════════════════════════════ */}
+            {/* Section 8: Trading Strategy Guide                */}
+            {/* ═══════════════════════════════════════════════ */}
             <section className="space-y-4">
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center">
@@ -478,11 +573,10 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
 
                 <div className="space-y-2">
                     {[
-                        { num: '01', titleKey: 'tip1Title', descKey: 'tip1Desc', icon: <Calendar size={14} className="text-cyan-400" /> },
+                        { num: '01', titleKey: 'tip1Title', descKey: 'tip1Desc', icon: <Target size={14} className="text-cyan-400" /> },
                         { num: '02', titleKey: 'tip2Title', descKey: 'tip2Desc', icon: <TrendingUp size={14} className="text-cyan-400" /> },
-                        { num: '03', titleKey: 'tip3Title', descKey: 'tip3Desc', icon: <Eye size={14} className="text-cyan-400" /> },
-                        { num: '04', titleKey: 'tip4Title', descKey: 'tip4Desc', icon: <Trophy size={14} className="text-cyan-400" /> },
-                        { num: '05', titleKey: 'tip5Title', descKey: 'tip5Desc', icon: <BarChart3 size={14} className="text-cyan-400" /> },
+                        { num: '03', titleKey: 'tip3Title', descKey: 'tip3Desc', icon: <Layers size={14} className="text-cyan-400" /> },
+                        { num: '04', titleKey: 'tip4Title', descKey: 'tip4Desc', icon: <Calendar size={14} className="text-cyan-400" /> },
                     ].map(tip => (
                         <div key={tip.num} className="flex items-start gap-3">
                             <div className="w-7 h-7 rounded-full bg-white/[0.05] border border-white/[0.08] flex items-center justify-center shrink-0 mt-0.5">
