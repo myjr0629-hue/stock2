@@ -1,6 +1,7 @@
 import React, { Suspense } from 'react';
 import IntelClientPage from './IntelClientPage';
 import { GET as getFastData } from '@/app/api/intel/fast/route';
+import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
 
 interface PageProps {
     params: Promise<{ locale: string }>;
@@ -41,32 +42,34 @@ export default async function IntelPage({ params }: PageProps) {
     ]);
 
     return (
-        <div className="flex flex-col min-h-screen bg-[#0a1120]">
-            <div className="flex-1 relative">
-                <Suspense fallback={
-                    <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-                        <div className="text-center">
-                            <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-                            <p className="text-slate-400 text-sm">Initializing Tactical Board...</p>
+        <TerminalGateWrapper pageName="INTEL">
+            <div className="flex flex-col min-h-screen bg-[#0a1120]">
+                <div className="flex-1 relative">
+                    <Suspense fallback={
+                        <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+                            <div className="text-center">
+                                <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                                <p className="text-slate-400 text-sm">Initializing Tactical Board...</p>
+                            </div>
                         </div>
-                    </div>
-                }>
-                    <IntelClientPage
-                        initialReport={null}
-                        initialM7Data={m7Data}
-                        initialPAIData={paiData}
-                        initialSCData={scData}
-                        initialPMData={pmData}
-                        initialBPData={bpData}
-                        initialCSData={csData}
-                        initialODData={odData}
-                        initialQEData={qeData}
-                        initialFPData={fpData}
-                        initialCFData={cfData}
-                        locale={locale}
-                    />
-                </Suspense>
+                    }>
+                        <IntelClientPage
+                            initialReport={null}
+                            initialM7Data={m7Data}
+                            initialPAIData={paiData}
+                            initialSCData={scData}
+                            initialPMData={pmData}
+                            initialBPData={bpData}
+                            initialCSData={csData}
+                            initialODData={odData}
+                            initialQEData={qeData}
+                            initialFPData={fpData}
+                            initialCFData={cfData}
+                            locale={locale}
+                        />
+                    </Suspense>
+                </div>
             </div>
-        </div>
+        </TerminalGateWrapper>
     );
 }

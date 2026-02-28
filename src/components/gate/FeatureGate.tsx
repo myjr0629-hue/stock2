@@ -126,7 +126,7 @@ export function FeatureGate({
                         {/* FOMO 메시지 */}
                         {fomoMessage && (
                             <p className={`text-slate-300 text-center max-w-xs leading-relaxed
-                                ${compact ? 'text-[11px]' : 'text-sm'}`}>
+                                ${compact ? 'text-xs' : 'text-sm'}`}>
                                 {fomoMessage}
                             </p>
                         )}
@@ -136,7 +136,7 @@ export function FeatureGate({
                             href="/pricing"
                             className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-bold uppercase tracking-wider
                                 transition-all hover:brightness-110
-                                ${compact ? 'text-[10px] px-3 py-1.5' : 'text-xs'}
+                                ${compact ? 'text-xs px-3 py-1.5' : 'text-xs'}
                                 ${requiredTier === 'elite'
                                     ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-black'
                                     : 'bg-gradient-to-r from-amber-500 to-amber-600 text-black'

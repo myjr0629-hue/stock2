@@ -1,6 +1,7 @@
 import { DashboardClient } from './DashboardClient';
 import { createClient } from '@/lib/supabase/server';
 import { GET as getLiveQuotes } from '@/app/api/live/quotes/route';
+import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
 
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
 
@@ -64,9 +65,11 @@ export default async function DashboardPage() {
 
     // 3. Render client component with instant hydration data
     return (
-        <DashboardClient
-            initialTickers={tickers}
-            initialQuotes={initialQuotes}
-        />
+        <TerminalGateWrapper pageName="COMMAND">
+            <DashboardClient
+                initialTickers={tickers}
+                initialQuotes={initialQuotes}
+            />
+        </TerminalGateWrapper>
     );
 }

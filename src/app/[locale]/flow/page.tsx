@@ -1,5 +1,6 @@
 import { FlowPageClient } from "./FlowPageClient";
 import { getFromCache } from '@/services/redisClient';
+import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
 
 interface Props {
     params: Promise<{ locale: string }>;
@@ -29,9 +30,11 @@ export default async function FlowPage({ params, searchParams }: Props) {
     const initialFlowData = await getFromCache<any>(cacheKey).catch(() => null);
 
     return (
-        <FlowPageClient
-            ticker={ticker}
-            initialFlowData={initialFlowData || undefined}
-        />
+        <TerminalGateWrapper pageName="FLOW">
+            <FlowPageClient
+                ticker={ticker}
+                initialFlowData={initialFlowData || undefined}
+            />
+        </TerminalGateWrapper>
     );
 }

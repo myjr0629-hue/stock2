@@ -45,7 +45,7 @@ export function StickyFoundingBar() {
                     <div className="flex items-center gap-3 min-w-0">
                         <div className="flex-shrink-0 flex items-center gap-1.5">
                             <Zap className="w-4 h-4 text-amber-400" />
-                            <span className="text-[11px] font-black text-amber-400 uppercase tracking-wider hidden sm:inline">
+                            <span className="text-xs font-black text-amber-400 uppercase tracking-wider hidden sm:inline">
                                 FOUNDING MEMBER
                             </span>
                         </div>

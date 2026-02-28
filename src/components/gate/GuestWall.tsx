@@ -158,7 +158,7 @@ export function GuestWall({ children, pageName }: GuestWallProps) {
                             </Link>
 
                             {/* 보장 */}
-                            <p className="text-center text-[11px] text-slate-500 mt-3">
+                            <p className="text-center text-xs text-slate-500 mt-3">
                                 Google/GitHub 원클릭 · 10초 가입 · 카드 불필요
                             </p>
 
@@ -168,7 +168,7 @@ export function GuestWall({ children, pageName }: GuestWallProps) {
                                     <Zap className="w-3.5 h-3.5 text-amber-400" />
                                     <span className="text-amber-400 font-bold">{t('foundingBadge')}</span>
                                 </div>
-                                <p className="text-[11px] text-slate-400 mt-1">
+                                <p className="text-xs text-slate-400 mt-1">
                                     {t('foundingDesc')}
                                 </p>
                             </div>

@@ -57,8 +57,8 @@ export function UpgradeModal({ isOpen, onClose, triggerFeature, requiredTier = '
                     {/* 아이콘 */}
                     <div className="flex justify-center mb-4">
                         <div className={`rounded-2xl p-4 ${requiredTier === 'elite'
-                                ? 'bg-cyan-500/10 border border-cyan-500/30 shadow-[0_0_25px_rgba(34,211,238,0.15)]'
-                                : 'bg-amber-500/10 border border-amber-500/30 shadow-[0_0_25px_rgba(245,158,11,0.15)]'
+                            ? 'bg-cyan-500/10 border border-cyan-500/30 shadow-[0_0_25px_rgba(34,211,238,0.15)]'
+                            : 'bg-amber-500/10 border border-amber-500/30 shadow-[0_0_25px_rgba(245,158,11,0.15)]'
                             }`}>
                             {requiredTier === 'elite'
                                 ? <Crown className="w-8 h-8 text-cyan-400" />
@@ -130,7 +130,7 @@ export function UpgradeModal({ isOpen, onClose, triggerFeature, requiredTier = '
                     </Link>
 
                     {/* 하단 보장 */}
-                    <p className="text-center text-[11px] text-slate-500 mt-3">
+                    <p className="text-center text-xs text-slate-500 mt-3">
                         {t('guarantee')}
                     </p>
                 </div>

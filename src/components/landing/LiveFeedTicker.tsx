@@ -144,7 +144,7 @@ export function LiveFeedTicker() {
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
                     </span>
-                    <span className="uppercase tracking-widest font-bold text-[10px]">
+                    <span className="uppercase tracking-widest font-bold text-xs">
                         Loading live feed...
                     </span>
                 </div>
@@ -161,7 +161,7 @@ export function LiveFeedTicker() {
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
                         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-500" />
                     </span>
-                    <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">
+                    <span className="text-xs font-black text-red-400 uppercase tracking-widest">
                         LIVE
                     </span>
                 </div>
