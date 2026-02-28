@@ -130,16 +130,16 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
 
     return (
         <div className="space-y-6 relative">
-            {/* Ambient Glow Effects — strong enough to show through card backgrounds */}
-            <div className="absolute top-[-10%] left-[0%] w-[60%] h-[600px] bg-indigo-500/[0.12] blur-[180px] rounded-full pointer-events-none z-0" />
-            <div className="absolute top-[35%] right-[-5%] w-[50%] h-[500px] bg-cyan-500/[0.08] blur-[160px] rounded-full pointer-events-none z-0" />
-            <div className="absolute bottom-[0%] left-[10%] w-[50%] h-[500px] bg-violet-500/[0.08] blur-[160px] rounded-full pointer-events-none z-0" />
+            {/* Ambient Glow Effects — emerald tone for premium feel */}
+            <div className="absolute top-[-10%] left-[0%] w-[60%] h-[600px] bg-emerald-400/[0.14] blur-[180px] rounded-full pointer-events-none z-0" />
+            <div className="absolute top-[35%] right-[-5%] w-[50%] h-[500px] bg-teal-400/[0.10] blur-[160px] rounded-full pointer-events-none z-0" />
+            <div className="absolute bottom-[0%] left-[10%] w-[50%] h-[500px] bg-emerald-500/[0.09] blur-[160px] rounded-full pointer-events-none z-0" />
 
             {/* ═══ HERO HEADER ═══ */}
-            <section className="relative z-10 p-6 rounded-2xl border border-white/[0.12] bg-slate-900/60 backdrop-blur-sm shadow-2xl overflow-hidden">
+            <section className="relative z-10 p-6 rounded-2xl border border-emerald-500/[0.12] bg-[#0d1117]/80 backdrop-blur-sm shadow-2xl overflow-hidden">
                 <div className="absolute inset-0 pointer-events-none">
-                    <div className="absolute -top-20 -right-20 w-80 h-80 bg-gradient-radial from-cyan-500/8 to-transparent rounded-full blur-3xl animate-pulse" />
-                    <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-radial from-indigo-500/6 to-transparent rounded-full blur-3xl" />
+                    <div className="absolute -top-20 -right-20 w-80 h-80 bg-gradient-radial from-emerald-400/10 to-transparent rounded-full blur-3xl animate-pulse" />
+                    <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-radial from-teal-400/8 to-transparent rounded-full blur-3xl" />
                 </div>
 
                 <div className="relative z-10 flex items-start justify-between gap-6">
@@ -158,27 +158,40 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         </p>
                     </div>
 
-                    <div className="flex-shrink-0 flex flex-col items-end gap-2">
-                        <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border ${marketSentiment === 'BULLISH' ? 'bg-emerald-500/10 border-emerald-500/30' :
-                            marketSentiment === 'BEARISH' ? 'bg-rose-500/10 border-rose-500/30' :
-                                'bg-amber-500/10 border-amber-500/30'
-                            }`}>
-                            {sentimentIcon}
-                            <span className={`text-sm font-black tracking-wider ${sentimentColor}`}>
-                                {marketSentiment}
-                            </span>
-                            <span className={`text-lg font-mono font-black ${getMomentumColor(marketOverview.avgChange)}`}>
-                                {marketOverview.avgChange > 0 ? '+' : ''}{marketOverview.avgChange.toFixed(2)}%
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-3 text-[13px] font-mono">
-                            <span className="text-emerald-400 flex items-center gap-1">
-                                <TrendingUp className="w-3.5 h-3.5" /> {marketOverview.totalUp}
-                            </span>
-                            <span className="text-slate-400">|</span>
-                            <span className="text-rose-400 flex items-center gap-1">
-                                <TrendingDown className="w-3.5 h-3.5" /> {marketOverview.totalDown}
-                            </span>
+                    <div className="flex-shrink-0">
+                        <div className={`relative rounded-2xl border backdrop-blur-md px-5 py-3 ${marketSentiment === 'BULLISH' ? 'bg-emerald-500/20 border-emerald-400/40' :
+                            marketSentiment === 'BEARISH' ? 'bg-rose-500/20 border-rose-400/40' :
+                                'bg-amber-500/20 border-amber-400/40'
+                            }`} style={{
+                                boxShadow: marketSentiment === 'BULLISH' ? '0 0 30px rgba(16,185,129,0.15)' :
+                                    marketSentiment === 'BEARISH' ? '0 0 30px rgba(244,63,94,0.15)' :
+                                        '0 0 30px rgba(245,158,11,0.15)'
+                            }}>
+                            {/* Sentiment Row */}
+                            <div className="flex items-center gap-2.5 mb-2">
+                                <div className={`p-1.5 rounded-lg ${marketSentiment === 'BULLISH' ? 'bg-emerald-500/25' :
+                                    marketSentiment === 'BEARISH' ? 'bg-rose-500/25' : 'bg-amber-500/25'
+                                    }`}>
+                                    {sentimentIcon}
+                                </div>
+                                <span className={`text-sm font-black tracking-[0.15em] ${sentimentColor}`}>
+                                    {marketSentiment}
+                                </span>
+                                <span className={`text-xl font-mono font-black ${getMomentumColor(marketOverview.avgChange)}`}>
+                                    {marketOverview.avgChange > 0 ? '+' : ''}{marketOverview.avgChange.toFixed(2)}%
+                                </span>
+                            </div>
+                            {/* Up/Down Pills */}
+                            <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/30">
+                                    <TrendingUp className="w-3 h-3 text-emerald-400" />
+                                    <span className="text-[13px] font-bold text-emerald-300 font-mono">{marketOverview.totalUp}</span>
+                                </div>
+                                <div className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-500/20 border border-rose-500/30">
+                                    <TrendingDown className="w-3 h-3 text-rose-400" />
+                                    <span className="text-[13px] font-bold text-rose-300 font-mono">{marketOverview.totalDown}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -232,11 +245,25 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         className={`group relative cursor-pointer rounded-xl border transition-all duration-300 overflow-hidden
                             ${hoveredSector === def.key
                                 ? `${def.accentBorder} ${def.accentBg} shadow-lg`
-                                : 'border-white/[0.12] bg-slate-900/50 hover:border-white/[0.20]'}
+                                : 'border-white/[0.10] bg-[#0d1117]/70 hover:border-emerald-400/[0.18]'}
                         `}
                         style={hoveredSector === def.key ? { boxShadow: `0 0 30px ${def.accentHex}20` } : undefined}
                     >
-                        <div className="p-4">
+                        {/* Infographic Background */}
+                        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                            {/* Accent radial glow */}
+                            <div className="absolute -top-6 -right-6 w-36 h-36 rounded-full opacity-[0.08]"
+                                style={{ background: `radial-gradient(circle, ${def.accentHex}, transparent 70%)` }} />
+                            {/* Grid dots */}
+                            <div className="absolute inset-0 opacity-[0.05]"
+                                style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+                            {/* Decorative chart line */}
+                            <svg className="absolute bottom-0 right-0 w-28 h-20 opacity-[0.08]" viewBox="0 0 96 64" fill="none">
+                                <polyline points="0,50 16,42 32,48 48,30 64,36 80,18 96,24" stroke={def.accentHex} strokeWidth="1.5" fill="none" />
+                                <polyline points="0,56 16,52 32,54 48,44 64,48 80,38 96,42" stroke="white" strokeWidth="1" fill="none" />
+                            </svg>
+                        </div>
+                        <div className="relative z-10 p-4">
                             {/* Header */}
                             <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
@@ -325,7 +352,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             </section>
 
             {/* ═══ SECTOR MOMENTUM RANKING — Premium Table ═══ */}
-            <section className="relative z-10 rounded-xl border border-white/[0.12] bg-slate-900/50 backdrop-blur-sm overflow-hidden">
+            <section className="relative z-10 rounded-xl border border-emerald-500/[0.12] bg-[#0d1117]/70 backdrop-blur-sm overflow-hidden">
                 {/* Header Row */}
                 <div className="grid items-center px-5 py-3 border-b border-white/[0.10]"
                     style={{ gridTemplateColumns: RANKING_GRID }}>
