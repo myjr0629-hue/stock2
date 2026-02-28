@@ -743,7 +743,7 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                                                         {title}
                                                     </div>
                                                     {insight && (
-                                                        <div className="text-[12px] text-cyan-300 mt-0.5 leading-snug line-clamp-2">
+                                                        <div className="text-[13px] text-cyan-200/90 mt-1 leading-relaxed line-clamp-2">
                                                             → {insight}
                                                         </div>
                                                     )}

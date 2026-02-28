@@ -57,6 +57,7 @@ const SectorSessionGrid = dynamic(() => import("@/components/intel/SectorSession
 const SectorPulseDashboard = dynamic(() => import("@/components/intel/SectorPulseDashboard").then(m => m.SectorPulseDashboard), { ssr: false });
 const SectorCommanderLog = dynamic(() => import("@/components/intel/SectorCommanderLog").then(m => m.SectorCommanderLog), { ssr: false });
 const TacticalReportDeck = dynamic(() => import("@/components/intel/TacticalReportDeck").then(m => m.TacticalReportDeck), { ssr: false });
+const PostMarketBriefView = dynamic(() => import("@/components/intel/PostMarketBriefView").then(m => m.PostMarketBriefView), { ssr: false });
 const SectorRankingRow = dynamic(() => import("@/components/intel/SectorRankingRow").then(m => m.SectorRankingRow), { ssr: false });
 const SectorAnalystConsensus = dynamic(() => import("@/components/intel/SectorAnalystConsensus").then(m => m.SectorAnalystConsensus), { ssr: false });
 const SectorEarningsCalendar = dynamic(() => import("@/components/intel/SectorEarningsCalendar").then(m => m.SectorEarningsCalendar), { ssr: false });
@@ -1649,6 +1650,11 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                     {/* SECTOR COMMAND DASHBOARD — Main Landing View */}
                     {activeTab === 'SECTOR_COMMAND' && (
                         <SectorCommandCenter sectorData={sectorData} onNavigate={setActiveTab} />
+                    )}
+
+                    {/* POST-MARKET BRIEF — Unified View of All Sector Reports */}
+                    {activeTab === 'POST_MARKET_ALL' && (
+                        <PostMarketBriefView />
                     )}
 
                     {/* TRACK RECORD CONTENT — [DISABLED] Alpha Report removed */}

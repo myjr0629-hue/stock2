@@ -153,6 +153,15 @@ export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: Tactic
                     accentColor="text-cyan-400"
                 />
 
+                <SidebarItem
+                    icon={<BookOpen />}
+                    label="POST-MARKET"
+                    subLabel="ALL SECTOR BRIEFS"
+                    isActive={activeTab === 'POST_MARKET_ALL'}
+                    onClick={() => onTabChange('POST_MARKET_ALL')}
+                    accentColor="text-amber-400"
+                />
+
                 {/* ═══ SECTOR INTEL GROUP ═══ */}
                 <div className="mt-3 mb-1 px-4 flex items-center gap-2">
                     <div className="h-px flex-1 bg-white/[0.10]" />

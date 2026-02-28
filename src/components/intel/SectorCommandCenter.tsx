@@ -160,11 +160,11 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
 
                     <div className="flex-shrink-0">
                         <div className={`relative rounded-2xl border backdrop-blur-md px-5 py-3 ${marketSentiment === 'BULLISH' ? 'bg-emerald-500/20 border-emerald-400/40' :
-                            marketSentiment === 'BEARISH' ? 'bg-rose-500/20 border-rose-400/40' :
+                            marketSentiment === 'BEARISH' ? 'bg-rose-400/15 border-rose-300/30' :
                                 'bg-amber-500/20 border-amber-400/40'
                             }`} style={{
                                 boxShadow: marketSentiment === 'BULLISH' ? '0 0 30px rgba(16,185,129,0.15)' :
-                                    marketSentiment === 'BEARISH' ? '0 0 30px rgba(244,63,94,0.15)' :
+                                    marketSentiment === 'BEARISH' ? '0 0 30px rgba(251,113,133,0.10)' :
                                         '0 0 30px rgba(245,158,11,0.15)'
                             }}>
                             {/* Sentiment Row */}
@@ -257,10 +257,19 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                             {/* Grid dots */}
                             <div className="absolute inset-0 opacity-[0.05]"
                                 style={{ backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.8) 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
-                            {/* Decorative chart line */}
-                            <svg className="absolute bottom-0 right-0 w-28 h-20 opacity-[0.08]" viewBox="0 0 96 64" fill="none">
-                                <polyline points="0,50 16,42 32,48 48,30 64,36 80,18 96,24" stroke={def.accentHex} strokeWidth="1.5" fill="none" />
-                                <polyline points="0,56 16,52 32,54 48,44 64,48 80,38 96,42" stroke="white" strokeWidth="1" fill="none" />
+                            {/* Dynamic chart line — reflects sector momentum */}
+                            <svg className="absolute bottom-0 right-0 w-28 h-20 opacity-[0.25]" viewBox="0 0 96 64" fill="none">
+                                <polyline
+                                    points={stats.avgChange >= 0
+                                        ? '0,52 16,48 32,44 48,36 64,30 80,22 96,16'
+                                        : '0,16 16,22 32,28 48,36 64,42 80,50 96,54'}
+                                    stroke={stats.avgChange >= 0 ? '#10b981' : '#fb7185'}
+                                    strokeWidth="2.5" fill="none" strokeLinecap="round" />
+                                <polyline
+                                    points={stats.avgChange >= 0
+                                        ? '0,56 16,54 32,50 48,46 64,42 80,38 96,34'
+                                        : '0,34 16,38 32,42 48,46 64,50 80,54 96,56'}
+                                    stroke="white" strokeWidth="1.5" fill="none" opacity="0.4" />
                             </svg>
                         </div>
                         <div className="relative z-10 p-4">
