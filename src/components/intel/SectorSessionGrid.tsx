@@ -64,7 +64,7 @@ function PricePositionBar({ price, maxPain, putFloor, callWall }: {
 
     return (
         <div className="relative w-full h-3 rounded-full" style={{ isolation: 'isolate' }}>
-            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+            <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 bg-white/[0.15] rounded-full overflow-hidden">
                 <div className="absolute left-0 top-0 h-full bg-rose-500/15 rounded-l-full"
                     style={{ width: `${Math.max(0, painPos - 5)}%` }} />
                 <div className="absolute right-0 top-0 h-full bg-emerald-500/15 rounded-r-full"
@@ -93,10 +93,10 @@ function FlowBar({ pcr, changePct, ss }: { pcr: number; changePct: number; ss: a
 
     return (
         <div className="flex items-center gap-2">
-            <span className={`text-[11px] font-semibold w-12 font-jakarta ${isCall ? 'text-emerald-400' : isPut ? 'text-rose-400' : 'text-slate-300'}`}>
+            <span className={`text-xs font-semibold w-12 font-jakarta ${isCall ? 'text-emerald-400' : isPut ? 'text-rose-400' : 'text-slate-300'}`}>
                 {label}
             </span>
-            <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
+            <div className="flex-1 h-1.5 bg-white/[0.15] rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-700"
                     style={{ width: `${width}%`, backgroundColor: barColor, boxShadow: `0 0 6px ${barColor}40` }} />
             </div>
@@ -414,11 +414,11 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                     {sectorSummary.text}
                 </span>
                 <div className="flex items-center gap-3 flex-shrink-0">
-                    <span className="text-[11px] text-white/60 font-medium tracking-wider hidden lg:inline px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
+                    <span className="text-xs text-white/60 font-medium tracking-wider hidden lg:inline px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/[0.06]">
                         {DISCLAIMER[locale] || DISCLAIMER.en}
                     </span>
                     {refreshing && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: `${accentColor}99` }} />}
-                    <span className="text-[11px] uppercase flex items-center gap-1.5 font-bold tracking-wider px-2.5 py-1 rounded-full backdrop-blur-sm font-jakarta"
+                    <span className="text-xs uppercase flex items-center gap-1.5 font-bold tracking-wider px-2.5 py-1 rounded-full backdrop-blur-sm font-jakarta"
                         style={{
                             color: sInfo.color,
                             backgroundColor: `${sInfo.color}15`,
@@ -489,7 +489,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                         {hasAlert && (
                                             <AlertTriangle className="w-3 h-3 text-amber-400 animate-pulse" />
                                         )}
-                                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border backdrop-blur-md text-[11px] font-bold font-jakarta ${q.alphaScore >= 75 ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' :
+                                        <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md border backdrop-blur-md text-xs font-bold font-jakarta ${q.alphaScore >= 75 ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' :
                                             q.alphaScore >= 50 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' :
                                                 'bg-white/[0.03] border-white/[0.06] text-white/40'
                                             }`}>
@@ -515,50 +515,50 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
 
                                 {/* Row 3: 4-Quad Indicators */}
                                 <div className="grid grid-cols-2 gap-1.5 mb-2">
-                                    <div className={`px-2 py-1.5 rounded-md border ${q.gex > 0 ? 'bg-emerald-500/10 border-emerald-500/25' : q.gex < 0 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">GEX</div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.gex > 0 ? 'bg-emerald-500/10 border-emerald-500/25' : q.gex < 0 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
+                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">GEX</div>
                                         <div className={`text-sm font-bold font-num ${q.gex > 0 ? 'text-emerald-400' : q.gex < 0 ? 'text-rose-400' : 'text-white/50'}`}>
                                             {q.gex > 0 ? '+' : ''}{formatGex(q.gex)}
                                         </div>
                                     </div>
-                                    <div className={`px-2 py-1.5 rounded-md border ${q.pcr < 0.8 ? 'bg-emerald-500/10 border-emerald-500/25' : q.pcr > 1.1 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">PCR</div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.pcr < 0.8 ? 'bg-emerald-500/10 border-emerald-500/25' : q.pcr > 1.1 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
+                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">PCR</div>
                                         <div className={`text-sm font-bold font-num ${q.pcr < 0.8 ? 'text-emerald-400' : q.pcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
                                             {q.pcr > 0 ? q.pcr.toFixed(2) : '-'}
                                         </div>
                                     </div>
-                                    <div className={`px-2 py-1.5 rounded-md border ${(q as any).squeezeScore >= 70 ? 'bg-orange-500/10 border-orange-500/25' : (q as any).squeezeScore >= 40 ? 'bg-amber-500/10 border-amber-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">SQUEEZE</div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${(q as any).squeezeScore >= 70 ? 'bg-orange-500/10 border-orange-500/25' : (q as any).squeezeScore >= 40 ? 'bg-amber-500/10 border-amber-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
+                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">SQUEEZE</div>
                                         <div className={`text-sm font-bold font-num ${(q as any).squeezeScore >= 70 ? 'text-orange-400' : (q as any).squeezeScore >= 40 ? 'text-amber-400' : 'text-white/70'}`}>
                                             {(q as any).squeezeScore > 0 ? `${Math.round((q as any).squeezeScore)}%` : '-'}
                                         </div>
                                     </div>
-                                    <div className={`px-2 py-1.5 rounded-md border ${q.netPremium > 0 ? 'bg-emerald-500/10 border-emerald-500/25' : q.netPremium < 0 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">NET PREM</div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.netPremium > 0 ? 'bg-emerald-500/10 border-emerald-500/25' : q.netPremium < 0 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
+                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">NET PREM</div>
                                         <div className={`text-sm font-bold font-num ${q.netPremium > 0 ? 'text-emerald-400' : q.netPremium < 0 ? 'text-rose-400' : 'text-white/70'}`}>
                                             {q.netPremium !== 0 ? `${q.netPremium > 0 ? '+' : ''}$${(q.netPremium / 1e6).toFixed(1)}M` : '-'}
                                         </div>
                                     </div>
-                                    <div className="px-2 py-1.5 rounded-md border bg-white/[0.02] border-white/[0.06]">
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">PUT FLOOR</div>
+                                    <div className="px-2 py-1.5 rounded-md border bg-white/[0.03] border-white/[0.15]">
+                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">PUT FLOOR</div>
                                         <div className="text-sm font-bold font-num text-rose-300">
                                             ${q.putFloor > 0 ? q.putFloor.toFixed(0) : '-'}
                                         </div>
                                     </div>
-                                    <div className="px-2 py-1.5 rounded-md border bg-white/[0.02] border-white/[0.06]">
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">CALL WALL</div>
+                                    <div className="px-2 py-1.5 rounded-md border bg-white/[0.03] border-white/[0.15]">
+                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">CALL WALL</div>
                                         <div className="text-sm font-bold font-num text-emerald-300">
                                             ${q.callWall > 0 ? q.callWall.toFixed(0) : '-'}
                                         </div>
                                     </div>
-                                    <div className={`px-2 py-1.5 rounded-md border ${q.whaleIndex >= 60 ? 'bg-violet-500/10 border-violet-500/25' : q.whaleIndex >= 30 ? 'bg-white/[0.04] border-white/[0.10]' : 'bg-white/[0.02] border-white/[0.06]'}`}>
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">🐋 WHALE</div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.whaleIndex >= 60 ? 'bg-violet-500/10 border-violet-500/25' : q.whaleIndex >= 30 ? 'bg-white/[0.04] border-white/[0.20]' : 'bg-white/[0.03] border-white/[0.15]'}`}>
+                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">🐋 WHALE</div>
                                         <div className={`text-sm font-bold font-num ${q.whaleIndex >= 60 ? 'text-violet-300' : q.whaleIndex >= 30 ? 'text-white/70' : 'text-white/40'}`}>
                                             {q.whaleIndex > 0 ? q.whaleIndex : '-'}
                                         </div>
                                     </div>
-                                    <div className={`px-2 py-1.5 rounded-md border ${q.darkPoolPct >= 40 ? 'bg-slate-500/15 border-slate-400/30' : 'bg-white/[0.02] border-white/[0.06]'}`}>
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">🕶️ D.POOL</div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.darkPoolPct >= 40 ? 'bg-slate-500/15 border-slate-400/30' : 'bg-white/[0.03] border-white/[0.15]'}`}>
+                                        <div className="text-xs text-white/50 uppercase font-medium tracking-wider font-jakarta">🕶️ D.POOL</div>
                                         <div className={`text-sm font-bold font-num ${q.darkPoolPct >= 40 ? 'text-slate-200' : 'text-white/40'}`}>
                                             {q.darkPoolPct > 0 ? `${q.darkPoolPct.toFixed(0)}%` : '-'}
                                         </div>
@@ -568,7 +568,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                 {/* Row 4: Position Bar */}
                                 <div className="mb-2 px-0.5">
                                     <PricePositionBar price={q.price} maxPain={q.maxPain} putFloor={q.putFloor} callWall={q.callWall} />
-                                    <div className="flex justify-between text-[11px] mt-1 font-semibold font-jakarta">
+                                    <div className="flex justify-between text-xs mt-1 font-semibold font-jakarta">
                                         <span className="text-rose-400/80">Put</span>
                                         <span className="text-amber-300 font-num">⬥ Pain ${q.maxPain > 0 ? q.maxPain.toFixed(0) : '-'}</span>
                                         <span className="text-emerald-400/80">Call</span>
@@ -597,26 +597,26 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-1.5">
                                         <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: regimeColor }} />
-                                        <span className="text-[11px] font-semibold font-jakarta" style={{ color: regimeColor }}>
+                                        <span className="text-xs font-semibold font-jakarta" style={{ color: regimeColor }}>
                                             {regimeLabel}
                                         </span>
                                         {isHighGex && (
-                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-purple-500/15 text-purple-300 rounded border border-purple-500/25 font-jakarta">
+                                            <span className="text-xs font-semibold px-1.5 py-0.5 bg-purple-500/15 text-purple-300 rounded border border-purple-500/25 font-jakarta">
                                                 High GEX
                                             </span>
                                         )}
                                         {isExtremePcr && (
-                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-amber-500/15 text-amber-300 rounded border border-amber-500/25 font-jakarta">
+                                            <span className="text-xs font-semibold px-1.5 py-0.5 bg-amber-500/15 text-amber-300 rounded border border-amber-500/25 font-jakarta">
                                                 PCR ⚠
                                             </span>
                                         )}
                                         {q.whaleIndex >= 60 && (
-                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-violet-500/15 text-violet-300 rounded border border-violet-500/25 font-jakarta">
+                                            <span className="text-xs font-semibold px-1.5 py-0.5 bg-violet-500/15 text-violet-300 rounded border border-violet-500/25 font-jakarta">
                                                 🐋 Whale
                                             </span>
                                         )}
                                         {q.darkPoolPct >= 40 && (
-                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 bg-slate-500/15 text-slate-300 rounded border border-slate-400/25 font-jakarta">
+                                            <span className="text-xs font-semibold px-1.5 py-0.5 bg-slate-500/15 text-slate-300 rounded border border-slate-400/25 font-jakarta">
                                                 🕶️ D.Pool
                                             </span>
                                         )}
@@ -635,45 +635,45 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                     <div className="grid grid-cols-4 gap-2">
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">{ss('totalGex')}</span>
+                                <span className="text-xs text-white/50 font-medium uppercase tracking-wider font-jakarta">{ss('totalGex')}</span>
                                 <span className={`text-sm font-bold font-num ${stats.totalGex > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {stats.totalGex > 0 ? '+' : ''}{formatGex(stats.totalGex)}
                                 </span>
                             </div>
-                            <p className="text-[11px] text-white/60 font-medium">{stats.gexInsight}</p>
+                            <p className="text-xs text-white/60 font-medium">{stats.gexInsight}</p>
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">{ss('avgPcr')}</span>
+                                <span className="text-xs text-white/50 font-medium uppercase tracking-wider font-jakarta">{ss('avgPcr')}</span>
                                 <span className={`text-sm font-bold font-num ${stats.avgPcr < 0.8 ? 'text-emerald-400' : stats.avgPcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
                                     {stats.avgPcr.toFixed(2)}
                                 </span>
                             </div>
-                            <p className="text-[11px] text-white/60 font-medium">{stats.pcrInsight}</p>
+                            <p className="text-xs text-white/60 font-medium">{stats.pcrInsight}</p>
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">{ss('gamma')}</span>
+                                <span className="text-xs text-white/50 font-medium uppercase tracking-wider font-jakarta">{ss('gamma')}</span>
                                 <div className="flex items-center gap-1">
                                     <span className="text-sm font-bold font-num text-cyan-400">{stats.gammaLong}L</span>
-                                    <span className="text-[10px] text-white/20">/</span>
+                                    <span className="text-xs text-white/20">/</span>
                                     <span className="text-sm font-bold font-num text-amber-400">{stats.gammaShort}S</span>
                                 </div>
                             </div>
-                            <p className="text-[11px] text-white/60 font-medium">
+                            <p className="text-xs text-white/60 font-medium">
                                 {stats.gammaShort > stats.gammaLong ? ss('shortGammaDomMoveRisk') : stats.gammaLong > 0 ? ss('longGammaDomStable') : ss('searchingDirection')}
                             </p>
                         </div>
                         <div className="bg-white/[0.02] backdrop-blur-md rounded-lg px-3 py-2 border border-white/[0.04]">
                             <div className="flex items-center justify-between mb-0.5">
-                                <span className="text-[11px] text-white/50 font-medium uppercase tracking-wider font-jakarta">FLOW</span>
+                                <span className="text-xs text-white/50 font-medium uppercase tracking-wider font-jakarta">FLOW</span>
                                 <div className="flex items-center gap-1">
                                     <span className="text-sm font-bold font-num text-emerald-400">{stats.callDom}C</span>
-                                    <span className="text-[10px] text-white/20">/</span>
+                                    <span className="text-xs text-white/20">/</span>
                                     <span className="text-sm font-bold font-num text-rose-400">{sorted.length - stats.callDom}P</span>
                                 </div>
                             </div>
-                            <p className="text-[11px] text-white/60 font-medium">
+                            <p className="text-xs text-white/60 font-medium">
                                 {stats.callDom > sorted.length / 2 ? ss('callInflowDom') : ss('putHedgeDom')}
                             </p>
                         </div>
