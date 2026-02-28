@@ -168,9 +168,9 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     // 4. Squeeze Score 분석
     const squeeze = (q as any).squeezeScore || 0;
     if (squeeze >= 70) {
-        parts.push(`🔥 ${ss('squeezeHigh') || `Squeeze ${Math.round(squeeze)}%. 변동성 폭발 임박.`}`);
+        parts.push(`🔥 Squeeze ${Math.round(squeeze)}%. 변동성 폭발 임박.`);
     } else if (squeeze >= 40) {
-        parts.push(`⚡ ${ss('squeezeLoading') || `Squeeze ${Math.round(squeeze)}%. 에너지 축적 중.`}`);
+        parts.push(`⚡ Squeeze ${Math.round(squeeze)}%. 에너지 축적 중.`);
     }
 
     // 5. Net Premium 분석
@@ -178,9 +178,9 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     const npM = np / 1e6;
     if (Math.abs(npM) >= 1) {
         if (npM > 0) {
-            parts.push(`${ss('netPremCallInflow') || `콜 순유입 +$${npM.toFixed(1)}M. 기관 롱 포지션 적립.`}`);
+            parts.push(`콜 순유입 +$${npM.toFixed(1)}M. 기관 롱 포지션 적립.`);
         } else {
-            parts.push(`${ss('netPremPutInflow') || `풋 순유입 -$${Math.abs(npM).toFixed(1)}M. 헤지/하락 베팅.`}`);
+            parts.push(`풋 순유입 -$${Math.abs(npM).toFixed(1)}M. 헤지/하락 베팅.`);
         }
     }
 
