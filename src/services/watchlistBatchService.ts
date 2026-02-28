@@ -522,7 +522,9 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 netPremium: fullObj.realtime.netPremium,
                 vwapDist: fullObj.realtime.vwapDist,
                 volume: fullObj.realtime.volume,
-                darkPoolPct: darkPoolPct ?? 0
+                darkPoolPct: darkPoolPct ?? 0,
+                ivSkew: typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null,
+                impliedMovePct: impliedMovePct ?? null
             }).catch(e => console.error(`Failed to write analysis cache for ${ticker}`, e));
 
             return fullObj;

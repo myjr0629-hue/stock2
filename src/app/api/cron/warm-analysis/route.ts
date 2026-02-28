@@ -392,6 +392,8 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
                 ? Number(((stockData.price - stockData.vwap) / stockData.vwap * 100).toFixed(2))
                 : null,
             volume: stockData.volume || null,
+            ivSkew: typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null,
+            impliedMovePct: impliedMovePct ?? null,
         };
 
         await writeAnalysisCache(ticker, cacheEntry);

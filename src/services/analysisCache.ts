@@ -62,6 +62,8 @@ export interface AnalysisCacheEntry {
     netPremium: number | null;
     vwapDist: number | null;   // cached for reference, UI recalculates with live price
     volume: number | null;     // for reference
+    ivSkew: number | null;             // IV skew (put vs call IV difference)
+    impliedMovePct: number | null;     // Implied move % from ATM straddle
 }
 
 /**

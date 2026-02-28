@@ -220,6 +220,8 @@ export async function GET(request: Request) {
             let rsi = 0;
             let rvol = 0;
             let squeezeScore = 0;
+            let ivSkew = 0;
+            let impliedMovePct = 0;
 
             if (analysis) {
                 // Use pre-warmed analysis cache (always fresh, 2-min Cron)
@@ -234,6 +236,8 @@ export async function GET(request: Request) {
                 rsi = analysis.rsi || 0;
                 rvol = analysis.relVol || 0;
                 squeezeScore = analysis.squeezeScore || 0;
+                ivSkew = analysis.ivSkew || 0;
+                impliedMovePct = analysis.impliedMovePct || 0;
                 sparkline = analysis.sparkline || [];
                 if (gex > 0) gammaRegime = 'LONG';
                 else if (gex < 0) gammaRegime = 'SHORT';
@@ -282,6 +286,8 @@ export async function GET(request: Request) {
                 rsi,
                 rvol,
                 squeezeScore,
+                ivSkew,
+                impliedMovePct,
             };
         });
 

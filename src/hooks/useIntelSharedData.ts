@@ -43,6 +43,8 @@ export interface IntelQuote {
     rsi: number;
     rvol: number;
     squeezeScore: number;
+    ivSkew: number;
+    impliedMovePct: number;
     whaleIndex: number;
     darkPoolPct: number;
     priceFlash?: 'up' | 'down' | null; // flash animation direction

@@ -195,6 +195,30 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
         parts.push(ss('darkPoolHighAnalysis', { pct: darkPool.toFixed(0) }) || `🕶️ Dark Pool ${darkPool.toFixed(0)}%. ${ss('offExchangeHeavy') || 'Heavy off-exchange activity.'}`);
     }
 
+    // 7. IV Skew 분석 (풋/콜 비대칭)
+    const skew = q.ivSkew || 0;
+    if (Math.abs(skew) >= 3) {
+        if (skew > 0 && Math.abs(q.changePct) < 1) {
+            parts.push(`🕵️ IV Skew +${skew.toFixed(1)}%. 주가 안정인데 풋 프리미엄 급등 — 스마트 머니 하방 헤지 중.`);
+        } else if (skew > 5) {
+            parts.push(`🔴 IV Skew +${skew.toFixed(1)}%. 극단적 풋 공포 — 기관 하락 방어 돌입.`);
+        } else if (skew > 0) {
+            parts.push(`⚠️ IV Skew +${skew.toFixed(1)}%. 풋 쪽 프리미엄 우세 — 하방 경계.`);
+        } else if (skew < -5) {
+            parts.push(`🟢 IV Skew ${skew.toFixed(1)}%. 콜 프리미엄 과열 — 투기적 상승 기대.`);
+        } else {
+            parts.push(`⚡ IV Skew ${skew.toFixed(1)}%. 콜 쪽 프리미엄 우세 — 상승 기대.`);
+        }
+    }
+
+    // 8. Implied Move % 분석
+    const im = q.impliedMovePct || 0;
+    if (im >= 5) {
+        parts.push(`📊 Implied Move ±${im.toFixed(1)}%. 시장이 대형 변동을 예상 중 — 어닝/이벤트 경계.`);
+    } else if (im >= 3) {
+        parts.push(`📊 Implied Move ±${im.toFixed(1)}%. 변동성 확대 구간.`);
+    }
+
     return parts.join(' ') || ss('collectingData');
 }
 
@@ -561,6 +585,18 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                         <div className="text-xs text-white/50 uppercase font-medium tracking-wider font-jakarta">🕶️ D.POOL</div>
                                         <div className={`text-sm font-bold font-num ${q.darkPoolPct >= 40 ? 'text-slate-200' : 'text-white/40'}`}>
                                             {q.darkPoolPct > 0 ? `${q.darkPoolPct.toFixed(0)}%` : '-'}
+                                        </div>
+                                    </div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${Math.abs(q.ivSkew) >= 5 ? 'bg-violet-500/10 border-violet-500/25' : Math.abs(q.ivSkew) >= 3 ? 'bg-purple-500/10 border-purple-500/25' : 'bg-white/[0.03] border-white/[0.15]'}`}>
+                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">IV SKEW</div>
+                                        <div className={`text-sm font-bold font-num ${q.ivSkew > 3 ? 'text-rose-400' : q.ivSkew < -3 ? 'text-emerald-400' : 'text-white/70'}`}>
+                                            {q.ivSkew !== 0 ? `${q.ivSkew > 0 ? '+' : ''}${q.ivSkew.toFixed(1)}%` : '-'}
+                                        </div>
+                                    </div>
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.impliedMovePct >= 5 ? 'bg-amber-500/10 border-amber-500/25' : q.impliedMovePct >= 3 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-white/[0.03] border-white/[0.15]'}`}>
+                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">IMP MOVE</div>
+                                        <div className={`text-sm font-bold font-num ${q.impliedMovePct >= 5 ? 'text-amber-400' : q.impliedMovePct >= 3 ? 'text-yellow-300' : 'text-white/70'}`}>
+                                            {q.impliedMovePct > 0 ? `±${q.impliedMovePct.toFixed(1)}%` : '-'}
                                         </div>
                                     </div>
                                 </div>
