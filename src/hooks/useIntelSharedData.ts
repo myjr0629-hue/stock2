@@ -82,7 +82,10 @@ export function useIntelSharedData(
     initialPMData?: IntelQuote[],
     initialBPData?: IntelQuote[],
     initialCSData?: IntelQuote[],
-    initialODData?: IntelQuote[]
+    initialODData?: IntelQuote[],
+    initialQEData?: IntelQuote[],
+    initialFPData?: IntelQuote[],
+    initialCFData?: IntelQuote[]
 ): IntelSharedData & { refresh: () => void } {
     const [m7Data, setM7Data] = useState<IntelQuote[]>(initialM7Data || []);
     const [physicalAIData, setPhysicalAIData] = useState<IntelQuote[]>(initialPAIData || []);
@@ -91,9 +94,9 @@ export function useIntelSharedData(
     const [bioPulseData, setBioPulseData] = useState<IntelQuote[]>(initialBPData || []);
     const [cyberShieldData, setCyberShieldData] = useState<IntelQuote[]>(initialCSData || []);
     const [orbitDefenseData, setOrbitDefenseData] = useState<IntelQuote[]>(initialODData || []);
-    const [quantumEdgeData, setQuantumEdgeData] = useState<IntelQuote[]>([]);
-    const [fintechPulseData, setFintechPulseData] = useState<IntelQuote[]>([]);
-    const [cloudFortressData, setCloudFortressData] = useState<IntelQuote[]>([]);
+    const [quantumEdgeData, setQuantumEdgeData] = useState<IntelQuote[]>(initialQEData || []);
+    const [fintechPulseData, setFintechPulseData] = useState<IntelQuote[]>(initialFPData || []);
+    const [cloudFortressData, setCloudFortressData] = useState<IntelQuote[]>(initialCFData || []);
     const [loading, setLoading] = useState(!(initialM7Data?.length && initialPAIData?.length));
     const [refreshing, setRefreshing] = useState(false);
     const [optionsLoading, setOptionsLoading] = useState(true);

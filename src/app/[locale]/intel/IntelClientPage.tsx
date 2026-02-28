@@ -1107,7 +1107,7 @@ function processTickerData(data: any): any {
         session, relVol: data.relVol || 1, history3d: data.history3d || []
     };
 }
-function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], initialSCData?: any[], initialPMData?: any[], initialBPData?: any[], initialCSData?: any[], initialODData?: any[], locale?: string }) {
+function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData, initialQEData, initialFPData, initialCFData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], initialSCData?: any[], initialPMData?: any[], initialBPData?: any[], initialCSData?: any[], initialODData?: any[], initialQEData?: any[], initialFPData?: any[], initialCFData?: any[], locale?: string }) {
     const router = useRouter();
     const searchParams = useSearchParams();
     const isDebug = searchParams.get('debug') === '1';
@@ -1117,7 +1117,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
     // [RESTORED] Components now fetch data independently (same as Flow/Command pages)
     // [V7.0] Sector Intel shared data for new components
-    const sectorData = useIntelSharedData(initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData);
+    const sectorData = useIntelSharedData(initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData, initialQEData, initialFPData, initialCFData);
 
     // State
     const [report, setReport] = useState<any>(initialReport || null);
@@ -2301,7 +2301,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
     );
 }
 
-export default function IntelClientPage({ initialReport, initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], initialSCData?: any[], initialPMData?: any[], initialBPData?: any[], initialCSData?: any[], initialODData?: any[], locale?: string }) {
+export default function IntelClientPage({ initialReport, initialM7Data, initialPAIData, initialSCData, initialPMData, initialBPData, initialCSData, initialODData, initialQEData, initialFPData, initialCFData, locale = 'en' }: { initialReport: any, initialM7Data?: any[], initialPAIData?: any[], initialSCData?: any[], initialPMData?: any[], initialBPData?: any[], initialCSData?: any[], initialODData?: any[], initialQEData?: any[], initialFPData?: any[], initialCFData?: any[], locale?: string }) {
     return (
         <React.Suspense fallback={
             <div className="min-h-screen bg-slate-950 flex items-center justify-center">
@@ -2311,7 +2311,7 @@ export default function IntelClientPage({ initialReport, initialM7Data, initialP
                 </div>
             </div>
         }>
-            <IntelContent initialReport={initialReport} initialM7Data={initialM7Data} initialPAIData={initialPAIData} initialSCData={initialSCData} initialPMData={initialPMData} initialBPData={initialBPData} initialCSData={initialCSData} initialODData={initialODData} locale={locale} />
+            <IntelContent initialReport={initialReport} initialM7Data={initialM7Data} initialPAIData={initialPAIData} initialSCData={initialSCData} initialPMData={initialPMData} initialBPData={initialBPData} initialCSData={initialCSData} initialODData={initialODData} initialQEData={initialQEData} initialFPData={initialFPData} initialCFData={initialCFData} locale={locale} />
         </React.Suspense>
     );
 }

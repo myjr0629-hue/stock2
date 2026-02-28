@@ -27,7 +27,7 @@ export const dynamic = 'force-dynamic';
 export default async function IntelPage({ params }: PageProps) {
     const { locale } = await params;
 
-    const [m7Data, paiData, scData, pmData, bpData, csData, odData] = await Promise.all([
+    const [m7Data, paiData, scData, pmData, bpData, csData, odData, qeData, fpData, cfData] = await Promise.all([
         fetchInitialSectorData('m7'),
         fetchInitialSectorData('physical_ai'),
         fetchInitialSectorData('silicon_core'),
@@ -35,6 +35,9 @@ export default async function IntelPage({ params }: PageProps) {
         fetchInitialSectorData('bio_pulse'),
         fetchInitialSectorData('cyber_shield'),
         fetchInitialSectorData('orbit_defense'),
+        fetchInitialSectorData('quantum_edge'),
+        fetchInitialSectorData('fintech_pulse'),
+        fetchInitialSectorData('cloud_fortress'),
     ]);
 
     return (
@@ -57,6 +60,9 @@ export default async function IntelPage({ params }: PageProps) {
                         initialBPData={bpData}
                         initialCSData={csData}
                         initialODData={odData}
+                        initialQEData={qeData}
+                        initialFPData={fpData}
+                        initialCFData={cfData}
                         locale={locale}
                     />
                 </Suspense>
