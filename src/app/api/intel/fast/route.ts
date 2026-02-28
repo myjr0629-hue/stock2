@@ -219,6 +219,7 @@ export async function GET(request: Request) {
             let netPremium = 0;
             let rsi = 0;
             let rvol = 0;
+            let squeezeScore = 0;
 
             if (analysis) {
                 // Use pre-warmed analysis cache (always fresh, 2-min Cron)
@@ -232,6 +233,7 @@ export async function GET(request: Request) {
                 netPremium = analysis.netPremium || 0;
                 rsi = analysis.rsi || 0;
                 rvol = analysis.relVol || 0;
+                squeezeScore = analysis.squeezeScore || 0;
                 sparkline = analysis.sparkline || [];
                 if (gex > 0) gammaRegime = 'LONG';
                 else if (gex < 0) gammaRegime = 'SHORT';
@@ -279,6 +281,7 @@ export async function GET(request: Request) {
                 netPremium,
                 rsi,
                 rvol,
+                squeezeScore,
             };
         });
 

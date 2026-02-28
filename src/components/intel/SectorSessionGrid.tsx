@@ -165,22 +165,23 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
         parts.push(ss('extremePutBias'));
     }
 
-    // 4. RSI 모멘텀 상태
-    const rsi = (q as any).rsi || 0;
-    if (rsi > 0) {
-        if (rsi < 30) {
-            parts.push(`RSI ${Math.round(rsi)}(${ss('oversold')}).`);
-        } else if (rsi > 70) {
-            parts.push(`RSI ${Math.round(rsi)}(${ss('overbought')}).`);
-        }
+    // 4. Squeeze Score 분석
+    const squeeze = (q as any).squeezeScore || 0;
+    if (squeeze >= 70) {
+        parts.push(`🔥 ${ss('squeezeHigh') || `Squeeze ${Math.round(squeeze)}%. 변동성 폭발 임박.`}`);
+    } else if (squeeze >= 40) {
+        parts.push(`⚡ ${ss('squeezeLoading') || `Squeeze ${Math.round(squeeze)}%. 에너지 축적 중.`}`);
     }
 
-    // 5. RVOL 거래량 확신도
-    const rvol = (q as any).rvol || 0;
-    if (rvol > 1.5) {
-        parts.push(`RVOL ${rvol.toFixed(1)}x(${ss('volumeSurge')}).`);
-    } else if (rvol > 0 && rvol < 0.5) {
-        parts.push(`RVOL ${rvol.toFixed(1)}x(${ss('volumeWeak')}).`);
+    // 5. Net Premium 분석
+    const np = q.netPremium || 0;
+    const npM = np / 1e6;
+    if (Math.abs(npM) >= 1) {
+        if (npM > 0) {
+            parts.push(`${ss('netPremCallInflow') || `콜 순유입 +$${npM.toFixed(1)}M. 기관 롱 포지션 적립.`}`);
+        } else {
+            parts.push(`${ss('netPremPutInflow') || `풋 순유입 -$${Math.abs(npM).toFixed(1)}M. 헤지/하락 베팅.`}`);
+        }
     }
 
     // 6. Whale Index & Dark Pool
@@ -526,16 +527,16 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                             {q.pcr > 0 ? q.pcr.toFixed(2) : '-'}
                                         </div>
                                     </div>
-                                    <div className={`px-2 py-1.5 rounded-md border ${q.rsi > 0 && q.rsi < 30 ? 'bg-emerald-500/10 border-emerald-500/25' : q.rsi > 70 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">RSI</div>
-                                        <div className={`text-sm font-bold font-num ${q.rsi > 0 && q.rsi < 30 ? 'text-emerald-400' : q.rsi > 70 ? 'text-rose-400' : 'text-white/70'}`}>
-                                            {q.rsi > 0 ? Math.round(q.rsi) : '-'}
+                                    <div className={`px-2 py-1.5 rounded-md border ${(q as any).squeezeScore >= 70 ? 'bg-orange-500/10 border-orange-500/25' : (q as any).squeezeScore >= 40 ? 'bg-amber-500/10 border-amber-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">SQUEEZE</div>
+                                        <div className={`text-sm font-bold font-num ${(q as any).squeezeScore >= 70 ? 'text-orange-400' : (q as any).squeezeScore >= 40 ? 'text-amber-400' : 'text-white/70'}`}>
+                                            {(q as any).squeezeScore > 0 ? `${Math.round((q as any).squeezeScore)}%` : '-'}
                                         </div>
                                     </div>
-                                    <div className={`px-2 py-1.5 rounded-md border ${q.rvol > 1.5 ? 'bg-amber-500/10 border-amber-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
-                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">RVOL</div>
-                                        <div className={`text-sm font-bold font-num ${q.rvol > 1.5 ? 'text-amber-400' : 'text-white/70'}`}>
-                                            {q.rvol > 0 ? `${q.rvol.toFixed(1)}x` : '-'}
+                                    <div className={`px-2 py-1.5 rounded-md border ${q.netPremium > 0 ? 'bg-emerald-500/10 border-emerald-500/25' : q.netPremium < 0 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.10]'}`}>
+                                        <div className="text-[11px] text-white/50 uppercase font-medium tracking-wider font-jakarta">NET PREM</div>
+                                        <div className={`text-sm font-bold font-num ${q.netPremium > 0 ? 'text-emerald-400' : q.netPremium < 0 ? 'text-rose-400' : 'text-white/70'}`}>
+                                            {q.netPremium !== 0 ? `${q.netPremium > 0 ? '+' : ''}$${(q.netPremium / 1e6).toFixed(1)}M` : '-'}
                                         </div>
                                     </div>
                                     <div className="px-2 py-1.5 rounded-md border bg-white/[0.02] border-white/[0.06]">
