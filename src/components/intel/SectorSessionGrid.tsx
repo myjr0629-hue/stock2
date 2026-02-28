@@ -603,6 +603,39 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                     </div>
                                 </div>
 
+                                {/* Row 3.5: Gamma Tunnel Mini-Bar */}
+                                {q.putFloor > 0 && q.callWall > 0 && q.putFloor < q.callWall && (
+                                    (() => {
+                                        const range = q.callWall - q.putFloor;
+                                        const pricePct = Math.max(0, Math.min(100, ((q.price - q.putFloor) / range) * 100));
+                                        const isNearPut = pricePct < 20;
+                                        const isNearCall = pricePct > 80;
+                                        const dotColor = isNearPut ? '#f87171' : isNearCall ? '#34d399' : '#fbbf24';
+                                        return (
+                                            <div className="mb-2 px-1">
+                                                <div className="flex items-center justify-between mb-1">
+                                                    <span className="text-xs font-bold text-rose-400/90 font-num">${q.putFloor.toFixed(0)}</span>
+                                                    <span className="text-xs font-semibold text-white/50 font-jakarta tracking-wide">GAMMA TUNNEL</span>
+                                                    <span className="text-xs font-bold text-emerald-400/90 font-num">${q.callWall.toFixed(0)}</span>
+                                                </div>
+                                                <div className="relative h-2.5 rounded-full overflow-hidden bg-white/[0.06] border border-white/[0.12]">
+                                                    {/* Gradient background */}
+                                                    <div className="absolute inset-0 rounded-full"
+                                                        style={{ background: 'linear-gradient(90deg, rgba(248,113,113,0.25) 0%, rgba(251,191,36,0.15) 30%, rgba(251,191,36,0.15) 70%, rgba(52,211,153,0.25) 100%)' }} />
+                                                    {/* Price position dot */}
+                                                    <div className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full shadow-lg border-2 border-white/40 transition-all duration-500"
+                                                        style={{ left: `calc(${pricePct}% - 6px)`, backgroundColor: dotColor, boxShadow: `0 0 8px ${dotColor}80` }} />
+                                                </div>
+                                                <div className="text-center mt-0.5">
+                                                    <span className="text-xs font-semibold font-num" style={{ color: dotColor }}>
+                                                        ${q.price.toFixed(0)} ({pricePct < 50 ? `↓${(50 - pricePct).toFixed(0)}%` : pricePct > 50 ? `↑${(pricePct - 50).toFixed(0)}%` : 'CENTER'})
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })()
+                                )}
+
                                 {/* Row 4: Position Bar */}
                                 <div className="mb-2 px-0.5">
                                     <PricePositionBar price={q.price} maxPain={q.maxPain} putFloor={q.putFloor} callWall={q.callWall} />
