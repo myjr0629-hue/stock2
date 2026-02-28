@@ -2720,12 +2720,12 @@
     "uoaAnalyzing": "거래량 분석 중..."
   },
   "tacticalReport": {
-    "attackLabel": "공격",
-    "attackEmpty": "공격 진입 종목 없음",
-    "defendLabel": "수비",
-    "defendEmpty": "보유 종목 없음",
-    "retreatLabel": "후퇴",
-    "retreatEmpty": "청산/헷지 대상 없음",
+    "attackLabel": "🟢 강세 시그널",
+    "attackEmpty": "강세 시그널 종목 없음",
+    "defendLabel": "🟡 중립 시그널",
+    "defendEmpty": "중립 시그널 종목 없음",
+    "retreatLabel": "🔴 약세 시그널",
+    "retreatEmpty": "약세 시그널 대상 없음",
     "snapshotNotReady": "아직 스냅샷이 생성되지 않았습니다. 장마감 후 자동 생성됩니다.",
     "snapshotLoadFail": "스냅샷 로드 실패",
     "emptyResponse": "빈 응답",
@@ -2783,10 +2783,10 @@
       "maxPainBelow": "하단",
       "callWallNear": "Call Wall ${wall} 근접(${dist}%), 돌파 시 감마스퀴즈 가능.",
       "putFloorNear": "Put Floor ${floor} 근접(${dist}%), 하방 지지 예상.",
-      "verdictBuyDip": "조정 시 매수 기회",
-      "verdictHold": "보유 유지",
-      "verdictHedge": "헷지 권고",
-      "verdictTrim": "일부 차익실현 고려",
+      "verdictBuyDip": "조정 구간 강세 시그널",
+      "verdictHold": "현 포지션 중립 유지 시그널",
+      "verdictHedge": "약세 리스크 시그널",
+      "verdictTrim": "과열 구간 주의 시그널",
       "closedVsMaxPain": "Max Pain $${mp} 대비 ${dir} ${dist}% 마감."
     }
   },

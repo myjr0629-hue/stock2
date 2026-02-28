@@ -2720,12 +2720,12 @@
     "uoaAnalyzing": "Analyzing volume..."
   },
   "tacticalReport": {
-    "attackLabel": "Attack",
-    "attackEmpty": "No attack entries",
-    "defendLabel": "Defend",
-    "defendEmpty": "No holdings",
-    "retreatLabel": "Retreat",
-    "retreatEmpty": "No liquidation/hedge targets",
+    "attackLabel": "🟢 Bullish Signal",
+    "attackEmpty": "No bullish signal tickers",
+    "defendLabel": "🟡 Neutral Signal",
+    "defendEmpty": "No neutral signal tickers",
+    "retreatLabel": "🔴 Bearish Signal",
+    "retreatEmpty": "No bearish signal targets",
     "snapshotNotReady": "Snapshot not yet generated. Auto-created after market close.",
     "snapshotLoadFail": "Snapshot load failed",
     "emptyResponse": "Empty response",
@@ -2783,10 +2783,10 @@
       "maxPainBelow": "below",
       "callWallNear": "Call Wall $${wall} nearby (${dist}%), gamma squeeze possible on break.",
       "putFloorNear": "Put Floor $${floor} nearby (${dist}%), downside support expected.",
-      "verdictBuyDip": "Buy the dip opportunity",
-      "verdictHold": "Hold position",
-      "verdictHedge": "Hedge recommended",
-      "verdictTrim": "Consider partial profit-taking",
+      "verdictBuyDip": "Bullish dip signal",
+      "verdictHold": "Neutral position signal",
+      "verdictHedge": "Bearish risk signal",
+      "verdictTrim": "Overheating caution signal",
       "closedVsMaxPain": "Closed ${dist}% ${dir} Max Pain $${mp}."
     }
   },

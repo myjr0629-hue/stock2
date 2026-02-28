@@ -2720,12 +2720,12 @@
     "uoaAnalyzing": "取引量分析中..."
   },
   "tacticalReport": {
-    "attackLabel": "攻撃",
-    "attackEmpty": "攻撃エントリーなし",
-    "defendLabel": "防御",
-    "defendEmpty": "保有銘柄なし",
-    "retreatLabel": "撤退",
-    "retreatEmpty": "清算/ヘッジ対象なし",
+    "attackLabel": "🟢 強気シグナル",
+    "attackEmpty": "強気シグナル銘柄なし",
+    "defendLabel": "🟡 中立シグナル",
+    "defendEmpty": "中立シグナル銘柄なし",
+    "retreatLabel": "🔴 弱気シグナル",
+    "retreatEmpty": "弱気シグナル対象なし",
     "snapshotNotReady": "スナップショットはまだ生成されていません。場引け後に自動で生成されます。",
     "snapshotLoadFail": "スナップショット読み込み失敗",
     "emptyResponse": "空のレスポンス",
@@ -2783,10 +2783,10 @@
       "maxPainBelow": "下方",
       "callWallNear": "Call Wall $${wall}接近(${dist}%)、突破でガンマスクイーズの可能性。",
       "putFloorNear": "Put Floor $${floor}接近(${dist}%)、下方支持予想。",
-      "verdictBuyDip": "押し目買い機会",
-      "verdictHold": "保有維持",
-      "verdictHedge": "ヘッジ推奨",
-      "verdictTrim": "一部利益確定検討",
+      "verdictBuyDip": "調整区間の強気シグナル",
+      "verdictHold": "現ポジション中立維持シグナル",
+      "verdictHedge": "弱気リスクシグナル",
+      "verdictTrim": "過熱区間注意シグナル",
       "closedVsMaxPain": "Max Pain $${mp}対比${dir}${dist}%引け。"
     }
   },

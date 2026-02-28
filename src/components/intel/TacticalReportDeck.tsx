@@ -40,7 +40,7 @@ const VERDICT_GROUPS = {
         verdicts: ['BUY_DIP'],
         icon: Swords,
         label: 'ATTACK_LABEL',
-        labelEN: 'BUY',
+        labelEN: 'BULLISH',
         color: '#10b981',
         borderGlow: 'rgba(16, 185, 129, 0.3)',
         emptyMsg: 'ATTACK_EMPTY',
@@ -49,7 +49,7 @@ const VERDICT_GROUPS = {
         verdicts: ['HOLD'],
         icon: ShieldCheck,
         label: 'DEFEND_LABEL',
-        labelEN: 'HOLD',
+        labelEN: 'NEUTRAL',
         color: '#f59e0b',
         borderGlow: 'rgba(245, 158, 11, 0.3)',
         emptyMsg: 'DEFEND_EMPTY',
@@ -58,7 +58,7 @@ const VERDICT_GROUPS = {
         verdicts: ['HEDGE', 'TRIM'],
         icon: ArrowDownRight,
         label: 'RETREAT_LABEL',
-        labelEN: 'SELL',
+        labelEN: 'BEARISH',
         color: '#f43f5e',
         borderGlow: 'rgba(244, 63, 94, 0.3)',
         emptyMsg: 'RETREAT_EMPTY',
@@ -771,12 +771,12 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                 </div>
 
                 {/* ══════════════════════════════════════════════
-                    3. TACTICAL ORDERS — Smart Grouped Layout
+                    3. TACTICAL SENTIMENT — Smart Grouped Layout
                    ══════════════════════════════════════════════ */}
                 <div className="mb-5">
                     <div className="flex items-center gap-2 mb-4">
                         <Shield className="w-4 h-4 text-purple-400" />
-                        <span className="text-[12px] font-bold text-white uppercase tracking-[0.15em] font-jakarta">TACTICAL ORDERS</span>
+                        <span className="text-[12px] font-bold text-white uppercase tracking-[0.15em] font-jakarta">TACTICAL SENTIMENT</span>
                         {/* Summary badges */}
                         <div className="flex items-center gap-1.5 ml-auto">
                             {(['ATTACK', 'DEFEND', 'RETREAT'] as GroupKey[]).map(key => {

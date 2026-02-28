@@ -85,6 +85,9 @@ function formatNetPremCompact(v: number): string {
     return v.toFixed(0);
 }
 
+// Grid column template for ranking table — shared by header & data rows
+const RANKING_GRID = '28px 96px 1fr 70px 62px 50px 60px 52px 92px 18px';
+
 // ── Component ──
 interface SectorCommandCenterProps {
     sectorData: IntelSharedData;
@@ -133,7 +136,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             <div className="absolute bottom-[0%] left-[10%] w-[50%] h-[500px] bg-violet-500/[0.08] blur-[160px] rounded-full pointer-events-none z-0" />
 
             {/* ═══ HERO HEADER ═══ */}
-            <section className="relative z-10 p-6 rounded-2xl border border-white/[0.10] bg-[#0c1220]/50 backdrop-blur-sm shadow-2xl overflow-hidden">
+            <section className="relative z-10 p-6 rounded-2xl border border-white/[0.12] bg-slate-900/60 backdrop-blur-sm shadow-2xl overflow-hidden">
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute -top-20 -right-20 w-80 h-80 bg-gradient-radial from-cyan-500/8 to-transparent rounded-full blur-3xl animate-pulse" />
                     <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-radial from-indigo-500/6 to-transparent rounded-full blur-3xl" />
@@ -142,12 +145,9 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                 <div className="relative z-10 flex items-start justify-between gap-6">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs font-bold text-cyan-400 tracking-[0.2em] uppercase flex items-center gap-1.5">
+                            <span className="text-[13px] font-bold text-cyan-400 tracking-[0.2em] uppercase flex items-center gap-1.5">
                                 <Eye className="w-3.5 h-3.5" />
                                 SECTOR COMMAND CENTER
-                            </span>
-                            <span className="text-xs text-slate-300 font-mono">
-                                {now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </span>
                         </div>
                         <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
@@ -171,7 +171,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                 {marketOverview.avgChange > 0 ? '+' : ''}{marketOverview.avgChange.toFixed(2)}%
                             </span>
                         </div>
-                        <div className="flex items-center gap-3 text-xs font-mono">
+                        <div className="flex items-center gap-3 text-[13px] font-mono">
                             <span className="text-emerald-400 flex items-center gap-1">
                                 <TrendingUp className="w-3.5 h-3.5" /> {marketOverview.totalUp}
                             </span>
@@ -187,33 +187,33 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                 <div className="relative z-10 mt-4 grid grid-cols-3 gap-3">
                     {marketOverview.topSector && (
                         <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-emerald-500/8 border border-emerald-500/20">
-                            <span className="text-xs text-emerald-300 font-bold uppercase tracking-wider">🔥 TOP</span>
+                            <span className="text-[13px] text-emerald-300 font-bold uppercase tracking-wider">🔥 TOP</span>
                             <span className={`text-sm font-bold ${marketOverview.topSector.def.accent}`}>
                                 {marketOverview.topSector.def.emoji} {marketOverview.topSector.def.shortLabel}
                             </span>
-                            <span className="text-xs font-mono font-bold text-emerald-300 ml-auto">
+                            <span className="text-[13px] font-mono font-bold text-emerald-300 ml-auto">
                                 +{marketOverview.topSector.stats.avgChange.toFixed(2)}%
                             </span>
                         </div>
                     )}
                     {marketOverview.bottomSector && (
                         <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-rose-500/8 border border-rose-500/20">
-                            <span className="text-xs text-rose-300 font-bold uppercase tracking-wider">❄️ BOT</span>
+                            <span className="text-[13px] text-rose-300 font-bold uppercase tracking-wider">❄️ BOT</span>
                             <span className={`text-sm font-bold ${marketOverview.bottomSector.def.accent}`}>
                                 {marketOverview.bottomSector.def.emoji} {marketOverview.bottomSector.def.shortLabel}
                             </span>
-                            <span className="text-xs font-mono font-bold text-rose-300 ml-auto">
+                            <span className="text-[13px] font-mono font-bold text-rose-300 ml-auto">
                                 {marketOverview.bottomSector.stats.avgChange.toFixed(2)}%
                             </span>
                         </div>
                     )}
                     {marketOverview.hotWhale && (
                         <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-violet-500/8 border border-violet-500/20">
-                            <span className="text-xs text-violet-300 font-bold uppercase tracking-wider">🐋 WHALE</span>
+                            <span className="text-[13px] text-violet-300 font-bold uppercase tracking-wider">🐋 WHALE</span>
                             <span className={`text-sm font-bold ${marketOverview.hotWhale.def.accent}`}>
                                 {marketOverview.hotWhale.def.emoji} {marketOverview.hotWhale.def.shortLabel}
                             </span>
-                            <span className="text-xs font-mono font-bold text-violet-300 ml-auto">
+                            <span className="text-[13px] font-mono font-bold text-violet-300 ml-auto">
                                 IDX {marketOverview.hotWhale.stats.avgWhale.toFixed(0)}
                             </span>
                         </div>
@@ -232,7 +232,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         className={`group relative cursor-pointer rounded-xl border transition-all duration-300 overflow-hidden
                             ${hoveredSector === def.key
                                 ? `${def.accentBorder} ${def.accentBg} shadow-lg`
-                                : 'border-white/[0.10] bg-[#0c1220]/40 hover:border-white/[0.18]'}
+                                : 'border-white/[0.12] bg-slate-900/50 hover:border-white/[0.20]'}
                         `}
                         style={hoveredSector === def.key ? { boxShadow: `0 0 30px ${def.accentHex}20` } : undefined}
                     >
@@ -241,7 +241,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                             <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
                                     <span className={def.accent}>{def.icon}</span>
-                                    <span className={`text-xs font-extrabold tracking-wider ${def.accent}`}>
+                                    <span className={`text-[13px] font-extrabold tracking-wider ${def.accent}`}>
                                         {def.emoji} {def.shortLabel}
                                     </span>
                                 </div>
@@ -255,10 +255,10 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                     {stats.avgChange > 0 ? '+' : ''}{stats.avgChange.toFixed(2)}%
                                 </div>
                                 <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span className="text-emerald-400 text-xs font-bold">{stats.upCount}↑</span>
-                                    <span className="text-slate-400 text-xs">/</span>
-                                    <span className="text-rose-400 text-xs font-bold">{stats.downCount}↓</span>
-                                    <span className="text-slate-300 text-xs ml-1">of {stats.totalTickers}</span>
+                                    <span className="text-emerald-400 text-[13px] font-bold">{stats.upCount}↑</span>
+                                    <span className="text-slate-400 text-[13px]">/</span>
+                                    <span className="text-rose-400 text-[13px] font-bold">{stats.downCount}↓</span>
+                                    <span className="text-slate-300 text-[13px] ml-1">of {stats.totalTickers}</span>
                                 </div>
                             </div>
 
@@ -266,16 +266,22 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                             {stats.leader && stats.laggard && (
                                 <div className="grid grid-cols-2 gap-1.5 mb-3">
                                     <div className="px-2 py-1.5 rounded bg-emerald-500/10 border border-emerald-500/15">
-                                        <div className="text-xs text-emerald-300 font-bold">LEAD</div>
-                                        <div className="text-xs font-black text-emerald-200">{stats.leader.ticker}</div>
-                                        <div className="text-xs font-mono font-bold text-emerald-400">
+                                        <div className="text-[13px] text-emerald-300 font-bold">LEAD</div>
+                                        <div className="flex items-center gap-1">
+                                            <img src={`https://assets.parqet.com/logos/symbol/${stats.leader.ticker}`} alt="" className="w-3.5 h-3.5 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                            <span className="text-[13px] font-black text-emerald-200">{stats.leader.ticker}</span>
+                                        </div>
+                                        <div className="text-[13px] font-mono font-bold text-emerald-400">
                                             {stats.leader.changePct > 0 ? '+' : ''}{stats.leader.changePct.toFixed(1)}%
                                         </div>
                                     </div>
                                     <div className="px-2 py-1.5 rounded bg-rose-500/10 border border-rose-500/15">
-                                        <div className="text-xs text-rose-300 font-bold">LAG</div>
-                                        <div className="text-xs font-black text-rose-200">{stats.laggard.ticker}</div>
-                                        <div className="text-xs font-mono font-bold text-rose-400">
+                                        <div className="text-[13px] text-rose-300 font-bold">LAG</div>
+                                        <div className="flex items-center gap-1">
+                                            <img src={`https://assets.parqet.com/logos/symbol/${stats.laggard.ticker}`} alt="" className="w-3.5 h-3.5 rounded-full" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                            <span className="text-[13px] font-black text-rose-200">{stats.laggard.ticker}</span>
+                                        </div>
+                                        <div className="text-[13px] font-mono font-bold text-rose-400">
                                             {stats.laggard.changePct.toFixed(1)}%
                                         </div>
                                     </div>
@@ -285,26 +291,26 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                             {/* Intelligence Row: 4 metrics */}
                             <div className="grid grid-cols-4 gap-1 bg-white/[0.03] rounded-lg p-1.5 border border-white/[0.06]">
                                 <div className="text-center">
-                                    <div className="text-xs text-white/70 font-bold">GEX</div>
-                                    <div className={`text-xs font-bold font-mono ${stats.totalGex > 0 ? 'text-emerald-400' : stats.totalGex < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
+                                    <div className="text-[13px] text-white/70 font-bold">GEX</div>
+                                    <div className={`text-[13px] font-bold font-mono ${stats.totalGex > 0 ? 'text-emerald-400' : stats.totalGex < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
                                         {stats.totalGex !== 0 ? formatGexCompact(stats.totalGex) : '-'}
                                     </div>
                                 </div>
                                 <div className="text-center">
-                                    <div className="text-xs text-white/70 font-bold">D.P</div>
-                                    <div className={`text-xs font-bold font-mono ${stats.avgDarkPool >= 40 ? 'text-white' : 'text-slate-300'}`}>
+                                    <div className="text-[13px] text-white/70 font-bold">D.P</div>
+                                    <div className={`text-[13px] font-bold font-mono ${stats.avgDarkPool >= 40 ? 'text-white' : 'text-slate-300'}`}>
                                         {stats.avgDarkPool > 0 ? `${stats.avgDarkPool.toFixed(0)}%` : '-'}
                                     </div>
                                 </div>
                                 <div className="text-center">
-                                    <div className="text-xs text-white/70 font-bold">🐋</div>
-                                    <div className={`text-xs font-bold font-mono ${stats.avgWhale >= 50 ? 'text-violet-300' : 'text-slate-300'}`}>
+                                    <div className="text-[13px] text-white/70 font-bold">🐋</div>
+                                    <div className={`text-[13px] font-bold font-mono ${stats.avgWhale >= 50 ? 'text-violet-300' : 'text-slate-300'}`}>
                                         {stats.avgWhale > 0 ? stats.avgWhale.toFixed(0) : '-'}
                                     </div>
                                 </div>
                                 <div className="text-center">
-                                    <div className="text-xs text-white/70 font-bold">α</div>
-                                    <div className={`text-xs font-bold font-mono ${stats.avgAlpha >= 65 ? 'text-amber-300' : stats.avgAlpha >= 50 ? 'text-white' : 'text-slate-300'}`}>
+                                    <div className="text-[13px] text-white/70 font-bold">α</div>
+                                    <div className={`text-[13px] font-bold font-mono ${stats.avgAlpha >= 65 ? 'text-amber-300' : stats.avgAlpha >= 50 ? 'text-white' : 'text-slate-300'}`}>
                                         {stats.avgAlpha > 0 ? stats.avgAlpha.toFixed(0) : '-'}
                                     </div>
                                 </div>
@@ -319,55 +325,58 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             </section>
 
             {/* ═══ SECTOR MOMENTUM RANKING — Premium Table ═══ */}
-            <section className="relative z-10 rounded-xl border border-white/[0.10] bg-[#0c1220]/40 backdrop-blur-sm overflow-hidden">
-                {/* Header */}
-                <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.08]">
+            <section className="relative z-10 rounded-xl border border-white/[0.12] bg-slate-900/50 backdrop-blur-sm overflow-hidden">
+                {/* Header Row */}
+                <div className="grid items-center px-5 py-3 border-b border-white/[0.10]"
+                    style={{ gridTemplateColumns: RANKING_GRID }}>
+                    <span />
                     <div className="flex items-center gap-2">
                         <BarChart3 className="w-4 h-4 text-indigo-400" />
-                        <span className="text-sm font-extrabold text-white tracking-wider uppercase">SECTOR MOMENTUM RANKING</span>
+                        <span className="text-[13px] font-extrabold text-white tracking-wider uppercase">RANKING</span>
                     </div>
-                    <div className="flex items-center gap-4 text-xs font-bold text-slate-400 uppercase tracking-wider">
-                        <span className="w-16 text-right">AVG Δ</span>
-                        <span className="w-14 text-right">GEX</span>
-                        <span className="w-10 text-right">PCR</span>
-                        <span className="w-14 text-right">D.POOL</span>
-                        <span className="w-10 text-right">ALPHA</span>
-                        <span className="w-14 text-right">LEADER</span>
-                        <span className="w-4"></span>
-                    </div>
+                    <span />
+                    <span className="text-[13px] font-bold text-slate-300 text-center">AVG Δ</span>
+                    <span className="text-[13px] font-bold text-slate-300 text-center">GEX</span>
+                    <span className="text-[13px] font-bold text-slate-300 text-center">PCR</span>
+                    <span className="text-[13px] font-bold text-slate-300 text-center">D.POOL</span>
+                    <span className="text-[13px] font-bold text-slate-300 text-center">ALPHA</span>
+                    <span className="text-[13px] font-bold text-slate-300 text-right">LEADER</span>
+                    <span />
                 </div>
 
-                {/* Rows */}
+                {/* Data Rows */}
                 <div>
                     {sortedSectors.map((s, idx) => {
                         const pct = s.stats.avgChange;
                         const maxAbs = Math.max(...sectorStats.map(x => Math.abs(x.stats.avgChange)), 0.01);
                         const barWidth = Math.min(100, (Math.abs(pct) / maxAbs) * 100);
                         const isPositive = pct >= 0;
+                        const leaderTicker = s.stats.leader?.ticker;
 
                         return (
                             <div
                                 key={s.def.key}
-                                className={`flex items-center gap-3 px-5 py-2.5 cursor-pointer transition-colors group
-                                    ${idx % 2 === 0 ? 'bg-white/[0.015]' : 'bg-transparent'}
-                                    hover:bg-white/[0.05]`}
+                                className={`grid items-center px-5 py-2.5 cursor-pointer transition-colors group
+                                    ${idx % 2 === 0 ? 'bg-white/[0.025]' : 'bg-transparent'}
+                                    hover:bg-white/[0.06]`}
+                                style={{ gridTemplateColumns: RANKING_GRID }}
                                 onClick={() => onNavigate(s.def.tabKey)}
                             >
                                 {/* Rank */}
-                                <span className={`w-5 text-xs font-black font-mono ${idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-slate-200' : idx === 2 ? 'text-amber-600' : 'text-slate-400'}`}>
+                                <span className={`text-[13px] font-black font-mono ${idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-slate-200' : idx === 2 ? 'text-amber-600' : 'text-slate-400'}`}>
                                     {idx + 1}
                                 </span>
 
                                 {/* Sector Name */}
-                                <div className="flex items-center gap-1.5 w-24 flex-shrink-0">
+                                <div className="flex items-center gap-1.5">
                                     <span className={`${s.def.accent} opacity-90`}>{s.def.icon}</span>
-                                    <span className="text-xs font-bold text-white group-hover:text-white transition-colors">
+                                    <span className="text-[13px] font-bold text-white">
                                         {s.def.shortLabel}
                                     </span>
                                 </div>
 
                                 {/* Momentum Bar */}
-                                <div className="flex-1 h-5 bg-white/[0.04] rounded-full overflow-hidden relative border border-white/[0.06]">
+                                <div className="h-5 bg-white/[0.05] rounded-full overflow-hidden relative border border-white/[0.08] mx-2">
                                     <div
                                         className={`h-full rounded-full transition-all duration-700 ${isPositive ? 'bg-gradient-to-r from-emerald-600/70 to-emerald-400/50' : 'bg-gradient-to-r from-rose-600/70 to-rose-400/50'}`}
                                         style={{ width: `${barWidth}%` }}
@@ -375,34 +384,44 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                 </div>
 
                                 {/* Avg Change */}
-                                <span className={`w-16 text-right text-xs font-black font-mono ${getMomentumColor(pct)}`}>
+                                <span className={`text-center text-[13px] font-black font-mono ${getMomentumColor(pct)}`}>
                                     {pct > 0 ? '+' : ''}{pct.toFixed(2)}%
                                 </span>
 
                                 {/* GEX */}
-                                <span className={`w-14 text-right text-xs font-bold font-mono ${s.stats.totalGex > 0 ? 'text-emerald-400' : s.stats.totalGex < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                <span className={`text-center text-[13px] font-bold font-mono ${s.stats.totalGex > 0 ? 'text-emerald-400' : s.stats.totalGex < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
                                     {s.stats.totalGex !== 0 ? formatGexCompact(s.stats.totalGex) : '-'}
                                 </span>
 
                                 {/* PCR */}
-                                <span className={`w-10 text-right text-xs font-bold font-mono ${s.stats.avgPcr < 0.8 ? 'text-emerald-400' : s.stats.avgPcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
+                                <span className={`text-center text-[13px] font-bold font-mono ${s.stats.avgPcr < 0.8 ? 'text-emerald-400' : s.stats.avgPcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
                                     {s.stats.avgPcr > 0 ? s.stats.avgPcr.toFixed(2) : '-'}
                                 </span>
 
                                 {/* Dark Pool */}
-                                <span className={`w-14 text-right text-xs font-bold font-mono ${s.stats.avgDarkPool >= 40 ? 'text-white' : 'text-slate-300'}`}>
+                                <span className={`text-center text-[13px] font-bold font-mono ${s.stats.avgDarkPool >= 40 ? 'text-white' : 'text-slate-300'}`}>
                                     {s.stats.avgDarkPool > 0 ? `${s.stats.avgDarkPool.toFixed(0)}%` : '-'}
                                 </span>
 
                                 {/* Alpha */}
-                                <span className={`w-10 text-right text-xs font-bold font-mono ${s.stats.avgAlpha >= 65 ? 'text-amber-300' : s.stats.avgAlpha >= 50 ? 'text-white' : 'text-slate-400'}`}>
+                                <span className={`text-center text-[13px] font-bold font-mono ${s.stats.avgAlpha >= 65 ? 'text-amber-300' : s.stats.avgAlpha >= 50 ? 'text-white' : 'text-slate-400'}`}>
                                     {s.stats.avgAlpha > 0 ? s.stats.avgAlpha.toFixed(0) : '-'}
                                 </span>
 
-                                {/* Leader Ticker */}
-                                <span className="w-14 text-xs font-bold text-slate-200 text-right">
-                                    {s.stats.leader?.ticker || '-'}
-                                </span>
+                                {/* Leader Ticker + Logo */}
+                                <div className="flex items-center gap-1.5 justify-end">
+                                    {leaderTicker && (
+                                        <img
+                                            src={`https://assets.parqet.com/logos/symbol/${leaderTicker}`}
+                                            alt={leaderTicker}
+                                            className="w-4 h-4 rounded-full"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    )}
+                                    <span className="text-[13px] font-bold text-slate-200">
+                                        {leaderTicker || '-'}
+                                    </span>
+                                </div>
 
                                 <ChevronRight className="w-3.5 h-3.5 text-slate-500 group-hover:text-white transition-colors" />
                             </div>
