@@ -384,11 +384,6 @@ export default function Page() {
             <span className="text-slate-300">{t('home.earlyAccessCta')}</span>
           </div>
 
-          {/* LIVE FEED MARQUEE — contained within hero width */}
-          <div className="w-full max-w-3xl mt-6">
-            <LiveFeedTicker />
-          </div>
-
           {/* Hero Dashboard Mockup — Perspective Preview */}
           <div className="relative mt-12 max-h-[680px] overflow-hidden" style={{ perspective: '1200px' }}>
             {/* Background Glows */}
@@ -425,8 +420,13 @@ export default function Page() {
         </div>
       </section>
 
+      {/* LIVE FEED MARQUEE — between hero and features */}
+      <div className="relative z-30 max-w-6xl mx-auto px-6 -mt-10 mb-4">
+        <LiveFeedTicker />
+      </div>
+
       {/* FEATURES SECTION */}
-      <section id="features" className="-mt-20 relative z-30 pt-0 pb-20 px-6">
+      <section id="features" className="relative z-30 pt-0 pb-20 px-6">
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-16">

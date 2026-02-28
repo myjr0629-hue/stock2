@@ -19,6 +19,7 @@ interface FeedItem {
     icon: React.ReactNode;
     text: string;
     color: string;
+    symbol: string; // ticker symbol for logo
 }
 
 interface TickerData {
@@ -48,6 +49,7 @@ function buildFeedItems(data: TickerData[]): FeedItem[] {
                 icon: <Activity className="w-3.5 h-3.5" />,
                 text: `${d.symbol} GEX ${isPositive ? '+' : ''}${gexVal}B`,
                 color: isPositive ? "text-emerald-400" : "text-rose-400",
+                symbol: d.symbol,
             });
         }
 
@@ -57,8 +59,9 @@ function buildFeedItems(data: TickerData[]): FeedItem[] {
             const above = parseFloat(dist) > 0;
             items.push({
                 icon: <Target className="w-3.5 h-3.5" />,
-                text: `${d.symbol} Max Pain $${d.maxPain.toFixed(0)} (${above ? '+' : ''}${dist}%)`,
+                text: `Max Pain $${d.maxPain.toFixed(0)} (${above ? '+' : ''}${dist}%)`,
                 color: Math.abs(parseFloat(dist)) > 2 ? "text-amber-400" : "text-slate-300",
+                symbol: d.symbol,
             });
         }
 
@@ -66,8 +69,9 @@ function buildFeedItems(data: TickerData[]): FeedItem[] {
         if (d.isGammaSqueeze) {
             items.push({
                 icon: <TrendingUp className="w-3.5 h-3.5" />,
-                text: `${d.symbol} GAMMA SQUEEZE 감지`,
+                text: `${d.symbol} GAMMA SQUEEZE`,
                 color: "text-cyan-400",
+                symbol: d.symbol,
             });
         }
 
@@ -78,6 +82,7 @@ function buildFeedItems(data: TickerData[]): FeedItem[] {
                 icon: <Zap className="w-3.5 h-3.5" />,
                 text: `${d.symbol} ${isUp ? '▲' : '▼'} ${d.changePercent > 0 ? '+' : ''}${d.changePercent.toFixed(2)}%`,
                 color: isUp ? "text-emerald-400" : "text-rose-400",
+                symbol: d.symbol,
             });
         }
     }
@@ -138,7 +143,7 @@ export function LiveFeedTicker() {
 
     if (loading || feedItems.length === 0) {
         return (
-            <div className="w-full py-2.5 rounded-xl bg-[#070e1b]/80 border border-white/10">
+            <div className="w-full py-2.5 rounded-xl bg-[#070e1b]/80">
                 <div className="flex items-center justify-center gap-2 text-xs text-slate-500">
                     <span className="relative flex h-1.5 w-1.5">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
@@ -153,7 +158,7 @@ export function LiveFeedTicker() {
     }
 
     return (
-        <div className="w-full py-2.5 rounded-xl bg-[#070e1b]/80 border border-white/10 overflow-hidden">
+        <div className="w-full py-2.5 rounded-xl bg-[#070e1b]/80 overflow-hidden">
             <div className="flex items-center">
                 {/* LIVE badge */}
                 <div className="flex-shrink-0 flex items-center gap-1.5 px-4 border-r border-white/10">
@@ -177,6 +182,15 @@ export function LiveFeedTicker() {
                     >
                         {repeatedItems.map((item, i) => (
                             <div key={i} className="flex items-center gap-1.5 flex-shrink-0">
+                                {/* Ticker Logo */}
+                                <div className="w-4 h-4 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center flex-shrink-0">
+                                    <img
+                                        src={`https://financialmodelingprep.com/image-stock/${item.symbol}.png`}
+                                        alt={item.symbol}
+                                        className="w-full h-full object-contain"
+                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                    />
+                                </div>
                                 <span className={item.color}>{item.icon}</span>
                                 <span className={`text-xs font-mono font-medium ${item.color}`}>
                                     {item.text}
