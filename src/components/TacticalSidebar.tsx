@@ -160,7 +160,7 @@ export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: Tactic
                     <div className="h-px flex-1 bg-white/[0.10]" />
                 </div>
 
-                <div className="relative bg-white/[0.05] border-l-[1.5px] border-indigo-500/25">
+                <div className="relative">
                     <SidebarItem icon={<Orbit />} label="M7 REPORT" subLabel="DAILY ANALYSIS" isActive={activeTab === 'M7'} onClick={() => onTabChange('M7')} accentColor="text-indigo-400" alert={alerts.m7} />
                     <SidebarItem icon={<Bot />} label="PHYSICAL AI" subLabel="ROBOTICS & EMBODIED" isActive={activeTab === 'PHYSICAL_AI'} onClick={() => onTabChange('PHYSICAL_AI')} accentColor="text-amber-500" alert={alerts.physicalAI} />
                     <SidebarItem icon={<Zap />} label="SILICON CORE" subLabel="AI INFRA & CHIPS" isActive={activeTab === 'SILICON_CORE'} onClick={() => onTabChange('SILICON_CORE')} accentColor="text-amber-400" alert={alerts.siliconCore} />
