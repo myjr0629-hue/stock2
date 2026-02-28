@@ -127,13 +127,13 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
 
     return (
         <div className="space-y-6 relative">
-            {/* Ambient Glow Effects */}
-            <div className="absolute top-0 left-[10%] w-[40%] h-[400px] bg-indigo-500/[0.04] blur-[120px] rounded-full pointer-events-none" />
-            <div className="absolute top-[30%] right-[5%] w-[35%] h-[350px] bg-cyan-500/[0.03] blur-[100px] rounded-full pointer-events-none" />
-            <div className="absolute bottom-[10%] left-[20%] w-[30%] h-[300px] bg-violet-500/[0.03] blur-[100px] rounded-full pointer-events-none" />
+            {/* Ambient Glow Effects — strong enough to show through card backgrounds */}
+            <div className="absolute top-[-10%] left-[0%] w-[60%] h-[600px] bg-indigo-500/[0.12] blur-[180px] rounded-full pointer-events-none z-0" />
+            <div className="absolute top-[35%] right-[-5%] w-[50%] h-[500px] bg-cyan-500/[0.08] blur-[160px] rounded-full pointer-events-none z-0" />
+            <div className="absolute bottom-[0%] left-[10%] w-[50%] h-[500px] bg-violet-500/[0.08] blur-[160px] rounded-full pointer-events-none z-0" />
 
             {/* ═══ HERO HEADER ═══ */}
-            <section className="relative p-6 rounded-2xl border border-white/[0.10] bg-[#0c1220]/70 backdrop-blur-xl shadow-2xl overflow-hidden">
+            <section className="relative z-10 p-6 rounded-2xl border border-white/[0.10] bg-[#0c1220]/50 backdrop-blur-sm shadow-2xl overflow-hidden">
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute -top-20 -right-20 w-80 h-80 bg-gradient-radial from-cyan-500/8 to-transparent rounded-full blur-3xl animate-pulse" />
                     <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-radial from-indigo-500/6 to-transparent rounded-full blur-3xl" />
@@ -222,7 +222,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             </section>
 
             {/* ═══ SECTOR GRID (5×2) ═══ */}
-            <section className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <section className="relative z-10 grid grid-cols-2 lg:grid-cols-5 gap-3">
                 {sectorStats.map(({ def, stats }) => (
                     <div
                         key={def.key}
@@ -232,7 +232,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         className={`group relative cursor-pointer rounded-xl border transition-all duration-300 overflow-hidden
                             ${hoveredSector === def.key
                                 ? `${def.accentBorder} ${def.accentBg} shadow-lg`
-                                : 'border-white/[0.10] bg-[#0c1220]/50 hover:border-white/[0.18]'}
+                                : 'border-white/[0.10] bg-[#0c1220]/40 hover:border-white/[0.18]'}
                         `}
                         style={hoveredSector === def.key ? { boxShadow: `0 0 30px ${def.accentHex}20` } : undefined}
                     >
@@ -319,7 +319,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             </section>
 
             {/* ═══ SECTOR MOMENTUM RANKING — Premium Table ═══ */}
-            <section className="rounded-xl border border-white/[0.10] bg-[#0c1220]/50 backdrop-blur-sm overflow-hidden">
+            <section className="relative z-10 rounded-xl border border-white/[0.10] bg-[#0c1220]/40 backdrop-blur-sm overflow-hidden">
                 {/* Header */}
                 <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/[0.08]">
                     <div className="flex items-center gap-2">

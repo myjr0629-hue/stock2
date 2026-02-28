@@ -1615,8 +1615,8 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
 
             {/* Ambient Glow Effects (Global) */}
-            <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/5 blur-[150px] rounded-full pointer-events-none mix-blend-screen z-0" />
-            <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/[0.02] blur-[150px] rounded-full pointer-events-none mix-blend-screen z-0" />
+            <div className="fixed top-[-20%] left-[-10%] w-[50%] h-[50%] bg-indigo-500/[0.07] blur-[150px] rounded-full pointer-events-none mix-blend-screen z-0" />
+            <div className="fixed bottom-[-20%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/[0.04] blur-[150px] rounded-full pointer-events-none mix-blend-screen z-0" />
 
             {/* 0. TACTICAL SIDEBAR (Fixed Left) */}
             <TacticalSidebar activeTab={activeTab} onTabChange={setActiveTab} sectorQuotes={{
