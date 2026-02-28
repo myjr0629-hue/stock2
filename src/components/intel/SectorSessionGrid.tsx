@@ -542,61 +542,61 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                                 {/* Row 3: 4-Quad Indicators */}
                                 <div className="grid grid-cols-2 gap-1.5 mb-2">
                                     <div className={`px-2 py-1.5 rounded-md border ${q.gex > 0 ? 'bg-emerald-500/10 border-emerald-500/25' : q.gex < 0 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
-                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">GEX</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">GEX</div>
                                         <div className={`text-sm font-bold font-num ${q.gex > 0 ? 'text-emerald-400' : q.gex < 0 ? 'text-rose-400' : 'text-white/50'}`}>
                                             {q.gex > 0 ? '+' : ''}{formatGex(q.gex)}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.pcr < 0.8 ? 'bg-emerald-500/10 border-emerald-500/25' : q.pcr > 1.1 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
-                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">PCR</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">PCR</div>
                                         <div className={`text-sm font-bold font-num ${q.pcr < 0.8 ? 'text-emerald-400' : q.pcr > 1.1 ? 'text-rose-400' : 'text-white'}`}>
                                             {q.pcr > 0 ? q.pcr.toFixed(2) : '-'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${(q as any).squeezeScore >= 70 ? 'bg-orange-500/10 border-orange-500/25' : (q as any).squeezeScore >= 40 ? 'bg-amber-500/10 border-amber-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
-                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">SQUEEZE</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">SQUEEZE</div>
                                         <div className={`text-sm font-bold font-num ${(q as any).squeezeScore >= 70 ? 'text-orange-400' : (q as any).squeezeScore >= 40 ? 'text-amber-400' : 'text-white/70'}`}>
                                             {(q as any).squeezeScore > 0 ? `${Math.round((q as any).squeezeScore)}%` : '-'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.netPremium > 0 ? 'bg-emerald-500/10 border-emerald-500/25' : q.netPremium < 0 ? 'bg-rose-500/10 border-rose-500/25' : 'bg-white/[0.04] border-white/[0.20]'}`}>
-                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">NET PREM</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">NET PREM</div>
                                         <div className={`text-sm font-bold font-num ${q.netPremium > 0 ? 'text-emerald-400' : q.netPremium < 0 ? 'text-rose-400' : 'text-white/70'}`}>
                                             {q.netPremium !== 0 ? `${q.netPremium > 0 ? '+' : ''}$${(q.netPremium / 1e6).toFixed(1)}M` : '-'}
                                         </div>
                                     </div>
                                     <div className="px-2 py-1.5 rounded-md border bg-white/[0.03] border-white/[0.15]">
-                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">PUT FLOOR</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">PUT FLOOR</div>
                                         <div className="text-sm font-bold font-num text-rose-300">
                                             ${q.putFloor > 0 ? q.putFloor.toFixed(0) : '-'}
                                         </div>
                                     </div>
                                     <div className="px-2 py-1.5 rounded-md border bg-white/[0.03] border-white/[0.15]">
-                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">CALL WALL</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">CALL WALL</div>
                                         <div className="text-sm font-bold font-num text-emerald-300">
                                             ${q.callWall > 0 ? q.callWall.toFixed(0) : '-'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.whaleIndex >= 60 ? 'bg-violet-500/10 border-violet-500/25' : q.whaleIndex >= 30 ? 'bg-white/[0.04] border-white/[0.20]' : 'bg-white/[0.03] border-white/[0.15]'}`}>
-                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">🐋 WHALE</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">🐋 WHALE</div>
                                         <div className={`text-sm font-bold font-num ${q.whaleIndex >= 60 ? 'text-violet-300' : q.whaleIndex >= 30 ? 'text-white/70' : 'text-white/40'}`}>
                                             {q.whaleIndex > 0 ? q.whaleIndex : '-'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.darkPoolPct >= 40 ? 'bg-slate-500/15 border-slate-400/30' : 'bg-white/[0.03] border-white/[0.15]'}`}>
-                                        <div className="text-xs text-white/50 uppercase font-medium tracking-wider font-jakarta">🕶️ D.POOL</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">DARK POOL</div>
                                         <div className={`text-sm font-bold font-num ${q.darkPoolPct >= 40 ? 'text-slate-200' : 'text-white/40'}`}>
                                             {q.darkPoolPct > 0 ? `${q.darkPoolPct.toFixed(0)}%` : '-'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${Math.abs(q.ivSkew) >= 5 ? 'bg-violet-500/10 border-violet-500/25' : Math.abs(q.ivSkew) >= 3 ? 'bg-purple-500/10 border-purple-500/25' : 'bg-white/[0.03] border-white/[0.15]'}`}>
-                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">IV SKEW</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">IV SKEW</div>
                                         <div className={`text-sm font-bold font-num ${q.ivSkew > 3 ? 'text-rose-400' : q.ivSkew < -3 ? 'text-emerald-400' : 'text-white/70'}`}>
                                             {q.ivSkew !== 0 ? `${q.ivSkew > 0 ? '+' : ''}${q.ivSkew.toFixed(1)}%` : '-'}
                                         </div>
                                     </div>
                                     <div className={`px-2 py-1.5 rounded-md border ${q.impliedMovePct >= 5 ? 'bg-amber-500/10 border-amber-500/25' : q.impliedMovePct >= 3 ? 'bg-yellow-500/10 border-yellow-500/20' : 'bg-white/[0.03] border-white/[0.15]'}`}>
-                                        <div className="text-xs text-white/60 uppercase font-medium tracking-wider font-jakarta">IMP MOVE</div>
+                                        <div className="text-xs text-white/70 uppercase font-medium tracking-wider font-jakarta">IMP MOVE</div>
                                         <div className={`text-sm font-bold font-num ${q.impliedMovePct >= 5 ? 'text-amber-400' : q.impliedMovePct >= 3 ? 'text-yellow-300' : 'text-white/70'}`}>
                                             {q.impliedMovePct > 0 ? `±${q.impliedMovePct.toFixed(1)}%` : '-'}
                                         </div>
