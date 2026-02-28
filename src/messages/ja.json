@@ -2924,7 +2924,12 @@
     "ivSkewCallBias": "⚡ {ticker} IV Skew {val}%。コール側プレミアム優勢 — 上昇期待。",
     "impliedMoveLarge": "📊 市場は{ticker}が±{val}%動くと予想。決算/イベント警戒区間。",
     "impliedMoveMid": "📊 市場は{ticker}が±{val}%の変動を予想中。",
-    "impliedMoveSmall": "📊 {ticker} Implied Move ±{val}%。"
+    "impliedMoveSmall": "📊 {ticker} Implied Move ±{val}%。",
+    "tunnelAtSupport": "🛡️ {ticker} Put Floor(${pf})タッチ圏 — 強いサポート、反発期待。",
+    "tunnelAtResist": "🎯 {ticker} Call Wall(${cw})到達 — 強いレジスタンス、突破でガンマスクイーズ。",
+    "tunnelMidRange": "↔️ {ticker} ガンマトンネル中央(${pf}~${cw}) — 方向未定、突破待ち。",
+    "tunnelLowerZone": "⬇️ {ticker} ガンマトンネル下部接近 — Put Floor(${pf})サポートテスト中。",
+    "tunnelUpperZone": "⬆️ {ticker} ガンマトンネル上部接近 — Call Wall(${cw})レジスタンステスト中。"
   },
   "sectorRanking": {
     "moneyFlowSub": "資金力ランキング",

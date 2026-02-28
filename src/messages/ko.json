@@ -2924,7 +2924,12 @@
     "ivSkewCallBias": "⚡ {ticker} IV Skew {val}%. 콜 쪽 프리미엄 우세 — 상승 기대.",
     "impliedMoveLarge": "📊 시장은 {ticker}이(가) ±{val}% 움직일 것으로 예상. 어닝/이벤트 경계 구간.",
     "impliedMoveMid": "📊 시장은 {ticker}이(가) ±{val}% 변동을 예상 중.",
-    "impliedMoveSmall": "📊 {ticker} Implied Move ±{val}%."
+    "impliedMoveSmall": "📊 {ticker} Implied Move ±{val}%.",
+    "tunnelAtSupport": "🛡️ {ticker} Put Floor(${pf}) 터치 구간 — 강한 지지, 반등 기대.",
+    "tunnelAtResist": "🎯 {ticker} Call Wall(${cw}) 도달 — 강한 저항, 돌파 시 감마 스퀴즈.",
+    "tunnelMidRange": "↔️ {ticker} 감마 터널 중앙(${pf}~${cw}) — 방향 미확정, 돌파 대기.",
+    "tunnelLowerZone": "⬇️ {ticker} 감마 터널 하단 접근 — Put Floor(${pf}) 지지 테스트 중.",
+    "tunnelUpperZone": "⬆️ {ticker} 감마 터널 상단 접근 — Call Wall(${cw}) 저항 테스트 중."
   },
   "sectorRanking": {
     "moneyFlowSub": "자금력 랭킹",

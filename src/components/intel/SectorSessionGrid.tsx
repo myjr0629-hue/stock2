@@ -221,6 +221,23 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
         parts.push(ss('impliedMoveSmall', { ticker: q.ticker, val: im.toFixed(1) }));
     }
 
+    // 9. Gamma Tunnel 분석 (가격 위치 해석)
+    if (q.putFloor > 0 && q.callWall > 0 && q.putFloor < q.callWall) {
+        const range = q.callWall - q.putFloor;
+        const pricePct = ((q.price - q.putFloor) / range) * 100;
+        if (pricePct <= 10) {
+            parts.push(ss('tunnelAtSupport', { ticker: q.ticker, pf: q.putFloor.toFixed(0) }));
+        } else if (pricePct >= 90) {
+            parts.push(ss('tunnelAtResist', { ticker: q.ticker, cw: q.callWall.toFixed(0) }));
+        } else if (pricePct >= 40 && pricePct <= 60) {
+            parts.push(ss('tunnelMidRange', { ticker: q.ticker, pf: q.putFloor.toFixed(0), cw: q.callWall.toFixed(0) }));
+        } else if (pricePct < 30) {
+            parts.push(ss('tunnelLowerZone', { ticker: q.ticker, pf: q.putFloor.toFixed(0) }));
+        } else if (pricePct > 70) {
+            parts.push(ss('tunnelUpperZone', { ticker: q.ticker, cw: q.callWall.toFixed(0) }));
+        }
+    }
+
     return parts.join(' ') || ss('collectingData');
 }
 

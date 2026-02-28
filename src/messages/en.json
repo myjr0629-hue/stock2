@@ -2924,7 +2924,12 @@
     "ivSkewCallBias": "⚡ {ticker} IV Skew {val}%. Call premium dominant — upside expected.",
     "impliedMoveLarge": "📊 Market expects {ticker} to move ±{val}%. Earnings/event alert zone.",
     "impliedMoveMid": "📊 Market expects {ticker} to move ±{val}%.",
-    "impliedMoveSmall": "📊 {ticker} Implied Move ±{val}%."
+    "impliedMoveSmall": "📊 {ticker} Implied Move ±{val}%.",
+    "tunnelAtSupport": "🛡️ {ticker} at Put Floor(${pf}) — strong support, bounce expected.",
+    "tunnelAtResist": "🎯 {ticker} at Call Wall(${cw}) — strong resistance, gamma squeeze on breakout.",
+    "tunnelMidRange": "↔️ {ticker} mid gamma tunnel(${pf}~${cw}) — direction undecided, await breakout.",
+    "tunnelLowerZone": "⬇️ {ticker} approaching lower tunnel — testing Put Floor(${pf}) support.",
+    "tunnelUpperZone": "⬆️ {ticker} approaching upper tunnel — testing Call Wall(${cw}) resistance."
   },
   "sectorRanking": {
     "moneyFlowSub": "Money Flow Ranking",
