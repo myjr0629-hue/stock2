@@ -9,6 +9,7 @@ import { useDashboardStore } from "@/stores/dashboardStore";
 import { useShallow } from "zustand/react/shallow";
 import { PriceDisplay, usePriceFlash, getFlashStyle, tickerDelay } from "@/components/ui/PriceDisplay";
 import { calcPriceDisplay } from "@/utils/calcPriceDisplay";
+import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
 
 // Dynamic import for StockChart (no SSR for chart component)
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -589,41 +590,45 @@ function MainChartPanel() {
             <div className="px-4 pt-4 pb-4 flex flex-col gap-1">
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
                 <div className="grid grid-cols-4 gap-3">
-                    {/* Net GEX */}
-                    <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                        {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
-                        <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q12 20 24 35 T48 25 T72 40 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><path d="M0 55 Q16 40 32 45 T64 35 T96 30" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-300" /></svg>
-                        <div className="relative z-10 flex items-center gap-2 mb-2 whitespace-nowrap">
-                            <Activity className="w-4 h-4 text-amber-400" />
-                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Net GEX</span>
-                        </div>
-                        <div className="relative z-10 flex items-center gap-2">
-                            <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                {gexDisplay}
-                            </span>
-                            <span className="text-xs text-white">{(data?.netGex || 0) > 0 ? td('gexStableInterpret') : td('gexVolatileInterpret')}</span>
-                        </div>
-                    </div>
-
-                    {/* Gamma Flip */}
-                    <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                        {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
-                        <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
-                        <div className="relative z-10 flex items-center gap-2 mb-2 whitespace-nowrap">
-                            <Radio className="w-4 h-4 text-cyan-400" />
-                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Gamma Flip</span>
-                        </div>
-                        <div className="relative z-10 flex items-center gap-2">
-                            <span className="text-xl font-mono font-bold text-white">
-                                ${data?.gammaFlipLevel?.toFixed(0) || "—"}
-                            </span>
-                            {data?.gammaFlipLevel && data?.underlyingPrice && (
-                                <span className={`text-xs font-medium ${data.underlyingPrice > data.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
-                                    {data.underlyingPrice > data.gammaFlipLevel ? "LONG" : "SHORT"}
+                    {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
+                    <ProGate fomoMessage="Net GEX — SpotGamma $99+" mode="peek" compact>
+                        <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
+                            <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q12 20 24 35 T48 25 T72 40 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><path d="M0 55 Q16 40 32 45 T64 35 T96 30" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-300" /></svg>
+                            <div className="relative z-10 flex items-center gap-2 mb-2 whitespace-nowrap">
+                                <Activity className="w-4 h-4 text-amber-400" />
+                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Net GEX</span>
+                            </div>
+                            <div className="relative z-10 flex items-center gap-2">
+                                <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                    {gexDisplay}
                                 </span>
-                            )}
+                                <span className="text-xs text-white">{(data?.netGex || 0) > 0 ? td('gexStableInterpret') : td('gexVolatileInterpret')}</span>
+                            </div>
                         </div>
-                    </div>
+                    </ProGate>
+
+                    {/* Gamma Flip — PRO (blur: SpotGamma core data) */}
+                    <ProGate fomoMessage="Gamma Flip Level — SpotGamma $99+" mode="blur" compact>
+                        <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
+                            <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
+                            <div className="relative z-10 flex items-center gap-2 mb-2 whitespace-nowrap">
+                                <Radio className="w-4 h-4 text-cyan-400" />
+                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Gamma Flip</span>
+                            </div>
+                            <div className="relative z-10 flex items-center gap-2">
+                                <span className="text-xl font-mono font-bold text-white">
+                                    ${data?.gammaFlipLevel?.toFixed(0) || "—"}
+                                </span>
+                                {data?.gammaFlipLevel && data?.underlyingPrice && (
+                                    <span className={`text-xs font-medium ${data.underlyingPrice > data.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
+                                        {data.underlyingPrice > data.gammaFlipLevel ? "LONG" : "SHORT"}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
+                    </ProGate>
 
                     {/* Squeeze */}
                     <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
@@ -681,147 +686,157 @@ function MainChartPanel() {
 
                 {/* ── ROW 2: 가격 레벨 + 기관 (Levels & Institutional) ── */}
                 <div className="grid grid-cols-4 gap-3">
-                    {/* Max Pain */}
-                    <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
-                        <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><circle cx="40" cy="32" r="14" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" /><circle cx="40" cy="32" r="3" fill="currentColor" className="text-cyan-400" /></svg>
-                        <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
-                            <Target className="w-4 h-4 text-cyan-400" />
-                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Max Pain</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl font-mono font-bold text-white">${data?.maxPain || "—"}</span>
-                            {data?.maxPain && data?.underlyingPrice && (
-                                <span className={`text-xs font-mono ${data.underlyingPrice > data.maxPain ? "text-emerald-400" : "text-rose-400"}`}>
-                                    {((data.underlyingPrice - data.maxPain) / data.maxPain * 100).toFixed(1)}%
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Call Wall / Put Floor */}
-                    <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
-                        <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><line x1="0" y1="20" x2="96" y2="20" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><line x1="0" y1="44" x2="96" y2="44" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
-                        <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
-                            <TrendingUp className="w-4 h-4 text-emerald-400" />
-                            <div className="flex flex-col leading-tight">
-                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Call Wall</span>
-                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Put Floor</span>
+                    {/* Max Pain — PRO (peek: price visible, % distance blurred) */}
+                    <ProGate fomoMessage="Max Pain Level — UW $50+" mode="peek" compact>
+                        <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
+                            <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><circle cx="40" cy="32" r="14" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" /><circle cx="40" cy="32" r="3" fill="currentColor" className="text-cyan-400" /></svg>
+                            <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
+                                <Target className="w-4 h-4 text-cyan-400" />
+                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Max Pain</span>
                             </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-lg font-mono font-bold text-emerald-400">${data?.levels?.callWall || "—"}</span>
-                            <span className="text-slate-500">/</span>
-                            <span className="text-lg font-mono font-bold text-rose-400">${data?.levels?.putFloor || "—"}</span>
-                        </div>
-                    </div>
-
-                    {/* Dark Pool % (NEW) */}
-                    {(() => {
-                        const dp = data?.darkPoolPct ?? 0;
-                        const isAlert = dp >= 45;
-                        const sessionLabel = data?.session === 'PRE' ? 'PRE' : data?.session === 'POST' ? 'POST' : null;
-                        const sessionColor = data?.session === 'PRE' ? 'text-amber-400 bg-amber-500/20 border-amber-500/30'
-                            : 'text-purple-400 bg-purple-500/20 border-purple-500/30';
-                        return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-purple-500/10 backdrop-blur-md border-purple-400/40 shadow-[0_0_25px_rgba(168,85,247,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                                {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-purple-500" />}
-                                <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.06]" viewBox="0 0 80 56">{[0, 1, 2, 3, 4, 5].map(i => <circle key={i} cx={10 + i * 12} cy={10 + ((i * 17) % 30)} r="3" fill="currentColor" className="text-purple-400" />)}<path d="M10 10 L22 27 L34 20 L46 37 L58 14 L70 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-purple-300" /></svg>
-                                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                    <div className="flex items-center gap-2 whitespace-nowrap">
-                                        <Activity className="w-4 h-4 text-purple-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Dark Pool %</span>
-                                    </div>
-                                    {dp >= 55 && <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-purple-500/80 text-white">HIGH</span>}
-                                    {sessionLabel && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sessionColor}`}>{sessionLabel}</span>}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${dp >= 55 ? 'text-purple-400' : dp >= 45 ? 'text-purple-300' : 'text-white'}`}>
-                                        {dp > 0 ? `${dp.toFixed(1)}%` : '—'}
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl font-mono font-bold text-white">${data?.maxPain || "—"}</span>
+                                {data?.maxPain && data?.underlyingPrice && (
+                                    <span className={`text-xs font-mono ${data.underlyingPrice > data.maxPain ? "text-emerald-400" : "text-rose-400"}`}>
+                                        {((data.underlyingPrice - data.maxPain) / data.maxPain * 100).toFixed(1)}%
                                     </span>
-                                    <span className="text-xs text-white">{dp >= 55 ? td('dpInstitutionalHigh') : dp >= 45 ? td('dpInstitutionalActive') : td('dpNormal')}</span>
-                                </div>
-                            </div>
-                        );
-                    })()}
-
-                    {/* Short Vol % (NEW) */}
-                    {(() => {
-                        const sv = data?.shortVolPct ?? 0;
-                        const dp = data?.darkPoolPct ?? 0;
-                        const isAlert = sv >= 40;
-                        const svHigh = sv >= 40;
-                        const dpHigh = dp >= 40;
-                        const crossSignal = svHigh && dpHigh ? { label: td('svCrossInstShort'), color: 'text-rose-400' }
-                            : !svHigh && dpHigh ? { label: td('svCrossStealth'), color: 'text-emerald-400' }
-                                : svHigh && !dpHigh ? { label: td('svCrossRetailShort'), color: 'text-amber-400' }
-                                    : { label: td('svCrossNeutral'), color: 'text-slate-400' };
-                        return (
-                            <div className={`relative py-3 px-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                                {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
-                                <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="10" width="10" height="50" rx="2" fill="currentColor" className="text-rose-400" /><rect x="22" y="20" width="10" height="40" rx="2" fill="currentColor" className="text-rose-400" /><rect x="39" y="28" width="10" height="32" rx="2" fill="currentColor" className="text-rose-400" /><rect x="56" y="36" width="10" height="24" rx="2" fill="currentColor" className="text-rose-300" /></svg>
-                                <div className="flex items-center gap-2 mb-1 whitespace-nowrap">
-                                    <TrendingDown className="w-4 h-4 text-rose-400" />
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Short Vol %</span>
-                                    {sv >= 50 && <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${sv >= 50 ? 'text-rose-400' : sv >= 40 ? 'text-amber-400' : 'text-white'}`}>
-                                        {sv > 0 ? `${sv.toFixed(1)}%` : '—'}
-                                    </span>
-                                    <span className="text-[12px] text-white">{sv >= 50 ? td('svShortHigh') : sv >= 40 ? td('svShortActive') : td('svNormal')}</span>
-                                </div>
-                                {sv > 0 && dp > 0 && (
-                                    <div className="mt-0.5 flex items-center gap-1 whitespace-nowrap overflow-hidden">
-                                        <span className="text-[12px] text-slate-300">vs DP {dp.toFixed(0)}%</span>
-                                        <span className="text-[12px] text-slate-300">→</span>
-                                        <span className={`text-[12px] font-semibold truncate ${crossSignal.color}`}>{crossSignal.label}</span>
-                                    </div>
                                 )}
                             </div>
-                        );
-                    })()}
+                        </div>
+                    </ProGate>
+
+                    {/* Call Wall / Put Floor — PRO (blur: options level data) */}
+                    <ProGate fomoMessage="Call Wall / Put Floor — SpotGamma $99+" mode="blur" compact>
+                        <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
+                            <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><line x1="0" y1="20" x2="96" y2="20" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><line x1="0" y1="44" x2="96" y2="44" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
+                            <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
+                                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                                <div className="flex flex-col leading-tight">
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Call Wall</span>
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Put Floor</span>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-lg font-mono font-bold text-emerald-400">${data?.levels?.callWall || "—"}</span>
+                                <span className="text-slate-500">/</span>
+                                <span className="text-lg font-mono font-bold text-rose-400">${data?.levels?.putFloor || "—"}</span>
+                            </div>
+                        </div>
+                    </ProGate>
+
+                    {/* Dark Pool % — PRO (blur: institutional data, FlowAlgo $149) */}
+                    <ProGate fomoMessage="Dark Pool % — FlowAlgo $149" mode="blur" compact>
+                        {(() => {
+                            const dp = data?.darkPoolPct ?? 0;
+                            const isAlert = dp >= 45;
+                            const sessionLabel = data?.session === 'PRE' ? 'PRE' : data?.session === 'POST' ? 'POST' : null;
+                            const sessionColor = data?.session === 'PRE' ? 'text-amber-400 bg-amber-500/20 border-amber-500/30'
+                                : 'text-purple-400 bg-purple-500/20 border-purple-500/30';
+                            return (
+                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-purple-500/10 backdrop-blur-md border-purple-400/40 shadow-[0_0_25px_rgba(168,85,247,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                    {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-purple-500" />}
+                                    <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.06]" viewBox="0 0 80 56">{[0, 1, 2, 3, 4, 5].map(i => <circle key={i} cx={10 + i * 12} cy={10 + ((i * 17) % 30)} r="3" fill="currentColor" className="text-purple-400" />)}<path d="M10 10 L22 27 L34 20 L46 37 L58 14 L70 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-purple-300" /></svg>
+                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                        <div className="flex items-center gap-2 whitespace-nowrap">
+                                            <Activity className="w-4 h-4 text-purple-400" />
+                                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Dark Pool %</span>
+                                        </div>
+                                        {dp >= 55 && <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-purple-500/80 text-white">HIGH</span>}
+                                        {sessionLabel && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sessionColor}`}>{sessionLabel}</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xl font-mono font-bold ${dp >= 55 ? 'text-purple-400' : dp >= 45 ? 'text-purple-300' : 'text-white'}`}>
+                                            {dp > 0 ? `${dp.toFixed(1)}%` : '—'}
+                                        </span>
+                                        <span className="text-xs text-white">{dp >= 55 ? td('dpInstitutionalHigh') : dp >= 45 ? td('dpInstitutionalActive') : td('dpNormal')}</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </ProGate>
+
+                    {/* Short Vol % — PRO (blur: Ortex $49-149) */}
+                    <ProGate fomoMessage="Short Volume % — Ortex $49+" mode="blur" compact>
+                        {(() => {
+                            const sv = data?.shortVolPct ?? 0;
+                            const dp = data?.darkPoolPct ?? 0;
+                            const isAlert = sv >= 40;
+                            const svHigh = sv >= 40;
+                            const dpHigh = dp >= 40;
+                            const crossSignal = svHigh && dpHigh ? { label: td('svCrossInstShort'), color: 'text-rose-400' }
+                                : !svHigh && dpHigh ? { label: td('svCrossStealth'), color: 'text-emerald-400' }
+                                    : svHigh && !dpHigh ? { label: td('svCrossRetailShort'), color: 'text-amber-400' }
+                                        : { label: td('svCrossNeutral'), color: 'text-slate-400' };
+                            return (
+                                <div className={`relative py-3 px-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                    {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
+                                    <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="10" width="10" height="50" rx="2" fill="currentColor" className="text-rose-400" /><rect x="22" y="20" width="10" height="40" rx="2" fill="currentColor" className="text-rose-400" /><rect x="39" y="28" width="10" height="32" rx="2" fill="currentColor" className="text-rose-400" /><rect x="56" y="36" width="10" height="24" rx="2" fill="currentColor" className="text-rose-300" /></svg>
+                                    <div className="flex items-center gap-2 mb-1 whitespace-nowrap">
+                                        <TrendingDown className="w-4 h-4 text-rose-400" />
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Short Vol %</span>
+                                        {sv >= 50 && <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xl font-mono font-bold ${sv >= 50 ? 'text-rose-400' : sv >= 40 ? 'text-amber-400' : 'text-white'}`}>
+                                            {sv > 0 ? `${sv.toFixed(1)}%` : '—'}
+                                        </span>
+                                        <span className="text-[12px] text-white">{sv >= 50 ? td('svShortHigh') : sv >= 40 ? td('svShortActive') : td('svNormal')}</span>
+                                    </div>
+                                    {sv > 0 && dp > 0 && (
+                                        <div className="mt-0.5 flex items-center gap-1 whitespace-nowrap overflow-hidden">
+                                            <span className="text-[12px] text-slate-300">vs DP {dp.toFixed(0)}%</span>
+                                            <span className="text-[12px] text-slate-300">→</span>
+                                            <span className={`text-[12px] font-semibold truncate ${crossSignal.color}`}>{crossSignal.label}</span>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        })()}
+                    </ProGate>
                 </div>
 
                 {/* ── ROW 3: 변동성 + 당일 매매 (Volatility & Intraday) ── */}
                 <div className="grid grid-cols-4 gap-3">
-                    {/* ATM IV */}
-                    <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                        {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
-                        <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q12 10 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /><path d="M0 32 Q12 48 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
-                        <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
-                            <Activity className="w-4 h-4 text-purple-400" />
-                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">ATM IV</span>
-                            <span className="text-[12px] text-white">{td('impliedVol')}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-xl font-mono font-bold text-white">
-                                {data?.atmIv ? `${data.atmIv}%` : "—"}
-                            </span>
-                            <span className="text-[12px] text-white">{(data?.atmIv || 0) > 50 ? td('highVol') : td('lowVol')}</span>
-                            {data?.atmIvExpiry && (
-                                <span className="text-[12px] text-yellow-400 font-mono font-semibold">
-                                    {data.atmIvExpiry.slice(5).replace('-', '/')}
+                    {/* ATM IV — PRO (blur: advanced volatility surface, QuantData $99) */}
+                    <ProGate fomoMessage="ATM IV — QuantData $99" mode="blur" compact>
+                        <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
+                            <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q12 10 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /><path d="M0 32 Q12 48 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
+                            <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
+                                <Activity className="w-4 h-4 text-purple-400" />
+                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">ATM IV</span>
+                                <span className="text-[12px] text-white">{td('impliedVol')}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="text-xl font-mono font-bold text-white">
+                                    {data?.atmIv ? `${data.atmIv}%` : "—"}
                                 </span>
+                                <span className="text-[12px] text-white">{(data?.atmIv || 0) > 50 ? td('highVol') : td('lowVol')}</span>
+                                {data?.atmIvExpiry && (
+                                    <span className="text-[12px] text-yellow-400 font-mono font-semibold">
+                                        {data.atmIvExpiry.slice(5).replace('-', '/')}
+                                    </span>
+                                )}
+                            </div>
+                            {/* IV Level Bar */}
+                            {data?.atmIv != null && data.atmIv > 0 && (
+                                <div className="mt-2">
+                                    <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                        <div
+                                            className={`absolute left-0 top-0 h-full rounded-full transition-all ${data.atmIv >= 60 ? 'bg-rose-400' : data.atmIv >= 40 ? 'bg-amber-400' : 'bg-emerald-400'
+                                                }`}
+                                            style={{ width: `${Math.min(data.atmIv, 100)}%` }}
+                                        />
+                                    </div>
+                                    <div className="flex justify-between mt-1">
+                                        <span className="text-[12px] text-slate-400">0%</span>
+                                        <span className="text-[12px] text-slate-400">50%</span>
+                                        <span className="text-[12px] text-slate-400">100%</span>
+                                    </div>
+                                </div>
                             )}
                         </div>
-                        {/* IV Level Bar */}
-                        {data?.atmIv != null && data.atmIv > 0 && (
-                            <div className="mt-2">
-                                <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                    <div
-                                        className={`absolute left-0 top-0 h-full rounded-full transition-all ${data.atmIv >= 60 ? 'bg-rose-400' : data.atmIv >= 40 ? 'bg-amber-400' : 'bg-emerald-400'
-                                            }`}
-                                        style={{ width: `${Math.min(data.atmIv, 100)}%` }}
-                                    />
-                                </div>
-                                <div className="flex justify-between mt-1">
-                                    <span className="text-[12px] text-slate-400">0%</span>
-                                    <span className="text-[12px] text-slate-400">50%</span>
-                                    <span className="text-[12px] text-slate-400">100%</span>
-                                </div>
-                            </div>
-                        )}
-                    </div>
+                    </ProGate>
 
                     {/* P/C Ratio (VOLUME) - matches Flow page */}
                     {(() => {
@@ -864,101 +879,105 @@ function MainChartPanel() {
                         );
                     })()}
 
-                    {/* GEX REGIME (Replaced 0DTE Impact) */}
-                    {(() => {
-                        const price = data?.underlyingPrice || 0;
-                        const flip = data?.gammaFlipLevel || 0;
-                        const gex = data?.netGex || 0;
-                        const atmConc = data?.gammaConcentration || 0;
-                        const isLong = gex >= 0;
-                        let regime: 'STABLE' | 'TRANSITION' | 'FLIP_ZONE' | 'EXPLOSIVE' = isLong ? 'STABLE' : 'EXPLOSIVE';
-                        let flipDist = 0;
-                        let flipDir = '';
-                        let flipDistWeight = isLong ? 1.0 : 0.3;
+                    {/* GEX REGIME — PRO (blur: SpotGamma Pro $249) */}
+                    <ProGate fomoMessage="GEX Regime — SpotGamma $249" mode="blur" compact>
+                        {(() => {
+                            const price = data?.underlyingPrice || 0;
+                            const flip = data?.gammaFlipLevel || 0;
+                            const gex = data?.netGex || 0;
+                            const atmConc = data?.gammaConcentration || 0;
+                            const isLong = gex >= 0;
+                            let regime: 'STABLE' | 'TRANSITION' | 'FLIP_ZONE' | 'EXPLOSIVE' = isLong ? 'STABLE' : 'EXPLOSIVE';
+                            let flipDist = 0;
+                            let flipDir = '';
+                            let flipDistWeight = isLong ? 1.0 : 0.3;
 
-                        if (flip > 0 && price > 0) {
-                            flipDist = ((price - flip) / flip) * 100;
-                            flipDir = flipDist > 0 ? '↑' : '↓';
-                            if (flipDist > 5) { flipDistWeight = 1.2; regime = 'STABLE'; }
-                            else if (flipDist > 2) { flipDistWeight = 1.0; regime = 'STABLE'; }
-                            else if (flipDist > 0) { flipDistWeight = 0.5; regime = 'TRANSITION'; }
-                            else if (flipDist > -2) { flipDistWeight = 0.3; regime = 'FLIP_ZONE'; }
-                            else { flipDistWeight = 0.2; regime = 'EXPLOSIVE'; }
-                        }
+                            if (flip > 0 && price > 0) {
+                                flipDist = ((price - flip) / flip) * 100;
+                                flipDir = flipDist > 0 ? '↑' : '↓';
+                                if (flipDist > 5) { flipDistWeight = 1.2; regime = 'STABLE'; }
+                                else if (flipDist > 2) { flipDistWeight = 1.0; regime = 'STABLE'; }
+                                else if (flipDist > 0) { flipDistWeight = 0.5; regime = 'TRANSITION'; }
+                                else if (flipDist > -2) { flipDistWeight = 0.3; regime = 'FLIP_ZONE'; }
+                                else { flipDistWeight = 0.2; regime = 'EXPLOSIVE'; }
+                            }
 
-                        // DTE weight (matches FlowRadar exactly)
-                        const expStr = data?.expiration;
-                        let dte = -1;
-                        if (expStr) {
-                            const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-                            const todayStr = `${etNow.getFullYear()}-${String(etNow.getMonth() + 1).padStart(2, '0')}-${String(etNow.getDate()).padStart(2, '0')}`;
-                            dte = Math.max(0, Math.round((new Date(expStr + 'T16:00:00').getTime() - new Date(todayStr + 'T09:30:00').getTime()) / 86400000));
-                        }
-                        const dteWeight = dte === 0 ? 1.0 : dte === 1 ? 0.7 : dte <= 3 ? 0.4 : 0.2;
+                            // DTE weight (matches FlowRadar exactly)
+                            const expStr = data?.expiration;
+                            let dte = -1;
+                            if (expStr) {
+                                const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                                const todayStr = `${etNow.getFullYear()}-${String(etNow.getMonth() + 1).padStart(2, '0')}-${String(etNow.getDate()).padStart(2, '0')}`;
+                                dte = Math.max(0, Math.round((new Date(expStr + 'T16:00:00').getTime() - new Date(todayStr + 'T09:30:00').getTime()) / 86400000));
+                            }
+                            const dteWeight = dte === 0 ? 1.0 : dte === 1 ? 0.7 : dte <= 3 ? 0.4 : 0.2;
 
-                        // pinStrength = ATM concentration × flip weight × DTE weight (matches FlowRadar)
-                        const pinStrength = Math.min(100, Math.round(atmConc * flipDistWeight * dteWeight));
+                            // pinStrength = ATM concentration × flip weight × DTE weight (matches FlowRadar)
+                            const pinStrength = Math.min(100, Math.round(atmConc * flipDistWeight * dteWeight));
 
-                        const labels: Record<string, string> = { STABLE: td('gexStable'), TRANSITION: td('gexTransition'), FLIP_ZONE: td('gexFlipZone'), EXPLOSIVE: td('gexExplosive') };
-                        const colors: Record<string, string> = { STABLE: 'text-emerald-400', TRANSITION: 'text-amber-400', FLIP_ZONE: 'text-orange-400', EXPLOSIVE: 'text-rose-400' };
-                        const isAlert = regime === 'EXPLOSIVE' || regime === 'FLIP_ZONE';
-                        const absDist = Math.abs(flipDist).toFixed(1);
+                            const labels: Record<string, string> = { STABLE: td('gexStable'), TRANSITION: td('gexTransition'), FLIP_ZONE: td('gexFlipZone'), EXPLOSIVE: td('gexExplosive') };
+                            const colors: Record<string, string> = { STABLE: 'text-emerald-400', TRANSITION: 'text-amber-400', FLIP_ZONE: 'text-orange-400', EXPLOSIVE: 'text-rose-400' };
+                            const isAlert = regime === 'EXPLOSIVE' || regime === 'FLIP_ZONE';
+                            const absDist = Math.abs(flipDist).toFixed(1);
 
-                        return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                                {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500 animate-pulse" />}
-                                <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M48 58 A 38 38 0 0 1 10 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /><path d="M86 58 A 38 38 0 0 1 48 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><circle cx="48" cy="58" r="3" fill="currentColor" className="text-white" /></svg>
-                                <div className="flex items-center gap-1.5 mb-2 whitespace-nowrap">
-                                    <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wide text-white">GEX Regime</span>
-                                    {expStr && (
-                                        <span className="text-[12px] text-slate-300 font-mono">
-                                            {expStr.slice(5)}
-                                        </span>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${colors[regime]}`}>{pinStrength}%</span>
-                                    <span className={`text-xs font-bold ${colors[regime]}`}>{labels[regime]}</span>
-                                </div>
-                                <span className="text-[12px] text-white font-mono block mt-0.5">
-                                    {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? td('gexLongGamma') : td('gexShortGamma')}
-                                </span>
-                            </div>
-                        );
-                    })()}
-
-                    {/* Implied Move (NEW) */}
-                    {(() => {
-                        const im = data?.impliedMovePct ?? 0;
-                        const dir = data?.impliedMoveDir ?? 'neutral';
-                        const isAlert = im >= 3;
-                        return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                                {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
-                                <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M30 32 L10 20 M30 32 L10 44 M66 32 L86 20 M66 32 L86 44" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-cyan-400" /><line x1="30" y1="32" x2="66" y2="32" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" className="text-cyan-300" /></svg>
-                                <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
-                                    <Activity className="w-4 h-4 text-cyan-400" />
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Implied Move</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${im >= 5 ? 'text-cyan-400' : im >= 3 ? 'text-cyan-300' : 'text-white'}`}>
-                                        {im > 0 ? `±${im}%` : '—'}
+                            return (
+                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                    {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500 animate-pulse" />}
+                                    <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M48 58 A 38 38 0 0 1 10 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /><path d="M86 58 A 38 38 0 0 1 48 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><circle cx="48" cy="58" r="3" fill="currentColor" className="text-white" /></svg>
+                                    <div className="flex items-center gap-1.5 mb-2 whitespace-nowrap">
+                                        <Zap className="w-4 h-4 text-amber-400 shrink-0" />
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wide text-white">GEX Regime</span>
+                                        {expStr && (
+                                            <span className="text-[12px] text-slate-300 font-mono">
+                                                {expStr.slice(5)}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xl font-mono font-bold ${colors[regime]}`}>{pinStrength}%</span>
+                                        <span className={`text-xs font-bold ${colors[regime]}`}>{labels[regime]}</span>
+                                    </div>
+                                    <span className="text-[12px] text-white font-mono block mt-0.5">
+                                        {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? td('gexLongGamma') : td('gexShortGamma')}
                                     </span>
-                                    {im >= 5 ? (
-                                        <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-cyan-500/80 text-white">{td('imSpike')}</span>
-                                    ) : im >= 3 ? (
-                                        <span className="text-xs text-cyan-300">{td('imVolatility')}</span>
-                                    ) : (
-                                        <span className="text-xs text-slate-400">{td('imStable')}</span>
-                                    )}
                                 </div>
-                                <span className="text-[12px] text-white block mt-0.5">
-                                    {dir === 'bullish' ? td('imBullish') : dir === 'bearish' ? td('imBearish') : td('imNeutral')}
-                                </span>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
+                    </ProGate>
+
+                    {/* Implied Move — ELITE (blur: advanced derivatives) */}
+                    <EliteGate fomoMessage="Implied Move — ELITE" mode="blur" compact>
+                        {(() => {
+                            const im = data?.impliedMovePct ?? 0;
+                            const dir = data?.impliedMoveDir ?? 'neutral';
+                            const isAlert = im >= 3;
+                            return (
+                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                    {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
+                                    <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M30 32 L10 20 M30 32 L10 44 M66 32 L86 20 M66 32 L86 44" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-cyan-400" /><line x1="30" y1="32" x2="66" y2="32" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" className="text-cyan-300" /></svg>
+                                    <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
+                                        <Activity className="w-4 h-4 text-cyan-400" />
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Implied Move</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xl font-mono font-bold ${im >= 5 ? 'text-cyan-400' : im >= 3 ? 'text-cyan-300' : 'text-white'}`}>
+                                            {im > 0 ? `±${im}%` : '—'}
+                                        </span>
+                                        {im >= 5 ? (
+                                            <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-cyan-500/80 text-white">{td('imSpike')}</span>
+                                        ) : im >= 3 ? (
+                                            <span className="text-xs text-cyan-300">{td('imVolatility')}</span>
+                                        ) : (
+                                            <span className="text-xs text-slate-400">{td('imStable')}</span>
+                                        )}
+                                    </div>
+                                    <span className="text-[12px] text-white block mt-0.5">
+                                        {dir === 'bullish' ? td('imBullish') : dir === 'bearish' ? td('imBearish') : td('imNeutral')}
+                                    </span>
+                                </div>
+                            );
+                        })()}
+                    </EliteGate>
                 </div>
             </div>
 

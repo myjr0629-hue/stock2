@@ -17,6 +17,7 @@ import {
 
 // Static imports — lightweight or needed immediately
 import { TacticalCard } from "@/components/TacticalCard";
+import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { TacticalSidebar } from "@/components/TacticalSidebar";
 import { PremiumBlur } from "@/components/PremiumBlur";
 import { type AlphaItem } from '@/components/intel/FinalBattleSection';
@@ -1652,9 +1653,11 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                         <SectorCommandCenter sectorData={sectorData} onNavigate={setActiveTab} />
                     )}
 
-                    {/* POST-MARKET BRIEF — Unified View of All Sector Reports */}
+                    {/* POST-MARKET BRIEF — PRO (Unified View of All Sector Reports) */}
                     {activeTab === 'POST_MARKET_ALL' && (
-                        <PostMarketBriefView />
+                        <ProGate fomoMessage="Post-Market Sector Brief — PRO" mode="blur">
+                            <PostMarketBriefView />
+                        </ProGate>
                     )}
 
                     {/* TRACK RECORD CONTENT — [DISABLED] Alpha Report removed */}
@@ -1664,85 +1667,89 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                         </div>
                     )}
 
-                    {/* HYPER DISCOVERY CONTENT (HUNTER CORPS) */}
+                    {/* HYPER DISCOVERY CONTENT (HUNTER CORPS) — ELITE */}
                     {activeTab === 'DISCOVERY' && (
-                        <div className="space-y-8">
-                            <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pt-4">
-                                <div>
-                                    <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-xs font-bold text-amber-500 tracking-widest uppercase flex items-center gap-2">
-                                            <Zap className="w-3 h-3" />
-                                            MOMENTUM SCANNERS
-                                        </span>
-                                    </div>
-                                    <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter flex items-center gap-4">
-                                        PROJECT: <span className="text-amber-500">HYPER DISCOVERY</span>
-                                    </h1>
-                                    <p className="text-slate-300 font-mono text-xs mt-2">
-                                        HUNTER CORPS • HIGH VOLATILITY • TIGHT STOPS
-                                    </p>
-                                </div>
-                            </section>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                {isLoading ? (
-                                    [1, 2, 3, 4].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
-                                ) : (
-                                    hunters.length > 0 ? (
-                                        hunters.map((item, idx) => (
-                                            <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
-                                                <TacticalCard
-                                                    ticker={item.ticker}
-                                                    rank={idx + 1}
-                                                    price={item.evidence.price.last}
-                                                    change={item.evidence.price.changePct}
-                                                    entryBand={item.decisionSSOT?.entryBand}
-                                                    cutPrice={item.decisionSSOT?.cutPrice}
-                                                    isLocked={true} // Hunters are locked targets
-                                                    name={item.symbol}
-                                                    rsi={item.evidence.price.rsi14}
-                                                    score={item.alphaScore}
-                                                    isDayTradeOnly={true} // Default for Hunters
-                                                    reasonKR={`[Hunter] RVol ${item.evidence.flow?.relVol?.toFixed(1)}x • Momentum Scalp`}
-                                                />
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="col-span-full py-20 text-center text-slate-300">
-                                            <p>No high-probability Hunter targets detected today.</p>
+                        <EliteGate fomoMessage="Hyper Discovery Scanner — ELITE" mode="blur">
+                            <div className="space-y-8">
+                                <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pt-4">
+                                    <div>
+                                        <div className="flex items-center gap-2 mb-2">
+                                            <span className="text-xs font-bold text-amber-500 tracking-widest uppercase flex items-center gap-2">
+                                                <Zap className="w-3 h-3" />
+                                                MOMENTUM SCANNERS
+                                            </span>
                                         </div>
-                                    )
-                                )}
+                                        <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter flex items-center gap-4">
+                                            PROJECT: <span className="text-amber-500">HYPER DISCOVERY</span>
+                                        </h1>
+                                        <p className="text-slate-300 font-mono text-xs mt-2">
+                                            HUNTER CORPS • HIGH VOLATILITY • TIGHT STOPS
+                                        </p>
+                                    </div>
+                                </section>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                    {isLoading ? (
+                                        [1, 2, 3, 4].map(i => <div key={i} className="h-80 bg-[#0a0f18] rounded border border-slate-800 animate-pulse" />)
+                                    ) : (
+                                        hunters.length > 0 ? (
+                                            hunters.map((item, idx) => (
+                                                <div key={item.ticker} onClick={() => setSelectedTicker(item)} className="cursor-pointer h-full">
+                                                    <TacticalCard
+                                                        ticker={item.ticker}
+                                                        rank={idx + 1}
+                                                        price={item.evidence.price.last}
+                                                        change={item.evidence.price.changePct}
+                                                        entryBand={item.decisionSSOT?.entryBand}
+                                                        cutPrice={item.decisionSSOT?.cutPrice}
+                                                        isLocked={true} // Hunters are locked targets
+                                                        name={item.symbol}
+                                                        rsi={item.evidence.price.rsi14}
+                                                        score={item.alphaScore}
+                                                        isDayTradeOnly={true} // Default for Hunters
+                                                        reasonKR={`[Hunter] RVol ${item.evidence.flow?.relVol?.toFixed(1)}x • Momentum Scalp`}
+                                                    />
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="col-span-full py-20 text-center text-slate-300">
+                                                <p>No high-probability Hunter targets detected today.</p>
+                                            </div>
+                                        )
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        </EliteGate>
                     )}
 
-                    {/* PHYSICAL AI CONTENT — V7.1 Unified Layout (Generic Template) */}
+                    {/* PHYSICAL AI CONTENT — PRO */}
                     {activeTab === 'PHYSICAL_AI' && (
-                        <div className="space-y-4">
+                        <ProGate fomoMessage="Physical AI Sector — PRO" mode="blur">
+                            <div className="space-y-4">
 
-                            {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
-                            <section>
-                                <SectorSessionGrid config={physicalAIConfig} quotes={sectorData.physicalAI} />
-                            </section>
+                                {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
+                                <section>
+                                    <SectorSessionGrid config={physicalAIConfig} quotes={sectorData.physicalAI} />
+                                </section>
 
-                            {/* Zone A-2: Ranking Row (Generic) */}
-                            <section>
-                                <SectorRankingRow config={physicalAIConfig} quotes={sectorData.physicalAI} />
-                            </section>
+                                {/* Zone A-2: Ranking Row (Generic) */}
+                                <section>
+                                    <SectorRankingRow config={physicalAIConfig} quotes={sectorData.physicalAI} />
+                                </section>
 
-                            {/* Zone B: Analyst Consensus + Earnings Calendar (Generic, auto-fetch) */}
-                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <SectorAnalystConsensus config={physicalAIConfig} />
-                                <SectorEarningsCalendar config={physicalAIConfig} />
-                            </section>
+                                {/* Zone B: Analyst Consensus + Earnings Calendar (Generic, auto-fetch) */}
+                                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <SectorAnalystConsensus config={physicalAIConfig} />
+                                    <SectorEarningsCalendar config={physicalAIConfig} />
+                                </section>
 
-                            {/* Zone C: TacticalReportDeck (장마감 고정 보고서) */}
-                            <section>
-                                <TacticalReportDeck config={physicalAIConfig} />
-                            </section>
+                                {/* Zone C: TacticalReportDeck (장마감 고정 보고서) */}
+                                <section>
+                                    <TacticalReportDeck config={physicalAIConfig} />
+                                </section>
 
-                        </div>
+                            </div>
+                        </ProGate>
                     )}
 
                     {/* M7 REPORT CONTENT — V7.1 Unified Layout (Generic Template) */}
@@ -1773,153 +1780,169 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                         </div>
                     )}
 
-                    {/* SILICON CORE CONTENT — AI Semiconductor & Infrastructure */}
+                    {/* SILICON CORE CONTENT — PRO */}
                     {activeTab === 'SILICON_CORE' && (
-                        <div className="space-y-4">
-                            <section>
-                                <SectorSessionGrid config={siliconCoreConfig} quotes={sectorData.siliconCore} />
-                            </section>
-                            <section>
-                                <SectorRankingRow config={siliconCoreConfig} quotes={sectorData.siliconCore} />
-                            </section>
-                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <SectorAnalystConsensus config={siliconCoreConfig} />
-                                <SectorEarningsCalendar config={siliconCoreConfig} />
-                            </section>
-                            <section>
-                                <TacticalReportDeck config={siliconCoreConfig} />
-                            </section>
-                        </div>
+                        <ProGate fomoMessage="Silicon Core Sector — PRO" mode="blur">
+                            <div className="space-y-4">
+                                <section>
+                                    <SectorSessionGrid config={siliconCoreConfig} quotes={sectorData.siliconCore} />
+                                </section>
+                                <section>
+                                    <SectorRankingRow config={siliconCoreConfig} quotes={sectorData.siliconCore} />
+                                </section>
+                                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <SectorAnalystConsensus config={siliconCoreConfig} />
+                                    <SectorEarningsCalendar config={siliconCoreConfig} />
+                                </section>
+                                <section>
+                                    <TacticalReportDeck config={siliconCoreConfig} />
+                                </section>
+                            </div>
+                        </ProGate>
                     )}
 
-                    {/* POWER MATRIX CONTENT — Next-Gen Energy & Nuclear */}
+                    {/* POWER MATRIX CONTENT — PRO */}
                     {activeTab === 'POWER_MATRIX' && (
-                        <div className="space-y-4">
-                            <section>
-                                <SectorSessionGrid config={powerMatrixConfig} quotes={sectorData.powerMatrix} />
-                            </section>
-                            <section>
-                                <SectorRankingRow config={powerMatrixConfig} quotes={sectorData.powerMatrix} />
-                            </section>
-                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <SectorAnalystConsensus config={powerMatrixConfig} />
-                                <SectorEarningsCalendar config={powerMatrixConfig} />
-                            </section>
-                            <section>
-                                <TacticalReportDeck config={powerMatrixConfig} />
-                            </section>
-                        </div>
+                        <ProGate fomoMessage="Power Matrix Sector — PRO" mode="blur">
+                            <div className="space-y-4">
+                                <section>
+                                    <SectorSessionGrid config={powerMatrixConfig} quotes={sectorData.powerMatrix} />
+                                </section>
+                                <section>
+                                    <SectorRankingRow config={powerMatrixConfig} quotes={sectorData.powerMatrix} />
+                                </section>
+                                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <SectorAnalystConsensus config={powerMatrixConfig} />
+                                    <SectorEarningsCalendar config={powerMatrixConfig} />
+                                </section>
+                                <section>
+                                    <TacticalReportDeck config={powerMatrixConfig} />
+                                </section>
+                            </div>
+                        </ProGate>
                     )}
 
-                    {/* BIO PULSE CONTENT — GLP-1 & Biotech */}
+                    {/* BIO PULSE CONTENT — PRO */}
                     {activeTab === 'BIO_PULSE' && (
-                        <div className="space-y-4">
-                            <section>
-                                <SectorSessionGrid config={bioPulseConfig} quotes={sectorData.bioPulse} />
-                            </section>
-                            <section>
-                                <SectorRankingRow config={bioPulseConfig} quotes={sectorData.bioPulse} />
-                            </section>
-                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <SectorAnalystConsensus config={bioPulseConfig} />
-                                <SectorEarningsCalendar config={bioPulseConfig} />
-                            </section>
-                            <section>
-                                <TacticalReportDeck config={bioPulseConfig} />
-                            </section>
-                        </div>
+                        <ProGate fomoMessage="Bio Pulse Sector — PRO" mode="blur">
+                            <div className="space-y-4">
+                                <section>
+                                    <SectorSessionGrid config={bioPulseConfig} quotes={sectorData.bioPulse} />
+                                </section>
+                                <section>
+                                    <SectorRankingRow config={bioPulseConfig} quotes={sectorData.bioPulse} />
+                                </section>
+                                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <SectorAnalystConsensus config={bioPulseConfig} />
+                                    <SectorEarningsCalendar config={bioPulseConfig} />
+                                </section>
+                                <section>
+                                    <TacticalReportDeck config={bioPulseConfig} />
+                                </section>
+                            </div>
+                        </ProGate>
                     )}
 
-                    {/* CYBER SHIELD CONTENT — AI Cybersecurity */}
+                    {/* CYBER SHIELD CONTENT — PRO */}
                     {activeTab === 'CYBER_SHIELD' && (
-                        <div className="space-y-4">
-                            <section>
-                                <SectorSessionGrid config={cyberShieldConfig} quotes={sectorData.cyberShield} />
-                            </section>
-                            <section>
-                                <SectorRankingRow config={cyberShieldConfig} quotes={sectorData.cyberShield} />
-                            </section>
-                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <SectorAnalystConsensus config={cyberShieldConfig} />
-                                <SectorEarningsCalendar config={cyberShieldConfig} />
-                            </section>
-                            <section>
-                                <TacticalReportDeck config={cyberShieldConfig} />
-                            </section>
-                        </div>
+                        <ProGate fomoMessage="Cyber Shield Sector — PRO" mode="blur">
+                            <div className="space-y-4">
+                                <section>
+                                    <SectorSessionGrid config={cyberShieldConfig} quotes={sectorData.cyberShield} />
+                                </section>
+                                <section>
+                                    <SectorRankingRow config={cyberShieldConfig} quotes={sectorData.cyberShield} />
+                                </section>
+                                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <SectorAnalystConsensus config={cyberShieldConfig} />
+                                    <SectorEarningsCalendar config={cyberShieldConfig} />
+                                </section>
+                                <section>
+                                    <TacticalReportDeck config={cyberShieldConfig} />
+                                </section>
+                            </div>
+                        </ProGate>
                     )}
 
-                    {/* ORBIT DEFENSE CONTENT — Space & Defense */}
+                    {/* ORBIT DEFENSE CONTENT — PRO */}
                     {activeTab === 'ORBIT_DEFENSE' && (
-                        <div className="space-y-4">
-                            <section>
-                                <SectorSessionGrid config={orbitDefenseConfig} quotes={sectorData.orbitDefense} />
-                            </section>
-                            <section>
-                                <SectorRankingRow config={orbitDefenseConfig} quotes={sectorData.orbitDefense} />
-                            </section>
-                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <SectorAnalystConsensus config={orbitDefenseConfig} />
-                                <SectorEarningsCalendar config={orbitDefenseConfig} />
-                            </section>
-                            <section>
-                                <TacticalReportDeck config={orbitDefenseConfig} />
-                            </section>
-                        </div>
+                        <ProGate fomoMessage="Orbit Defense Sector — PRO" mode="blur">
+                            <div className="space-y-4">
+                                <section>
+                                    <SectorSessionGrid config={orbitDefenseConfig} quotes={sectorData.orbitDefense} />
+                                </section>
+                                <section>
+                                    <SectorRankingRow config={orbitDefenseConfig} quotes={sectorData.orbitDefense} />
+                                </section>
+                                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <SectorAnalystConsensus config={orbitDefenseConfig} />
+                                    <SectorEarningsCalendar config={orbitDefenseConfig} />
+                                </section>
+                                <section>
+                                    <TacticalReportDeck config={orbitDefenseConfig} />
+                                </section>
+                            </div>
+                        </ProGate>
                     )}
 
                     {activeTab === 'QUANTUM_EDGE' && (
-                        <div className="space-y-4">
-                            <section>
-                                <SectorSessionGrid config={quantumEdgeConfig} quotes={sectorData.quantumEdge} />
-                            </section>
-                            <section>
-                                <SectorRankingRow config={quantumEdgeConfig} quotes={sectorData.quantumEdge} />
-                            </section>
-                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <SectorAnalystConsensus config={quantumEdgeConfig} />
-                                <SectorEarningsCalendar config={quantumEdgeConfig} />
-                            </section>
-                            <section>
-                                <TacticalReportDeck config={quantumEdgeConfig} />
-                            </section>
-                        </div>
+                        <EliteGate fomoMessage="Quantum Edge Sector — ELITE" mode="blur">
+                            <div className="space-y-4">
+                                <section>
+                                    <SectorSessionGrid config={quantumEdgeConfig} quotes={sectorData.quantumEdge} />
+                                </section>
+                                <section>
+                                    <SectorRankingRow config={quantumEdgeConfig} quotes={sectorData.quantumEdge} />
+                                </section>
+                                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <SectorAnalystConsensus config={quantumEdgeConfig} />
+                                    <SectorEarningsCalendar config={quantumEdgeConfig} />
+                                </section>
+                                <section>
+                                    <TacticalReportDeck config={quantumEdgeConfig} />
+                                </section>
+                            </div>
+                        </EliteGate>
                     )}
 
                     {activeTab === 'FINTECH_PULSE' && (
-                        <div className="space-y-4">
-                            <section>
-                                <SectorSessionGrid config={fintechPulseConfig} quotes={sectorData.fintechPulse} />
-                            </section>
-                            <section>
-                                <SectorRankingRow config={fintechPulseConfig} quotes={sectorData.fintechPulse} />
-                            </section>
-                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <SectorAnalystConsensus config={fintechPulseConfig} />
-                                <SectorEarningsCalendar config={fintechPulseConfig} />
-                            </section>
-                            <section>
-                                <TacticalReportDeck config={fintechPulseConfig} />
-                            </section>
-                        </div>
+                        <EliteGate fomoMessage="Fintech Pulse Sector — ELITE" mode="blur">
+                            <div className="space-y-4">
+                                <section>
+                                    <SectorSessionGrid config={fintechPulseConfig} quotes={sectorData.fintechPulse} />
+                                </section>
+                                <section>
+                                    <SectorRankingRow config={fintechPulseConfig} quotes={sectorData.fintechPulse} />
+                                </section>
+                                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <SectorAnalystConsensus config={fintechPulseConfig} />
+                                    <SectorEarningsCalendar config={fintechPulseConfig} />
+                                </section>
+                                <section>
+                                    <TacticalReportDeck config={fintechPulseConfig} />
+                                </section>
+                            </div>
+                        </EliteGate>
                     )}
 
                     {activeTab === 'CLOUD_FORTRESS' && (
-                        <div className="space-y-4">
-                            <section>
-                                <SectorSessionGrid config={cloudFortressConfig} quotes={sectorData.cloudFortress} />
-                            </section>
-                            <section>
-                                <SectorRankingRow config={cloudFortressConfig} quotes={sectorData.cloudFortress} />
-                            </section>
-                            <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                <SectorAnalystConsensus config={cloudFortressConfig} />
-                                <SectorEarningsCalendar config={cloudFortressConfig} />
-                            </section>
-                            <section>
-                                <TacticalReportDeck config={cloudFortressConfig} />
-                            </section>
-                        </div>
+                        <EliteGate fomoMessage="Cloud Fortress Sector — ELITE" mode="blur">
+                            <div className="space-y-4">
+                                <section>
+                                    <SectorSessionGrid config={cloudFortressConfig} quotes={sectorData.cloudFortress} />
+                                </section>
+                                <section>
+                                    <SectorRankingRow config={cloudFortressConfig} quotes={sectorData.cloudFortress} />
+                                </section>
+                                <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <SectorAnalystConsensus config={cloudFortressConfig} />
+                                    <SectorEarningsCalendar config={cloudFortressConfig} />
+                                </section>
+                                <section>
+                                    <TacticalReportDeck config={cloudFortressConfig} />
+                                </section>
+                            </div>
+                        </EliteGate>
                     )}
 
                     {/* FINAL BATTLE CONTENT — [DISABLED] Alpha Report removed */}

@@ -13,6 +13,7 @@ import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { usePriceFlash, getFlashStyle } from '@/components/ui/PriceDisplay';
 import useSWR from 'swr';
 import type { FlowRadarProps } from '@/components/FlowRadar';
+import { ProGate } from '@/components/gate/FeatureGate';
 
 // [PERF] Lazy-loaded — FlowRadar includes recharts (~100KB)
 const FlowRadar = dynamic<FlowRadarProps>(() => import('@/components/FlowRadar').then(m => m.FlowRadar), { ssr: false });
@@ -258,19 +259,21 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                             </div>
                         </div>
                     ) : (
-                        <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
-                            <FlowRadar
-                                ticker={ticker}
-                                rawChain={rawChain}
-                                allExpiryChain={allExpiryChain}
-                                gammaFlipLevel={gammaFlipLevel}
-                                oiPcr={oiPcr}
-                                currentPrice={displayPrice}
-                                squeezeScore={liveQuote?.flow?.squeezeScore}
-                                squeezeRisk={liveQuote?.flow?.squeezeRisk}
-                                initialFlowData={initialFlowData} // Pass down to FlowRadar for useWhaleTrades etc.
-                            />
-                        </div>
+                        <ProGate fomoMessage="FLOW Radar — Premium Options Intelligence" mode="blur">
+                            <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                <FlowRadar
+                                    ticker={ticker}
+                                    rawChain={rawChain}
+                                    allExpiryChain={allExpiryChain}
+                                    gammaFlipLevel={gammaFlipLevel}
+                                    oiPcr={oiPcr}
+                                    currentPrice={displayPrice}
+                                    squeezeScore={liveQuote?.flow?.squeezeScore}
+                                    squeezeRisk={liveQuote?.flow?.squeezeRisk}
+                                    initialFlowData={initialFlowData} // Pass down to FlowRadar for useWhaleTrades etc.
+                                />
+                            </div>
+                        </ProGate>
                     )}
                 </main>
             </div>
