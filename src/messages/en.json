@@ -2990,6 +2990,8 @@
     "guestWallSubtitle": "Sign up in 10 seconds to keep watching",
     "guestWallCta": "Start for Free",
     "guestWallRemaining": "Free preview: {count} remaining",
-    "refreshSpeed": "PRO members receive data 4x faster"
+    "refreshSpeed": "PRO members receive data 4x faster",
+    "foundingBarLock": "Locked-in forever",
+    "foundingBarCta": "Get Started"
   }
 }

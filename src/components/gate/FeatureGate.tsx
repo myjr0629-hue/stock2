@@ -27,7 +27,9 @@ interface FeatureGateProps {
     requiredTier: 'free' | 'pro' | 'elite';
     /** 게이팅 시각 모드 */
     mode?: 'blur' | 'peek' | 'gradient';
-    /** FOMO 메시지 (블러 위에 표시) */
+    /** 잠금 카드에 항상 표시할 지표명 (e.g. "Net GEX", "Gamma Flip") */
+    title?: string;
+    /** FOMO 메시지 (블러 위에 표시, compact에서는 숨겨짐) */
     fomoMessage?: string;
     /** 피킹용 실제 값 (잠긴 상태에서 살짝 노출) */
     fomoValue?: string;
@@ -70,6 +72,7 @@ const TIER_COLOR: Record<string, { bg: string; text: string; border: string; glo
 export function FeatureGate({
     requiredTier,
     mode = 'blur',
+    title,
     fomoMessage,
     fomoValue,
     children,
@@ -77,11 +80,25 @@ export function FeatureGate({
     minHeight,
     compact = false,
 }: FeatureGateProps) {
-    const { hasAccess, loading } = useTier();
+    const { hasAccess, loading, tier } = useTier();
     const [showUpgrade, setShowUpgrade] = useState(false);
+
+    // ⚠ Hooks must be called BEFORE any conditional returns (Rules of Hooks)
+    const handleClick = useCallback(() => {
+        setShowUpgrade(true);
+    }, []);
+
+    // [DEBUG] Trace gate decision
+    console.log(`[FeatureGate] requiredTier=${requiredTier} | currentTier=${tier} | hasAccess=${hasAccess(requiredTier as UserTier)} | loading=${loading}`);
 
     // 접근 권한이 있으면 그대로 렌더링 (게이팅 없음)
     if (hasAccess(requiredTier as UserTier)) {
+        return <>{children}</>;
+    }
+
+    // ELITE gate인데 유저가 FREE면 → 외부 ProGate가 이미 블러 처리하므로 패스스루
+    // (이중 블러/오버레이 방지 — 투톤 현상 해결)
+    if (requiredTier === 'elite' && tier === 'free') {
         return <>{children}</>;
     }
 
@@ -96,37 +113,40 @@ export function FeatureGate({
     const colors = TIER_COLOR[requiredTier] || TIER_COLOR.pro;
     const tierLabel = TIER_LABEL[requiredTier] || 'PRO';
 
-    const handleClick = useCallback(() => {
-        setShowUpgrade(true);
-    }, []);
-
     // ============================================================
     // MODE: BLUR — 전체 블러 + 잠금 오버레이
     // ============================================================
     if (mode === 'blur') {
         return (
-            <div className={`relative overflow-hidden rounded-xl ${className}`}
-                style={{ minHeight: minHeight || (compact ? '60px' : '120px') }}>
-                {/* 실제 콘텐츠 (블러 처리) */}
-                <div className="pointer-events-none select-none" style={{ filter: 'blur(8px)' }}>
+            <div className={`relative rounded-xl ${className}`}
+                style={{ minHeight: minHeight || (compact ? '80px' : '120px') }}>
+                {/* 실제 콘텐츠 (블러 처리 + overflow-hidden으로 블러 엣지 클리핑) */}
+                <div className="pointer-events-none select-none" style={{ filter: `blur(${compact ? '2.5px' : '4.5px'})` }}>
                     {children}
                 </div>
 
                 {/* 잠금 오버레이 */}
                 <div
-                    className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/60 backdrop-blur-[2px] cursor-pointer"
+                    className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/30 cursor-pointer"
                     onClick={handleClick}
                 >
-                    <div className={`flex flex-col items-center gap-2 ${compact ? 'gap-1.5' : 'gap-3'}`}>
+                    <div className={`flex flex-col items-center ${compact ? 'gap-1' : 'gap-3'}`}>
                         {/* 잠금 아이콘 */}
-                        <div className={`rounded-full p-2.5 ${colors.bg} ${colors.border} border ${colors.glow}`}>
+                        <div className={`rounded-full ${compact ? 'p-1.5' : 'p-2.5'} ${colors.bg} ${colors.border} border ${colors.glow}`}>
                             <Lock className={`${compact ? 'w-3.5 h-3.5' : 'w-5 h-5'} ${colors.text}`} />
                         </div>
 
-                        {/* FOMO 메시지 */}
-                        {fomoMessage && (
-                            <p className={`text-slate-300 text-center max-w-xs leading-relaxed
-                                ${compact ? 'text-xs' : 'text-sm'}`}>
+                        {/* 지표명 — 항상 표시 */}
+                        {title && (
+                            <span className={`text-white font-jakarta font-bold tracking-wide text-center
+                                ${compact ? 'text-[11px]' : 'text-sm'}`}>
+                                {title}
+                            </span>
+                        )}
+
+                        {/* FOMO 메시지 — compact에서는 숨김 (카드가 작아 클리핑됨) */}
+                        {!compact && fomoMessage && (
+                            <p className="text-slate-200 text-center max-w-sm leading-relaxed text-[12px] font-medium tracking-wide font-jakarta">
                                 {fomoMessage}
                             </p>
                         )}
@@ -134,16 +154,16 @@ export function FeatureGate({
                         {/* CTA 버튼 */}
                         <Link
                             href="/pricing"
-                            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-bold uppercase tracking-wider
+                            className={`inline-flex items-center gap-1.5 rounded-lg font-bold uppercase tracking-wider
                                 transition-all hover:brightness-110
-                                ${compact ? 'text-xs px-3 py-1.5' : 'text-xs'}
+                                ${compact ? 'text-[11px] px-3 py-1 mt-0.5' : 'text-xs px-4 py-2'}
                                 ${requiredTier === 'elite'
                                     ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-black'
                                     : 'bg-gradient-to-r from-amber-500 to-amber-600 text-black'
                                 } ${colors.glow}`}
                             onClick={(e) => e.stopPropagation()}
                         >
-                            {tierLabel}로 잠금 해제 <ArrowRight className="w-3.5 h-3.5" />
+                            {tierLabel}로 잠금 해제 <ArrowRight className={`${compact ? 'w-3 h-3' : 'w-3.5 h-3.5'}`} />
                         </Link>
                     </div>
                 </div>
@@ -159,22 +179,29 @@ export function FeatureGate({
             <div className={`relative overflow-hidden rounded-xl ${className}`}
                 style={{ minHeight: minHeight || (compact ? '60px' : '100px') }}>
                 {/* 실제 콘텐츠 (약한 블러 — 숫자는 읽힘) */}
-                <div className="pointer-events-none select-none" style={{ filter: 'blur(3px)' }}>
+                <div className="pointer-events-none select-none" style={{ filter: 'blur(1.5px)' }}>
                     {children}
                 </div>
 
                 {/* Peek 값 + 잠금 레이블 */}
                 <div
-                    className="absolute inset-0 flex items-center justify-center cursor-pointer"
+                    className="absolute inset-0 flex flex-col items-center justify-center cursor-pointer gap-2"
                     onClick={handleClick}
                 >
-                    <div className={`flex items-center gap-3 px-4 py-2 rounded-lg bg-slate-900/80
+                    {/* 지표명 */}
+                    {title && (
+                        <span className={`text-white font-jakarta font-bold tracking-wide
+                            ${compact ? 'text-[11px]' : 'text-sm'}`}>
+                            {title}
+                        </span>
+                    )}
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-900/80
                         backdrop-blur-sm border ${colors.border}`}>
-                        <Lock className={`w-3.5 h-3.5 ${colors.text}`} />
+                        <Lock className={`w-3 h-3 ${colors.text}`} />
                         {fomoValue && (
                             <span className="text-white font-mono font-bold text-sm">{fomoValue}</span>
                         )}
-                        <span className={`text-xs font-bold ${colors.text}`}>
+                        <span className={`text-[11px] font-bold ${colors.text}`}>
                             {tierLabel} 잠금
                         </span>
                     </div>

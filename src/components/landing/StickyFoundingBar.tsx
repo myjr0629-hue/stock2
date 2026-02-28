@@ -16,7 +16,7 @@ import { useTranslations } from 'next-intl';
 
 export function StickyFoundingBar() {
     const { tier, loading } = useTier();
-    const t = useTranslations();
+    const t = useTranslations('gate');
     const [dismissed, setDismissed] = useState(false);
     const [visible, setVisible] = useState(false);
 
@@ -57,7 +57,7 @@ export function StickyFoundingBar() {
                                 -29%
                             </span>
                             <span className="hidden md:inline text-slate-400 text-xs">
-                                · 영구 가격 적용
+                                · {t('foundingBarLock')}
                             </span>
                         </div>
                     </div>
@@ -72,7 +72,7 @@ export function StickyFoundingBar() {
                                 hover:brightness-110 transition-all
                                 shadow-[0_0_20px_rgba(245,158,11,0.2)]"
                         >
-                            지금 시작 <ArrowRight className="w-3.5 h-3.5" />
+                            {t('foundingBarCta')} <ArrowRight className="w-3.5 h-3.5" />
                         </Link>
 
                         {/* 닫기 */}

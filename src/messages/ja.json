@@ -2990,6 +2990,8 @@
     "guestWallSubtitle": "10秒で登録して閲覧を続けましょう",
     "guestWallCta": "無料で始める",
     "guestWallRemaining": "無料プレビュー: 残り{count}回",
-    "refreshSpeed": "PROメンバーは4倍速くデータを受信しています"
+    "refreshSpeed": "PROメンバーは4倍速くデータを受信しています",
+    "foundingBarLock": "永久価格適用",
+    "foundingBarCta": "今すぐ始める"
   }
 }

@@ -591,7 +591,7 @@ function MainChartPanel() {
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
                 <div className="grid grid-cols-4 gap-3">
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
-                    <ProGate fomoMessage="Net GEX — SpotGamma $99+" mode="peek" compact>
+                    <ProGate title="Net GEX" fomoMessage="기관급 감마 포지션 분석" mode="peek" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q12 20 24 35 T48 25 T72 40 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><path d="M0 55 Q16 40 32 45 T64 35 T96 30" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-300" /></svg>
@@ -609,7 +609,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Gamma Flip — PRO (blur: SpotGamma core data) */}
-                    <ProGate fomoMessage="Gamma Flip Level — SpotGamma $99+" mode="blur" compact>
+                    <ProGate title="Gamma Flip" fomoMessage="감마 플립 레벨 — 롱/숏 전환점" mode="blur" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
@@ -687,7 +687,7 @@ function MainChartPanel() {
                 {/* ── ROW 2: 가격 레벨 + 기관 (Levels & Institutional) ── */}
                 <div className="grid grid-cols-4 gap-3">
                     {/* Max Pain — PRO (peek: price visible, % distance blurred) */}
-                    <ProGate fomoMessage="Max Pain Level — UW $50+" mode="peek" compact>
+                    <ProGate title="Max Pain" fomoMessage="옵션 만기 수렴 레벨" mode="peek" compact>
                         <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
                             <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><circle cx="40" cy="32" r="14" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" /><circle cx="40" cy="32" r="3" fill="currentColor" className="text-cyan-400" /></svg>
                             <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -706,7 +706,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Call Wall / Put Floor — PRO (blur: options level data) */}
-                    <ProGate fomoMessage="Call Wall / Put Floor — SpotGamma $99+" mode="blur" compact>
+                    <ProGate title="Call Wall / Put Floor" fomoMessage="옵션 가격 지지·저항" mode="blur" compact>
                         <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><line x1="0" y1="20" x2="96" y2="20" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><line x1="0" y1="44" x2="96" y2="44" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
                             <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -725,7 +725,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Dark Pool % — PRO (blur: institutional data, FlowAlgo $149) */}
-                    <ProGate fomoMessage="Dark Pool % — FlowAlgo $149" mode="blur" compact>
+                    <ProGate title="Dark Pool %" fomoMessage="기관 다크풀 거래 비중" mode="blur" compact>
                         {(() => {
                             const dp = data?.darkPoolPct ?? 0;
                             const isAlert = dp >= 45;
@@ -756,7 +756,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Short Vol % — PRO (blur: Ortex $49-149) */}
-                    <ProGate fomoMessage="Short Volume % — Ortex $49+" mode="blur" compact>
+                    <ProGate title="Short Vol %" fomoMessage="공매도 거래량 분석" mode="blur" compact>
                         {(() => {
                             const sv = data?.shortVolPct ?? 0;
                             const dp = data?.darkPoolPct ?? 0;
@@ -798,7 +798,7 @@ function MainChartPanel() {
                 {/* ── ROW 3: 변동성 + 당일 매매 (Volatility & Intraday) ── */}
                 <div className="grid grid-cols-4 gap-3">
                     {/* ATM IV — PRO (blur: advanced volatility surface, QuantData $99) */}
-                    <ProGate fomoMessage="ATM IV — QuantData $99" mode="blur" compact>
+                    <ProGate title="ATM IV" fomoMessage="내재변동성 서피스" mode="blur" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q12 10 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /><path d="M0 32 Q12 48 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
@@ -880,7 +880,7 @@ function MainChartPanel() {
                     })()}
 
                     {/* GEX REGIME — PRO (blur: SpotGamma Pro $249) */}
-                    <ProGate fomoMessage="GEX Regime — SpotGamma $249" mode="blur" compact>
+                    <ProGate title="GEX Regime" fomoMessage="감마 체제 분석" mode="blur" compact>
                         {(() => {
                             const price = data?.underlyingPrice || 0;
                             const flip = data?.gammaFlipLevel || 0;
@@ -946,7 +946,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Implied Move — ELITE (blur: advanced derivatives) */}
-                    <EliteGate fomoMessage="Implied Move — ELITE" mode="blur" compact>
+                    <EliteGate title="Implied Move" fomoMessage="파생상품 기반 변동 예측" mode="blur" compact>
                         {(() => {
                             const im = data?.impliedMovePct ?? 0;
                             const dir = data?.impliedMoveDir ?? 'neutral';

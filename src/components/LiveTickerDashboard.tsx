@@ -18,6 +18,7 @@ import { MarketStatusBadge } from "@/components/common/MarketStatusBadge";
 import { GammaLevelsViz } from "@/components/GammaLevelsViz";
 import { FlowSniper } from "@/components/FlowSniper";
 import { CommandInsight } from "@/components/CommandInsight";
+import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { useTranslations, useLocale } from 'next-intl';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
@@ -999,73 +1000,77 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                     {/* ═══ ROW 1: 실시간 / 당일 판단용 ═══ */}
 
-                    {/* [1-1] VOLATILITY REGIME™ */}
-                    {(() => {
-                        const r = volatilityData;
-                        const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
-                        const regimeColor = r?.regime === 'ERUPTING' ? 'text-rose-400' : r?.regime === 'LOADED' ? 'text-amber-400' : r?.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400';
-                        const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
-                        const regimeDesc = r?.regime === 'ERUPTING' ? td('volErupting') : r?.regime === 'LOADED' ? td('volLoaded') : r?.regime === 'COILING' ? td('volCoiling') : td('volStable');
-                        return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${regimeBg}`}>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
-                                <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle at 85% 50%, rgba(255,255,255,0.8) 0%, transparent 8%, transparent 12%, rgba(255,255,255,0.4) 13%, transparent 14%, transparent 22%, rgba(255,255,255,0.2) 23%, transparent 24%)" }} />
-                                <div className="relative z-10 flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-1">
-                                        <Zap className={`w-3.5 h-3.5 ${isHot ? 'text-amber-400' : 'text-cyan-400'}`} />
-                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">VOL REGIME</span>
+                    {/* [1-1] VOLATILITY REGIME™ — PRO */}
+                    <ProGate title="Vol Regime" mode="blur" compact>
+                        {(() => {
+                            const r = volatilityData;
+                            const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
+                            const regimeColor = r?.regime === 'ERUPTING' ? 'text-rose-400' : r?.regime === 'LOADED' ? 'text-amber-400' : r?.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400';
+                            const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
+                            const regimeDesc = r?.regime === 'ERUPTING' ? td('volErupting') : r?.regime === 'LOADED' ? td('volLoaded') : r?.regime === 'COILING' ? td('volCoiling') : td('volStable');
+                            return (
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${regimeBg}`}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                    <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle at 85% 50%, rgba(255,255,255,0.8) 0%, transparent 8%, transparent 12%, rgba(255,255,255,0.4) 13%, transparent 14%, transparent 22%, rgba(255,255,255,0.2) 23%, transparent 24%)" }} />
+                                    <div className="relative z-10 flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-1">
+                                            <Zap className={`w-3.5 h-3.5 ${isHot ? 'text-amber-400' : 'text-cyan-400'}`} />
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">VOL REGIME</span>
+                                        </div>
+                                        <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isHot ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${regimeColor}`}>
+                                            {r?.regime || '...'}
+                                        </span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isHot ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${regimeColor}`}>
-                                        {r?.regime || '...'}
-                                    </span>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className={`text-lg font-black tabular-nums leading-none ${regimeColor}`}>{r?.regimeScore ?? '--'}</span>
-                                    <span className="text-[11px] text-white font-bold">/100</span>
-                                    <span className="text-[11px] text-white ml-0.5">{regimeDesc}</span>
-                                </div>
-                                <div className="relative z-10 flex gap-3 mt-1 text-[11px] tabular-nums">
-                                    <span className="text-white/80 font-jakarta">GEX <span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel || '--'}</span></span>
-                                    <span className="text-white/80 font-jakarta">IV <span className="font-bold text-white">{r?.iv || '--'}%</span></span>
-                                    <span className="text-white/80 font-jakarta">Flip <span className="font-bold text-white">{r?.flipDistance ? `${r.flipDistance > 0 ? '+' : ''}${r.flipDistance}%` : '--'}</span></span>
-                                </div>
-                                <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-slate-300 font-jakarta">GEX + IV + Gamma Flip + Squeeze</span>
-                                </div>
-                            </div>
-                        );
-                    })()}
-
-                    {/* [1-2] CONVICTION MATRIX™ */}
-                    {(() => {
-                        const isBull = conviction && conviction.score >= 60;
-                        const isBear = conviction && conviction.score <= 40;
-                        const convDesc = conviction ? (conviction.score >= 70 ? td('convDescStrongBuy') : conviction.score >= 55 ? td('convDescBuy') : conviction.score <= 30 ? td('convDescSell') : conviction.score <= 45 ? td('convDescBearish') : td('convDescSearching')) : td('convDescCalc');
-                        return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
-                                <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "conic-gradient(from 220deg at 80% 60%, rgba(255,255,255,0.4) 0deg, transparent 60deg, transparent 360deg)" }} />
-                                <div className="relative z-10 flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-1">
-                                        <Target className="w-3.5 h-3.5 text-amber-400" />
-                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">CONVICTION</span>
+                                    <div className="relative z-10 flex items-baseline gap-1.5">
+                                        <span className={`text-lg font-black tabular-nums leading-none ${regimeColor}`}>{r?.regimeScore ?? '--'}</span>
+                                        <span className="text-[11px] text-white font-bold">/100</span>
+                                        <span className="text-[11px] text-white ml-0.5">{regimeDesc}</span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>{conviction?.grade || '...'}</span>
+                                    <div className="relative z-10 flex gap-3 mt-1 text-[11px] tabular-nums">
+                                        <span className="text-white/80 font-jakarta">GEX <span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel || '--'}</span></span>
+                                        <span className="text-white/80 font-jakarta">IV <span className="font-bold text-white">{r?.iv || '--'}%</span></span>
+                                        <span className="text-white/80 font-jakarta">Flip <span className="font-bold text-white">{r?.flipDistance ? `${r.flipDistance > 0 ? '+' : ''}${r.flipDistance}%` : '--'}</span></span>
+                                    </div>
+                                    <div className="relative z-10 mt-0.5">
+                                        <span className="text-[11px] text-slate-300 font-jakarta">GEX + IV + Gamma Flip + Squeeze</span>
+                                    </div>
                                 </div>
-                                <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className={`text-lg font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '--'}</span>
-                                    <span className="text-[11px] text-white font-bold">/100</span>
-                                    <span className="text-[11px] text-white ml-0.5">{convDesc}</span>
-                                </div>
-                                <div className="relative z-10 text-[11px] text-slate-300 mt-0.5">{conviction?.label || ''}</div>
-                                <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-slate-300 font-jakarta">{td('convComposite')}</span>
-                                </div>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
+                    </ProGate>
 
-                    {/* [1-3] VWAP */}
+                    {/* [1-2] CONVICTION MATRIX™ — PRO */}
+                    <ProGate title="Conviction Matrix" mode="blur" compact>
+                        {(() => {
+                            const isBull = conviction && conviction.score >= 60;
+                            const isBear = conviction && conviction.score <= 40;
+                            const convDesc = conviction ? (conviction.score >= 70 ? td('convDescStrongBuy') : conviction.score >= 55 ? td('convDescBuy') : conviction.score <= 30 ? td('convDescSell') : conviction.score <= 45 ? td('convDescBearish') : td('convDescSearching')) : td('convDescCalc');
+                            return (
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isBull ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBear ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                    <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "conic-gradient(from 220deg at 80% 60%, rgba(255,255,255,0.4) 0deg, transparent 60deg, transparent 360deg)" }} />
+                                    <div className="relative z-10 flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-1">
+                                            <Target className="w-3.5 h-3.5 text-amber-400" />
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">CONVICTION</span>
+                                        </div>
+                                        <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>{conviction?.grade || '...'}</span>
+                                    </div>
+                                    <div className="relative z-10 flex items-baseline gap-1.5">
+                                        <span className={`text-lg font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '--'}</span>
+                                        <span className="text-[11px] text-white font-bold">/100</span>
+                                        <span className="text-[11px] text-white ml-0.5">{convDesc}</span>
+                                    </div>
+                                    <div className="relative z-10 text-[11px] text-slate-300 mt-0.5">{conviction?.label || ''}</div>
+                                    <div className="relative z-10 mt-0.5">
+                                        <span className="text-[11px] text-slate-300 font-jakarta">{td('convComposite')}</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </ProGate>
+
+                    {/* [1-3] VWAP — FREE */}
                     {(() => {
                         const vwap = liveQuote?.vwap || initialStockData?.vwap || 0;
                         const price = displayPrice || 0;
@@ -1096,226 +1101,236 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         );
                     })()}
 
-                    {/* [1-4] SHORT SQUEEZE™ */}
-                    {(() => {
-                        const s = squeezeData;
-                        const isCritical = s?.status === 'CRITICAL' || s?.status === 'HIGH';
-                        const statusColor = s?.status === 'CRITICAL' ? 'text-rose-400' : s?.status === 'HIGH' ? 'text-amber-400' : s?.status === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400';
-                        const statusBg = s?.status === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : s?.status === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
-                        const sqDesc = s?.status === 'CRITICAL' ? td('sqCritical') : s?.status === 'HIGH' ? td('sqHigh') : s?.status === 'MEDIUM' ? td('sqMedium') : td('sqLow');
-                        return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${statusBg}`}>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
-                                <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.3) 6px, rgba(255,255,255,0.3) 7px, transparent 7px, transparent 13px)" }} />
-                                <div className="relative z-10 flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-1">
-                                        <ShieldAlert className={`w-3.5 h-3.5 ${isCritical ? 'text-rose-400' : 'text-orange-400'}`} />
-                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">SHORT SQUEEZE</span>
-                                    </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isCritical ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${statusColor}`}>
-                                        {s?.status || '...'}
-                                    </span>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className={`text-lg font-black tabular-nums leading-none ${statusColor}`}>{s?.siPercent !== undefined ? s.siPercent.toFixed(1) : '--'}%</span>
-                                    <span className="text-[11px] text-white font-bold font-jakarta">SI%</span>
-                                    <span className="text-[11px] text-white ml-0.5">{sqDesc}</span>
-                                </div>
-                                <div className="relative z-10 flex gap-3 mt-0.5 text-[11px] tabular-nums">
-                                    <span className="text-white/80">{td('sqDaysToCover')} <span className="font-bold text-white">{s?.daysToCover?.toFixed(1) ?? '--'}{td('sqDays')}</span></span>
-                                    <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></span>
-                                </div>
-                                <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-slate-300 font-jakarta">SI% + Days to Cover + Short Vol</span>
-                                </div>
-                            </div>
-                        );
-                    })()}
-
-                    {/* [1-5] ANALYST TARGET */}
-                    {(() => {
-                        const isBullish = analystData?.consensus === 'STRONG BUY' || analystData?.consensus === 'BUY';
-                        const isBearish = analystData?.consensus === 'SELL' || analystData?.consensus === 'STRONG SELL';
-                        const bd = analystData?.breakdown;
-                        const total = analystData?.totalAnalysts || 0;
-
-                        const buyCount = bd ? bd.strongBuy + bd.buy : 0;
-                        const buyPct = total > 0 ? Math.round((buyCount / total) * 100) : 0;
-                        const consensusKr = analystData?.consensus === 'STRONG BUY' ? td('analystStrongBuy') : analystData?.consensus === 'BUY' ? td('analystBuy') : analystData?.consensus === 'HOLD' ? td('analystHold') : analystData?.consensus === 'SELL' ? td('analystSell') : analystData?.consensus === 'STRONG SELL' ? td('analystStrongSell') : '...';
-                        return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isBullish ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBearish ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
-                                <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle at 80% 50%, rgba(255,255,255,0.6) 0%, transparent 10%, transparent 18%, rgba(255,255,255,0.3) 19%, transparent 20%, transparent 30%, rgba(255,255,255,0.15) 31%, transparent 32%)" }} />
-                                <div className="relative z-10 flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-1">
-                                        <Crosshair className={`w-3.5 h-3.5 ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-cyan-400'}`} />
-                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">ANALYST TARGET</span>
-                                    </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded ${isBullish ? 'bg-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-slate-300'}`}>{consensusKr}</span>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className={`text-lg font-black tabular-nums leading-none ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span>
-                                    <span className="text-[11px] text-white font-bold">{td('analystBuyReco')}</span>
-                                    <span className="text-[11px] text-white">{total} {td('analystOfTotal')}</span>
-                                </div>
-                                {bd && total > 0 && (
-                                    <div className="relative z-10 mt-1">
-                                        <div className="text-[11px] text-slate-300 tabular-nums font-jakarta">
-                                            <span className="text-emerald-400 font-bold">Strong Buy {bd.strongBuy}</span>
-                                            <span className="text-white/30 mx-0.5">|</span>
-                                            <span className="text-emerald-400/70">Buy {bd.buy}</span>
-                                            <span className="text-white/30 mx-0.5">|</span>
-                                            <span className="text-white/60">Hold {bd.hold}</span>
-                                            {(bd.sell > 0 || bd.strongSell > 0) && (
-                                                <>
-                                                    <span className="text-white/30 mx-0.5">|</span>
-                                                    <span className="text-rose-400/70">Sell {bd.sell + bd.strongSell}</span>
-                                                </>
-                                            )}
+                    {/* [1-4] SHORT SQUEEZE™ — FREE peek */}
+                    <ProGate title="Short Squeeze" mode="peek" compact>
+                        {(() => {
+                            const s = squeezeData;
+                            const isCritical = s?.status === 'CRITICAL' || s?.status === 'HIGH';
+                            const statusColor = s?.status === 'CRITICAL' ? 'text-rose-400' : s?.status === 'HIGH' ? 'text-amber-400' : s?.status === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400';
+                            const statusBg = s?.status === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : s?.status === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
+                            const sqDesc = s?.status === 'CRITICAL' ? td('sqCritical') : s?.status === 'HIGH' ? td('sqHigh') : s?.status === 'MEDIUM' ? td('sqMedium') : td('sqLow');
+                            return (
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${statusBg}`}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                    <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.3) 6px, rgba(255,255,255,0.3) 7px, transparent 7px, transparent 13px)" }} />
+                                    <div className="relative z-10 flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-1">
+                                            <ShieldAlert className={`w-3.5 h-3.5 ${isCritical ? 'text-rose-400' : 'text-orange-400'}`} />
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">SHORT SQUEEZE</span>
                                         </div>
-                                        <div className="flex h-1 rounded-full overflow-hidden bg-slate-800/40 mt-0.5">
-                                            <div className="bg-emerald-500" style={{ width: `${(bd.strongBuy / total) * 100}%` }} />
-                                            <div className="bg-emerald-400/60" style={{ width: `${(bd.buy / total) * 100}%` }} />
-                                            <div className="bg-slate-500/80" style={{ width: `${(bd.hold / total) * 100}%` }} />
-                                            <div className="bg-rose-400/60" style={{ width: `${(bd.sell / total) * 100}%` }} />
-                                            <div className="bg-rose-500" style={{ width: `${(bd.strongSell / total) * 100}%` }} />
-                                        </div>
-                                        <div className="text-[11px] text-white mt-0.5">→ {total} {td('analystOfTotal')} <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> {td('analystBuyReco')}</div>
+                                        <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isCritical ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${statusColor}`}>
+                                            {s?.status || '...'}
+                                        </span>
                                     </div>
-                                )}
-                                <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-slate-300 font-jakarta">Analyst Consensus</span>
+                                    <div className="relative z-10 flex items-baseline gap-1.5">
+                                        <span className={`text-lg font-black tabular-nums leading-none ${statusColor}`}>{s?.siPercent !== undefined ? s.siPercent.toFixed(1) : '--'}%</span>
+                                        <span className="text-[11px] text-white font-bold font-jakarta">SI%</span>
+                                        <span className="text-[11px] text-white ml-0.5">{sqDesc}</span>
+                                    </div>
+                                    <div className="relative z-10 flex gap-3 mt-0.5 text-[11px] tabular-nums">
+                                        <span className="text-white/80">{td('sqDaysToCover')} <span className="font-bold text-white">{s?.daysToCover?.toFixed(1) ?? '--'}{td('sqDays')}</span></span>
+                                        <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></span>
+                                    </div>
+                                    <div className="relative z-10 mt-0.5">
+                                        <span className="text-[11px] text-slate-300 font-jakarta">SI% + Days to Cover + Short Vol</span>
+                                    </div>
                                 </div>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
+                    </ProGate>
+
+                    {/* [1-5] ANALYST TARGET — PRO */}
+                    <ProGate title="Analyst Target" mode="blur" compact>
+                        {(() => {
+                            const isBullish = analystData?.consensus === 'STRONG BUY' || analystData?.consensus === 'BUY';
+                            const isBearish = analystData?.consensus === 'SELL' || analystData?.consensus === 'STRONG SELL';
+                            const bd = analystData?.breakdown;
+                            const total = analystData?.totalAnalysts || 0;
+
+                            const buyCount = bd ? bd.strongBuy + bd.buy : 0;
+                            const buyPct = total > 0 ? Math.round((buyCount / total) * 100) : 0;
+                            const consensusKr = analystData?.consensus === 'STRONG BUY' ? td('analystStrongBuy') : analystData?.consensus === 'BUY' ? td('analystBuy') : analystData?.consensus === 'HOLD' ? td('analystHold') : analystData?.consensus === 'SELL' ? td('analystSell') : analystData?.consensus === 'STRONG SELL' ? td('analystStrongSell') : '...';
+                            return (
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${isBullish ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBearish ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                    <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle at 80% 50%, rgba(255,255,255,0.6) 0%, transparent 10%, transparent 18%, rgba(255,255,255,0.3) 19%, transparent 20%, transparent 30%, rgba(255,255,255,0.15) 31%, transparent 32%)" }} />
+                                    <div className="relative z-10 flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-1">
+                                            <Crosshair className={`w-3.5 h-3.5 ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-cyan-400'}`} />
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">ANALYST TARGET</span>
+                                        </div>
+                                        <span className={`text-[11px] font-black px-1.5 py-px rounded ${isBullish ? 'bg-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-slate-300'}`}>{consensusKr}</span>
+                                    </div>
+                                    <div className="relative z-10 flex items-baseline gap-1.5">
+                                        <span className={`text-lg font-black tabular-nums leading-none ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span>
+                                        <span className="text-[11px] text-white font-bold">{td('analystBuyReco')}</span>
+                                        <span className="text-[11px] text-white">{total} {td('analystOfTotal')}</span>
+                                    </div>
+                                    {bd && total > 0 && (
+                                        <div className="relative z-10 mt-1">
+                                            <div className="text-[11px] text-slate-300 tabular-nums font-jakarta">
+                                                <span className="text-emerald-400 font-bold">Strong Buy {bd.strongBuy}</span>
+                                                <span className="text-white/30 mx-0.5">|</span>
+                                                <span className="text-emerald-400/70">Buy {bd.buy}</span>
+                                                <span className="text-white/30 mx-0.5">|</span>
+                                                <span className="text-white/60">Hold {bd.hold}</span>
+                                                {(bd.sell > 0 || bd.strongSell > 0) && (
+                                                    <>
+                                                        <span className="text-white/30 mx-0.5">|</span>
+                                                        <span className="text-rose-400/70">Sell {bd.sell + bd.strongSell}</span>
+                                                    </>
+                                                )}
+                                            </div>
+                                            <div className="flex h-1 rounded-full overflow-hidden bg-slate-800/40 mt-0.5">
+                                                <div className="bg-emerald-500" style={{ width: `${(bd.strongBuy / total) * 100}%` }} />
+                                                <div className="bg-emerald-400/60" style={{ width: `${(bd.buy / total) * 100}%` }} />
+                                                <div className="bg-slate-500/80" style={{ width: `${(bd.hold / total) * 100}%` }} />
+                                                <div className="bg-rose-400/60" style={{ width: `${(bd.sell / total) * 100}%` }} />
+                                                <div className="bg-rose-500" style={{ width: `${(bd.strongSell / total) * 100}%` }} />
+                                            </div>
+                                            <div className="text-[11px] text-white mt-0.5">→ {total} {td('analystOfTotal')} <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> {td('analystBuyReco')}</div>
+                                        </div>
+                                    )}
+                                    <div className="relative z-10 mt-0.5">
+                                        <span className="text-[11px] text-slate-300 font-jakarta">Analyst Consensus</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </ProGate>
 
                     {/* ═══ ROW 2: 스윙 / 장기 판단용 ═══ */}
 
-                    {/* [2-1] INSTITUTIONAL RADAR™ */}
-                    {(() => {
-                        const dp = institutionalData?.darkPool?.percent || 0;
-                        const blockCount = institutionalData?.blockTrade?.count || 0;
-                        const isAccumulation = dp > 40 && blockCount >= 3;
-                        const isDistribution = dp < 20 && blockCount <= 1;
-                        const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
-                        const sigColor = isAccumulation ? 'text-emerald-400' : isDistribution ? 'text-rose-400' : 'text-slate-400';
-                        const sigBg = isAccumulation ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isDistribution ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50';
-                        const instDesc = isAccumulation ? td('instAccum') : isDistribution ? td('instDist') : td('instNormal');
-                        return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${sigBg}`}>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
-                                <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "conic-gradient(from 0deg at 80% 50%, rgba(255,255,255,0.5) 0deg, transparent 30deg, transparent 360deg), radial-gradient(circle at 80% 50%, transparent 20%, rgba(255,255,255,0.1) 21%, transparent 22%)" }} />
-                                <div className="relative z-10 flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-1">
-                                        <Radar className={`w-3.5 h-3.5 ${isAccumulation ? 'text-emerald-400' : 'text-indigo-400'}`} />
-                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">INST RADAR</span>
+                    {/* [2-1] INSTITUTIONAL RADAR™ — PRO */}
+                    <ProGate title="Inst Radar" mode="blur" compact>
+                        {(() => {
+                            const dp = institutionalData?.darkPool?.percent || 0;
+                            const blockCount = institutionalData?.blockTrade?.count || 0;
+                            const isAccumulation = dp > 40 && blockCount >= 3;
+                            const isDistribution = dp < 20 && blockCount <= 1;
+                            const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
+                            const sigColor = isAccumulation ? 'text-emerald-400' : isDistribution ? 'text-rose-400' : 'text-slate-400';
+                            const sigBg = isAccumulation ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isDistribution ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50';
+                            const instDesc = isAccumulation ? td('instAccum') : isDistribution ? td('instDist') : td('instNormal');
+                            return (
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${sigBg}`}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                    <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "conic-gradient(from 0deg at 80% 50%, rgba(255,255,255,0.5) 0deg, transparent 30deg, transparent 360deg), radial-gradient(circle at 80% 50%, transparent 20%, rgba(255,255,255,0.1) 21%, transparent 22%)" }} />
+                                    <div className="relative z-10 flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-1">
+                                            <Radar className={`w-3.5 h-3.5 ${isAccumulation ? 'text-emerald-400' : 'text-indigo-400'}`} />
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">INST RADAR</span>
+                                        </div>
+                                        <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isAccumulation ? 'bg-emerald-500/20' : isDistribution ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${sigColor}`}>
+                                            {signal}
+                                        </span>
                                     </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta ${isAccumulation ? 'bg-emerald-500/20' : isDistribution ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${sigColor}`}>
-                                        {signal}
-                                    </span>
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className={`text-lg font-black tabular-nums leading-none ${dp > 35 ? 'text-indigo-400' : 'text-white/80'}`}>{dp.toFixed(1)}%</span>
-                                    <span className="text-[11px] text-white font-bold">{td('instDarkPool')}</span>
-                                    <span className="text-[11px] text-white ml-0.5">{instDesc}</span>
-                                </div>
-                                <div className="relative z-10 flex gap-3 mt-0.5 text-[11px] tabular-nums">
-                                    <span className="text-white/80">{td('instBlock')} <span className="font-bold text-white">{blockCount}{td('instTrades')}</span></span>
-                                    <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{institutionalData?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
-                                </div>
-                                <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-slate-300 font-jakarta">Dark Pool + Block Trade + Short Vol</span>
-                                </div>
-                            </div>
-                        );
-                    })()}
-
-                    {/* [2-2] TREND PHASE™ */}
-                    {(() => {
-                        const phase = smaData?.cross === 'GOLDEN' ? td('smaGolden') : smaData?.cross === 'DEAD' ? td('smaDead') : smaData?.label === 'ABOVE' ? td('smaAbove') : smaData?.label === 'BELOW' ? td('smaBelow') : '...';
-                        return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${smaData?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : smaData?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
-                                <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 11px)" }} />
-                                <div className="relative z-10 flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-1">
-                                        <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
-                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">TREND PHASE</span>
-                                    </div>
-                                    {smaData?.crossType === 'NEW' && (
-                                        <span className="text-[11px] font-black px-1.5 py-px rounded bg-amber-500/30 text-amber-300 animate-pulse font-jakarta">NEW!</span>
-                                    )}
-                                </div>
-                                <div className="relative z-10 flex items-baseline gap-2">
-                                    <span className={`text-lg font-black leading-none ${smaData?.cross === 'GOLDEN' ? 'text-emerald-400' : smaData?.cross === 'DEAD' ? 'text-rose-400' : 'text-white'}`}>
-                                        {smaData?.cross === 'GOLDEN' ? 'GOLDEN' : smaData?.cross === 'DEAD' ? 'DEAD' : smaData?.label || '--'}
-                                    </span>
-                                    <span className="text-[11px] text-white">{phase}</span>
-                                </div>
-                                {smaData && smaData.distance !== null && (
-                                    <div className={`relative z-10 text-[11px] font-bold mt-0.5 ${smaData.distance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {td('smaDeviation')} {smaData.distance > 0 ? '+' : ''}{smaData.distance}%
-                                        {smaData.isImminent && <span className="ml-1 text-amber-400">⚡ {td('smaCrossImminent')}</span>}
-                                    </div>
-                                )}
-                                <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-slate-300 font-jakarta">SMA 50/200 Cross Analysis</span>
-                                </div>
-                            </div>
-                        );
-                    })()}
-
-                    {/* [2-3] FUNDAMENTAL VALUE™ */}
-                    {(() => {
-                        const f = fundamentalData;
-                        const hasData = f && f.score > 0;
-                        const gradeColor = f?.grade?.startsWith('A') ? 'text-emerald-400' : f?.grade?.startsWith('B') ? 'text-cyan-400' : f?.grade?.startsWith('C') ? 'text-amber-400' : 'text-slate-400';
-                        const gradeBg = f?.grade?.startsWith('A') ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : f?.grade?.startsWith('B') ? 'bg-cyan-950/40 border-cyan-500/30' : 'bg-slate-800/40 border-slate-700/50';
-                        const bd = f?.breakdown;
-                        const fundDesc = !hasData ? td('fundCollecting') : f?.grade?.startsWith('A') ? td('fundExcellent') : f?.grade?.startsWith('B') ? td('fundGood') : f?.grade?.startsWith('C') ? td('fundAvg') : td('fundCaution');
-                        // Display raw values even when score is 0
-                        const pe = f?.pe; const de = f?.de; const roe = f?.roe; const rev = f?.revenueGrowth; const margin = f?.netMargin;
-                        return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${gradeBg}`}>
-                                <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
-                                <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 12px, rgba(255,255,255,0.15) 12px, rgba(255,255,255,0.15) 14px, transparent 14px, transparent 16px), linear-gradient(0deg, rgba(255,255,255,0.2) 0%, transparent 40%)" }} />
-                                <div className="relative z-10 flex items-center justify-between mb-1">
-                                    <div className="flex items-center gap-1">
-                                        <Shield className={`w-3.5 h-3.5 ${hasData ? 'text-emerald-400' : 'text-amber-400'}`} />
-                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">FUNDAMENTAL</span>
-                                    </div>
-                                    <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta bg-slate-700/30 ${hasData ? gradeColor : 'text-slate-400'}`}>
-                                        {hasData ? f?.grade : td('fundGradeCollecting')}
-                                    </span>
-                                </div>
-                                {hasData ? (
                                     <div className="relative z-10 flex items-baseline gap-1.5">
-                                        <span className={`text-lg font-black tabular-nums leading-none ${gradeColor}`}>{f?.score}</span>
-                                        <span className="text-[11px] text-white font-bold">/100</span>
-                                        <span className="text-[11px] text-white ml-0.5">{fundDesc}</span>
+                                        <span className={`text-lg font-black tabular-nums leading-none ${dp > 35 ? 'text-indigo-400' : 'text-white/80'}`}>{dp.toFixed(1)}%</span>
+                                        <span className="text-[11px] text-white font-bold">{td('instDarkPool')}</span>
+                                        <span className="text-[11px] text-white ml-0.5">{instDesc}</span>
                                     </div>
-                                ) : (
-                                    <div className="relative z-10">
-                                        <span className="text-sm font-bold text-white/40 leading-none">{fundDesc}</span>
+                                    <div className="relative z-10 flex gap-3 mt-0.5 text-[11px] tabular-nums">
+                                        <span className="text-white/80">{td('instBlock')} <span className="font-bold text-white">{blockCount}{td('instTrades')}</span></span>
+                                        <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{institutionalData?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
                                     </div>
-                                )}
-                                <div className="relative z-10 flex flex-wrap gap-x-2 mt-1 text-[11px] tabular-nums">
-                                    {pe !== null && pe !== undefined && <span className="text-white/80 font-jakarta">PE <span className="font-bold text-white">{pe}</span></span>}
-                                    {roe !== null && roe !== undefined && <span className="text-white/80 font-jakarta">ROE <span className="font-bold text-white">{roe}%</span></span>}
-                                    {rev !== null && rev !== undefined && <span className="text-white/80">{td('fundRevenue')} <span className="font-bold text-white">{rev > 0 ? '+' : ''}{rev}%</span></span>}
-                                    {margin !== null && margin !== undefined && <span className="text-white/80">{td('fundMargin')} <span className="font-bold text-white">{margin}%</span></span>}
-                                    {de !== null && de !== undefined && <span className="text-white/80 font-jakarta">D/E <span className="font-bold text-white">{de}</span></span>}
-                                    {!pe && !roe && !rev && !margin && !de && <span className="text-white/40">{td('fundApiWaiting')}</span>}
+                                    <div className="relative z-10 mt-0.5">
+                                        <span className="text-[11px] text-slate-300 font-jakarta">Dark Pool + Block Trade + Short Vol</span>
+                                    </div>
                                 </div>
-                                <div className="relative z-10 mt-0.5">
-                                    <span className="text-[11px] text-slate-300 font-jakarta">PE + FCF + Rev + Margin + DE</span>
-                                </div>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
+                    </ProGate>
 
-                    {/* [2-4] EARNINGS */}
+                    {/* [2-2] TREND PHASE™ — PRO */}
+                    <ProGate title="Trend Phase" mode="blur" compact>
+                        {(() => {
+                            const phase = smaData?.cross === 'GOLDEN' ? td('smaGolden') : smaData?.cross === 'DEAD' ? td('smaDead') : smaData?.label === 'ABOVE' ? td('smaAbove') : smaData?.label === 'BELOW' ? td('smaBelow') : '...';
+                            return (
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${smaData?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : smaData?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                    <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 11px)" }} />
+                                    <div className="relative z-10 flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-1">
+                                            <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">TREND PHASE</span>
+                                        </div>
+                                        {smaData?.crossType === 'NEW' && (
+                                            <span className="text-[11px] font-black px-1.5 py-px rounded bg-amber-500/30 text-amber-300 animate-pulse font-jakarta">NEW!</span>
+                                        )}
+                                    </div>
+                                    <div className="relative z-10 flex items-baseline gap-2">
+                                        <span className={`text-lg font-black leading-none ${smaData?.cross === 'GOLDEN' ? 'text-emerald-400' : smaData?.cross === 'DEAD' ? 'text-rose-400' : 'text-white'}`}>
+                                            {smaData?.cross === 'GOLDEN' ? 'GOLDEN' : smaData?.cross === 'DEAD' ? 'DEAD' : smaData?.label || '--'}
+                                        </span>
+                                        <span className="text-[11px] text-white">{phase}</span>
+                                    </div>
+                                    {smaData && smaData.distance !== null && (
+                                        <div className={`relative z-10 text-[11px] font-bold mt-0.5 ${smaData.distance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {td('smaDeviation')} {smaData.distance > 0 ? '+' : ''}{smaData.distance}%
+                                            {smaData.isImminent && <span className="ml-1 text-amber-400">⚡ {td('smaCrossImminent')}</span>}
+                                        </div>
+                                    )}
+                                    <div className="relative z-10 mt-0.5">
+                                        <span className="text-[11px] text-slate-300 font-jakarta">SMA 50/200 Cross Analysis</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </ProGate>
+
+                    {/* [2-3] FUNDAMENTAL VALUE™ — PRO */}
+                    <ProGate title="Fundamental" mode="blur" compact>
+                        {(() => {
+                            const f = fundamentalData;
+                            const hasData = f && f.score > 0;
+                            const gradeColor = f?.grade?.startsWith('A') ? 'text-emerald-400' : f?.grade?.startsWith('B') ? 'text-cyan-400' : f?.grade?.startsWith('C') ? 'text-amber-400' : 'text-slate-400';
+                            const gradeBg = f?.grade?.startsWith('A') ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : f?.grade?.startsWith('B') ? 'bg-cyan-950/40 border-cyan-500/30' : 'bg-slate-800/40 border-slate-700/50';
+                            const bd = f?.breakdown;
+                            const fundDesc = !hasData ? td('fundCollecting') : f?.grade?.startsWith('A') ? td('fundExcellent') : f?.grade?.startsWith('B') ? td('fundGood') : f?.grade?.startsWith('C') ? td('fundAvg') : td('fundCaution');
+                            // Display raw values even when score is 0
+                            const pe = f?.pe; const de = f?.de; const roe = f?.roe; const rev = f?.revenueGrowth; const margin = f?.netMargin;
+                            return (
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 transition-all duration-500 backdrop-blur-xl border ${gradeBg}`}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                    <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 12px, rgba(255,255,255,0.15) 12px, rgba(255,255,255,0.15) 14px, transparent 14px, transparent 16px), linear-gradient(0deg, rgba(255,255,255,0.2) 0%, transparent 40%)" }} />
+                                    <div className="relative z-10 flex items-center justify-between mb-1">
+                                        <div className="flex items-center gap-1">
+                                            <Shield className={`w-3.5 h-3.5 ${hasData ? 'text-emerald-400' : 'text-amber-400'}`} />
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">FUNDAMENTAL</span>
+                                        </div>
+                                        <span className={`text-[11px] font-black px-1.5 py-px rounded font-jakarta bg-slate-700/30 ${hasData ? gradeColor : 'text-slate-400'}`}>
+                                            {hasData ? f?.grade : td('fundGradeCollecting')}
+                                        </span>
+                                    </div>
+                                    {hasData ? (
+                                        <div className="relative z-10 flex items-baseline gap-1.5">
+                                            <span className={`text-lg font-black tabular-nums leading-none ${gradeColor}`}>{f?.score}</span>
+                                            <span className="text-[11px] text-white font-bold">/100</span>
+                                            <span className="text-[11px] text-white ml-0.5">{fundDesc}</span>
+                                        </div>
+                                    ) : (
+                                        <div className="relative z-10">
+                                            <span className="text-sm font-bold text-white/40 leading-none">{fundDesc}</span>
+                                        </div>
+                                    )}
+                                    <div className="relative z-10 flex flex-wrap gap-x-2 mt-1 text-[11px] tabular-nums">
+                                        {pe !== null && pe !== undefined && <span className="text-white/80 font-jakarta">PE <span className="font-bold text-white">{pe}</span></span>}
+                                        {roe !== null && roe !== undefined && <span className="text-white/80 font-jakarta">ROE <span className="font-bold text-white">{roe}%</span></span>}
+                                        {rev !== null && rev !== undefined && <span className="text-white/80">{td('fundRevenue')} <span className="font-bold text-white">{rev > 0 ? '+' : ''}{rev}%</span></span>}
+                                        {margin !== null && margin !== undefined && <span className="text-white/80">{td('fundMargin')} <span className="font-bold text-white">{margin}%</span></span>}
+                                        {de !== null && de !== undefined && <span className="text-white/80 font-jakarta">D/E <span className="font-bold text-white">{de}</span></span>}
+                                        {!pe && !roe && !rev && !margin && !de && <span className="text-white/40">{td('fundApiWaiting')}</span>}
+                                    </div>
+                                    <div className="relative z-10 mt-0.5">
+                                        <span className="text-[11px] text-slate-300 font-jakarta">PE + FCF + Rev + Margin + DE</span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+                    </ProGate>
+
+                    {/* [2-4] EARNINGS — FREE */}
                     {(() => {
                         const rawDays = earningsData?.daysLabel || '';
                         const daysNum = parseInt(rawDays.replace(/\D/g, ''));
@@ -1486,461 +1501,463 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             </div>
 
-                            {/* B. Advanced Options Analysis (Fixed Height: 400px) */}
-                            <div className="h-[400px] min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+                            {/* B. Advanced Options Analysis (Fixed Height: 400px) — PRO */}
+                            <ProGate title="Tactical Range & Gamma Engine" mode="blur" fomoMessage="Max Pain · Call Wall · Put Floor · Net GEX · Gamma Flip Level · Squeeze Risk">
+                                <div className="h-[400px] min-h-0 grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
 
-                                {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
-                                <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
-                                    {/* Infographic BG: Micro Grid + Level Lines */}
-                                    <div className="absolute inset-0 pointer-events-none z-0">
-                                        {/* Fine grid */}
-                                        <div className="absolute inset-0 bg-[linear-gradient(rgba(251,191,36,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.06)_1px,transparent_1px)] bg-[size:32px_32px]" />
-                                        {/* Horizontal level indicators */}
-                                        <div className="absolute top-[25%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/25 to-transparent" />
-                                        <div className="absolute top-[50%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/35 to-transparent" />
-                                        <div className="absolute top-[75%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/25 to-transparent" />
-                                        {/* Corner depth markers */}
-                                        <div className="absolute top-2 left-2 w-4 h-4 border-l-2 border-t-2 border-amber-500/30" />
-                                        <div className="absolute top-2 right-2 w-4 h-4 border-r-2 border-t-2 border-amber-500/30" />
-                                        <div className="absolute bottom-2 left-2 w-4 h-4 border-l-2 border-b-2 border-amber-500/30" />
-                                        <div className="absolute bottom-2 right-2 w-4 h-4 border-r-2 border-b-2 border-amber-500/30" />
-                                    </div>
-                                    {/* Loading Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
-                                    {structLoading && !structure && (
-                                        <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-                                                <span className="text-[11px] text-cyan-400/80 font-bold uppercase tracking-wider font-jakarta">Loading...</span>
+                                    {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
+                                    <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                                        {/* Infographic BG: Micro Grid + Level Lines */}
+                                        <div className="absolute inset-0 pointer-events-none z-0">
+                                            {/* Fine grid */}
+                                            <div className="absolute inset-0 bg-[linear-gradient(rgba(251,191,36,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(251,191,36,0.06)_1px,transparent_1px)] bg-[size:32px_32px]" />
+                                            {/* Horizontal level indicators */}
+                                            <div className="absolute top-[25%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-rose-500/25 to-transparent" />
+                                            <div className="absolute top-[50%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-amber-500/35 to-transparent" />
+                                            <div className="absolute top-[75%] left-0 right-0 h-px bg-gradient-to-r from-transparent via-emerald-500/25 to-transparent" />
+                                            {/* Corner depth markers */}
+                                            <div className="absolute top-2 left-2 w-4 h-4 border-l-2 border-t-2 border-amber-500/30" />
+                                            <div className="absolute top-2 right-2 w-4 h-4 border-r-2 border-t-2 border-amber-500/30" />
+                                            <div className="absolute bottom-2 left-2 w-4 h-4 border-l-2 border-b-2 border-amber-500/30" />
+                                            <div className="absolute bottom-2 right-2 w-4 h-4 border-r-2 border-b-2 border-amber-500/30" />
+                                        </div>
+                                        {/* Loading Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
+                                        {structLoading && !structure && (
+                                            <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+                                                    <span className="text-[11px] text-cyan-400/80 font-bold uppercase tracking-wider font-jakarta">Loading...</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {/* Header */}
+                                        <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
+                                            <div className="flex items-center gap-2">
+                                                <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm animate-pulse" />
+                                                    Tactical Range
+                                                </h4>
+                                                {structure?.expiration && (() => {
+                                                    const expDate = new Date(structure.expiration + 'T16:00:00-05:00');
+                                                    const now = new Date();
+                                                    const diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+                                                    return diffDays >= 0 ? (
+                                                        <span className={`text-[11px] font-black px-1.5 py-0.5 rounded font-jakarta ${diffDays <= 1 ? 'bg-rose-950/50 text-rose-400 border border-rose-500/30' : 'bg-cyan-950/50 text-cyan-400 border border-cyan-500/30'}`}>
+                                                            D-{diffDays}
+                                                        </span>
+                                                    ) : null;
+                                                })()}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-xs font-black text-amber-500 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/30 flex items-center gap-2 shadow-lg">
+                                                    <span className="text-[11px] font-black tracking-tighter font-jakarta">MAX PAIN</span>
+                                                    <span className="text-[11px] text-amber-300/70 font-medium uppercase tracking-tighter">({t('maxPainLabel')})</span>
+                                                    <span className="text-sm font-black pl-1 border-l border-amber-500/20">${structure?.maxPain || initialStockData.flow?.maxPain || "---"}</span>
+                                                    {(structure?.maxPain || initialStockData.flow?.maxPain) && (
+                                                        <span className={`text-[11px] font-bold ml-1 font-jakarta ${((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain)) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                            ({((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain) * 100).toFixed(1)}%)
+                                                        </span>
+                                                    )}
+                                                </span>
                                             </div>
                                         </div>
-                                    )}
-                                    {/* Header */}
-                                    <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
-                                        <div className="flex items-center gap-2">
-                                            <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-                                                <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm animate-pulse" />
-                                                Tactical Range
-                                            </h4>
-                                            {structure?.expiration && (() => {
-                                                const expDate = new Date(structure.expiration + 'T16:00:00-05:00');
-                                                const now = new Date();
-                                                const diffDays = Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-                                                return diffDays >= 0 ? (
-                                                    <span className={`text-[11px] font-black px-1.5 py-0.5 rounded font-jakarta ${diffDays <= 1 ? 'bg-rose-950/50 text-rose-400 border border-rose-500/30' : 'bg-cyan-950/50 text-cyan-400 border border-cyan-500/30'}`}>
-                                                        D-{diffDays}
-                                                    </span>
-                                                ) : null;
+
+                                        {/* Visual Body */}
+                                        <div className="flex-1 relative flex items-center justify-center p-4">
+                                            {/* Range Bar Background */}
+                                            <div className="w-2 h-full bg-slate-800 rounded-full relative overflow-hidden">
+                                                <div className="absolute top-0 inset-x-0 h-1/3 bg-gradient-to-b from-rose-500/20 to-transparent" />
+                                                <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-emerald-500/20 to-transparent" />
+
+                                                {/* Max Pain "Gravity" Center Line */}
+                                                <div className="absolute top-1/2 -translate-y-1/2 inset-x-0 h-1 bg-amber-500/50 blur-[2px]" />
+                                            </div>
+
+                                            {/* Markers */}
+                                            <div className="absolute inset-y-4 left-0 right-0 flex flex-col justify-between px-8">
+                                                {/* Resistance (Call Wall) */}
+                                                <div className="flex items-center gap-2 border-b border-rose-500/30 pb-1">
+                                                    <span className="text-[11px] font-bold text-rose-400 w-12 text-right font-jakarta">RESIST</span>
+                                                    <span className="text-sm font-black text-rose-200 tracking-wider">${structure?.levels?.callWall || "---"}</span>
+                                                </div>
+
+                                                {/* Max Pain Marker (Center Concept) */}
+                                                <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex items-center justify-end pr-8 gap-2 opacity-90">
+                                                    <span className="text-[11px] font-bold text-amber-500 uppercase tracking-wider font-jakarta">Max Pain</span>
+                                                    <div className="w-12 h-[1px] bg-amber-500/50" />
+                                                </div>
+
+
+                                                {/* Current Price Indicator (Floating) */}
+                                                <div className="w-full flex items-center gap-2 my-auto z-10 relative">
+                                                    <div className="h-[1px] flex-1 bg-indigo-500/50" />
+                                                    <div className="flex flex-col items-center">
+                                                        <div className="px-3 py-1 bg-indigo-600 rounded shadow-[0_0_15px_rgba(79,70,229,0.5)] border border-white/20 text-white font-black text-lg tracking-tight z-10 min-w-[100px] text-center">
+                                                            ${displayPrice.toFixed(2)}
+                                                        </div>
+                                                    </div>
+                                                    <div className="h-[1px] flex-1 bg-indigo-500/50" />
+                                                </div>
+
+                                                {/* Support (Put Floor) */}
+                                                <div className="flex items-center gap-2 border-t border-emerald-500/30 pt-1">
+                                                    <span className="text-[11px] font-bold text-emerald-400 w-12 text-right font-jakarta">SUPPORT</span>
+                                                    <span className="text-sm font-black text-emerald-200 tracking-wider">${structure?.levels?.putFloor || "---"}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Tactical Metrics - Small Grid */}
+                                        <div className="px-3 py-2 border-t border-white/5 bg-slate-950/20 grid grid-cols-2 gap-2">
+                                            {/* Max Pain Distance % */}
+                                            {(() => {
+                                                const maxPain = structure?.maxPain || 0;
+                                                const distance = maxPain ? ((displayPrice - maxPain) / maxPain * 100) : 0;
+                                                const absDistance = Math.abs(distance);
+                                                const color = absDistance < 1 ? "text-amber-400" : distance > 0 ? "text-rose-400" : "text-emerald-400";
+                                                return (
+                                                    <div className="bg-slate-800/40 rounded-md px-2 py-1.5 border border-white/5">
+                                                        <div className="text-[11px] text-slate-400 font-bold uppercase font-jakarta">{t('maxPainDistance')}</div>
+                                                        <div className={`text-sm font-black ${color}`}>
+                                                            {distance > 0 ? "+" : ""}{distance.toFixed(1)}%
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            {/* Range Width % */}
+                                            {(() => {
+                                                const resist = structure?.levels?.callWall || displayPrice * 1.05;
+                                                const support = structure?.levels?.putFloor || displayPrice * 0.95;
+                                                const rangeWidth = resist && support ? ((resist - support) / displayPrice * 100) : 0;
+                                                const color = rangeWidth > 10 ? "text-rose-400" : rangeWidth > 5 ? "text-amber-400" : "text-emerald-400";
+                                                return (
+                                                    <div className="bg-slate-800/40 rounded-md px-2 py-1.5 border border-white/5">
+                                                        <div className="text-[11px] text-slate-400 font-bold uppercase font-jakarta">{t('rangeWidth')}</div>
+                                                        <div className={`text-sm font-black ${color}`}>
+                                                            {rangeWidth.toFixed(1)}%
+                                                        </div>
+                                                    </div>
+                                                );
                                             })()}
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-xs font-black text-amber-500 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/30 flex items-center gap-2 shadow-lg">
-                                                <span className="text-[11px] font-black tracking-tighter font-jakarta">MAX PAIN</span>
-                                                <span className="text-[11px] text-amber-300/70 font-medium uppercase tracking-tighter">({t('maxPainLabel')})</span>
-                                                <span className="text-sm font-black pl-1 border-l border-amber-500/20">${structure?.maxPain || initialStockData.flow?.maxPain || "---"}</span>
-                                                {(structure?.maxPain || initialStockData.flow?.maxPain) && (
-                                                    <span className={`text-[11px] font-bold ml-1 font-jakarta ${((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain)) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                        ({((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain) * 100).toFixed(1)}%)
-                                                    </span>
-                                                )}
-                                            </span>
+
+                                        {/* Insight Footer */}
+                                        <div className="px-4 py-2 border-t border-white/5 bg-slate-950/30">
+                                            <p className="text-[11px] text-slate-300 leading-relaxed">
+                                                {displayPrice > (structure?.maxPain || 0)
+                                                    ? t('aboveMaxPain')
+                                                    : displayPrice < (structure?.maxPain || 0)
+                                                        ? t('belowMaxPain')
+                                                        : t('nearMaxPain')}
+                                            </p>
                                         </div>
                                     </div>
 
-                                    {/* Visual Body */}
-                                    <div className="flex-1 relative flex items-center justify-center p-4">
-                                        {/* Range Bar Background */}
-                                        <div className="w-2 h-full bg-slate-800 rounded-full relative overflow-hidden">
-                                            <div className="absolute top-0 inset-x-0 h-1/3 bg-gradient-to-b from-rose-500/20 to-transparent" />
-                                            <div className="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-emerald-500/20 to-transparent" />
-
-                                            {/* Max Pain "Gravity" Center Line */}
-                                            <div className="absolute top-1/2 -translate-y-1/2 inset-x-0 h-1 bg-amber-500/50 blur-[2px]" />
+                                    {/* 2. NET GAMMA ENGINE (Infographic Style) */}
+                                    <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
+                                        {/* Infographic BG: Scanlines + Energy Pulse */}
+                                        <div className="absolute inset-0 pointer-events-none z-0">
+                                            {/* Horizontal scanlines */}
+                                            <div className="absolute inset-0 bg-[linear-gradient(rgba(168,85,247,0.04)_1px,transparent_1px)] bg-[size:100%_8px]" />
+                                            {/* Diagonal tech lines */}
+                                            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(168,85,247,0.05)_25%,transparent_25%,transparent_50%,rgba(168,85,247,0.05)_50%,rgba(168,85,247,0.05)_75%,transparent_75%)] bg-[size:40px_40px]" />
+                                            {/* Energy pulse glow - top right */}
+                                            <div className="absolute -top-10 -right-10 w-48 h-48 bg-[radial-gradient(circle,rgba(168,85,247,0.12)_0%,transparent_60%)] animate-pulse" style={{ animationDuration: '5s' }} />
+                                            {/* Corner frames */}
+                                            <div className="absolute top-0 right-0 w-16 h-16 border-r-2 border-t-2 border-purple-500/15 rounded-tr-2xl" />
+                                            <div className="absolute bottom-0 left-0 w-16 h-16 border-l-2 border-b-2 border-purple-500/15 rounded-bl-2xl" />
+                                            {/* Bottom accent */}
+                                            <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
                                         </div>
-
-                                        {/* Markers */}
-                                        <div className="absolute inset-y-4 left-0 right-0 flex flex-col justify-between px-8">
-                                            {/* Resistance (Call Wall) */}
-                                            <div className="flex items-center gap-2 border-b border-rose-500/30 pb-1">
-                                                <span className="text-[11px] font-bold text-rose-400 w-12 text-right font-jakarta">RESIST</span>
-                                                <span className="text-sm font-black text-rose-200 tracking-wider">${structure?.levels?.callWall || "---"}</span>
-                                            </div>
-
-                                            {/* Max Pain Marker (Center Concept) */}
-                                            <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 flex items-center justify-end pr-8 gap-2 opacity-90">
-                                                <span className="text-[11px] font-bold text-amber-500 uppercase tracking-wider font-jakarta">Max Pain</span>
-                                                <div className="w-12 h-[1px] bg-amber-500/50" />
-                                            </div>
-
-
-                                            {/* Current Price Indicator (Floating) */}
-                                            <div className="w-full flex items-center gap-2 my-auto z-10 relative">
-                                                <div className="h-[1px] flex-1 bg-indigo-500/50" />
-                                                <div className="flex flex-col items-center">
-                                                    <div className="px-3 py-1 bg-indigo-600 rounded shadow-[0_0_15px_rgba(79,70,229,0.5)] border border-white/20 text-white font-black text-lg tracking-tight z-10 min-w-[100px] text-center">
-                                                        ${displayPrice.toFixed(2)}
-                                                    </div>
+                                        {/* Loading Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
+                                        {structLoading && !structure && (
+                                            <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
+                                                <div className="flex flex-col items-center gap-2">
+                                                    <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
+                                                    <span className="text-[11px] text-cyan-400/80 font-bold uppercase tracking-wider font-jakarta">Loading...</span>
                                                 </div>
-                                                <div className="h-[1px] flex-1 bg-indigo-500/50" />
                                             </div>
-
-                                            {/* Support (Put Floor) */}
-                                            <div className="flex items-center gap-2 border-t border-emerald-500/30 pt-1">
-                                                <span className="text-[11px] font-bold text-emerald-400 w-12 text-right font-jakarta">SUPPORT</span>
-                                                <span className="text-sm font-black text-emerald-200 tracking-wider">${structure?.levels?.putFloor || "---"}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Tactical Metrics - Small Grid */}
-                                    <div className="px-3 py-2 border-t border-white/5 bg-slate-950/20 grid grid-cols-2 gap-2">
-                                        {/* Max Pain Distance % */}
-                                        {(() => {
-                                            const maxPain = structure?.maxPain || 0;
-                                            const distance = maxPain ? ((displayPrice - maxPain) / maxPain * 100) : 0;
-                                            const absDistance = Math.abs(distance);
-                                            const color = absDistance < 1 ? "text-amber-400" : distance > 0 ? "text-rose-400" : "text-emerald-400";
-                                            return (
-                                                <div className="bg-slate-800/40 rounded-md px-2 py-1.5 border border-white/5">
-                                                    <div className="text-[11px] text-slate-400 font-bold uppercase font-jakarta">{t('maxPainDistance')}</div>
-                                                    <div className={`text-sm font-black ${color}`}>
-                                                        {distance > 0 ? "+" : ""}{distance.toFixed(1)}%
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-
-                                        {/* Range Width % */}
-                                        {(() => {
-                                            const resist = structure?.levels?.callWall || displayPrice * 1.05;
-                                            const support = structure?.levels?.putFloor || displayPrice * 0.95;
-                                            const rangeWidth = resist && support ? ((resist - support) / displayPrice * 100) : 0;
-                                            const color = rangeWidth > 10 ? "text-rose-400" : rangeWidth > 5 ? "text-amber-400" : "text-emerald-400";
-                                            return (
-                                                <div className="bg-slate-800/40 rounded-md px-2 py-1.5 border border-white/5">
-                                                    <div className="text-[11px] text-slate-400 font-bold uppercase font-jakarta">{t('rangeWidth')}</div>
-                                                    <div className={`text-sm font-black ${color}`}>
-                                                        {rangeWidth.toFixed(1)}%
-                                                    </div>
-                                                </div>
-                                            );
-                                        })()}
-                                    </div>
-
-                                    {/* Insight Footer */}
-                                    <div className="px-4 py-2 border-t border-white/5 bg-slate-950/30">
-                                        <p className="text-[11px] text-slate-300 leading-relaxed">
-                                            {displayPrice > (structure?.maxPain || 0)
-                                                ? t('aboveMaxPain')
-                                                : displayPrice < (structure?.maxPain || 0)
-                                                    ? t('belowMaxPain')
-                                                    : t('nearMaxPain')}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* 2. NET GAMMA ENGINE (Infographic Style) */}
-                                <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] overflow-hidden flex flex-col relative group hover:border-white/20 transition-colors">
-                                    {/* Infographic BG: Scanlines + Energy Pulse */}
-                                    <div className="absolute inset-0 pointer-events-none z-0">
-                                        {/* Horizontal scanlines */}
-                                        <div className="absolute inset-0 bg-[linear-gradient(rgba(168,85,247,0.04)_1px,transparent_1px)] bg-[size:100%_8px]" />
-                                        {/* Diagonal tech lines */}
-                                        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(168,85,247,0.05)_25%,transparent_25%,transparent_50%,rgba(168,85,247,0.05)_50%,rgba(168,85,247,0.05)_75%,transparent_75%)] bg-[size:40px_40px]" />
-                                        {/* Energy pulse glow - top right */}
-                                        <div className="absolute -top-10 -right-10 w-48 h-48 bg-[radial-gradient(circle,rgba(168,85,247,0.12)_0%,transparent_60%)] animate-pulse" style={{ animationDuration: '5s' }} />
-                                        {/* Corner frames */}
-                                        <div className="absolute top-0 right-0 w-16 h-16 border-r-2 border-t-2 border-purple-500/15 rounded-tr-2xl" />
-                                        <div className="absolute bottom-0 left-0 w-16 h-16 border-l-2 border-b-2 border-purple-500/15 rounded-bl-2xl" />
-                                        {/* Bottom accent */}
-                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-purple-500/40 to-transparent" />
-                                    </div>
-                                    {/* Loading Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
-                                    {structLoading && !structure && (
-                                        <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
-                                            <div className="flex flex-col items-center gap-2">
-                                                <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-                                                <span className="text-[11px] text-cyan-400/80 font-bold uppercase tracking-wider font-jakarta">Loading...</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                    {/* Header */}
-                                    <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
-                                        <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 font-jakarta">
-                                            <Activity size={10} className={structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"} />
-                                            NET GAMMA ENGINE
-                                        </h4>
-                                        {structure?.expiration && (
-                                            <span className="text-xs text-white font-mono font-jakarta">EXP: {structure.expiration}</span>
                                         )}
-                                    </div>
+                                        {/* Header */}
+                                        <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
+                                            <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 font-jakarta">
+                                                <Activity size={10} className={structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"} />
+                                                NET GAMMA ENGINE
+                                            </h4>
+                                            {structure?.expiration && (
+                                                <span className="text-xs text-white font-mono font-jakarta">EXP: {structure.expiration}</span>
+                                            )}
+                                        </div>
 
-                                    {/* Main Content - Infographic Layout */}
-                                    <div className="flex-1 p-3 flex flex-col gap-2 overflow-hidden">
-                                        {/* Top Row: Core GEX + Status + P/C OI Circle */}
-                                        <div className="flex items-center justify-between gap-4">
-                                            {/* Left: Reactor Core (GEX Only) */}
-                                            <div className="relative shrink-0">
-                                                <div className={`w-20 h-20 rounded-full border-4 border-dashed ${structure?.netGex > 0 ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.5)]" : "border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.5)]"} flex items-center justify-center animate-[spin_10s_linear_infinite]`} />
-                                                <div className={`absolute inset-2 rounded-full bg-slate-900/95 flex flex-col items-center justify-center border ${structure?.netGex > 0 ? "border-emerald-500/50" : "border-rose-500/50"}`}>
-                                                    <div className="text-[11px] text-slate-400 uppercase font-bold font-jakarta">NET GEX</div>
-                                                    <div className={`text-lg font-black ${structure?.netGex > 0 ? "text-emerald-300" : "text-rose-300"}`}>
-                                                        {structure?.netGex ? (structure.netGex / 1000000).toFixed(1) + "M" : "0.0M"}
+                                        {/* Main Content - Infographic Layout */}
+                                        <div className="flex-1 p-3 flex flex-col gap-2 overflow-hidden">
+                                            {/* Top Row: Core GEX + Status + P/C OI Circle */}
+                                            <div className="flex items-center justify-between gap-4">
+                                                {/* Left: Reactor Core (GEX Only) */}
+                                                <div className="relative shrink-0">
+                                                    <div className={`w-20 h-20 rounded-full border-4 border-dashed ${structure?.netGex > 0 ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.5)]" : "border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.5)]"} flex items-center justify-center animate-[spin_10s_linear_infinite]`} />
+                                                    <div className={`absolute inset-2 rounded-full bg-slate-900/95 flex flex-col items-center justify-center border ${structure?.netGex > 0 ? "border-emerald-500/50" : "border-rose-500/50"}`}>
+                                                        <div className="text-[11px] text-slate-400 uppercase font-bold font-jakarta">NET GEX</div>
+                                                        <div className={`text-lg font-black ${structure?.netGex > 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                                                            {structure?.netGex ? (structure.netGex / 1000000).toFixed(1) + "M" : "0.0M"}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Center: Status */}
+                                                <div className="flex-1">
+                                                    <div className={`text-sm font-black ${structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                        {structure?.netGex > 0 ? "⚡ STABLE" : "⚡ VOLATILE"}
+                                                    </div>
+                                                    <div className="text-[11px] text-white/90 leading-snug mt-0.5">
+                                                        {structure?.netGex > 0
+                                                            ? t('netGexStable')
+                                                            : t('netGexVolatile')}
+                                                    </div>
+                                                </div>
+
+                                                {/* Right: P/C & OI Circle (White Dashed) */}
+                                                <div className="relative shrink-0">
+                                                    <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/30 flex items-center justify-center" />
+                                                    <div className="absolute inset-1 rounded-full bg-slate-900/80 flex flex-col items-center justify-center">
+                                                        {(() => {
+                                                            const callsTotal = structure?.structure?.callsOI?.reduce((a: number, b: number) => a + (b || 0), 0) || 0;
+                                                            const putsTotal = structure?.structure?.putsOI?.reduce((a: number, b: number) => a + (b || 0), 0) || 0;
+                                                            const pcr = callsTotal > 0 ? (putsTotal / callsTotal) : 0;
+                                                            const totalOI = callsTotal + putsTotal;
+                                                            const oiFormatted = totalOI >= 1000000 ? (totalOI / 1000000).toFixed(1) + "M"
+                                                                : totalOI >= 1000 ? (totalOI / 1000).toFixed(0) + "K" : totalOI.toString();
+                                                            const pcrColor = pcr > 1.2 ? "text-rose-400" : pcr < 0.8 ? "text-emerald-400" : "text-white";
+                                                            return (
+                                                                <>
+                                                                    <div className="text-[11px] text-white/90 uppercase font-bold font-jakarta">P/C Ratio</div>
+                                                                    <div className={`text-sm font-black ${pcrColor}`}>{pcr.toFixed(2)}</div>
+                                                                    <div className="text-[11px] text-white/90 uppercase font-bold font-jakarta mt-1">Total OI</div>
+                                                                    <div className="text-sm font-black text-indigo-300">{oiFormatted}</div>
+                                                                </>
+                                                            );
+                                                        })()}
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            {/* Center: Status */}
-                                            <div className="flex-1">
-                                                <div className={`text-sm font-black ${structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                                    {structure?.netGex > 0 ? "⚡ STABLE" : "⚡ VOLATILE"}
-                                                </div>
-                                                <div className="text-[11px] text-white/90 leading-snug mt-0.5">
-                                                    {structure?.netGex > 0
-                                                        ? t('netGexStable')
-                                                        : t('netGexVolatile')}
-                                                </div>
-                                            </div>
+                                            {/* Gamma Flip Level - Infographic Style (No Emoji) */}
+                                            {/* [V7.2] Show loading state until options_status === "OK" for accurate data */}
+                                            {structure?.gammaFlipLevel && structure?.options_status === "OK" ? (
+                                                <div className="relative p-3 rounded-xl bg-gradient-to-r from-amber-950/50 via-amber-900/30 to-amber-950/50 border border-amber-500/40 overflow-hidden">
+                                                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.15),transparent_70%)]" />
 
-                                            {/* Right: P/C & OI Circle (White Dashed) */}
-                                            <div className="relative shrink-0">
-                                                <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/30 flex items-center justify-center" />
-                                                <div className="absolute inset-1 rounded-full bg-slate-900/80 flex flex-col items-center justify-center">
+                                                    <div className="relative z-10 flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-3">
+                                                            {/* Infographic Icon (No Emoji) */}
+                                                            <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500/30 to-amber-600/20 flex items-center justify-center border border-amber-500/40">
+                                                                <div className="w-4 h-4 border-2 border-amber-400 rounded-full relative">
+                                                                    <div className="absolute inset-0 flex items-center justify-center">
+                                                                        <div className="w-1 h-3 bg-amber-400 rounded-full" />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <div className="text-xs text-amber-400 font-black uppercase tracking-wider flex items-center gap-2">
+                                                                    Gamma Flip Level
+                                                                    <span className="text-[11px] bg-emerald-500/80 text-white px-1.5 py-0.5 rounded font-bold font-jakarta">READY</span>
+                                                                </div>
+                                                                <div className="text-[11px] text-white/70">{t('gammaFlipLevel')}</div>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="text-right">
+                                                            <div className="text-2xl font-black text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.6)] flex items-center justify-end gap-1.5">
+                                                                ${structure.gammaFlipLevel}
+                                                                {structure.gammaFlipType === 'MULTI_EXP' && (
+                                                                    <span className="text-[11px] bg-purple-500/80 text-white px-1 py-0.5 rounded font-bold font-jakarta">60D</span>
+                                                                )}
+                                                            </div>
+                                                            {displayPrice && (
+                                                                <div className={`text-[11px] font-bold font-jakarta ${displayPrice > structure.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                    {displayPrice > structure.gammaFlipLevel
+                                                                        ? t('longGammaZone')
+                                                                        : t('shortGammaZone')}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Position Bar with Labels */}
+                                                    <div className="relative z-10">
+                                                        <div className="flex justify-between text-[11px] mb-0.5">
+                                                            <span className="text-rose-400 font-bold">{t('shortGammaLabel')}</span>
+                                                            <span className="text-white/50">← Flip →</span>
+                                                            <span className="text-emerald-400 font-bold">{t('longGammaLabel')}</span>
+                                                        </div>
+                                                        <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                            {(() => {
+                                                                const flip = structure.gammaFlipLevel;
+                                                                const low = flip * 0.93;
+                                                                const high = flip * 1.07;
+                                                                const range = high - low;
+                                                                const pos = Math.min(100, Math.max(0, ((displayPrice - low) / range) * 100));
+                                                                return (
+                                                                    <>
+                                                                        <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-rose-600/60 to-rose-500/40" style={{ width: '50%' }} />
+                                                                        <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-emerald-600/60 to-emerald-500/40" style={{ width: '50%' }} />
+                                                                        <div
+                                                                            className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)] border-2 border-slate-700"
+                                                                            style={{ left: `${pos}%`, transform: 'translate(-50%, -50%)' }}
+                                                                        />
+                                                                        <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" style={{ left: '50%' }} />
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                        <div className="flex justify-between text-[11px] text-white/70 mt-0.5">
+                                                            <span>${(structure.gammaFlipLevel * 0.93).toFixed(0)}</span>
+                                                            <span className="text-amber-300 font-bold">${structure.gammaFlipLevel}</span>
+                                                            <span>${(structure.gammaFlipLevel * 1.07).toFixed(0)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : structure && structure.options_status !== "OK" ? (
+                                                /* Loading State - Show while options data is being fetched */
+                                                <div className="relative p-3 rounded-xl bg-gradient-to-r from-slate-900/50 via-slate-800/30 to-slate-900/50 border border-slate-600/40 overflow-hidden">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-lg bg-slate-800/50 flex items-center justify-center border border-slate-600/40 animate-pulse">
+                                                            <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs text-slate-300 font-black uppercase tracking-wider flex items-center gap-2 font-jakarta">
+                                                                Gamma Flip Level
+                                                                <span className="text-[11px] bg-slate-600/80 text-white px-1.5 py-0.5 rounded font-bold animate-pulse font-jakarta">LOADING</span>
+                                                            </div>
+                                                            <div className="text-[11px] text-slate-300">{t('optionsDataLoading')}</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : structure && structure.options_status === "OK" && !structure.gammaFlipLevel ? (
+                                                /* [V7.5] Context-Aware Empty State - Show meaningful message based on netGex */
+                                                (() => {
+                                                    const netGex = structure?.netGex;
+                                                    // [FIX] Low liquidity = netGex is null AND gammaCoverage is low
+                                                    // If netGex exists (even if 0), data is sufficient
+                                                    const gammaCoverage = structure?.debug?.gammaCoverage || structure?.gammaCoverage || 0;
+                                                    const isLowLiquidity = netGex === null && gammaCoverage < 0.5;
+
+                                                    // Determine message based on gamma state
+                                                    let message = "";
+                                                    let badgeText = "N/A";
+                                                    let badgeColor = "bg-slate-700/80 text-slate-300";
+
+                                                    // [FIX] Use gammaFlipType from API instead of inferring from netGex
+                                                    const gammaFlipType = structure?.gammaFlipType;
+
+                                                    if (isLowLiquidity) {
+                                                        message = t('lowOptionsLiquidity');
+                                                    } else if (gammaFlipType === 'ALL_SHORT') {
+                                                        message = t('allShortGammaNoFlip');
+                                                        badgeText = "SHORT";
+                                                        badgeColor = "bg-rose-600/80 text-white";
+                                                    } else if (gammaFlipType === 'ALL_LONG') {
+                                                        message = t('allLongGammaNoFlip');
+                                                        badgeText = "LONG";
+                                                        badgeColor = "bg-emerald-600/80 text-white";
+                                                    } else if (netGex !== null && netGex === 0) {
+                                                        message = t('gexBalanceNoFlip');
+                                                    } else {
+                                                        message = t('gammaDataUnavailable');
+                                                    }
+
+                                                    // Trading interpretation for ALL_LONG / ALL_SHORT
+                                                    const interpretation = gammaFlipType === 'ALL_LONG'
+                                                        ? td('volShrink')
+                                                        : gammaFlipType === 'ALL_SHORT'
+                                                            ? td('volExpand')
+                                                            : "";
+
+                                                    return (
+                                                        <div className="relative p-3 rounded-xl bg-gradient-to-r from-slate-900/50 via-slate-800/30 to-slate-900/50 border border-slate-600/40 overflow-hidden">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center border ${netGex < 0 ? 'bg-rose-900/30 border-rose-500/40' : netGex > 0 ? 'bg-emerald-900/30 border-emerald-500/40' : 'bg-slate-800/50 border-slate-600/40'}`}>
+                                                                    {netGex < 0 ? <TrendingDown className="w-4 h-4 text-rose-400" /> :
+                                                                        netGex > 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> :
+                                                                            <AlertCircle className="w-4 h-4 text-slate-500" />}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="text-xs text-slate-300 font-black uppercase tracking-wider flex items-center gap-2 font-jakarta">
+                                                                        Gamma Flip Level
+                                                                        <span className={`text-[11px] px-1.5 py-0.5 rounded font-bold font-jakarta ${badgeColor}`}>{badgeText}</span>
+                                                                    </div>
+                                                                    <div className="text-[11px] text-slate-300">{message}</div>
+                                                                    {interpretation && (
+                                                                        <div className={`text-[11px] font-bold mt-0.5 ${gammaFlipType === 'ALL_LONG' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                            {interpretation}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()
+                                            ) : null}
+
+                                            {/* Infographic Grid - 0DTE & Squeeze Risk */}
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {/* Gamma Concentration */}
+                                                <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-[11px] text-white font-bold uppercase font-jakarta">GAMMA CONC. {td('gammaConc')}</span>
+                                                    </div>
                                                     {(() => {
-                                                        const callsTotal = structure?.structure?.callsOI?.reduce((a: number, b: number) => a + (b || 0), 0) || 0;
-                                                        const putsTotal = structure?.structure?.putsOI?.reduce((a: number, b: number) => a + (b || 0), 0) || 0;
-                                                        const pcr = callsTotal > 0 ? (putsTotal / callsTotal) : 0;
-                                                        const totalOI = callsTotal + putsTotal;
-                                                        const oiFormatted = totalOI >= 1000000 ? (totalOI / 1000000).toFixed(1) + "M"
-                                                            : totalOI >= 1000 ? (totalOI / 1000).toFixed(0) + "K" : totalOI.toString();
-                                                        const pcrColor = pcr > 1.2 ? "text-rose-400" : pcr < 0.8 ? "text-emerald-400" : "text-white";
+                                                        const concentration = structure?.gammaConcentration ?? 0;
+                                                        const label = structure?.gammaConcentrationLabel ?? 'NORMAL';
+                                                        const color = label === 'STICKY' ? 'text-amber-400'
+                                                            : label === 'LOOSE' ? 'text-emerald-400' : 'text-slate-300';
+                                                        const desc = label === 'STICKY' ? td('gammaSticky')
+                                                            : label === 'LOOSE' ? td('gammaLoose') : td('gammaBalanced');
                                                         return (
-                                                            <>
-                                                                <div className="text-[11px] text-white/90 uppercase font-bold font-jakarta">P/C Ratio</div>
-                                                                <div className={`text-sm font-black ${pcrColor}`}>{pcr.toFixed(2)}</div>
-                                                                <div className="text-[11px] text-white/90 uppercase font-bold font-jakarta mt-1">Total OI</div>
-                                                                <div className="text-sm font-black text-indigo-300">{oiFormatted}</div>
-                                                            </>
+                                                            <div>
+                                                                <div className="flex items-baseline gap-1">
+                                                                    <span className={`text-lg font-black ${color}`}>{concentration}%</span>
+                                                                    <span className={`text-xs font-semibold ${color}`}>{label}</span>
+                                                                </div>
+                                                                <div className="text-[11px] text-white mt-0.5">{desc}</div>
+                                                            </div>
+                                                        );
+                                                    })()}
+                                                </div>
+
+                                                {/* Squeeze Risk */}
+                                                <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
+                                                    <div className="flex items-center justify-between mb-1">
+                                                        <span className="text-[11px] text-white font-bold uppercase font-jakarta">Squeeze Risk</span>
+                                                    </div>
+                                                    {(() => {
+                                                        // [V45.17] Use server-calculated squeezeRisk (SSOT)
+                                                        const risk = structure?.squeezeRisk || 'LOW';
+                                                        const score = structure?.squeezeScore ?? 0;
+                                                        const color = risk === "EXTREME" ? "text-rose-400"
+                                                            : risk === "HIGH" ? "text-amber-400"
+                                                                : risk === "MEDIUM" ? "text-yellow-400" : "text-emerald-400";
+                                                        return (
+                                                            <div className="flex items-baseline gap-1">
+                                                                <span className={`text-lg font-black ${color}`}>{risk}</span>
+                                                                <span className="text-xs text-white/60 font-semibold">({score})</span>
+                                                            </div>
                                                         );
                                                     })()}
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* Gamma Flip Level - Infographic Style (No Emoji) */}
-                                        {/* [V7.2] Show loading state until options_status === "OK" for accurate data */}
-                                        {structure?.gammaFlipLevel && structure?.options_status === "OK" ? (
-                                            <div className="relative p-3 rounded-xl bg-gradient-to-r from-amber-950/50 via-amber-900/30 to-amber-950/50 border border-amber-500/40 overflow-hidden">
-                                                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.15),transparent_70%)]" />
-
-                                                <div className="relative z-10 flex items-center justify-between mb-2">
-                                                    <div className="flex items-center gap-3">
-                                                        {/* Infographic Icon (No Emoji) */}
-                                                        <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500/30 to-amber-600/20 flex items-center justify-center border border-amber-500/40">
-                                                            <div className="w-4 h-4 border-2 border-amber-400 rounded-full relative">
-                                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                                    <div className="w-1 h-3 bg-amber-400 rounded-full" />
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                        <div>
-                                                            <div className="text-xs text-amber-400 font-black uppercase tracking-wider flex items-center gap-2">
-                                                                Gamma Flip Level
-                                                                <span className="text-[11px] bg-emerald-500/80 text-white px-1.5 py-0.5 rounded font-bold font-jakarta">READY</span>
-                                                            </div>
-                                                            <div className="text-[11px] text-white/70">{t('gammaFlipLevel')}</div>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="text-right">
-                                                        <div className="text-2xl font-black text-amber-300 drop-shadow-[0_0_12px_rgba(251,191,36,0.6)] flex items-center justify-end gap-1.5">
-                                                            ${structure.gammaFlipLevel}
-                                                            {structure.gammaFlipType === 'MULTI_EXP' && (
-                                                                <span className="text-[11px] bg-purple-500/80 text-white px-1 py-0.5 rounded font-bold font-jakarta">60D</span>
-                                                            )}
-                                                        </div>
-                                                        {displayPrice && (
-                                                            <div className={`text-[11px] font-bold font-jakarta ${displayPrice > structure.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
-                                                                {displayPrice > structure.gammaFlipLevel
-                                                                    ? t('longGammaZone')
-                                                                    : t('shortGammaZone')}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* Position Bar with Labels */}
-                                                <div className="relative z-10">
-                                                    <div className="flex justify-between text-[11px] mb-0.5">
-                                                        <span className="text-rose-400 font-bold">{t('shortGammaLabel')}</span>
-                                                        <span className="text-white/50">← Flip →</span>
-                                                        <span className="text-emerald-400 font-bold">{t('longGammaLabel')}</span>
-                                                    </div>
-                                                    <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
-                                                        {(() => {
-                                                            const flip = structure.gammaFlipLevel;
-                                                            const low = flip * 0.93;
-                                                            const high = flip * 1.07;
-                                                            const range = high - low;
-                                                            const pos = Math.min(100, Math.max(0, ((displayPrice - low) / range) * 100));
-                                                            return (
-                                                                <>
-                                                                    <div className="absolute inset-y-0 left-0 bg-gradient-to-r from-rose-600/60 to-rose-500/40" style={{ width: '50%' }} />
-                                                                    <div className="absolute inset-y-0 right-0 bg-gradient-to-l from-emerald-600/60 to-emerald-500/40" style={{ width: '50%' }} />
-                                                                    <div
-                                                                        className="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.9)] border-2 border-slate-700"
-                                                                        style={{ left: `${pos}%`, transform: 'translate(-50%, -50%)' }}
-                                                                    />
-                                                                    <div className="absolute top-0 bottom-0 w-0.5 bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]" style={{ left: '50%' }} />
-                                                                </>
-                                                            );
-                                                        })()}
-                                                    </div>
-                                                    <div className="flex justify-between text-[11px] text-white/70 mt-0.5">
-                                                        <span>${(structure.gammaFlipLevel * 0.93).toFixed(0)}</span>
-                                                        <span className="text-amber-300 font-bold">${structure.gammaFlipLevel}</span>
-                                                        <span>${(structure.gammaFlipLevel * 1.07).toFixed(0)}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : structure && structure.options_status !== "OK" ? (
-                                            /* Loading State - Show while options data is being fetched */
-                                            <div className="relative p-3 rounded-xl bg-gradient-to-r from-slate-900/50 via-slate-800/30 to-slate-900/50 border border-slate-600/40 overflow-hidden">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-lg bg-slate-800/50 flex items-center justify-center border border-slate-600/40 animate-pulse">
-                                                        <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs text-slate-300 font-black uppercase tracking-wider flex items-center gap-2 font-jakarta">
-                                                            Gamma Flip Level
-                                                            <span className="text-[11px] bg-slate-600/80 text-white px-1.5 py-0.5 rounded font-bold animate-pulse font-jakarta">LOADING</span>
-                                                        </div>
-                                                        <div className="text-[11px] text-slate-300">{t('optionsDataLoading')}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ) : structure && structure.options_status === "OK" && !structure.gammaFlipLevel ? (
-                                            /* [V7.5] Context-Aware Empty State - Show meaningful message based on netGex */
-                                            (() => {
-                                                const netGex = structure?.netGex;
-                                                // [FIX] Low liquidity = netGex is null AND gammaCoverage is low
-                                                // If netGex exists (even if 0), data is sufficient
-                                                const gammaCoverage = structure?.debug?.gammaCoverage || structure?.gammaCoverage || 0;
-                                                const isLowLiquidity = netGex === null && gammaCoverage < 0.5;
-
-                                                // Determine message based on gamma state
-                                                let message = "";
-                                                let badgeText = "N/A";
-                                                let badgeColor = "bg-slate-700/80 text-slate-300";
-
-                                                // [FIX] Use gammaFlipType from API instead of inferring from netGex
-                                                const gammaFlipType = structure?.gammaFlipType;
-
-                                                if (isLowLiquidity) {
-                                                    message = t('lowOptionsLiquidity');
-                                                } else if (gammaFlipType === 'ALL_SHORT') {
-                                                    message = t('allShortGammaNoFlip');
-                                                    badgeText = "SHORT";
-                                                    badgeColor = "bg-rose-600/80 text-white";
-                                                } else if (gammaFlipType === 'ALL_LONG') {
-                                                    message = t('allLongGammaNoFlip');
-                                                    badgeText = "LONG";
-                                                    badgeColor = "bg-emerald-600/80 text-white";
-                                                } else if (netGex !== null && netGex === 0) {
-                                                    message = t('gexBalanceNoFlip');
-                                                } else {
-                                                    message = t('gammaDataUnavailable');
-                                                }
-
-                                                // Trading interpretation for ALL_LONG / ALL_SHORT
-                                                const interpretation = gammaFlipType === 'ALL_LONG'
-                                                    ? td('volShrink')
-                                                    : gammaFlipType === 'ALL_SHORT'
-                                                        ? td('volExpand')
-                                                        : "";
-
-                                                return (
-                                                    <div className="relative p-3 rounded-xl bg-gradient-to-r from-slate-900/50 via-slate-800/30 to-slate-900/50 border border-slate-600/40 overflow-hidden">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center border ${netGex < 0 ? 'bg-rose-900/30 border-rose-500/40' : netGex > 0 ? 'bg-emerald-900/30 border-emerald-500/40' : 'bg-slate-800/50 border-slate-600/40'}`}>
-                                                                {netGex < 0 ? <TrendingDown className="w-4 h-4 text-rose-400" /> :
-                                                                    netGex > 0 ? <TrendingUp className="w-4 h-4 text-emerald-400" /> :
-                                                                        <AlertCircle className="w-4 h-4 text-slate-500" />}
-                                                            </div>
-                                                            <div>
-                                                                <div className="text-xs text-slate-300 font-black uppercase tracking-wider flex items-center gap-2 font-jakarta">
-                                                                    Gamma Flip Level
-                                                                    <span className={`text-[11px] px-1.5 py-0.5 rounded font-bold font-jakarta ${badgeColor}`}>{badgeText}</span>
-                                                                </div>
-                                                                <div className="text-[11px] text-slate-300">{message}</div>
-                                                                {interpretation && (
-                                                                    <div className={`text-[11px] font-bold mt-0.5 ${gammaFlipType === 'ALL_LONG' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                                        {interpretation}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                );
-                                            })()
-                                        ) : null}
-
-                                        {/* Infographic Grid - 0DTE & Squeeze Risk */}
-                                        <div className="grid grid-cols-2 gap-2">
-                                            {/* Gamma Concentration */}
-                                            <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[11px] text-white font-bold uppercase font-jakarta">GAMMA CONC. {td('gammaConc')}</span>
-                                                </div>
-                                                {(() => {
-                                                    const concentration = structure?.gammaConcentration ?? 0;
-                                                    const label = structure?.gammaConcentrationLabel ?? 'NORMAL';
-                                                    const color = label === 'STICKY' ? 'text-amber-400'
-                                                        : label === 'LOOSE' ? 'text-emerald-400' : 'text-slate-300';
-                                                    const desc = label === 'STICKY' ? td('gammaSticky')
-                                                        : label === 'LOOSE' ? td('gammaLoose') : td('gammaBalanced');
-                                                    return (
-                                                        <div>
-                                                            <div className="flex items-baseline gap-1">
-                                                                <span className={`text-lg font-black ${color}`}>{concentration}%</span>
-                                                                <span className={`text-xs font-semibold ${color}`}>{label}</span>
-                                                            </div>
-                                                            <div className="text-[11px] text-white mt-0.5">{desc}</div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-
-                                            {/* Squeeze Risk */}
-                                            <div className="bg-slate-800/50 rounded-lg p-2 border border-white/5">
-                                                <div className="flex items-center justify-between mb-1">
-                                                    <span className="text-[11px] text-white font-bold uppercase font-jakarta">Squeeze Risk</span>
-                                                </div>
-                                                {(() => {
-                                                    // [V45.17] Use server-calculated squeezeRisk (SSOT)
-                                                    const risk = structure?.squeezeRisk || 'LOW';
-                                                    const score = structure?.squeezeScore ?? 0;
-                                                    const color = risk === "EXTREME" ? "text-rose-400"
-                                                        : risk === "HIGH" ? "text-amber-400"
-                                                            : risk === "MEDIUM" ? "text-yellow-400" : "text-emerald-400";
-                                                    return (
-                                                        <div className="flex items-baseline gap-1">
-                                                            <span className={`text-lg font-black ${color}`}>{risk}</span>
-                                                            <span className="text-xs text-white/60 font-semibold">({score})</span>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
+                                        {/* MM Insight Footer (Simplified) */}
+                                        <div className="px-3 py-2 border-t border-white/5 bg-slate-950/30">
+                                            <p className="text-[11px] text-slate-300 leading-relaxed">
+                                                {structure?.netGex > 0 ? t('longGammaStable') : t('shortGammaWarning')}
+                                            </p>
                                         </div>
                                     </div>
-
-                                    {/* MM Insight Footer (Simplified) */}
-                                    <div className="px-3 py-2 border-t border-white/5 bg-slate-950/30">
-                                        <p className="text-[11px] text-slate-300 leading-relaxed">
-                                            {structure?.netGex > 0 ? t('longGammaStable') : t('shortGammaWarning')}
-                                        </p>
-                                    </div>
                                 </div>
-                            </div>
+                            </ProGate>
 
 
                             <div className="hidden">
@@ -2046,74 +2063,78 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         {/* SIDEBAR (4 Cols) - Glass Stack */}
                         <div className="lg:col-span-4 flex flex-col gap-4 h-full overflow-hidden">
 
-                            {/* 1. Decision Gate - Fixed Height */}
-                            <div className="shrink-0 relative rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-2xl">
-                                {/* Infographic BG: Radar Grid + Sentinel Glow */}
-                                <div className="absolute inset-0 pointer-events-none z-0">
-                                    {/* Crosshair grid */}
-                                    <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.07)_1px,transparent_1px)] bg-[size:24px_24px]" />
-                                    {/* Radar sweep glow */}
-                                    <div className="absolute -top-20 -right-20 w-60 h-60 bg-[radial-gradient(circle,rgba(99,102,241,0.18)_0%,transparent_70%)] animate-pulse" style={{ animationDuration: '4s' }} />
-                                    {/* Bottom accent line */}
-                                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
-                                    {/* Corner accent */}
-                                    <div className="absolute top-0 right-0 w-20 h-20 border-r-2 border-t-2 border-indigo-500/20 rounded-tr-2xl" />
-                                    <div className="absolute bottom-0 left-0 w-20 h-20 border-l-2 border-b-2 border-indigo-500/20 rounded-bl-2xl" />
-                                </div>
-                                <DecisionGate
-                                    ticker={ticker}
-                                    displayPrice={displayPrice}
-                                    session={effectiveSession}
-                                    structure={structure}
-                                    krNews={krNews}
-                                    smaData={smaData}
-                                    newsScore={newsScore}
-                                    liveQuote={liveQuote}
-                                    analystData={analystData}
-                                    fundamentalData={fundamentalData}
-                                    institutionalData={institutionalData}
-                                />
-                            </div>
-
-                            {/* 2. Flow Unit - Glass Card */}
-                            <div className="shrink-0 rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors shadow-2xl">
-                                {/* Infographic BG: Flow Pulse + Wave Pattern */}
-                                <div className="absolute inset-0 pointer-events-none z-0">
-                                    {/* Horizontal flow lines */}
-                                    <div className="absolute inset-0 bg-[linear-gradient(0deg,transparent_0%,transparent_48%,rgba(56,189,248,0.07)_49%,rgba(56,189,248,0.07)_51%,transparent_52%,transparent_100%)] bg-[size:100%_20px]" />
-                                    {/* Pulse glow top-left */}
-                                    <div className="absolute -top-10 -left-10 w-48 h-48 bg-[radial-gradient(circle,rgba(56,189,248,0.15)_0%,transparent_70%)]" />
-                                    {/* Bottom-right emerald glow for bullish feel */}
-                                    <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-[radial-gradient(circle,rgba(52,211,153,0.12)_0%,transparent_70%)]" />
-                                    {/* Accent lines */}
-                                    <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
-                                    <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-sky-500/25 via-transparent to-transparent" />
-                                </div>
-                                <div className="p-2 border-b border-white/5 flex items-center justify-between bg-white/5">
-                                    <div className="flex items-center gap-2">
-                                        <Activity size={10} className="text-sky-400" />
-                                        <span className="text-[11px] font-black text-sky-200 uppercase tracking-widest font-jakarta">Flow Unit</span>
+                            {/* 1. Decision Gate (Signal Core) — ELITE */}
+                            <EliteGate title="Signal Core" mode="blur">
+                                <div className="shrink-0 relative rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-2xl">
+                                    {/* Infographic BG: Radar Grid + Sentinel Glow */}
+                                    <div className="absolute inset-0 pointer-events-none z-0">
+                                        {/* Crosshair grid */}
+                                        <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.07)_1px,transparent_1px)] bg-[size:24px_24px]" />
+                                        {/* Radar sweep glow */}
+                                        <div className="absolute -top-20 -right-20 w-60 h-60 bg-[radial-gradient(circle,rgba(99,102,241,0.18)_0%,transparent_70%)] animate-pulse" style={{ animationDuration: '4s' }} />
+                                        {/* Bottom accent line */}
+                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
+                                        {/* Corner accent */}
+                                        <div className="absolute top-0 right-0 w-20 h-20 border-r-2 border-t-2 border-indigo-500/20 rounded-tr-2xl" />
+                                        <div className="absolute bottom-0 left-0 w-20 h-20 border-l-2 border-b-2 border-indigo-500/20 rounded-bl-2xl" />
                                     </div>
-                                    <span className={`text-[11px] px-1.5 py-0.5 rounded border font-jakarta ${effectiveSession === 'REG' ? 'bg-emerald-900/50 text-emerald-400 border-emerald-500/20' :
-                                        effectiveSession === 'PRE' ? 'bg-amber-900/50 text-amber-400 border-amber-500/20' :
-                                            effectiveSession === 'POST' ? 'bg-blue-900/50 text-blue-400 border-blue-500/20' :
-                                                'bg-slate-800/80 text-slate-400 border-white/5'
-                                        }`}>{
-                                            effectiveSession === 'REG' ? 'INTRADAY' :
-                                                effectiveSession === 'PRE' ? 'PRE-MKT' :
-                                                    effectiveSession === 'POST' ? 'POST-MKT' :
-                                                        'CLOSED'
-                                        }</span>
-                                </div>
-                                <div className="p-1">
-                                    <FlowSniper
-                                        netPremium={liveQuote?.flow?.netPremium || 0}
-                                        callPremium={liveQuote?.flow?.callPremium || 0}
-                                        putPremium={liveQuote?.flow?.putPremium || 0}
-                                        optionsCount={liveQuote?.flow?.optionsCount || 0}
+                                    <DecisionGate
+                                        ticker={ticker}
+                                        displayPrice={displayPrice}
+                                        session={effectiveSession}
+                                        structure={structure}
+                                        krNews={krNews}
+                                        smaData={smaData}
+                                        newsScore={newsScore}
+                                        liveQuote={liveQuote}
+                                        analystData={analystData}
+                                        fundamentalData={fundamentalData}
+                                        institutionalData={institutionalData}
                                     />
                                 </div>
-                            </div>
+                            </EliteGate>
+
+                            {/* 2. Flow Unit — ELITE */}
+                            <EliteGate title="Flow Unit" mode="blur">
+                                <div className="shrink-0 rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors shadow-2xl">
+                                    {/* Infographic BG: Flow Pulse + Wave Pattern */}
+                                    <div className="absolute inset-0 pointer-events-none z-0">
+                                        {/* Horizontal flow lines */}
+                                        <div className="absolute inset-0 bg-[linear-gradient(0deg,transparent_0%,transparent_48%,rgba(56,189,248,0.07)_49%,rgba(56,189,248,0.07)_51%,transparent_52%,transparent_100%)] bg-[size:100%_20px]" />
+                                        {/* Pulse glow top-left */}
+                                        <div className="absolute -top-10 -left-10 w-48 h-48 bg-[radial-gradient(circle,rgba(56,189,248,0.15)_0%,transparent_70%)]" />
+                                        {/* Bottom-right emerald glow for bullish feel */}
+                                        <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-[radial-gradient(circle,rgba(52,211,153,0.12)_0%,transparent_70%)]" />
+                                        {/* Accent lines */}
+                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
+                                        <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-sky-500/25 via-transparent to-transparent" />
+                                    </div>
+                                    <div className="p-2 border-b border-white/5 flex items-center justify-between bg-white/5">
+                                        <div className="flex items-center gap-2">
+                                            <Activity size={10} className="text-sky-400" />
+                                            <span className="text-[11px] font-black text-sky-200 uppercase tracking-widest font-jakarta">Flow Unit</span>
+                                        </div>
+                                        <span className={`text-[11px] px-1.5 py-0.5 rounded border font-jakarta ${effectiveSession === 'REG' ? 'bg-emerald-900/50 text-emerald-400 border-emerald-500/20' :
+                                            effectiveSession === 'PRE' ? 'bg-amber-900/50 text-amber-400 border-amber-500/20' :
+                                                effectiveSession === 'POST' ? 'bg-blue-900/50 text-blue-400 border-blue-500/20' :
+                                                    'bg-slate-800/80 text-slate-400 border-white/5'
+                                            }`}>{
+                                                effectiveSession === 'REG' ? 'INTRADAY' :
+                                                    effectiveSession === 'PRE' ? 'PRE-MKT' :
+                                                        effectiveSession === 'POST' ? 'POST-MKT' :
+                                                            'CLOSED'
+                                            }</span>
+                                    </div>
+                                    <div className="p-1">
+                                        <FlowSniper
+                                            netPremium={liveQuote?.flow?.netPremium || 0}
+                                            callPremium={liveQuote?.flow?.callPremium || 0}
+                                            putPremium={liveQuote?.flow?.putPremium || 0}
+                                            optionsCount={liveQuote?.flow?.optionsCount || 0}
+                                        />
+                                    </div>
+                                </div>
+                            </EliteGate>
 
                             {/* 3. Intel Feed — Real-time AI Insight */}
                             <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-2xl relative group">
@@ -2231,7 +2252,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                     </div>
                                                 </div>
 
-                                                {/* AI Insight — absolute overlay, direction based on position */}
+                                                {/* AI Insight — PRO gated */}
                                                 {isExpanded && analysis && (() => {
                                                     const showAbove = i >= 3;
                                                     return (
@@ -2250,16 +2271,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                                         <ChevronUp size={14} />
                                                                     </button>
                                                                 </div>
-                                                                <p className="text-[13px] text-slate-200 leading-relaxed">
-                                                                    {analysis}
-                                                                </p>
-                                                                {n.url && n.url !== '#' && (
-                                                                    <a href={n.url} target="_blank" rel="noreferrer"
-                                                                        className="text-[11px] text-indigo-400 hover:text-indigo-300 mt-1.5 inline-block font-jakarta"
-                                                                        onClick={(e) => e.stopPropagation()}>
-                                                                        {locale === 'ko' ? '원문 보기 →' : locale === 'ja' ? '原文を見る →' : 'Read original →'}
-                                                                    </a>
-                                                                )}
+                                                                <ProGate title="AI Insight" mode="blur" compact>
+                                                                    <p className="text-[13px] text-slate-200 leading-relaxed">
+                                                                        {analysis}
+                                                                    </p>
+                                                                    {n.url && n.url !== '#' && (
+                                                                        <a href={n.url} target="_blank" rel="noreferrer"
+                                                                            className="text-[11px] text-indigo-400 hover:text-indigo-300 mt-1.5 inline-block font-jakarta"
+                                                                            onClick={(e) => e.stopPropagation()}>
+                                                                            {locale === 'ko' ? '원문 보기 →' : locale === 'ja' ? '原文を見る →' : 'Read original →'}
+                                                                        </a>
+                                                                    )}
+                                                                </ProGate>
                                                             </div>
                                                         </div>
                                                     );

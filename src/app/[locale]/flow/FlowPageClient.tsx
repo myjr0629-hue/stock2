@@ -259,21 +259,19 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                             </div>
                         </div>
                     ) : (
-                        <ProGate fomoMessage="FLOW Radar — Premium Options Intelligence" mode="blur">
-                            <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
-                                <FlowRadar
-                                    ticker={ticker}
-                                    rawChain={rawChain}
-                                    allExpiryChain={allExpiryChain}
-                                    gammaFlipLevel={gammaFlipLevel}
-                                    oiPcr={oiPcr}
-                                    currentPrice={displayPrice}
-                                    squeezeScore={liveQuote?.flow?.squeezeScore}
-                                    squeezeRisk={liveQuote?.flow?.squeezeRisk}
-                                    initialFlowData={initialFlowData} // Pass down to FlowRadar for useWhaleTrades etc.
-                                />
-                            </div>
-                        </ProGate>
+                        <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <FlowRadar
+                                ticker={ticker}
+                                rawChain={rawChain}
+                                allExpiryChain={allExpiryChain}
+                                gammaFlipLevel={gammaFlipLevel}
+                                oiPcr={oiPcr}
+                                currentPrice={displayPrice}
+                                squeezeScore={liveQuote?.flow?.squeezeScore}
+                                squeezeRisk={liveQuote?.flow?.squeezeRisk}
+                                initialFlowData={initialFlowData}
+                            />
+                        </div>
                     )}
                 </main>
             </div>

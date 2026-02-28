@@ -325,7 +325,7 @@ export default function GuardianPage() {
 
                 {/* MAIN HUD CONTAINER — ELITE GATED */}
                 <main className="pb-4 px-4 min-h-[calc(100vh-110px)] max-w-[1920px] mx-auto flex flex-col gap-4 mt-4">
-                    <EliteGate fomoMessage="Guardian Intelligence HUD — ELITE" mode="blur">
+                    <EliteGate title="Guardian Intelligence HUD" fomoMessage="실시간 시장 정찰 시스템" mode="blur">
 
                         {/* --- TOP ROW: GAUGE | REALITY | MAP | VERDICT (GRID) --- */}
                         {/* 

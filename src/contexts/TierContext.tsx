@@ -84,6 +84,9 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
 
             const userTier = profile?.tier as UserTier | undefined;
 
+            // [DEBUG] Trace tier resolution
+            console.log('[TierContext] user_id:', user.id, '| profile:', profile, '| tier:', userTier);
+
             // tier 컬럼이 없거나 null이면 'free'
             if (userTier && ['free', 'pro', 'elite'].includes(userTier)) {
                 setTier(userTier);

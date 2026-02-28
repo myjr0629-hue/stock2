@@ -2990,6 +2990,8 @@
     "guestWallSubtitle": "10초 만에 가입하고 계속 보세요",
     "guestWallCta": "무료로 시작하기",
     "guestWallRemaining": "무료 미리보기: {count}회 남음",
-    "refreshSpeed": "PRO 회원은 4배 빠르게 데이터를 받고 있습니다"
+    "refreshSpeed": "PRO 회원은 4배 빠르게 데이터를 받고 있습니다",
+    "foundingBarLock": "영구 가격 적용",
+    "foundingBarCta": "지금 시작"
   }
 }
