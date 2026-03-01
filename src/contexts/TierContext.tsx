@@ -5,8 +5,9 @@
  * 
  * 작동 방식:
  * 1. Supabase Auth에서 현재 유저를 확인
- * 2. user_profiles 테이블에서 tier 컬럼 조회
- * 3. 비로그인 = 'guest', 로그인인데 tier 없으면 = 'free'
+ * 2. Admin 이메일이면 → 강제 elite
+ * 3. user_profiles 테이블에서 tier 컬럼 조회
+ * 4. 비로그인 = 'guest', 로그인인데 tier 없으면 = 'free'
  * 
  * 기존 코드에 영향을 주지 않는 독립 Context입니다.
  */
@@ -26,6 +27,8 @@ interface TierContextValue {
     loading: boolean;
     /** 유저가 로그인 상태인지 */
     isLoggedIn: boolean;
+    /** 관리자 여부 */
+    isAdmin: boolean;
     /** 특정 등급 이상인지 확인 */
     hasAccess: (requiredTier: UserTier) => boolean;
     /** 등급을 수동으로 새로고침 (결제 후 등) */
@@ -42,6 +45,10 @@ const TIER_LEVEL: Record<UserTier, number> = {
     elite: 3,
 };
 
+// Admin email whitelist (env: NEXT_PUBLIC_ADMIN_EMAILS=a@b.com,c@d.com)
+const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
+    .split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
+
 // ============================================================
 // CONTEXT
 // ============================================================
@@ -49,6 +56,7 @@ const TierContext = createContext<TierContextValue>({
     tier: 'guest',
     loading: true,
     isLoggedIn: false,
+    isAdmin: false,
     hasAccess: () => false,
     refreshTier: async () => { },
 });
@@ -60,6 +68,7 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
     const [tier, setTier] = useState<UserTier>('guest');
     const [loading, setLoading] = useState(true);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [isAdmin, setIsAdmin] = useState(false);
 
     const fetchTier = useCallback(async () => {
         try {
@@ -69,11 +78,24 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
             if (!user) {
                 setTier('guest');
                 setIsLoggedIn(false);
+                setIsAdmin(false);
                 setLoading(false);
                 return;
             }
 
             setIsLoggedIn(true);
+
+            // Admin check
+            const email = (user.email || '').toLowerCase();
+            const admin = ADMIN_EMAILS.includes(email);
+            setIsAdmin(admin);
+
+            if (admin) {
+                console.log('[TierContext] 🛡️ Admin detected:', email, '→ forced elite');
+                setTier('elite');
+                setLoading(false);
+                return;
+            }
 
             // user_profiles 테이블에서 tier 조회
             const { data: profile } = await supabase
@@ -114,6 +136,7 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
             } else {
                 setTier('guest');
                 setIsLoggedIn(false);
+                setIsAdmin(false);
                 setLoading(false);
             }
         });
@@ -136,9 +159,10 @@ export function TierProvider({ children }: { children: React.ReactNode }) {
         tier,
         loading,
         isLoggedIn,
+        isAdmin,
         hasAccess,
         refreshTier,
-    }), [tier, loading, isLoggedIn, hasAccess, refreshTier]);
+    }), [tier, loading, isLoggedIn, isAdmin, hasAccess, refreshTier]);
 
     return (
         <TierContext.Provider value={value}>
