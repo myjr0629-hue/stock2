@@ -154,9 +154,9 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                 <Eye className="w-3.5 h-3.5" />
                                 SECTOR COMMAND CENTER
                             </span>
-                            <Link href="/how-it-works/intel" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
-                                <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-cyan-400 transition-colors" />
-                                <span className="text-[12px] text-slate-300 group-hover:text-cyan-300 font-medium transition-colors">{tCommon('guideLink')}</span>
+                            <Link href="/how-it-works/intel" className="relative flex items-center gap-1.5 px-3.5 py-0.5 rounded-lg bg-cyan-500/[0.08] border border-cyan-400/25 hover:border-cyan-400/50 hover:bg-cyan-500/[0.15] backdrop-blur-md shadow-[0_0_15px_rgba(34,211,238,0.08)] hover:shadow-[0_0_25px_rgba(34,211,238,0.18)] transition-all duration-300 group">
+                                <BookOpen className="w-3.5 h-3.5 text-cyan-400/80 group-hover:text-cyan-300 transition-colors" />
+                                <span className="text-[12px] text-cyan-300/90 group-hover:text-cyan-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
                             </Link>
                         </div>
                         <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
