@@ -183,6 +183,8 @@ export const CustomTickerBar = memo(() => {
 
         for (const item of items) {
             const prev = prevValuesRef.current[item.key];
+            // Skip flash for markets that aren't live (prevents stale-data flicker)
+            if (!item.isLive) continue;
             if (prev && item.value !== null && prev.value !== null) {
                 if (item.value !== prev.value) {
                     newFlashes[item.key] = item.value > prev.value ? 'up' : 'down';
