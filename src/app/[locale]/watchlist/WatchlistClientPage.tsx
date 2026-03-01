@@ -7,10 +7,12 @@ import { useTranslations } from 'next-intl';
 import {
     Star, Plus, RefreshCw, Trash2, X, Loader2, Activity, Fish, Zap,
     Target, Shield, RefreshCcw, Crosshair, LayoutDashboard,
-    ArrowUpRight, ArrowDownRight, TrendingUp, Search, BookOpen
+    ArrowUpRight, ArrowDownRight, TrendingUp, Search, BookOpen, Lock
 } from 'lucide-react';
-import { Link } from '@/i18n/routing';
+import { Link, useRouter } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
+import { ProGate } from '@/components/gate/FeatureGate';
+import { useTier } from '@/contexts/TierContext';
 
 // ─── Sort Types ──────────────────────────────────────────────────────────
 type SortKey = 'default' | 'alpha' | 'change' | 'whale';
@@ -31,6 +33,11 @@ export default function WatchlistClientPage({
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const t = useTranslations('watchlist');
     const tCommon = useTranslations('common');
+    const { tier } = useTier();
+
+    // Tier-based watchlist limit: FREE=5, PRO=50, ELITE=unlimited
+    const maxItems = tier === 'elite' ? 999 : tier === 'pro' ? 50 : 5;
+    const isAtLimit = items.length >= maxItems;
 
     const sortedItems = useMemo(() => {
         if (sortKey === 'default') return items;
@@ -88,11 +95,17 @@ export default function WatchlistClientPage({
                             )}
                         </button>
                         <button
-                            onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500/15 to-orange-500/10 border border-amber-500/20 text-amber-400 hover:from-amber-500/25 hover:to-orange-500/20 hover:border-amber-500/30 text-xs font-bold transition-all duration-200"
+                            onClick={() => !isAtLimit && setShowAddModal(true)}
+                            className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-xs font-bold transition-all duration-200 ${isAtLimit
+                                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-amber-500/15 to-orange-500/10 border-amber-500/20 text-amber-400 hover:from-amber-500/25 hover:to-orange-500/20 hover:border-amber-500/30'
+                                }`}
+                            title={isAtLimit ? `Max ${maxItems} (${tier?.toUpperCase()})` : ''}
+                            style={isAtLimit ? { boxShadow: '0 0 12px rgba(244,63,94,0.2)' } : {}}
                         >
                             <Plus className="w-3.5 h-3.5" />
-                            <span>{tCommon('add')}</span>
+                            <span>{isAtLimit ? '' : tCommon('add')}</span>
+                            <span className={`tabular-nums font-black ${isAtLimit ? 'text-rose-300' : 'text-slate-300'}`}>{items.length}/{maxItems >= 999 ? '∞' : maxItems}</span>
                         </button>
                     </div>
                 </div>
@@ -289,15 +302,17 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                 </svg>
             </div>
 
-            {/* ── Avg Alpha (Radar Rings BG) ── */}
+            {/* ── Avg Alpha (Radar Rings BG) — PRO gate ── */}
             <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
-                <div className="flex items-center gap-3">
-                    <StatsAlphaGauge score={stats.avgAlpha} grade={stats.avgGrade} />
-                    <div>
-                        <div className="text-xl font-black text-white tabular-nums">{stats.avgAlpha}</div>
-                        <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold">AVG ALPHA</div>
+                <ProGate mode="blur" compact fomoMessage="AVG ALPHA">
+                    <div className="flex items-center gap-3">
+                        <StatsAlphaGauge score={stats.avgAlpha} grade={stats.avgGrade} />
+                        <div>
+                            <div className="text-xl font-black text-white tabular-nums">{stats.avgAlpha}</div>
+                            <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold">AVG ALPHA</div>
+                        </div>
                     </div>
-                </div>
+                </ProGate>
                 <svg className="absolute right-0 top-0 w-24 h-full opacity-[0.05]" viewBox="0 0 80 80">
                     <circle cx="60" cy="40" r="12" fill="none" stroke="#22d3ee" strokeWidth="1" />
                     <circle cx="60" cy="40" r="22" fill="none" stroke="#22d3ee" strokeWidth="0.8" />
@@ -399,6 +414,8 @@ function WatchlistCard({ item, onRemove, locale, index }: {
 }) {
     const isPositive = item.changePct >= 0;
     const tCommon = useTranslations('common');
+    const { hasAccess } = useTier();
+    const router = useRouter();
     const toggleDashboardTicker = useDashboardStore((s) => s.toggleDashboardTicker);
     const dashboardTickers = useDashboardStore((s) => s.dashboardTickers);
     const [isInDashboard, setIsInDashboard] = useState(false);
@@ -508,44 +525,128 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                         )}
                     </div>
 
-                    {/* Alpha */}
+                    {/* Alpha — PRO gate */}
                     <div className="flex items-center justify-center">
-                        <CircularAlphaGauge score={item.alphaScore} grade={item.alphaGrade} />
+                        {hasAccess('pro') ? (
+                            <CircularAlphaGauge score={item.alphaScore} grade={item.alphaGrade} />
+                        ) : (
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <CircularAlphaGauge score={item.alphaScore} grade={item.alphaGrade} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Signal */}
+                    {/* Signal — PRO gate */}
                     <div className="flex items-center justify-center">
-                        <SignalBadge action={item.action} confidence={item.confidence} />
+                        {hasAccess('pro') ? (
+                            <SignalBadge action={item.action} confidence={item.confidence} />
+                        ) : (
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <SignalBadge action={item.action} confidence={item.confidence} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Whale */}
+                    {/* Whale — ELITE gate */}
                     <div className="flex items-center justify-center">
-                        <WhaleIndicator index={item.whaleIndex} confidence={item.whaleConfidence} />
+                        {hasAccess('elite') ? (
+                            <WhaleIndicator index={item.whaleIndex} confidence={item.whaleConfidence} />
+                        ) : (
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <WhaleIndicator index={item.whaleIndex} confidence={item.whaleConfidence} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-emerald-500/80 group-hover/lock:text-emerald-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-emerald-500/70 group-hover/lock:text-emerald-400 transition-colors">ELITE</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* IV */}
+                    {/* IV — ELITE gate */}
                     <div className="flex items-center justify-center">
-                        <IVIndicator value={item.iv} />
+                        {hasAccess('elite') ? (
+                            <IVIndicator value={item.iv} />
+                        ) : (
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <IVIndicator value={item.iv} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-emerald-500/80 group-hover/lock:text-emerald-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-emerald-500/70 group-hover/lock:text-emerald-400 transition-colors">ELITE</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Gamma Flip */}
+                    {/* Gamma Flip — ELITE gate */}
                     <div className="flex items-center justify-center">
-                        <GammaFlipIndicator value={item.gammaFlipLevel} price={item.currentPrice} gexM={item.gexM} />
+                        {hasAccess('elite') ? (
+                            <GammaFlipIndicator value={item.gammaFlipLevel} price={item.currentPrice} gexM={item.gexM} />
+                        ) : (
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <GammaFlipIndicator value={item.gammaFlipLevel} price={item.currentPrice} gexM={item.gexM} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-emerald-500/80 group-hover/lock:text-emerald-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-emerald-500/70 group-hover/lock:text-emerald-400 transition-colors">ELITE</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* 3D Return */}
+                    {/* 3D Return — FREE (no gate) */}
                     <div className="flex items-center justify-center">
                         <Return3DIndicator value={item.return3d} />
                     </div>
 
-                    {/* MaxPain */}
+                    {/* MaxPain — ELITE gate */}
                     <div className="flex items-center justify-center">
-                        <MaxPainIndicator maxPain={item.maxPain} dist={item.maxPainDist} />
+                        {hasAccess('elite') ? (
+                            <MaxPainIndicator maxPain={item.maxPain} dist={item.maxPainDist} />
+                        ) : (
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <MaxPainIndicator maxPain={item.maxPain} dist={item.maxPainDist} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-emerald-500/80 group-hover/lock:text-emerald-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-emerald-500/70 group-hover/lock:text-emerald-400 transition-colors">ELITE</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* GEX */}
+                    {/* GEX — ELITE gate */}
                     <div className="flex items-center justify-center">
-                        <GexIndicator gexM={item.gexM} />
+                        {hasAccess('elite') ? (
+                            <GexIndicator gexM={item.gexM} />
+                        ) : (
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <GexIndicator gexM={item.gexM} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-emerald-500/80 group-hover/lock:text-emerald-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-emerald-500/70 group-hover/lock:text-emerald-400 transition-colors">ELITE</span>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </Link>
 

@@ -400,18 +400,23 @@ function WatchlistPanel() {
                         onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddTicker()}
                         placeholder={isAtLimit ? (tier === 'free' || tier === 'guest' ? gt('watchlistLimitPro', { count: TIER_MAX_SLOTS.pro }) : tier === 'pro' ? gt('watchlistLimitElite', { count: TIER_MAX_SLOTS.elite }) : '') : td('searchPlaceholder')}
-                        className={`flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border rounded focus:outline-none ${isAtLimit ? 'border-amber-500/30 text-amber-400/60 placeholder-amber-500/50 cursor-not-allowed' : 'border-white/10 text-white placeholder-slate-500 focus:border-cyan-500/50'}`}
+                        className={`flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border rounded focus:outline-none ${isAtLimit ? 'border-amber-500/30 text-amber-400/60 placeholder-slate-300 cursor-not-allowed' : 'border-white/10 text-white placeholder-slate-500 focus:border-cyan-500/50'}`}
                         maxLength={6}
                         disabled={isAtLimit}
                     />
-                    <button
-                        onClick={handleAddTicker}
-                        className={`px-2 py-1.5 rounded transition-colors ${isAtLimit ? 'bg-amber-500/20 text-amber-400 cursor-not-allowed' : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400'}`}
-                        title={isAtLimit ? 'Upgrade to add more' : td('searchPlaceholder')}
-                        disabled={isAtLimit}
-                    >
-                        {isAtLimit ? <LockIcon className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                    </button>
+                    {isAtLimit ? (
+                        <Link href="/pricing" className="px-2 py-1.5 rounded transition-colors bg-amber-500/20 hover:bg-amber-500/30 text-amber-400">
+                            <LockIcon className="w-4 h-4" />
+                        </Link>
+                    ) : (
+                        <button
+                            onClick={handleAddTicker}
+                            className="px-2 py-1.5 rounded transition-colors bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400"
+                            title={td('searchPlaceholder')}
+                        >
+                            <Plus className="w-4 h-4" />
+                        </button>
+                    )}
                 </div>
             </div>
             {/* FOMO: Slot limit message */}
@@ -419,7 +424,7 @@ function WatchlistPanel() {
                 <div className="px-2 py-1.5 border-b border-amber-500/10 bg-amber-500/[0.04]">
                     <Link href="/pricing" className="flex items-center gap-1.5 group">
                         <Crown className="w-3 h-3 text-amber-400" />
-                        <span className="text-[11px] text-amber-400/80 group-hover:text-amber-300 transition-colors">
+                        <span className="text-[12px] text-amber-400/80 group-hover:text-amber-300 transition-colors">
                             {tier === 'free' || tier === 'guest'
                                 ? gt('watchlistUpgradePro', { count: TIER_MAX_SLOTS.pro })
                                 : gt('watchlistUpgradeElite', { count: TIER_MAX_SLOTS.elite })}

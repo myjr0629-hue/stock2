@@ -207,8 +207,10 @@ export default function PricingPage() {
             title: t("matrix.personalization"),
             rows: [
                 { label: t("matrix.dashboardHud"), free: "limited", pro: "full", elite: "full", freeNote: "2/12", proNote: "12/12" },
-                { label: t("matrix.watchlist"), free: "limited", pro: "full", elite: "elite", freeNote: "3", proNote: "10", eliteNote: "20" },
-                { label: t("matrix.portfolio"), free: "limited", pro: "full", elite: "full", freeNote: t("matrix.threeStocks"), proNote: "10", eliteNote: "20" },
+                { label: t("matrix.watchlist"), free: "limited", pro: "full", elite: "elite", freeNote: "5", proNote: "50", eliteNote: "∞" },
+                { label: t("matrix.watchlistAlphaSignal"), free: "lock", pro: "full", elite: "full" },
+                { label: t("matrix.watchlistOptions"), free: "lock", pro: "lock", elite: "elite" },
+                { label: t("matrix.portfolio"), free: "limited", pro: "full", elite: "elite", freeNote: "3", proNote: "20", eliteNote: "∞" },
                 { label: t("matrix.portfolioAlphaSignal"), free: "lock", pro: "full", elite: "full" },
                 { label: t("matrix.portfolioAction"), free: "lock", pro: "lock", elite: "elite" },
                 { label: t("matrix.portfolioAiScore"), free: "lock", pro: "full", elite: "full" },

@@ -48,8 +48,8 @@ export default function PortfolioClientPage({
     const [currencyMode, setCurrencyMode] = useState<'usd' | 'local'>('usd');
     const fx = useExchangeRate(locale);
 
-    // Tier-based holdings limit: FREE=3, PRO=10, ELITE=20
-    const maxHoldings = tier === 'elite' ? 20 : tier === 'pro' ? 10 : 3;
+    // Tier-based holdings limit: FREE=3, PRO=20, ELITE=unlimited
+    const maxHoldings = tier === 'elite' ? 999 : tier === 'pro' ? 20 : 3;
     const isAtLimit = holdings.length >= maxHoldings;
 
     // SWR handles dual-interval polling automatically:
@@ -91,13 +91,15 @@ export default function PortfolioClientPage({
                         <button
                             onClick={() => !isAtLimit && setShowAddModal(true)}
                             className={`flex items-center gap-1.5 px-4 py-1.5 border text-xs font-bold rounded-lg transition-all ${isAtLimit
-                                ? 'bg-slate-500/10 border-slate-500/20 text-slate-500 cursor-not-allowed'
+                                ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 cursor-not-allowed'
                                 : 'bg-gradient-to-r from-emerald-500/15 to-cyan-500/10 border-emerald-500/20 text-emerald-400 hover:text-emerald-300 hover:from-emerald-500/25 hover:to-cyan-500/15'
                                 }`}
                             title={isAtLimit ? `Max ${maxHoldings} holdings (${tier?.toUpperCase()})` : ''}
+                            style={isAtLimit ? { boxShadow: '0 0 12px rgba(244,63,94,0.2)' } : {}}
                         >
                             <Plus className="w-3.5 h-3.5" />
-                            <span>{isAtLimit ? `${holdings.length}/${maxHoldings}` : '+ Add'}</span>
+                            <span>{isAtLimit ? '' : '+ Add'}</span>
+                            <span className={`tabular-nums font-black ${isAtLimit ? 'text-rose-300' : 'text-slate-300'}`}>{holdings.length}/{maxHoldings >= 999 ? '∞' : maxHoldings}</span>
                         </button>
                     </div>
                 </div>
@@ -492,9 +494,14 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                         {hasAccess('pro') ? (
                             <CircularAlphaGauge score={holding.alphaScore} grade={holding.alphaGrade} />
                         ) : (
-                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="flex flex-col items-center gap-1 cursor-pointer group/lock">
-                                <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
-                                <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <CircularAlphaGauge score={holding.alphaScore} grade={holding.alphaGrade} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -504,9 +511,14 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                         {hasAccess('pro') ? (
                             <SignalBadge action={holding.action} confidence={holding.confidence} triggers={holding.triggers} />
                         ) : (
-                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="flex flex-col items-center gap-1 cursor-pointer group/lock">
-                                <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
-                                <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <SignalBadge action={holding.action} confidence={holding.confidence} triggers={holding.triggers} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -516,9 +528,14 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                         {hasAccess('elite') ? (
                             <PortfolioActionBadge action={getPortfolioAction()} />
                         ) : (
-                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="flex flex-col items-center gap-1 cursor-pointer group/lock">
-                                <Lock className="w-3.5 h-3.5 text-fuchsia-500/80 group-hover/lock:text-fuchsia-400 transition-colors" />
-                                <span className="text-[12px] font-black tracking-wider text-fuchsia-500/70 group-hover/lock:text-fuchsia-400 transition-colors">ELITE</span>
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="relative w-full h-10 cursor-pointer group/lock">
+                                <div className="absolute inset-0 flex items-center justify-center blur-[6px] opacity-60 select-none pointer-events-none">
+                                    <PortfolioActionBadge action={getPortfolioAction()} />
+                                </div>
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                    <Lock className="w-3.5 h-3.5 text-emerald-500/80 group-hover/lock:text-emerald-400 transition-colors" />
+                                    <span className="text-[12px] font-black tracking-wider text-emerald-500/70 group-hover/lock:text-emerald-400 transition-colors">ELITE</span>
+                                </div>
                             </div>
                         )}
                     </div>
