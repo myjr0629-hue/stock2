@@ -15,10 +15,13 @@ import {
     Swords, ShieldCheck, ArrowDownRight, Newspaper, CircleDot,
     Activity, Gauge, Globe, Zap, Eye
 } from 'lucide-react';
+import { ProGate } from '@/components/gate/FeatureGate';
 import type { SectorConfig, SnapshotData, TickerSnapshot, BriefingData, NewsDigestItem } from '@/types/sector';
 
 interface TacticalReportDeckProps {
     config: SectorConfig;
+    /** Tickers to gate behind ProGate blur (e.g., ['TSLA', 'NVDA']) */
+    lockedTickers?: string[];
 }
 
 // ── Helpers ──
@@ -354,8 +357,9 @@ function generateClientBriefing(sorted: TickerSnapshot[], summary: any, tr: any)
 // MAIN COMPONENT
 // ============================================================================
 
-export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
+export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeckProps) {
     const tr = useTranslations('tacticalReport');
+    const gt = useTranslations('gate');
     const locale = useLocale();
     const [snapshot, setSnapshot] = useState<SnapshotData | null>(null);
     const [snapshotDate, setSnapshotDate] = useState<string | null>(null);
@@ -829,10 +833,18 @@ export function TacticalReportDeck({ config }: TacticalReportDeckProps) {
                                         {items.map(t => {
                                             const a = (key: string, params?: Record<string, string | number>) =>
                                                 tr(`analysis.${key}`, params as any);
-                                            return (
+                                            const card = (
                                                 <TacticalTickerCard key={t.ticker} t={t}
                                                     analysisText={buildLocaleAnalysis(t, a)} />
                                             );
+                                            if (lockedTickers?.includes(t.ticker)) {
+                                                return (
+                                                    <ProGate key={t.ticker} title={`${t.ticker} Report`} fomoMessage={gt('fomoM7LockedTicker', { ticker: t.ticker })} mode="blur" compact>
+                                                        {card}
+                                                    </ProGate>
+                                                );
+                                            }
+                                            return card;
                                         })}
                                     </div>
                                 </div>

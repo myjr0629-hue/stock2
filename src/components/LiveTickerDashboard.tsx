@@ -1000,8 +1000,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                     {/* ═══ ROW 1: 실시간 / 당일 판단용 ═══ */}
 
-                    {/* [1-1] VOLATILITY REGIME™ — PRO */}
-                    <ProGate title="Vol Regime" mode="blur" compact>
+                    {/* [1-1] VOLATILITY REGIME™ — PRO peek */}
+                    <ProGate title="Vol Regime" mode="peek" compact>
                         {(() => {
                             const r = volatilityData;
                             const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
@@ -1039,8 +1039,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         })()}
                     </ProGate>
 
-                    {/* [1-2] CONVICTION MATRIX™ — PRO */}
-                    <ProGate title="Conviction Matrix" mode="blur" compact>
+                    {/* [1-2] CONVICTION MATRIX™ — PRO peek */}
+                    <ProGate title="Conviction Matrix" mode="peek" compact>
                         {(() => {
                             const isBull = conviction && conviction.score >= 60;
                             const isBear = conviction && conviction.score <= 40;
@@ -1139,8 +1139,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         })()}
                     </ProGate>
 
-                    {/* [1-5] ANALYST TARGET — PRO */}
-                    <ProGate title="Analyst Target" mode="blur" compact>
+                    {/* [1-5] ANALYST TARGET — PRO peek */}
+                    <ProGate title="Analyst Target" mode="peek" compact>
                         {(() => {
                             const isBullish = analystData?.consensus === 'STRONG BUY' || analystData?.consensus === 'BUY';
                             const isBearish = analystData?.consensus === 'SELL' || analystData?.consensus === 'STRONG SELL';
@@ -1242,8 +1242,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         })()}
                     </ProGate>
 
-                    {/* [2-2] TREND PHASE™ — PRO */}
-                    <ProGate title="Trend Phase" mode="blur" compact>
+                    {/* [2-2] TREND PHASE™ — PRO peek */}
+                    <ProGate title="Trend Phase" mode="peek" compact>
                         {(() => {
                             const phase = smaData?.cross === 'GOLDEN' ? td('smaGolden') : smaData?.cross === 'DEAD' ? td('smaDead') : smaData?.label === 'ABOVE' ? td('smaAbove') : smaData?.label === 'BELOW' ? td('smaBelow') : '...';
                             return (
@@ -1279,8 +1279,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         })()}
                     </ProGate>
 
-                    {/* [2-3] FUNDAMENTAL VALUE™ — PRO */}
-                    <ProGate title="Fundamental" mode="blur" compact>
+                    {/* [2-3] FUNDAMENTAL VALUE™ — PRO peek */}
+                    <ProGate title="Fundamental" mode="peek" compact>
                         {(() => {
                             const f = fundamentalData;
                             const hasData = f && f.score > 0;

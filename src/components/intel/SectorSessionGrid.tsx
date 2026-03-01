@@ -12,6 +12,7 @@ import {
     DollarSign, Shield, Target, ChevronRight,
     AlertTriangle, Moon, Sun, Clock
 } from 'lucide-react';
+import { ProGate } from '@/components/gate/FeatureGate';
 import type { SectorConfig } from '@/types/sector';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
 import { PriceDisplayCard, tickerDelay } from '@/components/ui/PriceDisplay';
@@ -21,6 +22,8 @@ interface SectorSessionGridProps {
     quotes: IntelQuote[];
     loading?: boolean;
     refreshing?: boolean;
+    /** Tickers to gate behind ProGate blur (e.g., ['TSLA', 'NVDA']) */
+    lockedTickers?: string[];
 }
 
 // ── Sparkline ──
@@ -327,8 +330,9 @@ function getSessionInfo(session: MarketSession): Omit<SessionInfo, 'label'> {
     }
 }
 
-export function SectorSessionGrid({ config, quotes, loading, refreshing }: SectorSessionGridProps) {
+export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedTickers }: SectorSessionGridProps) {
     const ss = useTranslations('sectorSession');
+    const gt = useTranslations('gate');
     const router = useRouter();
     const locale = useLocale();
     const accentColor = config.theme.accentHex;
@@ -488,7 +492,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                     const isExtremePcr = q.pcr < 0.5 || q.pcr > 1.5;
                     const hasAlert = isHighGex || isExtremePcr;
 
-                    return (
+                    const card = (
                         <div
                             key={q.ticker}
                             onClick={() => router.push(`/ticker?ticker=${q.ticker}`)}
@@ -714,6 +718,16 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing }: Secto
                             </div>
                         </div>
                     );
+
+                    // If this ticker is in the locked list, wrap with ProGate blur
+                    if (lockedTickers?.includes(q.ticker)) {
+                        return (
+                            <ProGate key={q.ticker} title={`${q.ticker} Analysis`} fomoMessage={gt('fomoM7LockedTicker', { ticker: q.ticker })} mode="blur" compact>
+                                {card}
+                            </ProGate>
+                        );
+                    }
+                    return card;
                 })}
             </div>
 

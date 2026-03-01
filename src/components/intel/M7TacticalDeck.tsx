@@ -3,6 +3,8 @@
 'use client';
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { ArrowUpRight, ArrowDownRight, Crosshair, BarChart3, FileText, AlertTriangle, RefreshCw } from 'lucide-react';
+import { useTranslations } from 'next-intl';
+import { ProGate } from '@/components/gate/FeatureGate';
 import type { IntelQuote } from '@/hooks/useIntelSharedData';
 
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
@@ -26,6 +28,8 @@ interface M7TacticalItem {
 interface M7TacticalDeckProps {
     sharedData?: IntelQuote[];
     sharedRefreshing?: boolean;
+    /** Tickers to gate behind ProGate blur (e.g., ['TSLA', 'NVDA']) */
+    lockedTickers?: string[];
 }
 
 // Mini Sparkline SVG Component
@@ -100,10 +104,11 @@ function generateAnalysis(ticker: string, price: number, change: number, maxPain
     return analysis;
 }
 
-export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckProps = {}) {
+export function M7TacticalDeck({ sharedData, sharedRefreshing, lockedTickers }: M7TacticalDeckProps = {}) {
     const [items, setItems] = useState<M7TacticalItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+    const gt = useTranslations('gate');
 
     // Use shared data mode vs independent fetch mode
     const useSharedMode = sharedData !== undefined;
@@ -284,7 +289,7 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                     const isExtremePcr = item.pcr < 0.5 || item.pcr > 1.5;
                     const analysis = generateAnalysis(item.ticker, item.price, item.changePct, item.maxPain, item.callWall, item.putFloor, item.gex, item.pcr, item.gammaRegime, item.rsi, item.rvol);
 
-                    return (
+                    const card = (
                         <div key={item.ticker} className="relative group rounded-xl border transition-all duration-300 overflow-hidden border-slate-700 bg-[#0a0f18] hover:border-slate-500">
                             {/* Header */}
                             <div className="flex items-center justify-between p-3 bg-slate-800/30 border-b border-slate-700/50">
@@ -409,6 +414,16 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing }: M7TacticalDeckP
                             </div>
                         </div>
                     );
+
+                    // If this ticker is in the locked list, wrap with ProGate blur
+                    if (lockedTickers?.includes(item.ticker)) {
+                        return (
+                            <ProGate key={item.ticker} title={`${item.ticker} Report`} fomoMessage={gt('fomoM7LockedTicker', { ticker: item.ticker })} mode="blur" compact>
+                                {card}
+                            </ProGate>
+                        );
+                    }
+                    return card;
                 })}
             </div>
         </div>

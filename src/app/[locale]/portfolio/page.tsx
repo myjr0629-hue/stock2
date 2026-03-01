@@ -26,7 +26,8 @@ export default async function PortfolioPage() {
     const portfolioData = await getPortfolioServer();
 
     // 2. Extract tickers
-    const tickers = portfolioData.holdings.map((item: any) => item.ticker);
+    const holdings = portfolioData?.holdings ?? [];
+    const tickers = holdings.map((item: any) => item.ticker);
 
     // 3. Fetch COMPLETE advanced data instantly during SSR (Alpha, Flow, Options, Whale, etc.)
     let initialFullData: any[] = [];
@@ -37,7 +38,7 @@ export default async function PortfolioPage() {
     // 4. Inject into the client wrapper to eliminate the 2s loading skeleton AND progressive dashes
     return (
         <PortfolioClientPage
-            initialHoldings={portfolioData.holdings}
+            initialHoldings={holdings}
             initialFullData={initialFullData}
         />
     );

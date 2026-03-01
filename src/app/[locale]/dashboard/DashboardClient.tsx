@@ -10,6 +10,8 @@ import { useShallow } from "zustand/react/shallow";
 import { PriceDisplay, usePriceFlash, getFlashStyle, tickerDelay } from "@/components/ui/PriceDisplay";
 import { calcPriceDisplay } from "@/utils/calcPriceDisplay";
 import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
+import { useTier } from "@/contexts/TierContext";
+import { Crown, Lock as LockIcon } from "lucide-react";
 
 // Dynamic import for StockChart (no SSR for chart component)
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -356,21 +358,29 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
     );
 });
 
+// Tier-based max ticker slots
+const TIER_MAX_SLOTS: Record<string, number> = { guest: 3, free: 3, pro: 10, elite: 20 };
+
 // Watchlist Panel
 function WatchlistPanel() {
     const td = useTranslations('dashboard');
+    const gt = useTranslations('gate');
     const tickerKeys = useDashboardStore(useShallow(s => Object.keys(s.tickers)));
     const selectedTicker = useDashboardStore(s => s.selectedTicker);
     const toggleDashboardTicker = useDashboardStore(s => s.toggleDashboardTicker);
     const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
+    const { tier } = useTier();
+    const maxSlots = TIER_MAX_SLOTS[tier] ?? 3;
+    const isAtLimit = dashboardTickers.length >= maxSlots;
     // dashboardTickers = sole source of truth for the visible list
     const tickerList = dashboardTickers;
     const [newTicker, setNewTicker] = useState('');
 
     const handleAddTicker = () => {
+        if (isAtLimit) return;
         const ticker = newTicker.trim().toUpperCase();
         if (ticker && !dashboardTickers.includes(ticker)) {
-            toggleDashboardTicker(ticker);
+            toggleDashboardTicker(ticker, maxSlots);
             setNewTicker('');
         }
     };
@@ -379,7 +389,7 @@ function WatchlistPanel() {
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-white/5">
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300 font-jakarta">Watchlist</h2>
-                <span style={{ fontSize: '12px' }} className="text-slate-300 font-jakarta font-bold">{dashboardTickers.length} / 10</span>
+                <span style={{ fontSize: '12px' }} className={`font-jakarta font-bold ${isAtLimit ? 'text-amber-400' : 'text-slate-300'}`}>{dashboardTickers.length} / {maxSlots}</span>
             </div>
             {/* Add Ticker Input */}
             <div className="p-2 border-b border-white/5">
@@ -389,19 +399,34 @@ function WatchlistPanel() {
                         value={newTicker}
                         onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddTicker()}
-                        placeholder={td('searchPlaceholder')}
-                        className="flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border border-white/10 rounded text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/50"
+                        placeholder={isAtLimit ? (tier === 'free' || tier === 'guest' ? gt('watchlistLimitPro', { count: TIER_MAX_SLOTS.pro }) : tier === 'pro' ? gt('watchlistLimitElite', { count: TIER_MAX_SLOTS.elite }) : '') : td('searchPlaceholder')}
+                        className={`flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border rounded focus:outline-none ${isAtLimit ? 'border-amber-500/30 text-amber-400/60 placeholder-amber-500/50 cursor-not-allowed' : 'border-white/10 text-white placeholder-slate-500 focus:border-cyan-500/50'}`}
                         maxLength={6}
+                        disabled={isAtLimit}
                     />
                     <button
                         onClick={handleAddTicker}
-                        className="px-2 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 rounded transition-colors"
-                        title={td('searchPlaceholder')}
+                        className={`px-2 py-1.5 rounded transition-colors ${isAtLimit ? 'bg-amber-500/20 text-amber-400 cursor-not-allowed' : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400'}`}
+                        title={isAtLimit ? 'Upgrade to add more' : td('searchPlaceholder')}
+                        disabled={isAtLimit}
                     >
-                        <Plus className="w-4 h-4" />
+                        {isAtLimit ? <LockIcon className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
                     </button>
                 </div>
             </div>
+            {/* FOMO: Slot limit message */}
+            {isAtLimit && tier !== 'elite' && (
+                <div className="px-2 py-1.5 border-b border-amber-500/10 bg-amber-500/[0.04]">
+                    <Link href="/pricing" className="flex items-center gap-1.5 group">
+                        <Crown className="w-3 h-3 text-amber-400" />
+                        <span className="text-[11px] text-amber-400/80 group-hover:text-amber-300 transition-colors">
+                            {tier === 'free' || tier === 'guest'
+                                ? gt('watchlistUpgradePro', { count: TIER_MAX_SLOTS.pro })
+                                : gt('watchlistUpgradeElite', { count: TIER_MAX_SLOTS.elite })}
+                        </span>
+                    </Link>
+                </div>
+            )}
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {tickerList.map(ticker => (
                     <WatchlistItem
@@ -418,6 +443,7 @@ function WatchlistPanel() {
 // Main Chart Panel (GEX & Max Pain) - Uses FlowRadar and StockChart
 function MainChartPanel() {
     const td = useTranslations('dashboard');
+    const gt = useTranslations('gate');
     const selectedTicker = useDashboardStore(s => s.selectedTicker);
     // [PERF FIX] Subscribe only to the selected ticker's data, not all tickers
     const data = useDashboardStore(s => s.tickers[s.selectedTicker]);
@@ -591,7 +617,7 @@ function MainChartPanel() {
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
                 <div className="grid grid-cols-4 gap-3">
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
-                    <ProGate title="Net GEX" fomoMessage="기관급 감마 포지션 분석" mode="peek" compact>
+                    <ProGate title="Net GEX" mode="peek" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q12 20 24 35 T48 25 T72 40 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><path d="M0 55 Q16 40 32 45 T64 35 T96 30" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-300" /></svg>
@@ -609,7 +635,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Gamma Flip — PRO (blur: SpotGamma core data) */}
-                    <ProGate title="Gamma Flip" fomoMessage="감마 플립 레벨 — 롱/숏 전환점" mode="blur" compact>
+                    <ProGate title="Gamma Flip" mode="blur" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
@@ -630,32 +656,34 @@ function MainChartPanel() {
                         </div>
                     </ProGate>
 
-                    {/* Squeeze */}
-                    <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                        {(data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH') && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
-                        <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 55 L12 35 L24 50 L36 20 L48 45 L60 15 L72 40 L84 10 L96 30" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
-                        {(() => {
-                            const score = data?.squeezeScore ?? 0;
-                            const risk = data?.squeezeRisk ?? 'LOW';
-                            const color = risk === 'EXTREME' ? 'text-rose-400' : risk === 'HIGH' ? 'text-amber-400' : risk === 'MEDIUM' ? 'text-yellow-400' : 'text-emerald-400';
-                            const bgColor = risk === 'EXTREME' ? 'bg-rose-500/80' : risk === 'HIGH' ? 'bg-amber-500/80' : risk === 'MEDIUM' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80';
-                            return (
-                                <>
-                                    <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
-                                        <Zap className="w-4 h-4 text-indigo-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Squeeze</span>
-                                        <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded ${bgColor} text-white`}>{risk}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <span className={`text-xl font-mono font-bold ${color}`}>{score}%</span>
-                                        <span className="text-[12px] text-white">
-                                            {score >= 70 ? td('sqzExtreme') : score >= 50 ? td('sqzCaution') : score >= 30 ? td('sqzNormal') : td('sqzStable')}
-                                        </span>
-                                    </div>
-                                </>
-                            );
-                        })()}
-                    </div>
+                    {/* Squeeze — PRO (peek: score visible, interpretation blurred) */}
+                    <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} mode="peek" compact>
+                        <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            {(data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH') && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
+                            <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 55 L12 35 L24 50 L36 20 L48 45 L60 15 L72 40 L84 10 L96 30" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
+                            {(() => {
+                                const score = data?.squeezeScore ?? 0;
+                                const risk = data?.squeezeRisk ?? 'LOW';
+                                const color = risk === 'EXTREME' ? 'text-rose-400' : risk === 'HIGH' ? 'text-amber-400' : risk === 'MEDIUM' ? 'text-yellow-400' : 'text-emerald-400';
+                                const bgColor = risk === 'EXTREME' ? 'bg-rose-500/80' : risk === 'HIGH' ? 'bg-amber-500/80' : risk === 'MEDIUM' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80';
+                                return (
+                                    <>
+                                        <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
+                                            <Zap className="w-4 h-4 text-indigo-400" />
+                                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Squeeze</span>
+                                            <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded ${bgColor} text-white`}>{risk}</span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-xl font-mono font-bold ${color}`}>{score}%</span>
+                                            <span className="text-[12px] text-white">
+                                                {score >= 70 ? td('sqzExtreme') : score >= 50 ? td('sqzCaution') : score >= 30 ? td('sqzNormal') : td('sqzStable')}
+                                            </span>
+                                        </div>
+                                    </>
+                                );
+                            })()}
+                        </div>
+                    </ProGate>
 
                     {/* VWAP 거리 (NEW) */}
                     {(() => {
@@ -687,7 +715,7 @@ function MainChartPanel() {
                 {/* ── ROW 2: 가격 레벨 + 기관 (Levels & Institutional) ── */}
                 <div className="grid grid-cols-4 gap-3">
                     {/* Max Pain — PRO (peek: price visible, % distance blurred) */}
-                    <ProGate title="Max Pain" fomoMessage="옵션 만기 수렴 레벨" mode="peek" compact>
+                    <ProGate title="Max Pain" mode="peek" compact>
                         <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
                             <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><circle cx="40" cy="32" r="14" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" /><circle cx="40" cy="32" r="3" fill="currentColor" className="text-cyan-400" /></svg>
                             <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -706,7 +734,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Call Wall / Put Floor — PRO (blur: options level data) */}
-                    <ProGate title="Call Wall / Put Floor" fomoMessage="옵션 가격 지지·저항" mode="blur" compact>
+                    <ProGate title="Call Wall / Put Floor" fomoMessage={gt('fomoDashCallPut')} mode="blur" compact>
                         <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><line x1="0" y1="20" x2="96" y2="20" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><line x1="0" y1="44" x2="96" y2="44" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
                             <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -725,7 +753,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Dark Pool % — PRO (blur: institutional data, FlowAlgo $149) */}
-                    <ProGate title="Dark Pool %" fomoMessage="기관 다크풀 거래 비중" mode="blur" compact>
+                    <ProGate title="Dark Pool %" fomoMessage={gt('fomoDarkPool')} mode="blur" compact>
                         {(() => {
                             const dp = data?.darkPoolPct ?? 0;
                             const isAlert = dp >= 45;
@@ -756,7 +784,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Short Vol % — PRO (blur: Ortex $49-149) */}
-                    <ProGate title="Short Vol %" fomoMessage="공매도 거래량 분석" mode="blur" compact>
+                    <ProGate title="Short Vol %" fomoMessage={gt('fomoShortVol')} mode="blur" compact>
                         {(() => {
                             const sv = data?.shortVolPct ?? 0;
                             const dp = data?.darkPoolPct ?? 0;
@@ -798,7 +826,7 @@ function MainChartPanel() {
                 {/* ── ROW 3: 변동성 + 당일 매매 (Volatility & Intraday) ── */}
                 <div className="grid grid-cols-4 gap-3">
                     {/* ATM IV — PRO (blur: advanced volatility surface, QuantData $99) */}
-                    <ProGate title="ATM IV" fomoMessage="내재변동성 서피스" mode="blur" compact>
+                    <ProGate title="ATM IV" fomoMessage={gt('fomoAtmIv')} mode="blur" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q12 10 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /><path d="M0 32 Q12 48 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
@@ -880,7 +908,7 @@ function MainChartPanel() {
                     })()}
 
                     {/* GEX REGIME — PRO (blur: SpotGamma Pro $249) */}
-                    <ProGate title="GEX Regime" fomoMessage="감마 체제 분석" mode="blur" compact>
+                    <ProGate title="GEX Regime" fomoMessage={gt('fomoDashGexRegime')} mode="blur" compact>
                         {(() => {
                             const price = data?.underlyingPrice || 0;
                             const flip = data?.gammaFlipLevel || 0;
@@ -946,7 +974,7 @@ function MainChartPanel() {
                     </ProGate>
 
                     {/* Implied Move — ELITE (blur: advanced derivatives) */}
-                    <EliteGate title="Implied Move" fomoMessage="파생상품 기반 변동 예측" mode="blur" compact>
+                    <EliteGate title="Implied Move" fomoMessage={gt('fomoDashImpliedMove')} mode="blur" compact>
                         {(() => {
                             const im = data?.impliedMovePct ?? 0;
                             const dir = data?.impliedMoveDir ?? 'neutral';

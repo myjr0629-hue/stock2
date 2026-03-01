@@ -108,7 +108,7 @@ interface DashboardState {
     setLoading: (loading: boolean) => void;
 
     // Dashboard ticker management
-    toggleDashboardTicker: (ticker: string) => void;
+    toggleDashboardTicker: (ticker: string, maxSlots?: number) => void;
     isDashboardTicker: (ticker: string) => boolean;
     loadDashboardTickers: () => Promise<void>;
 
@@ -122,7 +122,7 @@ interface DashboardState {
     initializeStore: (dashboardTickers: string[], quotes: any) => void;
 }
 
-const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
+const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'SPY'];
 
 // [FIX] Field-level deep merge helper to preserve existing non-null values
 const deepMergeTicker = (existing: TickerData | undefined, newData: any): TickerData => {
@@ -180,14 +180,14 @@ export const useDashboardStore = create<DashboardState>()(
             setSignals: (signals) => set({ signals }),
             setLoading: (loading) => set({ isLoading: loading }),
 
-            toggleDashboardTicker: (ticker) => {
-                console.log('[BOARD] toggleDashboardTicker called:', ticker);
+            toggleDashboardTicker: (ticker, maxSlots = 20) => {
+                console.log('[BOARD] toggleDashboardTicker called:', ticker, 'maxSlots:', maxSlots);
                 // Optimistic update
                 const current = get().dashboardTickers;
                 const isIn = current.includes(ticker.toUpperCase());
                 const optimistic = isIn
                     ? current.filter(t => t !== ticker.toUpperCase())
-                    : [...current, ticker.toUpperCase()].slice(0, 10);
+                    : [...current, ticker.toUpperCase()].slice(0, maxSlots);
                 set({ dashboardTickers: optimistic });
                 // Persist to Supabase (fire-and-forget with sync-back)
                 toggleDbTicker(ticker).then(serverList => {
@@ -269,7 +269,7 @@ export const useDashboardStore = create<DashboardState>()(
                 }
 
                 try {
-                    const tickersParam = tickerList.slice(0, 10).join(',');
+                    const tickersParam = tickerList.slice(0, 20).join(',');
                     const res = await fetch(`/api/dashboard/unified?tickers=${tickersParam}`, { signal });
 
                     // If aborted by a newer request, exit silently
@@ -341,7 +341,7 @@ export const useDashboardStore = create<DashboardState>()(
             // ── Fast price-only update (5s) using /api/live/quotes ──
             fetchPriceOnly: async (tickerList = DEFAULT_TICKERS) => {
                 try {
-                    const symbols = tickerList.slice(0, 10).join(',');
+                    const symbols = tickerList.slice(0, 20).join(',');
                     const res = await fetch(`/api/live/quotes?symbols=${symbols}`);
                     if (!res.ok) return;
                     const json = await res.json();

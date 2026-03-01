@@ -3,6 +3,7 @@
 // LiveTickerDashboard already uses useFlowData (SWR) internally for all price data.
 
 import { TickerPageClient } from "./TickerPageClient";
+import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
 import { getFromCache } from '@/services/redisClient';
 import { getStockDataLight } from '@/services/marketDataLight';
 
@@ -49,15 +50,17 @@ export default async function TickerPage({ params, searchParams }: Props) {
     };
 
     return (
-        <div className="min-h-screen h-full selection:bg-emerald-500/30 selection:text-emerald-200 font-sans bg-[#050a14] text-slate-200">
-            <main className="mx-auto max-w-[1440px] px-6 lg:px-8 pb-48 space-y-4 bg-[#050a14]">
-                <TickerPageClient
-                    ticker={ticker}
-                    range={range}
-                    initialStockData={safeStockData}
-                    initialUnifiedData={initialUnifiedData || undefined}
-                />
-            </main>
-        </div>
+        <TerminalGateWrapper pageName="COMMAND">
+            <div className="min-h-screen h-full selection:bg-emerald-500/30 selection:text-emerald-200 font-sans bg-[#050a14] text-slate-200">
+                <main className="mx-auto max-w-[1440px] px-6 lg:px-8 pb-48 space-y-4 bg-[#050a14]">
+                    <TickerPageClient
+                        ticker={ticker}
+                        range={range}
+                        initialStockData={safeStockData}
+                        initialUnifiedData={initialUnifiedData || undefined}
+                    />
+                </main>
+            </div>
+        </TerminalGateWrapper>
     );
 }

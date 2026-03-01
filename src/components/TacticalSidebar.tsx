@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { cn } from "@/lib/utils";
 import {
     Shield, Activity, ShieldAlert, Rocket, Zap, ChevronRight, Orbit, Bot, BookOpen, Cpu, CreditCard, Cloud, Eye
@@ -46,9 +46,11 @@ interface SidebarItemProps {
     onClick?: () => void;
     accentColor?: string;
     alert?: AlertLevel;
+    /** Custom style for the label text (e.g., locale-aware font) */
+    labelStyle?: React.CSSProperties;
 }
 
-function SidebarItem({ icon, label, subLabel, isActive, onClick, accentColor = "text-emerald-400", alert }: SidebarItemProps) {
+function SidebarItem({ icon, label, subLabel, isActive, onClick, accentColor = "text-emerald-400", alert, labelStyle }: SidebarItemProps) {
     return (
         <button
             onClick={onClick}
@@ -70,9 +72,11 @@ function SidebarItem({ icon, label, subLabel, isActive, onClick, accentColor = "
                 </div>
                 <div className="flex flex-col">
                     <span className={cn(
-                        "text-xs font-black tracking-wider uppercase font-jakarta",
+                        "text-xs font-black tracking-wider font-jakarta",
                         isActive ? "text-white" : "text-slate-300 group-hover:text-white"
-                    )}>
+                    )}
+                        style={labelStyle}
+                    >
                         {label}
                     </span>
                     {subLabel && (
@@ -113,7 +117,15 @@ export interface TacticalSidebarProps {
 
 export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: TacticalSidebarProps) {
     const td = useTranslations('dashboard');
+    const ti = useTranslations('intel');
+    const locale = useLocale();
 
+    // Locale-aware font for sector brand names
+    const sectorLabelStyle: React.CSSProperties = locale === 'ko'
+        ? { fontFamily: "Pretendard, sans-serif" }
+        : locale === 'ja'
+            ? { fontFamily: "'Noto Sans JP', sans-serif" }
+            : {};
     const alerts = useMemo(() => ({
         m7: getSectorAlert(sectorQuotes?.m7 || []),
         physicalAI: getSectorAlert(sectorQuotes?.physicalAI || []),
@@ -171,15 +183,15 @@ export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: Tactic
 
                 <div className="relative">
                     <SidebarItem icon={<Orbit />} label="M7 REPORT" subLabel="DAILY ANALYSIS" isActive={activeTab === 'M7'} onClick={() => onTabChange('M7')} accentColor="text-indigo-400" alert={alerts.m7} />
-                    <SidebarItem icon={<Bot />} label="PHYSICAL AI" subLabel="ROBOTICS & EMBODIED" isActive={activeTab === 'PHYSICAL_AI'} onClick={() => onTabChange('PHYSICAL_AI')} accentColor="text-amber-500" alert={alerts.physicalAI} />
-                    <SidebarItem icon={<Zap />} label="SILICON CORE" subLabel="AI INFRA & CHIPS" isActive={activeTab === 'SILICON_CORE'} onClick={() => onTabChange('SILICON_CORE')} accentColor="text-amber-400" alert={alerts.siliconCore} />
-                    <SidebarItem icon={<Activity />} label="POWER MATRIX" subLabel="ENERGY & NUCLEAR" isActive={activeTab === 'POWER_MATRIX'} onClick={() => onTabChange('POWER_MATRIX')} accentColor="text-emerald-400" alert={alerts.powerMatrix} />
-                    <SidebarItem icon={<ShieldAlert />} label="BIO PULSE" subLabel="GLP-1 & BIOTECH" isActive={activeTab === 'BIO_PULSE'} onClick={() => onTabChange('BIO_PULSE')} accentColor="text-rose-400" alert={alerts.bioPulse} />
-                    <SidebarItem icon={<Shield />} label="CYBER SHIELD" subLabel="AI SECURITY & ZERO TRUST" isActive={activeTab === 'CYBER_SHIELD'} onClick={() => onTabChange('CYBER_SHIELD')} accentColor="text-cyan-400" alert={alerts.cyberShield} />
-                    <SidebarItem icon={<Rocket />} label="ORBIT DEFENSE" subLabel="SPACE & DEFENSE" isActive={activeTab === 'ORBIT_DEFENSE'} onClick={() => onTabChange('ORBIT_DEFENSE')} accentColor="text-sky-400" alert={alerts.orbitDefense} />
-                    <SidebarItem icon={<Cpu />} label="QUANTUM EDGE" subLabel="QUANTUM & AI INFRA" isActive={activeTab === 'QUANTUM_EDGE'} onClick={() => onTabChange('QUANTUM_EDGE')} accentColor="text-fuchsia-400" alert={alerts.quantumEdge} />
-                    <SidebarItem icon={<CreditCard />} label="FINTECH PULSE" subLabel="DIGITAL FINANCE" isActive={activeTab === 'FINTECH_PULSE'} onClick={() => onTabChange('FINTECH_PULSE')} accentColor="text-lime-400" alert={alerts.fintechPulse} />
-                    <SidebarItem icon={<Cloud />} label="CLOUD FORTRESS" subLabel="CLOUD & SAAS" isActive={activeTab === 'CLOUD_FORTRESS'} onClick={() => onTabChange('CLOUD_FORTRESS')} accentColor="text-sky-300" alert={alerts.cloudFortress} />
+                    <SidebarItem icon={<Bot />} label={ti('sectorSidebar.physicalAI')} subLabel="ROBOTICS & EMBODIED" isActive={activeTab === 'PHYSICAL_AI'} onClick={() => onTabChange('PHYSICAL_AI')} accentColor="text-amber-500" alert={alerts.physicalAI} labelStyle={sectorLabelStyle} />
+                    <SidebarItem icon={<Zap />} label={ti('sectorSidebar.siliconCore')} subLabel="AI INFRA & CHIPS" isActive={activeTab === 'SILICON_CORE'} onClick={() => onTabChange('SILICON_CORE')} accentColor="text-amber-400" alert={alerts.siliconCore} labelStyle={sectorLabelStyle} />
+                    <SidebarItem icon={<Activity />} label={ti('sectorSidebar.powerMatrix')} subLabel="ENERGY & NUCLEAR" isActive={activeTab === 'POWER_MATRIX'} onClick={() => onTabChange('POWER_MATRIX')} accentColor="text-emerald-400" alert={alerts.powerMatrix} labelStyle={sectorLabelStyle} />
+                    <SidebarItem icon={<ShieldAlert />} label={ti('sectorSidebar.bioPulse')} subLabel="GLP-1 & BIOTECH" isActive={activeTab === 'BIO_PULSE'} onClick={() => onTabChange('BIO_PULSE')} accentColor="text-rose-400" alert={alerts.bioPulse} labelStyle={sectorLabelStyle} />
+                    <SidebarItem icon={<Shield />} label={ti('sectorSidebar.cyberShield')} subLabel="AI SECURITY & ZERO TRUST" isActive={activeTab === 'CYBER_SHIELD'} onClick={() => onTabChange('CYBER_SHIELD')} accentColor="text-cyan-400" alert={alerts.cyberShield} labelStyle={sectorLabelStyle} />
+                    <SidebarItem icon={<Rocket />} label={ti('sectorSidebar.orbitDefense')} subLabel="SPACE & DEFENSE" isActive={activeTab === 'ORBIT_DEFENSE'} onClick={() => onTabChange('ORBIT_DEFENSE')} accentColor="text-sky-400" alert={alerts.orbitDefense} labelStyle={sectorLabelStyle} />
+                    <SidebarItem icon={<Cpu />} label={ti('sectorSidebar.quantumEdge')} subLabel="QUANTUM & AI INFRA" isActive={activeTab === 'QUANTUM_EDGE'} onClick={() => onTabChange('QUANTUM_EDGE')} accentColor="text-fuchsia-400" alert={alerts.quantumEdge} labelStyle={sectorLabelStyle} />
+                    <SidebarItem icon={<CreditCard />} label={ti('sectorSidebar.fintechPulse')} subLabel="DIGITAL FINANCE" isActive={activeTab === 'FINTECH_PULSE'} onClick={() => onTabChange('FINTECH_PULSE')} accentColor="text-lime-400" alert={alerts.fintechPulse} labelStyle={sectorLabelStyle} />
+                    <SidebarItem icon={<Cloud />} label={ti('sectorSidebar.cloudFortress')} subLabel="CLOUD & SAAS" isActive={activeTab === 'CLOUD_FORTRESS'} onClick={() => onTabChange('CLOUD_FORTRESS')} accentColor="text-sky-300" alert={alerts.cloudFortress} labelStyle={sectorLabelStyle} />
                 </div>
 
             </div>

@@ -1116,6 +1116,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
     const t = useTranslations('alphaReport');
     const tCommon = useTranslations('common');
+    const gt = useTranslations('gate');
 
     // [RESTORED] Components now fetch data independently (same as Flow/Command pages)
     // [V7.0] Sector Intel shared data for new components
@@ -1655,7 +1656,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* POST-MARKET BRIEF — PRO (Unified View of All Sector Reports) */}
                     {activeTab === 'POST_MARKET_ALL' && (
-                        <ProGate fomoMessage="Post-Market Sector Brief — PRO" mode="blur">
+                        <ProGate fomoMessage={gt('fomoPostMarket')} mode="blur">
                             <PostMarketBriefView />
                         </ProGate>
                     )}
@@ -1724,7 +1725,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* PHYSICAL AI CONTENT — PRO */}
                     {activeTab === 'PHYSICAL_AI' && (
-                        <ProGate fomoMessage="Physical AI Sector — PRO" mode="blur">
+                        <ProGate fomoMessage={gt('fomoPhysicalAI')} mode="blur">
                             <div className="space-y-4">
 
                                 {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
@@ -1758,7 +1759,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                             {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
                             <section>
-                                <SectorSessionGrid config={m7Config} quotes={sectorData.m7} />
+                                <SectorSessionGrid config={m7Config} quotes={sectorData.m7} lockedTickers={['TSLA', 'NVDA']} />
                             </section>
 
                             {/* Zone A-2: Ranking Row (Generic — Money Flow descending) */}
@@ -1774,7 +1775,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                             {/* Zone C: TacticalReportDeck (장마감 고정 보고서) */}
                             <section>
-                                <TacticalReportDeck config={m7Config} />
+                                <TacticalReportDeck config={m7Config} lockedTickers={['TSLA', 'NVDA']} />
                             </section>
 
                         </div>
@@ -1782,7 +1783,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* SILICON CORE CONTENT — PRO */}
                     {activeTab === 'SILICON_CORE' && (
-                        <ProGate fomoMessage="Silicon Core Sector — PRO" mode="blur">
+                        <ProGate fomoMessage={gt('fomoSiliconCore')} mode="blur">
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={siliconCoreConfig} quotes={sectorData.siliconCore} />
@@ -1803,7 +1804,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* POWER MATRIX CONTENT — PRO */}
                     {activeTab === 'POWER_MATRIX' && (
-                        <ProGate fomoMessage="Power Matrix Sector — PRO" mode="blur">
+                        <ProGate fomoMessage={gt('fomoPowerMatrix')} mode="blur">
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={powerMatrixConfig} quotes={sectorData.powerMatrix} />
@@ -1824,7 +1825,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* BIO PULSE CONTENT — PRO */}
                     {activeTab === 'BIO_PULSE' && (
-                        <ProGate fomoMessage="Bio Pulse Sector — PRO" mode="blur">
+                        <ProGate fomoMessage={gt('fomoBioPulse')} mode="blur">
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={bioPulseConfig} quotes={sectorData.bioPulse} />
@@ -1845,7 +1846,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* CYBER SHIELD CONTENT — PRO */}
                     {activeTab === 'CYBER_SHIELD' && (
-                        <ProGate fomoMessage="Cyber Shield Sector — PRO" mode="blur">
+                        <ProGate fomoMessage={gt('fomoCyberShield')} mode="blur">
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={cyberShieldConfig} quotes={sectorData.cyberShield} />
@@ -1866,7 +1867,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* ORBIT DEFENSE CONTENT — PRO */}
                     {activeTab === 'ORBIT_DEFENSE' && (
-                        <ProGate fomoMessage="Orbit Defense Sector — PRO" mode="blur">
+                        <ProGate fomoMessage={gt('fomoOrbitDefense')} mode="blur">
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={orbitDefenseConfig} quotes={sectorData.orbitDefense} />
@@ -1886,7 +1887,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                     )}
 
                     {activeTab === 'QUANTUM_EDGE' && (
-                        <EliteGate fomoMessage="Quantum Edge Sector — ELITE" mode="blur">
+                        <EliteGate fomoMessage={gt('fomoQuantumEdge')} mode="blur">
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={quantumEdgeConfig} quotes={sectorData.quantumEdge} />
@@ -1906,7 +1907,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                     )}
 
                     {activeTab === 'FINTECH_PULSE' && (
-                        <EliteGate fomoMessage="Fintech Pulse Sector — ELITE" mode="blur">
+                        <EliteGate fomoMessage={gt('fomoFintechPulse')} mode="blur">
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={fintechPulseConfig} quotes={sectorData.fintechPulse} />
@@ -1926,7 +1927,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                     )}
 
                     {activeTab === 'CLOUD_FORTRESS' && (
-                        <EliteGate fomoMessage="Cloud Fortress Sector — ELITE" mode="blur">
+                        <EliteGate fomoMessage={gt('fomoCloudFortress')} mode="blur">
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={cloudFortressConfig} quotes={sectorData.cloudFortress} />

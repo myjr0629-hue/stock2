@@ -5,11 +5,13 @@
 // ============================================================================
 
 import React, { useMemo, useState, useEffect } from 'react';
+import { useTranslations } from 'next-intl';
 import {
     TrendingUp, TrendingDown, Activity, Zap, Shield, ShieldAlert,
     Rocket, Bot, Orbit, Cpu, CreditCard, Cloud,
     BarChart3, Eye, ChevronRight, Flame, Snowflake
 } from 'lucide-react';
+import { ProGate } from '@/components/gate/FeatureGate';
 import type { IntelQuote, IntelSharedData } from '@/hooks/useIntelSharedData';
 
 // ── Sector Definitions ──
@@ -95,6 +97,7 @@ interface SectorCommandCenterProps {
 }
 
 export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCenterProps) {
+    const gt = useTranslations('gate');
     const [hoveredSector, setHoveredSector] = useState<string | null>(null);
     const [now, setNow] = useState(new Date());
 
@@ -339,7 +342,13 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                 <span className="text-[13px] text-slate-200 font-mono ml-auto">TOP 3 / {allWithSector.length}</span>
                             </div>
                             {top3.map((q, i) => (
-                                <AlphaCard key={q.ticker} {...q} rank={i + 1} isTop={true} />
+                                i < 2 ? (
+                                    <ProGate key={q.ticker} title={`Alpha #${i + 1}`} fomoMessage={gt('fomoAlphaLeaders')} mode="blur" compact>
+                                        <AlphaCard {...q} rank={i + 1} isTop={true} />
+                                    </ProGate>
+                                ) : (
+                                    <AlphaCard key={q.ticker} {...q} rank={i + 1} isTop={true} />
+                                )
                             ))}
                         </div>
 
