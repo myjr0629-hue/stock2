@@ -80,9 +80,9 @@ export default function WatchlistClientPage({
                         </div>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Link href="/how-it-works/watchlist" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-amber-500/30 hover:bg-amber-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
-                            <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-amber-400 transition-colors" />
-                            <span className="text-[12px] text-slate-300 group-hover:text-amber-300 font-medium transition-colors">{tCommon('guideLink')}</span>
+                        <Link href="/how-it-works/watchlist" className="relative flex items-center gap-1.5 px-3.5 py-0.5 rounded-lg bg-amber-500/[0.08] border border-amber-400/25 hover:border-amber-400/50 hover:bg-amber-500/[0.15] backdrop-blur-md shadow-[0_0_15px_rgba(251,191,36,0.08)] hover:shadow-[0_0_25px_rgba(251,191,36,0.18)] transition-all duration-300 group">
+                            <BookOpen className="w-3.5 h-3.5 text-amber-400/80 group-hover:text-amber-300 transition-colors" />
+                            <span className="text-[12px] text-amber-300/90 group-hover:text-amber-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
                         </Link>
                         <button
                             onClick={() => refresh()}

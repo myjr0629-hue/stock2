@@ -1987,9 +1987,9 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                                             <Activity className="w-4 h-4 text-emerald-500" />
                                             SIGNUM INTELLIGENCE
                                         </span>
-                                        <a href="/how-it-works/intel" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-indigo-500/30 hover:bg-indigo-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
-                                            <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-indigo-400 transition-colors" />
-                                            <span className="text-[12px] text-slate-300 group-hover:text-indigo-300 font-medium transition-colors">{tCommon('guideLink')}</span>
+                                        <a href="/how-it-works/intel" className="relative flex items-center gap-1.5 px-3.5 py-0.5 rounded-lg bg-indigo-500/[0.08] border border-indigo-400/25 hover:border-indigo-400/50 hover:bg-indigo-500/[0.15] backdrop-blur-md shadow-[0_0_15px_rgba(129,140,248,0.08)] hover:shadow-[0_0_25px_rgba(129,140,248,0.18)] transition-all duration-300 group">
+                                            <BookOpen className="w-3.5 h-3.5 text-indigo-400/80 group-hover:text-indigo-300 transition-colors" />
+                                            <span className="text-[12px] text-indigo-300/90 group-hover:text-indigo-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
                                         </a>
                                     </div>
                                     <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3 font-jakarta drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]">
