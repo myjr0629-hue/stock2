@@ -7,11 +7,13 @@ import {
     TrendingUp, TrendingDown, Plus, RefreshCw, Briefcase, ChevronRight,
     Trash2, ArrowUpRight, ArrowDownRight, Wallet, PiggyBank, Activity,
     Zap, Target, Edit3, Star, Search, X, Loader2, Clock, LayoutDashboard,
-    ArrowRightLeft, BookOpen
+    ArrowRightLeft, BookOpen, Lock
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
+import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
+import { useTier } from '@/contexts/TierContext';
 import useSWR from 'swr';
 
 // Exchange rate fetcher
@@ -40,9 +42,15 @@ export default function PortfolioClientPage({
     const [editingHolding, setEditingHolding] = useState<EnrichedHolding | null>(null);
     const t = useTranslations('portfolio');
     const tCommon = useTranslations('common');
+    const gt = useTranslations('gate');
     const locale = useLocale();
+    const { tier } = useTier();
     const [currencyMode, setCurrencyMode] = useState<'usd' | 'local'>('usd');
     const fx = useExchangeRate(locale);
+
+    // Tier-based holdings limit: FREE=3, PRO=10, ELITE=20
+    const maxHoldings = tier === 'elite' ? 20 : tier === 'pro' ? 10 : 3;
+    const isAtLimit = holdings.length >= maxHoldings;
 
     // SWR handles dual-interval polling automatically:
     // - Price/P&L: every 5 seconds (lightweight, price-only API)
@@ -81,11 +89,15 @@ export default function PortfolioClientPage({
                             )}
                         </button>
                         <button
-                            onClick={() => setShowAddModal(true)}
-                            className="flex items-center gap-1.5 px-4 py-1.5 bg-gradient-to-r from-emerald-500/15 to-cyan-500/10 border border-emerald-500/20 text-emerald-400 hover:text-emerald-300 text-xs font-bold rounded-lg transition-all hover:from-emerald-500/25 hover:to-cyan-500/15"
+                            onClick={() => !isAtLimit && setShowAddModal(true)}
+                            className={`flex items-center gap-1.5 px-4 py-1.5 border text-xs font-bold rounded-lg transition-all ${isAtLimit
+                                ? 'bg-slate-500/10 border-slate-500/20 text-slate-500 cursor-not-allowed'
+                                : 'bg-gradient-to-r from-emerald-500/15 to-cyan-500/10 border-emerald-500/20 text-emerald-400 hover:text-emerald-300 hover:from-emerald-500/25 hover:to-cyan-500/15'
+                                }`}
+                            title={isAtLimit ? `Max ${maxHoldings} holdings (${tier?.toUpperCase()})` : ''}
                         >
                             <Plus className="w-3.5 h-3.5" />
-                            <span>+ Add</span>
+                            <span>{isAtLimit ? `${holdings.length}/${maxHoldings}` : '+ Add'}</span>
                         </button>
                     </div>
                 </div>
@@ -190,6 +202,7 @@ export default function PortfolioClientPage({
 
 function PortfolioStatsBar({ summary, portfolioScore, holdingsCount, locale }: { summary: { totalValue: number; totalCost: number; totalGainLoss: number; totalGainLossPct: number; holdingsCount: number }; portfolioScore: number; holdingsCount: number; locale: string }) {
     const t = useTranslations('portfolio');
+    const gt = useTranslations('gate');
     const [now, setNow] = useState(new Date());
     useEffect(() => { const tm = setInterval(() => setNow(new Date()), 1000); return () => clearInterval(tm); }, []);
     const isPos = summary.totalGainLossPct >= 0;
@@ -256,17 +269,19 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount, locale }: {
                 </div>
                 <div className={`absolute inset-0 opacity-[0.04] ${isPos ? 'bg-gradient-to-r from-transparent via-emerald-400 to-transparent' : 'bg-gradient-to-r from-transparent via-rose-400 to-transparent'}`} style={{ animation: 'shimmer 3s ease-in-out infinite' }} />
             </div>
-            {/* Portfolio Score */}
+            {/* Portfolio Score — PRO gate */}
             <div className="group relative overflow-hidden rounded-xl border border-indigo-500/[0.18] bg-gradient-to-br from-indigo-500/[0.1] via-white/[0.06] to-indigo-500/[0.04] backdrop-blur-xl p-4 hover:border-indigo-500/[0.35] transition-all duration-300" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(129,140,248,0.08)' }}>
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-indigo-400/50 to-transparent" />
                 <div className="flex items-center gap-2 mb-2"><Target className="w-4 h-4 text-indigo-400" style={{ filter: 'drop-shadow(0 0 4px rgba(129,140,248,0.5))' }} /><span className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('portfolioScore')}</span></div>
-                <div className="flex items-center gap-3">
-                    <div className="relative w-11 h-11 flex-shrink-0">
-                        <svg className="w-11 h-11 -rotate-90" style={{ filter: `drop-shadow(0 0 8px ${grade === 'A' ? 'rgba(52,211,153,0.4)' : grade === 'B' ? 'rgba(34,211,238,0.4)' : grade === 'C' ? 'rgba(251,191,36,0.4)' : 'rgba(251,113,133,0.4)'})` }}><circle cx="22" cy="22" r="15" fill="none" stroke="#1e293b" strokeWidth="3" /><circle cx="22" cy="22" r="15" fill="none" className={gradeColor} strokeWidth="3" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 1s ease-out' }} /></svg>
-                        <div className={`absolute inset-0 flex items-center justify-center text-xs font-black ${gradeColor}`}>{grade}</div>
+                <ProGate mode="blur" compact fomoMessage={gt('fomoPortfolioScore')}>
+                    <div className="flex items-center gap-3">
+                        <div className="relative w-11 h-11 flex-shrink-0">
+                            <svg className="w-11 h-11 -rotate-90" style={{ filter: `drop-shadow(0 0 8px ${grade === 'A' ? 'rgba(52,211,153,0.4)' : grade === 'B' ? 'rgba(34,211,238,0.4)' : grade === 'C' ? 'rgba(251,191,36,0.4)' : 'rgba(251,113,133,0.4)'})` }}><circle cx="22" cy="22" r="15" fill="none" stroke="#1e293b" strokeWidth="3" /><circle cx="22" cy="22" r="15" fill="none" className={gradeColor} strokeWidth="3" strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset} style={{ transition: 'stroke-dashoffset 1s ease-out' }} /></svg>
+                            <div className={`absolute inset-0 flex items-center justify-center text-xs font-black ${gradeColor}`}>{grade}</div>
+                        </div>
+                        <div><div className="text-xl font-black text-white tabular-nums" style={{ textShadow: '0 0 20px rgba(255,255,255,0.12)' }}>{portfolioScore}</div><div className="text-[12px] text-slate-300">{holdingsCount} {t('avgOfHoldings')}</div></div>
                     </div>
-                    <div><div className="text-xl font-black text-white tabular-nums" style={{ textShadow: '0 0 20px rgba(255,255,255,0.12)' }}>{portfolioScore}</div><div className="text-[12px] text-slate-300">{holdingsCount} {t('avgOfHoldings')}</div></div>
-                </div>
+                </ProGate>
                 <svg className="absolute right-0 top-0 w-28 h-full opacity-[0.08]" viewBox="0 0 80 80"><circle cx="60" cy="40" r="12" fill="none" stroke="#818cf8" strokeWidth="1" /><circle cx="60" cy="40" r="22" fill="none" stroke="#818cf8" strokeWidth="0.8" /><circle cx="60" cy="40" r="32" fill="none" stroke="#818cf8" strokeWidth="0.5" /></svg>
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-[0.03] bg-gradient-to-r from-transparent via-indigo-400 to-transparent transition-opacity duration-500" style={{ animation: 'shimmer 3s ease-in-out infinite' }} />
             </div>
@@ -304,6 +319,8 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
     fxRate?: number | null;
     fxSymbol?: string;
 }) {
+    const gt = useTranslations('gate');
+    const { hasAccess } = useTier();
     const isPositive = holding.gainLossPct >= 0;
     const weight = totalValue > 0 ? (holding.marketValue / totalValue) * 100 : 0;
     const daysHeld = holding.addedAt ? Math.floor((Date.now() - new Date(holding.addedAt).getTime()) / (1000 * 60 * 60 * 24)) : 0;
@@ -469,19 +486,40 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                     {/* Days Held */}
                     <div className={`text-center tabular-nums text-sm ${daysHeld > 365 ? 'text-cyan-400' : 'text-slate-300'}`} title={daysHeld > 365 ? 'Long-term' : 'Short-term'}>D+{daysHeld}</div>
 
-                    {/* Alpha */}
+                    {/* Alpha — PRO gate */}
                     <div className="flex items-center justify-center">
-                        <CircularAlphaGauge score={holding.alphaScore} grade={holding.alphaGrade} />
+                        {hasAccess('pro') ? (
+                            <CircularAlphaGauge score={holding.alphaScore} grade={holding.alphaGrade} />
+                        ) : (
+                            <Link href="/pricing" className="flex flex-col items-center gap-1 group/lock">
+                                <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
+                                <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
+                            </Link>
+                        )}
                     </div>
 
-                    {/* Signal */}
+                    {/* Signal — PRO gate */}
                     <div className="flex items-center justify-center">
-                        <SignalBadge action={holding.action} confidence={holding.confidence} triggers={holding.triggers} />
+                        {hasAccess('pro') ? (
+                            <SignalBadge action={holding.action} confidence={holding.confidence} triggers={holding.triggers} />
+                        ) : (
+                            <Link href="/pricing" className="flex flex-col items-center gap-1 group/lock">
+                                <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
+                                <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
+                            </Link>
+                        )}
                     </div>
 
-                    {/* Action */}
+                    {/* Action — ELITE gate */}
                     <div className="flex items-center justify-center">
-                        <PortfolioActionBadge action={getPortfolioAction()} />
+                        {hasAccess('elite') ? (
+                            <PortfolioActionBadge action={getPortfolioAction()} />
+                        ) : (
+                            <Link href="/pricing" className="flex flex-col items-center gap-1 group/lock">
+                                <Lock className="w-3.5 h-3.5 text-fuchsia-500/80 group-hover/lock:text-fuchsia-400 transition-colors" />
+                                <span className="text-[12px] font-black tracking-wider text-fuchsia-500/70 group-hover/lock:text-fuchsia-400 transition-colors">ELITE</span>
+                            </Link>
+                        )}
                     </div>
                 </Link>
 

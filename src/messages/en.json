@@ -2125,7 +2125,10 @@
       "personalization": "Personalization",
       "dashboardHud": "Dashboard HUD",
       "watchlist": "Watchlist",
-      "portfolio": "Portfolio",
+      "portfolio": "Portfolio Basic",
+      "portfolioAlphaSignal": "Alpha Score + AI Signal",
+      "portfolioAction": "Trade Action (ACTION)",
+      "portfolioAiScore": "Portfolio AI Score",
       "alerts": "Alerts",
       "whaleAlert": "Whale Push Alerts",
       "special": "Special Benefits",
@@ -3066,6 +3069,10 @@
     "fomoOrbitDefense": "Orbit Defense Analysis",
     "fomoQuantumEdge": "Quantum Edge · AI Infra Analysis",
     "fomoFintechPulse": "Fintech Pulse · Digital Finance",
-    "fomoCloudFortress": "Cloud Fortress · SaaS Analysis"
+    "fomoCloudFortress": "Cloud Fortress · SaaS Analysis",
+    "fomoPortfolioAlpha": "View Alpha Score",
+    "fomoPortfolioSignal": "View AI Signal",
+    "fomoPortfolioAction": "RUN? HOLD? EXIT?",
+    "fomoPortfolioScore": "View Portfolio Grade"
   }
 }

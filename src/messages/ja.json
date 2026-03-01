@@ -2125,7 +2125,10 @@
       "personalization": "パーソナライゼーション",
       "dashboardHud": "Dashboard HUD",
       "watchlist": "ウォッチリスト",
-      "portfolio": "ポートフォリオ",
+      "portfolio": "Portfolio基本",
+      "portfolioAlphaSignal": "Alpha Score + AI Signal",
+      "portfolioAction": "売買判定 (ACTION)",
+      "portfolioAiScore": "ポートフォリオAIスコア",
       "alerts": "アラート",
       "whaleAlert": "Whale プッシュ通知",
       "special": "特別特典",
@@ -3066,6 +3069,10 @@
     "fomoOrbitDefense": "防衛·宇宙セクター分析",
     "fomoQuantumEdge": "量子·AIインフラ分析",
     "fomoFintechPulse": "デジタルファイナンス分析",
-    "fomoCloudFortress": "クラウド·SaaS分析"
+    "fomoCloudFortress": "クラウド·SaaS分析",
+    "fomoPortfolioAlpha": "Alpha Scoreを確認",
+    "fomoPortfolioSignal": "AI売買シグナルを見る",
+    "fomoPortfolioAction": "RUN? HOLD? EXIT?",
+    "fomoPortfolioScore": "ポートフォリオグレードは？"
   }
 }

@@ -2125,7 +2125,10 @@
       "personalization": "개인화",
       "dashboardHud": "Dashboard HUD",
       "watchlist": "Watchlist",
-      "portfolio": "Portfolio",
+      "portfolio": "Portfolio 기본",
+      "portfolioAlphaSignal": "Alpha Score + AI Signal",
+      "portfolioAction": "매매 판정 (ACTION)",
+      "portfolioAiScore": "포트폴리오 AI 점수",
       "alerts": "알림",
       "whaleAlert": "Whale Push 알림",
       "special": "특별 혜택",
@@ -3066,6 +3069,10 @@
     "fomoOrbitDefense": "방산·우주 섹터 분석",
     "fomoQuantumEdge": "퀀텀·AI 인프라 분석",
     "fomoFintechPulse": "디지털 금융 분석",
-    "fomoCloudFortress": "클라우드·SaaS 분석"
+    "fomoCloudFortress": "클라우드·SaaS 분석",
+    "fomoPortfolioAlpha": "Alpha Score 확인하기",
+    "fomoPortfolioSignal": "AI 매매 신호 보기",
+    "fomoPortfolioAction": "RUN? HOLD? EXIT? 확인",
+    "fomoPortfolioScore": "내 포트폴리오 등급은?"
   }
 }
