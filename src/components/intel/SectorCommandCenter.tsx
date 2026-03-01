@@ -9,8 +9,9 @@ import { useTranslations } from 'next-intl';
 import {
     TrendingUp, TrendingDown, Activity, Zap, Shield, ShieldAlert,
     Rocket, Bot, Orbit, Cpu, CreditCard, Cloud,
-    BarChart3, Eye, ChevronRight, Flame, Snowflake
+    BarChart3, Eye, ChevronRight, Flame, Snowflake, BookOpen
 } from 'lucide-react';
+import { Link } from '@/i18n/routing';
 import { ProGate } from '@/components/gate/FeatureGate';
 import type { IntelQuote, IntelSharedData } from '@/hooks/useIntelSharedData';
 
@@ -98,6 +99,7 @@ interface SectorCommandCenterProps {
 
 export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCenterProps) {
     const gt = useTranslations('gate');
+    const tCommon = useTranslations('common');
     const [hoveredSector, setHoveredSector] = useState<string | null>(null);
     const [now, setNow] = useState(new Date());
 
@@ -152,6 +154,10 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                 <Eye className="w-3.5 h-3.5" />
                                 SECTOR COMMAND CENTER
                             </span>
+                            <Link href="/how-it-works/intel" className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/[0.05] border border-white/10 hover:border-cyan-500/30 hover:bg-cyan-500/[0.08] backdrop-blur-sm transition-all duration-300 group">
+                                <BookOpen className="w-3 h-3 text-slate-400 group-hover:text-cyan-400 transition-colors" />
+                                <span className="text-[12px] text-slate-300 group-hover:text-cyan-300 font-medium transition-colors">{tCommon('guideLink')}</span>
+                            </Link>
                         </div>
                         <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
                             SECTOR <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">COMMAND</span>
