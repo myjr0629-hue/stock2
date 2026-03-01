@@ -15,6 +15,10 @@ export interface GammaShieldData {
     squeezeRisk: number;        // 0-100%
     squeezeLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'EXTREME';
 
+    // v3: Individual ETF Squeeze Scores
+    spySqueezeScore: number;    // SPY squeeze contribution
+    qqqSqueezeScore: number;    // QQQ squeeze contribution
+
     // Trigger Band (S&P 500 price-equivalent)
     supportWall: number | null;     // Put floor → S&P 500 points
     resistanceWall: number | null;  // Call wall → S&P 500 points
@@ -194,6 +198,8 @@ export async function calculateGammaShield(): Promise<GammaShieldData> {
             gexLabel,
             squeezeRisk: combinedSqueeze,
             squeezeLevel,
+            spySqueezeScore: Math.round(spySqueezeScore),
+            qqqSqueezeScore: Math.round(qqoSqueezeScore),
             supportWall: toSP500(spyPutFloor),
             resistanceWall: toSP500(spyCallWall),
             currentPrice: toSP500(spyPrice),

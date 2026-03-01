@@ -313,7 +313,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
         );
     }
 
-    const { gexIndex, gexLevel, gexLabel, squeezeRisk, squeezeLevel, supportWall, resistanceWall, currentPrice, gammaFlipPoint, confidence, prevGexIndex, gexChange, spyGexIndex, qqqGexIndex } = data;
+    const { gexIndex, gexLevel, gexLabel, squeezeRisk, squeezeLevel, supportWall, resistanceWall, currentPrice, gammaFlipPoint, confidence, prevGexIndex, gexChange, spyGexIndex, qqqGexIndex, spySqueezeScore = 0, qqqSqueezeScore = 0 } = data;
 
     return (
         <div className={`
@@ -388,36 +388,36 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     {/* v2: GEX Trend */}
                     {gexChange !== null && (
                         <div className="flex items-center gap-1 mt-0.5">
-                            <span className={`text-[12px] font-black font-jakarta tabular-nums ${gexChange > 0 ? 'text-emerald-400' : gexChange < 0 ? 'text-red-400' : 'text-slate-400'}`}>
-                                {gexChange > 0 ? '▲' : gexChange < 0 ? '▼' : '—'}{Math.abs(gexChange)}
+                            <span className={`text-[12px] font-black font-jakarta tabular-nums ${gexChange > 0 ? 'text-emerald-400' : gexChange < 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                                {gexChange > 0 ? `▲${gexChange}` : gexChange < 0 ? `▼${Math.abs(gexChange)}` : '±0'}
                             </span>
-                            <span className="text-[10px] font-jakarta text-slate-500">vs prev</span>
+                            <span className="text-[12px] font-jakarta text-slate-300">vs prev</span>
                         </div>
                     )}
 
                     {/* v2: SPY / QQQ Split */}
                     <div className="w-full max-w-[160px] mt-1">
                         <div className="flex items-center justify-between gap-1">
-                            <span className="text-[10px] font-bold font-jakarta text-slate-400 w-[26px]">SPY</span>
+                            <span className="text-[12px] font-bold font-jakarta text-slate-300 w-[26px]">SPY</span>
                             <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
                                 <div
                                     className={`h-full rounded-full transition-all duration-700 ${spyGexIndex >= 0 ? 'bg-emerald-400/70' : 'bg-red-400/70'}`}
                                     style={{ width: `${Math.min(100, Math.abs(spyGexIndex))}%`, marginLeft: spyGexIndex < 0 ? 'auto' : undefined }}
                                 />
                             </div>
-                            <span className={`text-[10px] font-bold font-jakarta tabular-nums w-[28px] text-right ${spyGexIndex >= 20 ? 'text-emerald-400' : spyGexIndex <= -20 ? 'text-red-400' : 'text-slate-400'}`}>
+                            <span className={`text-[12px] font-bold font-jakarta tabular-nums w-[28px] text-right ${spyGexIndex >= 20 ? 'text-emerald-400' : spyGexIndex <= -20 ? 'text-red-400' : 'text-slate-300'}`}>
                                 {spyGexIndex >= 0 ? '+' : ''}{spyGexIndex}
                             </span>
                         </div>
                         <div className="flex items-center justify-between gap-1 mt-0.5">
-                            <span className="text-[10px] font-bold font-jakarta text-slate-400 w-[26px]">QQQ</span>
+                            <span className="text-[12px] font-bold font-jakarta text-slate-300 w-[26px]">QQQ</span>
                             <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
                                 <div
                                     className={`h-full rounded-full transition-all duration-700 ${qqqGexIndex >= 0 ? 'bg-emerald-400/70' : 'bg-red-400/70'}`}
                                     style={{ width: `${Math.min(100, Math.abs(qqqGexIndex))}%`, marginLeft: qqqGexIndex < 0 ? 'auto' : undefined }}
                                 />
                             </div>
-                            <span className={`text-[10px] font-bold font-jakarta tabular-nums w-[28px] text-right ${qqqGexIndex >= 20 ? 'text-emerald-400' : qqqGexIndex <= -20 ? 'text-red-400' : 'text-slate-400'}`}>
+                            <span className={`text-[12px] font-bold font-jakarta tabular-nums w-[28px] text-right ${qqqGexIndex >= 20 ? 'text-emerald-400' : qqqGexIndex <= -20 ? 'text-red-400' : 'text-slate-300'}`}>
                                 {qqqGexIndex >= 0 ? '+' : ''}{qqqGexIndex}
                             </span>
                         </div>
@@ -437,7 +437,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             <span className={`text-[18px] font-black font-jakarta tabular-nums leading-none ${getSqueezeColor(squeezeLevel)}`}>
                                 {squeezeRisk}
                             </span>
-                            <span className="text-[12px] font-jakarta text-slate-400">%</span>
+                            <span className="text-[12px] font-jakarta text-slate-300">%</span>
                         </div>
                     </div>
 
@@ -445,6 +445,44 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     <div className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded-sm border ${getSqueezeBadgeBg(squeezeLevel)}`}>
                         <span className={getSqueezeColor(squeezeLevel)}>{squeezeLevel}</span>
                     </div>
+
+                    {/* SPY / QQQ Squeeze Split */}
+                    <div className="w-full max-w-[140px]">
+                        <div className="flex items-center justify-between gap-1">
+                            <span className="text-[12px] font-bold font-jakarta text-slate-300 w-[26px]">SPY</span>
+                            <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-700 ${spySqueezeScore >= 45 ? 'bg-amber-400' : spySqueezeScore >= 20 ? 'bg-yellow-400/70' : 'bg-emerald-400/60'}`}
+                                    style={{ width: `${Math.min(100, spySqueezeScore)}%` }}
+                                />
+                            </div>
+                            <span className={`text-[12px] font-bold font-jakarta tabular-nums w-[28px] text-right ${spySqueezeScore >= 45 ? 'text-amber-400' : 'text-slate-300'}`}>
+                                {spySqueezeScore}
+                            </span>
+                        </div>
+                        <div className="flex items-center justify-between gap-1 mt-0.5">
+                            <span className="text-[12px] font-bold font-jakarta text-slate-300 w-[26px]">QQQ</span>
+                            <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
+                                <div
+                                    className={`h-full rounded-full transition-all duration-700 ${qqqSqueezeScore >= 45 ? 'bg-amber-400' : qqqSqueezeScore >= 20 ? 'bg-yellow-400/70' : 'bg-emerald-400/60'}`}
+                                    style={{ width: `${Math.min(100, qqqSqueezeScore)}%` }}
+                                />
+                            </div>
+                            <span className={`text-[12px] font-bold font-jakarta tabular-nums w-[28px] text-right ${qqqSqueezeScore >= 45 ? 'text-amber-400' : 'text-slate-300'}`}>
+                                {qqqSqueezeScore}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* Threshold Distance */}
+                    {squeezeRisk < 70 && (
+                        <div className="text-[12px] font-jakarta text-slate-300 text-center">
+                            {squeezeRisk < 45
+                                ? <span>→ <span className="text-amber-400 font-bold">HIGH</span> {`${45 - squeezeRisk}pt`}</span>
+                                : <span>→ <span className="text-red-400 font-bold">EXTREME</span> {`${70 - squeezeRisk}pt`}</span>
+                            }
+                        </div>
+                    )}
 
                     {/* Warning message at high levels */}
                     {squeezeRisk >= 70 && (
