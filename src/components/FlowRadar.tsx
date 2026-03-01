@@ -1732,112 +1732,114 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
             {/* 🆕 NEW METRICS ROW - Dark Pool / Short Volume / P/C Ratio (FREE) / GEX */}
             <div className="grid grid-cols-4 gap-3 mb-1">
-                {/* === PRO GATED: Dark Pool + Short Vol + GEX (3 cards) === */}
-                <ProGate title="Market Structure" fomoMessage={gt('fomoMarketStructure')} mode="blur" compact className="col-span-2">
-                    <div className="grid grid-cols-2 gap-3">
-                        {/* Dark Pool % */}
-                        <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
-                            <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
-                            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
-                            {/* Infographic: scattered dots (institutional distribution) */}
-                            <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
-                                {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <circle key={i} cx={8 + i * 12} cy={8 + ((i * 19) % 48)} r={2 + (i % 3)} fill="currentColor" className="text-purple-400" />)}
-                                <path d="M8 56 L20 38 L32 45 L44 22 L56 30 L68 12 L80 28 L92 8" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeLinecap="round" />
-                            </svg>
-                            <div className="relative z-10 flex flex-col items-center justify-center">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                    <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
-                                    <span className="text-xs text-white uppercase font-bold tracking-wide">Dark Pool %</span>
-                                    <span className="text-[10px] text-slate-400 font-medium">{ui('institutionalWeight')}</span>
-                                    {/* Session Label: PRE / REG / POST */}
-                                    {(() => {
-                                        const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
-                                        const h = etNow.getHours(), m = etNow.getMinutes();
-                                        const mins = h * 60 + m;
-                                        const isPre = mins >= 240 && mins < 570;   // 4:00 AM - 9:29 AM ET
-                                        const isReg = mins >= 570 && mins < 960;   // 9:30 AM - 3:59 PM ET
-                                        const isPost = mins >= 960 && mins < 1200; // 4:00 PM - 7:59 PM ET
-                                        const label = isPre ? 'PRE' : isReg ? 'REG' : isPost ? 'POST' : 'CLOSED';
-                                        const color = isPre ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                                            isReg ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-                                                isPost ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' :
-                                                    'bg-slate-500/20 text-slate-400 border-slate-500/30';
-                                        return <span className={`text-[10px] px-1 py-0.5 rounded font-bold border ${color}`}>{label}</span>;
-                                    })()}
-                                </div>
-                                <span className="text-xl font-black text-purple-400" style={{ textShadow: '0 0 20px rgba(168,85,247,0.7)' }}>
-                                    {realtimeMetrics.darkPool ? `${realtimeMetrics.darkPool.percent}%` : '--'}
-                                </span>
-                                {realtimeMetrics.darkPool && (
-                                    <span className="text-xs text-white mt-0.5 font-mono font-medium">
-                                        DP {(realtimeMetrics.darkPool.volume / 1000).toFixed(1)}K / {ui('totalLabel')} {(realtimeMetrics.darkPool.totalVolume / 1000).toFixed(1)}K
-                                    </span>
-                                )}
-                                {/* Buy/Sell Ratio Bar */}
-                                {realtimeMetrics.darkPool && (realtimeMetrics.darkPool.buyPct ?? 0) > 0 && (
-                                    <div className="w-full mt-1.5 px-1">
-                                        <div className="flex items-center justify-between text-xs font-bold mb-0.5">
-                                            <span className="text-emerald-400">{ui('buyLabel')} {realtimeMetrics.darkPool.buyPct}%</span>
-                                            <span className={`text-[11px] font-mono font-bold ${(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                {ui('netBuyLabel')} {(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? '+' : ''}{((realtimeMetrics.darkPool.netBuyValue || 0) / 1e6).toFixed(1)}M
-                                            </span>
-                                            <span className="text-rose-400">{realtimeMetrics.darkPool.sellPct}% {ui('sellLabel')}</span>
-                                        </div>
-                                        <div className="flex h-[5px] rounded-full overflow-hidden bg-slate-700/50">
-                                            {(() => {
-                                                const buyRaw = realtimeMetrics.darkPool.buyPct || 0;
-                                                const sellRaw = realtimeMetrics.darkPool.sellPct || 0;
-                                                const total = buyRaw + sellRaw;
-                                                const buyNorm = total > 0 ? (buyRaw / total) * 100 : 50;
-                                                const sellNorm = total > 0 ? (sellRaw / total) * 100 : 50;
-                                                return (
-                                                    <>
-                                                        <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${buyNorm}%` }} />
-                                                        <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${sellNorm}%` }} />
-                                                    </>
-                                                );
-                                            })()}
-                                        </div>
+                {/* === PRO GATED: Dark Pool + Short Vol (2 cards) === */}
+                <div className="col-span-2">
+                    <ProGate title="Market Structure" fomoMessage={gt('fomoMarketStructure')} mode="blur" compact>
+                        <div className="grid grid-cols-2 gap-3">
+                            {/* Dark Pool % */}
+                            <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
+                                <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
+                                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
+                                {/* Infographic: scattered dots (institutional distribution) */}
+                                <svg className="absolute right-1 bottom-1 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
+                                    {[0, 1, 2, 3, 4, 5, 6, 7].map(i => <circle key={i} cx={8 + i * 12} cy={8 + ((i * 19) % 48)} r={2 + (i % 3)} fill="currentColor" className="text-purple-400" />)}
+                                    <path d="M8 56 L20 38 L32 45 L44 22 L56 30 L68 12 L80 28 L92 8" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeLinecap="round" />
+                                </svg>
+                                <div className="relative z-10 flex flex-col items-center justify-center">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
+                                        <span className="text-xs text-white uppercase font-bold tracking-wide">Dark Pool %</span>
+                                        <span className="text-[10px] text-slate-400 font-medium">{ui('institutionalWeight')}</span>
+                                        {/* Session Label: PRE / REG / POST */}
+                                        {(() => {
+                                            const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                                            const h = etNow.getHours(), m = etNow.getMinutes();
+                                            const mins = h * 60 + m;
+                                            const isPre = mins >= 240 && mins < 570;   // 4:00 AM - 9:29 AM ET
+                                            const isReg = mins >= 570 && mins < 960;   // 9:30 AM - 3:59 PM ET
+                                            const isPost = mins >= 960 && mins < 1200; // 4:00 PM - 7:59 PM ET
+                                            const label = isPre ? 'PRE' : isReg ? 'REG' : isPost ? 'POST' : 'CLOSED';
+                                            const color = isPre ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                                                isReg ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                                                    isPost ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' :
+                                                        'bg-slate-500/20 text-slate-400 border-slate-500/30';
+                                            return <span className={`text-[10px] px-1 py-0.5 rounded font-bold border ${color}`}>{label}</span>;
+                                        })()}
                                     </div>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Short Volume % */}
-                        <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
-                            <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
-                            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/50 to-transparent" />
-                            {/* Infographic: descending bars (short selling pressure) */}
-                            <svg className="absolute right-1 bottom-0 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
-                                <rect x="6" y="8" width="8" height="52" rx="2" fill="currentColor" className="text-rose-400" />
-                                <rect x="20" y="16" width="8" height="44" rx="2" fill="currentColor" className="text-rose-400" />
-                                <rect x="34" y="24" width="8" height="36" rx="2" fill="currentColor" className="text-rose-400" />
-                                <rect x="48" y="30" width="8" height="30" rx="2" fill="currentColor" className="text-rose-300" />
-                                <rect x="62" y="36" width="8" height="24" rx="2" fill="currentColor" className="text-rose-300" />
-                                <rect x="76" y="42" width="8" height="18" rx="2" fill="currentColor" className="text-rose-300" />
-                            </svg>
-                            <div className="relative z-10 flex flex-col items-center justify-center">
-                                <div className="flex items-center gap-1.5 mb-1">
-                                    <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
-                                    <span className="text-xs text-white uppercase font-bold tracking-wide">Short Vol %</span>
-                                </div>
-                                <span className="text-xl font-black text-rose-400" style={{ textShadow: '0 0 20px rgba(244,63,94,0.7)' }}>
-                                    {realtimeMetrics.shortVolume ? `${realtimeMetrics.shortVolume.percent}%` : '--'}
-                                </span>
-                                <span className="text-[11px] text-white font-medium">
-                                    {realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 40 ? ui('dailyShortSelling')
-                                        : realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 25 ? ui('dailyShortSelling')
-                                            : ui('dailyShortSelling')}
-                                </span>
-                                {realtimeMetrics.shortVolume && (
-                                    <span className="text-xs text-white mt-0.5 font-mono font-medium">
-                                        {ui('shortVolLabel')} {(realtimeMetrics.shortVolume.volume / 1000000).toFixed(1)}M / {ui('totalLabel')} {(realtimeMetrics.shortVolume.totalVolume / 1000000).toFixed(1)}M
+                                    <span className="text-xl font-black text-purple-400" style={{ textShadow: '0 0 20px rgba(168,85,247,0.7)' }}>
+                                        {realtimeMetrics.darkPool ? `${realtimeMetrics.darkPool.percent}%` : '--'}
                                     </span>
-                                )}
+                                    {realtimeMetrics.darkPool && (
+                                        <span className="text-xs text-white mt-0.5 font-mono font-medium">
+                                            DP {(realtimeMetrics.darkPool.volume / 1000).toFixed(1)}K / {ui('totalLabel')} {(realtimeMetrics.darkPool.totalVolume / 1000).toFixed(1)}K
+                                        </span>
+                                    )}
+                                    {/* Buy/Sell Ratio Bar */}
+                                    {realtimeMetrics.darkPool && (realtimeMetrics.darkPool.buyPct ?? 0) > 0 && (
+                                        <div className="w-full mt-1.5 px-1">
+                                            <div className="flex items-center justify-between text-xs font-bold mb-0.5">
+                                                <span className="text-emerald-400">{ui('buyLabel')} {realtimeMetrics.darkPool.buyPct}%</span>
+                                                <span className={`text-[11px] font-mono font-bold ${(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {ui('netBuyLabel')} {(realtimeMetrics.darkPool.netBuyValue || 0) >= 0 ? '+' : ''}{((realtimeMetrics.darkPool.netBuyValue || 0) / 1e6).toFixed(1)}M
+                                                </span>
+                                                <span className="text-rose-400">{realtimeMetrics.darkPool.sellPct}% {ui('sellLabel')}</span>
+                                            </div>
+                                            <div className="flex h-[5px] rounded-full overflow-hidden bg-slate-700/50">
+                                                {(() => {
+                                                    const buyRaw = realtimeMetrics.darkPool.buyPct || 0;
+                                                    const sellRaw = realtimeMetrics.darkPool.sellPct || 0;
+                                                    const total = buyRaw + sellRaw;
+                                                    const buyNorm = total > 0 ? (buyRaw / total) * 100 : 50;
+                                                    const sellNorm = total > 0 ? (sellRaw / total) * 100 : 50;
+                                                    return (
+                                                        <>
+                                                            <div className="bg-emerald-500 rounded-l-full transition-all duration-500" style={{ width: `${buyNorm}%` }} />
+                                                            <div className="bg-rose-500 rounded-r-full transition-all duration-500" style={{ width: `${sellNorm}%` }} />
+                                                        </>
+                                                    );
+                                                })()}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Short Volume % */}
+                            <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
+                                <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
+                                <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/50 to-transparent" />
+                                {/* Infographic: descending bars (short selling pressure) */}
+                                <svg className="absolute right-1 bottom-0 w-24 h-16 opacity-[0.12] pointer-events-none" viewBox="0 0 96 64">
+                                    <rect x="6" y="8" width="8" height="52" rx="2" fill="currentColor" className="text-rose-400" />
+                                    <rect x="20" y="16" width="8" height="44" rx="2" fill="currentColor" className="text-rose-400" />
+                                    <rect x="34" y="24" width="8" height="36" rx="2" fill="currentColor" className="text-rose-400" />
+                                    <rect x="48" y="30" width="8" height="30" rx="2" fill="currentColor" className="text-rose-300" />
+                                    <rect x="62" y="36" width="8" height="24" rx="2" fill="currentColor" className="text-rose-300" />
+                                    <rect x="76" y="42" width="8" height="18" rx="2" fill="currentColor" className="text-rose-300" />
+                                </svg>
+                                <div className="relative z-10 flex flex-col items-center justify-center">
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                        <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
+                                        <span className="text-xs text-white uppercase font-bold tracking-wide">Short Vol %</span>
+                                    </div>
+                                    <span className="text-xl font-black text-rose-400" style={{ textShadow: '0 0 20px rgba(244,63,94,0.7)' }}>
+                                        {realtimeMetrics.shortVolume ? `${realtimeMetrics.shortVolume.percent}%` : '--'}
+                                    </span>
+                                    <span className="text-[11px] text-white font-medium">
+                                        {realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 40 ? ui('dailyShortSelling')
+                                            : realtimeMetrics.shortVolume && realtimeMetrics.shortVolume.percent >= 25 ? ui('dailyShortSelling')
+                                                : ui('dailyShortSelling')}
+                                    </span>
+                                    {realtimeMetrics.shortVolume && (
+                                        <span className="text-xs text-white mt-0.5 font-mono font-medium">
+                                            {ui('shortVolLabel')} {(realtimeMetrics.shortVolume.volume / 1000000).toFixed(1)}M / {ui('totalLabel')} {(realtimeMetrics.shortVolume.totalVolume / 1000000).toFixed(1)}M
+                                        </span>
+                                    )}
+                                </div>
                             </div>
                         </div>
-                    </div>
-                </ProGate>
+                    </ProGate>
+                </div>
 
                 {/* === FREE: P/C Ratio (경쟁사 무료 제공 지표) === */}
                 {(() => {
