@@ -9,7 +9,7 @@ import {
     Zap, Target, Edit3, Star, Search, X, Loader2, Clock, LayoutDashboard,
     ArrowRightLeft, BookOpen, Lock
 } from 'lucide-react';
-import { Link } from '@/i18n/routing';
+import { Link, useRouter } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
@@ -321,6 +321,7 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
 }) {
     const gt = useTranslations('gate');
     const { hasAccess } = useTier();
+    const router = useRouter();
     const isPositive = holding.gainLossPct >= 0;
     const weight = totalValue > 0 ? (holding.marketValue / totalValue) * 100 : 0;
     const daysHeld = holding.addedAt ? Math.floor((Date.now() - new Date(holding.addedAt).getTime()) / (1000 * 60 * 60 * 24)) : 0;
@@ -491,10 +492,10 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                         {hasAccess('pro') ? (
                             <CircularAlphaGauge score={holding.alphaScore} grade={holding.alphaGrade} />
                         ) : (
-                            <Link href="/pricing" className="flex flex-col items-center gap-1 group/lock">
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="flex flex-col items-center gap-1 cursor-pointer group/lock">
                                 <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
                                 <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
-                            </Link>
+                            </div>
                         )}
                     </div>
 
@@ -503,10 +504,10 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                         {hasAccess('pro') ? (
                             <SignalBadge action={holding.action} confidence={holding.confidence} triggers={holding.triggers} />
                         ) : (
-                            <Link href="/pricing" className="flex flex-col items-center gap-1 group/lock">
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="flex flex-col items-center gap-1 cursor-pointer group/lock">
                                 <Lock className="w-3.5 h-3.5 text-amber-500/80 group-hover/lock:text-amber-400 transition-colors" />
                                 <span className="text-[12px] font-black tracking-wider text-amber-500/70 group-hover/lock:text-amber-400 transition-colors">PRO</span>
-                            </Link>
+                            </div>
                         )}
                     </div>
 
@@ -515,10 +516,10 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                         {hasAccess('elite') ? (
                             <PortfolioActionBadge action={getPortfolioAction()} />
                         ) : (
-                            <Link href="/pricing" className="flex flex-col items-center gap-1 group/lock">
+                            <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push('/pricing'); }} className="flex flex-col items-center gap-1 cursor-pointer group/lock">
                                 <Lock className="w-3.5 h-3.5 text-fuchsia-500/80 group-hover/lock:text-fuchsia-400 transition-colors" />
                                 <span className="text-[12px] font-black tracking-wider text-fuchsia-500/70 group-hover/lock:text-fuchsia-400 transition-colors">ELITE</span>
-                            </Link>
+                            </div>
                         )}
                     </div>
                 </Link>
