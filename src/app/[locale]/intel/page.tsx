@@ -43,7 +43,7 @@ export default async function IntelPage({ params }: PageProps) {
 
     return (
         <TerminalGateWrapper pageName="INTEL">
-            <div className="flex flex-col min-h-screen bg-[#0a1120]">
+            <div className="flex flex-col min-h-screen bg-[#0a1120]" data-intel>
                 <div className="flex-1 relative">
                     <Suspense fallback={
                         <div className="min-h-screen bg-slate-950 flex items-center justify-center">

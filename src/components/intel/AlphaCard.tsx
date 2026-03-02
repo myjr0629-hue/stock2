@@ -763,7 +763,7 @@ export function AlphaCard({
                 </div>
             ) : whyKR ? (
                 <div className="mx-4 mb-3 px-3 py-3 rounded-lg bg-white/[0.05] border border-white/[0.08] shadow-[inset_0_1px_4px_rgba(0,0,0,0.2)]">
-                    <p className="text-xs text-white/85 leading-relaxed font-jakarta font-medium">{whyKR}</p>
+                    <p className="text-xs text-white/85 leading-relaxed font-jakarta font-medium" data-ai-prose>{whyKR}</p>
                 </div>
             ) : null}
 
@@ -785,7 +785,7 @@ export function AlphaCard({
                             <span className="text-xs font-bold text-white/60 uppercase tracking-wider font-jakarta">AI Analysis</span>
                         </div>
                         <div className="px-3 py-2.5 rounded-lg bg-violet-500/[0.06] border border-violet-500/15 shadow-[inset_0_1px_4px_rgba(0,0,0,0.15)]">
-                            <p className="text-xs text-white/85 leading-[1.6] font-medium font-jakarta">{analysisText}</p>
+                            <p className="text-xs text-white/85 leading-[1.6] font-medium font-jakarta" data-ai-prose>{analysisText}</p>
                         </div>
                     </div>
                 );

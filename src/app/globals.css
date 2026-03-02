@@ -734,3 +734,20 @@
 :lang(en) [data-flow] .text-\[11px\] {
   font-size: 12px !important;
 }
+
+/* ===== [INTEL] ENGLISH-ONLY INTEL PAGE READABILITY ===== */
+/* [data-intel] on Intel page root div.                    */
+/* :lang(en) → English ONLY. Korean/Japanese: ZERO.        */
+
+/* M7TacticalDeck AI analysis + EvidenceCard interpretation/action: 12px → 13px */
+:lang(en) [data-intel] .text-\[12px\] {
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+}
+
+/* AlphaCard AI analysis prose + whyKR narrative: text-xs → 13px */
+/* Uses [data-ai-prose] on specific <p> elements only (not all text-xs) */
+:lang(en) [data-intel] [data-ai-prose] {
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+}
