@@ -1491,7 +1491,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         {/* Infographic: pressure arrows */}
                                         <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M10 28 L25 14 M10 28 L25 42 M70 28 L55 14 M70 28 L55 42" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-emerald-400" /><line x1="25" y1="28" x2="55" y2="28" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" className="text-slate-400" /></svg>
 
-                                        <span className="text-[13px] text-white font-bold uppercase relative z-10">{ui('opiTitle')}</span>
+                                        <span className="text-[13px] text-white font-bold uppercase relative z-10 text-center">{ui('opiTitle')}</span>
                                         <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('opiSubtitle')}</span>
 
                                         {/* Circular Gauge with Glow - LARGER */}
