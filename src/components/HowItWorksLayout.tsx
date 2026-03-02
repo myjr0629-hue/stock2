@@ -57,7 +57,7 @@ export function HowItWorksLayout({ children, title, subtitle }: HowItWorksLayout
                     </div>
 
                     {/* Content */}
-                    <div className="space-y-6 guide-content">
+                    <div className="space-y-6">
                         {children}
                     </div>
                 </main>

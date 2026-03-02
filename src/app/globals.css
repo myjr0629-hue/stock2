@@ -575,45 +575,76 @@
   }
 }
 
-/* ===== [GUIDE] ENGLISH-ONLY READABILITY ENHANCEMENT ===== */
-/* Korean/Japanese CJK glyphs are naturally larger at the same px.       */
-/* English latin glyphs need +1~2px font-size and wider line-height.     */
-/* :lang(en) targets ONLY the English locale — KO/JA stay untouched.     */
+/* ===== [GUIDE] ENGLISH-ONLY PREMIUM READABILITY ===== */
+/* CJK glyphs fill their em-box; Latin x-height is ~60%.                */
+/* English needs +2~3px body size, wider spacing, word-spacing.          */
+/* :lang(en) → English ONLY. Korean/Japanese: ZERO changes.             */
 
-:lang(en) .guide-content p {
-  font-size: 15px;
-  line-height: 1.75;
+/* --- Global: all text inside guide pages --- */
+:lang(en) [style*="0c1222"] section p,
+:lang(en) .bg-\[\#0c1222\] section p {
+  font-size: 16px;
+  line-height: 1.8;
+  word-spacing: 0.03em;
 }
 
-/* Card description text: 13px → 14px */
-:lang(en) .guide-content [class*="text-\[13px\]"] {
-  font-size: 14px !important;
-  line-height: 1.7 !important;
-}
-
-/* Card body text: 15px stays but gets more line-height */
-:lang(en) .guide-content [class*="text-\[15px\]"] {
+/* --- Card descriptions (was 13px → 15px) --- */
+:lang(en) [style*="0c1222"] .text-\[13px\],
+:lang(en) .bg-\[\#0c1222\] .text-\[13px\] {
+  font-size: 15px !important;
   line-height: 1.75 !important;
+  word-spacing: 0.03em;
 }
 
-/* Bullet list items: wider spacing */
-:lang(en) .guide-content [class*="space-y-1"] {
-  --tw-space-y-reverse: 0;
-  gap: 8px;
+/* --- Card body text (was 15px, now wider breathing) --- */
+:lang(en) [style*="0c1222"] .text-\[15px\],
+:lang(en) .bg-\[\#0c1222\] .text-\[15px\] {
+  font-size: 16px !important;
+  line-height: 1.8 !important;
+  word-spacing: 0.03em;
 }
 
-/* Card internal padding bump */
-:lang(en) .guide-content>section>div>div>div {
-  letter-spacing: 0.01em;
+/* --- Bullet list spacing: 4px → 10px --- */
+:lang(en) [style*="0c1222"] .space-y-1>*+*,
+:lang(en) .bg-\[\#0c1222\] .space-y-1>*+* {
+  margin-top: 10px;
 }
 
-/* Tip / Trading Guide boxes: breathe more */
-:lang(en) .guide-content [class*="rounded-lg"][class*="border"] p {
+/* --- Card section gap: space-y-4 → 24px --- */
+:lang(en) [style*="0c1222"] .space-y-4>*+*,
+:lang(en) .bg-\[\#0c1222\] .space-y-4>*+* {
+  margin-top: 24px;
+}
+
+/* --- Tip/Trading Guide boxes: wider line-height --- */
+:lang(en) [style*="0c1222"] .rounded-lg p,
+:lang(en) .bg-\[\#0c1222\] .rounded-lg p {
+  line-height: 1.75;
+  word-spacing: 0.02em;
+}
+
+/* --- Signal tag descriptions --- */
+:lang(en) [style*="0c1222"] .text-center p,
+:lang(en) .bg-\[\#0c1222\] .text-center p {
+  font-size: 15px;
   line-height: 1.7;
 }
 
-/* Signal tag descriptions */
-:lang(en) .guide-content [class*="text-center"] p {
-  font-size: 14px;
+/* --- sm text (14px) used in legends/status → 15px --- */
+:lang(en) [style*="0c1222"] .text-sm,
+:lang(en) .bg-\[\#0c1222\] .text-sm {
+  font-size: 15px;
   line-height: 1.65;
+}
+
+/* --- Card internal padding boost --- */
+:lang(en) [style*="0c1222"] .p-5,
+:lang(en) .bg-\[\#0c1222\] .p-5 {
+  padding: 24px;
+}
+
+/* --- Overall section spacing: space-y-5 → 28px --- */
+:lang(en) [style*="0c1222"] .space-y-5>*+*,
+:lang(en) .bg-\[\#0c1222\] .space-y-5>*+* {
+  margin-top: 28px;
 }
