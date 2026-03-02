@@ -128,7 +128,7 @@ export function FeatureGate({
             <div className={`relative rounded-xl overflow-hidden ${!compact ? 'flex-1 flex flex-col' : ''} ${className}`}
                 style={{ minHeight: minHeight || (compact ? '80px' : '120px') }}>
                 {/* 실제 콘텐츠 (블러 처리 + overflow-hidden으로 블러 엣지 클리핑) */}
-                <div className={`pointer-events-none select-none overflow-hidden ${!compact ? 'flex-1' : ''}`} style={{ filter: `blur(${blurPx ? blurPx + 'px' : (requiredTier === 'pro' ? (compact ? '4px' : '10px') : (compact ? '2.5px' : '4.5px'))})` }}>
+                <div className={`pointer-events-none select-none overflow-hidden ${!compact ? 'flex-1 flex flex-col' : ''}`} style={{ filter: `blur(${blurPx ? blurPx + 'px' : (requiredTier === 'pro' ? (compact ? '4px' : '10px') : (compact ? '2.5px' : '4.5px'))})` }}>
                     {children}
                 </div>
 
