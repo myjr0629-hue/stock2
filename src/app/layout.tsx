@@ -77,6 +77,12 @@ export default function RootLayout({
           l.href='https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css';
           document.head.appendChild(l);
         `}</Script>
+        {/* Service Worker Registration (PWA) */}
+        <Script id="sw-register" strategy="afterInteractive">{`
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').catch(function(){});
+          }
+        `}</Script>
       </body>
     </html>
   );

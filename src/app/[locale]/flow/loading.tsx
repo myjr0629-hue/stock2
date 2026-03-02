@@ -15,14 +15,14 @@ export default function FlowLoading() {
             <div className="h-24 bg-slate-800/20 rounded-xl animate-pulse mb-4" style={{ animationDelay: '150ms' }} />
 
             {/* 4 Metric Cards Row */}
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                 {Array.from({ length: 4 }).map((_, i) => (
                     <div key={i} className="h-28 bg-slate-800/20 rounded-xl animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
                 ))}
             </div>
 
             {/* Flow Radar Chart Area */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="h-[300px] bg-slate-800/15 rounded-xl animate-pulse" style={{ animationDelay: '200ms' }} />
                 <div className="h-[300px] bg-slate-800/15 rounded-xl animate-pulse" style={{ animationDelay: '250ms' }} />
             </div>
