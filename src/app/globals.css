@@ -574,3 +574,46 @@
     transform: translateX(0);
   }
 }
+
+/* ===== [GUIDE] ENGLISH-ONLY READABILITY ENHANCEMENT ===== */
+/* Korean/Japanese CJK glyphs are naturally larger at the same px.       */
+/* English latin glyphs need +1~2px font-size and wider line-height.     */
+/* :lang(en) targets ONLY the English locale — KO/JA stay untouched.     */
+
+:lang(en) .guide-content p {
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+/* Card description text: 13px → 14px */
+:lang(en) .guide-content [class*="text-\[13px\]"] {
+  font-size: 14px !important;
+  line-height: 1.7 !important;
+}
+
+/* Card body text: 15px stays but gets more line-height */
+:lang(en) .guide-content [class*="text-\[15px\]"] {
+  line-height: 1.75 !important;
+}
+
+/* Bullet list items: wider spacing */
+:lang(en) .guide-content [class*="space-y-1"] {
+  --tw-space-y-reverse: 0;
+  gap: 8px;
+}
+
+/* Card internal padding bump */
+:lang(en) .guide-content>section>div>div>div {
+  letter-spacing: 0.01em;
+}
+
+/* Tip / Trading Guide boxes: breathe more */
+:lang(en) .guide-content [class*="rounded-lg"][class*="border"] p {
+  line-height: 1.7;
+}
+
+/* Signal tag descriptions */
+:lang(en) .guide-content [class*="text-center"] p {
+  font-size: 14px;
+  line-height: 1.65;
+}
