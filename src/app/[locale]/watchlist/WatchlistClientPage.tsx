@@ -7,7 +7,7 @@ import { useTranslations } from 'next-intl';
 import {
     Star, Plus, RefreshCw, Trash2, X, Loader2, Activity, Fish, Zap,
     Target, Shield, RefreshCcw, Crosshair, LayoutDashboard,
-    ArrowUpRight, ArrowDownRight, TrendingUp, Search, BookOpen, Lock
+    ArrowUpRight, ArrowDownRight, TrendingUp, Search, BookOpen, Lock, ChevronRight
 } from 'lucide-react';
 import { Link, useRouter } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
@@ -69,7 +69,7 @@ export default function WatchlistClientPage({
 
             {/* ── Page Header ── */}
             <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pt-6 pb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div className="flex items-center gap-3">
                         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500/20 to-orange-600/10 border border-amber-500/20 flex items-center justify-center shadow-lg shadow-amber-500/5">
                             <Star className="w-4.5 h-4.5 text-amber-400" />
@@ -79,7 +79,7 @@ export default function WatchlistClientPage({
                             <p className="text-[9px] text-amber-400/50 tracking-[0.25em] font-semibold -mt-0.5">PREMIUM MONITORING</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                         <Link href="/how-it-works/watchlist" className="relative flex items-center gap-1.5 px-3.5 py-0.5 rounded-lg bg-amber-500/[0.08] border border-amber-400/25 hover:border-amber-400/50 hover:bg-amber-500/[0.15] backdrop-blur-md shadow-[0_0_15px_rgba(251,191,36,0.08)] hover:shadow-[0_0_25px_rgba(251,191,36,0.18)] transition-all duration-300 group">
                             <BookOpen className="w-3.5 h-3.5 text-amber-400/80 group-hover:text-amber-300 transition-colors" />
                             <span className="text-[12px] text-amber-300/90 group-hover:text-amber-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
@@ -146,8 +146,8 @@ export default function WatchlistClientPage({
                     <EmptyState onAdd={() => setShowAddModal(true)} />
                 ) : (
                     <div className="space-y-2">
-                        {/* Column Headers (glassmorphism bar) */}
-                        <div className="flex items-center rounded-lg border border-white/[0.04] bg-white/[0.03] backdrop-blur-sm">
+                        {/* Column Headers (glassmorphism bar) — hidden on mobile */}
+                        <div className="hidden md:flex items-center rounded-lg border border-white/[0.04] bg-white/[0.03] backdrop-blur-sm">
                             <div className="w-11 flex-shrink-0" />
                             <div className={`flex-1 ${GRID_COLS} px-3 py-2.5 text-[12px] font-bold text-slate-200 uppercase tracking-wider`}>
                                 <div className="text-center">{t('symbol')}</div>
@@ -506,10 +506,42 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                     <LayoutDashboard className="w-3.5 h-3.5" />
                 </button>
 
-                {/* All Data in Grid — Full Width (Mockup 1 Style) */}
+                {/* === MOBILE CARD LAYOUT (below md:) === */}
                 <Link
                     href={`/ticker?ticker=${item.ticker}`}
-                    className={`flex-1 ${GRID_COLS} items-center px-3 py-3`}
+                    className="flex md:hidden items-center gap-3 flex-1 px-3 py-3"
+                >
+                    {/* Logo */}
+                    <div className="relative w-10 h-10 rounded-lg bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0">
+                        <img loading="lazy" decoding="async" src={`https://financialmodelingprep.com/image-stock/${item.ticker}.png`} alt={item.ticker} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    </div>
+                    {/* Ticker + Price */}
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                            <span className="font-black text-[14px] text-white tracking-wide">{item.ticker}</span>
+                            <span className={`text-[12px] font-bold tabular-nums ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {isPositive ? '+' : ''}{item.changePct.toFixed(2)}%
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                            <span className={`font-bold tabular-nums text-[14px] ${pf.color}`} style={pf.style}>${item.currentPrice.toFixed(2)}</span>
+                            {item.alphaGrade && (
+                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${(item.alphaGrade as string) === 'S' ? 'bg-amber-500/20 text-amber-400' :
+                                    item.alphaGrade === 'A' ? 'bg-emerald-500/20 text-emerald-400' :
+                                        item.alphaGrade === 'B' ? 'bg-cyan-500/20 text-cyan-400' :
+                                            'bg-slate-500/20 text-slate-400'
+                                    }`}>{item.alphaGrade}</span>
+                            )}
+                        </div>
+                    </div>
+                    {/* Arrow */}
+                    <ChevronRight className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                </Link>
+
+                {/* === DESKTOP GRID LAYOUT (md: and above) === */}
+                <Link
+                    href={`/ticker?ticker=${item.ticker}`}
+                    className={`hidden md:grid flex-1 ${GRID_COLS} items-center px-3 py-3`}
                 >
                     {/* Symbol */}
                     <div className="flex items-center gap-2.5 min-w-0">

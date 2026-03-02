@@ -624,7 +624,7 @@ function MainChartPanel() {
             {/* ═══════ Metrics Grid: 3 Rows × 4 Cards (No Gap Between Rows) ═══════ */}
             <div className="px-4 pt-4 pb-4 flex flex-col gap-1">
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
                     <ProGate title="Net GEX" mode="peek" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
@@ -722,7 +722,7 @@ function MainChartPanel() {
                 </div>
 
                 {/* ── ROW 2: 가격 레벨 + 기관 (Levels & Institutional) ── */}
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Max Pain — PRO (peek: price visible, % distance blurred) */}
                     <ProGate title="Max Pain" mode="peek" compact>
                         <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
@@ -833,7 +833,7 @@ function MainChartPanel() {
                 </div>
 
                 {/* ── ROW 3: 변동성 + 당일 매매 (Volatility & Intraday) ── */}
-                <div className="grid grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* ATM IV — PRO (blur: advanced volatility surface, QuantData $99) */}
                     <ProGate title="ATM IV" fomoMessage={gt('fomoAtmIv')} mode="blur" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>

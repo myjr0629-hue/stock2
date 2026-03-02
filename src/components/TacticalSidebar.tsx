@@ -140,7 +140,7 @@ export function TacticalSidebar({ activeTab, onTabChange, sectorQuotes }: Tactic
     }), [sectorQuotes]);
 
     return (
-        <aside className="w-52 h-[calc(100vh-4rem)] border-r border-white/[0.06] flex flex-col fixed left-0 top-16 z-40 overflow-y-auto scrollbar-hide bg-[#070b14]/80 backdrop-blur-xl">
+        <aside className="hidden lg:flex w-52 h-[calc(100vh-4rem)] border-r border-white/[0.06] flex-col fixed left-0 top-16 z-40 overflow-y-auto scrollbar-hide bg-[#070b14]/80 backdrop-blur-xl">
             {/* ═══ Glassmorphism Background ═══ */}
             <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
                 <div className="absolute -top-16 -left-8 w-48 h-48 rounded-full bg-emerald-500/[0.06]" style={{ filter: 'blur(50px)' }} />

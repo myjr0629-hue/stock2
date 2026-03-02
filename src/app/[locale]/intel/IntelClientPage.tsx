@@ -1635,19 +1635,50 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                 cloudFortress: sectorData.cloudFortress,
             }} />
 
-            {/* 1. MAIN CONTENT (Offset 208px) */}
-            <div className="flex-1 ml-52 relative min-h-screen backdrop-blur-[0px]"> {/* ml-52 matches sidebar width */}
+            {/* 1. MAIN CONTENT (Offset 208px on desktop, full-width on mobile) */}
+            <div className="flex-1 ml-0 lg:ml-52 relative min-h-screen backdrop-blur-[0px]"> {/* ml-52 matches sidebar width */}
 
                 {/* Glass Grid Overlay */}
-                <div className="fixed inset-0 pointer-events-none z-0 ml-52">
+                <div className="fixed inset-0 pointer-events-none z-0 lg:ml-52">
                     <div className="absolute inset-0 bg-[url('/grid.svg')] bg-center [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_80%)] opacity-10" />
                 </div>
 
                 {isDebug && (
-                    <div className="fixed top-0 left-52 right-0 h-1 bg-indigo-500 z-[200]" title="Debug Mode Active" />
+                    <div className="fixed top-0 left-0 lg:left-52 right-0 h-1 bg-indigo-500 z-[200]" title="Debug Mode Active" />
                 )}
 
-                <div className="max-w-[1920px] mx-auto px-8 py-8 space-y-8 relative z-10">
+                {/* Mobile Sector Tab Selector — horizontal scroll (lg:hidden) */}
+                <div className="lg:hidden overflow-x-auto scrollbar-hide border-b border-white/5 bg-[#070b14]/90 backdrop-blur-md sticky top-16 z-30">
+                    <div className="flex items-center gap-1 px-3 py-2 min-w-max">
+                        {[
+                            { key: 'SECTOR_COMMAND', label: 'ALL' },
+                            { key: 'POST_MARKET_ALL', label: 'POST' },
+                            { key: 'M7', label: 'M7' },
+                            { key: 'PHYSICAL_AI', label: 'AI' },
+                            { key: 'SILICON_CORE', label: 'CHIP' },
+                            { key: 'POWER_MATRIX', label: 'PWR' },
+                            { key: 'BIO_PULSE', label: 'BIO' },
+                            { key: 'CYBER_SHIELD', label: 'SEC' },
+                            { key: 'ORBIT_DEFENSE', label: 'DEF' },
+                            { key: 'QUANTUM_EDGE', label: 'QTM' },
+                            { key: 'FINTECH_PULSE', label: 'FIN' },
+                            { key: 'CLOUD_FORTRESS', label: 'CLD' },
+                        ].map(tab => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wider whitespace-nowrap transition-all ${activeTab === tab.key
+                                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                                        : 'text-slate-400 hover:text-white border border-transparent'
+                                    }`}
+                            >
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="max-w-[1920px] mx-auto px-4 lg:px-8 py-8 space-y-8 relative z-10">
 
                     {/* SECTOR COMMAND DASHBOARD — Main Landing View */}
                     {activeTab === 'SECTOR_COMMAND' && (

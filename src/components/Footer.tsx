@@ -21,7 +21,7 @@ export function Footer() {
     const locale = pathname.startsWith('/ja') ? 'ja' : pathname.startsWith('/ko') ? 'ko' : 'en';
 
     return (
-        <footer className={`border-t border-white/[0.03] bg-[#080d18] ${needsOffset ? 'lg:pl-56' : ''}`}>
+        <footer className={`border-t border-white/[0.03] bg-[#080d18] pb-20 md:pb-0 ${needsOffset ? 'lg:pl-56' : ''}`}>
             <div className="px-4 sm:px-6 py-4 lg:px-8 max-w-[1400px] mx-auto">
 
                 {/* ── Legal Links Row ── */}
