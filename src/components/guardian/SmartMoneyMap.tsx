@@ -342,7 +342,7 @@ export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, ta
     return (
         <div className="w-full h-full relative" style={{ background: '#0a0e14' }}>
             {/* Adjusted Camera: [0, 55, 0] to fit Ring Radius 10 + Nodes within FOV 35 */}
-            <Canvas camera={{ position: [0, 55, 0], fov: 35 }} frameloop="demand">
+            <Canvas camera={{ position: [0, 55, 0], fov: 35 }} frameloop="always">
                 <ambientLight intensity={0.5} />
                 <pointLight position={[0, 20, 0]} intensity={1} />
 
