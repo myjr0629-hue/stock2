@@ -12,11 +12,13 @@ import React, { useState, useEffect } from 'react';
 import { Zap, ArrowRight, X } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useTier } from '@/contexts/TierContext';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 export function StickyFoundingBar() {
     const { tier, loading } = useTier();
     const t = useTranslations('gate');
+    const locale = useLocale();
+    const isKo = locale === 'ko';
     const [dismissed, setDismissed] = useState(false);
     const [visible, setVisible] = useState(false);
 
@@ -51,12 +53,12 @@ export function StickyFoundingBar() {
                         </div>
 
                         <div className="flex items-center gap-2 text-sm">
-                            <span className="text-slate-500 line-through text-xs">$69/mo</span>
-                            <span className="text-white font-bold">$49/mo</span>
+                            <span className="text-slate-300 line-through text-xs">{isKo ? '₩99,000/월' : '$69/mo'}</span>
+                            <span className="text-white font-bold">{isKo ? '₩69,000/월' : '$49/mo'}</span>
                             <span className="text-amber-400 text-xs font-bold">
                                 -29%
                             </span>
-                            <span className="hidden md:inline text-slate-400 text-xs">
+                            <span className="hidden md:inline text-slate-300 text-xs">
                                 · {t('foundingBarLock')}
                             </span>
                         </div>
