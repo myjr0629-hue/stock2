@@ -133,6 +133,7 @@ export default function PricingPage() {
     const isKo = locale === 'ko';
     const [isAnnual, setIsAnnual] = useState(false);
     const [paddle, setPaddle] = useState<Paddle | null>(null);
+    const router = useRouter();
 
     // ── Paddle SDK 초기화 (en/ja only) ──
     useEffect(() => {
@@ -158,6 +159,15 @@ export default function PricingPage() {
             },
         });
     }, [paddle, isAnnual, locale]);
+
+    // ── 플랜 버튼 클릭 핸들러 (hydration 안전) ──
+    const handlePlanClick = useCallback((plan: 'pro' | 'elite') => {
+        if (isKo) {
+            router.push(`/${locale}/checkout?plan=${plan}&billing=${isAnnual ? 'annual' : 'monthly'}`);
+        } else {
+            openPaddleCheckout(plan);
+        }
+    }, [isKo, locale, isAnnual, router, openPaddleCheckout]);
 
     // USD Prices
     const proPriceMonthly = 69;
@@ -446,21 +456,12 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        {isKo ? (
-                            <Link
-                                href={`/checkout?plan=pro&billing=${isAnnual ? 'annual' : 'monthly'}`}
-                                className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta"
-                            >
-                                {t("proCta")}
-                            </Link>
-                        ) : (
-                            <button
-                                onClick={() => openPaddleCheckout('pro')}
-                                className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta"
-                            >
-                                {t("proCta")}
-                            </button>
-                        )}
+                        <button
+                            onClick={() => handlePlanClick('pro')}
+                            className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta"
+                        >
+                            {t("proCta")}
+                        </button>
                     </div>
 
                     {/* 👑 ELITE Card — Right (Visual Dominance) */}
@@ -500,21 +501,12 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        {isKo ? (
-                            <Link
-                                href={`/checkout?plan=elite&billing=${isAnnual ? 'annual' : 'monthly'}`}
-                                className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
-                            >
-                                {t("eliteCta")} <ArrowRight className="w-4 h-4" />
-                            </Link>
-                        ) : (
-                            <button
-                                onClick={() => openPaddleCheckout('elite')}
-                                className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
-                            >
-                                {t("eliteCta")} <ArrowRight className="w-4 h-4" />
-                            </button>
-                        )}
+                        <button
+                            onClick={() => handlePlanClick('elite')}
+                            className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
+                        >
+                            {t("eliteCta")} <ArrowRight className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
             </section>
