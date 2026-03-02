@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { useRouter } from "next/navigation";
+import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import {
     Check,
     Lock,
@@ -120,11 +121,43 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 // ============================================================
 // MAIN PAGE
 // ============================================================
+// ── Paddle Price ID Map (Sandbox) ──
+const PADDLE_PRICES = {
+    pro: { monthly: 'pri_01kjqs3xr3bfa8q3bm7ns1cszr', yearly: 'pri_01kjqsm5vav5ngr4d5d94q421f' },
+    elite: { monthly: 'pri_01kjqsfax6twsw0b6ztv1qdf1a', yearly: 'pri_01kjqsq43z6qb8rdj0jtbh399t' },
+};
+
 export default function PricingPage() {
     const t = useTranslations("pricing");
     const locale = useLocale();
     const isKo = locale === 'ko';
     const [isAnnual, setIsAnnual] = useState(false);
+    const [paddle, setPaddle] = useState<Paddle | null>(null);
+
+    // ── Paddle SDK 초기화 (en/ja only) ──
+    useEffect(() => {
+        if (isKo) return;
+        initializePaddle({
+            environment: 'sandbox',
+            token: 'test_080d8779c0e5d492e287882d3ed',
+        }).then((p) => {
+            if (p) setPaddle(p);
+        });
+    }, [isKo]);
+
+    // ── Paddle 결제 오버레이 열기 ──
+    const openPaddleCheckout = useCallback((plan: 'pro' | 'elite') => {
+        if (!paddle) return;
+        const billing = isAnnual ? 'yearly' : 'monthly';
+        const priceId = PADDLE_PRICES[plan][billing];
+        paddle.Checkout.open({
+            items: [{ priceId, quantity: 1 }],
+            settings: {
+                theme: 'dark',
+                locale: locale === 'ja' ? 'ja' : 'en',
+            },
+        });
+    }, [paddle, isAnnual, locale]);
 
     // USD Prices
     const proPriceMonthly = 69;
@@ -413,12 +446,21 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        <Link
-                            href={`/checkout?plan=pro&billing=${isAnnual ? 'annual' : 'monthly'}`}
-                            className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta"
-                        >
-                            {t("proCta")}
-                        </Link>
+                        {isKo ? (
+                            <Link
+                                href={`/checkout?plan=pro&billing=${isAnnual ? 'annual' : 'monthly'}`}
+                                className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta"
+                            >
+                                {t("proCta")}
+                            </Link>
+                        ) : (
+                            <button
+                                onClick={() => openPaddleCheckout('pro')}
+                                className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta"
+                            >
+                                {t("proCta")}
+                            </button>
+                        )}
                     </div>
 
                     {/* 👑 ELITE Card — Right (Visual Dominance) */}
@@ -458,12 +500,21 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        <Link
-                            href={`/checkout?plan=elite&billing=${isAnnual ? 'annual' : 'monthly'}`}
-                            className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
-                        >
-                            {t("eliteCta")} <ArrowRight className="w-4 h-4" />
-                        </Link>
+                        {isKo ? (
+                            <Link
+                                href={`/checkout?plan=elite&billing=${isAnnual ? 'annual' : 'monthly'}`}
+                                className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
+                            >
+                                {t("eliteCta")} <ArrowRight className="w-4 h-4" />
+                            </Link>
+                        ) : (
+                            <button
+                                onClick={() => openPaddleCheckout('elite')}
+                                className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
+                            >
+                                {t("eliteCta")} <ArrowRight className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                 </div>
             </section>
