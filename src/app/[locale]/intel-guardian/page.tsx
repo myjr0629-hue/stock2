@@ -419,21 +419,23 @@ export default function GuardianPage() {
                                 <rect x="0" y="75%" width="65%" height="3" fill="rgba(16,185,129,0.12)" rx="1.5" />
                                 <rect x="0" y="90%" width="20%" height="3" fill="rgba(16,185,129,0.08)" rx="1.5" />
                             </svg>
-                            <ProGate title="RLSI Insight" fomoMessage={gt('fomoRlsiInsight')} mode="blur" compact className="flex-1">
-                                <RLSIInsightPanel
-                                    alignmentStatus={data?.divergence?.isDivergent ? 'DIVERGENCE' : 'ALIGNMENT OK'}
-                                    insightTitle={verdict.title}
-                                    insightDesc={verdict.realityInsight || verdict.desc}
-                                    sentiment={verdict.sentiment as 'BULLISH' | 'BEARISH' | 'NEUTRAL'}
-                                    breadthPct={data?.breadth?.breadthPct ?? data?.rlsi.components?.breadthPct ?? 50}
-                                    adRatio={data?.breadth?.adRatio ?? data?.rlsi.components?.adRatio ?? 1}
-                                    volumeBreadth={data?.breadth?.volumeBreadth ?? data?.rlsi.components?.volumeBreadth ?? 50}
-                                    breadthSignal={data?.breadth?.signal ?? data?.rlsi.components?.breadthSignal ?? 'NEUTRAL'}
-                                    isDivergent={data?.breadth?.isDivergent ?? data?.rlsi.components?.breadthDivergent ?? false}
-                                    loading={loading}
-                                    isMarketActive={isMarketActive}
-                                />
-                            </ProGate>
+                            <div className="flex-1 flex flex-col">
+                                <ProGate title="RLSI Insight" fomoMessage={gt('fomoRlsiInsight')} mode="blur" compact>
+                                    <RLSIInsightPanel
+                                        alignmentStatus={data?.divergence?.isDivergent ? 'DIVERGENCE' : 'ALIGNMENT OK'}
+                                        insightTitle={verdict.title}
+                                        insightDesc={verdict.realityInsight || verdict.desc}
+                                        sentiment={verdict.sentiment as 'BULLISH' | 'BEARISH' | 'NEUTRAL'}
+                                        breadthPct={data?.breadth?.breadthPct ?? data?.rlsi.components?.breadthPct ?? 50}
+                                        adRatio={data?.breadth?.adRatio ?? data?.rlsi.components?.adRatio ?? 1}
+                                        volumeBreadth={data?.breadth?.volumeBreadth ?? data?.rlsi.components?.volumeBreadth ?? 50}
+                                        breadthSignal={data?.breadth?.signal ?? data?.rlsi.components?.breadthSignal ?? 'NEUTRAL'}
+                                        isDivergent={data?.breadth?.isDivergent ?? data?.rlsi.components?.breadthDivergent ?? false}
+                                        loading={loading}
+                                        isMarketActive={isMarketActive}
+                                    />
+                                </ProGate>
+                            </div>
                         </div>
 
                         {/* ROW 2: SPLIT (MAP vs INTELLIGENCE STACK) */}
@@ -446,83 +448,85 @@ export default function GuardianPage() {
                             </ProGate>
 
                             {/* Flow Topography Map — ELITE */}
-                            <EliteGate title="Flow Topography Map" fomoMessage={gt('fomoFlowTopo')} mode="blur" className="flex-1" minHeight="500px">
-                                <div className={`flex-1 min-h-[400px] bg-[#0a0e14] border rounded-lg relative overflow-hidden group flex flex-col transition-all duration-500 ${mapBorderClass}`}>
-                                    <div className="absolute top-6 left-6 z-10 flex items-center gap-3">
-                                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block font-jakarta">
-                                            Flow Topography Map v3.0
-                                        </h3>
-                                        {/* Session indicator — REG only feature */}
-                                        <span className={`text-[11px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta shrink-0 ${isMarketActive
-                                            ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
-                                            : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
-                                            }`}>
-                                            {isMarketActive ? '● LIVE' : 'STANDBY'}
-                                        </span>
-                                        {!isMarketActive && (
-                                            <span className="text-[12px] text-amber-500/80 font-medium tracking-wide">
-                                                {t('mapStandbyNotice')}
-                                            </span>
-                                        )}
-                                        {/* [V6.0] Rotation Regime Badge */}
-                                        {isMarketActive && data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
-                                            <span className={`text-[11px] font-bold tracking-wider px-2 py-0.5 rounded border font-jakarta ${data.rotationIntensity.regime === 'RISK_ON_GROWTH' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' :
-                                                data.rotationIntensity.regime === 'RISK_OFF_DEFENSE' ? 'bg-rose-950/80 text-rose-400 border-rose-500/30' :
-                                                    data.rotationIntensity.regime === 'CYCLICAL_RECOVERY' ? 'bg-amber-950/80 text-amber-400 border-amber-500/30' :
-                                                        data.rotationIntensity.regime === 'BROAD_RALLY' ? 'bg-emerald-950/80 text-emerald-300 border-emerald-400/30' :
-                                                            data.rotationIntensity.regime === 'BROAD_SELLOFF' ? 'bg-rose-950/80 text-rose-300 border-rose-400/30' :
-                                                                'bg-slate-800/80 text-slate-400 border-slate-600/30'
+                            <div className="flex-1 flex flex-col">
+                                <EliteGate title="Flow Topography Map" fomoMessage={gt('fomoFlowTopo')} mode="blur" minHeight="500px">
+                                    <div className={`flex-1 min-h-[400px] bg-[#0a0e14] border rounded-lg relative overflow-hidden group flex flex-col transition-all duration-500 ${mapBorderClass}`}>
+                                        <div className="absolute top-6 left-6 z-10 flex items-center gap-3">
+                                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block font-jakarta">
+                                                Flow Topography Map v3.0
+                                            </h3>
+                                            {/* Session indicator — REG only feature */}
+                                            <span className={`text-[11px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta shrink-0 ${isMarketActive
+                                                ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
+                                                : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
                                                 }`}>
-                                                {data.rotationIntensity.regime.replace(/_/g, ' ')}
+                                                {isMarketActive ? '● LIVE' : 'STANDBY'}
                                             </span>
-                                        )}
-                                    </div>
-
-                                    {/* [V3.0] TARGET LOCK HOLOGRAM OVERLAY - Positioned at bottom, animations disabled when market closed */}
-                                    {isTargetLocked && (
-                                        <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center select-none">
-                                            {/* Subtle Crosshair - animate only during market hours */}
-                                            {isMarketActive ? (
-                                                <>
-                                                    <div className="absolute w-[180px] h-[180px] border border-amber-500/15 rounded-full animate-[spin_12s_linear_infinite]" />
-                                                    <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/25 rounded-full animate-[spin_6s_linear_infinite_reverse]" />
-                                                </>
-                                            ) : (
-                                                <>
-                                                    <div className="absolute w-[180px] h-[180px] border border-amber-500/10 rounded-full" />
-                                                    <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/15 rounded-full" />
-                                                </>
+                                            {!isMarketActive && (
+                                                <span className="text-[12px] text-amber-500/80 font-medium tracking-wide">
+                                                    {t('mapStandbyNotice')}
+                                                </span>
                                             )}
-
-                                            <div className={`text-2xl font-black text-amber-400 tracking-[0.15em] drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] whitespace-nowrap ${isMarketActive ? 'animate-[pulse_3s_ease-in-out_infinite]' : 'opacity-60'}`}>
-                                                TARGET LOCKED
-                                            </div>
-                                            <div className="text-[11px] text-amber-200 tracking-[0.5em] mt-2 uppercase font-bold bg-black/60 px-3 py-1 rounded border border-amber-500/30">
-                                                TRIPLE-A SEQUENCE ENGAGED
-                                            </div>
+                                            {/* [V6.0] Rotation Regime Badge */}
+                                            {isMarketActive && data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
+                                                <span className={`text-[11px] font-bold tracking-wider px-2 py-0.5 rounded border font-jakarta ${data.rotationIntensity.regime === 'RISK_ON_GROWTH' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' :
+                                                    data.rotationIntensity.regime === 'RISK_OFF_DEFENSE' ? 'bg-rose-950/80 text-rose-400 border-rose-500/30' :
+                                                        data.rotationIntensity.regime === 'CYCLICAL_RECOVERY' ? 'bg-amber-950/80 text-amber-400 border-amber-500/30' :
+                                                            data.rotationIntensity.regime === 'BROAD_RALLY' ? 'bg-emerald-950/80 text-emerald-300 border-emerald-400/30' :
+                                                                data.rotationIntensity.regime === 'BROAD_SELLOFF' ? 'bg-rose-950/80 text-rose-300 border-rose-400/30' :
+                                                                    'bg-slate-800/80 text-slate-400 border-slate-600/30'
+                                                    }`}>
+                                                    {data.rotationIntensity.regime.replace(/_/g, ' ')}
+                                                </span>
+                                            )}
                                         </div>
-                                    )}
 
-                                    <div className="flex-1 relative">
-                                        <SmartMoneyMap
-                                            sectors={(data?.sectors || []).map(s => ({
-                                                id: s.id,
-                                                name: s.name,
-                                                density: s.change,
-                                                height: Math.min(2.5, Math.abs(s.change)), // Allow more dynamic height range
-                                                topTickers: [],
-                                                color: s.change >= 0 ? '#10b981' : '#f43f5e'
-                                            }))}
-                                            vectors={data?.vectors || []}
-                                            sourceId={data?.verdictSourceId}
-                                            targetId={data?.verdictTargetId}
-                                            onSectorSelect={setSelectedSectorId}
-                                            isBullMode={isBullMode}
-                                            isMarketActive={isMarketActive}
-                                        />
+                                        {/* [V3.0] TARGET LOCK HOLOGRAM OVERLAY - Positioned at bottom, animations disabled when market closed */}
+                                        {isTargetLocked && (
+                                            <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center select-none">
+                                                {/* Subtle Crosshair - animate only during market hours */}
+                                                {isMarketActive ? (
+                                                    <>
+                                                        <div className="absolute w-[180px] h-[180px] border border-amber-500/15 rounded-full animate-[spin_12s_linear_infinite]" />
+                                                        <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/25 rounded-full animate-[spin_6s_linear_infinite_reverse]" />
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <div className="absolute w-[180px] h-[180px] border border-amber-500/10 rounded-full" />
+                                                        <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/15 rounded-full" />
+                                                    </>
+                                                )}
+
+                                                <div className={`text-2xl font-black text-amber-400 tracking-[0.15em] drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] whitespace-nowrap ${isMarketActive ? 'animate-[pulse_3s_ease-in-out_infinite]' : 'opacity-60'}`}>
+                                                    TARGET LOCKED
+                                                </div>
+                                                <div className="text-[11px] text-amber-200 tracking-[0.5em] mt-2 uppercase font-bold bg-black/60 px-3 py-1 rounded border border-amber-500/30">
+                                                    TRIPLE-A SEQUENCE ENGAGED
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="flex-1 relative">
+                                            <SmartMoneyMap
+                                                sectors={(data?.sectors || []).map(s => ({
+                                                    id: s.id,
+                                                    name: s.name,
+                                                    density: s.change,
+                                                    height: Math.min(2.5, Math.abs(s.change)), // Allow more dynamic height range
+                                                    topTickers: [],
+                                                    color: s.change >= 0 ? '#10b981' : '#f43f5e'
+                                                }))}
+                                                vectors={data?.vectors || []}
+                                                sourceId={data?.verdictSourceId}
+                                                targetId={data?.verdictTargetId}
+                                                onSectorSelect={setSelectedSectorId}
+                                                isBullMode={isBullMode}
+                                                isMarketActive={isMarketActive}
+                                            />
+                                        </div>
                                     </div>
-                                </div>
-                            </EliteGate>
+                                </EliteGate>
+                            </div>
                         </div>
 
                         {/* RIGHT: INTELLIGENCE STACK (Cols 9-12) — PRO */}
