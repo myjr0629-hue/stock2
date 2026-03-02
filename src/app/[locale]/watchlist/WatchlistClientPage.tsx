@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, memo } from 'react';
+import React, { useState, useMemo, useEffect, memo, useRef, useCallback } from 'react';
 import { useWatchlist, type EnrichedWatchlistItem } from '@/hooks/useWatchlist';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
 import { useTranslations } from 'next-intl';
@@ -164,14 +164,15 @@ export default function WatchlistClientPage({
                             </div>
                             <div className="w-[40px] flex-shrink-0" />
                         </div>
-                        {/* Cards */}
+                        {/* Cards — first 8 render immediately, rest use Intersection Observer */}
                         {sortedItems.map((item, i) => (
-                            <WatchlistCard
+                            <LazyWatchlistCard
                                 key={item.ticker}
                                 item={item}
                                 onRemove={() => removeItem(item.ticker)}
                                 locale={locale}
                                 index={i}
+                                immediate={i < 8}
                             />
                         ))}
                     </div>
@@ -404,6 +405,54 @@ function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
 
 // ─── GRID TEMPLATE (shared between header & cards) ──────────────────────
 const GRID_COLS = 'grid grid-cols-[1fr_1.4fr_0.7fr_0.9fr_1fr_0.8fr_0.8fr_1.2fr_0.7fr_1.3fr_1.3fr]';
+
+// ─── LAZY CARD WRAPPER (Intersection Observer) ──────────────────────────
+// [PERF] Cards below the fold render as lightweight placeholders until scrolled into view.
+// First N cards (immediate=true) render instantly, rest are deferred.
+function LazyWatchlistCard({ item, onRemove, locale, index, immediate }: {
+    item: EnrichedWatchlistItem;
+    onRemove: () => void;
+    locale: string;
+    index: number;
+    immediate: boolean;
+}) {
+    const [isVisible, setIsVisible] = useState(immediate);
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (immediate || isVisible) return;
+        const el = ref.current;
+        if (!el) return;
+
+        const observer = new IntersectionObserver(
+            ([entry]) => {
+                if (entry.isIntersecting) {
+                    setIsVisible(true);
+                    observer.disconnect(); // Once visible, stay rendered
+                }
+            },
+            { rootMargin: '200px' } // Start rendering 200px before entering viewport
+        );
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [immediate, isVisible]);
+
+    if (!isVisible) {
+        // Lightweight placeholder matching card height
+        return (
+            <div ref={ref} className="h-[52px] rounded-lg border border-white/[0.04] bg-white/[0.02]" />
+        );
+    }
+
+    return (
+        <WatchlistCard
+            item={item}
+            onRemove={onRemove}
+            locale={locale}
+            index={index}
+        />
+    );
+}
 
 // ─── GLASSMORPHISM TABLE-ROW CARD (Mockup 1 Layout + Mockup 2 Glass) ─────
 const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, index }: {
