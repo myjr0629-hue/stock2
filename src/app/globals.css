@@ -719,3 +719,13 @@
 :lang(en) [data-guardian] .text-\[11px\] {
   font-size: 12px !important;
 }
+
+/* ===== [COMMAND] ENGLISH-ONLY COMMAND PAGE READABILITY ===== */
+/* [data-command] on Command page root div.                    */
+/* :lang(en) → English ONLY. Korean/Japanese: ZERO changes.   */
+
+/* Signal Core sub-briefing, AI Insight popup, company desc: 13px → 14px */
+:lang(en) [data-command] .text-\[13px\] {
+  font-size: 14px !important;
+  line-height: 1.7 !important;
+}
