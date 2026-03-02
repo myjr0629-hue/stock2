@@ -402,7 +402,7 @@ function WatchlistPanel() {
                         onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
                         onKeyDown={(e) => e.key === 'Enter' && handleAddTicker()}
                         placeholder={isAtLimit ? (tier === 'free' || tier === 'guest' ? gt('watchlistLimitPro', { count: TIER_MAX_SLOTS.pro }) : tier === 'pro' ? gt('watchlistLimitElite', { count: TIER_MAX_SLOTS.elite }) : '') : td('searchPlaceholder')}
-                        className={`flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border rounded focus:outline-none ${isAtLimit ? 'border-amber-500/30 text-amber-400/60 placeholder-slate-300 cursor-not-allowed' : 'border-white/10 text-white placeholder-slate-500 focus:border-cyan-500/50'}`}
+                        className={`flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border rounded focus:outline-none ${isAtLimit ? 'border-amber-500/30 text-amber-400/60 placeholder-slate-300 cursor-not-allowed' : 'border-white/10 text-white placeholder-slate-300 focus:border-cyan-500/50'}`}
                         maxLength={6}
                         disabled={isAtLimit}
                     />

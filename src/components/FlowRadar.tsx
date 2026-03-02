@@ -241,7 +241,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
     // [PREMIUM] Smart Money Score - Institutional-level trade ratio
     const smartMoney = useMemo(() => {
-        if (!whaleTrades || whaleTrades.length === 0) return { score: 0, label: fm('analyzing'), color: 'text-white' };
+        if (!whaleTrades || whaleTrades.length === 0) return { score: 0, label: fm('noTrades'), color: 'text-slate-500' };
 
         // Calculate based on whale trade characteristics
         const largeTrades = whaleTrades.filter((t: any) => (t.premium || t.size * 100) >= 50000);
@@ -1975,37 +1975,31 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                     <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden">
                         {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
                         <EliteGate title="Classified Order Flow" fomoMessage={gt('fomoClassifiedFlow')} mode="blur" minHeight="280px">
-                            <div className="relative mb-4 -mx-4 -mt-3">
+                            <div className="relative -mx-4 -mt-1">
                                 {/* Decorative Line (The "Stream") */}
                                 <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent blur-[1px]" />
 
-                                <div className="relative pl-6 pb-2">
-                                    <div className="flex items-center gap-3 mb-3">
-                                        <h3 className="text-base font-black text-white flex items-center gap-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] tracking-widest uppercase">
+                                <div className="relative pl-6 pb-1">
+                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                        <h3 className="text-lg font-black text-white flex items-center gap-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] tracking-widest uppercase whitespace-nowrap">
                                             <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
                                             LEVEL 3: CLASSIFIED ORDER FLOW
                                         </h3>
-                                        <span className="text-[11px] font-black px-2 py-0.5 rounded bg-rose-950/40 border border-rose-500/40 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse tracking-widest">
+                                        <span className="text-[13px] font-black px-2.5 py-1 rounded bg-rose-950/40 border border-rose-500/40 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse tracking-widest whitespace-nowrap shrink-0">
                                             TOP SECRET // EYES ONLY
                                         </span>
-                                        {flowViewMode === 'WHALE' && (
-                                            <span className="text-[13px] text-slate-300 font-medium tracking-wide hidden sm:inline-block">
-                                                <Info size={12} className="text-slate-400 inline mr-0.5" />
-                                                <span className="text-cyan-400">Cost</span>={ui('costLabel')} | <span className="text-amber-400">BEP</span>={ui('bepLabel')}
-                                            </span>
-                                        )}
                                         {/* Whale / Dark Pool Toggle */}
                                         <div className="flex bg-slate-950/80 backdrop-blur-xl rounded-lg p-1 border border-white/10 shrink-0 ml-auto gap-1">
                                             <button
                                                 onClick={() => setFlowViewMode('WHALE')}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-300 ${flowViewMode === 'WHALE'
+                                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'WHALE'
                                                     ? 'bg-cyan-500/20 backdrop-blur-md text-white border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
                                                     : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
                                             >
                                                 <Shield size={13} className={flowViewMode === 'WHALE' ? 'text-cyan-400' : 'text-slate-400'} />
                                                 <div className="flex flex-col items-start">
                                                     <span className="text-xs font-black uppercase tracking-wider leading-none">Whale</span>
-                                                    <span className={`text-[10px] leading-none mt-0.5 ${flowViewMode === 'WHALE' ? 'text-cyan-300/70' : 'text-slate-600'}`}>{ui('whaleTracking')}</span>
+                                                    <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'WHALE' ? 'text-cyan-300/70' : 'text-slate-400'}`}>{ui('whaleTracking')}</span>
                                                 </div>
                                                 {whaleTrades.length > 0 && (
                                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'WHALE' ? 'bg-cyan-500/30 text-cyan-300' : 'bg-slate-700 text-slate-400'}`}>
@@ -2015,19 +2009,30 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             </button>
                                             <button
                                                 onClick={() => setFlowViewMode('DARKPOOL')}
-                                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-all duration-300 ${flowViewMode === 'DARKPOOL'
+                                                className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'DARKPOOL'
                                                     ? 'bg-teal-500/20 backdrop-blur-md text-white border border-teal-400/40 shadow-[0_0_15px_rgba(20,184,166,0.3)]'
                                                     : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
                                             >
                                                 <Layers size={13} className={flowViewMode === 'DARKPOOL' ? 'text-teal-400' : 'text-slate-400'} />
                                                 <div className="flex flex-col items-start">
                                                     <span className="text-xs font-black uppercase tracking-wider leading-none">Dark Pool</span>
-                                                    <span className={`text-[10px] leading-none mt-0.5 ${flowViewMode === 'DARKPOOL' ? 'text-teal-300/70' : 'text-slate-600'}`}>{ui('darkPoolLabel')}</span>
+                                                    <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'DARKPOOL' ? 'text-teal-300/70' : 'text-slate-400'}`}>{ui('darkPoolLabel')}</span>
                                                 </div>
+                                                {darkPoolTrades.length > 0 && (
+                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${flowViewMode === 'DARKPOOL' ? 'bg-teal-500/30 text-teal-300' : 'bg-slate-700 text-slate-400'}`}>
+                                                        {darkPoolTrades.length}
+                                                    </span>
+                                                )}
                                             </button>
                                         </div>
 
                                     </div>
+                                    {flowViewMode === 'WHALE' && (
+                                        <div className="text-[13px] text-slate-400 font-medium tracking-wide pl-6 hidden sm:block">
+                                            <Info size={11} className="text-slate-500 inline mr-0.5" />
+                                            <span className="text-cyan-400">Cost</span>={ui('costLabel')} | <span className="text-amber-400">BEP</span>={ui('bepLabel')}
+                                        </div>
+                                    )}
 
                                     {/* Horizontal Scroll Container */}
                                     <div
