@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useDeferredValue } from 'react';
 import useSWR from 'swr';
 import {
     getWatchlist,
@@ -89,7 +89,12 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             // [PERF] Skip mount revalidate when SSR data is fresh AND market is open (refreshInterval will update)
             // When market is closed, always revalidate once on mount because refreshInterval=0 won't trigger
             revalidateOnMount: isClosed || !hasSSRData,
+            keepPreviousData: true,  // [PERF] Keep stale data visible during revalidation (no blank flash)
             dedupingInterval: 5000,
+            onErrorRetry: (err, key, config, revalidate, { retryCount }) => {
+                if (retryCount >= 3) return; // Max 3 retries
+                setTimeout(() => revalidate({ retryCount }), Math.min(1000 * 2 ** retryCount, 10000));
+            },
         }
     );
 
@@ -107,6 +112,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             } : undefined,
             refreshInterval: isClosed ? 0 : 2000, // [UX] Near-real-time price feel (disabled when closed)
             revalidateOnFocus: false,
+            keepPreviousData: true,  // [PERF] Keep stale prices visible during revalidation
             dedupingInterval: 3000,
         }
     );
@@ -203,6 +209,9 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
         });
     }, [fullData, priceData, watchlistData]);
 
+    // [PERF] Defer non-critical UI updates — price ticks won't block main thread rendering
+    const deferredItems = useDeferredValue(items);
+
     const addItem = useCallback(async (ticker: string, name: string) => {
         const updated = await storeAdd(ticker, name);
         setWatchlistData(updated);
@@ -220,7 +229,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
     }, [mutate]);
 
     return {
-        items,
+        items: deferredItems,   // [PERF] Deferred for smooth rendering during rapid price updates
+        rawItems: items,        // Non-deferred for operations needing immediate state (add/remove)
         loading: storeLoading || (fullLoading && items.length === 0),
         isRefreshing: fullValidating && !fullLoading,
         error: error?.message || null,

@@ -28,5 +28,10 @@ export async function GET(request: Request) {
     }
 
     const payload = await processWatchlistBatch(tickers);
-    return NextResponse.json(payload);
+    return NextResponse.json(payload, {
+        headers: {
+            // [PERF] Browser can serve stale data for 5s while revalidating in background
+            'Cache-Control': 'private, max-age=5, stale-while-revalidate=25',
+        }
+    });
 }

@@ -153,7 +153,8 @@ export async function GET(request: Request) {
             timestamp: Date.now()
         }, {
             headers: {
-                'Cache-Control': 'no-store, max-age=0',
+                // [PERF] Short stale-while-revalidate for browser-level caching during rapid 2s polling
+                'Cache-Control': 'private, max-age=1, stale-while-revalidate=3',
             }
         });
 
