@@ -449,8 +449,8 @@ export default function GuardianPage() {
 
                             {/* Flow Topography Map — ELITE */}
                             <div className="flex-1 flex flex-col">
-                                <EliteGate title="Flow Topography Map" fomoMessage={gt('fomoFlowTopo')} mode="blur" minHeight="500px">
-                                    <div className={`flex-1 min-h-[400px] bg-[#0a0e14] border rounded-lg relative overflow-hidden group flex flex-col transition-all duration-500 ${mapBorderClass}`}>
+                                <EliteGate title="Flow Topography Map" fomoMessage={gt('fomoFlowTopo')} mode="blur" minHeight="600px">
+                                    <div className={`flex-1 min-h-[600px] bg-[#0a0e14] border rounded-lg relative overflow-hidden group flex flex-col transition-all duration-500 ${mapBorderClass}`}>
                                         <div className="absolute top-6 left-6 z-10 flex items-center gap-3">
                                             <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block font-jakarta">
                                                 Flow Topography Map v3.0
