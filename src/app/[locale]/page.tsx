@@ -300,7 +300,7 @@ export default function Page() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0d1220] text-slate-200 font-sans">
+    <div className="min-h-screen bg-[#0d1220] text-slate-200 font-sans" data-landing>
       {/* HERO SECTION */}
       <section className="relative pt-20 pb-16 px-6 overflow-hidden">
         {/* Layer 1: Light Grid */}
@@ -350,7 +350,7 @@ export default function Page() {
           </div>
 
           {/* Main Headline */}
-          <h1 className="text-6xl md:text-[6rem] font-black tracking-tighter leading-[0.9] mb-6 drop-shadow-2xl font-jakarta" style={{ wordSpacing: '0.15em' }}>
+          <h1 className="text-6xl md:text-[6rem] font-black tracking-tighter leading-[0.9] mb-6 drop-shadow-2xl font-jakarta">
             <span className="block text-white mb-1">{t('home.headline1')}</span>
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#fbbf24] via-[#fde047] to-[#22d3ee]">{t('home.headline2')}</span>
           </h1>
@@ -430,7 +430,7 @@ export default function Page() {
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
+            <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">
               {t('home.whySignumPrefix')}
               <span className="text-cyan-400 font-jakarta">SIGNUM HQ</span>
               {t('home.whySignumSuffix')}
@@ -461,7 +461,7 @@ export default function Page() {
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-white mb-3">{t('home.gammaExposure')}</h3>
+                <h3 className="text-lg font-semibold text-white mb-3">{t('home.gammaExposure')}</h3>
                 <p className="text-[13px] text-slate-400 leading-relaxed mb-6">
                   {t('home.gammaExposureDesc')}
                 </p>
@@ -492,7 +492,7 @@ export default function Page() {
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-white mb-3">{t('home.darkPoolTracking')}</h3>
+                <h3 className="text-lg font-semibold text-white mb-3">{t('home.darkPoolTracking')}</h3>
                 <p className="text-[13px] text-slate-400 leading-relaxed mb-6">
                   {t('home.darkPoolTrackingDesc')}
                 </p>
@@ -523,7 +523,7 @@ export default function Page() {
                   </span>
                 </div>
 
-                <h3 className="text-lg font-bold text-white mb-3">{t('home.sniperSignal')}</h3>
+                <h3 className="text-lg font-semibold text-white mb-3">{t('home.sniperSignal')}</h3>
                 <p className="text-[13px] text-slate-400 leading-relaxed mb-6">
                   {t('home.sniperSignalDesc')}
                 </p>
@@ -560,7 +560,7 @@ export default function Page() {
                 </span>
                 <span className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em]">{t('common.liveFeed')}</span>
               </div>
-              <h2 className="text-2xl font-black text-white font-jakarta">{t('home.signalDashboard')}</h2>
+              <h2 className="text-2xl font-extrabold text-white font-jakarta">{t('home.signalDashboard')}</h2>
               <p className="text-sm text-slate-400 mt-1">{t('home.signalDashboardDesc')}</p>
             </div>
             <Link href="/watchlist" className="text-sm text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-bold transition-colors">
@@ -587,7 +587,7 @@ export default function Page() {
             </svg>
             <span className="font-bold text-sm text-white/60 font-jakarta">SIGNUM HQ</span>
           </div>
-          <div className="flex items-center gap-6 text-xs text-slate-500">
+          <div className="flex items-center gap-6 text-xs text-slate-400">
             <Link href="/privacy" className="hover:text-white transition-colors">{t('footer.privacy')}</Link>
             <Link href="/terms" className="hover:text-white transition-colors">{t('footer.terms')}</Link>
             <a href="mailto:contact@signumhq.com" className="hover:text-white transition-colors">{t('footer.contact')}</a>

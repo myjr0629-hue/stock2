@@ -656,3 +656,40 @@
   word-spacing: 0.02em;
 }
 
+/* ===== [LANDING] ENGLISH-ONLY LANDING PAGE READABILITY ===== */
+/* [data-landing] on main page root div.                       */
+/* :lang(en) → English ONLY. Korean/Japanese: ZERO changes.    */
+
+/* Hero headline: 96px → 72px, leading 0.9 → 1.05 */
+:lang(en) [data-landing] h1 {
+  font-size: 3rem !important;
+  /* 48px mobile */
+  line-height: 1.05 !important;
+  letter-spacing: -0.03em;
+}
+
+@media (min-width: 768px) {
+  :lang(en) [data-landing] h1 {
+    font-size: 4.5rem !important;
+    /* 72px desktop */
+  }
+}
+
+/* Subheadline: 18px → 20px */
+:lang(en) [data-landing] h1+p {
+  font-size: 1.25rem !important;
+  /* 20px */
+  line-height: 1.65;
+}
+
+/* Feature card body text: 13px → 14px */
+:lang(en) [data-landing] .text-\[13px\] {
+  font-size: 14px !important;
+  line-height: 1.7 !important;
+}
+
+/* Feature card titles: slightly larger for English */
+:lang(en) [data-landing] h3.text-lg {
+  font-size: 1.2rem !important;
+  /* 19.2px */
+}
