@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @plugin "tailwindcss-animate";
 
@@ -137,7 +137,7 @@
 
 /* ===== FONT SYSTEM ===== */
 
-/* Plus Jakarta Sans for English-only elements — next/font CSS variable */
+/* Plus Jakarta Sans for English-only elements ??next/font CSS variable */
 @utility font-jakarta {
   font-family: var(--font-jakarta), 'Plus Jakarta Sans', sans-serif;
 }
@@ -188,7 +188,7 @@
   letter-spacing: -0.02em;
 }
 
-/* Inter for numeric data (prices, percentages, scores) — next/font CSS variable */
+/* Inter for numeric data (prices, percentages, scores) ??next/font CSS variable */
 @utility font-num {
   font-family: var(--font-inter), 'Inter', sans-serif;
   font-variant-numeric: tabular-nums;
@@ -441,7 +441,7 @@
   animation: fade-in 0.2s ease-out forwards;
 }
 
-/* [GRID] Subtle breathing glow for notable event cards — gentle enough to avoid eye fatigue */
+/* [GRID] Subtle breathing glow for notable event cards ??gentle enough to avoid eye fatigue */
 @keyframes card-breathe {
 
   0%,
@@ -485,7 +485,7 @@
   }
 }
 
-/* [PERF] content-visibility: 뷰포트 밖 대형 섹션의 렌더링 지연 → 초기 페인트 가속 */
+/* [PERF] content-visibility: 酉고룷??諛?????뱀뀡???뚮뜑留?吏????珥덇린 ?섏씤??媛??*/
 .cv-auto {
   content-visibility: auto;
   contain-intrinsic-size: auto 500px;
@@ -536,7 +536,7 @@
 }
 
 /* ===== [MOBILE] TOUCH TARGET ENFORCEMENT ===== */
-/* Only on mobile — desktop untouched */
+/* Only on mobile ??desktop untouched */
 @media (max-width: 768px) {
 
   /* Ensure all interactive elements meet 44px min touch target */
@@ -576,75 +576,83 @@
 }
 
 /* ===== [GUIDE] ENGLISH-ONLY PREMIUM READABILITY ===== */
-/* CJK glyphs fill their em-box; Latin x-height is ~60%.                */
-/* English needs +2~3px body size, wider spacing, word-spacing.          */
-/* :lang(en) → English ONLY. Korean/Japanese: ZERO changes.             */
+/* [data-guide] on HowItWorksLayout root div.                            */
+/* :lang(en) ??English ONLY. Korean/Japanese: ZERO changes.             */
 
-/* --- Global: all text inside guide pages --- */
-:lang(en) [style*="0c1222"] section p,
-:lang(en) .bg-\[\#0c1222\] section p {
+:lang(en) [data-guide] p {
   font-size: 16px;
   line-height: 1.8;
   word-spacing: 0.03em;
 }
 
-/* --- Card descriptions (was 13px → 15px) --- */
-:lang(en) [style*="0c1222"] .text-\[13px\],
-:lang(en) .bg-\[\#0c1222\] .text-\[13px\] {
+:lang(en) [data-guide] .text-\[13px\] {
   font-size: 15px !important;
   line-height: 1.75 !important;
   word-spacing: 0.03em;
 }
 
-/* --- Card body text (was 15px, now wider breathing) --- */
-:lang(en) [style*="0c1222"] .text-\[15px\],
-:lang(en) .bg-\[\#0c1222\] .text-\[15px\] {
+:lang(en) [data-guide] .text-\[15px\] {
   font-size: 16px !important;
   line-height: 1.8 !important;
   word-spacing: 0.03em;
 }
 
-/* --- Bullet list spacing: 4px → 10px --- */
-:lang(en) [style*="0c1222"] .space-y-1>*+*,
-:lang(en) .bg-\[\#0c1222\] .space-y-1>*+* {
-  margin-top: 10px;
+:lang(en) [data-guide] .text-\[14px\] {
+  font-size: 15px !important;
+  line-height: 1.75 !important;
 }
 
-/* --- Card section gap: space-y-4 → 24px --- */
-:lang(en) [style*="0c1222"] .space-y-4>*+*,
-:lang(en) .bg-\[\#0c1222\] .space-y-4>*+* {
-  margin-top: 24px;
+:lang(en) [data-guide] .text-\[12px\] {
+  font-size: 13px !important;
+  line-height: 1.65 !important;
 }
 
-/* --- Tip/Trading Guide boxes: wider line-height --- */
-:lang(en) [style*="0c1222"] .rounded-lg p,
-:lang(en) .bg-\[\#0c1222\] .rounded-lg p {
-  line-height: 1.75;
-  word-spacing: 0.02em;
+:lang(en) [data-guide] .text-\[11px\] {
+  font-size: 12px !important;
+  line-height: 1.5 !important;
 }
 
-/* --- Signal tag descriptions --- */
-:lang(en) [style*="0c1222"] .text-center p,
-:lang(en) .bg-\[\#0c1222\] .text-center p {
+:lang(en) [data-guide] .text-sm {
   font-size: 15px;
   line-height: 1.7;
 }
 
-/* --- sm text (14px) used in legends/status → 15px --- */
-:lang(en) [style*="0c1222"] .text-sm,
-:lang(en) .bg-\[\#0c1222\] .text-sm {
-  font-size: 15px;
-  line-height: 1.65;
+:lang(en) [data-guide] .text-xs {
+  font-size: 13px;
+  line-height: 1.5;
 }
 
-/* --- Card internal padding boost --- */
-:lang(en) [style*="0c1222"] .p-5,
-:lang(en) .bg-\[\#0c1222\] .p-5 {
+:lang(en) [data-guide] .space-y-0\.5>*+* {
+  margin-top: 6px !important;
+}
+
+:lang(en) [data-guide] .space-y-1>*+* {
+  margin-top: 10px !important;
+}
+
+:lang(en) [data-guide] .space-y-1\.5>*+* {
+  margin-top: 10px !important;
+}
+
+:lang(en) [data-guide] .space-y-3>*+* {
+  margin-top: 16px;
+}
+
+:lang(en) [data-guide] .space-y-4>*+* {
+  margin-top: 24px;
+}
+
+:lang(en) [data-guide] .space-y-5>*+* {
+  margin-top: 28px;
+}
+
+:lang(en) [data-guide] .p-5 {
   padding: 24px;
 }
 
-/* --- Overall section spacing: space-y-5 → 28px --- */
-:lang(en) [style*="0c1222"] .space-y-5>*+*,
-:lang(en) .bg-\[\#0c1222\] .space-y-5>*+* {
-  margin-top: 28px;
+:lang(en) [data-guide] .rounded-lg p,
+:lang(en) [data-guide] .rounded-xl p {
+  line-height: 1.75;
+  word-spacing: 0.02em;
 }
+
