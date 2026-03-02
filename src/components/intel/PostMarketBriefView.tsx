@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { ChevronDown, Sparkles, Loader2, FileText, Orbit, Bot, Zap, Activity, ShieldAlert, Shield, Rocket, Cpu, CreditCard, Cloud } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 import { m7Config } from '@/configs/m7.config';
 import { physicalAIConfig } from '@/configs/physicalai.config';
 import { siliconCoreConfig } from '@/configs/siliconcore.config';
@@ -44,6 +45,7 @@ export function PostMarketBriefView() {
     const [expandedSectors, setExpandedSectors] = useState<Set<string>>(new Set());
     const [brief, setBrief] = useState<CrossSectorBrief | null>(null);
     const [briefLoading, setBriefLoading] = useState(true);
+    const t = useTranslations('intel.postMarketUI');
 
     // Fetch AI cross-sector brief
     useEffect(() => {
@@ -169,7 +171,7 @@ export function PostMarketBriefView() {
                     {briefLoading ? (
                         <div className="flex items-center gap-3 py-12 justify-center">
                             <Loader2 className="w-5 h-5 text-amber-400 animate-spin" />
-                            <span className="text-slate-300 text-[13px]">분석 로딩 중...</span>
+                            <span className="text-slate-300 text-[13px]">{t('analysisLoading')}</span>
                         </div>
                     ) : brief ? (
                         <div className="prose prose-invert max-w-none">
@@ -177,8 +179,8 @@ export function PostMarketBriefView() {
                         </div>
                     ) : (
                         <div className="text-center py-10">
-                            <p className="text-slate-300 text-[14px]">아직 오늘의 크로스-섹터 분석이 생성되지 않았습니다.</p>
-                            <p className="text-slate-300 text-[13px] mt-1 font-mono">장 마감 후 (4:50 PM ET) 자동 생성됩니다</p>
+                            <p className="text-slate-300 text-[14px]">{t('noAnalysis')}</p>
+                            <p className="text-slate-300 text-[13px] mt-1 font-mono">{t('autoGenerate')}</p>
                         </div>
                     )}
                 </div>
@@ -192,13 +194,13 @@ export function PostMarketBriefView() {
                         onClick={expandAll}
                         className="px-3 py-1.5 text-xs font-bold text-slate-300 bg-white/[0.05] border border-white/[0.08] rounded-lg hover:bg-white/[0.10] transition-colors"
                     >
-                        전체 펼치기
+                        {t('expandAll')}
                     </button>
                     <button
                         onClick={collapseAll}
                         className="px-3 py-1.5 text-xs font-bold text-slate-300 bg-white/[0.05] border border-white/[0.08] rounded-lg hover:bg-white/[0.10] transition-colors"
                     >
-                        전체 접기
+                        {t('collapseAll')}
                     </button>
                 </div>
             </div>

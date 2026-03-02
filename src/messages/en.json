@@ -437,6 +437,13 @@
       "fintechPulse": "FINTECH PULSE",
       "cloudFortress": "CLOUD FORTRESS"
     },
+    "postMarketUI": {
+      "analysisLoading": "Loading analysis...",
+      "noAnalysis": "Today's cross-sector analysis has not been generated yet.",
+      "autoGenerate": "Auto-generated after market close (4:50 PM ET)",
+      "expandAll": "Expand All",
+      "collapseAll": "Collapse All"
+    },
     "aiRumor": "AI Rumor Analysis",
     "intelFeed": "Intelligence Feed",
     "source": "Source",

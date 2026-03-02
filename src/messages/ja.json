@@ -437,6 +437,13 @@
       "fintechPulse": "フィンテック",
       "cloudFortress": "クラウド"
     },
+    "postMarketUI": {
+      "analysisLoading": "分析ロード中...",
+      "noAnalysis": "本日のクロスセクター分析はまだ生成されていません。",
+      "autoGenerate": "引け後 (4:50 PM ET) に自動生成されます",
+      "expandAll": "すべて展開",
+      "collapseAll": "すべて折りたたみ"
+    },
     "aiRumor": "AI Rumor Analysis",
     "intelFeed": "Intelligence Feed",
     "source": "ソース",

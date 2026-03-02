@@ -437,6 +437,13 @@
       "fintechPulse": "핀테크",
       "cloudFortress": "클라우드"
     },
+    "postMarketUI": {
+      "analysisLoading": "분석 로딩 중...",
+      "noAnalysis": "아직 오늘의 크로스-섹터 분석이 생성되지 않았습니다.",
+      "autoGenerate": "장 마감 후 (4:50 PM ET) 자동 생성됩니다",
+      "expandAll": "전체 펼치기",
+      "collapseAll": "전체 접기"
+    },
     "aiRumor": "AI Rumor Analysis",
     "intelFeed": "Intelligence Feed",
     "source": "소스",
