@@ -90,26 +90,55 @@ export async function getAnalysisCache(
 }
 
 /**
- * Read analysis cache for multiple tickers in parallel.
+ * Read analysis cache for multiple tickers using Redis MGET (single round-trip).
  * Returns a map of ticker → data (only includes tickers with cache hits).
+ * [PERF] MGET reduces N Redis round-trips to 1.
  */
 export async function getAnalysisCacheForTickers(
     tickers: string[]
 ): Promise<Record<string, AnalysisCacheEntry>> {
     const results: Record<string, AnalysisCacheEntry> = {};
+    if (tickers.length === 0) return results;
 
+    try {
+        const { getRedisClient } = await import('@/services/redisClient');
+        const redis = await getRedisClient();
+        if (!redis) {
+            // Fallback: individual gets if Redis unavailable
+            return getAnalysisCacheForTickersFallback(tickers);
+        }
+
+        const keys = tickers.map(t => `${ANALYSIS_CACHE_PREFIX}${t.toUpperCase()}`);
+        const values = await redis.mget<(AnalysisCacheEntry | null)[]>(...keys);
+
+        values.forEach((data, i) => {
+            if (data) {
+                results[tickers[i].toUpperCase()] = data;
+            }
+        });
+    } catch (e) {
+        console.warn('[AnalysisCache] MGET failed, falling back to individual gets:', e);
+        return getAnalysisCacheForTickersFallback(tickers);
+    }
+
+    return results;
+}
+
+/**
+ * Fallback: individual Redis GETs (used when MGET fails)
+ */
+async function getAnalysisCacheForTickersFallback(
+    tickers: string[]
+): Promise<Record<string, AnalysisCacheEntry>> {
+    const results: Record<string, AnalysisCacheEntry> = {};
     const entries = await Promise.all(
         tickers.map(async (ticker) => {
             const data = await getAnalysisCache(ticker);
             return { ticker: ticker.toUpperCase(), data };
         })
     );
-
     entries.forEach(({ ticker, data }) => {
-        if (data) {
-            results[ticker] = data;
-        }
+        if (data) results[ticker] = data;
     });
-
     return results;
 }

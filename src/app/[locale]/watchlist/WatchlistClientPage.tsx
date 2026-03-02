@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, memo } from 'react';
 import { useWatchlist, type EnrichedWatchlistItem } from '@/hooks/useWatchlist';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
 import { useTranslations } from 'next-intl';
@@ -406,7 +406,7 @@ function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
 const GRID_COLS = 'grid grid-cols-[1fr_1.4fr_0.7fr_0.9fr_1fr_0.8fr_0.8fr_1.2fr_0.7fr_1.3fr_1.3fr]';
 
 // ─── GLASSMORPHISM TABLE-ROW CARD (Mockup 1 Layout + Mockup 2 Glass) ─────
-function WatchlistCard({ item, onRemove, locale, index }: {
+const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, index }: {
     item: EnrichedWatchlistItem;
     onRemove: () => void;
     locale: string;
@@ -665,10 +665,10 @@ function WatchlistCard({ item, onRemove, locale, index }: {
             </div>
         </div>
     );
-}
+})
 
 // ─── SPARKLINE ───────────────────────────────────────────────────────────
-function Sparkline({ data, isPositive }: { data: number[]; isPositive: boolean }) {
+const Sparkline = memo(function Sparkline({ data, isPositive }: { data: number[]; isPositive: boolean }) {
     if (!data || data.length < 2) return null;
     const w = 60, h = 20, pad = 1;
     const min = Math.min(...data), max = Math.max(...data);
@@ -703,10 +703,10 @@ function Sparkline({ data, isPositive }: { data: number[]; isPositive: boolean }
             />
         </svg>
     );
-}
+});
 
 // ─── INDICATOR COMPONENTS ────────────────────────────────────────────────
-function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }) {
+const CircularAlphaGauge = memo(function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }) {
     if (score === undefined) {
         return (
             <div className="w-9 h-9 rounded-full border-2 border-slate-800 flex items-center justify-center">
@@ -736,9 +736,9 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
             <span className="text-sm font-bold tabular-nums text-white/95">{score}</span>
         </div>
     );
-}
+});
 
-function SignalBadge({ action, confidence }: { action?: string; confidence?: number }) {
+const SignalBadge = memo(function SignalBadge({ action, confidence }: { action?: string; confidence?: number }) {
     if (!action) return <span className="text-[12px] text-slate-600">—</span>;
     const cfg: Record<string, { bg: string; text: string; border: string }> = {
         'HOLD': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/25' },
@@ -755,9 +755,9 @@ function SignalBadge({ action, confidence }: { action?: string; confidence?: num
             )}
         </div>
     );
-}
+});
 
-function WhaleIndicator({ index, confidence }: { index?: number; confidence?: string }) {
+const WhaleIndicator = memo(function WhaleIndicator({ index, confidence }: { index?: number; confidence?: string }) {
     const t = useTranslations('watchlist');
     if (index === undefined || index === null) {
         return <span className="text-[9px] text-slate-600">—</span>;
@@ -776,9 +776,9 @@ function WhaleIndicator({ index, confidence }: { index?: number; confidence?: st
             <span className="text-[12px] text-white/70 hidden xl:inline">{level}</span>
         </div>
     );
-}
+});
 
-function IVIndicator({ value }: { value?: number }) {
+const IVIndicator = memo(function IVIndicator({ value }: { value?: number }) {
     if (value === undefined || value === null) return <span className="text-[9px] text-slate-600">—</span>;
     const color = value >= 50 ? 'text-rose-400' : value <= 20 ? 'text-emerald-400' : 'text-amber-400';
     const label = value >= 50 ? 'HIGH' : value <= 20 ? 'LOW' : '';
@@ -789,9 +789,9 @@ function IVIndicator({ value }: { value?: number }) {
             {label && <span className="text-[12px] text-white/70 font-bold">{label}</span>}
         </div>
     );
-}
+});
 
-function GammaFlipIndicator({ value, price, gexM }: { value?: number; price?: number; gexM?: number }) {
+const GammaFlipIndicator = memo(function GammaFlipIndicator({ value, price, gexM }: { value?: number; price?: number; gexM?: number }) {
     const tInd = useTranslations('indicators');
     if (value !== undefined && value !== null && value > 0) {
         const isAbove = price ? price > value : false;
@@ -817,9 +817,9 @@ function GammaFlipIndicator({ value, price, gexM }: { value?: number; price?: nu
         );
     }
     return <span className="text-[9px] text-slate-600">—</span>;
-}
+});
 
-function Return3DIndicator({ value }: { value?: number }) {
+const Return3DIndicator = memo(function Return3DIndicator({ value }: { value?: number }) {
     if (value === undefined || value === null) return <span className="text-[9px] text-slate-600">—</span>;
     const color = value > 0 ? 'text-emerald-400' : value < 0 ? 'text-rose-400' : 'text-white/60';
     return (
@@ -831,9 +831,9 @@ function Return3DIndicator({ value }: { value?: number }) {
             <span className="text-[12px] text-white/70 font-bold">3D</span>
         </div>
     );
-}
+});
 
-function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }) {
+const MaxPainIndicator = memo(function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }) {
     if (dist === undefined || dist === null) return <span className="text-[9px] text-slate-600">—</span>;
     const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white/60';
     const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
@@ -844,9 +844,9 @@ function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }
             <span className={`text-xs font-bold ${color}`}>{arrow}{dist > 0 ? '+' : ''}{dist.toFixed(1)}%</span>
         </div>
     );
-}
+});
 
-function GexIndicator({ gexM }: { gexM?: number }) {
+const GexIndicator = memo(function GexIndicator({ gexM }: { gexM?: number }) {
     if (gexM === undefined || gexM === null) {
         return (
             <div className="flex items-center gap-1 px-2 py-0.5 rounded-md border text-[12px] font-bold text-slate-500 bg-slate-600/10 border-slate-700/30">
@@ -868,7 +868,7 @@ function GexIndicator({ gexM }: { gexM?: number }) {
             <span className="tabular-nums opacity-90">{val}</span>
         </div>
     );
-}
+});
 
 // ─── SKELETON CARD ───────────────────────────────────────────────────────
 function SkeletonCard({ index }: { index: number }) {
