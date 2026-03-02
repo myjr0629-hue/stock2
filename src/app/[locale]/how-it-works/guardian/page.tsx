@@ -307,7 +307,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                             </div>
                             <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.directionalInsight.desc', richTags)}</p>
                             <div className="p-2 rounded-lg bg-slate-800/50 border border-white/5">
-                                <span className="text-[12px] text-slate-300 font-mono">S&P 6,893 — 감마 약(+13), Squeeze 38%, ▼6,500(-5.7%) 하방 편향 · 상한 7,000</span>
+                                <span className="text-[12px] text-slate-300 font-mono">{t('gammaShield.sampleInsight')}</span>
                             </div>
                         </div>
                     </div>
@@ -782,8 +782,8 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                         <div className="h-full bg-rose-500 rounded-r-full" style={{ width: '39%' }} />
                                     </div>
                                     <div className="flex justify-between text-xs">
-                                        <span className="text-emerald-400">▲ 상승 61%</span>
-                                        <span className="text-rose-400">▼ 하락 39%</span>
+                                        <span className="text-emerald-400">{t('breadth.advanceLabel')}</span>
+                                        <span className="text-rose-400">{t('breadth.declineLabel')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -843,9 +843,9 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                 </div>
                                 <div className="space-y-2">
                                     {[
-                                        { date: '2/27 금', tag: 'CPI', event: 'PPI / Core PPI (Jan)', tagColor: 'bg-amber-500/30 text-amber-300' },
-                                        { date: '3/2 월', tag: 'PMI', event: 'ISM Manufacturing PMI', tagColor: 'bg-rose-500/30 text-rose-300' },
-                                        { date: '3/5 수', tag: 'PMI', event: 'ISM Services PMI', tagColor: 'bg-rose-500/30 text-rose-300' },
+                                        { date: t('calendar.date1'), tag: 'CPI', event: t('calendar.event1'), tagColor: 'bg-amber-500/30 text-amber-300' },
+                                        { date: t('calendar.date2'), tag: 'PMI', event: t('calendar.event2'), tagColor: 'bg-rose-500/30 text-rose-300' },
+                                        { date: t('calendar.date3'), tag: 'PMI', event: t('calendar.event3'), tagColor: 'bg-rose-500/30 text-rose-300' },
                                     ].map((e) => (
                                         <div key={e.date} className="flex items-center gap-3 text-xs">
                                             <span className="text-slate-300 w-10">{e.date}</span>
