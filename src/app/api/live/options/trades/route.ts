@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
-// ── Server-side memory cache: prevents data disappearance on Polygon failures ──
-const whaleCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes max staleness
+// ── Redis cache key pattern: whale:{TICKER} ──
+const REDIS_TTL = 300; // 5 minutes
 
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
@@ -12,32 +12,27 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Ticker symbol is required' }, { status: 400 });
     }
 
+    const cacheKey = `whale:${ticker}`;
+
     try {
         const { getOptionSnapshot, fetchMarketStatus } = await import('@/services/massiveClient');
 
         const rawChain = await getOptionSnapshot(ticker);
 
         if (!rawChain || rawChain.length === 0) {
-            // ── Polygon returned empty → serve cached data if available ──
-            const cached = whaleCache.get(ticker);
-            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-                return NextResponse.json({
-                    ...cached.data,
-                    _cached: true,
-                    _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
-                });
+            // ── Polygon returned empty → serve Redis cached data ──
+            const cached = await getFromCache<any>(cacheKey);
+            if (cached) {
+                return NextResponse.json({ ...cached, _cached: true });
             }
             return NextResponse.json({
-                ticker,
-                count: 0,
-                items: [],
+                ticker, count: 0, items: [],
                 debug: { note: "No snapshot data found, no cache available" }
             });
         }
 
         const now = new Date();
 
-        // [V3 Fix] Dynamic Cutoff Based on Market Status
         let hoursBack = 20;
         let marketStatus = 'unknown';
 
@@ -47,12 +42,11 @@ export async function GET(req: NextRequest) {
                 const nyseStatus = (status as any).exchanges?.nyse || 'unknown';
                 const nasdaqStatus = (status as any).exchanges?.nasdaq || 'unknown';
                 marketStatus = nyseStatus;
-
                 if (nyseStatus === 'closed' || nasdaqStatus === 'closed') {
                     hoursBack = 72;
                 }
             }
-        } catch (e) {
+        } catch {
             const dayOfWeek = now.getUTCDay();
             if (dayOfWeek === 0 || dayOfWeek === 6) {
                 hoursBack = 72;
@@ -61,7 +55,6 @@ export async function GET(req: NextRequest) {
         }
 
         const cutoffTime = new Date(now.getTime() - hoursBack * 60 * 60 * 1000);
-
         const fourteenDaysFromNow = new Date();
         fourteenDaysFromNow.setDate(now.getDate() + 14);
 
@@ -69,7 +62,6 @@ export async function GET(req: NextRequest) {
 
         for (const contract of rawChain) {
             const trade = contract.last_trade?.last_trade_sip || contract.last_trade;
-
             if (!trade || !trade.price || !trade.size) continue;
 
             const timestampNs = trade.sip_timestamp || trade.t || 0;
@@ -99,25 +91,19 @@ export async function GET(req: NextRequest) {
                 strike: details.strike_price,
                 expiry: expiryStr,
                 type: details.contract_type?.toUpperCase() || 'UNKNOWN',
-                price,
-                size,
-                premium,
+                price, size, premium,
                 iv: contract.implied_volatility,
                 greeks: contract.greeks,
                 timestamp: timestampNs,
                 tradeDate,
                 timeET: tradeDate.toLocaleTimeString('en-US', {
                     timeZone: 'America/New_York',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit',
-                    hour12: false
+                    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
                 }),
                 isWhale: true
             });
         }
 
-        // Sort by Time Descending
         whaleTrades.sort((a, b) => b.timestamp - a.timestamp);
 
         const response = {
@@ -127,24 +113,19 @@ export async function GET(req: NextRequest) {
             debug: {
                 totalContractsScanned: rawChain.length,
                 filteredCount: whaleTrades.length,
-                marketStatus,
-                hoursBack,
+                marketStatus, hoursBack,
                 criteria: `Premium >= $50k, Expiry <= 14d, Last ${hoursBack}h`
             }
         };
 
-        // ── Cache successful response (even if 0 whale trades from valid chain) ──
+        // ── Save to Redis if we have data ──
         if (whaleTrades.length > 0) {
-            whaleCache.set(ticker, { data: response, timestamp: Date.now() });
+            setInCache(cacheKey, response, REDIS_TTL).catch(() => { }); // fire-and-forget
         } else {
-            // Valid chain but 0 whale trades → still serve cache if available
-            const cached = whaleCache.get(ticker);
-            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-                return NextResponse.json({
-                    ...cached.data,
-                    _cached: true,
-                    _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
-                });
+            // Valid chain but 0 whale trades → serve Redis cache if available
+            const cached = await getFromCache<any>(cacheKey);
+            if (cached) {
+                return NextResponse.json({ ...cached, _cached: true });
             }
         }
 
@@ -153,21 +134,15 @@ export async function GET(req: NextRequest) {
     } catch (error: any) {
         console.error(`[API] Whale feed error for ${ticker}:`, error);
 
-        // ── On error, serve cached data ──
-        const cached = whaleCache.get(ticker);
-        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-            return NextResponse.json({
-                ...cached.data,
-                _cached: true,
-                _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000),
-                _error: error.message
-            });
+        // ── On error → serve Redis cached data ──
+        const cached = await getFromCache<any>(cacheKey);
+        if (cached) {
+            return NextResponse.json({ ...cached, _cached: true, _error: error.message });
         }
 
         return NextResponse.json({
             error: error.message || 'Internal Server Error',
-            items: [],
-            details: error
+            items: [], details: error
         }, { status: 500 });
     }
 }

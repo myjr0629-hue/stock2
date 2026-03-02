@@ -3,6 +3,7 @@
 // Data Source: Polygon.io /v3/trades/{ticker}
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
 const POLYGON_BASE = "https://api.polygon.io";
@@ -11,12 +12,10 @@ const POLYGON_BASE = "https://api.polygon.io";
 const DARK_POOL_EXCHANGES: Set<number> = new Set([4, 15, 16, 19]);
 
 // Dark Pool Condition Codes
-// 12 = Average Price, 41 = Price Variation, 52 = Contingent
 const DARK_POOL_CONDITIONS: Set<number> = new Set([12, 41, 52]);
 
-// ── Server-side memory cache: prevents data disappearance on Polygon failures ──
-const dpCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes max staleness
+// ── Redis cache key pattern: darkpool:{TICKER} ──
+const REDIS_TTL = 300; // 5 minutes
 
 interface DarkPoolTrade {
     id: string;
@@ -26,9 +25,9 @@ interface DarkPoolTrade {
     timeET: string;
     exchange: number;
     exchangeName: string;
-    premium: number;       // size * price (total dollar value)
+    premium: number;
     conditions: number[];
-    isBlock: boolean;      // size >= 10000
+    isBlock: boolean;
     type: 'DARK_POOL';
 }
 
@@ -43,13 +42,10 @@ function getExchangeName(exchangeId: number): string {
 }
 
 function formatTimeET(timestamp: number): string {
-    const date = new Date(timestamp / 1000000); // Polygon uses nanosecond timestamps
+    const date = new Date(timestamp / 1000000);
     return date.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-        timeZone: 'America/New_York'
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false, timeZone: 'America/New_York'
     });
 }
 
@@ -58,21 +54,18 @@ export async function GET(request: NextRequest) {
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'NVDA';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
 
+    const cacheKey = `darkpool:${ticker}`;
+
     try {
-        // Fetch recent trades (last 5000 to filter for dark pool)
         const url = `${POLYGON_BASE}/v3/trades/${ticker}?limit=5000&order=desc&apiKey=${POLYGON_API_KEY}`;
         const res = await fetch(url, { next: { revalidate: 15 } });
 
         if (!res.ok) {
             console.error(`[dark-pool-trades] API error: ${res.status}`);
-            // ── Polygon error → serve cached data ──
-            const cached = dpCache.get(ticker);
-            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-                return NextResponse.json({
-                    ...cached.data,
-                    _cached: true,
-                    _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
-                });
+            // ── Polygon error → serve Redis cached data ──
+            const cached = await getFromCache<any>(cacheKey);
+            if (cached) {
+                return NextResponse.json({ ...cached, _cached: true });
             }
             return NextResponse.json({ error: `API error: ${res.status}`, items: [] }, { status: res.status });
         }
@@ -80,7 +73,6 @@ export async function GET(request: NextRequest) {
         const data = await res.json();
         const allTrades = data.results || [];
 
-        // Filter: Dark Pool exchanges OR dark pool condition codes
         const darkPoolTrades: DarkPoolTrade[] = [];
         let totalDarkPoolVolume = 0;
         let totalDarkPoolValue = 0;
@@ -91,7 +83,6 @@ export async function GET(request: NextRequest) {
             const size = trade.size || 0;
             const price = trade.price || 0;
 
-            // Is this a dark pool trade?
             const isDarkExchange = DARK_POOL_EXCHANGES.has(exchangeId);
             const hasDarkCondition = conditions.some((c: number) => DARK_POOL_CONDITIONS.has(c));
 
@@ -99,12 +90,10 @@ export async function GET(request: NextRequest) {
                 totalDarkPoolVolume += size;
                 totalDarkPoolValue += size * price;
 
-                // Only keep significant trades (>= 1000 shares for display)
                 if (size >= 1000) {
                     darkPoolTrades.push({
                         id: `dp-${trade.sip_timestamp}-${size}`,
-                        price,
-                        size,
+                        price, size,
                         timestamp: trade.sip_timestamp,
                         timeET: formatTimeET(trade.sip_timestamp),
                         exchange: exchangeId,
@@ -118,10 +107,7 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // Sort by size descending (biggest dark pool trades first)
         darkPoolTrades.sort((a, b) => b.size - a.size);
-
-        // Take top N
         const topTrades = darkPoolTrades.slice(0, limit);
 
         const response = {
@@ -133,32 +119,24 @@ export async function GET(request: NextRequest) {
             items: topTrades,
         };
 
-        // ── Cache successful response with data ──
+        // ── Save to Redis if we have data ──
         if (topTrades.length > 0) {
-            dpCache.set(ticker, { data: response, timestamp: Date.now() });
+            setInCache(cacheKey, response, REDIS_TTL).catch(() => { }); // fire-and-forget
         } else {
-            // Polygon returned trades but none were dark pool → serve cache if available
-            const cached = dpCache.get(ticker);
-            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-                return NextResponse.json({
-                    ...cached.data,
-                    _cached: true,
-                    _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
-                });
+            // Polygon returned trades but none were dark pool → serve Redis cache
+            const cached = await getFromCache<any>(cacheKey);
+            if (cached) {
+                return NextResponse.json({ ...cached, _cached: true });
             }
         }
 
         return NextResponse.json(response);
     } catch (error) {
         console.error('[dark-pool-trades] Error:', error);
-        // ── On error, serve cached data ──
-        const cached = dpCache.get(ticker);
-        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-            return NextResponse.json({
-                ...cached.data,
-                _cached: true,
-                _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
-            });
+        // ── On error → serve Redis cached data ──
+        const cached = await getFromCache<any>(cacheKey);
+        if (cached) {
+            return NextResponse.json({ ...cached, _cached: true });
         }
         return NextResponse.json(
             { error: 'Failed to fetch dark pool trades', items: [] },
