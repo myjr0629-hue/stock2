@@ -693,3 +693,29 @@
   font-size: 1.2rem !important;
   /* 19.2px */
 }
+
+/* ===== [GUARDIAN] ENGLISH-ONLY GUARDIAN PAGE READABILITY ===== */
+/* [data-guardian] on Guardian page root div.                    */
+/* :lang(en) → English ONLY. Korean/Japanese: ZERO changes.     */
+
+/* AI analysis prose: 13px → 14px (Tactical Verdict, RLSI Insight, macro alerts, GammaShield) */
+:lang(en) [data-guardian] .text-\[13px\] {
+  font-size: 14px !important;
+  line-height: 1.7 !important;
+}
+
+/* Market Breadth interpretation & divergence text: 12px → 13px */
+:lang(en) [data-guardian] .text-\[12px\] {
+  font-size: 12.5px !important;
+}
+
+/* Scoped: only interpretation blocks with Pretendard get bumped further */
+:lang(en) [data-guardian] .text-\[12px\][style*="Pretendard"] {
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+}
+
+/* Noise bounce / small warning text: 11px → 12px */
+:lang(en) [data-guardian] .text-\[11px\] {
+  font-size: 11.5px !important;
+}

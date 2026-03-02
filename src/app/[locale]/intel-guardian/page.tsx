@@ -312,7 +312,7 @@ export default function GuardianPage() {
 
     return (
         <GuestWall pageName="GUARDIAN">
-            <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30">
+            <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-emerald-500/30" data-guardian>
                 {/* ORACLE HEADER (Below fixed nav+ticker) */}
                 <div>
                     <OracleHeader
