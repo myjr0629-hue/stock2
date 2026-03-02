@@ -99,7 +99,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
     const isDataMissing = !liveQuote && loading;
 
     return (
-        <div className="min-h-screen bg-[#0a0f1a] flex flex-col">
+        <div className="min-h-screen bg-[#0a0f1a] flex flex-col" data-flow>
             {/* Fixed dark background to cover body gradient */}
             <div className="fixed inset-0 bg-[#0a0f1a] -z-50" />
 

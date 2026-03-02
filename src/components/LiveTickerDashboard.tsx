@@ -858,7 +858,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 />
                             </div>
                             <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta">{ticker}</h1>
-                            <span className="text-xs text-slate-400 font-bold tracking-tight uppercase font-jakarta shrink-0">{initialStockData.name}</span>
+                            <span className="text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta shrink-0">{initialStockData.name}</span>
                             <FavoriteToggle ticker={ticker} name={initialStockData.name} />
                         </div>
 

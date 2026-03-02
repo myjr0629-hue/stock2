@@ -720,12 +720,17 @@
   font-size: 12px !important;
 }
 
-/* ===== [COMMAND] ENGLISH-ONLY COMMAND PAGE READABILITY ===== */
-/* [data-command] on Command page root div.                    */
-/* :lang(en) → English ONLY. Korean/Japanese: ZERO changes.   */
+/* ===== [FLOW] ENGLISH-ONLY FLOW PAGE READABILITY ===== */
+/* [data-flow] on Flow page root div.                    */
+/* :lang(en) → English ONLY. Korean/Japanese: ZERO.      */
 
-/* Signal Core sub-briefing, AI Insight popup, company desc: 13px → 14px */
-:lang(en) [data-command] .text-\[13px\] {
+/* AI analysis prose + sidebar rationale + strategy text: 13px → 14px */
+:lang(en) [data-flow] .text-\[13px\] {
   font-size: 14px !important;
   line-height: 1.7 !important;
+}
+
+/* Factor breakdown labels + sub-badges: 11px → 12px */
+:lang(en) [data-flow] .text-\[11px\] {
+  font-size: 12px !important;
 }
