@@ -14,7 +14,7 @@ export function HowItWorksLayout({ children, title, subtitle }: HowItWorksLayout
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     return (
-        <div className="min-h-screen bg-[#0c1222]" data-guide>
+        <div className="min-h-screen bg-[#0c1222]">
             {/* Ambient background glow */}
             <div className="fixed inset-0 pointer-events-none z-0">
                 <div className="absolute top-0 left-1/4 w-[600px] h-[400px] bg-cyan-500/[0.04] rounded-full blur-[120px]" />
