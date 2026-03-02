@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { GuardianProvider } from "@/components/guardian/GuardianProvider";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
@@ -19,9 +19,28 @@ const plusJakarta = Plus_Jakarta_Sans({
   display: "swap",
 });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: 'cover',  // iOS safe area support
+  themeColor: '#050a14',
+};
+
 export const metadata: Metadata = {
   title: "SIGNUM HQ",
   description: "Market Signal Command Center - 옵션 · 다크풀 · 고래 통합 분석",
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'SIGNUM HQ',
+  },
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/icon-192x192.png',
+  },
 };
 
 export default function RootLayout({

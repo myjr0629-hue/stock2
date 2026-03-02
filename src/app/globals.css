@@ -500,3 +500,77 @@
   content-visibility: auto;
   contain-intrinsic-size: auto 800px;
 }
+
+/* ===== [MOBILE] SAFE AREA ===== */
+/* iOS notch / Dynamic Island / Home Indicator support */
+.safe-top {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-left {
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.safe-right {
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* ===== [MOBILE] REDUCED MOTION (battery + accessibility) ===== */
+@media (prefers-reduced-motion: reduce) {
+
+  .animate-pulse-subtle,
+  .animate-squeeze-glow,
+  .animate-whale-glow,
+  .animate-dashboard-pulse,
+  .animate-card-breathe-bull,
+  .animate-card-breathe-bear,
+  .animate-card-breathe-warn,
+  .animate-ticker-scroll,
+  .animate-marquee {
+    animation: none !important;
+  }
+}
+
+/* ===== [MOBILE] TOUCH TARGET ENFORCEMENT ===== */
+/* Only on mobile — desktop untouched */
+@media (max-width: 768px) {
+
+  /* Ensure all interactive elements meet 44px min touch target */
+  button,
+  a,
+  [role="button"],
+  [role="tab"],
+  input,
+  select,
+  textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Fix body for PWA: prevent overscroll bounce on iOS */
+  body {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Prevent mobile text size adjustment */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+}
+
+/* ===== [MOBILE] DRAWER SLIDE ANIMATION ===== */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
+}

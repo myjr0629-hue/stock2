@@ -21,7 +21,9 @@ export function LandingHeader() {
     const [searchQuery, setSearchQuery] = useState("");
     const [user, setUser] = useState<any>(null);
     const [profileOpen, setProfileOpen] = useState(false);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
+    const mobileSearchRef = useRef<HTMLInputElement>(null);
 
     // Get current ticker from URL params for cross-page sync
     const currentTicker = searchParams.get('ticker')?.toUpperCase()
@@ -282,58 +284,185 @@ export function LandingHeader() {
                         </>
                     )}
 
-                    {/* [Mobile Menu Toggle] */}
-                    <div className="xl:hidden flex items-center">
-                        <details className="group relative">
-                            <summary className="list-none cursor-pointer p-2 text-slate-400 hover:text-white transition-colors">
+                    {/* [Mobile Menu Toggle — xl: below only] */}
+                    <div className="xl:hidden flex items-center gap-1">
+                        {/* Mobile Search Button */}
+                        <button
+                            onClick={() => { setMobileMenuOpen(true); setTimeout(() => mobileSearchRef.current?.focus(), 300); }}
+                            className="p-2.5 text-slate-400 hover:text-white transition-colors"
+                            aria-label="Search"
+                        >
+                            <Search className="w-5 h-5" />
+                        </button>
+                        {/* Hamburger Button */}
+                        <button
+                            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                            className="p-2.5 text-slate-400 hover:text-white transition-colors"
+                            aria-label="Menu"
+                        >
+                            {mobileMenuOpen ? (
                                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
                                 </svg>
-                            </summary>
-                            <div className="absolute right-0 top-full mt-2 w-48 bg-slate-900 border border-slate-700 rounded-xl shadow-xl overflow-hidden z-50 p-2 space-y-1">
-                                {[
-                                    { label: "DASHBOARD", href: "/dashboard" },
-                                    { label: "GUARDIAN", href: "/intel-guardian" },
-                                    { label: "COMMAND", href: `/ticker?ticker=${currentTicker}` },
-                                    { label: "FLOW", href: `/flow?ticker=${currentTicker}` },
-                                    { label: "INTEL", href: "/intel" },
-                                    { label: "PORTFOLIO", href: "/portfolio" },
-                                    { label: "WATCHLIST", href: "/watchlist" },
-                                    { label: "GUIDE", href: "/how-it-works" },
-                                    { label: "PRICING", href: "/pricing" }
-                                ].map((item) => (
-                                    <Link
-                                        key={item.label}
-                                        href={item.href}
-                                        className="block px-4 py-3 text-xs font-black text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors uppercase tracking-widest"
-                                    >
-                                        {item.label}
-                                    </Link>
-                                ))}
-                                <div className="h-px bg-slate-800 my-1" />
-                                {user ? (
-                                    <>
-                                        <Link
-                                            href="/settings"
-                                            className="block px-4 py-3 text-xs font-black text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors uppercase tracking-widest"
-                                        >
-                                            {t('nav.settings')}
-                                        </Link>
-                                        <button
-                                            onClick={handleSignOut}
-                                            className="w-full text-left block px-4 py-3 text-xs font-black text-rose-400 hover:bg-rose-950/30 rounded-lg uppercase tracking-widest"
-                                        >
-                                            {t('nav.signOut')}
-                                        </button>
-                                    </>
-                                ) : (
-                                    <Link href="/login" className="block px-4 py-3 text-xs font-black text-emerald-400 hover:bg-emerald-950/30 rounded-lg uppercase tracking-widest">
-                                        {t('nav.signIn')}
-                                    </Link>
-                                )}
-                            </div>
-                        </details>
+                            ) : (
+                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+                                </svg>
+                            )}
+                        </button>
                     </div>
+
+                    {/* ===== MOBILE FULL-SCREEN DRAWER (xl: below only) ===== */}
+                    {mobileMenuOpen && (
+                        <div className="fixed inset-0 z-[100] xl:hidden">
+                            {/* Backdrop */}
+                            <div
+                                className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                                onClick={() => setMobileMenuOpen(false)}
+                            />
+                            {/* Drawer panel — slides from right */}
+                            <div className="absolute right-0 top-0 bottom-0 w-[85%] max-w-[360px] bg-[#0a0f1a]/98 backdrop-blur-2xl border-l border-white/10 shadow-2xl overflow-y-auto safe-top safe-bottom"
+                                style={{ animation: 'slideInRight 0.25s ease-out' }}
+                            >
+                                {/* Drawer Header */}
+                                <div className="flex items-center justify-between px-5 pt-5 pb-3">
+                                    <span className="text-lg font-black text-white tracking-tight">
+                                        SIGNUM<span className="text-cyan-400">HQ</span>
+                                    </span>
+                                    <button
+                                        onClick={() => setMobileMenuOpen(false)}
+                                        className="p-2 text-slate-400 hover:text-white transition-colors"
+                                    >
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                </div>
+
+                                {/* Mobile Search */}
+                                <div className="px-5 pb-4">
+                                    <form onSubmit={(e) => { handleSearch(e); setMobileMenuOpen(false); }}>
+                                        <div className="relative">
+                                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                            <input
+                                                ref={mobileSearchRef}
+                                                type="text"
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                placeholder={t('landing.searchPlaceholder')}
+                                                className="w-full pl-10 pr-4 h-11 bg-white/[0.05] border border-white/10 rounded-xl
+                                                    text-sm font-bold text-white placeholder:text-slate-500
+                                                    focus:border-cyan-500/50 focus:shadow-[0_0_12px_rgba(34,211,238,0.15)]
+                                                    transition-all outline-none uppercase tracking-wider"
+                                            />
+                                        </div>
+                                    </form>
+                                </div>
+
+                                {/* Navigation Links */}
+                                <nav className="px-3 space-y-0.5">
+                                    {[
+                                        { label: "DASHBOARD", href: "/dashboard", icon: "📊" },
+                                        { label: "GUARDIAN", href: "/intel-guardian", icon: "🛡️" },
+                                        { label: "COMMAND", href: `/ticker?ticker=${currentTicker}`, icon: "⚡" },
+                                        { label: "FLOW", href: `/flow?ticker=${currentTicker}`, icon: "🌊" },
+                                        { label: "INTEL", href: "/intel", icon: "🔍" },
+                                        { label: "PORTFOLIO", href: "/portfolio", icon: "💼" },
+                                        { label: "WATCHLIST", href: "/watchlist", icon: "⭐" },
+                                        { label: "GUIDE", href: "/how-it-works", icon: "📖" },
+                                        { label: "PRICING", href: "/pricing", icon: "💰" },
+                                    ].map((item) => {
+                                        const isActive = item.href === "/intel"
+                                            ? pathname === "/intel"
+                                            : pathname?.startsWith(item.href.split('?')[0]);
+                                        return (
+                                            <Link
+                                                key={item.label}
+                                                href={item.href}
+                                                onClick={() => setMobileMenuOpen(false)}
+                                                className={clsx(
+                                                    "flex items-center gap-3.5 px-4 py-3.5 rounded-xl transition-all text-[13px] font-bold tracking-widest uppercase",
+                                                    isActive
+                                                        ? "text-emerald-400 bg-emerald-950/30 border border-emerald-500/20"
+                                                        : "text-slate-300 hover:text-white hover:bg-white/5"
+                                                )}
+                                            >
+                                                <span className="text-base">{item.icon}</span>
+                                                {item.label}
+                                                {isActive && (
+                                                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+                                                )}
+                                            </Link>
+                                        );
+                                    })}
+                                </nav>
+
+                                {/* Language + Auth Section */}
+                                <div className="mt-6 mx-3 pt-4 border-t border-white/10">
+                                    {/* Language Switcher */}
+                                    <div className="flex items-center gap-1 px-4 py-3 font-jakarta">
+                                        {([
+                                            { code: 'ko', label: '한국어' },
+                                            { code: 'en', label: 'English' },
+                                            { code: 'ja', label: '日本語' },
+                                        ] as const).map((loc) => {
+                                            const isActiveLang = locale === loc.code;
+                                            return (
+                                                <button
+                                                    key={loc.code}
+                                                    onClick={() => {
+                                                        const queryString = searchParams.toString();
+                                                        const newPath = queryString ? `${pathname}?${queryString}` : pathname;
+                                                        router.replace(newPath, { locale: loc.code });
+                                                        setMobileMenuOpen(false);
+                                                    }}
+                                                    className={clsx(
+                                                        "flex-1 py-2.5 text-xs font-bold rounded-lg transition-all text-center",
+                                                        isActiveLang
+                                                            ? "text-cyan-400 bg-cyan-950/30 border border-cyan-500/20"
+                                                            : "text-slate-400 hover:text-white hover:bg-white/5"
+                                                    )}
+                                                >
+                                                    {loc.label}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Sign In / Sign Out */}
+                                    <div className="px-1 py-2">
+                                        {user ? (
+                                            <>
+                                                <Link
+                                                    href="/settings"
+                                                    onClick={() => setMobileMenuOpen(false)}
+                                                    className="flex items-center gap-3 px-4 py-3.5 text-sm font-bold text-slate-300 hover:text-white hover:bg-white/5 rounded-xl transition-colors"
+                                                >
+                                                    <Settings className="w-4 h-4" />
+                                                    {t('nav.settings')}
+                                                </Link>
+                                                <button
+                                                    onClick={() => { handleSignOut(); setMobileMenuOpen(false); }}
+                                                    className="flex items-center gap-3 w-full px-4 py-3.5 text-sm font-bold text-rose-400/80 hover:text-rose-400 hover:bg-rose-950/20 rounded-xl transition-colors"
+                                                >
+                                                    <LogOut className="w-4 h-4" />
+                                                    {t('nav.signOut')}
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <Link
+                                                href="/login"
+                                                onClick={() => setMobileMenuOpen(false)}
+                                                className="flex items-center justify-center gap-2 w-full px-4 py-3.5 text-sm font-bold text-cyan-400 border border-cyan-500/40 rounded-xl hover:border-cyan-400/70 hover:shadow-[0_0_15px_rgba(34,211,238,0.15)] transition-all"
+                                            >
+                                                {t('nav.signIn')}
+                                            </Link>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
             {/* Global Market Ticker */}
