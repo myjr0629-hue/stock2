@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// ── Server-side memory cache: prevents data disappearance on Polygon failures ──
+const whaleCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes max staleness
+
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const ticker = searchParams.get('t')?.toUpperCase();
@@ -9,59 +13,46 @@ export async function GET(req: NextRequest) {
     }
 
     try {
-        // [V2 Revamp] Use Option Snapshot to capture "Latest Whispers" across the chain
-        // Logic:
-        // 1. Fetch entire option chain snapshot (or large batch)
-        // 2. Extract 'last_trade' from each contract
-        // 3. Filter for 'Whale' criteria:
-        //    - Expiry <= 14 days (Gamma Explosion Zone)
-        //    - Premium >= $50k (Institutional Size)
-        //    - Trade Time: Recent (Dynamic based on market status)
-
-        // Note: Snapshot returns the *latest* trade for each contract. 
-        // This is the best proxy for "Live Flow" without a websocket.
-
-        // Use getOptionSnapshot which hits /v3/snapshot/options/{ticker}
-        // Ideally we need ALL contracts, so massiveClient might need to handle pagination if 250 is not enough.
-        // For now, we assume the client fetches a decent chunk or the API returns all.
-        // (Polygon Snapshot usually returns ALL in one go, usually heavily cached).
-
         const { getOptionSnapshot, fetchMarketStatus } = await import('@/services/massiveClient');
 
         const rawChain = await getOptionSnapshot(ticker);
 
         if (!rawChain || rawChain.length === 0) {
+            // ── Polygon returned empty → serve cached data if available ──
+            const cached = whaleCache.get(ticker);
+            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+                return NextResponse.json({
+                    ...cached.data,
+                    _cached: true,
+                    _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
+                });
+            }
             return NextResponse.json({
                 ticker,
                 count: 0,
                 items: [],
-                debug: { note: "No snapshot data found" }
+                debug: { note: "No snapshot data found, no cache available" }
             });
         }
 
         const now = new Date();
 
         // [V3 Fix] Dynamic Cutoff Based on Market Status
-        // - Market Open/Extended: Use 20 hours (current session)
-        // - Market Closed (Weekend/Holiday): Use 72 hours (last trading session)
-        let hoursBack = 20; // Default for open market
+        let hoursBack = 20;
         let marketStatus = 'unknown';
 
         try {
             const status = await fetchMarketStatus();
             if (status) {
-                // Polygon API returns exchanges.nyse/nasdaq status, not a top-level 'market' field
                 const nyseStatus = (status as any).exchanges?.nyse || 'unknown';
                 const nasdaqStatus = (status as any).exchanges?.nasdaq || 'unknown';
                 marketStatus = nyseStatus;
 
-                // If NYSE/NASDAQ is closed, extend to 72 hours
                 if (nyseStatus === 'closed' || nasdaqStatus === 'closed') {
                     hoursBack = 72;
                 }
             }
         } catch (e) {
-            // Fallback: Use day of week to detect weekend
             const dayOfWeek = now.getUTCDay();
             if (dayOfWeek === 0 || dayOfWeek === 6) {
                 hoursBack = 72;
@@ -71,14 +62,12 @@ export async function GET(req: NextRequest) {
 
         const cutoffTime = new Date(now.getTime() - hoursBack * 60 * 60 * 1000);
 
-        // 14 Days logic (Forward looking)
         const fourteenDaysFromNow = new Date();
         fourteenDaysFromNow.setDate(now.getDate() + 14);
 
         const whaleTrades: any[] = [];
 
         for (const contract of rawChain) {
-            // 1. Check Trade Existence
             const trade = contract.last_trade?.last_trade_sip || contract.last_trade;
 
             if (!trade || !trade.price || !trade.size) continue;
@@ -87,25 +76,20 @@ export async function GET(req: NextRequest) {
             const timestampMs = timestampNs / 1000000;
             const tradeDate = new Date(timestampMs);
 
-            // Filter: Recent Flow (Last 20 hours)
             if (tradeDate < cutoffTime) continue;
 
-            // 2. Check Expiry (from details)
             const details = contract.details;
             if (!details || !details.expiration_date) continue;
 
-            const expiryStr = details.expiration_date; // "2025-01-16"
+            const expiryStr = details.expiration_date;
             const expiry = new Date(expiryStr);
 
-            // Filter: Expiry <= 14 Days
             if (expiry > fourteenDaysFromNow || expiry < cutoffTime) continue;
 
-            // 3. Calculate Premium
             const price = trade.price;
             const size = trade.size;
-            const premium = price * size * 100; // 1 contract = 100 shares
+            const premium = price * size * 100;
 
-            // Filter: Whale Size ($50k+)
             if (premium < 50000) continue;
 
             whaleTrades.push({
@@ -136,7 +120,7 @@ export async function GET(req: NextRequest) {
         // Sort by Time Descending
         whaleTrades.sort((a, b) => b.timestamp - a.timestamp);
 
-        return NextResponse.json({
+        const response = {
             ticker,
             count: whaleTrades.length,
             items: whaleTrades,
@@ -147,12 +131,42 @@ export async function GET(req: NextRequest) {
                 hoursBack,
                 criteria: `Premium >= $50k, Expiry <= 14d, Last ${hoursBack}h`
             }
-        });
+        };
+
+        // ── Cache successful response (even if 0 whale trades from valid chain) ──
+        if (whaleTrades.length > 0) {
+            whaleCache.set(ticker, { data: response, timestamp: Date.now() });
+        } else {
+            // Valid chain but 0 whale trades → still serve cache if available
+            const cached = whaleCache.get(ticker);
+            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+                return NextResponse.json({
+                    ...cached.data,
+                    _cached: true,
+                    _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
+                });
+            }
+        }
+
+        return NextResponse.json(response);
 
     } catch (error: any) {
         console.error(`[API] Whale feed error for ${ticker}:`, error);
+
+        // ── On error, serve cached data ──
+        const cached = whaleCache.get(ticker);
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            return NextResponse.json({
+                ...cached.data,
+                _cached: true,
+                _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000),
+                _error: error.message
+            });
+        }
+
         return NextResponse.json({
             error: error.message || 'Internal Server Error',
+            items: [],
             details: error
         }, { status: 500 });
     }

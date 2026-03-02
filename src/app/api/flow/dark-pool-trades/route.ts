@@ -14,6 +14,10 @@ const DARK_POOL_EXCHANGES: Set<number> = new Set([4, 15, 16, 19]);
 // 12 = Average Price, 41 = Price Variation, 52 = Contingent
 const DARK_POOL_CONDITIONS: Set<number> = new Set([12, 41, 52]);
 
+// ── Server-side memory cache: prevents data disappearance on Polygon failures ──
+const dpCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes max staleness
+
 interface DarkPoolTrade {
     id: string;
     price: number;
@@ -61,6 +65,15 @@ export async function GET(request: NextRequest) {
 
         if (!res.ok) {
             console.error(`[dark-pool-trades] API error: ${res.status}`);
+            // ── Polygon error → serve cached data ──
+            const cached = dpCache.get(ticker);
+            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+                return NextResponse.json({
+                    ...cached.data,
+                    _cached: true,
+                    _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
+                });
+            }
             return NextResponse.json({ error: `API error: ${res.status}`, items: [] }, { status: res.status });
         }
 
@@ -111,16 +124,42 @@ export async function GET(request: NextRequest) {
         // Take top N
         const topTrades = darkPoolTrades.slice(0, limit);
 
-        return NextResponse.json({
+        const response = {
             ticker,
             timestamp: new Date().toISOString(),
             totalDarkPoolVolume,
             totalDarkPoolValue: Math.round(totalDarkPoolValue),
             tradeCount: darkPoolTrades.length,
             items: topTrades,
-        });
+        };
+
+        // ── Cache successful response with data ──
+        if (topTrades.length > 0) {
+            dpCache.set(ticker, { data: response, timestamp: Date.now() });
+        } else {
+            // Polygon returned trades but none were dark pool → serve cache if available
+            const cached = dpCache.get(ticker);
+            if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+                return NextResponse.json({
+                    ...cached.data,
+                    _cached: true,
+                    _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
+                });
+            }
+        }
+
+        return NextResponse.json(response);
     } catch (error) {
         console.error('[dark-pool-trades] Error:', error);
+        // ── On error, serve cached data ──
+        const cached = dpCache.get(ticker);
+        if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+            return NextResponse.json({
+                ...cached.data,
+                _cached: true,
+                _cacheAge: Math.round((Date.now() - cached.timestamp) / 1000)
+            });
+        }
         return NextResponse.json(
             { error: 'Failed to fetch dark pool trades', items: [] },
             { status: 500 }
