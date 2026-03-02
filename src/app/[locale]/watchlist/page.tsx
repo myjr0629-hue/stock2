@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import WatchlistClientPage from './WatchlistClientPage';
 import { getWatchlistServer } from '@/lib/storage/watchlistStoreServer';
 import { processWatchlistBatch } from '@/services/watchlistBatchService';
+import WatchlistLoading from './loading';
 
 // Fetch FULL watchlist data to completely eliminate progressive loading layout shifts (no dashes `-`)
 async function getInitialFullData(tickers: string[]) {
@@ -22,9 +23,8 @@ async function getInitialFullData(tickers: string[]) {
 // Ensure the page is dynamically rendered to handle cookies on every request securely
 export const dynamic = 'force-dynamic';
 
-export default async function WatchlistPage({ params }: { params: Promise<{ locale: string }> }) {
-    const { locale } = await params;
-
+// [PERF] Async data loader — rendered inside <Suspense> so the shell streams instantly
+async function WatchlistDataLoader({ locale }: { locale: string }) {
     // 1. Fetch user's personalized watchlist securely via SSR cookies
     const watchlistData = await getWatchlistServer();
 
@@ -37,12 +37,25 @@ export default async function WatchlistPage({ params }: { params: Promise<{ loca
         initialFullData = await getInitialFullData(tickers);
     }
 
-    // 4. Inject into the client wrapper to eliminate the 2s loading skeleton AND progressive dashes
+    // 4. Inject into the client wrapper with full SSR data
     return (
         <WatchlistClientPage
             locale={locale}
             initialWatchlist={watchlistData.items}
             initialFullData={initialFullData}
         />
+    );
+}
+
+export default async function WatchlistPage({ params }: { params: Promise<{ locale: string }> }) {
+    const { locale } = await params;
+
+    // [PERF] Suspense Streaming: page shell (nav, layout) renders instantly,
+    // data-dependent content streams in as it becomes ready.
+    // loading.tsx skeleton is used as fallback during data fetch.
+    return (
+        <Suspense fallback={<WatchlistLoading />}>
+            <WatchlistDataLoader locale={locale} />
+        </Suspense>
     );
 }

@@ -78,25 +78,29 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
     const isClosed = marketStatus.session === 'closed';
 
     // SWR: Full data with 30s auto-refresh (Alpha, Whale, GEX, etc.)
+    const hasSSRData = !!(initialFullData && initialFullData.length > 0);
     const { data: fullData, error, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
         tickerString ? `/api/watchlist/batch?tickers=${tickerString}` : null,
         fetcher,
         {
-            fallbackData: initialFullData && initialFullData.length > 0 ? { results: initialFullData } : undefined,
+            fallbackData: hasSSRData ? { results: initialFullData } : undefined,
             refreshInterval: isClosed ? 0 : 30000,
             revalidateOnFocus: false,
+            // [PERF] Skip mount revalidate when SSR data is fresh AND market is open (refreshInterval will update)
+            // When market is closed, always revalidate once on mount because refreshInterval=0 won't trigger
+            revalidateOnMount: isClosed || !hasSSRData,
             dedupingInterval: 5000,
         }
     );
 
-    // SWR: Price-only with 10s auto-refresh (lightweight)
+    // SWR: Price-only with 2s auto-refresh (lightweight — always fetch on mount for accurate prices)
     const { data: priceData, isLoading: priceLoading } = useSWR(
         tickerString ? `/api/live/quotes?symbols=${tickerString}` : null,
         fetcher,
         {
             // If we have initialFullData, we can map price out of it for standard quotes fallback
-            fallbackData: initialFullData && initialFullData.length > 0 ? {
-                data: initialFullData.reduce((acc, r) => {
+            fallbackData: hasSSRData ? {
+                data: initialFullData!.reduce((acc, r) => {
                     acc[r.ticker] = r.realtime;
                     return acc;
                 }, {} as Record<string, any>)
