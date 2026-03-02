@@ -11,14 +11,15 @@ export function Footer() {
     // Guide pages have a fixed sidebar — offset footer to match
     const isGuide = pathname.includes('/how-it-works');
     const isIntel = pathname.includes('/intel') && !pathname.includes('/intel-guardian');
-    const needsOffset = isGuide || isIntel;
+    const isFlow = pathname.includes('/flow');
+    const needsOffset = isGuide || isIntel || isFlow;
 
     const isKorean = pathname.startsWith('/ko');
     const locale = pathname.startsWith('/ja') ? 'ja' : pathname.startsWith('/ko') ? 'ko' : 'en';
 
     return (
         <footer className={`border-t border-white/[0.03] bg-[#080d18] pb-20 md:pb-0 ${needsOffset ? 'lg:pl-56' : ''}`}>
-            <div className="px-4 sm:px-6 py-4 lg:px-8 max-w-[1400px] mx-auto">
+            <div className="px-4 sm:px-6 pt-8 pb-4 lg:px-8 max-w-[1400px] mx-auto">
 
                 {/* ── Legal Links Row ── */}
                 <div className="text-[12px] text-slate-400 text-center mb-3 flex items-center justify-center gap-1 flex-wrap">
