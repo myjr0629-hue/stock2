@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 
-export const revalidate = 30; // 30s TTL
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
     // [S-48.2] Converted to use MacroHub SSOT (Massive Direct Only)
