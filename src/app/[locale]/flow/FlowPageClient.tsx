@@ -121,6 +121,8 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                             <div className="flex items-center gap-2.5">
                                 <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
                                     <img
+                                        loading="lazy"
+                                        decoding="async"
                                         src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
                                         alt={`${ticker} logo`}
                                         className="w-full h-full object-cover"

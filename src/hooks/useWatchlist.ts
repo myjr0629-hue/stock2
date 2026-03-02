@@ -9,6 +9,7 @@ import {
     type WatchlistItem,
     type WatchlistData
 } from '@/lib/storage/watchlistStore';
+import { useMarketStatus } from './useMarketStatus';
 
 export interface EnrichedWatchlistItem extends WatchlistItem {
     currentPrice: number;
@@ -72,13 +73,17 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
 
     const tickerString = watchlistData.items.map(i => i.ticker).join(',');
 
+    // [PERF] Stop polling when market is closed (weekends, nights)
+    const { status: marketStatus } = useMarketStatus();
+    const isClosed = marketStatus.session === 'closed';
+
     // SWR: Full data with 30s auto-refresh (Alpha, Whale, GEX, etc.)
     const { data: fullData, error, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
         tickerString ? `/api/watchlist/batch?tickers=${tickerString}` : null,
         fetcher,
         {
             fallbackData: initialFullData && initialFullData.length > 0 ? { results: initialFullData } : undefined,
-            refreshInterval: 30000,
+            refreshInterval: isClosed ? 0 : 30000,
             revalidateOnFocus: false,
             dedupingInterval: 5000,
         }
@@ -96,7 +101,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     return acc;
                 }, {} as Record<string, any>)
             } : undefined,
-            refreshInterval: 2000, // [UX] Near-real-time price feel
+            refreshInterval: isClosed ? 0 : 2000, // [UX] Near-real-time price feel (disabled when closed)
             revalidateOnFocus: false,
             dedupingInterval: 3000,
         }

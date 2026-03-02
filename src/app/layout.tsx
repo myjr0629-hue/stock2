@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { GuardianProvider } from "@/components/guardian/GuardianProvider";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
+import Script from "next/script";
 
 // [PERF] next/font: 빌드 시 다운로드 → 셀프호스팅 (외부 CDN 렌더 블로킹 제거)
 const inter = Inter({
@@ -31,11 +32,19 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning className={`${inter.variable} ${plusJakarta.variable}`}>
       <head>
-        {/* Pretendard CDN for Korean (로컬 파일 없으므로 CDN 유지) */}
+        {/* [PERF] Pretendard: preload for early download + afterInteractive to avoid render blocking */}
         <link
-          rel="stylesheet"
+          rel="preload"
           href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+          as="style"
+          crossOrigin="anonymous"
         />
+        <noscript>
+          <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css"
+          />
+        </noscript>
       </head>
       <body
         className="antialiased"
@@ -43,6 +52,12 @@ export default function RootLayout({
         <GuardianProvider>
           {children}
         </GuardianProvider>
+        {/* [PERF] Pretendard: activate preloaded CSS after hydration */}
+        <Script id="load-pretendard" strategy="afterInteractive">{`
+          var l=document.createElement('link');l.rel='stylesheet';
+          l.href='https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css';
+          document.head.appendChild(l);
+        `}</Script>
       </body>
     </html>
   );

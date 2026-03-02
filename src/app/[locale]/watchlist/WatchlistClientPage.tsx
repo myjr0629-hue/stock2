@@ -466,6 +466,8 @@ function WatchlistCard({ item, onRemove, locale, index }: {
                     <div className="flex items-center gap-2.5 min-w-0">
                         <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0">
                             <img
+                                loading="lazy"
+                                decoding="async"
                                 src={`https://financialmodelingprep.com/image-stock/${item.ticker}.png`}
                                 alt={item.ticker}
                                 className="w-6 h-6 object-contain"
@@ -1046,6 +1048,8 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
                             <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] transition-all duration-300">
                                 <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0 shadow-md">
                                     <img
+                                        loading="lazy"
+                                        decoding="async"
                                         src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
                                         alt={ticker}
                                         className="w-6 h-6 object-contain"

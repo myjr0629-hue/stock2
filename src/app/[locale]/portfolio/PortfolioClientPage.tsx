@@ -386,7 +386,7 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                     {/* Ticker */}
                     <div className="flex items-center gap-2.5 min-w-0">
                         <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0">
-                            <img src={`https://financialmodelingprep.com/image-stock/${holding.ticker}.png`} alt={holding.ticker} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            <img loading="lazy" decoding="async" src={`https://financialmodelingprep.com/image-stock/${holding.ticker}.png`} alt={holding.ticker} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                             <span className="text-[8px] font-bold text-slate-600 absolute">{holding.ticker.slice(0, 2)}</span>
                         </div>
                         <div className="min-w-0">

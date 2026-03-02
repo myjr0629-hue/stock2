@@ -723,6 +723,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     <div className="flex items-center gap-3">
                         <div className="relative w-11 h-11 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
                             <img
+                                loading="lazy"
+                                decoding="async"
                                 src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
                                 alt={ticker}
                                 className="w-full h-full object-cover"
@@ -844,6 +846,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="flex items-center gap-2.5">
                             <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
                                 <img
+                                    loading="lazy"
+                                    decoding="async"
                                     src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
                                     alt={`${ticker} logo`}
                                     className="w-full h-full object-cover"
@@ -1386,6 +1390,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         onClick={() => window.location.href = `/${locale}/ticker?ticker=${item.ticker}`}>
                                         <div className="flex items-center gap-1.5">
                                             <img
+                                                loading="lazy"
+                                                decoding="async"
                                                 src={`https://assets.parqet.com/logos/symbol/${item.ticker}?format=png`}
                                                 alt={item.ticker}
                                                 className="w-4 h-4 rounded-full object-cover bg-white/10"

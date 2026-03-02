@@ -111,12 +111,10 @@ export function FeatureGate({
         return <>{children}</>;
     }
 
-    // 로딩 중에는 스켈레톤 (기존 UI 깨지지 않도록)
+    // 로딩 중에는 children을 그대로 렌더링 (SSR↔Client 일치 = hydration mismatch 방지)
+    // tier가 resolve된 후 자동으로 게이트 적용됨
     if (loading) {
-        return (
-            <div className={`animate-pulse rounded-xl bg-slate-800/30 ${className}`}
-                style={{ minHeight: minHeight || (compact ? '60px' : '120px') }} />
-        );
+        return <>{children}</>;
     }
 
     const colors = TIER_COLOR[requiredTier] || TIER_COLOR.pro;

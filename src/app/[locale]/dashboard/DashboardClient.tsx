@@ -291,6 +291,8 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                 {/* Left: Logo + Ticker (fixed width) */}
                 <div className="flex items-center gap-2 w-16 flex-shrink-0">
                     <img
+                        loading="lazy"
+                        decoding="async"
                         src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
                         alt={ticker}
                         className="w-5 h-5 rounded bg-[#1a2535] object-contain"
@@ -559,6 +561,8 @@ function MainChartPanel() {
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden relative">
                         <img
+                            loading="lazy"
+                            decoding="async"
                             src={`https://financialmodelingprep.com/image-stock/${selectedTicker}.png`}
                             alt={selectedTicker}
                             className="w-5 h-5 object-contain"
@@ -1193,6 +1197,8 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
                 {/* Ticker Logo */}
                 <div className="w-5 h-5 rounded bg-slate-800/50 flex items-center justify-center overflow-hidden flex-shrink-0">
                     <img
+                        loading="lazy"
+                        decoding="async"
                         src={`https://financialmodelingprep.com/image-stock/${signal.ticker}.png`}
                         alt=""
                         className="w-3.5 h-3.5 object-contain"

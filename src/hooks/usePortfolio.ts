@@ -9,6 +9,7 @@ import {
     type Holding,
     type PortfolioData
 } from '@/lib/storage/portfolioStore';
+import { useMarketStatus } from './useMarketStatus';
 
 export interface EnrichedHolding extends Holding {
     currentPrice: number;
@@ -84,6 +85,10 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
 
     const tickerString = portfolioData.holdings.map(h => h.ticker).join(',');
 
+    // [PERF] Stop polling when market is closed (weekends, nights)
+    const { status: marketStatus } = useMarketStatus();
+    const isClosed = marketStatus.session === 'closed';
+
     // ── SWR: Full data with 30s auto-refresh (Alpha, Signal, Action, etc.) ──
     const { data: fullData, error: fullError, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
         tickerString ? `/api/portfolio/batch?tickers=${tickerString}` : null,
@@ -92,7 +97,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
             fallbackData: initialFullData && initialFullData.length > 0
                 ? { results: initialFullData }
                 : undefined,
-            refreshInterval: 30000,      // 30s full refresh
+            refreshInterval: isClosed ? 0 : 30000,      // 30s full refresh (disabled when closed)
             revalidateOnFocus: false,
             dedupingInterval: 5000,
         }
@@ -117,7 +122,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                     }
                 }))
             } : undefined,
-            refreshInterval: 2000,       // 2s fast price polling (matches watchlist)
+            refreshInterval: isClosed ? 0 : 2000,       // 2s fast price polling (disabled when closed)
             revalidateOnFocus: false,
             dedupingInterval: 2000,
         }
@@ -134,7 +139,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                     return acc;
                 }, {} as Record<string, any>)
             } : undefined,
-            refreshInterval: 2000,      // 2s near-real-time (matches watchlist)
+            refreshInterval: isClosed ? 0 : 2000,      // 2s near-real-time (disabled when closed)
             revalidateOnFocus: false,
             dedupingInterval: 3000,
         }
