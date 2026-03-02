@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
+import { useRouter } from "next/navigation";
 import {
     Check,
     Lock,
@@ -412,9 +413,12 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        <button className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta">
+                        <Link
+                            href={`/checkout?plan=pro&billing=${isAnnual ? 'annual' : 'monthly'}`}
+                            className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta"
+                        >
                             {t("proCta")}
-                        </button>
+                        </Link>
                     </div>
 
                     {/* 👑 ELITE Card — Right (Visual Dominance) */}
@@ -454,9 +458,12 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        <button className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta">
+                        <Link
+                            href={`/checkout?plan=elite&billing=${isAnnual ? 'annual' : 'monthly'}`}
+                            className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
+                        >
                             {t("eliteCta")} <ArrowRight className="w-4 h-4" />
-                        </button>
+                        </Link>
                     </div>
                 </div>
             </section>

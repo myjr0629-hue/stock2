@@ -17,6 +17,7 @@
     "@react-three/postprocessing": "^3.0.4",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.3",
+    "@tosspayments/tosspayments-sdk": "^2.5.0",
     "@types/three": "^0.182.0",
     "@upstash/redis": "^1.36.2",
     "@vercel/kv": "^3.0.0",
