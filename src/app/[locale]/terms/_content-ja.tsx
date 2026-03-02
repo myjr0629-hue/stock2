@@ -106,10 +106,9 @@ export const sections: TermsSection[] = [
         title: '第7条（返金ポリシー）',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li><strong>デジタルコンテンツの特性：</strong> 本サービスは決済と同時にプレミアムデータと分析レポートにアクセス可能な「デジタルコンテンツ」に該当します。</li>
-                <li><strong>返金制限：</strong> 特定商取引法に基づき、会員が有料データの閲覧、レポートの閲覧、またはサービスに1回以上接続してデータを消費した場合、<strong>サービスの価値が利用されたものとみなし、返金が制限される</strong>場合があります。</li>
-                <li><strong>例外：</strong> 決済後7日以内にサービスへのアクセスおよびデータ閲覧履歴が全くない場合に限り、全額返金が可能です。</li>
-                <li><strong>返金手続き：</strong> 返金リクエストはサービス内のお問い合わせまたはメール（<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>）から申請でき、当社は受領日から営業日基準7日以内に処理します。</li>
+                <li><strong>14日間無条件返金保証：</strong> 初回購入日から<strong>14日以内に返金をリクエストいただければ、理由を問わず全額返金</strong>いたします。</li>
+                <li><strong>返金手続き：</strong> 返金リクエストはメール（<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>）から申請でき、受領日から営業日基準7日以内に処理します。</li>
+                <li><strong>14日経過後：</strong> 14日経過後はいつでもサブスクリプションを解約して今後の課金を停止できますが、残余サブスクリプション期間に対する日割返金は提供されません。</li>
             </ol>
         ),
     },

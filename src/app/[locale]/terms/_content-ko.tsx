@@ -102,13 +102,12 @@ export const sections: TermsSection[] = [
     {
         icon: CreditCard,
         color: 'text-teal-400',
-        title: '제7조 (청약 철회 및 환불 정책)',
+        title: '제7조 (환불 정책)',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li><strong>디지털 콘텐츠의 특성:</strong> 본 서비스는 결제 즉시 프리미엄 데이터와 분석 리포트에 접근 가능한 &apos;디지털 콘텐츠&apos;에 해당합니다.</li>
-                <li><strong>환불 제한:</strong> 「전자상거래 등에서의 소비자보호에 관한 법률」에 의거하여, 회원이 유료 데이터 조회, 리포트 열람, 또는 서비스에 1회 이상 접속하여 데이터를 소비한 경우 <strong>서비스의 가치가 이용된 것으로 간주하여 환불이 제한</strong>될 수 있습니다.</li>
-                <li><strong>예외:</strong> 결제 후 7일 이내에 서비스 접속 및 데이터 열람 이력이 전혀 없는 경우에 한하여 전액 환불이 가능합니다.</li>
-                <li><strong>환불 절차:</strong> 환불 요청은 서비스 내 문의 또는 이메일(<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>)을 통해 신청할 수 있으며, 회사는 요청 접수일로부터 영업일 기준 7일 이내에 처리합니다.</li>
+                <li><strong>14일 무조건 환불 보장:</strong> 최초 구매일로부터 <strong>14일 이내에 환불을 요청하시면 사유를 불문하고 전액 환불</strong>해 드립니다.</li>
+                <li><strong>환불 절차:</strong> 환불 요청은 이메일(<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>)을 통해 신청할 수 있으며, 요청 접수일로부터 영업일 기준 7일 이내에 처리됩니다.</li>
+                <li><strong>14일 경과 후:</strong> 14일이 경과한 후에는 언제든지 구독을 해지하여 향후 과금을 중단할 수 있으나, 남은 구독 기간에 대한 일할 환불은 제공되지 않습니다.</li>
             </ol>
         ),
     },

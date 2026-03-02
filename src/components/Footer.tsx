@@ -8,10 +8,6 @@ export function Footer() {
     const t = useTranslations('footer');
     const pathname = usePathname();
 
-    // Hide footer on landing page only
-    const isLanding = pathname === '/' || /^\/(ko|en|ja)\/?$/.test(pathname);
-    if (isLanding) return null;
-
     // Guide pages have a fixed sidebar — offset footer to match
     const isGuide = pathname.includes('/how-it-works');
     const isIntel = pathname.includes('/intel') && !pathname.includes('/intel-guardian');
@@ -26,7 +22,7 @@ export function Footer() {
 
                 {/* ── Legal Links Row ── */}
                 <div className="text-[12px] text-slate-400 text-center mb-3 flex items-center justify-center gap-1 flex-wrap">
-                    <span className="text-slate-500">© 2026 SIGNUM HQ. All rights reserved.</span>
+                    <span className="text-slate-500">© 2026 eunhoonmaster (DBA SIGNUM HQ). All rights reserved.</span>
                     <span className="text-slate-600 mx-1">|</span>
                     <Link href={`/${locale}/terms`} className="underline hover:text-white transition-colors">
                         {isKorean ? '이용약관' : locale === 'ja' ? '利用規約' : 'Terms of Service'}
@@ -34,6 +30,10 @@ export function Footer() {
                     <span className="text-slate-600 mx-1">|</span>
                     <Link href={`/${locale}/privacy`} className="underline hover:text-white transition-colors">
                         {isKorean ? '개인정보처리방침' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}
+                    </Link>
+                    <span className="text-slate-600 mx-1">|</span>
+                    <Link href={`/${locale}/refund`} className="underline hover:text-white transition-colors">
+                        {isKorean ? '환불정책' : locale === 'ja' ? '返金ポリシー' : 'Refund Policy'}
                     </Link>
                     <span className="text-slate-600 mx-1">|</span>
                     <span>{isKorean ? '연락처' : locale === 'ja' ? 'お問い合わせ' : 'Contact'}: <a href="mailto:contact@signumhq.com" className="underline hover:text-white transition-colors">contact@signumhq.com</a></span>
@@ -59,4 +59,3 @@ export function Footer() {
         </footer>
     );
 }
-

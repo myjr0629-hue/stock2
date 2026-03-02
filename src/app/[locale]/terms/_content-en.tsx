@@ -124,10 +124,9 @@ export const sections: TermsSection[] = [
         title: 'Article 7. Refund Policy',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li><strong>Digital Content:</strong> The Service provides instant access to premium data and analysis reports upon payment, qualifying as &quot;digital content.&quot;</li>
-                <li><strong>Limited Refunds:</strong> Once a Member has accessed paid data, viewed reports, or connected to the Service at least once, <strong>the Service value is considered consumed and refunds may be limited.</strong></li>
-                <li><strong>Exception:</strong> A full refund is available within 7 days of payment if there is no record of Service access or data viewing.</li>
-                <li><strong>Refund Process:</strong> Refund requests may be submitted via the Service or email (<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>) and will be processed within 7 business days.</li>
+                <li><strong>14-Day Money-Back Guarantee:</strong> We offer a <strong>14-day unconditional money-back guarantee</strong> from the date of your initial purchase. If you are not satisfied with our service for any reason, you may request a full refund within 14 days. <strong>No questions asked.</strong></li>
+                <li><strong>How to Request:</strong> Refund requests may be submitted via email (<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>). Refunds will be processed within 7 business days.</li>
+                <li><strong>After 14 Days:</strong> After the 14-day refund window has passed, subscriptions may be cancelled at any time to prevent future charges, but no partial refund will be issued for the remaining subscription period.</li>
             </ol>
         ),
     },
