@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/routing";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
@@ -24,6 +24,7 @@ const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY!;
 export default function CheckoutPage() {
     const searchParams = useSearchParams();
     const locale = useLocale();
+    const router = useRouter();
     const t = useTranslations("pricing");
 
     const plan = searchParams.get("plan") || "pro";
@@ -34,14 +35,19 @@ export default function CheckoutPage() {
     const [error, setError] = useState<string | null>(null);
     const tossRef = useRef<any>(null);
 
+    // ── 한국어 전용: 비한국어 → pricing으로 리다이렉트 ──
     useEffect(() => {
+        if (locale !== "ko") {
+            router.replace(`/${locale}/pricing`);
+            return;
+        }
         loadTossPayments(CLIENT_KEY).then((tp) => {
             tossRef.current = tp;
         }).catch((e) => {
             console.error("Toss SDK load error:", e);
             setError("결제 모듈 로딩에 실패했습니다.");
         });
-    }, []);
+    }, [locale, router]);
 
     const handlePayment = async () => {
         if (!tossRef.current) {
@@ -79,6 +85,9 @@ export default function CheckoutPage() {
             setLoading(false);
         }
     };
+
+    // 비한국어 locale은 리다이렉트 처리 중이므로 빈 화면
+    if (locale !== "ko") return null;
 
     return (
         <div className="min-h-screen bg-[#0d1220] text-slate-200 flex items-center justify-center px-6 py-20">
@@ -129,8 +138,8 @@ export default function CheckoutPage() {
                         onClick={handlePayment}
                         disabled={loading}
                         className={`w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 font-jakarta ${plan === 'elite'
-                            ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-black shadow-[0_0_30px_rgba(34,211,238,0.2)] hover:brightness-110'
-                            : 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:brightness-110'
+                                ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-black shadow-[0_0_30px_rgba(34,211,238,0.2)] hover:brightness-110'
+                                : 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:brightness-110'
                             } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         {loading ? (
