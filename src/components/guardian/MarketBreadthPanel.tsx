@@ -132,7 +132,7 @@ export default function RLSIInsightPanel({
                             }`}>
                             {insightTitle}
                         </div>
-                        <div className="text-[13px] text-white/80 leading-[1.6] line-clamp-6" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                        <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                             {insightDesc}
                         </div>
                     </>
@@ -143,7 +143,7 @@ export default function RLSIInsightPanel({
                             }`}>
                             {insightTitle}
                         </div>
-                        <div className="text-[13px] text-white/80 leading-[1.6] line-clamp-6" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                        <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                             {insightDesc}
                         </div>
                         <div className="text-[12px] text-amber-500/50 font-mono mt-1.5 font-jakarta">Last session analysis</div>
