@@ -748,7 +748,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
 
                 {/* Indicator Cards Skeleton — labeled placeholders */}
-                <div className="grid grid-cols-5 gap-2 animate-pulse">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 animate-pulse">
                     {['NET GEX', 'GAMMA FLIP', 'SQUEEZE', 'VWAP', 'SHORT VOL %'].map((label, i) => (
                         <div key={i} className="h-24 bg-slate-800/30 rounded-xl border border-slate-700/20 p-3 flex flex-col justify-between">
                             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-jakarta">{label}</span>
@@ -756,7 +756,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
                     ))}
                 </div>
-                <div className="grid grid-cols-5 gap-2 animate-pulse">
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-2 animate-pulse">
                     {['MAX PAIN', 'ATM IV', 'P/C RATIO', 'GEX REGIME', 'IMPLIED MOVE'].map((label, i) => (
                         <div key={i} className="h-24 bg-slate-800/30 rounded-xl border border-slate-700/20 p-3 flex flex-col justify-between">
                             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider font-jakarta">{label}</span>
@@ -766,9 +766,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
 
                 {/* Chart + Sidebar Skeleton — Premium */}
-                <div className="grid grid-cols-12 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
                     {/* Chart area with premium skeleton */}
-                    <div className="col-span-8 h-[520px] rounded-2xl border border-white/10 bg-slate-900/60 overflow-hidden relative">
+                    <div className="lg:col-span-8 h-[320px] lg:h-[520px] rounded-2xl border border-white/10 bg-slate-900/60 overflow-hidden relative">
                         {/* Decorative Label */}
                         <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[11px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2 font-jakarta">
                             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Price History
@@ -806,7 +806,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
                     </div>
                     {/* Sidebar skeleton */}
-                    <div className="col-span-4 space-y-4 animate-pulse">
+                    <div className="lg:col-span-4 space-y-4 animate-pulse">
                         <div className="h-[250px] bg-slate-800/20 rounded-2xl border border-slate-700/15 p-4">
                             <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-3 font-jakarta">SIGNAL FEED</div>
                             <div className="space-y-2">
@@ -1000,7 +1000,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             {/* [PREMIUM-5x2] Quick Intel Gauges — 5 Columns × 2 Rows */}
             <div className="relative -mt-4 mb-3">
                 <div className="absolute inset-0 rounded-xl pointer-events-none" style={{ background: 'radial-gradient(ellipse at 20% 30%, rgba(99,102,241,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(16,185,129,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.04) 0%, transparent 60%)' }} />
-                <div className="relative grid grid-cols-5 gap-1.5">
+                <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1.5">
 
                     {/* ═══ ROW 1: 실시간 / 당일 판단용 ═══ */}
 
