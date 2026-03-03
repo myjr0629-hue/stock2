@@ -59,17 +59,17 @@
     "badge": "リアルタイム米国マーケットデータ",
     "headline1": "MARKET LOGIC,",
     "headline2": "SOLVED.",
-    "tagline1": "機関投資家の",
+    "tagline1": "機関参加者の",
     "tagline1Bold1": "Dark Pool",
     "tagline1Mid": "活動とアルゴリズム",
     "tagline1Bold2": "Options Flow",
     "tagline1End": "をリアルタイムで追跡。",
     "tagline2Start": "",
-    "tagline2Bold": "米国株式市場",
+    "tagline2Bold": "米国市場",
     "tagline2End": "のための究極のコマンドセンター。",
     "darkPool": "Dark Pool",
     "optionsFlow": "Options Flow",
-    "usMarket": "米国株式市場",
+    "usMarket": "米国市場",
     "enterCommand": "Enter Command",
     "howItWorks": "使い方",
     "whySignumPrefix": "なぜ",
@@ -147,7 +147,7 @@
       "breadth": "参加度",
       "priceAction": "価格トレンド",
       "rotation": "循環強度",
-      "sentiment": "投資心理",
+      "sentiment": "市場心理",
       "robust": "非常に強い",
       "healthy": "良好",
       "stable": "安定",
@@ -236,7 +236,7 @@
     "volBuyRatio": "買い量比率",
     "breadthAnalysisPending": "レギュラーセッション中にBreadth分析が行われます",
     "insightPending": "レギュラーセッション中にリアルタイム分析が行われます",
-    "vixBackwardationDesc": "VIX先物が期近物に急激に偏っています。表面的な株価に関わらず、機関投資家の強力な下落ヘッジ（パニック）が進行中です。",
+    "vixBackwardationDesc": "VIX先物が期近物に急激に偏っています。表面的な株価に関わらず、機関参加者の強力な下落ヘッジ（パニック）が進行中です。",
     "riskOffDesc": "株式から債券や金などの安全資産へ資金が強く移動しています。保守的なリスク管理が必要です。",
     "yieldInverted": "金利逆転",
     "yieldFlattening": "金利鈍化",
@@ -313,7 +313,7 @@
     "replace": "入替",
     "exit": "決済",
     "dataSyncing": "データ同期中",
-    "tradingNotAllowed": "取引不可",
+    "tradingNotAllowed": "マーケット終了",
     "aiConfidence": "AI 確信度 (勝率)",
     "whaleTargetPrice": "Whale Target Price",
     "whaleEntryPrice": "Whale Entry Price",
@@ -333,7 +333,7 @@
     "totalValue": "総資産価値",
     "premium": "PREMIUM",
     "totalEvaluation": "評価総額",
-    "totalInvestment": "投資総額",
+    "totalInvestment": "保有総額",
     "returnRate": "収益率",
     "portfolioScore": "ポートフォリオスコア",
     "avgOfHoldings": "銘柄平均",
@@ -369,8 +369,8 @@
     "tickerSymbol": "ティッカーシンボル",
     "holdingQuantity": "保有数量",
     "avgBuyPrice": "平均取得単価 ($)",
-    "investmentSummary": "投資サマリー",
-    "totalInvestmentAmount": "投資総額",
+    "investmentSummary": "ポートフォリオサマリー",
+    "totalInvestmentAmount": "保有総額",
     "estimatedPL": "見込み損益",
     "cancel": "キャンセル",
     "dailyPriceFlow": "当日価格推移",
@@ -514,7 +514,7 @@
     "labelAction": "アクション",
     "snapshotTimeData": "レポート生成時点のデータ",
     "offExFlowDesc": "機関OTC取引量",
-    "marketClosedNoFlow": "場引け — 機関売買なし",
+    "marketClosedNoFlow": "場引け — 機関フローなし",
     "netBuyPressure": "実質的な買い圧力の強度",
     "marketClosed": "場引け"
   },
@@ -544,7 +544,7 @@
     "insightFold": "エンジン分析を閉じる",
     "insightUnfold": "エンジン分析を見る",
     "itemsCount": "銘柄",
-    "disclaimer": "AI分析参考資料 • 投資勧誘ではありません",
+    "disclaimer": "AI分析参考資料 • 特定の推奨ではありません",
     "noEngineData": "エンジンデータ未取得",
     "gatesPassed": "ゲート通過",
     "trigMomStrong": "モメンタム",
@@ -692,7 +692,7 @@
     "oiSwing": "中長期構造 | 累積建玉が形成した支持·抵抗 — 市場の表面下に隠された価格設計図",
     "putFlowDown": "Put Flow (弱気)",
     "callFlowUp": "Call Flow (強気)",
-    "hiddenPositionDesc": "このチャートは一般投資家には見えないWhaleとMM（マーケットメイカー）の隠れたポジションとヘッジ構造を分析します",
+    "hiddenPositionDesc": "このチャートは一般ユーザーには見えないWhaleとMM（マーケットメイカー）の隠れたポジションとヘッジ構造を分析します",
     "currentPositionSuggestion": "現在のポジション提案",
     "probabilityAnalysis": "確率分析 (Beta)",
     "chartInterpretation": "チャート解釈のヒント",
@@ -728,7 +728,7 @@
   },
   "gems": {
     "holdReasonDefault": "セーフモード: ライブデータ再接続中ですが、現在のポジション維持が有利です (スコア差 +0.00)",
-    "holdStrategyDefault": "NVDA 40%、MSTR 30%、PLTR 30%配分を維持。機関投資家の撤退シグナルなし (Failover Active)",
+    "holdStrategyDefault": "NVDA 40%、MSTR 30%、PLTR 30%配分を維持。機関参加者の撤退シグナルなし (Failover Active)",
     "reliabilityProtocol": "信頼性プロトコル",
     "strategicAllocation": "戦略的配分提案",
     "alphaScoreGap": "Alpha Score差分",
@@ -779,7 +779,7 @@
       "positive": "プラス → ディーラーロングガンマ → ボラティリティ抑制、価格安定",
       "negative": "マイナス → ディーラーショートガンマ → ボラティリティ拡大、トレンド加速",
       "tip": "GEXが急変する時、市場の体質が変わるシグナルです",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "GEXプラス + 横ばい → レンジ取引（アイアンコンドル、クレジットスプレッド）",
       "guide2": "GEXマイナス + モメンタム → トレンド取引またはストラドル/ストラングル",
       "guide3": "GEX急激な反転 → ストップロス幅拡大、ポジションサイズ縮小",
@@ -792,7 +792,7 @@
       "longLabel": "現在価格 < Flip → ロングガンマ（安定）",
       "shortLabel": "現在価格 > Flip → ショートガンマ（爆発）",
       "tip": "SHORT表示は現在ショートガンマ区間 — 急騰・急落の可能性高",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "ガンマフリップ上回り → 安定ゾーン、レンジ戦略有効",
       "guide2": "ガンマフリップ下回り → ボラティリティゾーン、ストップ幅拡大・小ポジション",
       "guide3": "ガンマフリップ付近 → レジーム転換の可能性、大きな方向性ベットを避ける"
@@ -804,7 +804,7 @@
       "high": "HIGH — 58%+ スクイーズ警告、急変動に備え必須",
       "med": "MED — 30〜58% 注意区間",
       "low": "LOW — 30%未満、安定区間",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "スクイーズ > 70% + OPI一方向 → OPI方向にタイトストップでエントリー",
       "guide2": "スクイーズ中程度 + 高IV → プレミアム売り戦略、アイアンコンドル",
       "guide3": "スクイーズ低 → 材料なし、ガンマ依存プレイ回避",
@@ -817,7 +817,7 @@
       "above": "プラス → VWAP上 → 短期強気",
       "below": "マイナス → VWAP下 → 短期弱気",
       "tip": "0%に近いほどVWAPテスト区間 — 方向決定迫る",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "VWAP上 + 出来高増 → 上昇トレンド確認、ロング有利",
       "guide2": "VWAP下 + 出来高増 → 下降トレンド確認、ショート/プット有利",
       "guide3": "VWAPクロス → トレンド転換の可能性、確認待ち",
@@ -826,7 +826,7 @@
     "maxPain": {
       "title": "MAX PAIN",
       "desc": "オプション満期日に保有者の損失を最大化する価格です。満期が近づくとこの価格に収束する傾向があります。",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "OE週：Max Pain下 → コールスプレッドまたはロング（磁力で上昇）",
       "guide2": "OE週：Max Pain上 → プットスプレッドまたは利確（磁力で下落）",
       "guide3": "Max Painと価格の大きな乖離（OE近く）→ 急激な収束を期待",
@@ -835,7 +835,7 @@
     "callWall": {
       "title": "CALL WALL",
       "desc": "コールオプション売りが集中した価格帯 — 強力な<cyan>レジスタンス</cyan>の役割。突破時ガンマスクイーズ発動の可能性。",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "プットフロア付近 → バウンス期待、プット売りまたはコール買い",
       "guide2": "コールウォール付近 → 抵抗予想、コール売りまたは利確",
       "guide3": "フロア/ウォール範囲縮小 → ブレイクアウト間近、方向性取引準備",
@@ -844,7 +844,7 @@
     "darkPool": {
       "title": "DARK POOL %",
       "desc": "全取引中<gold>ダークプール（機関非公開取引）</gold>の割合。高いほど機関の大規模ポジショニングが進行中。",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "DP 60%+ + 横ばい → 機関買い集め、ブレイクアウト準備",
       "guide2": "DP急増 + 価格下落 → 機関の売り抜けの可能性、リスク管理",
       "guide3": "DP低 + 出来高急増 → リテール主導の動き、持続性疑問",
@@ -854,7 +854,7 @@
     "shortVol": {
       "title": "SHORT VOL %",
       "desc": "空売り取引量比率。高い空売り比率 + 上昇モメンタム = <gold>ショートスクイーズ</gold>シグナル。",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "ショート50%+ + 価格上昇 → ショートスクイーズの可能性、モメンタムフォロー",
       "guide2": "ショート50%+ + 価格下落 → 下落圧力強化、プットでヘッジ",
       "guide3": "ショートVol急減 → ショートカバー進行中、反転シグナルの可能性",
@@ -867,13 +867,13 @@
     "signalTitle": "SIGNAL FEED",
     "signalDesc": "リアルタイムで検知される<gold>クジラ取引</gold>、ダークプールイベント、ショートスクイーズ警報などをタイムラインで表示します。BUY/SELL/ALERT/WHALEタグでシグナルを区分します。",
     "strategy": {
-      "warningTitle": "⚠️ 投資リスク告知及び免責事項",
-      "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は投資参考用データであり、投資勧誘・売買推奨・投資助言には該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての投資判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の投資結果について一切の法的責任を負いません。"
+      "warningTitle": "⚠️ リスク告知及び免責事項",
+      "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は分析参考用データであり、特定の推奨・特定推奨・個別アドバイスには該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての分析判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の利用結果について一切の法的責任を負いません。"
     },
     "atmIv": {
       "title": "ATM IV",
       "desc": "<cyan>ATM IV</cyan>は<gold>ATMオプション価格から算出される現在の市場インプライドボラティリティ</gold>を表します。IV Rankと比較して、現在のIVが過去の範囲と比べて高いか低いかを判断します。",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "IV < 30%：オプション購入（コール/プット） → ボラ拡大で利益",
       "guide2": "IV > 70%：カバードコール、プットライティング、プレミアム売り戦略",
       "guide3": "IVスパイク後低下 → IVクラッシュ進行中、ロングオプションポジション決済",
@@ -885,7 +885,7 @@
       "title": "PUT/CALL RATIO",
       "badge": "センチメント",
       "desc": "<cyan>プット/コール比率</cyan>は<gold>プット取引量をコール取引量で割った</gold>市場センチメント指標です。1.0超はプット優位（弱気）、0.7未満はコール優位（強気）を示します。極端な数値は逆張りシグナルになることが多いです。",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "P/C > 1.2 + サポート維持 → 逆張り買い機会",
       "guide2": "P/C < 0.5 + 価格急騰 → 過熱警告、利確検討",
       "guide3": "P/C急変動（0.5→1.5） → センチメント反転、触媒イベント確認",
@@ -895,7 +895,7 @@
       "title": "GEX REGIME",
       "badge": "ボラティリティ構造",
       "desc": "<rose>GEXレジーム</rose>はマーケットメーカーの<gold>ガンマエクスポージャー</gold>を分析し、ボラティリティ構造を判定します。STABLEは価格変動を抑制し、EXPLOSIVEは変動を増幅。レジームによって最適なオプション戦略が変わります。",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "STABLE → レンジ取引、アイアンコンドル/クレジットスプレッド有利",
       "guide2": "EXPLOSIVE → 方向性プレイ（コール/プット）、ストラドル/ストラングル",
       "guide3": "フリップゾーン → ポジションサイズ縮小、ストップロス強化",
@@ -905,7 +905,7 @@
       "title": "IMPLIED MOVE",
       "badge": "期待レンジ",
       "desc": "<purple>インプライドムーブ</purple>はATMオプション価格から算出される<gold>市場の期待価格変動幅</gold>を示します。現在価格から±%で表示され、最寄り限月までにこの範囲内で動く確率は約68%（1σ）です。",
-      "tradingGuide": "トレーディング戦略",
+      "tradingGuide": "データインサイト",
       "guide1": "IM ±8%+：方向性取り買い高コスト → スプレッドでプレミアム削減",
       "guide2": "IM低 = プレミアム安 → ロングストラドル/ストラングル機会",
       "guide3": "IM一貫して実際の動き超 → プレミアム売りが有利",
@@ -942,20 +942,20 @@
       "loaded": "LOADED — 爆発待機、ボラティリティ警報",
       "erupting": "ERUPTING — 極端なボラティリティ、最大リスク",
       "tip": "LOADED/ERUPTING区間ではポジションサイジングを縮小し、ストップロスをタイトに設定してください。",
-      "tradingGuide": "トレーディング活用法",
-      "guide1": "STABLE → レンジバウンド戦略、VWAP基準で売買",
+      "tradingGuide": "データ活用法",
+      "guide1": "STABLE → レンジバウンド戦略、VWAP基準で分析",
       "guide2": "COILING → ブレイクアウト準備、オプションのストラドル検討",
       "guide3": "LOADED/ERUPTING → トレンドフォローのみ、逆張りは危険"
     },
     "conviction": {
       "title": "CONVICTION MATRIX™",
       "badge": "複合スコア",
-      "desc": "<cyan>SMAトレンド</cyan>、VWAP、P/Cレシオ、GEX、Flow5つのデータを融合した<gold>総合確信度</gold>スコアです。A〜F等級で売買方向を直感的に判断できます。",
+      "desc": "<cyan>SMAトレンド</cyan>、VWAP、P/Cレシオ、GEX、Flow5つのデータを融合した<gold>総合確信度</gold>スコアです。A〜F等級で分析方向を直感的に判断できます。",
       "bull": "A-B+（65+）— 買い優位、シグナル整列",
       "neutral": "B-C（45-64）— 中立、方向性探索中",
       "bear": "D-F（0-44）— 売り優位、下落シグナル集中",
       "tip": "Conviction 80+かつVOL REGIMEが安定なら高確率のエントリーポイントです。",
-      "tradingGuide": "トレーディング活用法",
+      "tradingGuide": "データ活用法",
       "guide1": "A等級：強い買い確信 → ポジション拡大を検討",
       "guide2": "C等級：中立 → 見送りまたは少量ポジションのみ維持",
       "guide3": "F等級：強い売り圧力 → ショートポジションまたはヘッジを検討"
@@ -967,7 +967,7 @@
       "above": "プラス（+）→ VWAP上 → 短期強気",
       "below": "マイナス（−）→ VWAP下 → 短期弱気",
       "tip": "VWAP近接時（±0.3%）= 方向決定の核心区間 — ブレイクアウト/リジェクションを注視。",
-      "tradingGuide": "トレーディング活用法",
+      "tradingGuide": "データ活用法",
       "guide1": "+2%以上：過熱警告 → 短期利益確定を検討",
       "guide2": "±0.5%以内：VWAPテスト区間 → ブレイク方向に集中",
       "guide3": "-2%以下：弱気転換の可能性 → サポート確認後にエントリー"
@@ -981,7 +981,7 @@
       "high": "HIGH — SI% 15%以上、スクイーズ警報",
       "critical": "CRITICAL — SI% 25%以上、極度のリスク",
       "tip": "Days to Cover 3日以上 + SI% 15%以上の組み合わせはショートスクイーズのクラシック条件。",
-      "tradingGuide": "トレーディング活用法",
+      "tradingGuide": "データ活用法",
       "guide1": "HIGH/CRITICAL → ショートポジション縮小、急騰時の追いかけ注意",
       "guide2": "プラスモメンタム + HIGH SI% → ショートカバーラリーの可能性",
       "guide3": "LOW → 空売りの影響は限定的、ファンダメンタルズ重視"
@@ -989,13 +989,13 @@
     "analystTarget": {
       "title": "ANALYST TARGET",
       "badge": "コンセンサス",
-      "desc": "ウォール街アナリストの<emerald>投資評価</emerald>分布と売買比率を表示します。Strong Buy〜Strong Sell 5段階の分布と総アナリスト数を確認できます。",
+      "desc": "ウォール街アナリストの<emerald>アナリスト評価</emerald>分布と評価比率を表示します。Strong Buy〜Strong Sell 5段階の分布と総アナリスト数を確認できます。",
       "strongBuy": "Strong Buy — 強力な買い推奨",
       "buy": "Buy — 買い推奨",
       "hold": "Hold — 保有推奨",
       "sell": "Sell — 売り推奨",
       "tip": "買い推奨比率80%+ = 市場コンセンサスが強く形成、ただし逆張り観点も考慮。",
-      "tradingGuide": "トレーディング活用法",
+      "tradingGuide": "データ活用法",
       "guide1": "買い90%+：強いコンセンサス → 中長期ポジションの根拠",
       "guide2": "買い50-70%：意見分散 → 追加分析が必要",
       "guide3": "Hold多数：方向不確実 → 短期イベント中心のアプローチ"
@@ -1003,12 +1003,12 @@
     "instRadar": {
       "title": "INST RADAR™",
       "badge": "機関追跡",
-      "desc": "<purple>ダークプール取引比率</purple>と<cyan>ブロックトレード</cyan>頻度で機関投資家の蓄積/分配パターンを追跡します。ACCUMULATION/DISTRIBUTION/NEUTRAL 3段階シグナルで表示されます。",
+      "desc": "<purple>ダークプール取引比率</purple>と<cyan>ブロックトレード</cyan>頻度で機関参加者の蓄積/分配パターンを追跡します。ACCUMULATION/DISTRIBUTION/NEUTRAL 3段階シグナルで表示されます。",
       "accum": "ACCUMULATION — ダークプール40%以上 & ブロック3件以上 → 機関買い集め",
       "neutral": "NEUTRAL — 正常範囲、特異点なし",
       "dist": "DISTRIBUTION — ダークプール20%未満 & ブロック1件以下 → 機関分配",
       "tip": "ACCUMULATION + 買いコンセンサスの組み合わせは中長期上昇の強力な根拠。",
-      "tradingGuide": "トレーディング活用法",
+      "tradingGuide": "データ活用法",
       "guide1": "ACCUMULATION：機関買い集め区間 → プルバック時に買い機会",
       "guide2": "DISTRIBUTION：機関分配 → 反発時に利益確定を検討",
       "guide3": "NEUTRAL：機関参加限定的 → 個人投資家の需給を中心に分析"
@@ -1021,7 +1021,7 @@
       "dead": "DEAD — SMA 50 < SMA 200、下降トレンド転換",
       "neutral": "NEUTRAL — クロスオーバーなし、既存トレンド継続",
       "tip": "GOLDEN Cross + CONVICTION A等級 = 理想的な買いシグナルの組み合わせ。",
-      "tradingGuide": "トレーディング活用法",
+      "tradingGuide": "データ活用法",
       "guide1": "GOLDEN Cross：中長期買いの根拠 → トレーリングストップ活用",
       "guide2": "DEAD Cross：防御的戦略 → 下落ヘッジを検討",
       "guide3": "SMA距離±3%以内：クロスオーバー間近 → 方向転換をモニタリング"
@@ -1034,7 +1034,7 @@
       "bGrade": "B等級（60-79）— 良好、一部弱点あり",
       "cGrade": "C等級以下 — 改善が必要、リスク注意",
       "tip": "PEが業種平均より低くROE 20%以上 = 割安成長株。",
-      "tradingGuide": "トレーディング活用法",
+      "tradingGuide": "データ活用法",
       "guide1": "A等級：バリュエーション魅力 → 中長期コアポジション",
       "guide2": "B等級：選別的アプローチ → 成長モメンタム確認後にエントリー",
       "guide3": "C等級以下：投機的 → 短期イベントトレーディングのみ検討"
@@ -1046,7 +1046,7 @@
       "upcoming": "決算間近（D-7以内）— IV上昇、オプションプレミアム増加",
       "far": "決算まで余裕 — ファンダメンタルベースのポジション構築可能",
       "tip": "決算D-3からIV急騰 → オプション買いはその前に、売りは発表直前が有利。",
-      "tradingGuide": "トレーディング活用法",
+      "tradingGuide": "データ活用法",
       "guide1": "決算D-7：IV上昇開始 → ストラドル戦略を検討",
       "guide2": "決算当日：方向予測困難 → ポジションサイジング縮小",
       "guide3": "決算後：IV Crush → オプション売り戦略が有利"
@@ -1058,8 +1058,8 @@
       "positive": "同方向 → セクター全体のモメンタム確認",
       "divergent": "異方向 → 個別銘柄イベントの可能性",
       "tip": "関連銘柄全体上昇 + 当該銘柄のみ下落 = 個別イシュー点検が必要。",
-      "tradingGuide": "トレーディング活用法",
-      "guide1": "セクター同伴上昇：モメンタムトレード有効 → トレンドフォロー",
+      "tradingGuide": "データ活用法",
+      "guide1": "セクター同伴上昇：モメンタムアプローチ有効 → トレンドフォロー",
       "guide2": "大型銘柄のみ上昇：ローテーション可能性 → 後発銘柄を注視",
       "guide3": "セクターデカップリング：個別イベント分析 → ニュースを確認"
     },
@@ -1070,7 +1070,7 @@
     "flowTitle": "FLOW UNIT",
     "flowDesc": "<emerald>リアルタイムオプション資金フロー</emerald>を追跡するFlow Sniperです。Net Premium（コール-プットプレミアム差）とVolume Strengthで機関の<gold>方向性ベット</gold>を捕捉します。",
     "gammaTitle": "TACTICAL RANGE & NET GAMMA ENGINE",
-    "gammaDesc": "<gold>オプションデータ基盤の戦術レベル</gold>と<cyan>ガンマエンジン</cyan>分析です。Support/Resist/Max Painレベルで短期売買範囲を設定します。",
+    "gammaDesc": "<gold>オプションデータ基盤の戦術レベル</gold>と<cyan>ガンマエンジン</cyan>分析です。Support/Resist/Max Painレベルで短期分析範囲を設定します。",
     "intelTitle": "INTEL FEED (AI)",
     "intelDesc": "<cyan>AIニュースインテリジェンス</cyan>フィードです。AIが当該銘柄関連の最新ニュースを分析し、市場への影響度を評価します。",
     "gammaFlipDesc": "<purple>ガンマフリップレベル</purple>は、オプションディーラーのガンマエクスポージャーが<cyan>LONGからSHORT</cyan>に反転する価格です。このレベル以上ではディーラーが<emerald>同方向にヘッジ</emerald>して市場を安定化し、以下では<rose>逆方向にヘッジ</rose>してボラティリティを増幅します。VOL REGIMEカードの「Flip」距離が重要指標です。",
@@ -1082,7 +1082,7 @@
       "tip": "Gamma Flipは<purple>オプションディーラーのヘッジ方向が反転する価格</purple>です。VOL REGIMEカードでFlip距離（%）をリアルタイムで確認でき、±2%以内であればボラティリティ転換が差し迫っていることを意味します。"
     },
     "strategy": {
-      "title": "トレーディング戦略ガイド",
+      "title": "データインサイトガイド",
       "desc": "Commandの10指標を<cyan>体系的に解釈</cyan>してトレーディングに活用する4ステッププロセスです。",
       "step1": {
         "title": "Step 1：市場温度の把握",
@@ -1100,15 +1100,15 @@
         "title": "Step 4：機関フロー追跡",
         "desc": "INST RADARの蓄積/分配シグナルとFLOW UNITのNet Premium方向を確認。ACCUMULATION + コールプレミアム上昇 = 強い買いシグナル。"
       },
-      "warningTitle": "⚠️ 投資リスク告知及び免責事項",
-      "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は投資参考用データであり、投資勧誘・売買推奨・投資助言には該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての投資判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の投資結果について一切の法的責任を負いません。"
+      "warningTitle": "⚠️ リスク告知及び免責事項",
+      "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は分析参考用データであり、特定の推奨・特定推奨・個別アドバイスには該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての分析判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の利用結果について一切の法的責任を負いません。"
     }
   },
   "intelGuide": {
-    "subtitle": "10セクター × SECTOR COMMAND × AI POST-MARKET BRIEF — 機関級投資インテリジェンス",
+    "subtitle": "10セクター × SECTOR COMMAND × AI POST-MARKET BRIEF — 機関級マーケットインテリジェンス",
     "overviewTitle": "セクターインテル — AI駆動テーマ分析",
     "overviewTagline": "AI-Driven Sector Intelligence Platform",
-    "overviewDesc": "SIGNUM HQのIntelページは<cyan>10の投資テーマセクター</cyan>をリアルタイムで監視します。<gold>SECTOR COMMAND</gold>でセクター全体の状況を一目で把握し、各セクタータブで銘柄別の詳細分析を確認できます。毎日引け後に<emerald>AIがCross-Sector Intelligence分析</emerald>と10セクターレポートを自動生成し、リアルタイム価格は30秒間隔で更新されます。",
+    "overviewDesc": "SIGNUM HQのIntelページは<cyan>10のマーケットテーマセクター</cyan>をリアルタイムで監視します。<gold>SECTOR COMMAND</gold>でセクター全体の状況を一目で把握し、各セクタータブで銘柄別の詳細分析を確認できます。毎日引け後に<emerald>AIがCross-Sector Intelligence分析</emerald>と10セクターレポートを自動生成し、リアルタイム価格は30秒間隔で更新されます。",
     "sectorCommand": {
       "title": "SECTOR COMMAND",
       "tagline": "10-Sector Command Center",
@@ -1132,7 +1132,7 @@
     "sectorZones": {
       "title": "セクター別分析Zone",
       "tagline": "5-Zone Sector Intelligence",
-      "desc": "各セクタータブを選択すると<cyan>5つの分析Zone</cyan>が順に表示されます。リアルタイム価格からAIレポートまで、そのセクターのすべての投資情報を1画面で確認できます。",
+      "desc": "各セクタータブを選択すると<cyan>5つの分析Zone</cyan>が順に表示されます。リアルタイム価格からAIレポートまで、そのセクターのすべてのマーケット情報を1画面で確認できます。",
       "gridTitle": "Zone A: Session Grid（リアルタイム状況板）",
       "gridDesc": "米国市場セッション（PRE-MKT · LIVE · POST-MKT · CLOSED）を自動検知します。各銘柄ごとにリアルタイム価格、変動率、スパークラインチャート、オプションポジションバー、フロー指標、AI一行分析が表示されます。",
       "rankingTitle": "Zone A-2: Ranking Row（3大インサイト）",
@@ -1216,7 +1216,7 @@
     "indicators": {
       "title": "核心指標解説書",
       "tagline": "Key Indicators Reference",
-      "desc": "Intelページで頻繁に目にする<cyan>核心指標</cyan>の意味と<gold>実践トレード活用法</gold>をまとめました。各指標を正確に理解することで、より効果的な投資判断が可能になります。",
+      "desc": "Intelページで頻繁に目にする<cyan>核心指標</cyan>の意味と<gold>実践トレード活用法</gold>をまとめました。各指標を正確に理解することで、より効果的な分析判断が可能になります。",
       "gexTitle": "GEX（ガンマエクスポージャー）",
       "gexDesc": "オプションディーラーのガンマ露出度を表します。プラス(+GEX)ならディーラーがボラティリティを抑制し市場が安定、マイナス(-GEX)ならディーラーがボラティリティを増幅し急騰・急落の可能性が高まります。",
       "gexTrading": "+GEX → レンジ取引（VWAP基準）有利。-GEX → トレンドフォロー・ブレイクアウト取引有利。符号転換（Gamma Flip）時はボラティリティ体質転換が間近。",
@@ -1238,7 +1238,7 @@
     },
     "usage": {
       "title": "実践トレード活用法",
-      "tagline": "Trading Strategy Guide",
+      "tagline": "Data Insight Guide",
       "desc": "Intelページのデータを実践トレードに効果的に活用する戦略ガイドです。",
       "tip1Title": "SECTOR COMMANDで市場温度を把握",
       "tip1Desc": "毎日場が始まる前にSECTOR COMMANDのAlpha Leadersを確認しましょう。全70銘柄中最強/最弱の銘柄とセクターを30秒で把握できます。強いセクターに集中すれば勝率が上がります。",
@@ -1249,8 +1249,8 @@
       "tip4Title": "決算シーズン + Earnings Calendar活用",
       "tip4Desc": "セクタータブのEarnings Calendarで決算発表日程を事前確認しましょう。決算D-3からIVが急騰するため、オプション戦略（ストラドル、クレジットスプレッド）のタイミングを図ることができます。"
     },
-    "warningTitle": "投資リスク告知及び免責事項",
-    "warningDesc": "本サービスで提供するすべての情報（指標、シグナル、分析結果を含む）は投資参考用データであり、投資勧誘・売買推奨・投資助言に該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての投資判断は利用者本人の責任であり、それに伴う損益の責任も利用者本人にあります。本サービス提供者は利用者の投資結果について一切の法的責任を負いません。"
+    "warningTitle": "リスク告知及び免責事項",
+    "warningDesc": "本サービスで提供するすべての情報（指標、シグナル、分析結果を含む）は分析参考用データであり、特定の推奨・特定推奨・個別アドバイスに該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての分析判断は利用者本人の責任であり、それに伴う損益の責任も利用者本人にあります。本サービス提供者は利用者の利用結果について一切の法的責任を負いません。"
   },
   "portfolioGuide": {
     "subtitle": "Alpha ScoreとSignal Badgeで保有銘柄のポートフォリオを管理します。",
@@ -1261,10 +1261,10 @@
     "stats": {
       "totalValue": "評価総額",
       "totalValueDesc": "保有銘柄の現在の時価総額です。リアルタイムで更新されます。",
-      "totalCost": "投資総額",
-      "totalCostDesc": "取得単価 × 数量で算出した元の投資総額です。",
+      "totalCost": "保有総額",
+      "totalCostDesc": "取得単価 × 数量で算出した元の保有総額です。",
       "returnRate": "収益率",
-      "returnRateDesc": "評価総額と投資総額の差をパーセントとドルで表示します。",
+      "returnRateDesc": "評価総額と保有総額の差をパーセントとドルで表示します。",
       "portfolioScore": "ポートフォリオスコア",
       "portfolioScoreDesc": "保有銘柄のAlpha Scoreを比重加重平均した総合スコアです。A〜Fグレードで表示されます。",
       "marketStatus": "市場状態",
@@ -1304,7 +1304,7 @@
       "badge": "為替レートバッジ",
       "badgeDesc": "ヘッダーにリアルタイム為替レートが表示されます。Yahoo Financeから毎分更新され、前日比変動率も表示されます。",
       "subText": "換算金額",
-      "subTextDesc": "Stats Dashboardの評価総額、投資総額、収益率の下に現地通貨換算額が自動表示されます。",
+      "subTextDesc": "Stats Dashboardの評価総額、保有総額、収益率の下に現地通貨換算額が自動表示されます。",
       "toggle": "通貨トグル",
       "toggleDesc": "損益とTodayカラムヘッダーの⇄アイコンをクリックすると、ドル ↔ 現地通貨に即座に切り替わります。",
       "koLabel": "韓国語: $1 = ₩1,427",
@@ -1333,8 +1333,8 @@
       "trim": "比重縮小推奨 - Alpha 35未満または急落"
     },
     "warningTitle": "投資リスク告知",
-    "warningDesc": "SIGNUM HQのポートフォリオ分析は参考資料であり、投資助言ではありません。すべての投資判断とそれに伴う損益の責任は利用者本人にあります。",
-    "proTip": "Alpha Score + Signal Badge + Sparkline = トリプル確認。3つを組み合わせて最適な投資判断を行いましょう。"
+    "warningDesc": "SIGNUM HQのポートフォリオ分析は参考資料であり、個別アドバイスではありません。すべての分析判断とそれに伴う損益の責任は利用者本人にあります。",
+    "proTip": "Alpha Score + Signal Badge + Sparkline = トリプル確認。3つを組み合わせて最適な分析判断を行いましょう。"
   },
   "watchlistGuide": {
     "subtitle": "関心銘柄の主要指標を一目でモニタリングします",
@@ -1347,7 +1347,7 @@
       },
       "whaleIndex": {
         "badge": "Whale Index",
-        "meaning": "GEXとPut/Call Ratioに基づいて機関投資家(Whale)の蓄積/配布状態を推定します。",
+        "meaning": "GEXとPut/Call Ratioに基づいて機関参加者(Whale)の蓄積/配布状態を推定します。",
         "high": "HIGH - 強い蓄積シグナル",
         "mid": "MED - 普通の関心度",
         "low": "LOW - 低い関心 または配布",
@@ -1444,14 +1444,14 @@
     "columnSubtitle": "各カラムの意味を正確に理解しましょう",
     "proTip": "Alpha Score + Signal + Whale Indexを併せて確認しましょう。3つの指標がすべて強気を示す時、最も高い確率のエントリー機会です。",
     "warningTitle": "投資リスクに関する注意事項",
-    "warningDesc": "SIGNUM HQのウォッチリスト分析は参考資料であり、投資助言ではありません。すべての投資判断とそれに伴う損益の責任は、利用者ご本人にあります。"
+    "warningDesc": "SIGNUM HQのウォッチリスト分析は参考資料であり、個別アドバイスではありません。すべての分析判断とそれに伴う損益の責任は、利用者ご本人にあります。"
   },
   "flowRadarGuide": {
-    "subtitle": "リアルタイムの大型オプション取引を追跡し、機関投資家の動向を把握します",
+    "subtitle": "リアルタイムの大型オプション取引を追跡し、機関参加者の動向を把握します",
     "cards": {
       "flowSniper": {
         "badge": "Real-time",
-        "meaning": "大型オプション取引(Premium $50K+)をリアルタイムで検知し、機関投資家の売買方向を追跡します。",
+        "meaning": "大型オプション取引(Premium $50K+)をリアルタイムで検知し、機関参加者の分析方向を追跡します。",
         "bullishDesc": "Call Option 買い または Put Option 売り 優勢 - 上昇賭け",
         "bearishDesc": "Put Option 買い または Call Option 売り 優勢 - 下落賭け",
         "signals": {
@@ -1469,7 +1469,7 @@
       "volumeStrength": {
         "badge": "Volume",
         "meaning": "現在のオプション取引量が平均と比較してどれほど活発かを示します。",
-        "activeDesc": "平均以上の取引量 → 機関投資家の参加活発",
+        "activeDesc": "平均以上の取引量 → 機関参加者の参加活発",
         "normalDesc": "平均レベルの取引量",
         "lowDesc": "平均以下 → 関心度低い"
       }
@@ -1514,7 +1514,7 @@
       "bullishFactors": "強気要因",
       "bearishFactors": "弱気要因",
       "priceStocks": "価格株式",
-      "investSentiment": "投資心理",
+      "investSentiment": "市場心理",
       "weak": "WEAK",
       "weakDesc": "弱気 — 防御的ポジション、現金比率拡大",
       "neutral": "NEUTRAL",
@@ -1539,7 +1539,7 @@
       },
       "macroAlert": {
         "label": "マクロ戦術アラート",
-        "desc": "債券（TLT）と金（GLD）に同時に資金が流入すると<rose>RISK-OFF ROTATION</rose>アラートが自動発生します。機関投資家が株式から安全資産へ資金を移動させる<gold>危機の前兆シグナル</gold>です。",
+        "desc": "債券（TLT）と金（GLD）に同時に資金が流入すると<rose>RISK-OFF ROTATION</rose>アラートが自動発生します。機関参加者が株式から安全資産へ資金を移動させる<gold>危機の前兆シグナル</gold>です。",
         "riskOff": "債券・金同時上昇 → 安全資産選好、株式リスク管理必要",
         "riskOn": "債券・金同時下落 → リスクオン選好、積極的な株式購入環境"
       },
@@ -1699,12 +1699,12 @@
         "title": "ステップ4: 銘柄実行",
         "desc": "Tactical VerdictとRLSI InsightのAI判断を参考に最終トレードを実行します。Dashboardの個別銘柄分析と組み合わせることで、より精密なタイミングが可能です。"
       },
-      "warningTitle": "⚠️ 投資リスク告知及び免責事項",
-      "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は投資参考用データであり、投資勧誘・売買推奨・投資助言には該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての投資判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の投資結果について一切の法的責任を負いません。"
+      "warningTitle": "⚠️ リスク告知及び免責事項",
+      "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は分析参考用データであり、特定の推奨・特定推奨・個別アドバイスには該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての分析判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の利用結果について一切の法的責任を負いません。"
     }
   },
   "flowGuide": {
-    "subtitle": "オプションチェーン全量分析 — 機関投資家級オプションインテリジェンスダッシュボード",
+    "subtitle": "オプションチェーン全量分析 — 機関参加者級オプションインテリジェンスダッシュボード",
     "overviewTitle": "FLOW RADAR 概要",
     "overviewDesc": "<cyan>FLOW RADAR</cyan>はリアルタイムオプションチェーンを分析し、<gold>機関・ホエール・ダークプール</gold>のポジショニングと市場構造を一目で把握できる総合オプションインテリジェンスシステムです。3段階レベルで構成され、AI VerdictからCIassified Order Flowまで深い分析を提供します。",
     "level1Title": "LEVEL 1: AI VERDICT",
@@ -1974,8 +1974,8 @@
         "title": "ステップ4: プレミアム指標で実行",
         "desc": "Implied Move、Max Pain、Floor/Wallを基にエントリーポイント・損切りポイント・目標価格を設定し、IV SkewとUOAでタイミングを調整します。"
       },
-      "warningTitle": "⚠️ 投資リスク告知及び免責事項",
-      "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は投資参考用データであり、投資勧誘・売買推奨・投資助言には該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての投資判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の投資結果について一切の法的責任を負いません。"
+      "warningTitle": "⚠️ リスク告知及び免責事項",
+      "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は分析参考用データであり、特定の推奨・特定推奨・個別アドバイスには該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての分析判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の利用結果について一切の法的責任を負いません。"
     },
     "volumeOi": {
       "sectionTitle": "Volume / OI トグル — チャートを読む二つの視点",
@@ -2184,7 +2184,7 @@
     "ctaSecondary": "ガイドを先に見る"
   },
   "footer": {
-    "disclaimer": "SIGNUM HQが提供するすべての情報は、投資参考用のクオンツデータであり、金融商品取引法に基づく投資助言・代理業には該当しません。システム環境によりデータの遅延やエラーが発生する場合があり、その正確性・完全性を保証するものではありません。過去の実績は将来の収益を保証するものではなく、すべての投資判断はご自身の判断と責任において行ってください。",
+    "disclaimer": "SIGNUM HQが提供するすべての情報は、分析参考用のクオンツデータであり、金融商品取引法に基づく個別アドバイス・代理業には該当しません。システム環境によりデータの遅延やエラーが発生する場合があり、その正確性・完全性を保証するものではありません。過去の実績は将来の収益を保証するものではなく、すべての分析判断はご自身の判断と責任において行ってください。",
     "privacy": "プライバシーポリシー",
     "terms": "利用規約",
     "contact": "お問い合わせ",
@@ -2244,7 +2244,7 @@
     "terms": {
       "intro": "SIGNUM HQ（以下「本サービス」）をご利用いただきありがとうございます。本利用規約は、本サービスのご利用に関する権利と義務を定めるものです。",
       "investmentTitle": "投資に関する免責事項",
-      "investmentContent": "SIGNUM HQで提供されるすべてのデータ、分析、情報（ガンマエクスポージャー、オプションフロー、マックスペイン等を含む）は統計的な参考資料に過ぎず、特定の銘柄の売買を推奨するものではなく、投資助言を構成するものではありません。すべての投資判断とその結果に対する責任は、利用者ご本人にあります。",
+      "investmentContent": "SIGNUM HQで提供されるすべてのデータ、分析、情報（ガンマエクスポージャー、オプションフロー、マックスペイン等を含む）は統計的な参考資料に過ぎず、特定の銘柄の売買を推奨するものではなく、個別アドバイスを構成するものではありません。すべての分析判断とその結果に対する責任は、利用者ご本人にあります。",
       "dataTitle": "データ保証免責",
       "dataContent": "当社は、本サービスの正確性、完全性、適時性を保証いたしません。システムエラー、データ遅延、サードパーティAPIの障害、その他の技術的問題に起因する損害について、法的責任を負いません。",
       "refundTitle": "返金ポリシー",
@@ -3037,7 +3037,7 @@
     "unlockWith": "{tier}でロック解除",
     "locked": "{tier} ロック中",
     "viewAll": "{tier}で全体表示",
-    "guestWallTitle": "機関投資家は今もこのデータを見ています",
+    "guestWallTitle": "機関参加者は今もこのデータを見ています",
     "guestWallSubtitle": "10秒で登録して閲覧を続けましょう",
     "guestWallCta": "無料で始める",
     "guestWallSocialProof": "2,400人以上のトレーダーがSIGNUM HQを利用中",

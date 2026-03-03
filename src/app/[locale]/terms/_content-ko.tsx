@@ -33,7 +33,7 @@ export const sections: TermsSection[] = [
             <ol className="list-decimal list-inside space-y-2">
                 <li><strong>&quot;서비스&quot;</strong>란 단말기(PC, 모바일 등)에 상관없이 회원이 이용할 수 있는 SIGNUM HQ의 모든 데이터, AI 분석, 시각화 자료를 의미합니다.</li>
                 <li><strong>&quot;회원&quot;</strong>이란 본 약관에 동의하고 회사가 제공하는 절차를 완료하여 서비스 이용 계약을 체결한 자를 말합니다.</li>
-                <li><strong>&quot;Tactical Order&quot;</strong>란 알고리즘에 의해 산출된 특정 시장 상황에 대한 통계적 시그널(예: BUY, HOLD, SELL 등)을 지칭하며, 이는 <strong>단순 참고용일 뿐 실제 매매 지시가 아님</strong>을 의미합니다.</li>
+                <li><strong>&quot;Tactical Order&quot;</strong>란 알고리즘에 의해 산출된 특정 시장 상황에 대한 통계적 시그널(예: BUY, HOLD, SELL 등)을 지칭하며, 이는 <strong>단순 참고용일 뿐 실제 행동 지시가 아님</strong>을 의미합니다.</li>
                 <li><strong>&quot;프리미엄 서비스&quot;</strong>란 유료 구독을 통해 제공되는 고급 데이터 분석, 실시간 시그널, AI 리포트 등 부가 서비스를 의미합니다.</li>
             </ol>
         ),
@@ -41,14 +41,14 @@ export const sections: TermsSection[] = [
     {
         icon: AlertTriangle,
         color: 'text-amber-400',
-        title: '제3조 (금융 정보의 성격 및 투자 면책)',
+        title: '제3조 (정보의 성격 및 데이터 면책)',
         highlight: true,
         content: (
             <ol className="list-decimal list-inside space-y-3">
-                <li><strong>단순 정보 제공:</strong> SIGNUM HQ에서 제공되는 모든 데이터, 분석 및 정보(Gamma Exposure, Options Flow, Max Pain, Dark Pool Tracker, Alpha Score, Tactical Order 등 포함)는 <strong>과거 데이터에 기반한 통계적 참고 자료일 뿐이며, 특정 종목의 매수 또는 매도를 권유하거나 투자 자문을 구성하지 않습니다.</strong></li>
-                <li><strong>투자 책임:</strong> 금융 투자는 원금 손실의 위험이 따르며, <strong>모든 투자 결정에 따른 손익의 책임은 전적으로 이용자 본인에게 있습니다.</strong> 회사는 회원이 서비스에 게재된 정보에 의존하여 행한 투자 결과에 대해 어떠한 법적 책임도 지지 않습니다.</li>
-                <li><strong>비인가 투자자문:</strong> 본 서비스는 「자본시장과 금융투자업에 관한 법률」에 의한 투자자문업, 투자일임업 또는 그와 유사한 금융 서비스를 제공하지 않으며, <strong>회사는 금융위원회에 등록된 투자자문업자가 아닙니다.</strong></li>
-                <li><strong>과거 성과 비보장:</strong> 서비스에서 제시되는 과거 데이터 기반의 통계 수치, 백테스트 결과, 알파 스코어 등은 <strong>미래의 투자 성과를 보장하거나 예측하는 것이 아닙니다.</strong></li>
+                <li><strong>단순 정보 제공:</strong> SIGNUM HQ에서 제공되는 모든 데이터, 분석 및 정보(Gamma Exposure, Options Flow, Max Pain, Dark Pool Tracker, Alpha Score, Tactical Order 등 포함)는 <strong>과거 데이터에 기반한 통계적 참고 자료일 뿐이며, 특정 종목의 추천이나 개별 자문을 구성하지 않습니다.</strong></li>
+                <li><strong>이용자 책임:</strong> 금융 시장 참여는 원금 손실의 위험이 따르며, <strong>모든 분석 판단에 따른 결과의 책임은 전적으로 이용자 본인에게 있습니다.</strong> 회사는 회원이 서비스에 게재된 정보에 의존하여 행한 이용 결과에 대해 어떠한 법적 책임도 지지 않습니다.</li>
+                <li><strong>서비스 범위:</strong> 본 서비스는 「자본시장과 금융투자업에 관한 법률」에 의한 개별 자문 또는 그와 유사한 맞춤형 서비스를 제공하지 않으며, <strong>회사는 데이터 분석 소프트웨어 제공자입니다.</strong></li>
+                <li><strong>예측 정확도 비보장:</strong> 서비스에서 제시되는 과거 데이터 기반의 통계 수치, 백테스트 결과, 알파 스코어 등은 <strong>미래의 결과를 보장하거나 예측하는 것이 아닙니다.</strong></li>
             </ol>
         ),
     },
@@ -146,7 +146,7 @@ export const sections: TermsSection[] = [
             <ol className="list-decimal list-inside space-y-3">
                 <li><strong>최대 배상 한도:</strong> 회사의 귀책 사유로 인해 회원에게 손해가 발생한 경우, 회사의 배상 범위는 <strong>해당 회원이 손해 발생일 직전 3개월간 회사에 납부한 서비스 이용료 총액을 초과하지 않습니다.</strong> 무료 이용자의 경우 회사의 배상 책임은 없습니다.</li>
                 <li><strong>간접 손해 면책:</strong> 회사는 서비스 이용과 관련하여 발생한 <strong>간접 손해, 특별 손해, 결과적 손해, 징벌적 손해, 일실 이익 또는 기대 이익의 상실에 대해 책임을 지지 않습니다.</strong></li>
-                <li><strong>투자 손실 면책:</strong> 회원이 서비스에서 제공한 정보를 참고하여 내린 투자 결정으로 인한 <strong>금전적 손실에 대해 회사는 어떠한 경우에도 책임을 지지 않습니다.</strong></li>
+                <li><strong>손실 면책:</strong> 회원이 서비스에서 제공한 정보를 참고하여 내린 판단으로 인한 <strong>금전적 손실에 대해 회사는 어떠한 경우에도 책임을 지지 않습니다.</strong></li>
             </ol>
         ),
     },

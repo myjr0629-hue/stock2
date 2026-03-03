@@ -832,7 +832,7 @@ function MainChartPanel() {
                     </ProGate>
                 </div>
 
-                {/* ── ROW 3: 변동성 + 당일 매매 (Volatility & Intraday) ── */}
+                {/* ── ROW 3: 변동성 + 당일 분석 (Volatility & Intraday) ── */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* ATM IV — PRO (blur: advanced volatility surface, QuantData $99) */}
                     <ProGate title="ATM IV" fomoMessage={gt('fomoAtmIv')} mode="blur" compact>

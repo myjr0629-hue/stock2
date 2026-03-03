@@ -1230,7 +1230,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                                     type="number"
                                     value={addQty}
                                     onChange={(e) => setAddQty(e.target.value)}
-                                    placeholder="추가할 주식 수"
+                                    placeholder="추가할 수량"
                                     className="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-emerald-500 focus:outline-none font-num placeholder:text-slate-600 placeholder:font-normal"
                                 />
                             </div>

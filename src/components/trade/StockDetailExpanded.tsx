@@ -182,7 +182,7 @@ export function StockDetailExpanded({ ticker }: StockDetailExpandedProps) {
 
             {/* Disclaimer */}
             <div className="mt-4 text-[9px] text-slate-600 text-center">
-                This scenario is based on current options data. Not financial advice. Trade at your own risk.
+                This scenario is based on current options data. For informational purposes only.
             </div>
         </div>
     );

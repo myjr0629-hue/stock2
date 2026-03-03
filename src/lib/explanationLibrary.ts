@@ -64,7 +64,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         meaning: '거래량을 가중치로 사용한 당일 평균 가격입니다. 기관투자자의 평균 매수가를 추정.',
         interpretation: 'VWAP 상회: 매수 우세 / VWAP 하회: 매도 우세. 리테스트 성공 시 지지 확인.',
         action: '첫 돌파는 추격 금지. VWAP 리테스트 후 지지 확인 시에만 진입.',
-        caution: 'VWAP은 당일 지표입니다. 다음 날 리셋되므로 스윙 트레이딩에는 부적합.'
+        caution: 'VWAP은 당일 지표입니다. 다음 날 리셋되므로 스윙 분석에는 부적합.'
     },
     'RSI': {
         id: 'RSI',
@@ -176,7 +176,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         category: 'options',
         meaning: '딜러의 감마 포지션이 균형 상태로, 가격 방향성에 영향을 주지 않는 구간입니다.',
         interpretation: '감마 매수/매도 압력이 상쇄되어 변동성이 억제됩니다.',
-        action: '감마 중립 구간에서는 추세 매매보다 레인지 트레이딩이 유리합니다.',
+        action: '감마 중립 구간에서는 추세 전략보다 레인지 접근이 유리합니다.',
         caution: '옵션 만기 접근 시 감마 중립 구간이 급격히 변할 수 있습니다.'
     },
     'RETEST': {

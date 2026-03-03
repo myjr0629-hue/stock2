@@ -275,9 +275,9 @@ function getLogoUrl(ticker: string): string {
 
 // Disclaimer text per locale
 const DISCLAIMER: Record<string, string> = {
-    ko: 'AI 분석 참고자료 • 투자 권유가 아닙니다',
-    en: 'INTELLIGENCE ONLY • NOT FINANCIAL ADVICE',
-    ja: '情報提供のみ • 投資助言ではありません',
+    ko: 'AI 분석 참고자료 • 참고용 데이터입니다',
+    en: 'INTELLIGENCE ONLY • FOR INFORMATIONAL PURPOSES ONLY',
+    ja: '情報提供のみ • 参考用データです',
 };
 
 // ── Market Session Detection (ET timezone) ──

@@ -38,7 +38,7 @@ export const ko = {
 
     // ============ PROTOCOL ACTIONS ============
     protocolAction: {
-        NO_TRADE: "매매 보류",
+        NO_TRADE: "관망",
         WATCH: "관찰",
         ENTRY_OK: "진입 가능",
         EXIT: "청산 권고",

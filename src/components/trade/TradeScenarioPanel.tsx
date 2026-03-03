@@ -290,8 +290,8 @@ export function TradeScenarioPanel({
             {/* Disclaimer */}
             <div className="relative px-6 py-3 bg-[#0a0a14] border-t border-[#1a2744]">
                 <p className="text-[9px] text-slate-600 text-center leading-relaxed">
-                    This scenario is based on current options data. Not financial advice.
-                    Market conditions change in real-time. Trade at your own risk.
+                    This scenario is based on current options data. For informational purposes only.
+                    Market conditions change in real-time. Use at your own discretion.
                 </p>
             </div>
         </div>

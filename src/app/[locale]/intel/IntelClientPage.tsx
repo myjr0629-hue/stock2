@@ -618,7 +618,7 @@ function Top3Card({ item, rank, onClick, isSelected }: { item: TickerItem; rank:
             ) : (
                 <div className="h-[92px] flex flex-col items-center justify-center bg-slate-950/30 rounded border border-white/5">
                     <Lock className="w-4 h-4 text-slate-300 mb-2" />
-                    <p className="text-xs text-slate-300 font-medium">Trading restricted</p>
+                    <p className="text-xs text-slate-300 font-medium">Market closed</p>
                 </div>
             )}
         </div>
@@ -1668,8 +1668,8 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                                 key={tab.key}
                                 onClick={() => setActiveTab(tab.key)}
                                 className={`px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wider whitespace-nowrap transition-all ${activeTab === tab.key
-                                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                                        : 'text-slate-400 hover:text-white border border-transparent'
+                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                                    : 'text-slate-400 hover:text-white border border-transparent'
                                     }`}
                             >
                                 {tab.label}

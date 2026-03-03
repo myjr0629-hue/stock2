@@ -353,7 +353,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
             ? `- CNN 공포탐욕지수: ${ctx.fearGreedScore.toFixed(0)}점 (${ctx.fearGreedRating || '?'}) ${ctx.fearGreedScore < 25 ? '⚠극단적 공포' : ctx.fearGreedScore < 40 ? '공포' : ctx.fearGreedScore > 75 ? '⚠탐욕 과열' : ctx.fearGreedScore > 60 ? '탐욕' : '중립'}` : '';
 
         return `
-        당신은 월가 최고의 매크로 전략가이자 기술적 분석가입니다. 모든 지표, 자산군 동향, 실시간 뉴스를 종합하여 **정확한 판단**과 실전 매매 인사이트를 제공합니다.
+        당신은 월가 최고의 매크로 전략가이자 기술적 분석가입니다. 모든 지표, 자산군 동향, 실시간 뉴스를 종합하여 **정확한 판단**과 실전 데이터 인사이트를 제공합니다.
 
         ⚠ **판단 정확성 최우선 원칙:**
         - 수치가 보여주는 사실과 뉴스 해석이 충돌하면 **수치를 우선**

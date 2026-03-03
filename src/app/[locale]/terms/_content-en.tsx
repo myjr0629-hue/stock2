@@ -60,14 +60,14 @@ export const sections: TermsSection[] = [
     {
         icon: AlertTriangle,
         color: 'text-amber-400',
-        title: 'Article 3. Nature of Financial Information & Investment Disclaimer',
+        title: 'Article 3. Nature of Information & Data Disclaimer',
         highlight: true,
         content: (
             <ol className="list-decimal list-inside space-y-3">
-                <li><strong>Information Only:</strong> All data, analysis, and information provided through SIGNUM HQ (including Gamma Exposure, Options Flow, Max Pain, Dark Pool Tracker, Alpha Score, Tactical Sentiment, etc.) are <strong>statistical reference materials based on historical data and do not constitute investment advice, recommendations, or solicitations to buy or sell any securities.</strong></li>
-                <li><strong>Investment Responsibility:</strong> All financial investments carry risk of loss. <strong>All investment decisions and their resulting gains or losses are solely the responsibility of the user.</strong> The Company assumes no legal liability for investment outcomes based on information provided through the Service.</li>
-                <li><strong>Not a Registered Investment Adviser:</strong> <strong>The Company is not registered as an investment adviser with the U.S. Securities and Exchange Commission (SEC), FINRA, or any comparable regulatory body.</strong> The Service does not provide investment advisory, portfolio management, or fiduciary services.</li>
-                <li><strong>No Guarantee of Past Performance:</strong> Historical statistics, backtest results, alpha scores, and other data-derived metrics presented on the Service <strong>do not guarantee or predict future investment performance.</strong></li>
+                <li><strong>Information Only:</strong> All data, analysis, and information provided through SIGNUM HQ (including Gamma Exposure, Options Flow, Max Pain, Dark Pool Tracker, Alpha Score, Tactical Sentiment, etc.) are <strong>statistical reference materials based on historical data and are statistical reference materials and do not constitute personalized recommendations or solicitations.</strong></li>
+                <li><strong>User Responsibility:</strong> All financial market participation carries risk of loss. <strong>All analytical decisions and their resulting outcomes are solely the responsibility of the user.</strong> The Company assumes no legal liability for outcomes based on information provided through the Service.</li>
+                <li><strong>Scope of Service:</strong> <strong>The Company is not registered as an investment adviser with the U.S. Securities and Exchange Commission (SEC), FINRA, or any comparable regulatory body.</strong> The Service does not provide personalized advisory or fiduciary services.</li>
+                <li><strong>No Guarantee of Predictive Accuracy:</strong> Historical statistics, backtest results, alpha scores, and other data-derived metrics presented on the Service <strong>do not guarantee or predict future outcomes.</strong></li>
             </ol>
         ),
     },
@@ -165,7 +165,7 @@ export const sections: TermsSection[] = [
             <ol className="list-decimal list-inside space-y-3">
                 <li><strong>Maximum Liability:</strong> In the event of damages caused by the Company&apos;s fault, the Company&apos;s liability shall not exceed <strong>the total service fees paid by the Member during the 3 months immediately preceding the date of damage.</strong> For free-tier users, the Company bears no liability.</li>
                 <li><strong>Indirect Damages:</strong> The Company shall not be liable for <strong>indirect, special, consequential, punitive, or incidental damages, nor for loss of profits or anticipated gains</strong> arising from use of the Service.</li>
-                <li><strong>Investment Loss Disclaimer:</strong> The Company is <strong>not liable under any circumstances for financial losses</strong> resulting from investment decisions made based on information provided through the Service.</li>
+                <li><strong>Loss Disclaimer:</strong> The Company is <strong>not liable under any circumstances for losses</strong> resulting from decisions made based on information provided through the Service.</li>
             </ol>
         ),
     },

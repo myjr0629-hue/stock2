@@ -1,6 +1,6 @@
 {
   "auth": {
-    "subtitle": "Alpha Engine-Powered Trading Intelligence",
+    "subtitle": "Alpha Engine-Powered Market Intelligence",
     "continueWithGoogle": "Continue with Google",
     "orContinueWith": "OR",
     "email": "Email",
@@ -313,7 +313,7 @@
     "replace": "Replace",
     "exit": "Exit",
     "dataSyncing": "Syncing data",
-    "tradingNotAllowed": "Trading not allowed",
+    "tradingNotAllowed": "Market closed",
     "aiConfidence": "AI Confidence (Win Rate)",
     "whaleTargetPrice": "Whale Target Price",
     "whaleEntryPrice": "Whale Entry Price",
@@ -369,8 +369,8 @@
     "tickerSymbol": "Ticker Symbol",
     "holdingQuantity": "Quantity",
     "avgBuyPrice": "Avg Buy Price ($)",
-    "investmentSummary": "Investment Summary",
-    "totalInvestmentAmount": "Total Investment",
+    "investmentSummary": "Portfolio Summary",
+    "totalInvestmentAmount": "Total Holdings",
     "estimatedPL": "Estimated P/L",
     "cancel": "Cancel",
     "dailyPriceFlow": "Daily price flow",
@@ -544,7 +544,7 @@
     "insightFold": "Hide Engine Analysis",
     "insightUnfold": "View Engine Analysis",
     "itemsCount": "items",
-    "disclaimer": "AI Analysis Reference Material • Not Investment Advice",
+    "disclaimer": "AI Analysis Reference Material • For Informational Purposes Only",
     "noEngineData": "Engine data not available",
     "gatesPassed": "Gates Passed",
     "trigMomStrong": "Momentum",
@@ -692,7 +692,7 @@
     "oiSwing": "Mid/Long-Term Structure | Accumulated open interest reveals true support and resistance — The hidden blueprint beneath the surface",
     "putFlowDown": "Put Flow (Bearish)",
     "callFlowUp": "Call Flow (Bullish)",
-    "hiddenPositionDesc": "This chart analyzes hidden positions and hedging structures of Whales and Market Makers (MM) that regular investors cannot see.",
+    "hiddenPositionDesc": "This chart analyzes hidden positions and hedging structures of Whales and Market Makers (MM) that general users cannot see.",
     "currentPositionSuggestion": "Current Position Suggestion",
     "probabilityAnalysis": "% Probability Analysis (Beta)",
     "chartInterpretation": "Chart Interpretation Tips",
@@ -779,9 +779,9 @@
       "positive": "Positive → Dealer long gamma → Volatility suppressed, price stable",
       "negative": "Negative → Dealer short gamma → Volatility amplified, trend accelerated",
       "tip": "A sharp change in GEX signals a shift in the market''s character",
-      "tradingGuide": "Trading Strategy",
-      "guide1": "GEX positive + price sideways → Range trading (iron condor, credit spreads)",
-      "guide2": "GEX negative + momentum → Trend trading or straddle/strangle entry",
+      "tradingGuide": "Data Insight",
+      "guide1": "GEX positive + price sideways → Range-based approach (iron condor, credit spreads)",
+      "guide2": "GEX negative + momentum → Trend-following approach or straddle/strangle entry",
       "guide3": "GEX rapidly flipping sign → Increase stop-loss range and reduce position size",
       "mockSub": "Volatility ↑"
     },
@@ -792,7 +792,7 @@
       "longLabel": "Price < Flip → Long gamma (stable)",
       "shortLabel": "Price > Flip → Short gamma (explosive)",
       "tip": "SHORT label means currently in short gamma zone — potential for sharp moves",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "Price above Gamma Flip → Stable zone, range-bound strategies work well",
       "guide2": "Price below Gamma Flip → Volatile zone, use wider stops and smaller positions",
       "guide3": "Near Gamma Flip → Regime transition possible, avoid large directional bets"
@@ -804,7 +804,7 @@
       "high": "HIGH — 58%+ squeeze warning, prepare for volatility",
       "med": "MED — 30~58% caution zone",
       "low": "LOW — Under 30%, stable zone",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "Squeeze > 70% + OPI one-directional → Enter in OPI direction with tight stops",
       "guide2": "Squeeze moderate + high IV → Sell premium strategies, iron condor",
       "guide3": "Squeeze low → No catalyst, avoid gamma-dependent plays",
@@ -817,7 +817,7 @@
       "above": "Positive → Above VWAP → Short-term bullish",
       "below": "Negative → Below VWAP → Short-term bearish",
       "tip": "The closer to 0%, the closer to a VWAP test — directional decision imminent",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "Price above VWAP + rising volume → Uptrend confirmed, longs favorable",
       "guide2": "Price below VWAP + increasing volume → Downtrend confirmed, shorts/puts favorable",
       "guide3": "Price crossing VWAP → Potential trend reversal, watch for confirmation",
@@ -826,7 +826,7 @@
     "maxPain": {
       "title": "MAX PAIN",
       "desc": "The price that maximizes option holders'' losses at expiration. Price tends to converge toward this level as expiry approaches.",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "OE week: Price below Max Pain → Call spread or long stock (magnetic pull up)",
       "guide2": "OE week: Price above Max Pain → Put spread or take profits (magnetic pull down)",
       "guide3": "Large Max Pain-price divergence near OE → Expect sharp convergence",
@@ -835,7 +835,7 @@
     "callWall": {
       "title": "CALL WALL",
       "desc": "The strike with the highest call open interest — acts as a powerful <cyan>resistance level</cyan>. Breaking through can trigger a gamma squeeze.",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "Near Put Floor → Expect bounce, sell puts or buy calls",
       "guide2": "Near Call Wall → Expect resistance, sell calls or take profits",
       "guide3": "Floor/Wall range narrowing → Imminent breakout, prepare directional trade",
@@ -844,7 +844,7 @@
     "darkPool": {
       "title": "DARK POOL %",
       "desc": "Percentage of total volume traded in <gold>dark pools (institutional off-exchange)</gold>. Higher means large-scale institutional positioning is underway.",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "DP 60%+ with flat price → Institutional accumulation, prepare for breakout",
       "guide2": "DP surging + price declining → Possible institutional distribution, manage risk",
       "guide3": "DP low but volume surging → Retail-driven move, sustainability questionable",
@@ -854,7 +854,7 @@
     "shortVol": {
       "title": "SHORT VOL %",
       "desc": "Short sale volume ratio. High short volume + bullish momentum = <gold>short squeeze</gold> signal.",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "Short 50%+ with price rising → Short squeeze potential, follow momentum",
       "guide2": "Short 50%+ with price falling → Intensifying downward pressure, hedge with puts",
       "guide3": "Short Vol suddenly dropping → Short covering underway, potential reversal signal",
@@ -865,7 +865,7 @@
     "atmIv": {
       "title": "ATM IV",
       "desc": "Tracks real-time <cyan>At-The-Money Implied Volatility</cyan> based on current price. Higher IV means the market expects larger price swings.",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "IV < 30%: Buy options (calls/puts) → Profit on volatility expansion",
       "guide2": "IV > 70%: Covered calls, put writing, premium selling strategies",
       "guide3": "IV spikes then declines → IV Crush in progress, close long option positions",
@@ -878,14 +878,14 @@
     "signalTitle": "SIGNAL FEED",
     "signalDesc": "Real-time timeline of <gold>whale trades</gold>, dark pool events, and short squeeze alerts. Signals are tagged as BUY/SELL/ALERT/WHALE.",
     "strategy": {
-      "warningTitle": "⚠️ Investment Risk Disclosure & Disclaimer",
-      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute investment advice, trading recommendations, or financial consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All investment decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' investment outcomes."
+      "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' analytical outcomes."
     },
     "pcRatio": {
       "title": "PUT/CALL RATIO",
       "badge": "Sentiment",
       "desc": "<cyan>Put/Call Ratio</cyan> measures market sentiment by dividing <gold>put volume by call volume</gold>. Above 1.0 indicates put dominance (bearish), below 0.7 indicates call dominance (bullish). Extreme readings are often contrarian signals.",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "P/C > 1.2 with support holding → Contrarian buy opportunity",
       "guide2": "P/C < 0.5 with price surging → Overheating warning, consider taking profits",
       "guide3": "P/C rapid shift (0.5→1.5) → Sentiment reversal, check for catalyst events",
@@ -895,7 +895,7 @@
       "title": "GEX REGIME",
       "badge": "Volatility Structure",
       "desc": "<rose>GEX Regime</rose> analyzes market makers' <gold>Gamma Exposure</gold> to determine the volatility structure. STABLE suppresses price swings, EXPLOSIVE amplifies them. The regime directly affects which option strategies are optimal.",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "STABLE → Range-bound, iron condor / credit spread favorable",
       "guide2": "EXPLOSIVE → Directional plays (calls/puts), straddle/strangle",
       "guide3": "Flip Zone → Reduce position size, tighten stop-losses",
@@ -905,7 +905,7 @@
       "title": "IMPLIED MOVE",
       "badge": "Expected Range",
       "desc": "<purple>Implied Move</purple> shows <gold>the market's expected price range</gold> derived from ATM option prices. Displayed as ±% from current price, there is approximately 68% (1σ) probability that price stays within this range by the nearest expiry.",
-      "tradingGuide": "Trading Strategy",
+      "tradingGuide": "Data Insight",
       "guide1": "IM ±8%+: Directional buys costly—use spreads to reduce premium",
       "guide2": "IM low = cheap premiums → Long straddle/strangle opportunity",
       "guide3": "IM consistently > actual move → Premium selling has edge",
@@ -930,7 +930,7 @@
     "overviewDesc": "Command is a tactical center that analyzes <cyan>10 premium indicators</cyan> for individual tickers in real-time. Institutional-grade tools like <gold>VOL REGIME</gold>, <cyan>CONVICTION</cyan>, <rose>SHORT SQUEEZE</rose>, and <emerald>ANALYST TARGET</emerald> are available on a single screen.",
     "indicatorsTitle": "Premium Indicator Cards",
     "indicatorsSubtitle": "10 Premium Indicators",
-    "indicatorsDesc": "The 10 premium indicator cards at the top of Command deliver critical data for real-time, daily, and swing trading decisions.",
+    "indicatorsDesc": "The 10 premium indicator cards at the top of Command deliver critical data for real-time, daily, and swing analysis decisions.",
     "row1Title": "Row 1  Real-Time & Intraday",
     "row2Title": "Row 2  Swing & Long-Term",
     "volRegime": {
@@ -942,7 +942,7 @@
       "loaded": "LOADED  Explosion pending, volatility alert",
       "erupting": "ERUPTING  Extreme volatility, maximum risk",
       "tip": "In LOADED/ERUPTING zones, reduce position sizing and tighten stop-losses.",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "STABLE  Range-bound strategy, trade around VWAP",
       "guide2": "COILING  Prepare for breakout, consider options straddles",
       "guide3": "LOADED/ERUPTING  Trend follow only, counter-trend entries are dangerous"
@@ -955,7 +955,7 @@
       "neutral": "B-C (45-64)  Neutral, searching for direction",
       "bear": "D-F (0-44)  Bearish bias, sell signals concentrated",
       "tip": "Conviction 80+ combined with stable VOL REGIME = high-probability entry point.",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "Grade A: Strong buy conviction  Consider scaling into position",
       "guide2": "Grade C: Neutral  Watch from sidelines or keep minimal exposure",
       "guide3": "Grade F: Strong sell pressure  Consider shorts or hedging"
@@ -967,7 +967,7 @@
       "above": "Positive (+)  Above VWAP  Short-term bullish",
       "below": "Negative (-)  Below VWAP  Short-term bearish",
       "tip": "Within 0.3% of VWAP = critical decision zone  watch for breakout or rejection.",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "+2% or more: Overbought warning  Consider short-term profit-taking",
       "guide2": "Within 0.5%: VWAP test zone  Focus on breakout/breakdown direction",
       "guide3": "-2% or more: Potential bearish shift  Confirm support before entry"
@@ -981,7 +981,7 @@
       "high": "HIGH  SI% 15%+, squeeze alert",
       "critical": "CRITICAL  SI% 25%+, extreme risk",
       "tip": "Days to Cover 3+ combined with SI% 15%+ is the classic short squeeze setup.",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "HIGH/CRITICAL  Reduce short positions, beware of chasing rallies",
       "guide2": "Positive momentum + HIGH SI%  Short covering rally possible",
       "guide3": "LOW  Limited short influence, focus on fundamentals"
@@ -995,7 +995,7 @@
       "hold": "Hold  Hold recommendation",
       "sell": "Sell  Sell recommendation",
       "tip": "Buy ratio 80%+ = strong market consensus formed, but consider contrarian perspective too.",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "Buy 90%+: Strong consensus  solid basis for mid-long term positions",
       "guide2": "Buy 50-70%: Divided opinions  additional analysis needed",
       "guide3": "Mostly Hold: Direction uncertain  focus on short-term event-driven approach"
@@ -1008,7 +1008,7 @@
       "neutral": "NEUTRAL  Normal range, no anomalies",
       "dist": "DISTRIBUTION  Dark pool below 20% and 1 or fewer blocks  institutional selling",
       "tip": "ACCUMULATION + buy consensus is strong evidence for mid-long term upside.",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "ACCUMULATION: Institutional buying zone  Buy opportunities on pullbacks",
       "guide2": "DISTRIBUTION: Institutional selling  Consider taking profits on bounces",
       "guide3": "NEUTRAL: Limited institutional participation  Analyze retail flow instead"
@@ -1021,7 +1021,7 @@
       "dead": "DEAD  SMA 50 < SMA 200, bearish trend shift",
       "neutral": "NEUTRAL  No crossover, existing trend continues",
       "tip": "GOLDEN Cross + CONVICTION Grade A = ideal buy signal combination.",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "GOLDEN Cross: Mid-long term buy thesis  Use trailing stops",
       "guide2": "DEAD Cross: Defensive strategy  Consider downside hedges",
       "guide3": "SMA distance within 3%: Crossover imminent  Monitor for direction change"
@@ -1034,10 +1034,10 @@
       "bGrade": "Grade B (60-79)  Good, some weaknesses exist",
       "cGrade": "Grade C or below  Needs improvement, increased risk",
       "tip": "PE below sector average with ROE 20%+ = undervalued growth stock.",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "Grade A: Valuation appeal  Core mid-long term position",
       "guide2": "Grade B: Selective approach  Enter after confirming growth momentum",
-      "guide3": "Grade C or below: Speculative  Consider short-term event trading only"
+      "guide3": "Grade C or below: Speculative  Consider short-term event analysis only"
     },
     "earnings": {
       "title": "EARNINGS",
@@ -1046,7 +1046,7 @@
       "upcoming": "Imminent (D-7 or less)  IV rising, options premiums increasing",
       "far": "Earnings far out  Fundamental-based position building possible",
       "tip": "IV surges from D-3 before earnings  Buy options before, sell just before announcement.",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "Earnings D-7: IV rising  Review straddle strategies",
       "guide2": "Earnings day: Direction unpredictable  Reduce position sizing",
       "guide3": "Post-earnings: IV Crush  Options selling strategies favored"
@@ -1058,8 +1058,8 @@
       "positive": "Same direction  Sector-wide momentum confirmed",
       "divergent": "Different direction  Individual ticker event possible",
       "tip": "Entire sector rising but this ticker falling = check for stock-specific issues.",
-      "tradingGuide": "Trading Application",
-      "guide1": "Sector-wide rally: Momentum trades valid  Ride the trend",
+      "tradingGuide": "Data Insight",
+      "guide1": "Sector-wide rally: momentum approachs valid  Ride the trend",
       "guide2": "Only leader rising: Rotation possible  Watch laggards",
       "guide3": "Sector decoupling: Analyze individual events  Check news"
     },
@@ -1070,7 +1070,7 @@
     "flowTitle": "FLOW UNIT",
     "flowDesc": "Flow Sniper tracking <emerald>real-time options fund flows</emerald>. Captures institutional <gold>directional bets</gold> through Net Premium (call-put premium difference) and Volume Strength.",
     "gammaTitle": "TACTICAL RANGE and NET GAMMA ENGINE",
-    "gammaDesc": "<gold>Options-derived tactical levels</gold> and <cyan>gamma engine</cyan> analysis. Sets short-term trading ranges with Support/Resist/Max Pain levels.",
+    "gammaDesc": "<gold>Options-derived tactical levels</gold> and <cyan>gamma engine</cyan> analysis. Sets short-term analytical ranges with Support/Resist/Max Pain levels.",
     "intelTitle": "INTEL FEED (AI)",
     "intelDesc": "<cyan>AI News Intelligence</cyan> feed. AI analyzes the latest news related to the ticker and evaluates market impact.",
     "gammaFlipDesc": "<purple>Gamma Flip Level</purple> is the price where option dealers' gamma exposure flips from <cyan>LONG to SHORT</cyan>. Above this level, dealers <emerald>hedge in the same direction</emerald>, stabilizing markets. Below, they <rose>hedge in opposite direction</rose>, amplifying volatility. The 'Flip' distance in the VOL REGIME card is the key metric.",
@@ -1082,8 +1082,8 @@
       "tip": "Gamma Flip is <purple>the price where option dealers' hedge direction reverses</purple>. You can check the Flip distance (%) in real-time on the VOL REGIME card — when within ±2%, a volatility regime change is imminent."
     },
     "strategy": {
-      "title": "Trading Strategy Guide",
-      "desc": "A 4-step process for <cyan>systematically interpreting</cyan> 10 indicators for trading.",
+      "title": "Data Interpretation Guide",
+      "desc": "A 4-step process for <cyan>systematically interpreting</cyan> 10 indicators for analysis.",
       "step1": {
         "title": "Step 1: Read Market Temperature",
         "desc": "Check VOL REGIME and CONVICTION first. In LOADED/ERUPTING zones reduce sizing."
@@ -1100,15 +1100,15 @@
         "title": "Step 4: Track Institutional Flow",
         "desc": "Monitor INST RADAR and FLOW UNIT Net Premium direction."
       },
-      "warningTitle": "⚠️ Investment Risk Disclosure & Disclaimer",
-      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute investment advice, trading recommendations, or financial consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All investment decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' investment outcomes."
+      "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' analytical outcomes."
     }
   },
   "intelGuide": {
     "subtitle": "10 Sectors × SECTOR COMMAND × AI POST-MARKET BRIEF — Institutional-Grade Intelligence",
     "overviewTitle": "Sector Intel — AI-Driven Theme Analysis",
     "overviewTagline": "AI-Driven Sector Intelligence Platform",
-    "overviewDesc": "SIGNUM HQ's Intel page monitors <cyan>10 investment theme sectors</cyan> in real-time. View the full sector landscape at a glance in <gold>SECTOR COMMAND</gold>, then drill into individual sector tabs for deep analysis. After market close, <emerald>AI auto-generates Cross-Sector Intelligence analysis</emerald> and 10 sector reports, with live prices refreshed every 30 seconds.",
+    "overviewDesc": "SIGNUM HQ's Intel page monitors <cyan>10 market theme sectors</cyan> in real-time. View the full sector landscape at a glance in <gold>SECTOR COMMAND</gold>, then drill into individual sector tabs for deep analysis. After market close, <emerald>AI auto-generates Cross-Sector Intelligence analysis</emerald> and 10 sector reports, with live prices refreshed every 30 seconds.",
     "sectorCommand": {
       "title": "SECTOR COMMAND",
       "tagline": "10-Sector Command Center",
@@ -1132,7 +1132,7 @@
     "sectorZones": {
       "title": "Sector Analysis Zones",
       "tagline": "5-Zone Sector Intelligence",
-      "desc": "Select any sector tab and <cyan>5 analysis zones</cyan> appear in sequence. From live pricing to AI reports, every piece of investment intelligence for that sector is available on one screen.",
+      "desc": "Select any sector tab and <cyan>5 analysis zones</cyan> appear in sequence. From live pricing to AI reports, every piece of market intelligence for that sector is available on one screen.",
       "gridTitle": "Zone A: Session Grid (Live Dashboard)",
       "gridDesc": "Auto-detects US market sessions (PRE-MKT · LIVE · POST-MKT · CLOSED). For each ticker: live price, change %, sparkline chart, options position bar, flow indicators, and AI one-liner analysis.",
       "rankingTitle": "Zone A-2: Ranking Row (3 Key Insights)",
@@ -1216,10 +1216,10 @@
     "indicators": {
       "title": "Key Indicators Reference",
       "tagline": "Key Indicators Reference",
-      "desc": "Understand the meaning of <cyan>key indicators</cyan> you frequently encounter on the Intel page and their <gold>practical trading applications</gold>. Accurate understanding of each indicator enables more effective investment decisions.",
+      "desc": "Understand the meaning of <cyan>key indicators</cyan> you frequently encounter on the Intel page and their <gold>practical data applications</gold>. Accurate understanding of each indicator enables more effective analytical decisions.",
       "gexTitle": "GEX (Gamma Exposure)",
       "gexDesc": "Represents option dealer gamma exposure. Positive (+GEX) means dealers suppress volatility, keeping the market stable. Negative (-GEX) means dealers amplify volatility, increasing the chance of sharp moves.",
-      "gexTrading": "+GEX → Range trading (VWAP-based) favorable. -GEX → Trend following or breakout trades favorable. Sign flip (Gamma Flip) signals imminent volatility regime change.",
+      "gexTrading": "+GEX → Range-based approach (VWAP-based) favorable. -GEX → Trend following or breakout approaches favorable. Sign flip (Gamma Flip) signals imminent volatility regime change.",
       "darkPoolTitle": "Dark Pool %",
       "darkPoolDesc": "Percentage of total volume traded in institutional off-exchange (dark pools). Above 50% indicates active institutional accumulation or distribution — analyze alongside price direction to gauge institutional intent.",
       "darkPoolTrading": "DP↑ + price↓ → Potential institutional accumulation (medium-term rebound). DP↑ + price↑ → Potential institutional profit-taking (rally sustainability questionable).",
@@ -1228,7 +1228,7 @@
       "pcrTrading": "P/C < 0.7 → Market overheating, consider profit-taking. P/C > 1.3 → Extreme fear, contrarian rebound opportunity. P/C 0.8-1.2 → Neutral, cross-reference with other indicators.",
       "squeezeTitle": "Squeeze (Squeeze Probability)",
       "squeezeDesc": "When Bollinger Bands contract inside Keltner Channels, energy accumulates. Upon release (Fire), a strong directional move occurs. Displayed in 3 levels: LOW/MED/HIGH.",
-      "squeezeTrading": "HIGH + short gamma → Options straddle buy for sharp move preparation. Enter momentum trade at Fire confirmation.",
+      "squeezeTrading": "HIGH + short gamma → Options straddle buy for sharp move preparation. Enter momentum approach at Fire confirmation.",
       "netPremiumTitle": "Net Premium",
       "netPremiumDesc": "The difference between call option premium and put option premium. Positive means call dominance (bullish expectation), negative means put dominance (bearish expectation).",
       "netPremiumTrading": "Net Premium positive + volume rising → Institutional call buying, upward momentum. Negative + volume rising → Institutional put buying, downside hedge/bearish bet.",
@@ -1237,20 +1237,20 @@
       "whaleIndexTrading": "Whale HIGH + Alpha Grade A → Institutional accumulation zone, pullback buy opportunity. Whale LOW + price falling → Institutional disinterest, observe or reduce exposure."
     },
     "usage": {
-      "title": "Trading Strategy Guide",
-      "tagline": "Trading Strategy Guide",
-      "desc": "Practical strategies for effectively using Intel page data in real trading.",
+      "title": "Data Interpretation Guide",
+      "tagline": "Data Interpretation Guide",
+      "desc": "Practical strategies for effectively using Intel page data in real analysis.",
       "tip1Title": "Gauge Market Temperature with SECTOR COMMAND",
-      "tip1Desc": "Check SECTOR COMMAND's Alpha Leaders before each trading day. Identify the strongest/weakest stocks and sectors across 70 tickers in 30 seconds. Focusing on strong sectors improves win rate.",
+      "tip1Desc": "Check SECTOR COMMAND's Alpha Leaders before each session. Identify the strongest/weakest stocks and sectors across 70 tickers in 30 seconds. Focusing on strong sectors improves win rate.",
       "tip2Title": "Capture Sector Rotation",
       "tip2Desc": "Compare average performance and LEAD/LAG tickers across 10 sector cards to identify capital rotation. If the strongest sector changes for 2-3 consecutive days, rotation is underway.",
       "tip3Title": "Plan Next-Day Strategy with POST-MARKET BRIEF",
-      "tip3Desc": "Review AI Cross-Sector Intelligence after market close. Analyze inter-sector capital flows, key signals, and risk factors to build next-day trading strategies.",
+      "tip3Desc": "Review AI Cross-Sector Intelligence after market close. Analyze inter-sector capital flows, key signals, and risk factors to build next-day analytical strategies.",
       "tip4Title": "Earnings Season + Earnings Calendar",
       "tip4Desc": "Preview earnings dates in sector tabs' Earnings Calendar. IV surges from D-3, so timing options strategies (straddles, credit spreads) becomes possible."
     },
-    "warningTitle": "Investment Risk Disclosure & Disclaimer",
-    "warningDesc": "All information provided by this service (including indicators, signals, and analysis results) is for informational purposes only and does not constitute investment advice, trading recommendations, or financial consultation. Financial investments carry the risk of principal loss, and past data and indicators do not guarantee future returns. All investment decisions are solely the responsibility of the user, and any resulting gains or losses are also the user's responsibility. The service provider bears no legal liability for users' investment outcomes."
+    "warningTitle": "Risk Disclosure & Disclaimer",
+    "warningDesc": "All information provided by this service (including indicators, signals, and analysis results) is for informational purposes only and does not constitute personalized recommendations or financial consultation. Financial investments carry the risk of principal loss, and past data and indicators do not guarantee future returns. All analytical decisions are solely the responsibility of the user, and any resulting gains or losses are also the user's responsibility. The service provider bears no legal liability for users' analytical outcomes."
   },
   "portfolioGuide": {
     "subtitle": "Manage your portfolio with Alpha Score and Signal Badge for each holding.",
@@ -1261,10 +1261,10 @@
     "stats": {
       "totalValue": "Total Valuation",
       "totalValueDesc": "Total market value of all holdings based on current prices. Updated in real-time.",
-      "totalCost": "Total Investment",
-      "totalCostDesc": "Original total investment calculated from average purchase price × quantity.",
+      "totalCost": "Total Holdings",
+      "totalCostDesc": "Original Total Holdings calculated from average purchase price × quantity.",
       "returnRate": "Return Rate",
-      "returnRateDesc": "Difference between total valuation and total investment, shown in both percentage and dollar amount.",
+      "returnRateDesc": "Difference between total valuation and Total Holdings, shown in both percentage and dollar amount.",
       "portfolioScore": "Portfolio Score",
       "portfolioScoreDesc": "Weighted average Alpha Score across all holdings. Displayed with A-F grade.",
       "marketStatus": "Market Status",
@@ -1304,7 +1304,7 @@
       "badge": "Exchange Rate Badge",
       "badgeDesc": "Real-time exchange rate displayed in the header. Refreshed every minute from Yahoo Finance with daily change percentage.",
       "subText": "Converted Amount",
-      "subTextDesc": "Converted local currency amounts automatically appear below Total Valuation, Total Investment, and Return Rate.",
+      "subTextDesc": "Converted local currency amounts automatically appear below Total Valuation, Total Holdings, and Return Rate.",
       "toggle": "Currency Toggle",
       "toggleDesc": "Click the ⇄ icon next to P&L and Today column headers to instantly switch between USD and local currency.",
       "koLabel": "Korean: $1 = ₩1,427",
@@ -1333,8 +1333,8 @@
       "trim": "Reduce position - Alpha below 35 or sharp decline"
     },
     "warningTitle": "Investment Risk Disclaimer",
-    "warningDesc": "SIGNUM HQ's portfolio analysis is for reference only and does not constitute investment advice. All investment decisions and resulting gains or losses are solely the responsibility of the user.",
-    "proTip": "Alpha Score + Signal Badge + Sparkline = Triple Confirmation. Use all three together for the best investment decisions."
+    "warningDesc": "SIGNUM HQ's portfolio analysis is for reference only and does not constitute investment advice. All analytical decisions and resulting gains or losses are solely the responsibility of the user.",
+    "proTip": "Alpha Score + Signal Badge + Sparkline = Triple Confirmation. Use all three together for the best analytical decisions."
   },
   "watchlistGuide": {
     "subtitle": "Monitor key indicators of your interested tickers at a glance",
@@ -1404,7 +1404,7 @@
       "return3d": {
         "title": "3-Day Return (3D)",
         "badge": "Momentum",
-        "meaning": "Shows the cumulative return over the last 3 trading days.",
+        "meaning": "Shows the cumulative return over the last 3 sessions.",
         "positive": "3-day gain  short-term upward momentum",
         "negative": "3-day decline  short-term downward momentum"
       },
@@ -1444,7 +1444,7 @@
     "columnSubtitle": "Understand exactly what each column means",
     "proTip": "Check Alpha Score + Signal + Whale Index together. When all three indicators point bullish, it presents the highest probability entry opportunity.",
     "warningTitle": "Investment Risk Disclaimer",
-    "warningDesc": "The analysis provided by SIGNUM HQ Watchlist is for informational purposes only and does not constitute investment advice. All investment decisions and resulting gains or losses are solely the responsibility of the user."
+    "warningDesc": "The analysis provided by SIGNUM HQ Watchlist is for informational purposes only and does not constitute investment advice. All analytical decisions and resulting gains or losses are solely the responsibility of the user."
   },
   "flowRadarGuide": {
     "subtitle": "Tracks real-time large scale option trades and institutional flows",
@@ -1503,7 +1503,7 @@
         "desc": "Measures the strength of the US dollar against 6 major currencies. A strong dollar generally has negative effects on emerging markets and commodities.",
         "tip": "Strong dollar (DXY↑) tends to weaken tech stocks. Weak dollar tends to strengthen emerging markets and commodities."
       },
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "F&G ≤25 + VIX ≥30 simultaneously → Panic zone, signal to start scaling in",
       "guide2": "F&G ≥75 + VIX ≤12 simultaneously → Overheated zone, consider partial profit-taking",
       "guide3": "DXY surge → Potential weakness in exporters and semis → Review defensive positions"
@@ -1521,7 +1521,7 @@
       "neutralDesc": "Neutral — Wait and see, hold core positions only",
       "strong": "STRONG",
       "strongDesc": "Strong — Aggressive buying, consider leverage",
-      "tradingGuide": "Trading Application",
+      "tradingGuide": "Data Insight",
       "guide1": "Gauge ≤40 → Avoid new longs, review stop-loss levels on existing positions",
       "guide2": "Gauge ≥60 → Actively consider buying, especially effective at trend reversals",
       "guide3": "Gauge hovering around 50 → Wait for directional confirmation, standby for events"
@@ -1543,20 +1543,20 @@
         "riskOff": "Bonds & Gold rising together → Flight to safety, equity risk management needed",
         "riskOn": "Bonds & Gold falling together → Risk-on appetite, favorable equity buying environment"
       },
-      "tradingGuide": "Macro Trading Strategy",
+      "tradingGuide": "Macro Data Insight",
       "guide1": "Both NDX/DOW 20D at 100% → Strong uptrend, favorable to buy pullbacks",
       "guide2": "Persistent 2S10S inversion → Possible recession in 6-18 months, increase defensive allocation",
       "guide3": "<rose>RISK-OFF ROTATION alert triggered</rose> → Avoid new longs, <gold>increase cash and rotate to defensives</gold>"
     },
     "rlsi": {
       "title": "RLSI INSIGHT",
-      "desc": "RLSI (Real-time Liquidity & Sentiment Index) provides tactical insights through AI analysis of <cyan>liquidity</cyan>, <gold>sentiment</gold>, and <emerald>technical indicators</emerald> in real-time. Only active during regular trading sessions.",
+      "desc": "RLSI (Real-time Liquidity & Sentiment Index) provides tactical insights through AI analysis of <cyan>liquidity</cyan>, <gold>sentiment</gold>, and <emerald>technical indicators</emerald> in real-time. Only active during regular market sessions.",
       "sampleInsight": "Following the FOMC minutes release, the market shows growth stock preference with positive tech sector supply-demand dynamics. Rate stabilization expectations are being reflected.",
       "alignOk": "All data sources receiving normally",
       "alignPartial": "Some data sources delayed",
       "alignOffline": "After hours — Analysis suspended",
       "tradingGuide": "Using RLSI",
-      "guide1": "Only use RLSI insights for trading when status shows ALIGNMENT OK",
+      "guide1": "Only use RLSI insights for analysis when status shows ALIGNMENT OK",
       "guide2": "RLSI tactical insights summarize the current session environment — check before market open",
       "guide3": "In PARTIAL status, insight reliability is lower — cross-verify with other indicators"
     },
@@ -1570,7 +1570,7 @@
       "buyAdvantage": "Buy-side Advantage",
       "volumeAnalysis": "Volume Analysis · Buy% Share",
       "balanced": "Balanced",
-      "tradingGuide": "Breadth Trading Strategy",
+      "tradingGuide": "Breadth Data Insight",
       "guide1": "A/D ratio ≥2:1 → Broad-based rally, trust the market trend",
       "guide2": "Index new highs + Breadth <50% → Rally fatigue, driven by few large caps → Caution",
       "guide3": "Breadth bouncing from lows → Bottom signal, initiate scaling in"
@@ -1584,7 +1584,7 @@
       "event2": "ISM Manufacturing PMI",
       "date3": "3/5 Wed",
       "event3": "ISM Services PMI",
-      "tradingGuide": "Event-Driven Trading Strategy",
+      "tradingGuide": "Event-Driven Data Insight",
       "guide1": "HIGH event D-1: Avoid new positions, review stop-loss levels on existing ones",
       "guide2": "Right after CPI/PPI release: Ignore initial 30-min volatility, enter after 1-hour directional confirmation",
       "guide3": "1 week around FOMC: VIX spike possible, options premium rises → Favor options selling strategies"
@@ -1596,7 +1596,7 @@
       "analysisLabel": "Analysis",
       "actionLabel": "Action",
       "sampleCurrent": "5-day trend shows fund rotation from growth preference (RISK_ON_GROWTH) toward value, industrials, and financials.",
-      "sampleAnalysis": "Market shows resilient supply-demand dynamics despite FOMC uncertainty, with tech stocks particularly strong from an AI trading perspective.",
+      "sampleAnalysis": "Market shows resilient supply-demand dynamics despite FOMC uncertainty, with tech stocks particularly strong from an AI analytical perspective.",
       "sampleAction": "A scaled buying strategy focused on tech stocks remains valid given the growth-oriented regime and stable signals.",
       "v9DeepAnalysis": {
         "title": "V9.0 Deep Macro Analysis Indicators",
@@ -1618,7 +1618,7 @@
       "activeFlow": "Pulsing dot = Currently active flow",
       "safeHaven": "Yellow node (Safe Haven) = Bond & Gold safe-haven capital flow",
       "newSectors": "V9.0 New: Semiconductors (SEMIS), Cybersecurity (CYBER), Clean Energy (CLEAN NRG)",
-      "tradingGuide": "Flow Map Trading Strategy",
+      "tradingGuide": "Flow Map Data Insight",
       "guide1": "Sectors with concentrated inflows (<emerald>large green nodes</emerald>) → <gold>Top buy candidates among sector leaders</gold>",
       "guide2": "Funds leaving outflow sectors (<rose>red nodes</rose>) toward inflow sectors → <cyan>Capture sector rotation</cyan>",
       "guide3": "Capital concentrating on <gold>Safe Haven node</gold> → <rose>Crisis precursor, consider reducing equity positions</rose>"
@@ -1681,8 +1681,8 @@
       "guide3": "<emerald>Gamma Flip Point within 2%</emerald> → Dealer regime shift imminent, <rose>reduce positions and tighten stop-loss</rose>"
     },
     "strategy": {
-      "title": "Practical Trading Guide",
-      "desc": "A 4-step process for <cyan>systematically interpreting</cyan> all Guardian data for trading decisions. Covers from macro perspective to micro execution.",
+      "title": "Practical Analysis Guide",
+      "desc": "A 4-step process for <cyan>systematically interpreting</cyan> all Guardian data for analysis decisions. Covers from macro perspective to micro execution.",
       "step1": {
         "title": "Step 1: Check Market Temperature",
         "desc": "Check Fear & Greed + VIX + DXY status bar to gauge overall market temperature. In extreme fear or greed zones, prioritize contrarian strategies."
@@ -1699,8 +1699,8 @@
         "title": "Step 4: Execute Trades",
         "desc": "Reference AI judgments from Tactical Verdict and RLSI Insight for final trade execution. Combining with Dashboard's individual stock analysis enables more precise timing."
       },
-      "warningTitle": "⚠️ Investment Risk Disclosure & Disclaimer",
-      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute investment advice, trading recommendations, or financial consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All investment decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' investment outcomes."
+      "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' analytical outcomes."
     }
   },
   "flowGuide": {
@@ -1720,7 +1720,7 @@
       "neutral": "-20 to +20: Neutral → Direction unclear",
       "put": "-20 or below: Put dominant → Bearish signal",
       "tip": "A sudden OPI reversal can be an early signal of position change. Cross-reference with GEX Regime.",
-      "tradingGuide": "OPI Trading Strategy",
+      "tradingGuide": "OPI Data Insight",
       "guide1": "OPI +50+ with GEX STABLE → Trend-following long entry",
       "guide2": "OPI sharply reverses (-→+) → Early reversal signal, reassess positions",
       "guide3": "OPI neutral but IV high → Direction undecided, consider straddle"
@@ -1735,7 +1735,7 @@
       "high": "60-80%: High volatility → Premium expensive, consider selling strategies",
       "veryHigh": "80-100%: Extreme volatility → Event imminent, risk caution",
       "tip": "IV Percentile above 90% means IV is near historical highs. Prioritize premium selling strategies.",
-      "tradingGuide": "ATM IV Trading Strategy",
+      "tradingGuide": "ATM IV Data Insight",
       "guide1": "IV < 30%: Buy options (calls/puts) → Profit on volatility expansion",
       "guide2": "IV > 70%: Covered calls, put writing, or premium selling strategies",
       "guide3": "IV spikes then declines → IV Crush in progress, consider closing long positions"
@@ -1750,7 +1750,7 @@
       "leanBear": "30-50%: Lean bearish → Conservative caution",
       "bearish": "Below 30%: Bearish → AI Verdict BEARISH",
       "tip": "Extreme Composite values (below 20% or above 80%) have high confidence but may also signal overbought/oversold reversals.",
-      "tradingGuide": "Composite Trading Strategy",
+      "tradingGuide": "Composite Data Insight",
       "guide1": "70%+ with positive OPI → Multiple signals align, strong buy case",
       "guide2": "Crossing around 50% → Direction shift signal, consider reducing positions",
       "guide3": "Below 30% with IV spike → Panic zone, hedging essential"
@@ -1763,7 +1763,7 @@
       "short": "SHORT: Put premium > Call premium → Whale bearish bet",
       "neutral": "NEUTRAL: Call ≈ Put → Whale watching or straddle",
       "tip": "When whale premium exceeds $1M, it signals high-conviction trading. Check individual trades in Classified Order Flow.",
-      "tradingGuide": "Whale Trading Strategy",
+      "tradingGuide": "Whale Data Insight",
       "guide1": "Whale LONG + OPI positive → Institutional and flow aligned, trend-follow",
       "guide2": "Whale vs OPI diverge → Mixed signals, confirm direction before entry",
       "guide3": "Whale premium rapidly changes → Potential urgent position adjustment"
@@ -1779,7 +1779,7 @@
       "elevated": "45-55%: Normal level → Typical institutional activity",
       "normal": "Below 45%: Retail-dominated market → Individual investor driven",
       "tip": "When Dark Pool % exceeds 60% while price is flat, institutional accumulation is likely occurring.",
-      "tradingGuide": "Dark Pool Trading Strategy",
+      "tradingGuide": "Dark Pool Data Insight",
       "guide1": "DP 60%+ flat price → Institutional accumulation, prepare for breakout",
       "guide2": "DP surge + price decline → Possible institutional selling, manage risk",
       "guide3": "DP low but volume surging → Retail-driven rally, watch for volatility"
@@ -1793,7 +1793,7 @@
       "elevated": "40-50%: Caution level → Monitor rising short selling trend",
       "normal": "Below 40%: Normal level → No anomalies",
       "tip": "If Short Vol % exceeds 50% while the price is rising, a short-covering rally is likely in progress.",
-      "tradingGuide": "Short Vol Trading Strategy",
+      "tradingGuide": "Short Vol Data Insight",
       "guide1": "Short 50%+ price rising → Short squeeze potential, follow momentum",
       "guide2": "Short 50%+ price falling → Intensifying downward pressure, consider put hedge",
       "guide3": "Short Vol suddenly drops → Short covering underway, reversal signal"
@@ -1807,7 +1807,7 @@
       "balanced": "0.7-1.0: Balanced → Normal market conditions",
       "putDom": "Above 1.0: Put dominant (bearish) → Extreme = contrarian buy signal",
       "tip": "P/C Ratio above 1.3 indicates extreme fear, which historically correlates with higher bounce probability.",
-      "tradingGuide": "P/C Ratio Trading Strategy",
+      "tradingGuide": "P/C Ratio Data Insight",
       "guide1": "P/C > 1.2 with support holding → Contrarian buy opportunity",
       "guide2": "P/C < 0.5 with price surge → Overheating warning, take profits",
       "guide3": "P/C rapid change (0.5→1.5) → Sentiment shift, check for events"
@@ -1821,7 +1821,7 @@
       "flipZone": "FLIP ZONE: Near GEX flip point → Volatility shift possible",
       "explosive": "EXPLOSIVE/EXPLODE: -GEX environment → Market makers amplify volatility",
       "tip": "When Flip Zone transitions to EXPLOSIVE, a major directional move is imminent. Cross-reference with Implied Move.",
-      "tradingGuide": "GEX Regime Trading Strategy",
+      "tradingGuide": "GEX Regime Data Insight",
       "guide1": "STABLE → Range-bound, iron condor / credit spread favorable",
       "guide2": "EXPLOSIVE → Directional buys (call/put), consider straddle/strangle",
       "guide3": "Flip Zone → Reduce position size, tighten stop-loss"
@@ -1868,7 +1868,7 @@
       "moderate": "±4-8%: Moderate volatility → Normal trading day",
       "low": "±4% or less: Low volatility expected → Direction unclear",
       "tip": "When Implied Move surges before earnings, option premiums are expensive. Watch for IV Crush after the announcement.",
-      "tradingGuide": "Implied Move Trading Strategy",
+      "tradingGuide": "Implied Move Data Insight",
       "guide1": "IM ±8%+: Watch premium costs for directional buys, consider spreads",
       "guide2": "IM low = cheap premiums → Long straddle/strangle opportunity",
       "guide3": "IM vs actual move comparison → Consistently overestimated IM favors premium selling"
@@ -1881,7 +1881,7 @@
       "wall": "Call Wall: Highest call OI strike → Strong upside resistance",
       "breakout": "Floor/Wall breach → Gamma acceleration amplifies sharp moves",
       "tip": "When price approaches Put Floor, expect a bounce; near Call Wall, expect a pullback.",
-      "tradingGuide": "Floor/Wall Trading Strategy",
+      "tradingGuide": "Floor/Wall Data Insight",
       "guide1": "Near Put Floor → Sell puts (support expected) or buy calls",
       "guide2": "Near Call Wall → Sell calls (resistance expected) or take profits",
       "guide3": "Narrow Floor/Wall range → Directional breakout imminent, breakout strategy"
@@ -1895,7 +1895,7 @@
       "moderate": "40-70: Moderate activity → Watching or minor adjustments",
       "weak": "Below 40: Inactive institutions → Retail-dominated market",
       "tip": "Smart Money Score 80+ with positive OPI signals strong institutional conviction on the bullish side.",
-      "tradingGuide": "Smart Money Trading Strategy",
+      "tradingGuide": "Smart Money Data Insight",
       "guide1": "SM 70+ aligned with OPI → High-conviction institutional trade, follow along",
       "guide2": "SM surging but price flat → Institutional accumulation, prepare for breakout",
       "guide3": "SM low with high volume → Retail-driven rally, sustainability questionable"
@@ -1908,7 +1908,7 @@
       "near": "Price ≈ Max Pain: Expiry convergence → Likely to stay near this level",
       "above": "Price > Max Pain: Downward pull → Price gravitates toward Max Pain",
       "tip": "Max Pain's magnetic effect is strongest during options expiration week. Start monitoring 2-3 days before expiry.",
-      "tradingGuide": "Max Pain Trading Strategy",
+      "tradingGuide": "Max Pain Data Insight",
       "guide1": "OE week: Price < Max Pain → Call spread or stock purchase",
       "guide2": "OE week: Price > Max Pain → Put spread or take profits",
       "guide3": "Large Max Pain-price gap near OE → Expect sharp convergence move"
@@ -1922,7 +1922,7 @@
       "caution": "+2-5%: Caution → Mild downside concern",
       "greed": "Below 0%: Greed → Call premiums expensive, upside overheating",
       "tip": "Extreme fear in IV Skew (+8% or above) can be a contrarian buying opportunity.",
-      "tradingGuide": "IV Skew Trading Strategy",
+      "tradingGuide": "IV Skew Data Insight",
       "guide1": "Skew +5%+: Puts expensive, sell puts (bull put spread) consideration",
       "guide2": "Skew negative: Calls expensive, sell calls (bear call spread) consideration",
       "guide3": "Skew rapid change → Cross-reference P/C Ratio for sentiment validation"
@@ -1936,7 +1936,7 @@
       "support": "- DEX: Dealers need to buy stock → Downside support",
       "neutral": "≈ 0: Dealers neutral → No hedging pressure",
       "tip": "View DEX alongside GEX Regime for a comprehensive picture of dealer market influence.",
-      "tradingGuide": "DEX Trading Strategy",
+      "tradingGuide": "DEX Data Insight",
       "guide1": "Large positive DEX → Dealer selling pressure, creates selling wall on rallies",
       "guide2": "Large negative DEX → Dealer buying pressure, creates floor on dips",
       "guide3": "DEX rapid change → Large option position shifts, expect volatility expansion"
@@ -1950,7 +1950,7 @@
       "abnormal": "2-5x: Abnormal activity → Careful monitoring needed",
       "normal": "Below 2x: Normal range → No anomalies",
       "tip": "UOA 5x+ concentrated at a specific strike means someone is making a large, high-conviction bet.",
-      "tradingGuide": "UOA Trading Strategy",
+      "tradingGuide": "UOA Data Insight",
       "guide1": "UOA 5x+ on specific calls → Bullish expectation signal near that strike",
       "guide2": "UOA 5x+ on specific puts → Bearish expectation signal near that strike",
       "guide3": "High UOA with low OI → New position, high-conviction trade"
@@ -1974,8 +1974,8 @@
         "title": "Step 4: Execute with Premium Indicators",
         "desc": "Set entry points, stop-losses, and targets based on Implied Move, Max Pain, and Floor/Wall. Fine-tune timing with IV Skew and UOA."
       },
-      "warningTitle": "⚠️ Investment Risk Disclosure & Disclaimer",
-      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute investment advice, trading recommendations, or financial consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All investment decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' investment outcomes."
+      "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' analytical outcomes."
     },
     "volumeOi": {
       "sectionTitle": "Volume / OI Toggle — Two Views of the Same Chart",
@@ -1991,7 +1991,7 @@
       "oiBoxLine1": "→ Total contracts still open (not yet closed/exercised)",
       "oiBoxLine2": "→ Wider view including mid-term (0-35 day) expiries",
       "oiBoxLine3": "→ 'Blueprint' of price levels where big money is locked",
-      "oiBoxUse": "📌 Use for: Swing trading, support/resistance levels",
+      "oiBoxUse": "📌 Use for: swing analysis, support/resistance levels",
       "volumeMockHint": "Short-term expiry options",
       "volumeTitle": "Volume Mode — Real-Time Trading Flow",
       "volumeBadge": "Tactical",
@@ -2184,7 +2184,7 @@
     "ctaSecondary": "View Guide First"
   },
   "footer": {
-    "disclaimer": "All information provided by SIGNUM HQ is quantitative reference data for informational and educational purposes only and does not constitute a trade recommendation or investment advice. Data is provided \"as is\" without warranty of any kind and may be delayed or contain errors. Past performance is not indicative of future results. All investment decisions and resulting gains or losses are solely the responsibility of the user.",
+    "disclaimer": "All information provided by SIGNUM HQ is quantitative reference data for informational and educational purposes only and does not constitute a trade recommendation or investment advice. Data is provided \"as is\" without warranty of any kind and may be delayed or contain errors. Past performance is not indicative of future results. All analytical decisions and resulting gains or losses are solely the responsibility of the user.",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "contact": "Contact",
@@ -2228,7 +2228,7 @@
     "termsName": "Terms of Service",
     "privacyName": "Privacy Policy",
     "andText": " and ",
-    "agreeRisk": "Financial Investment Risk Disclosure & Disclaimer",
+    "agreeRisk": "Financial Risk Disclosure & Disclaimer",
     "agreeRiskSuffix": ".",
     "agreeAge": "I confirm that I am at least 18 years of age.",
     "optional": "(Optional)",
@@ -2244,7 +2244,7 @@
     "terms": {
       "intro": "Thank you for using SIGNUM HQ (the \"Service\"). These Terms of Service govern your rights and obligations in using the Service.",
       "investmentTitle": "Investment Disclaimer",
-      "investmentContent": "All data, analysis, and information provided by SIGNUM HQ (including Gamma Exposure, Options Flow, Max Pain, etc.) are for statistical reference only and do not constitute investment advice or recommendations to buy or sell any securities. You are solely responsible for all investment decisions and their outcomes.",
+      "investmentContent": "All data, analysis, and information provided by SIGNUM HQ (including Gamma Exposure, Options Flow, Max Pain, etc.) are for statistical reference only and do not constitute investment advice or recommendations to buy or sell any securities. You are solely responsible for all analytical decisions and their outcomes.",
       "dataTitle": "Data Warranty Disclaimer",
       "dataContent": "We do not guarantee the accuracy, completeness, or timeliness of the Service. We shall not be held liable for any damages arising from system errors, data delays, third-party API failures, or other technical issues.",
       "refundTitle": "Refund Policy",

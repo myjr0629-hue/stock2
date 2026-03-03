@@ -63,7 +63,7 @@ export function generateVerdictWHY(
     // Regime context
     let regimeContext = '';
     if (vix < 16) {
-        regimeContext = `VIX ${vix.toFixed(1)} (16 미만). 낮은 변동성 → 추세 매매 유리.`;
+        regimeContext = `VIX ${vix.toFixed(1)} (16 미만). 낮은 변동성 → 추세 전략 유리.`;
     } else if (vix > 20) {
         regimeContext = `VIX ${vix.toFixed(1)} (20 초과). 높은 변동성 → 신규 진입 자제.`;
     } else {
