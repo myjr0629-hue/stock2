@@ -879,7 +879,7 @@
     "signalDesc": "Real-time timeline of <gold>whale trades</gold>, dark pool events, and short squeeze alerts. Signals are tagged as BUY/SELL/ALERT/WHALE.",
     "strategy": {
       "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
-      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' analytical outcomes."
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' outcomes."
     },
     "pcRatio": {
       "title": "PUT/CALL RATIO",
@@ -1003,7 +1003,7 @@
     "instRadar": {
       "title": "INST RADAR",
       "badge": "Institutional Tracking",
-      "desc": "Tracks institutional investor accumulation/distribution patterns through <purple>dark pool trade ratio</purple> and <cyan>block trade</cyan> frequency. Displayed as ACCUMULATION/DISTRIBUTION/NEUTRAL signals.",
+      "desc": "Tracks institutional participant accumulation/distribution patterns through <purple>dark pool trade ratio</purple> and <cyan>block trade</cyan> frequency. Displayed as ACCUMULATION/DISTRIBUTION/NEUTRAL signals.",
       "accum": "ACCUMULATION  Dark pool 40%+ and 3+ blocks  institutional buying",
       "neutral": "NEUTRAL  Normal range, no anomalies",
       "dist": "DISTRIBUTION  Dark pool below 20% and 1 or fewer blocks  institutional selling",
@@ -1101,7 +1101,7 @@
         "desc": "Monitor INST RADAR and FLOW UNIT Net Premium direction."
       },
       "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
-      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' analytical outcomes."
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' outcomes."
     }
   },
   "intelGuide": {
@@ -1250,7 +1250,7 @@
       "tip4Desc": "Preview earnings dates in sector tabs' Earnings Calendar. IV surges from D-3, so timing options strategies (straddles, credit spreads) becomes possible."
     },
     "warningTitle": "Risk Disclosure & Disclaimer",
-    "warningDesc": "All information provided by this service (including indicators, signals, and analysis results) is for informational purposes only and does not constitute personalized recommendations or financial consultation. Financial investments carry the risk of principal loss, and past data and indicators do not guarantee future returns. All analytical decisions are solely the responsibility of the user, and any resulting gains or losses are also the user's responsibility. The service provider bears no legal liability for users' analytical outcomes."
+    "warningDesc": "All information provided by this service (including indicators, signals, and analysis results) is for informational purposes only and does not constitute personalized recommendations or financial consultation. Financial investments carry the risk of principal loss, and past data and indicators do not guarantee future returns. All analytical decisions are solely the responsibility of the user, and any resulting gains or losses are also the user's responsibility. The service provider bears no legal liability for users' outcomes."
   },
   "portfolioGuide": {
     "subtitle": "Manage your portfolio with Alpha Score and Signal Badge for each holding.",
@@ -1333,7 +1333,7 @@
       "trim": "Reduce position - Alpha below 35 or sharp decline"
     },
     "warningTitle": "Investment Risk Disclaimer",
-    "warningDesc": "SIGNUM HQ's portfolio analysis is for reference only and does not constitute investment advice. All analytical decisions and resulting gains or losses are solely the responsibility of the user.",
+    "warningDesc": "SIGNUM HQ's portfolio analysis is for reference only and does not constitute personalized recommendations. All analytical decisions and resulting gains or losses are solely the responsibility of the user.",
     "proTip": "Alpha Score + Signal Badge + Sparkline = Triple Confirmation. Use all three together for the best analytical decisions."
   },
   "watchlistGuide": {
@@ -1444,7 +1444,7 @@
     "columnSubtitle": "Understand exactly what each column means",
     "proTip": "Check Alpha Score + Signal + Whale Index together. When all three indicators point bullish, it presents the highest probability entry opportunity.",
     "warningTitle": "Investment Risk Disclaimer",
-    "warningDesc": "The analysis provided by SIGNUM HQ Watchlist is for informational purposes only and does not constitute investment advice. All analytical decisions and resulting gains or losses are solely the responsibility of the user."
+    "warningDesc": "The analysis provided by SIGNUM HQ Watchlist is for informational purposes only and does not constitute personalized recommendations. All analytical decisions and resulting gains or losses are solely the responsibility of the user."
   },
   "flowRadarGuide": {
     "subtitle": "Tracks real-time large scale option trades and institutional flows",
@@ -1539,7 +1539,7 @@
       },
       "macroAlert": {
         "label": "Macro Tactical Alerts",
-        "desc": "When capital flows simultaneously into bonds (TLT) and gold (GLD), <rose>RISK-OFF ROTATION</rose> alerts trigger automatically. This signals institutional investors moving capital from equities to safe havens — a <gold>crisis precursor</gold>.",
+        "desc": "When capital flows simultaneously into bonds (TLT) and gold (GLD), <rose>RISK-OFF ROTATION</rose> alerts trigger automatically. This signals institutional participants moving capital from equities to safe havens — a <gold>crisis precursor</gold>.",
         "riskOff": "Bonds & Gold rising together → Flight to safety, equity risk management needed",
         "riskOn": "Bonds & Gold falling together → Risk-on appetite, favorable equity buying environment"
       },
@@ -1700,7 +1700,7 @@
         "desc": "Reference AI judgments from Tactical Verdict and RLSI Insight for final trade execution. Combining with Dashboard's individual stock analysis enables more precise timing."
       },
       "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
-      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' analytical outcomes."
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' outcomes."
     }
   },
   "flowGuide": {
@@ -1975,7 +1975,7 @@
         "desc": "Set entry points, stop-losses, and targets based on Implied Move, Max Pain, and Floor/Wall. Fine-tune timing with IV Skew and UOA."
       },
       "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
-      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' analytical outcomes."
+      "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' outcomes."
     },
     "volumeOi": {
       "sectionTitle": "Volume / OI Toggle — Two Views of the Same Chart",
@@ -2184,7 +2184,7 @@
     "ctaSecondary": "View Guide First"
   },
   "footer": {
-    "disclaimer": "All information provided by SIGNUM HQ is quantitative reference data for informational and educational purposes only and does not constitute a trade recommendation or investment advice. Data is provided \"as is\" without warranty of any kind and may be delayed or contain errors. Past performance is not indicative of future results. All analytical decisions and resulting gains or losses are solely the responsibility of the user.",
+    "disclaimer": "All information provided by SIGNUM HQ is quantitative reference data for informational and educational purposes only and does not constitute a trade recommendation or personalized recommendations. Data is provided \"as is\" without warranty of any kind and may be delayed or contain errors. Past performance is not indicative of future results. All analytical decisions and resulting gains or losses are solely the responsibility of the user.",
     "privacy": "Privacy Policy",
     "terms": "Terms of Service",
     "contact": "Contact",
@@ -2244,7 +2244,7 @@
     "terms": {
       "intro": "Thank you for using SIGNUM HQ (the \"Service\"). These Terms of Service govern your rights and obligations in using the Service.",
       "investmentTitle": "Investment Disclaimer",
-      "investmentContent": "All data, analysis, and information provided by SIGNUM HQ (including Gamma Exposure, Options Flow, Max Pain, etc.) are for statistical reference only and do not constitute investment advice or recommendations to buy or sell any securities. You are solely responsible for all analytical decisions and their outcomes.",
+      "investmentContent": "All data, analysis, and information provided by SIGNUM HQ (including Gamma Exposure, Options Flow, Max Pain, etc.) are for statistical reference only and do not constitute personalized recommendations or recommendations to buy or sell any securities. You are solely responsible for all analytical decisions and their outcomes.",
       "dataTitle": "Data Warranty Disclaimer",
       "dataContent": "We do not guarantee the accuracy, completeness, or timeliness of the Service. We shall not be held liable for any damages arising from system errors, data delays, third-party API failures, or other technical issues.",
       "refundTitle": "Refund Policy",

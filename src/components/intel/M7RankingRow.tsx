@@ -39,7 +39,7 @@ const i18n: Record<Locale, {
         pain: 'PAIN DIVERGENCE', painSub: '과열/침체 랭킹',
         live: 'LIVE',
         closed: 'CLOSED',
-        flowIn: (t, amt) => `${t}에 ${amt} 규모 콜 프리미엄 집중 유입. 기관/대형 트레이더의 강세 베팅 신호.`,
+        flowIn: (t, amt) => `${t}에 ${amt} 규모 콜 프리미엄 집중 유입. 기관/대형 참가자의 강세 베팅 신호.`,
         flowOut: (t, amt) => `${t}에서 ${amt} 규모 풋 프리미엄 유출. 하방 헷지 또는 약세 포지션 구축 감지.`,
         flowBalanced: '전 종목 자금 흐름 균형 상태. 뚜렷한 방향성 부재.',
         squeezeImm: (t, dir, dist) => `${t} ${dir} ${dist}% 근접! 돌파 시 감마 스퀴즈로 급등/급락 가능. 포지션 주의.`,

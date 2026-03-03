@@ -237,7 +237,7 @@
     "breadthAnalysisPending": "レギュラーセッション中にBreadth分析が行われます",
     "insightPending": "レギュラーセッション中にリアルタイム分析が行われます",
     "vixBackwardationDesc": "VIX先物が期近物に急激に偏っています。表面的な株価に関わらず、機関参加者の強力な下落ヘッジ（パニック）が進行中です。",
-    "riskOffDesc": "株式から債券や金などの安全資産へ資金が強く移動しています。保守的なリスク管理が必要です。",
+    "riskOffDesc": "リスク資産から債券や金などの安全資産へ資金が強く移動しています。保守的なリスク管理が必要です。",
     "yieldInverted": "金利逆転",
     "yieldFlattening": "金利鈍化",
     "yieldNormal": "金利正常",
@@ -1011,7 +1011,7 @@
       "tradingGuide": "データ活用法",
       "guide1": "ACCUMULATION：機関買い集め区間 → プルバック時に買い機会",
       "guide2": "DISTRIBUTION：機関分配 → 反発時に利益確定を検討",
-      "guide3": "NEUTRAL：機関参加限定的 → 個人投資家の需給を中心に分析"
+      "guide3": "NEUTRAL：機関参加限定的 → 個人参加者の需給を中心に分析"
     },
     "trendPhase": {
       "title": "TREND PHASE™",
@@ -1332,7 +1332,7 @@
       "watch": "様子見推奨 - 方向性不確実",
       "trim": "比重縮小推奨 - Alpha 35未満または急落"
     },
-    "warningTitle": "投資リスク告知",
+    "warningTitle": "リスク告知",
     "warningDesc": "SIGNUM HQのポートフォリオ分析は参考資料であり、個別アドバイスではありません。すべての分析判断とそれに伴う損益の責任は利用者本人にあります。",
     "proTip": "Alpha Score + Signal Badge + Sparkline = トリプル確認。3つを組み合わせて最適な分析判断を行いましょう。"
   },
@@ -1539,7 +1539,7 @@
       },
       "macroAlert": {
         "label": "マクロ戦術アラート",
-        "desc": "債券（TLT）と金（GLD）に同時に資金が流入すると<rose>RISK-OFF ROTATION</rose>アラートが自動発生します。機関参加者が株式から安全資産へ資金を移動させる<gold>危機の前兆シグナル</gold>です。",
+        "desc": "債券（TLT）と金（GLD）に同時に資金が流入すると<rose>RISK-OFF ROTATION</rose>アラートが自動発生します。機関参加者がリスク資産から安全資産へ資金を移動させる<gold>危機の前兆シグナル</gold>です。",
         "riskOff": "債券・金同時上昇 → 安全資産選好、株式リスク管理必要",
         "riskOn": "債券・金同時下落 → リスクオン選好、積極的な株式購入環境"
       },
@@ -1777,7 +1777,7 @@
       "desc": "<purple>Dark Pool %</purple>は<gold>場外機関取引(ATS)の比重</gold>を表示します。高いほど機関の大量注文が活発で、価格変動の先行指標となり得ます。",
       "high": "55%以上: 機関大量売買活発 → 大きな価格移動の準備中",
       "elevated": "45～55%: 通常レベル → 正常な機関活動",
-      "normal": "45%未満: リテール主導市場 → 個人投資家主導",
+      "normal": "45%未満: リテール主導市場 → 個人参加者主導",
       "tip": "Dark Pool %が60%超で株価が横ばいの場合、機関の物量蓄積(accumulation)の可能性が高いです。",
       "tradingGuide": "Dark Pool活用戦略",
       "guide1": "DP 60%+ 株価横ばい → 機関蓄積、ブレイクアウト準備",
@@ -2228,7 +2228,7 @@
     "termsName": "利用規約",
     "privacyName": "プライバシーポリシー",
     "andText": "および",
-    "agreeRisk": "金融投資リスク告知および免責",
+    "agreeRisk": "金融リスク告知および免責",
     "agreeRiskSuffix": "に同意します。",
     "agreeAge": "18歳以上であることを確認します。",
     "optional": "(任意)",
