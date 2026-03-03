@@ -409,7 +409,7 @@
   }
 }
 
-/* [CHART] Price badge flash on update */
+/* [CHART] Price badge flash on update - directional */
 @keyframes priceFlash {
   0% {
     box-shadow: 0 0 12px 4px rgba(255, 255, 255, 0.7);
@@ -419,6 +419,38 @@
   100% {
     box-shadow: 0 0 0 0 rgba(255, 255, 255, 0);
     filter: brightness(1);
+  }
+}
+
+@keyframes priceFlashGreen {
+  0% {
+    background-color: #10b981 !important;
+    box-shadow: 0 0 16px 6px rgba(16, 185, 129, 0.9);
+  }
+
+  40% {
+    background-color: #059669 !important;
+    box-shadow: 0 0 8px 3px rgba(16, 185, 129, 0.4);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+  }
+}
+
+@keyframes priceFlashRed {
+  0% {
+    background-color: #f43f5e !important;
+    box-shadow: 0 0 16px 6px rgba(244, 63, 94, 0.9);
+  }
+
+  40% {
+    background-color: #e11d48 !important;
+    box-shadow: 0 0 8px 3px rgba(244, 63, 94, 0.4);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0);
   }
 }
 

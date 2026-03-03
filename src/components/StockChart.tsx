@@ -45,6 +45,19 @@ const formatEtMinute = (etMinute: number): string => {
 
 export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels }: StockChartProps & { initialRange?: string }) {
     const td = useTranslations('dashboard');
+    // [LIVE-FLASH] Track previous price for directional flash color
+    const prevPriceRef = useRef<number | undefined>(undefined);
+    const priceDirRef = useRef<'up' | 'down' | 'same'>('same');
+    // Calculate direction before useEffect updates the ref
+    if (currentPrice !== undefined && prevPriceRef.current !== undefined && currentPrice !== prevPriceRef.current) {
+        priceDirRef.current = currentPrice > prevPriceRef.current ? 'up' : 'down';
+    }
+    useEffect(() => {
+        if (currentPrice !== undefined) {
+            prevPriceRef.current = currentPrice;
+        }
+    }, [currentPrice]);
+    const priceDir = priceDirRef.current;
     // [S-76] Check if SSR data has complete fields (etMinute/session)
     const ssrHasCompleteData = data && data.length > 0 && (data[0] as any)?.etMinute !== undefined;
 
@@ -707,7 +720,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                                         textAlign: 'center',
                                                                         fontSize: '13px',
                                                                         fontWeight: 'bold',
-                                                                        color: '#fff',
+                                                                        color: priceDir === 'up' ? '#34d399'
+                                                                            : priceDir === 'down' ? '#fb7185'
+                                                                                : '#fff',
                                                                         fontFamily: 'monospace',
                                                                         animation: 'priceFlash 0.5s ease-out',
                                                                     }}
