@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
-import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
+import * as PortOne from "@portone/browser-sdk/v2";
 import { ArrowLeft, CreditCard, Shield } from "lucide-react";
 
 // ── 가격표 ──
@@ -19,13 +19,13 @@ const PLANS: Record<string, Record<string, { amount: number; label: string; orde
     },
 };
 
-const CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY!;
+const STORE_ID = process.env.NEXT_PUBLIC_PORTONE_STORE_ID!;
+const CHANNEL_KEY = process.env.NEXT_PUBLIC_PORTONE_CHANNEL_KEY!;
 
 export default function CheckoutPage() {
     const searchParams = useSearchParams();
     const locale = useLocale();
     const router = useRouter();
-    const t = useTranslations("pricing");
 
     const plan = searchParams.get("plan") || "pro";
     const billing = searchParams.get("billing") || "monthly";
@@ -33,60 +33,60 @@ export default function CheckoutPage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const tossRef = useRef<any>(null);
 
-    // ── 한국어 전용: 비한국어 → pricing으로 리다이렉트 ──
-    useEffect(() => {
-        if (locale !== "ko") {
-            router.replace(`/${locale}/pricing`);
-            return;
-        }
-        loadTossPayments(CLIENT_KEY).then((tp) => {
-            tossRef.current = tp;
-        }).catch((e) => {
-            console.error("Toss SDK load error:", e);
-            setError("결제 모듈 로딩에 실패했습니다.");
-        });
-    }, [locale, router]);
+    // ── 비한국어 → pricing으로 리다이렉트 ──
+    if (typeof window !== "undefined" && locale !== "ko") {
+        router.replace(`/${locale}/pricing`);
+        return null;
+    }
 
     const handlePayment = async () => {
-        if (!tossRef.current) {
-            setError("결제 모듈이 아직 로딩 중입니다.");
-            return;
-        }
         setLoading(true);
         setError(null);
 
-        const orderId = `SHQ_${plan.toUpperCase()}_${billing.toUpperCase()}_${Date.now()}`;
-        const origin = window.location.origin;
+        const paymentId = `SHQ_${plan.toUpperCase()}_${billing.toUpperCase()}_${Date.now()}`;
 
         try {
-            const payment = tossRef.current.payment({ customerKey: `customer_${Date.now()}` });
-            await payment.requestPayment({
-                method: "CARD",
-                amount: { currency: "KRW", value: planInfo.amount },
-                orderId,
+            const response = await PortOne.requestPayment({
+                storeId: STORE_ID,
+                channelKey: CHANNEL_KEY,
+                paymentId,
                 orderName: planInfo.orderName,
-                successUrl: `${origin}/${locale}/payments/success`,
-                failUrl: `${origin}/${locale}/payments/fail`,
-                card: {
-                    useEscrow: false,
-                    flowMode: "DEFAULT",
-                    useCardPoint: false,
-                    useAppCardOnly: false,
-                },
+                totalAmount: planInfo.amount,
+                currency: "CURRENCY_KRW",
+                payMethod: "CARD",
+                redirectUrl: `${window.location.origin}/${locale}/payments/success`,
             });
-        } catch (e: any) {
-            if (e.code === "USER_CANCEL") {
-                setError("결제가 취소되었습니다.");
-            } else {
-                setError(e.message || "결제 요청 중 오류가 발생했습니다.");
+
+            // 반환값 방식: response에 결과가 담겨 있음
+            if (!response) {
+                setError("결제 응답을 받지 못했습니다.");
+                setLoading(false);
+                return;
             }
+
+            if (response.code !== undefined) {
+                // 오류 또는 사용자 취소
+                if (response.code === "FAILURE_TYPE_PG" || response.message?.includes("취소")) {
+                    setError("결제가 취소되었습니다.");
+                } else {
+                    setError(response.message || "결제 요청 중 오류가 발생했습니다.");
+                }
+                setLoading(false);
+                return;
+            }
+
+            // 결제 성공 → 서버에서 검증 후 success 페이지로 이동
+            router.push(
+                `/${locale}/payments/success?paymentId=${encodeURIComponent(paymentId)}&amount=${planInfo.amount}`
+            );
+        } catch (e: any) {
+            console.error("[PortOne] Payment error:", e);
+            setError(e.message || "결제 요청 중 오류가 발생했습니다.");
             setLoading(false);
         }
     };
 
-    // 비한국어 locale은 리다이렉트 처리 중이므로 빈 화면
     if (locale !== "ko") return null;
 
     return (
@@ -138,8 +138,8 @@ export default function CheckoutPage() {
                         onClick={handlePayment}
                         disabled={loading}
                         className={`w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 font-jakarta ${plan === 'elite'
-                                ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-black shadow-[0_0_30px_rgba(34,211,238,0.2)] hover:brightness-110'
-                                : 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:brightness-110'
+                            ? 'bg-gradient-to-r from-cyan-500 to-cyan-600 text-black shadow-[0_0_30px_rgba(34,211,238,0.2)] hover:brightness-110'
+                            : 'bg-gradient-to-r from-amber-500 to-amber-600 text-black shadow-[0_0_20px_rgba(245,158,11,0.15)] hover:brightness-110'
                             } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     >
                         {loading ? (
@@ -152,7 +152,7 @@ export default function CheckoutPage() {
                     {/* Trust Badge */}
                     <div className="flex items-center justify-center gap-2 mt-5 text-xs text-slate-500">
                         <Shield className="w-3.5 h-3.5" />
-                        <span>토스페이먼츠 보안 결제</span>
+                        <span>포트원 보안 결제</span>
                     </div>
                 </div>
             </div>

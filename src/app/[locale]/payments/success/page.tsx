@@ -7,8 +7,7 @@ import { CheckCircle, XCircle, ArrowRight, Loader2 } from "lucide-react";
 
 export default function PaymentSuccessPage() {
     const searchParams = useSearchParams();
-    const paymentKey = searchParams.get("paymentKey");
-    const orderId = searchParams.get("orderId");
+    const paymentId = searchParams.get("paymentId");
     const amount = searchParams.get("amount");
 
     const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
@@ -16,17 +15,20 @@ export default function PaymentSuccessPage() {
     const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
-        if (!paymentKey || !orderId || !amount) {
+        if (!paymentId) {
             setStatus("error");
             setErrorMessage("결제 정보가 올바르지 않습니다.");
             return;
         }
 
-        // Confirm payment on server
+        // PortOne 결제 검증 (서버에서 조회)
         fetch("/api/payments/confirm", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ paymentKey, orderId, amount: Number(amount) }),
+            body: JSON.stringify({
+                paymentId,
+                expectedAmount: amount ? Number(amount) : undefined,
+            }),
         })
             .then(async (res) => {
                 const data = await res.json();
@@ -42,7 +44,7 @@ export default function PaymentSuccessPage() {
                 setErrorMessage("서버 통신 중 오류가 발생했습니다.");
                 setStatus("error");
             });
-    }, [paymentKey, orderId, amount]);
+    }, [paymentId, amount]);
 
     return (
         <div className="min-h-screen bg-[#0d1220] text-slate-200 flex items-center justify-center px-6 py-20">
@@ -50,7 +52,7 @@ export default function PaymentSuccessPage() {
                 {status === "loading" && (
                     <div className="flex flex-col items-center gap-4">
                         <Loader2 className="w-12 h-12 text-cyan-400 animate-spin" />
-                        <p className="text-lg font-bold text-white">결제 승인 중...</p>
+                        <p className="text-lg font-bold text-white">결제 확인 중...</p>
                         <p className="text-sm text-slate-400">잠시만 기다려주세요</p>
                     </div>
                 )}
@@ -64,13 +66,15 @@ export default function PaymentSuccessPage() {
                         <div className="rounded-xl bg-white/[0.03] border border-white/[0.06] p-5 mb-6 text-left">
                             <div className="space-y-3 text-sm">
                                 <div className="flex justify-between">
-                                    <span className="text-slate-400">주문번호</span>
-                                    <span className="text-white font-mono text-xs">{orderId}</span>
+                                    <span className="text-slate-400">결제 ID</span>
+                                    <span className="text-white font-mono text-xs">{paymentId}</span>
                                 </div>
-                                <div className="flex justify-between">
-                                    <span className="text-slate-400">결제 금액</span>
-                                    <span className="text-white font-bold">₩{Number(amount).toLocaleString()}</span>
-                                </div>
+                                {paymentData?.amount && (
+                                    <div className="flex justify-between">
+                                        <span className="text-slate-400">결제 금액</span>
+                                        <span className="text-white font-bold">₩{Number(paymentData.amount).toLocaleString()}</span>
+                                    </div>
+                                )}
                                 {paymentData?.method && (
                                     <div className="flex justify-between">
                                         <span className="text-slate-400">결제 수단</span>
