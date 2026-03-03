@@ -11,8 +11,7 @@ export function Footer() {
     // Guide pages have a fixed sidebar — offset footer to match
     const isGuide = pathname.includes('/how-it-works');
     const isIntel = pathname.includes('/intel') && !pathname.includes('/intel-guardian');
-    const isFlow = pathname.includes('/flow');
-    const needsOffset = isGuide || isIntel || isFlow;
+    const needsOffset = isGuide || isIntel;
 
     const isKorean = pathname.startsWith('/ko');
     const locale = pathname.startsWith('/ja') ? 'ja' : pathname.startsWith('/ko') ? 'ko' : 'en';
