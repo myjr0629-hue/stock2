@@ -1,6 +1,6 @@
 import { HowItWorksLayout } from '@/components/HowItWorksLayout';
 import Image from 'next/image';
-import { getTranslations } from 'next-intl/server';
+import { getTranslations, getLocale } from 'next-intl/server';
 import {
     Zap, Diamond, Target, Shield, Layers, TrendingDown, TrendingUp,
     Activity, ArrowUpDown, Lightbulb, BarChart3, MapPin, AlertTriangle
@@ -8,6 +8,7 @@ import {
 
 export default async function DashboardGuidePage() {
     const t = await getTranslations('dashboardGuide');
+    const locale = await getLocale();
 
     const richTags = {
         cyan: (chunks: React.ReactNode) => <span className="text-cyan-400 font-semibold">{chunks}</span>,
@@ -17,6 +18,11 @@ export default async function DashboardGuidePage() {
         purple: (chunks: React.ReactNode) => <span className="text-purple-400 font-semibold">{chunks}</span>,
         indigo: (chunks: React.ReactNode) => <span className="text-indigo-400 font-semibold">{chunks}</span>,
     };
+
+    // Locale-specific dashboard screenshot
+    const dashboardImg = locale === 'en' ? '/guide/dashboard/dashboard-full-en.png'
+        : locale === 'ja' ? '/guide/dashboard/dashboard-full-ja.png'
+            : '/guide/dashboard/dashboard-full.png';
 
     return (
         <HowItWorksLayout
@@ -38,7 +44,7 @@ export default async function DashboardGuidePage() {
                 <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-slate-900/30 backdrop-blur-sm shadow-2xl">
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.04] via-transparent to-cyan-500/[0.03] pointer-events-none" />
                     <Image
-                        src="/guide/dashboard/dashboard-full.png"
+                        src={dashboardImg}
                         alt="Dashboard Full View"
                         width={1024}
                         height={600}
