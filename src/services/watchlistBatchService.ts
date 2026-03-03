@@ -498,7 +498,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     extendedPrice: (stockData as any).extendedPrice || null,
                     extendedChangePct: (stockData as any).extendedChangePct || null,
                     extendedLabel: (stockData as any).extendedLabel || undefined,
-                    ivSkew: typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null,
+                    ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
                     impliedMovePct: impliedMovePct ?? null,
                 }
             };
@@ -527,7 +527,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 vwapDist: fullObj.realtime.vwapDist,
                 volume: fullObj.realtime.volume,
                 darkPoolPct: darkPoolPct ?? 0,
-                ivSkew: typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null,
+                ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
                 impliedMovePct: impliedMovePct ?? null
             }).catch(e => console.error(`Failed to write analysis cache for ${ticker}`, e));
 
