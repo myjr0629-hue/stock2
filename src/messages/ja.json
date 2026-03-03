@@ -3061,7 +3061,7 @@
     "fomoGammaFlip": "ガンマフリップレベル — ロング/ショート転換点",
     "fomoSqueeze": "ガンマスクイーズリスク分析",
     "fomoDashMaxPain": "オプション満期収束レベル",
-    "fomoDashCallPut": "オプション価格サポート·レジスタンス",
+    "fomoDashCallPut": "サポート·レジスタンス",
     "fomoDarkPool": "機関ダークプール取引比重",
     "fomoShortVol": "空売り取引量分析",
     "fomoAtmIv": "インプライドボラティリティサーフェス",
