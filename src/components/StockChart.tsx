@@ -637,7 +637,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         isAnimationActive={false}
                                         connectNulls={true}
                                     />
-                                    {/* ═══ prevClose label (left side) ═══ */}
+                                    {/* ═══ prevClose label (right side, Y-axis) ═══ */}
                                     {isIntraday && prevClose !== undefined && (
                                         <ReferenceLine
                                             y={prevClose}
@@ -646,16 +646,15 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             ifOverflow="extendDomain"
                                         >
                                             <Label
-                                                position="left"
+                                                position="right"
                                                 offset={5}
                                                 content={({ viewBox }: any) => {
-                                                    const { x, y, width: vw } = viewBox || {};
+                                                    const { x, y } = viewBox || {};
                                                     if (x === undefined || y === undefined) return null;
-                                                    const rightX = vw ? x + vw : x;
                                                     return (
                                                         <g data-price-badge="prevclose-right">
-                                                            <rect x={rightX + 5} y={y - 10} width={54} height={20} rx={4} fill="#3b82f6" />
-                                                            <text x={rightX + 32} y={y + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">
+                                                            <rect x={x + 5} y={y - 10} width={54} height={20} rx={4} fill="#3b82f6" />
+                                                            <text x={x + 32} y={y + 4} textAnchor="middle" fill="#fff" fontSize={12} fontWeight="bold">
                                                                 {prevClose.toFixed(2)}
                                                             </text>
                                                         </g>
@@ -689,29 +688,33 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                     position="right"
                                                     offset={5}
                                                     content={({ viewBox }: any) => {
-                                                        const { x, y } = viewBox || {};
+                                                        const { x, y, width: vw } = viewBox || {};
                                                         if (x === undefined || y === undefined) return null;
+                                                        const rightX = vw ? x + vw : x;
                                                         return (
-                                                            <g data-price-badge="current-left">
-                                                                <rect
-                                                                    x={x + 5}
-                                                                    y={y - 10}
-                                                                    width={54}
-                                                                    height={20}
-                                                                    rx={4}
-                                                                    fill={bgColor}
-                                                                />
-                                                                <text
-                                                                    x={x + 32}
-                                                                    y={y + 4}
-                                                                    textAnchor="middle"
-                                                                    fill="#ffffff"
-                                                                    fontSize={12}
-                                                                    fontWeight="bold"
+                                                            <foreignObject
+                                                                x={rightX + 3}
+                                                                y={y - 12}
+                                                                width={62}
+                                                                height={24}
+                                                                key={currentPrice}
+                                                            >
+                                                                <div
+                                                                    style={{
+                                                                        background: bgColor,
+                                                                        borderRadius: '4px',
+                                                                        padding: '2px 4px',
+                                                                        textAlign: 'center',
+                                                                        fontSize: '13px',
+                                                                        fontWeight: 'bold',
+                                                                        color: '#fff',
+                                                                        fontFamily: 'monospace',
+                                                                        animation: 'priceFlash 0.5s ease-out',
+                                                                    }}
                                                                 >
                                                                     {currentPrice.toFixed(2)}
-                                                                </text>
-                                                            </g>
+                                                                </div>
+                                                            </foreignObject>
                                                         );
                                                     }}
                                                 />
