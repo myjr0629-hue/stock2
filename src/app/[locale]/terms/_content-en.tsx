@@ -233,9 +233,9 @@ export const sections: TermsSection[] = [
         title: 'Article 16. Governing Law & Dispute Resolution',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li>These Terms shall be governed by and construed in accordance with the <strong>laws of the Republic of Korea.</strong></li>
-                <li>Subject to Article 11 (Arbitration), any disputes arising from these Terms shall be submitted to the <strong>court of competent jurisdiction at the Company&apos;s principal place of business.</strong></li>
-                <li>By agreeing to these Terms, international users consent to the <strong>application of Korean law and the jurisdiction of Korean courts.</strong></li>
+                <li>These Terms shall be governed by and construed in accordance with the <strong>laws of the State of Delaware, United States,</strong> without regard to its conflict of laws provisions.</li>
+                <li>Subject to Article 11 (Arbitration), any disputes arising from these Terms shall be submitted to the <strong>state and federal courts located in the State of Delaware.</strong></li>
+                <li>By agreeing to these Terms, international users consent to the <strong>application of Delaware law and the jurisdiction of Delaware courts.</strong></li>
             </ol>
         ),
     },

@@ -14,7 +14,7 @@ const content = {
         howToBody: 'Simply send an email to the address below with your account email and order details. Your refund will be processed within 7 business days.',
         contact: 'Contact Us',
         back: '← Back to Pricing',
-        company: '© 2026 eunhoonmaster (DBA SIGNUM HQ). All rights reserved.',
+        company: '© 2026 SIGNUM HQ, LLC. All rights reserved.',
     },
     ko: {
         title: '환불 정책',
@@ -25,7 +25,7 @@ const content = {
         howToBody: '아래 이메일 주소로 계정 이메일과 주문 내역을 보내주시면, 7 영업일 이내에 환불이 처리됩니다.',
         contact: '문의하기',
         back: '← 가격 페이지로 돌아가기',
-        company: '© 2026 은훈마스터 (DBA SIGNUM HQ). All rights reserved.',
+        company: '© 2026 SIGNUM HQ, LLC. All rights reserved.',
     },
     ja: {
         title: '返金ポリシー',
@@ -36,7 +36,7 @@ const content = {
         howToBody: '下記のメールアドレスにアカウントメールと注文詳細をお送りください。7営業日以内に返金処理いたします。',
         contact: 'お問い合わせ',
         back: '← 料金ページに戻る',
-        company: '© 2026 eunhoonmaster (DBA SIGNUM HQ). All rights reserved.',
+        company: '© 2026 SIGNUM HQ, LLC. All rights reserved.',
     },
 };
 

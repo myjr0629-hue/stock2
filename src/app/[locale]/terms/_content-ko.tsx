@@ -201,9 +201,9 @@ export const sections: TermsSection[] = [
         title: '제15조 (준거법 및 분쟁의 해결)',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li>본 약관의 해석 및 적용에 관하여는 <strong>대한민국 법</strong>을 준거법으로 합니다.</li>
-                <li>본 약관과 관련하여 발생한 모든 분쟁은 <strong>회사의 본점 소재지를 관할하는 법원</strong>을 제1심 전속 관할 법원으로 합니다.</li>
-                <li>해외에서 서비스를 이용하는 회원도 본 약관에 동의함으로써 <strong>대한민국 법률의 적용 및 대한민국 법원의 관할에 동의</strong>한 것으로 간주합니다.</li>
+                <li>본 약관의 해석 및 적용에 관하여는 <strong>미국 델라웨어주 법률</strong>을 준거법으로 하며, 법률 충돌 규정은 적용하지 않습니다.</li>
+                <li>본 약관과 관련하여 발생한 모든 분쟁은 <strong>미국 델라웨어주 소재 주법원 또는 연방법원</strong>을 제1심 관할 법원으로 합니다.</li>
+                <li>해외에서 서비스를 이용하는 회원도 본 약관에 동의함으로써 <strong>델라웨어주 법률의 적용 및 델라웨어주 법원의 관할에 동의</strong>한 것으로 간주합니다.</li>
             </ol>
         ),
     },
