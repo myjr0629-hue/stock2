@@ -1173,15 +1173,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     {bd && total > 0 && (
                                         <div className="relative z-10 mt-1">
                                             <div className="text-[11px] text-slate-300 tabular-nums font-jakarta">
-                                                <span className="text-emerald-400 font-bold">Strong Buy {bd.strongBuy}</span>
+                                                <span className="text-emerald-400 font-bold">{td('analystStrongBuy')} {bd.strongBuy}</span>
                                                 <span className="text-white/30 mx-0.5">|</span>
-                                                <span className="text-emerald-400/70">Buy {bd.buy}</span>
+                                                <span className="text-emerald-400/70">{td('analystBuy')} {bd.buy}</span>
                                                 <span className="text-white/30 mx-0.5">|</span>
-                                                <span className="text-white/60">Hold {bd.hold}</span>
+                                                <span className="text-white/60">{td('analystHold')} {bd.hold}</span>
                                                 {(bd.sell > 0 || bd.strongSell > 0) && (
                                                     <>
                                                         <span className="text-white/30 mx-0.5">|</span>
-                                                        <span className="text-rose-400/70">Sell {bd.sell + bd.strongSell}</span>
+                                                        <span className="text-rose-400/70">{td('analystSell')} {bd.sell + bd.strongSell}</span>
                                                     </>
                                                 )}
                                             </div>

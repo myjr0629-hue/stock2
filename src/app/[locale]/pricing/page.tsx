@@ -366,7 +366,7 @@ export default function PricingPage() {
             {/* ============================================================ */}
             {/* TIER CARDS */}
             {/* ============================================================ */}
-            <section className="px-6 pb-24">
+            <section id="plans" className="px-6 pb-24">
                 <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
                     {/* FREE Card — Left (Budget anchor) */}
                     <div className="relative p-8 rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/10 hover:border-white/20 transition-all duration-500 shadow-[0_0_20px_rgba(148,163,184,0.04)] hover:shadow-[0_0_30px_rgba(148,163,184,0.08)]">
@@ -760,7 +760,7 @@ export default function PricingPage() {
                             <h3 className="text-2xl md:text-3xl font-black text-white mb-4 font-jakarta">{t("ctaTitle")}</h3>
                             <p className="text-slate-300 text-base mb-6 leading-relaxed">{t("ctaDesc")}</p>
                             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-                                <button className="px-8 py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_25px_rgba(34,211,238,0.2)] flex items-center gap-2 font-jakarta">
+                                <button onClick={() => document.getElementById('plans')?.scrollIntoView({ behavior: 'smooth' })} className="px-8 py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_25px_rgba(34,211,238,0.2)] flex items-center gap-2 font-jakarta">
                                     {t("ctaButton")} <ArrowRight className="w-4 h-4" />
                                 </button>
                                 <Link
