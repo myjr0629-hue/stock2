@@ -697,7 +697,7 @@ export function computeQualityTier(
         console.log(`[PowerEngine] ${symbol} Rejected by Gate 2 (Exhaustion: RSI ${rsi.toFixed(0)})`);
         alphaScore = 0; // Penalty -100 (Effective 0)
         tier = 'FILLER';
-        reasonKR = `📉 [Gate 2] 설거지 패턴 감지 (RSI 과열 + 거래량 폭발) - 즉시 이탈 권고`;
+        reasonKR = `📉 [Gate 2] 설거지 패턴 감지 (RSI 과열 + 거래량 급증) - 즉시 이탈 구간`;
     }
 
     // [Gate 2.5] Overheated Cap — changePct 기반 과열 차단 (V3.4.1)

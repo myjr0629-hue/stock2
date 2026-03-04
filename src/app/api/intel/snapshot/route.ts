@@ -523,8 +523,8 @@ function generateAnalysisKR(q: any, verdict: string): string {
     const verdictKR: Record<string, string> = {
         'BUY_DIP': '조정 시 매수 기회',
         'HOLD': '보유 유지',
-        'HEDGE': '헷지 권고',
-        'TRIM': '일부 차익실현 고려',
+        'HEDGE': '헷지 구간',
+        'TRIM': '일부 차익실현 구간',
     };
 
     return `${changePct > '0' ? '▲' : '▼'} ${changePct}%.${rsiNote}${rvolNote} ${regimeKR}. PCR ${pcr.toFixed(2)} (${pcrKR}). Max Pain $${maxPain} 대비 ${maxPainDir} ${Math.abs(parseFloat(maxPainDist))}% 마감.${levelNote} [${verdictKR[verdict] || verdict}]`;

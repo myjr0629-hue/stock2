@@ -1,6 +1,6 @@
 // ============================================================================
 // M7 Ranking Row — 3-Card Premium Glassmorphism Layout
-// Money Flow (자금력) | Squeeze Proximity (폭발 임박) | Pain Divergence (과열/침체)
+// Money Flow (자금력) | Squeeze Proximity (변동성 임계) | Pain Divergence (과열/침체)
 // i18n: ko / en / ja
 // ============================================================================
 'use client';
@@ -35,7 +35,7 @@ const i18n: Record<Locale, {
 }> = {
     ko: {
         moneyFlow: 'MONEY FLOW', moneyFlowSub: '자금력 랭킹',
-        squeeze: 'SQUEEZE PROXIMITY', squeezeSub: '폭발 임박 랭킹',
+        squeeze: 'SQUEEZE PROXIMITY', squeezeSub: '변동성 임계 랭킹',
         pain: 'PAIN DIVERGENCE', painSub: '과열/침체 랭킹',
         live: 'LIVE',
         closed: 'CLOSED',

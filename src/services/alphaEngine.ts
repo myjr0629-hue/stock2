@@ -1031,7 +1031,7 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
     } else if (changePct >= 5 && changePct < 10) {
         // 5-10% 상승: 이건 정상적인 모멘텀 구간 — 감점 없음, 연료 있으면 가산
         if (hasFuel && (input.shortVolPct ?? 0) >= 40) {
-            score = score + 2; // 숏커버 연료 + 적당한 상승 = 3일 폭발 직전
+            score = score + 2; // 숏커버 연료 + 적당한 상승 = 3일 급변 구간
             gatesApplied.push('SQUEEZE_BUILDING');
         }
     }
@@ -1354,7 +1354,7 @@ function buildExplanation(
         triggerCodes.push('SHORT_ALERT');
     }
     if (input.relVol && input.relVol >= 2.5) {
-        whyParts.push('거래폭발');
+        whyParts.push('거래급증');
         whyFactors.push('VOL_EXPLOSION');
         triggerCodes.push('VOL_BOOM');
     }
@@ -1397,7 +1397,7 @@ function buildExplanation(
             case 'B': whyKR = '일부 신호 확인. 추가 관찰 필요'; break;
             case 'C': whyKR = '방향성 불명확. 관망 권장'; break;
             case 'D': whyKR = '부정적 신호 우세. 신규 진입 금지'; break;
-            case 'F': whyKR = '구조 붕괴. 즉시 이탈 권고'; break;
+            case 'F': whyKR = '구조 붕괴. 즉시 이탈 구간'; break;
         }
     } else {
         // Combine top signals with grade conclusion
@@ -1762,7 +1762,7 @@ export function calculateTradePlan(input: TradePlanInput): TradePlan | null {
         entry = Math.max(regClose * 1.05, pmPrice - pullback);
         entryLow = entry - atr * 0.8;
         entryHigh = entry + atr * 0.5;
-        entryStrategy = `PM 폭등 (+${pmGapPct.toFixed(1)}%) — 🚨 Gap Trap 극도 위험. 추격 매수 절대 금지, 충분한 눌림목($${pullback.toFixed(2)}+ 하락) 통과 후 VWAP 반등 시 진입`;
+        entryStrategy = `PM 급등 (+${pmGapPct.toFixed(1)}%) — 🚨 Gap Trap 극도 고위험 구간. 추격 진입 고위험, 충분한 눌림목($${pullback.toFixed(2)}+ 하락) 통과 후 VWAP 반등 확인 필요`;
     }
 
     // PM이 하락일 경우 진입가 조정: 하락 갭은 되돌림을 기대하지 않고 시가에서 관찰

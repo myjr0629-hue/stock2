@@ -41,7 +41,7 @@ export const ko = {
         NO_TRADE: "관망",
         WATCH: "관찰",
         ENTRY_OK: "진입 가능",
-        EXIT: "청산 권고",
+        EXIT: "청산 구간",
         HOLD: "보유 유지",
         TRIM: "일부 축소",
         AVOID: "회피"

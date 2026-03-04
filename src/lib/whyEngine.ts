@@ -35,7 +35,7 @@ export function generateVerdictWHY(
     gammaExposure?: number | null
 ): VerdictWHY {
     // Determine headline
-    let headline = '관망 권고';
+    let headline = '관망 구간';
     if (regime === 'Risk-On' && vix < 16) {
         headline = '위험선호 / 상승 추세';
     } else if (regime === 'Risk-Off' || vix > 20) {

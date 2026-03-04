@@ -163,9 +163,9 @@ function generateWhySummaryKR(
 
         case 'EXIT':
             if (triggers.includes('HARD_CUT')) {
-                return `${ticker}: 하드컷 발동(${priceDelta.toFixed(1)}%) → 전량 청산 권고`;
+                return `${ticker}: 하드컷 발동(${priceDelta.toFixed(1)}%) → 전량 청산 구간`;
             }
-            return `${ticker}: 다중 리스크 발생 → 청산 권고`;
+            return `${ticker}: 다중 리스크 발생 → 청산 구간`;
 
         case 'REPLACE':
             return `${ticker}: 이탈 확정, 신규 종목으로 교체`;

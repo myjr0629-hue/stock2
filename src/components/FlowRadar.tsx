@@ -1928,7 +1928,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     gexRegime.regime === 'TRANSITION' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                                         gexRegime.regime === 'FLIP_ZONE' ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' :
                                             'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                                    }`}>{gexRegime.regime === 'STABLE' ? 'STABLE' : gexRegime.regime === 'TRANSITION' ? 'SHIFT' : gexRegime.regime === 'FLIP_ZONE' ? 'FLIP' : 'EXPLODE'}</span>
+                                    }`}>{gexRegime.regime === 'STABLE' ? 'STABLE' : gexRegime.regime === 'TRANSITION' ? 'SHIFT' : gexRegime.regime === 'FLIP_ZONE' ? 'FLIP' : 'VOLATILE'}</span>
                             </div>
                             <span className={`text-xl font-black ${gexRegime.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
                                 {gexRegime.pinStrength}% <span className="text-sm">{gexRegime.label}</span>

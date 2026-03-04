@@ -370,7 +370,7 @@ export default async function FlowGuidePage() {
                     <IndicatorCard
                         icon={Zap} iconColor="text-rose-400" gradientFrom="from-rose-500/[0.06]"
                         badgeColor="border-rose-500/30" badgeBg="bg-rose-500/20 text-rose-300"
-                        mockupLabel="GEX REGIME" mockupValue="EXPLODE" mockupValueColor="text-rose-400" mockupSub="" mockupSubColor=""
+                        mockupLabel="GEX REGIME" mockupValue="VOLATILE" mockupValueColor="text-rose-400" mockupSub="" mockupSubColor=""
                         subMetrics={[{ label: 'Flip', value: '+2.7%', color: 'text-emerald-400' }, { label: 'DTE', value: '1', color: 'text-white' }]}
                         titleKey="gexRegime.title" badgeKey="gexRegime.badge" descKey="gexRegime.desc"
                         bullets={[

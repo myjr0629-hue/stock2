@@ -25,9 +25,9 @@ const T: Record<string, Record<Locale, string>> = {
     },
     // Dynamic insight texts
     squeezeCritical: {
-        ko: '옵션 매도자 손절 임박 — 폭발적 움직임 대비',
-        en: 'Options sellers near forced exits — brace for explosive moves',
-        ja: 'オプション売り手の損切り迫る — 爆発的な動きに備え',
+        ko: '옵션 매도자 손절 임박 — 급격한 움직임 대비',
+        en: 'Options sellers near forced exits — brace for sharp moves',
+        ja: 'オプション売り手の損切り迫る — 急変動に備え',
     },
     resistNear: {
         ko: 'S&P 옵션 벽 {val} 근접 — 돌파 시 급등, 실패 시 반락',
@@ -55,14 +55,14 @@ const T: Record<string, Record<Locale, string>> = {
         ja: '機関ヘッジが変動を拡大中 — 急騰落に注意',
     },
     shortGammaDropping: {
-        ko: 'Short Gamma + 시장 하락 — 딜러 매도 증폭 구간, 포지션 축소 권고',
+        ko: 'Short Gamma + 시장 하락 — 딜러 매도 증폭 구간, 포지션 축소 필요',
         en: 'Short Gamma + market dropping — dealer selling amplified, reduce exposure',
         ja: 'ショートガンマ + 市場下落 — ディーラー売り増幅、ポジション縮小推奨',
     },
     squeezeBuilding: {
-        ko: 'Squeeze {val}% — 45% 돌파 시 변동성 폭발 구간, 현재 경계 레벨',
-        en: 'Squeeze {val}% — volatility explosion zone above 45%, currently at warning level',
-        ja: 'Squeeze {val}% — 45%突破時ボラティリティ爆発圈、現在警戒レベル',
+        ko: 'Squeeze {val}% — 45% 돌파 시 변동성 극대화 구간, 현재 경계 레벨',
+        en: 'Squeeze {val}% — volatility extreme zone above 45%, currently at warning level',
+        ja: 'Squeeze {val}% — 45%突破時ボラティリティ極大化圈、現在警戒レベル',
     },
     neutral: {
         ko: '옵션 시장 균형 — 큰 변동 없이 횡보 가능성',
@@ -237,9 +237,9 @@ function getInsightText(
     // Priority 1: Squeeze critical (≥55%)
     if (squeezeRisk >= 55 && sup && res) {
         const base = {
-            ko: `S&P ${sp} — Squeeze ${squeezeRisk}% 폭발 임박, 이탈 방향 급가속 · ${sup}↔${res}`,
-            en: `S&P ${sp} — Squeeze ${squeezeRisk}% explosion imminent, breakout accelerates · ${sup}↔${res}`,
-            ja: `S&P ${sp} — Squeeze ${squeezeRisk}%爆発迫る、突破方向急加速 · ${sup}↔${res}`
+            ko: `S&P ${sp} — Squeeze ${squeezeRisk}% 변동성 임계, 이탈 방향 급가속 · ${sup}↔${res}`,
+            en: `S&P ${sp} — Squeeze ${squeezeRisk}% volatility critical, breakout accelerates · ${sup}↔${res}`,
+            ja: `S&P ${sp} — Squeeze ${squeezeRisk}%急変動迫る、突破方向急加速 · ${sup}↔${res}`
         };
         return base[locale];
     }

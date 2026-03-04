@@ -269,7 +269,7 @@
     "belowSupport": "Below support level",
     "majorEventNews": "Major event news: Conservative approach",
     "rumorDetected": "⚠️ [AI Detected] Unconfirmed rumor/speculation",
-    "structuralAdvantage": "Structural advantage: Consider scaled entry",
+    "structuralAdvantage": "Structural advantage: Favorable zone for scaled approach",
     "observeNeeded": "Observation needed: Re-enter at key levels",
     "entryProhibited": "Entry prohibited: Options structure uncertainty",
     "noIssues": "No issues detected (Safe)",
@@ -351,8 +351,8 @@
     "shortTermHold": "Short-term",
     "actionRun": "Momentum strong - Keep holding",
     "actionHold": "Wait - Watch the trend",
-    "actionTake": "Take profit - Consider locking gains",
-    "actionExit": "Exit - Consider closing position",
+    "actionTake": "Target zone reached — profit realization zone",
+    "actionExit": "Risk zone — support breached",
     "loadingPortfolio": "Loading Portfolio...",
     "noHoldings": "No holdings",
     "startPortfolio": "Add stocks to start your portfolio",
@@ -647,13 +647,13 @@
   },
   "market": {
     "extremeGreed": "Extreme Greed",
-    "sellConsider": "Consider Selling",
+    "sellConsider": "Downward Pressure Zone",
     "greed": "Greed",
     "buySpread": "Bullish Sentiment Spreading",
     "neutral": "Neutral",
     "searchDirection": "Searching Direction",
     "extremeFear": "Extreme Fear",
-    "buyOpportunity": "Buy Opportunity",
+    "buyOpportunity": "Support Bounce Zone",
     "fear": "Fear",
     "volatilityWarning": "Volatility Warning",
     "fearGreedTitle": "Fear & Greed",
@@ -939,9 +939,9 @@
       "desc": "Fuses gamma exposure, IV, and squeeze probability to diagnose the current <gold>volatility regime</gold> in 4 stages (STABLE/COILING/LOADED/ERUPTING). A 100-point score instantly reveals market temperature.",
       "stable": "STABLE  Low volatility, calm range",
       "coiling": "COILING  Energy building, direction seeking",
-      "loaded": "LOADED  Explosion pending, volatility alert",
+      "loaded": "LOADED  Volatility threshold, prepare for sharp moves",
       "erupting": "ERUPTING  Extreme volatility, maximum risk",
-      "tip": "In LOADED/ERUPTING zones, reduce position sizing and tighten stop-losses.",
+      "tip": "LOADED/ERUPTING zones indicate peak volatility conditions where position sizing and risk management become critical.",
       "tradingGuide": "Data Insight",
       "guide1": "STABLE  Range-bound strategy, trade around VWAP",
       "guide2": "COILING  Prepare for breakout, consider options straddles",
@@ -1086,7 +1086,7 @@
       "desc": "A 4-step process for <cyan>systematically interpreting</cyan> 10 indicators for analysis.",
       "step1": {
         "title": "Step 1: Read Market Temperature",
-        "desc": "Check VOL REGIME and CONVICTION first. In LOADED/ERUPTING zones reduce sizing."
+        "desc": "Check VOL REGIME and CONVICTION first. LOADED/ERUPTING zones indicate peak volatility conditions."
       },
       "step2": {
         "title": "Step 2: Confirm Direction",
@@ -1485,18 +1485,18 @@
       "fearGreed": {
         "title": "Fear & Greed Index",
         "desc": "A market sentiment indicator calculated by CNN using 7 market metrics. Extreme fear zones signal contrarian buying opportunities, while extreme greed zones signal profit-taking.",
-        "extremeFear": "Extreme Fear — Panic zone, consider contrarian buying",
+        "extremeFear": "Extreme Fear — Panic zone, extreme fear signal detected",
         "fear": "Fear — Market anxiety, cautious approach",
         "neutral": "Neutral — Balanced state",
         "greed": "Greed — Optimistic, watch for chasing",
-        "extremeGreed": "Extreme Greed — Overheated, consider profit-taking"
+        "extremeGreed": "Extreme Greed — Overheated, correction risk elevated"
       },
       "vix": {
         "title": "VIX Volatility Index",
         "desc": "Expected 30-day volatility derived from S&P 500 options. A key indicator that quantifies market uncertainty.",
         "low": "Low volatility — Stable market, favorable for buying",
         "normal": "Normal — Typical volatility levels",
-        "high": "High volatility — Unstable, consider reducing positions"
+        "high": "High volatility — Unstable, elevated risk environment"
       },
       "dxy": {
         "title": "DXY Dollar Index",

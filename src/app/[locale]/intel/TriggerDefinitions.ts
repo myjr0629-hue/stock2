@@ -4,7 +4,7 @@ const TRIGGER_DEFINITIONS: Record<string, { label: string; desc: string; color: 
     // 1. High Impact (Purple/Pink)
     'GEX_SQZ': {
         label: 'GEX.SQZ',
-        desc: '감마 스퀴즈: 옵션 시장의 쏠림(Short Gamma)으로 인해 주가 변동성이 폭발적으로 확대되는 현상',
+        desc: '감마 스퀴즈: 옵션 시장의 쏠림(Short Gamma)으로 인해 주가 변동성이 급격히 확대되는 현상',
         color: 'text-fuchsia-400 border-fuchsia-500/30 bg-fuchsia-500/10'
     },
     'WHALE_IN': {

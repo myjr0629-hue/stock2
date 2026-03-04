@@ -325,7 +325,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         const rlsiLevel = ctx.rlsiScore >= 65 ? '건강' : ctx.rlsiScore >= 45 ? '중립' : '취약';
         const priceAction = ctx.nasdaqChange >= 0.5 ? '강세' : ctx.nasdaqChange <= -0.5 ? '약세' : '보합';
         const vixLevel = ctx.vix >= 25 ? '공포' : ctx.vix >= 18 ? '경계' : '안정';
-        const rvolLevel = ctx.rvol >= 1.5 ? '폭발적' : ctx.rvol >= 1.1 ? '활발' : '저조';
+        const rvolLevel = ctx.rvol >= 1.5 ? '급증' : ctx.rvol >= 1.1 ? '활발' : '저조';
 
         // Macro context strings
         const yieldLine = ctx.us10y !== undefined
@@ -383,7 +383,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
 
         ${ctx.gexIndex !== undefined ? `[옵션 구조 — GAMMA SHIELD]
         - GEX 지수: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'}) → ${ctx.gexIndex >= 20 ? '딜러 감마 방어(안정)' : ctx.gexIndex <= -20 ? '딜러 매도 증폭(불안정)' : '약한 감마 방어(취약)'}
-        - 스퀴즈 리스크: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'}) → ${ctx.squeezeRisk! >= 55 ? '폭발 임박' : ctx.squeezeRisk! >= 30 ? '에너지 축적 중' : '안정'}
+        - 스퀴즈 리스크: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'}) → ${ctx.squeezeRisk! >= 55 ? '변동성 임계' : ctx.squeezeRisk! >= 30 ? '에너지 축적 중' : '안정'}
         ${ctx.triggerCurrent ? `- S&P 500 현재: ${ctx.triggerCurrent.toLocaleString()}` : ''}
         ${ctx.triggerSupport ? `- 옵션 지지선: ${ctx.triggerSupport.toLocaleString()} (${ctx.triggerCurrent ? (((ctx.triggerCurrent - ctx.triggerSupport) / ctx.triggerCurrent) * 100).toFixed(1) + '% 아래' : ''})` : ''}
         ${ctx.triggerResistance ? `- 옵션 저항선: ${ctx.triggerResistance.toLocaleString()} (${ctx.triggerCurrent ? (((ctx.triggerResistance - ctx.triggerCurrent) / ctx.triggerCurrent) * 100).toFixed(1) + '% 위' : ''})` : ''}` : ''}
@@ -407,7 +407,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         9. 금+TLT 동반 상승 → 안전자산 선호 (위기 신호), 주식 리스크 관리
         10. 유가 급등(+2%↑) + 금리 상승 → 인플레이션 재점화 우려, 연준 정책 변화 주시
         11. 달러(DXY) 강세 + 금 약세 → 긴축 기대, 신흥국/원자재 약세 연결
-        12. 공포탐욕 75+ & VIX 15 미만 → 과열 경고, 차익실현 고려
+        12. 공포탐욕 75+ & VIX 15 미만 → 과열 경고, 차익실현 압력 구간
         13. BTC 급락(-3%↓) & 금 상승 → 리스크 자산 회피, 전통 안전자산 선호
         14. Breadth 약한데 지수 상승 → 소수 종목 의존, 지속 어려움
 

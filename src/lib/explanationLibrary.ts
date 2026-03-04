@@ -122,7 +122,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         category: 'options',
         meaning: '시장 전체 딜러들의 감마 포지션 합계입니다.',
         interpretation: 'GEX 양수: 딜러가 변동성 억제 (매수 시 매도, 매도 시 매수) / GEX 음수: 딜러가 변동성 증폭',
-        action: 'GEX 음수 시 변동성 폭발 가능. 타이트한 손절 필수.',
+        action: 'GEX 음수 시 변동성 급격한 확대 가능. 위험 관리 강화 구간.',
         caution: 'GEX 데이터는 추정치입니다. 정확한 딜러 포지션은 알 수 없습니다.'
     },
 
