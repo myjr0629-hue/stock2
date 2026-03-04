@@ -1721,9 +1721,9 @@
       "put": "-20 or below: Put dominant → Bearish signal",
       "tip": "A sudden OPI reversal can be an early signal of position change. Cross-reference with GEX Regime.",
       "tradingGuide": "OPI Data Insight",
-      "guide1": "OPI +50+ with GEX STABLE → Trend-following long entry",
-      "guide2": "OPI sharply reverses (-→+) → Early reversal signal, reassess positions",
-      "guide3": "OPI neutral but IV high → Direction undecided, consider straddle"
+      "guide1": "OPI +50+ with GEX STABLE → Strong upward pressure confirmed, trend continuation likely",
+      "guide2": "OPI sharply reverses (-→+) → Early reversal signal, direction shift detected",
+      "guide3": "OPI neutral but IV high → Direction undecided, volatility expansion expected"
     },
     "atmIv": {
       "title": "ATM IV (At-The-Money Implied Volatility)",
@@ -1736,9 +1736,9 @@
       "veryHigh": "80-100%: Extreme volatility → Event imminent, risk caution",
       "tip": "IV Percentile above 90% means IV is near historical highs. Prioritize premium selling strategies.",
       "tradingGuide": "ATM IV Data Insight",
-      "guide1": "IV < 30%: Buy options (calls/puts) → Profit on volatility expansion",
-      "guide2": "IV > 70%: Covered calls, put writing, or premium selling strategies",
-      "guide3": "IV spikes then declines → IV Crush in progress, consider closing long positions"
+      "guide1": "IV < 30%: Premium undervalued zone → Profit potential on volatility expansion",
+      "guide2": "IV > 70%: Premium overvalued → Volatility contraction likely",
+      "guide3": "IV spikes then declines → IV Crush in progress, premium decay expected"
     },
     "composite": {
       "title": "Composite Index",
@@ -1751,9 +1751,9 @@
       "bearish": "Below 30%: Bearish → AI Verdict BEARISH",
       "tip": "Extreme Composite values (below 20% or above 80%) have high confidence but may also signal overbought/oversold reversals.",
       "tradingGuide": "Composite Data Insight",
-      "guide1": "70%+ with positive OPI → Multiple signals align, strong buy case",
-      "guide2": "Crossing around 50% → Direction shift signal, consider reducing positions",
-      "guide3": "Below 30% with IV spike → Panic zone, hedging essential"
+      "guide1": "70%+ with positive OPI → Multiple signals align, high bullish probability",
+      "guide2": "Crossing around 50% → Direction shift signal, volatility expansion expected",
+      "guide3": "Below 30% with IV spike → Panic zone, extreme downside pressure"
     },
     "whale": {
       "title": "Whale Position",
@@ -1764,8 +1764,8 @@
       "neutral": "NEUTRAL: Call ≈ Put → Whale watching or straddle",
       "tip": "When institutional premium exceeds $1M, it indicates high-conviction positioning. Check individual trades in Institutional Order Flow.",
       "tradingGuide": "Whale Data Insight",
-      "guide1": "Whale LONG + OPI positive → Institutional and flow aligned, trend-follow",
-      "guide2": "Whale vs OPI diverge → Mixed signals, confirm direction before entry",
+      "guide1": "Whale LONG + OPI positive → Institutional and flow aligned, trend continuation likely",
+      "guide2": "Whale vs OPI diverge → Mixed signals, direction confirmation needed",
       "guide3": "Whale premium rapidly changes → Potential urgent position adjustment"
     },
     "level2Title": "LEVEL 2: Market Structure Analysis",
@@ -1794,8 +1794,8 @@
       "normal": "Below 40%: Normal level → No anomalies",
       "tip": "If Short Vol % exceeds 50% while the price is rising, a short-covering rally is likely in progress.",
       "tradingGuide": "Short Vol Data Insight",
-      "guide1": "Short 50%+ price rising → Short squeeze potential, follow momentum",
-      "guide2": "Short 50%+ price falling → Intensifying downward pressure, consider put hedge",
+      "guide1": "Short 50%+ price rising → Short squeeze potential, momentum expanding",
+      "guide2": "Short 50%+ price falling → Intensifying downward pressure, further decline possible",
       "guide3": "Short Vol suddenly drops → Short covering underway, reversal signal"
     },
     "pcRatio": {
@@ -1805,7 +1805,7 @@
       "desc": "<cyan>P/C Ratio</cyan> measures market bullish/bearish sentiment via <gold>put volume ÷ call volume</gold>. Above 1.0 indicates put dominance (bearish sentiment), below 0.7 indicates call dominance (bullish sentiment).",
       "callDom": "Below 0.7: Call dominant (bullish) → Excessive = overheating warning",
       "balanced": "0.7-1.0: Balanced → Normal market conditions",
-      "putDom": "Above 1.0: Put dominant (bearish) → Extreme = contrarian entry opportunity",
+      "putDom": "Above 1.0: Put dominant (bearish) → Extreme = peak fear signal",
       "tip": "P/C Ratio above 1.3 indicates extreme fear, which historically correlates with higher bounce probability.",
       "tradingGuide": "P/C Ratio Data Insight",
       "guide1": "P/C > 1.2 with support holding → Contrarian buy opportunity",
