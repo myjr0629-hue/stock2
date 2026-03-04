@@ -194,14 +194,14 @@ export function PostMarketBriefView() {
                                     </div>
                                     <ToneBadge tone={d.marketOverview?.tone || 'NEUTRAL'} />
                                 </div>
-                                <p className="text-slate-200 text-[14px] leading-relaxed mb-4">
+                                <p className="text-slate-200 text-[15px] leading-[1.75] mb-4">
                                     {lt(d.marketOverview?.summary, locale)}
                                 </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     {la(d.marketOverview?.keyDrivers, locale).map((driver: string, i: number) => (
                                         <div key={i} className="flex items-start gap-2 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
                                             <Target className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
-                                            <span className="text-[13px] text-slate-300 leading-snug">{driver}</span>
+                                            <span className="text-[14px] text-slate-200 leading-snug">{driver}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -225,7 +225,7 @@ export function PostMarketBriefView() {
                                             <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/[0.12]">
                                                 <div>
                                                     <span className="text-[13px] font-bold text-white">{w.sector}</span>
-                                                    <p className="text-[12px] text-slate-400 mt-0.5">{lt(w.reason, locale)}</p>
+                                                    <p className="text-[13px] text-slate-300 mt-0.5 leading-snug">{lt(w.reason, locale)}</p>
                                                 </div>
                                                 <span className="text-[14px] font-bold text-emerald-400 font-mono">{w.change}</span>
                                             </div>
@@ -240,7 +240,7 @@ export function PostMarketBriefView() {
                                             <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-red-500/[0.06] border border-red-500/[0.12]">
                                                 <div>
                                                     <span className="text-[13px] font-bold text-white">{l.sector}</span>
-                                                    <p className="text-[12px] text-slate-400 mt-0.5">{lt(l.reason, locale)}</p>
+                                                    <p className="text-[13px] text-slate-300 mt-0.5 leading-snug">{lt(l.reason, locale)}</p>
                                                 </div>
                                                 <span className="text-[14px] font-bold text-red-400 font-mono">{l.change}</span>
                                             </div>
@@ -251,7 +251,7 @@ export function PostMarketBriefView() {
                                     <div className="p-3 rounded-lg bg-purple-500/[0.06] border border-purple-500/[0.12]">
                                         <div className="flex items-start gap-2">
                                             <Eye className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                                            <p className="text-[13px] text-slate-300 leading-relaxed">{lt(d.sectorRotation.rotationInsight, locale)}</p>
+                                            <p className="text-[14px] text-slate-200 leading-relaxed">{lt(d.sectorRotation.rotationInsight, locale)}</p>
                                         </div>
                                     </div>
                                 )}
@@ -272,16 +272,16 @@ export function PostMarketBriefView() {
                                                 <div className="flex items-start gap-3">
                                                     <SentimentDot sentiment={item.sentiment} />
                                                     <div className="flex-1 min-w-0">
-                                                        <h4 className="text-[14px] font-bold text-white leading-snug mb-1">
+                                                        <h4 className="text-[15px] font-bold text-white leading-snug mb-1">
                                                             {lt(item.headline, locale)}
                                                         </h4>
-                                                        <p className="text-[13px] text-slate-400 leading-relaxed">
+                                                        <p className="text-[14px] text-slate-300 leading-[1.7]">
                                                             {lt(item.impact, locale)}
                                                         </p>
                                                         {item.relatedSectors?.length > 0 && (
                                                             <div className="flex gap-1.5 mt-2 flex-wrap">
                                                                 {item.relatedSectors.map((s: string) => (
-                                                                    <span key={s} className="px-2 py-0.5 text-[10px] font-bold text-slate-400 bg-white/[0.05] border border-white/[0.08] rounded-md uppercase tracking-wide">
+                                                                    <span key={s} className="px-2 py-0.5 text-[11px] font-bold text-slate-300 bg-white/[0.05] border border-white/[0.08] rounded-md uppercase tracking-wide">
                                                                         {s.replace(/_/g, ' ')}
                                                                     </span>
                                                                 ))}
@@ -322,7 +322,7 @@ export function PostMarketBriefView() {
                                             </span>
                                         </div>
                                     </div>
-                                    <p className="text-[13px] text-slate-300 leading-relaxed">
+                                    <p className="text-[14px] text-slate-200 leading-[1.7]">
                                         {lt(d.gammaOptions.insight, locale)}
                                     </p>
                                 </div>
@@ -362,7 +362,7 @@ export function PostMarketBriefView() {
                                             </span>
                                             <ul className="space-y-1.5">
                                                 {la(d.outlook.catalysts, locale).map((c: string, i: number) => (
-                                                    <li key={i} className="text-[12px] text-slate-300 flex items-start gap-1.5">
+                                                    <li key={i} className="text-[13px] text-slate-200 flex items-start gap-1.5">
                                                         <Zap className="w-3 h-3 text-cyan-400 mt-0.5 shrink-0" />
                                                         <span>{c}</span>
                                                     </li>
@@ -376,7 +376,7 @@ export function PostMarketBriefView() {
                                             </span>
                                             <ul className="space-y-1.5">
                                                 {la(d.outlook.risks, locale).map((r: string, i: number) => (
-                                                    <li key={i} className="text-[12px] text-slate-300 flex items-start gap-1.5">
+                                                    <li key={i} className="text-[13px] text-slate-200 flex items-start gap-1.5">
                                                         <AlertTriangle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
                                                         <span>{r}</span>
                                                     </li>
@@ -390,7 +390,7 @@ export function PostMarketBriefView() {
                                             </span>
                                             <ul className="space-y-1.5">
                                                 {la(d.outlook.opportunities, locale).map((o: string, i: number) => (
-                                                    <li key={i} className="text-[12px] text-slate-300 flex items-start gap-1.5">
+                                                    <li key={i} className="text-[13px] text-slate-200 flex items-start gap-1.5">
                                                         <TrendingUp className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
                                                         <span>{o}</span>
                                                     </li>
