@@ -53,8 +53,8 @@ export function StickyFoundingBar() {
                         </div>
 
                         <div className="flex items-center gap-2 text-sm">
-                            <span className="text-slate-300 line-through text-xs">{isKo ? '₩99,000/월' : '$69/mo'}</span>
-                            <span className="text-white font-bold">{isKo ? '₩69,000/월' : '$49/mo'}</span>
+                            <span className="text-slate-300 line-through text-xs">$69/mo</span>
+                            <span className="text-white font-bold">$49/mo</span>
                             <span className="text-amber-400 text-xs font-bold">
                                 -29%
                             </span>
