@@ -47,7 +47,7 @@ export const sections: TermsSection[] = [
             <ol className="list-decimal list-inside space-y-3">
                 <li><strong>단순 정보 제공:</strong> SIGNUM HQ에서 제공되는 모든 데이터, 분석 및 정보(Gamma Exposure, Options Flow, Max Pain, Dark Pool Tracker, Analytics Score, Session Sentiment 등 포함)는 <strong>과거 데이터에 기반한 통계적 참고 자료일 뿐이며, 특정 종목의 추천이나 개별 자문을 구성하지 않습니다.</strong></li>
                 <li><strong>이용자 책임:</strong> 금융 시장 참여는 원금 손실의 위험이 따르며, <strong>모든 분석 판단에 따른 결과의 책임은 전적으로 이용자 본인에게 있습니다.</strong> 회사는 회원이 서비스에 게재된 정보에 의존하여 행한 이용 결과에 대해 어떠한 법적 책임도 지지 않습니다.</li>
-                <li><strong>서비스 범위:</strong> 본 서비스는 「자본시장과 금융투자업에 관한 법률」에 의한 개별 자문 또는 그와 유사한 맞춤형 서비스를 제공하지 않으며, <strong>회사는 데이터 분석 소프트웨어 제공자입니다.</strong></li>
+                <li><strong>서비스 범위:</strong> 본 서비스는 <strong>미국 SEC, FINRA 등 금융 규제 기관에 투자자문업자로 등록되어 있지 않으며,</strong> 개별 자문 또는 그와 유사한 맞춤형 서비스를 제공하지 않습니다. <strong>회사는 데이터 분석 소프트웨어 제공자입니다.</strong></li>
                 <li><strong>예측 정확도 비보장:</strong> 서비스에서 제시되는 과거 데이터 기반의 통계 수치, 백테스트 결과, 분석 스코어 등은 <strong>미래의 결과를 보장하거나 예측하는 것이 아닙니다.</strong></li>
             </ol>
         ),
@@ -92,7 +92,7 @@ export const sections: TermsSection[] = [
                         <li>시스템 정기 점검, 서버 증설 및 교체 등 계획된 작업</li>
                         <li>천재지변, 전쟁, 정부 규제, 거래소 긴급 중단 등 불가항력적 사유</li>
                         <li>제3자 데이터 제공업체(API)의 장애 또는 서비스 중단</li>
-                        <li>전기통신사업법에 의한 기간통신사업자의 서비스 중단</li>
+                        <li>통신사업자의 서비스 중단</li>
                     </ul>
                 </li>
                 <li><strong>서비스 종료:</strong> 회사가 사업상의 이유로 서비스를 영구 종료하는 경우, 최소 30일 전에 공지하며, 유료 서비스 이용 중인 회원에게는 잔여 구독 기간에 해당하는 금액을 일할 계산하여 환불합니다.</li>

@@ -192,7 +192,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
 
                     {isLive && (
                         <div className="text-right">
-                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Alpha Return</span>
+                            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Analytics Return</span>
                             <div className={cn(
                                 "text-sm font-bold flex items-center justify-end gap-1",
                                 (currentPrice - safePrice) >= 0 ? "text-emerald-400" : "text-rose-400"

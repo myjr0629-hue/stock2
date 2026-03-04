@@ -137,7 +137,7 @@ export function ScoreXRayPanel({ symbol, scores, metrics }: ScoreXRayProps) {
                     <div className="flex items-center gap-3">
                         <div className="w-1 h-8 bg-gradient-to-b from-cyan-400 to-blue-500 rounded-full" />
                         <h3 className="text-sm font-bold text-white tracking-wide uppercase">
-                            Alpha Score Breakdown
+                            Analytics Score Breakdown
                         </h3>
                     </div>
                     <div className="text-lg font-mono font-bold text-white">

@@ -136,7 +136,7 @@ export function WatchlistGrid() {
                                     <th className="px-6 py-4 text-right">Max Pain</th>
                                     <th className="px-6 py-4 text-center">P/C Ratio</th>
                                     <th className="px-6 py-4 text-right">3D Return</th>
-                                    <th className="px-6 py-4 text-center bg-slate-100/50">Alpha V5</th>
+                                    <th className="px-6 py-4 text-center bg-slate-100/50">Analytics</th>
                                     <th className="px-4 py-4 w-10"></th>
                                 </tr>
                             </thead>
