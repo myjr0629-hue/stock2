@@ -298,7 +298,7 @@ function DateGroup({ date, records, defaultOpen }: { date: string; records: Back
                     <Calendar className="w-4 h-4 text-slate-300" />
                     <span className="text-sm font-bold text-slate-200">{dateLabel}</span>
                     <span className="text-xs text-slate-300 font-mono">
-                        {records.length} recommendation{records.length !== 1 ? 's' : ''}
+                        {records.length} analysis record{records.length !== 1 ? 's' : ''}
                     </span>
                 </div>
                 <div className="flex items-center gap-3">
@@ -584,10 +584,10 @@ export function TrackRecord() {
                 </h2>
                 <div className="w-12 h-1 bg-emerald-500/20 rounded-full mb-6" />
                 <p className="text-slate-300 max-w-md text-sm leading-relaxed">
-                    Alpha Engine V3.1이 추천을 시작하면 여기에서 자동으로 성과를 추적합니다.
+                    Analytics Engine V3.1의 분석이 시작되면 여기에서 자동으로 성과를 추적합니다.
                     <br />
                     <span className="text-slate-300">
-                        매 보고서의 ACTIONABLE 종목 → T+3 수익률 자동 검증
+                        매 보고서의 FEATURED 종목 → T+3 수익률 자동 검증
                     </span>
                 </p>
                 <div className="mt-8 px-5 py-3 rounded-xl border border-slate-800 bg-white/[0.02] backdrop-blur-sm">
@@ -615,12 +615,12 @@ export function TrackRecord() {
                         <span className="text-emerald-500">TRACK</span> RECORD
                     </h1>
                     <p className="text-slate-300 text-xs mt-1 max-w-lg font-medium leading-relaxed">
-                        Every recommendation tracked. Every outcome verified. No hiding — the numbers speak.
+                        Every analysis tracked. Every outcome verified. No hiding — the numbers speak.
                     </p>
                 </div>
                 <div className="text-right">
                     <p className="text-slate-300 font-mono text-xs bg-slate-800/50 px-2 py-1 rounded inline-block">
-                        ENGINE v{summary.engineVersion} • {summary.totalRecords} TOTAL RECOMMENDATIONS
+                        ENGINE v{summary.engineVersion} • {summary.totalRecords} TOTAL ANALYSES
                     </p>
                 </div>
             </section>
@@ -705,7 +705,7 @@ export function TrackRecord() {
                                 DAILY LOG
                             </h2>
                             <p className="text-xs text-slate-300 uppercase tracking-wider">
-                                Recommendation history by date
+                                Analysis history by date
                             </p>
                         </div>
                     </div>
@@ -713,7 +713,7 @@ export function TrackRecord() {
 
                 {sortedDates.length === 0 ? (
                     <div className="text-center py-12 text-slate-300 text-sm">
-                        No records yet. First recommendations will appear after the next report.
+                        No records yet. First analyses will appear after the next report.
                     </div>
                 ) : (
                     <div>

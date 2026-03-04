@@ -117,7 +117,7 @@ export const sections: TermsSection[] = [
         title: '제8조 (지적재산권)',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li>서비스 내의 모든 디자인, 텍스트, 차트, 알고리즘, 데이터 시각화, 상표(<strong>SIGNUM HQ, Alpha Engine, Tactical Order</strong> 등) 및 기타 콘텐츠는 <strong>회사의 지적재산</strong>이며, 저작권법 및 관련 법률에 의해 보호됩니다.</li>
+                <li>서비스 내의 모든 디자인, 텍스트, 차트, 알고리즘, 데이터 시각화, 상표(<strong>SIGNUM HQ, Analytics Engine</strong> 등) 및 기타 콘텐츠는 <strong>회사의 지적재산</strong>이며, 저작권법 및 관련 법률에 의해 보호됩니다.</li>
                 <li>회원은 회사의 사전 서면 동의 없이 서비스의 콘텐츠를 <strong>영리 목적으로 이용하거나 제3자에게 제공, 복제, 배포할 수 없습니다.</strong></li>
                 <li>회원이 서비스 이용 과정에서 작성한 게시물(있는 경우)의 저작권은 해당 회원에게 귀속되나, 회사는 서비스 운영 목적 범위 내에서 이를 이용할 수 있습니다.</li>
             </ol>
