@@ -524,7 +524,7 @@
     "analyzedStocks": "분석 종목",
     "optionsCoverage": "옵션 커버리지",
     "generationTime": "생성 시각",
-    "topPicks": "TOP PICKS",
+    "topPicks": "FEATURED",
     "topPicksSubtitle": "HIGH CONVICTION — IMMEDIATE REVIEW",
     "liveTactical": "LIVE SESSION",
     "liveTacticalSubtitle": "POST-OPEN 스캔 활성 — ENGAGES AT 10:30 ET",
@@ -762,7 +762,7 @@
     "guardianDesc": "SPY/QQQ의 <cyan>넷 GEX · 감마 플립</cyan> · 마켓 페이즈 · 섹터 인텔 — 시장의 체온을 먼저 읽는 레이더",
     "commandDesc": "<cyan>Call Wall · Put Wall · Max Pain</cyan> · 감마 레벨 · GEX 엔진 · Structure Range — 종목별 구조 분석도",
     "flowDesc": "<gold>다크풀 프린트</gold> · 기관 블록 오더 · 대형 거래 추적 · 실시간 옵션 플로우 — 기관의 발자국 모니터링",
-    "intelDesc": "<gold>M7 · Physical AI · Session Report</gold> — 세션 종료 후 AI가 자동 생성하는 프리미엄 브리핑",
+    "intelDesc": "<gold>M7 · Physical AI · Session Report</gold> — 매 세션 종료 후 AI가 자동 생성하는 프리미엄 브리핑",
     "portfolioDesc": "<cyan>Analytics Score</cyan> · 상태 표시 · 수익률 추적 — 당신의 포지션을 AI가 실시간 평가",
     "watchlistDesc": "IV · Max Pain · <cyan>Analytics V5 Engine</cyan> — 관심 종목의 구조적 인사이트를 한눈에"
   },
