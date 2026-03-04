@@ -205,7 +205,7 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                 <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
                     <div className="flex items-center gap-2 px-4 pt-3 pb-2">
                         <Brain size={14} className="text-amber-400" />
-                        <span className="text-[13px] font-bold tracking-wide text-slate-200">ALPHA SCORE</span>
+                        <span className="text-[13px] font-bold tracking-wide text-slate-200">ANALYTICS SCORE</span>
                         <span className="text-[12px] font-bold px-1.5 py-0.5 rounded border text-emerald-400 border-emerald-500/20 bg-emerald-500/[0.08]">GRADE A</span>
                     </div>
 

@@ -117,7 +117,7 @@ export function WatchlistGrid() {
                         Your Watchlist
                         <span className="text-sm font-medium text-slate-400 ml-2 bg-slate-100 px-2 py-0.5 rounded-full">{favorites.length} Tickers</span>
                     </h2>
-                    <p className="text-slate-500 text-sm mt-1">Real-time Alpha V5 Engine tracking for your favorite assets.</p>
+                    <p className="text-slate-500 text-sm mt-1">Real-time Analytics Engine tracking for your favorite assets.</p>
                 </div>
             </div>
 
