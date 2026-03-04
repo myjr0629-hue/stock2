@@ -2531,14 +2531,16 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="relative z-10">
                                             {/* Row 1: Label + Value */}
                                             <div className="flex items-center justify-between mb-2">
-                                                <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('ivSkewTitle')}</span>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <div className={`text-xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                    {ivSkew.value > 0 ? '+' : ''}{ivSkew.value}%
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
+                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('ivSkewTitle')}</span>
                                                 </div>
-                                                <div className={`text-sm font-bold ${ivSkew.color} px-2 py-0.5 bg-black/20 rounded`}>{ivSkew.label}</div>
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`text-xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                        {ivSkew.value > 0 ? '+' : ''}{ivSkew.value}%
+                                                    </div>
+                                                    <div className={`text-sm font-bold ${ivSkew.color} px-2 py-0.5 bg-black/20 rounded`}>{ivSkew.label}</div>
+                                                </div>
                                             </div>
                                         </div>
                                         {/* Row 2: Rationale */}
@@ -2555,18 +2557,17 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         {/* Infographic: delta hedging arrows */}
                                         <svg className="absolute right-2 bottom-2 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M12 40 L40 12 L68 40" fill="none" stroke="currentColor" strokeWidth="2" className="text-cyan-400" strokeLinecap="round" strokeLinejoin="round" /><path d="M26 40 L40 24 L54 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
                                         <div className="relative z-10">
-                                            {/* Row 1: Label + Value */}
-                                            <div className="flex items-start justify-between mb-2">
-                                                <div className="flex items-center gap-2 min-w-0 mt-1">
-                                                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse shrink-0" />
-                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('dexTitle')}</span>
+                                            {/* Row 1: Label */}
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse shrink-0" />
+                                                <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('dexTitle')}</span>
+                                            </div>
+                                            {/* Row 2: Value + Verdict */}
+                                            <div className="flex items-center justify-center gap-3 mb-2">
+                                                <div className={`text-xl font-black ${dex.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
+                                                    {dex.value > 0 ? '+' : ''}{dex.value.toFixed(1)}M
                                                 </div>
-                                                <div className="flex flex-col items-end shrink-0">
-                                                    <div className={`text-xl font-black ${dex.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
-                                                        {dex.value > 0 ? '+' : ''}{dex.value.toFixed(1)}M
-                                                    </div>
-                                                    <div className={`text-sm font-bold ${dex.color} px-2 py-0.5 bg-black/20 rounded`}>{dex.label}</div>
-                                                </div>
+                                                <div className={`text-sm font-bold ${dex.color} px-2 py-0.5 bg-black/20 rounded`}>{dex.label}</div>
                                             </div>
                                             {/* Row 2: Rationale */}
                                             <div className="text-[13px] text-white/90 font-medium pl-4 border-l border-cyan-500/30">
