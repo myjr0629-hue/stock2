@@ -294,7 +294,7 @@ export default async function CommandGuidePage() {
                     <IndicatorCard
                         icon={Crosshair} iconColor="text-emerald-400" gradientFrom="from-emerald-500/[0.06]"
                         badgeColor="border-cyan-500/30" badgeBg="bg-cyan-500/20 text-cyan-300"
-                        mockupLabel="ANALYST TARGET" mockupValue="88%" mockupValueColor="text-emerald-400" mockupSub="BUY" mockupSubColor="text-emerald-400"
+                        mockupLabel="ANALYST TARGET" mockupValue="88%" mockupValueColor="text-emerald-400" mockupSub="BULLISH" mockupSubColor="text-emerald-400"
                         titleKey="analystTarget.title" badgeKey="analystTarget.badge" descKey="analystTarget.desc"
                         bullets={[
                             { color: 'bg-emerald-500', textKey: 'analystTarget.strongBuy' },

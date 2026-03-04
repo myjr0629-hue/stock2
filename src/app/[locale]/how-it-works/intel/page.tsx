@@ -292,8 +292,8 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                         </h4>
                         <div className="space-y-1">
                             {[
-                                { action: 'STRONG BUY', color: 'text-emerald-400', key: 'strongBuy' },
-                                { action: 'BUY', color: 'text-emerald-300', key: 'buy' },
+                                { action: 'STRONG BULLISH', color: 'text-emerald-400', key: 'strongBuy' },
+                                { action: 'BULLISH', color: 'text-emerald-300', key: 'buy' },
                                 { action: 'WATCH', color: 'text-amber-400', key: 'watch' },
                                 { action: 'HOLD', color: 'text-slate-300', key: 'hold' },
                                 { action: 'REDUCE', color: 'text-rose-400', key: 'reduce' },

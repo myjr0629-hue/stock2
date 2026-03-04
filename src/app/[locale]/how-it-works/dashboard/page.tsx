@@ -702,11 +702,11 @@ export default async function DashboardGuidePage() {
                 {/* Signal Tag Legend */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                     <div className="p-3 rounded-xl bg-emerald-900/20 border border-emerald-500/20 text-center">
-                        <span className="text-sm font-black text-emerald-400">BUY</span>
+                        <span className="text-sm font-black text-emerald-400">BULLISH</span>
                         <p className="text-sm text-slate-300 mt-1">{t('signal.buyDesc')}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-rose-900/20 border border-rose-500/20 text-center">
-                        <span className="text-sm font-black text-rose-400">SELL</span>
+                        <span className="text-sm font-black text-rose-400">BEARISH</span>
                         <p className="text-sm text-slate-300 mt-1">{t('signal.sellDesc')}</p>
                     </div>
                     <div className="p-3 rounded-xl bg-amber-900/20 border border-amber-500/20 text-center">

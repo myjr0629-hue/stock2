@@ -392,7 +392,7 @@ export default async function PortfolioGuidePage() {
                             <p className="text-[14px] text-slate-300 leading-relaxed">{t('signal.desc')}</p>
                             <div className="space-y-3">
                                 <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                                    <span className="text-emerald-400 font-bold text-[14px]">BUY</span>
+                                    <span className="text-emerald-400 font-bold text-[14px]">BULLISH</span>
                                     <p className="text-[13px] text-slate-300 mt-1">{t('signal.buy')}</p>
                                 </div>
                                 <div className="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20">

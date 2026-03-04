@@ -159,11 +159,11 @@ export default async function WatchlistGuidePage() {
                         interpretation={
                             <div className="space-y-2">
                                 <div className="flex items-center gap-3">
-                                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[12px]">BUY</span>
+                                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[12px]">BULLISH</span>
                                     <span className="text-slate-300 text-[13px]">{t('cards.signal.buy')}</span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold text-[12px]">STRONG_BUY</span>
+                                    <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold text-[12px]">STRONG BULLISH</span>
                                     <span className="text-slate-300 text-[13px]">{t('cards.signal.strongBuy')}</span>
                                 </div>
                                 <div className="flex items-center gap-3">
