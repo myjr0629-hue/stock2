@@ -206,9 +206,9 @@ const VERDICT_TEXTS: Record<string, Record<Locale, { title: string; desc: string
         ja: { title: "QUANTUM LEAP", desc: "強力な流動性を伴う上昇。収益最大化区間。" }
     },
     DEEP_FREEZE: {
-        ko: { title: "DEEP FREEZE", desc: "모멘텀 소멸. 현금 확보 필수." },
-        en: { title: "DEEP FREEZE", desc: "Momentum depleted. Cash preservation essential." },
-        ja: { title: "DEEP FREEZE", desc: "モメンタム消失。現金確保必須。" }
+        ko: { title: "DEEP FREEZE", desc: "모멘텀 소멸. 현금 비중 확대 구간." },
+        en: { title: "DEEP FREEZE", desc: "Momentum depleted. Cash allocation zone." },
+        ja: { title: "DEEP FREEZE", desc: "モメンタム消失。現金比重拡大区間。" }
     },
     STABLE: {
         ko: { title: "SYSTEM STABLE", desc: "특이 징후 없음. 섹터 순환매 감시 중." },

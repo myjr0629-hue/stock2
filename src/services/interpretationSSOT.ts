@@ -57,7 +57,7 @@ const ACTION_TEMPLATES: Record<string, string> = {
     ENTRY: '진입 고려',
     PARTIAL: '분할 진입',
     WATCH: '관망 유지',
-    AVOID: '회피 권장',
+    AVOID: '회피 신호',
     REDUCE: '비중 축소 검토'
 };
 

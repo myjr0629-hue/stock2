@@ -1755,7 +1755,7 @@ export function calculateTradePlan(input: TradePlanInput): TradePlan | null {
         entry = pmPrice - pullback;
         entryLow = entry - atr * 0.5;
         entryHigh = entry + atr * 0.3;
-        entryStrategy = `PM 높은 갭업 (+${pmGapPct.toFixed(1)}%) — 장 초반 차익실현 물량(약 $${pullback.toFixed(2)} 깊이) 소화 확인 필수`;
+        entryStrategy = `PM 높은 갭업 (+${pmGapPct.toFixed(1)}%) — 장 초반 차익실현 물량(약 $${pullback.toFixed(2)} 깊이) 소화 확인 후 진입 유효`;
     } else {
         // 갭 15%+: 극단적 갭 → 대폭 되돌림 또는 진입 보류
         const pullback = atr * 1.5;
@@ -1871,7 +1871,7 @@ export function calculateTradePlan(input: TradePlanInput): TradePlan | null {
     if (riskReward >= 3) {
         positionNote = 'R/R 우수 — 표준 포지션 유효';
     } else if (riskReward >= 2) {
-        positionNote = 'R/R 적정 — 소규모 포지션 권장';
+        positionNote = 'R/R 적정 — 소규모 포지션 적합';
     } else if (riskReward >= 1) {
         positionNote = 'R/R 낮음 — 진입 재고 또는 풀백 대기';
     } else {
@@ -1883,7 +1883,7 @@ export function calculateTradePlan(input: TradePlanInput): TradePlan | null {
         positionNote = '⚠ EXTREME GAP RISK — 추격매수 금지. ' + positionNote;
     }
     if (gatesApplied.includes('PM_REJECT')) {
-        positionNote = '❌ PM 역행 — 진입 보류 권장. ' + positionNote;
+        positionNote = '❌ PM 역행 — 진입 보류 신호. ' + positionNote;
     }
 
     return {

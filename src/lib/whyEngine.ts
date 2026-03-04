@@ -83,7 +83,7 @@ export function generateVerdictWHY(
     } else if (regime === 'Risk-On') {
         executionRule = '리테스트 성공 종목 한정 진입. Top3 집중. FIRST_BREAK 금지.';
     } else {
-        executionRule = '선별적 진입만. 리테스트 확인 필수. D+1 TimeStop 기준 준수.';
+        executionRule = '선별적 진입만. 리테스트 확인 후 유효. D+1 TimeStop 기준 준수.';
     }
 
     return { headline, priceStructure, regimeContext, executionRule };

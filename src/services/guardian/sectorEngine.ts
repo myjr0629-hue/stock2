@@ -726,7 +726,7 @@ export class SectorEngine {
         } else {
             title = "섹터 순환 (SECTOR ROTATION)";
             if (rlsiScore >= 50) {
-                desc = `건전한 순환매 장세입니다. ${source} 섹터의 차익 실현 물량이 ${target} 섹터(주도주)로 유입되고 있습니다. 3일 추세(Persistence)가 양호한 종목 위주로 선별 접근하십시오.`;
+                desc = `건전한 순환매 장세입니다. ${source} 섹터의 차익 실현 물량이 ${target} 섹터(주도주)로 유입되고 있습니다. 3일 추세(Persistence)가 양호한 종목 위주로 선별 접근이 유효한 구간입니다.`;
                 sentiment = 'NEUTRAL';
             } else {
                 desc = `제한적인 순환매 흐름입니다. ${target} 섹터가 반등 중이나 거래량(RVOL)이 부족하여 신뢰도가 낮습니다. 추격 매수보다는 ${source} 섹터의 하락이 멈추는지 확인이 필요합니다.`;

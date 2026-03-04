@@ -134,7 +134,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         category: 'score',
         meaning: '모멘텀, 옵션 흐름, 구조, 레짐, 리스크를 종합한 종목 건강도 점수입니다.',
         interpretation: '70+: 강한 모멘텀 / 50-70: 보통 / 50 미만: 약세',
-        action: 'Top3 진입은 Pulse 70+ 권장. 50 미만은 관망 또는 축소.',
+        action: 'Top3 진입은 Pulse 70+ 적합. 50 미만은 관망 또는 축소.',
     },
     'ALPHA_SCORE': {
         id: 'ALPHA_SCORE',
@@ -154,7 +154,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         category: 'risk',
         meaning: '변동성이 높고 하드컷 레벨이 필요한 종목 전용 슬롯입니다.',
         interpretation: '11번/12번 슬롯에 배정됩니다. 사이즈 자동 축소 적용.',
-        action: '반드시 손절 레벨(하드컷) 설정 필수. Top3 승격은 매우 엄격한 조건에서만.',
+        action: '손절 레벨(하드컷) 설정 구간. Top3 승격은 매우 엄격한 조건에서만.',
         caution: '하이리스크 종목은 전체 포트폴리오의 10% 이하로 제한하세요.'
     },
 

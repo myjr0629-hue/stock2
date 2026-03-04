@@ -349,7 +349,7 @@
     "properWeight": "Proper weight",
     "longTermHold": "Long-term (tax favorable)",
     "shortTermHold": "Short-term",
-    "actionRun": "Momentum strong - Keep holding",
+    "actionRun": "Momentum strong - Hold valid zone",
     "actionHold": "Wait - Watch the trend",
     "actionTake": "Target zone reached — profit realization zone",
     "actionExit": "Risk zone — support breached",
@@ -1078,7 +1078,7 @@
       "longTitle": "LONG γ Zone (Above Flip)",
       "longDesc": "Price > Gamma Flip → Dealers <emerald>hedge in the same direction</emerald> → Stabilizing effect that suppresses price movement. <gold>Range-bound strategy near VWAP</gold> is effective.",
       "shortTitle": "SHORT γ Zone (Below Flip)",
-      "shortDesc": "Price < Gamma Flip → Dealers <rose>hedge in the opposite direction</rose> → Destabilizing effect that amplifies price movement. <gold>Volatility spikes</gold>, stop-losses are essential.",
+      "shortDesc": "Price < Gamma Flip → Dealers <rose>hedge in the opposite direction</rose> → Destabilizing effect that amplifies price movement. <gold>Volatility spikes</gold>, risk management zone.",
       "tip": "Gamma Flip is <purple>the price where option dealers' hedge direction reverses</purple>. You can check the Flip distance (%) in real-time on the VOL REGIME card — when within ±2%, a volatility regime change is imminent."
     },
     "strategy": {
