@@ -64,78 +64,140 @@ export function OracleHeader({ }: OracleHeaderProps) {
     const dxyStatus = getDxyStatus(dxy);
 
     return (
-        <div className="w-full h-10 bg-[#0a0e14]/90 backdrop-blur-md border-b border-slate-800/50 flex items-center justify-between px-6 select-none z-50">
-            {/* LEFT: STATUS */}
-            <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>
-                <span className="text-[11px] font-black tracking-[0.2em] text-emerald-400 font-jakarta">
-                    GUARDIAN EYE : ONLINE
-                </span>
+        <div className="w-full bg-[#0a0e14]/90 backdrop-blur-md border-b border-slate-800/50 select-none z-50">
+            {/* Desktop: single row | Mobile: 2 rows */}
+            <div className="hidden md:flex items-center justify-between h-10 px-6">
+                {/* LEFT: STATUS */}
+                <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>
+                    <span className="text-[11px] font-black tracking-[0.2em] text-emerald-400 font-jakarta">
+                        GUARDIAN EYE : ONLINE
+                    </span>
+                </div>
+
+                {/* CENTER: F&G, VIX & DXY Glassmorphism Pills */}
+                <div className="flex items-center gap-3">
+                    {/* CNN Fear & Greed Pill */}
+                    <div className="relative group">
+                        <div className={`absolute -inset-0.5 bg-gradient-to-r ${fgStatus.glow} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
+                        <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
+                            <span className="text-[11px] text-white font-bold tracking-wider font-jakarta">Fear & Greed</span>
+                            <span className="text-sm font-bold font-mono tabular-nums" style={{ color: fgStatus.color }}>
+                                {fgScore > 0 ? fgScore.toFixed(1) : '—'}
+                            </span>
+                            <span className="text-[11px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: fgStatus.color }}>
+                                {fgStatus.label}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* VIX Pill */}
+                    <div className="relative group">
+                        <div className={`absolute -inset-0.5 bg-gradient-to-r ${vixStatus.glow} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
+                        <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
+                            <span className="text-[11px] text-white font-bold tracking-wider font-jakarta">VIX</span>
+                            <span className="text-sm font-bold font-mono tabular-nums" style={{ color: vixStatus.color }}>
+                                {vix > 0 ? vix.toFixed(1) : '—'}
+                            </span>
+                            {vixChg !== 0 && (
+                                <span className={`text-[13px] font-bold font-mono ${vixChg >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                    {vixChg >= 0 ? '+' : ''}{vixChg.toFixed(1)}%
+                                </span>
+                            )}
+                            <span className="text-[11px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: vixStatus.color }}>
+                                {vixStatus.label}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* DXY Pill */}
+                    <div className="relative group">
+                        <div className={`absolute -inset-0.5 bg-gradient-to-r ${dxyStatus.glow} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
+                        <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
+                            <span className="text-[11px] text-white font-bold tracking-wider font-jakarta">DXY</span>
+                            <span className="text-sm font-bold font-mono tabular-nums" style={{ color: dxyStatus.color }}>
+                                {dxy > 0 ? dxy.toFixed(1) : '—'}
+                            </span>
+                            {dxyChg !== 0 && (
+                                <span className={`text-[13px] font-bold font-mono ${dxyChg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {dxyChg >= 0 ? '+' : ''}{dxyChg.toFixed(1)}%
+                                </span>
+                            )}
+                            <span className="text-[11px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: dxyStatus.color }}>
+                                {dxyStatus.label}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* RIGHT: Guide + VERSION */}
+                <div className="flex items-center gap-3">
+                    <Link href="/how-it-works/guardian" className="relative flex items-center gap-1.5 px-3.5 py-0.5 rounded-lg bg-emerald-500/[0.08] border border-emerald-400/25 hover:border-emerald-400/50 hover:bg-emerald-500/[0.15] backdrop-blur-md shadow-[0_0_15px_rgba(16,185,129,0.08)] hover:shadow-[0_0_25px_rgba(16,185,129,0.18)] transition-all duration-300 group">
+                        <BookOpen className="w-3.5 h-3.5 text-emerald-400/80 group-hover:text-emerald-300 transition-colors" />
+                        <span className="text-[12px] text-emerald-300/90 group-hover:text-emerald-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
+                    </Link>
+                    <div className="text-[11px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
+                        V8.2 CORE ACTIVE
+                    </div>
+                </div>
             </div>
 
-            {/* CENTER: F&G, VIX & DXY Glassmorphism Pills */}
-            <div className="flex items-center gap-3">
-                {/* CNN Fear & Greed Pill */}
-                <div className="relative group">
-                    <div className={`absolute -inset-0.5 bg-gradient-to-r ${fgStatus.glow} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
-                    <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
-                        <span className="text-[11px] text-white font-bold tracking-wider font-jakarta">Fear & Greed</span>
-                        <span className="text-sm font-bold font-mono tabular-nums" style={{ color: fgStatus.color }}>
-                            {fgScore > 0 ? fgScore.toFixed(1) : '—'}
+            {/* Mobile: 2-row layout */}
+            <div className="md:hidden">
+                {/* Row 1: Guardian status */}
+                <div className="flex items-center justify-between h-8 px-4">
+                    <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]"></div>
+                        <span className="text-[10px] font-black tracking-[0.15em] text-emerald-400 font-jakarta">
+                            GUARDIAN EYE : ONLINE
                         </span>
-                        <span className="text-[11px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: fgStatus.color }}>
+                    </div>
+                    <div className="text-[9px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
+                        V8.2
+                    </div>
+                </div>
+                {/* Row 2: Pills (horizontally scrollable) */}
+                <div className="flex items-center gap-2 px-4 pb-2 overflow-x-auto scrollbar-none">
+                    {/* F&G Pill (compact) */}
+                    <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 rounded-lg border border-white/10">
+                        <span className="text-[10px] text-white font-bold font-jakarta">F&G</span>
+                        <span className="text-[12px] font-bold font-mono" style={{ color: fgStatus.color }}>
+                            {fgScore > 0 ? fgScore.toFixed(0) : '—'}
+                        </span>
+                        <span className="text-[9px] font-black font-jakarta" style={{ color: fgStatus.color }}>
                             {fgStatus.label}
                         </span>
                     </div>
-                </div>
-
-                {/* VIX Pill */}
-                <div className="relative group">
-                    <div className={`absolute -inset-0.5 bg-gradient-to-r ${vixStatus.glow} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
-                    <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
-                        <span className="text-[11px] text-white font-bold tracking-wider font-jakarta">VIX</span>
-                        <span className="text-sm font-bold font-mono tabular-nums" style={{ color: vixStatus.color }}>
+                    {/* VIX Pill (compact) */}
+                    <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 rounded-lg border border-white/10">
+                        <span className="text-[10px] text-white font-bold font-jakarta">VIX</span>
+                        <span className="text-[12px] font-bold font-mono" style={{ color: vixStatus.color }}>
                             {vix > 0 ? vix.toFixed(1) : '—'}
                         </span>
                         {vixChg !== 0 && (
-                            <span className={`text-[13px] font-bold font-mono ${vixChg >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            <span className={`text-[11px] font-bold font-mono ${vixChg >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                                 {vixChg >= 0 ? '+' : ''}{vixChg.toFixed(1)}%
                             </span>
                         )}
-                        <span className="text-[11px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: vixStatus.color }}>
+                        <span className="text-[9px] font-black font-jakarta" style={{ color: vixStatus.color }}>
                             {vixStatus.label}
                         </span>
                     </div>
-                </div>
-
-                {/* DXY Pill */}
-                <div className="relative group">
-                    <div className={`absolute -inset-0.5 bg-gradient-to-r ${dxyStatus.glow} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
-                    <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
-                        <span className="text-[11px] text-white font-bold tracking-wider font-jakarta">DXY</span>
-                        <span className="text-sm font-bold font-mono tabular-nums" style={{ color: dxyStatus.color }}>
+                    {/* DXY Pill (compact) */}
+                    <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-1 bg-slate-900/80 rounded-lg border border-white/10">
+                        <span className="text-[10px] text-white font-bold font-jakarta">DXY</span>
+                        <span className="text-[12px] font-bold font-mono" style={{ color: dxyStatus.color }}>
                             {dxy > 0 ? dxy.toFixed(1) : '—'}
                         </span>
                         {dxyChg !== 0 && (
-                            <span className={`text-[13px] font-bold font-mono ${dxyChg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            <span className={`text-[11px] font-bold font-mono ${dxyChg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {dxyChg >= 0 ? '+' : ''}{dxyChg.toFixed(1)}%
                             </span>
                         )}
-                        <span className="text-[11px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: dxyStatus.color }}>
+                        <span className="text-[9px] font-black font-jakarta" style={{ color: dxyStatus.color }}>
                             {dxyStatus.label}
                         </span>
                     </div>
-                </div>
-            </div>
-
-            {/* RIGHT: Guide + VERSION */}
-            <div className="flex items-center gap-3">
-                <Link href="/how-it-works/guardian" className="relative flex items-center gap-1.5 px-3.5 py-0.5 rounded-lg bg-emerald-500/[0.08] border border-emerald-400/25 hover:border-emerald-400/50 hover:bg-emerald-500/[0.15] backdrop-blur-md shadow-[0_0_15px_rgba(16,185,129,0.08)] hover:shadow-[0_0_25px_rgba(16,185,129,0.18)] transition-all duration-300 group">
-                    <BookOpen className="w-3.5 h-3.5 text-emerald-400/80 group-hover:text-emerald-300 transition-colors" />
-                    <span className="text-[12px] text-emerald-300/90 group-hover:text-emerald-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
-                </Link>
-                <div className="text-[11px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
-                    V8.2 CORE ACTIVE
                 </div>
             </div>
         </div>

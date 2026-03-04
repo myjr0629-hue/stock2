@@ -285,7 +285,7 @@ export function LandingHeader() {
                     )}
 
                     {/* [Mobile Menu Toggle — xl: below only] */}
-                    <div className="xl:hidden flex items-center gap-1">
+                    <div className="xl:hidden flex items-center gap-2">
                         {/* Mobile Search Button */}
                         <button
                             onClick={() => { setMobileMenuOpen(true); setTimeout(() => mobileSearchRef.current?.focus(), 300); }}
