@@ -1180,7 +1180,7 @@
       "reduce": "REDUCE — 비중 축소",
       "exit": "EXIT — 포지션 정리",
       "gatesTitle": "안전 게이트 시스템",
-      "gatesDesc": "Alpha Engine은 단순 점수 합산이 아닙니다. <rose>위험 패턴 감지 시 자동 다운그레이드</rose>가 적용됩니다. Call Wall 돌파 실패, 과도한 공매도 비중, GEX 급변 등의 조건에서 점수가 강제 하향됩니다."
+      "gatesDesc": "Analytics Engine은 단순 점수 합산이 아닙니다. <rose>위험 패턴 감지 시 자동 다운그레이드</rose>가 적용됩니다. Call Wall 돌파 실패, 과도한 공매도 비중, GEX 급변 등의 조건에서 점수가 강제 하향됩니다."
     },
     "postMarket": {
       "title": "POST-MARKET BRIEF",
@@ -2211,7 +2211,7 @@
   },
   "alpha": {
     "signal": "Alpha Signal",
-    "enginePowered": "Alpha Engine 기반",
+    "enginePowered": "Analytics Engine 기반",
     "confidence": "신뢰도"
   },
   "legal": {
