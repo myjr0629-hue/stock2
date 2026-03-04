@@ -245,9 +245,9 @@ export function LandingHeader() {
                             {/* Language Toggle for non-logged-in users */}
                             <div className="hidden xl:flex items-center gap-0.5 font-jakarta">
                                 {([
-                                    { code: 'ko', label: 'KO' },
                                     { code: 'en', label: 'EN' },
                                     { code: 'ja', label: 'JA' },
+                                    { code: 'ko', label: 'KO' },
                                 ] as const).map((loc, idx) => {
                                     const isActive = locale === loc.code;
                                     return (
@@ -402,9 +402,9 @@ export function LandingHeader() {
                                     {/* Language Switcher */}
                                     <div className="flex items-center gap-1 px-4 py-3 font-jakarta">
                                         {([
-                                            { code: 'ko', label: '한국어' },
                                             { code: 'en', label: 'English' },
                                             { code: 'ja', label: '日本語' },
+                                            { code: 'ko', label: '한국어' },
                                         ] as const).map((loc) => {
                                             const isActiveLang = locale === loc.code;
                                             return (

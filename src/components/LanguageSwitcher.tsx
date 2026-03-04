@@ -7,9 +7,9 @@ import { useState } from 'react';
 import { Globe, ChevronDown } from 'lucide-react';
 
 const locales = [
-    { code: 'ko', label: '한국어', flag: '🇰🇷' },
     { code: 'en', label: 'English', flag: '🇺🇸' },
     { code: 'ja', label: '日本語', flag: '🇯🇵' },
+    { code: 'ko', label: '한국어', flag: '🇰🇷' },
 ];
 
 export function LanguageSwitcher() {
