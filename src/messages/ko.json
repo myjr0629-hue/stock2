@@ -907,7 +907,7 @@
     "chartTitle": "Options Overlay 차트",
     "chartDesc": "주가 차트 위에 <cyan>Call Wall</cyan>(저항), <gold>Max Pain</gold>(수렴), <rose>Put Wall</rose>(지지) 레벨을 오버레이하여 옵션 시장이 설정한 가격 범위를 한눈에 시각화합니다.",
     "signalTitle": "SIGNAL FEED",
-    "signalDesc": "실시간으로 감지되는 <gold>고래 활동</gold>, 다크풀 이벤트, 숏스퀴즈 경보 등을 타임라인으로 표시합니다. BUY/SELL/ALERT/WHALE 태그로 신호를 구분합니다.",
+    "signalDesc": "실시간으로 감지되는 <gold>고래 활동</gold>, 다크풀 이벤트, 숏스퀴즈 경보 등을 타임라인으로 표시합니다. BULLISH/BEARISH/ALERT/WHALE 태그로 신호를 구분합니다.",
     "strategy": {
       "warningTitle": "⚠️ 위험 고지 및 면책 사항",
       "warningDesc": "본 서비스에서 제공하는 모든 정보(지표, 시그널, 분석 결과 포함)는 투자 참고용 데이터이며, 투자 권유·매매 추천·투자 자문에 해당하지 않습니다. 금융 시장 참여는 원금 손실의 위험이 있으며, 과거 데이터와 지표가 미래 수익을 보장하지 않습니다. 모든 분석 판단은 전적으로 이용자 본인의 몫이며, 그에 따른 손익의 책임 또한 이용자 본인에게 있습니다. 본 서비스 제공자는 이용자의 이용 결과에 대해 어떠한 법적 책임도 지지 않습니다."
@@ -1173,8 +1173,8 @@
       "gradeD": "D등급 — 25~39점 – 약세, 비중 축소",
       "gradeF": "F등급 — 24점 이하 – 위험, 포지션 정리",
       "actionTitle": "센티먼트 맵",
-      "strongBuy": "STRONG BUY — 강한 상승 센티먼트",
-      "buy": "BUY — 상승 센티먼트",
+      "strongBuy": "STRONG BULLISH — 강한 상승 센티먼트",
+      "buy": "BULLISH — 상승 센티먼트",
       "watch": "WATCH — 관망",
       "hold": "HOLD — 유지",
       "reduce": "REDUCE — 비중 축소",
@@ -1294,7 +1294,7 @@
       "alpha": "Analytics",
       "alphaDesc": "AI가 산출한 Analytics Score(0-100)와 A~F 등급입니다.",
       "signal": "Signal",
-      "signalDesc": "BUY / HOLD / WATCH 등 AI 분석 시그널과 신뢰도입니다.",
+      "signalDesc": "BULLISH / HOLD / WATCH 등 AI 분석 시그널과 신뢰도입니다.",
       "action": "Action",
       "actionDesc": "RUN(상세 분석), HOLD(유지) 등 분석 프로토콜입니다."
     },

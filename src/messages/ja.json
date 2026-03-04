@@ -865,7 +865,7 @@
     "chartTitle": "Options Overlayチャート",
     "chartDesc": "株価チャートに<cyan>Call Wall</cyan>（レジスタンス）、<gold>Max Pain</gold>（収束）、<rose>Put Wall</rose>（サポート）レベルをオーバーレイし、オプション市場が設定した価格範囲を一目で視覚化します。",
     "signalTitle": "SIGNAL FEED",
-    "signalDesc": "リアルタイムで検知される<gold>クジラ取引</gold>、ダークプールイベント、ショートスクイーズ警報などをタイムラインで表示します。BUY/SELL/ALERT/WHALEタグでシグナルを区分します。",
+    "signalDesc": "リアルタイムで検知される<gold>クジラ取引</gold>、ダークプールイベント、ショートスクイーズ警報などをタイムラインで表示します。BULLISH/BEARISH/ALERT/WHALEタグでシグナルを区分します。",
     "strategy": {
       "warningTitle": "⚠️ リスク告知及び免責事項",
       "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は分析参考用データであり、特定の推奨・特定推奨・個別アドバイスには該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての分析判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の利用結果について一切の法的責任を負いません。"
@@ -1173,8 +1173,8 @@
       "gradeD": "Dグレード — 25〜39点 – 弱気、ポジション縮小",
       "gradeF": "Fグレード — 24点以下 – 危険、ポジション整理",
       "actionTitle": "センチメントマップ",
-      "strongBuy": "STRONG BUY — 強い上昇センチメント",
-      "buy": "BUY — 上昇センチメント",
+      "strongBuy": "STRONG BULLISH — 強い上昇センチメント",
+      "buy": "BULLISH — 上昇センチメント",
       "watch": "WATCH — 様子見",
       "hold": "HOLD — 維持",
       "reduce": "REDUCE — ポジション縮小",
@@ -1294,7 +1294,7 @@
       "alpha": "Analytics",
       "alphaDesc": "AIが算出したAnalytics Score (0-100) とA〜Fグレードです。",
       "signal": "Signal",
-      "signalDesc": "BUY / HOLD / WATCH 等のAI投資シグナルと信頼度です。",
+      "signalDesc": "BULLISH / HOLD / WATCH 等のAI分析シグナルと信頼度です。",
       "action": "Action",
       "actionDesc": "RUN（詳細分析）、HOLD（維持）等の推奨アクションです。"
     },

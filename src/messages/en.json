@@ -876,7 +876,7 @@
     "chartTitle": "Options Overlay Chart",
     "chartDesc": "Overlays <cyan>Call Wall</cyan> (resistance), <gold>Max Pain</gold> (convergence), and <rose>Put Wall</rose> (support) levels on the price chart — visualizing the price range set by the options market.",
     "signalTitle": "SIGNAL FEED",
-    "signalDesc": "Real-time timeline of <gold>whale trades</gold>, dark pool events, and short squeeze alerts. Signals are tagged as BUY/SELL/ALERT/WHALE.",
+    "signalDesc": "Real-time timeline of <gold>whale trades</gold>, dark pool events, and short squeeze alerts. Signals are tagged as BULLISH/BEARISH/ALERT/WHALE.",
     "strategy": {
       "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
       "warningDesc": "All information provided by this service — including indicators, signals, and analysis results — is for informational and educational purposes only and does not constitute personalized financial recommendations or consulting. Financial investments carry the risk of principal loss, and past data or indicators do not guarantee future returns. All analytical decisions are solely at the user's own discretion, and any resulting gains or losses are entirely the user's responsibility. The service provider assumes no legal liability for users' outcomes."
