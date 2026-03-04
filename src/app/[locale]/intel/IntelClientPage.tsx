@@ -2336,7 +2336,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                             <footer className="text-center pb-8 pt-4">
                                 <p suppressHydrationWarning className="text-xs text-slate-300 uppercase tracking-widest font-bold">
-                                    Alpha Engine v5.5 • SIGNUM Intelligence Active ({new Date().toLocaleTimeString()})
+                                    Analytics Engine v5.5 • SIGNUM Intelligence Active ({new Date().toLocaleTimeString()})
                                 </p>
                             </footer>
 
