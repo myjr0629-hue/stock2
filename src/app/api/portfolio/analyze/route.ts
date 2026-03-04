@@ -124,7 +124,7 @@ export async function GET(request: Request) {
         } else {
             action = 'WATCH';
             confidence = 50;
-            triggers.push('→ 관망 권장');
+            triggers.push('→ 관망 구간');
         }
 
         // [FIX] Use options/structure API for MaxPain (same source as Command page)

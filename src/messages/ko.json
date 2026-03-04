@@ -1594,7 +1594,7 @@
       "desc": "Gemini 2.5 FLASH AI가 <cyan>모든 Guardian 데이터</cyan>를 종합 분석하여 <gold>현황 진단</gold>, <purple>심층 분석</purple>, <emerald>실전 전략</emerald>을 3단계로 제공합니다. V9.0에서는 <rose>VIX 선물 구조</rose>와 <gold>채권·금 자금 이동</gold>까지 교차 분석하여 폭락 전조를 선행 감지합니다.",
       "currentLabel": "현황",
       "analysisLabel": "분석",
-      "actionLabel": "액션",
+      "actionLabel": "전망",
       "sampleCurrent": "5일 추세는 성장주 선호 체질(RISK_ON_GROWTH)에서 가치주, 산업재, 금융으로 자금 유입이 진행 중입니다.",
       "sampleAnalysis": "시장은 FOMC 의사록 불확실성 속에서도 견조한 수급을 보이며, 특히 AI 관련 분석 관점으로 기술주가 견조합니다.",
       "sampleAction": "성장주 선호 체질과 안정적인 신호 속에서 기술주 중심의 상승 모멘텀이 확인됩니다.",

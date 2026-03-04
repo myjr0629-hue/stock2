@@ -234,9 +234,9 @@ const REGIME_TEXTS: Record<string, Record<Locale, string>> = {
         ja: "弱気相場参入 :: 防御運用 (Defense)"
     },
     NEUTRAL: {
-        ko: "방향성 부재 :: 관망 권장 (Wait)",
-        en: "No Direction :: Wait Recommended (Wait)",
-        ja: "方向性不在 :: 様子見推奨 (Wait)"
+        ko: "방향성 부재 :: 관망 구간 (Wait)",
+        en: "No Direction :: Standby (Wait)",
+        ja: "方向性不在 :: 様子見区間 (Wait)"
     }
 };
 
@@ -253,8 +253,8 @@ const CHECKLIST_TEXTS: Record<Locale, {
 }> = {
     ko: {
         targetLocked: "TARGET LOCKED :: 강세장 진입 조건 충족",
-        bearMode: "BEAR MODE :: 보수적 운용 권장",
-        waitMode: "STANDBY :: 관망 권장",
+        bearMode: "BEAR MODE :: 보수적 운용 구간",
+        waitMode: "STANDBY :: 관망 구간",
         nasdaqUp: "NASDAQ 상승",
         targetSectorUp: "타겟 섹터 상승",
         yieldStable: "금리 안정",

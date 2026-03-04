@@ -28,7 +28,7 @@ const TAG_COLORS: Record<string, string> = {
     '[結論]': 'text-emerald-400 font-bold',
 };
 
-const TAG_PATTERN = /(\[현황\]|\[해석\]|\[액션\]|\[진단\]|\[결론\]|\[Status\]|\[Interpretation\]|\[Action\]|\[Diagnosis\]|\[Conclusion\]|\[現況\]|\[解釈\]|\[アクション\]|\[診断\]|\[結論\])/g;
+const TAG_PATTERN = /(\[현황\]|\[해석\]|\[액션\]|\[전망\]|\[진단\]|\[결론\]|\[Status\]|\[Interpretation\]|\[Action\]|\[Outlook\]|\[Diagnosis\]|\[Conclusion\]|\[現況\]|\[解釈\]|\[アクション\]|\[見通し\]|\[診断\]|\[結論\])/g;
 
 /** Render text with colored section tags */
 export function renderColoredText(text: string): React.ReactNode[] {

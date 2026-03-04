@@ -399,7 +399,7 @@ export function analyzeGemsTicker(t: any, regime: string, opts?: any, strict = f
             reasonsKR.push('추세 양호하나 진입 대기');
         } else {
             entryNow = 'WAIT';
-            reasonsKR.push('관망 권장 구간');
+            reasonsKR.push('관망 구간');
         }
     } else {
         entryNow = 'FAIL'; // Ineligible implies no entry

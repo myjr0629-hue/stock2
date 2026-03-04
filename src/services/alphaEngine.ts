@@ -1395,7 +1395,7 @@ function buildExplanation(
             case 'S':
             case 'A': whyKR = '전반적 양호. 진입 검토 적합'; break;
             case 'B': whyKR = '일부 신호 확인. 추가 관찰 필요'; break;
-            case 'C': whyKR = '방향성 불명확. 관망 권장'; break;
+            case 'C': whyKR = '방향성 불명확. 관망 구간'; break;
             case 'D': whyKR = '부정적 신호 우세. 신규 진입 금지'; break;
             case 'F': whyKR = '구조 붕괴. 즉시 이탈 구간'; break;
         }

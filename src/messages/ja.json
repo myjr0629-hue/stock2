@@ -1594,7 +1594,7 @@
       "desc": "Gemini 2.5 FLASH AIが<cyan>全Guardianデータ</cyan>を総合分析し、<gold>現況診断</gold>、<purple>深層分析</purple>、<emerald>実践戦略</emerald>を3段階で提供します。V9.0では<rose>VIX先物構造</rose>と<gold>債券・金の資金移動</gold>までクロス分析し、暴落の前兆を先行検知します。",
       "currentLabel": "現況",
       "analysisLabel": "分析",
-      "actionLabel": "アクション",
+      "actionLabel": "見通し",
       "sampleCurrent": "5日トレンドはグロース株選好体質（RISK_ON_GROWTH）からバリュー株、産業財、金融への資金流入が進行中です。",
       "sampleAnalysis": "市場はFOMC議事録の不確実性の中でも堅調な需給を示しており、特にAI関連でテック株が堅調です。",
       "sampleAction": "グロース株選好体質と安定的なシグナルの中、テック株中心の分割買い戦略が有効です。",

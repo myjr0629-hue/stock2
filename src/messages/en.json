@@ -1594,7 +1594,7 @@
       "desc": "Gemini 2.5 FLASH AI comprehensively analyzes <cyan>all Guardian data</cyan> in 3 stages: <gold>Current Situation</gold>, <purple>Deep Analysis</purple>, and <emerald>Action Strategy</emerald>. V9.0 now cross-analyzes <rose>VIX futures structure</rose> and <gold>bond/gold capital flows</gold> to detect crash precursors ahead of time.",
       "currentLabel": "Current",
       "analysisLabel": "Analysis",
-      "actionLabel": "Action",
+      "actionLabel": "Outlook",
       "sampleCurrent": "5-day trend shows fund rotation from growth preference (RISK_ON_GROWTH) toward value, industrials, and financials.",
       "sampleAnalysis": "Market shows resilient supply-demand dynamics despite FOMC uncertainty, with tech stocks particularly strong from an AI analytical perspective.",
       "sampleAction": "A scaled buying strategy focused on tech stocks remains valid given the growth-oriented regime and stable signals.",

@@ -152,9 +152,9 @@ const _lastRealityTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 
 // === LOCALIZED DEFAULT MESSAGES ===
 const OFF_HOURS_ROTATION: Record<Locale, string> = {
-    ko: "[현황] 장외 시간 - 실시간 분석 대기 중\n[해석] 프리마켓 시작 시 자동 갱신\n[액션] 다음 세션까지 기존 포지션 유지",
-    en: "[Status] Off-hours - waiting for live analysis\n[Interpretation] Auto-refresh at pre-market\n[Action] Maintain current positions until next session",
-    ja: "[現況] 場外時間 - リアルタイム分析待機中\n[解釈] プレマーケット開始時に自動更新\n[アクション] 次のセッションまで既存ポジション維持"
+    ko: "[현황] 장외 시간 - 실시간 분석 대기 중\n[해석] 프리마켓 시작 시 자동 갱신\n[전망] 다음 세션 시작 시 데이터 갱신 예정",
+    en: "[Status] Off-hours - waiting for live analysis\n[Interpretation] Auto-refresh at pre-market\n[Outlook] Data will refresh at next session start",
+    ja: "[現況] 場外時間 - リアルタイム分析待機中\n[解釈] プレマーケット開始時に自動更新\n[見通し] 次のセッション開始時にデータ更新予定"
 };
 
 const OFF_HOURS_REALITY: Record<Locale, string> = {
@@ -218,7 +218,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         **출력 형식 (반드시 이 형식으로):**
         [현황] (5일 기준 섹터 이동 현황 + 거시 배경 1문장)
         [해석] (의미 + 뉴스 기반 원인 1문장, 신호 충돌 시 반드시 언급)
-        [액션] (구체적 행동 지시 1문장)
+        [전망] (향후 시장 방향성 전망 1문장 — 사실과 데이터 기반, 행동 지시 금지)
 
         **규칙:**
         - 한국어 전문가 스타일
@@ -259,7 +259,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - If today shows a bounce but 5-day trend is down, call it a "relief rally"
         - 5-day inflow/outflow data takes priority over single-day data
         - Sectors with noise warnings have low reliability
-        - Reflect the regime (RISK_OFF_DEFENSE etc.) in actionable advice
+        - Reflect the regime (RISK_OFF_DEFENSE etc.) in market outlook
         - **Signal Conflict**: When RLSI/NASDAQ are bullish but rotation is RISK_OFF, describe it as "surface strength masks underlying weakness"
         - **When news is provided**: Identify the root cause of market movements from news (e.g., "CPI beat triggered selloff", "Fed hawkish tone pressures growth")
         - **Gamma Shield**: If GEX <= -20, warn about dealer hedging amplifying volatility. If GEX >= +20, note gamma clamping stabilizing prices. If squeeze risk >= 45%, warn about potential sharp moves. Reference options support/resistance levels when price is near them
@@ -267,7 +267,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         **Output Format (strictly follow):**
         [Status] (1 sentence on 5-day sector movement)
         [Interpretation] (1 sentence on meaning + news-based cause, MUST mention signal conflicts if present)
-        [Action] (1 concrete action directive)
+        [Outlook] (1 sentence factual market outlook — no action directives)
 
         **Rules:**
         - Professional English briefing style
@@ -309,7 +309,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         **出力形式 (必ずこの形式で):**
         [現況] (5日基準セクター移動現況 1文)
         [解釈] (意味 + ニュース基盤の原因 1文)
-        [アクション] (具体的行動指示 1文)
+        [見通し] (市場方向性の見通し 1文 — 事実とデータ基盤、行動指示禁止)
 
         **ルール:**
         - 日本語専門家スタイル
@@ -428,15 +428,15 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         - "[진단]" "[결론]" 같은 레이블 사용 금지
         - **첫 문장은 반드시 현재 시장의 가장 중요한 거시경제 이슈** (금리/인플레/연준/뉴스 기반)
         - 두 번째 문장은 수치 기반 시장 상태 (RLSI/Breadth/VIX/자산 동향)
-        - 세 번째 문장은 **구체적 행동 판단** (매수 유효, 관망, 리스크 관리 등)
+        - 세 번째 문장은 **시장 전망** (향후 방향성, 주요 변수 — 행동 지시 금지, "~하세요" "~보류" "~권장" 표현 사용 금지)
         - **뉴스가 제공된 경우, 시장 움직임의 원인을 뉴스에서 찾아 반드시 언급** (예: "CPI 예상 상회로 인한 매도세", "연준 금리 인하 연기 시사")
         - 거시경제 자산 교차 검증 결과 반드시 포함 (금/채권/유가/달러 중 핵심)
-        - 전문가가 투자자에게 설명하듯이 작성
+        - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지)
         - 공백 포함 250자 이내
 
         **예시 (참고용, 그대로 복사 금지):**
-        - "1월 CPI 3.0%로 예상 상회하며 금리 인하 기대가 후퇴, 10Y 금리 4.63%로 급등하며 달러도 동반 강세를 보이고 있습니다. RLSI 35점에 Breadth 38%로 광범위한 매도세이며, 금과 TLT가 동반 상승해 안전자산 선호가 뚜렷합니다. 기술주 신규 진입은 보류하고 현금 비중 확대를 권장합니다."
-        - "FOMC 의사록에서 인내심 기조가 재확인되며 금리 동결 기대가 강화, 나스닥이 견조한 흐름을 보이고 있습니다. RLSI 72점에 공포탐욕지수 68(탐욕)로 강세 신호지만, 유가 급등(+3.2%)에 인플레 재점화 우려가 있어 추가 상승 여력은 제한적입니다. 추세 추종은 유효하나 포지션 크기는 보수적으로 운영하세요."
+        - "1월 CPI 3.0%로 예상 상회하며 금리 인하 기대가 후퇴, 10Y 금리 4.63%로 급등하며 달러도 동반 강세를 보이고 있습니다. RLSI 35점에 Breadth 38%로 광범위한 매도세이며, 금과 TLT가 동반 상승해 안전자산 선호가 뚜렷합니다. 기술주 신규 진입 환경은 부정적이며 현금 비중 확대 구간으로 판단됩니다."
+        - "FOMC 의사록에서 인내심 기조가 재확인되며 금리 동결 기대가 강화, 나스닥이 견조한 흐름을 보이고 있습니다. RLSI 72점에 공포탐욕지수 68(탐욕)로 강세 신호지만, 유가 급등(+3.2%)에 인플레 재점화 우려가 있어 추가 상승 여력은 제한적입니다. 추세 추종 유효하나 상방 저항 구간 접근 시 변동성 확대 가능성이 존재합니다."
     `;
     },
     en: (ctx) => {
@@ -476,7 +476,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[News]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **Output:** 2-3 sentences. Lead with the key macro driver, follow with market state (include gamma/options structure when relevant), end with actionable guidance. Max 200 chars.
+        **Output:** 2-3 sentences. Lead with the key macro driver, follow with market state (include gamma/options structure when relevant), end with factual outlook. No action directives. Max 200 chars.
     `;
     },
     ja: (ctx) => {
@@ -515,7 +515,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[ニュース]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **出力:** 2-3文。マクロ要因→市場状態（ガンマ/オプション構造含む）→アクション。250字以内。
+        **出力:** 2-3文。マクロ要因→市場状態（ガンマ/オプション構造含む）→市場見通し（行動指示禁止）。250字以内。
     `;
     }
 };
@@ -529,8 +529,8 @@ async function translateInsight(koreanText: string, targetLocale: Locale, type: 
         if (!apiKey) return null;
 
         const prompt = type === 'rotation'
-            ? `Translate the following Korean market rotation analysis to ${LOCALE_NAMES[targetLocale]}. Keep the same format ([Status]/[Interpretation]/[Action] for English, [現況]/[解釈]/[アクション] for Japanese). Keep it concise, 3 lines max. Maintain financial terminology accuracy.\n\nKorean text:\n${koreanText}`
-            : `Translate the following Korean market analysis to natural ${LOCALE_NAMES[targetLocale]}. Do NOT use labels like [Diagnosis] or [Conclusion]. Write 2-3 natural sentences as a professional market strategist. Keep financial terms accurate. Max 200 characters for English, 250 characters for Japanese.\n\nKorean text:\n${koreanText}`;
+            ? `Translate the following Korean market rotation analysis to ${LOCALE_NAMES[targetLocale]}. Keep the same format ([Status]/[Interpretation]/[Outlook] for English, [現況]/[解釈]/[見通し] for Japanese). Keep it concise, 3 lines max. Maintain financial terminology accuracy.\n\nKorean text:\n${koreanText}`
+            : `Translate the following Korean market analysis to natural ${LOCALE_NAMES[targetLocale]}. Do NOT use labels like [Diagnosis] or [Conclusion]. Write 2-3 natural sentences as a professional market strategist providing factual observations, not action recommendations. Keep financial terms accurate. Max 200 characters for English, 250 characters for Japanese.\n\nKorean text:\n${koreanText}`;
 
         const result = await genAI.models.generateContent({
             model: "gemini-2.5-flash",
