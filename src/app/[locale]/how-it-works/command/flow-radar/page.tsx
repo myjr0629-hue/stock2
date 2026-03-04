@@ -14,25 +14,25 @@ export default async function FlowRadarGuidePage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Flow Sniper */}
                 <IndicatorCard
-                    title="Flow Sniper"
+                    title="Flow Monitor"
                     badge={t('cards.flowSniper.badge')}
                     badgeColor="cyan"
                     meaning={t('cards.flowSniper.meaning')}
                     interpretation={
                         <div className="space-y-3">
                             <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                                <span className="text-emerald-400 font-bold">BULLISH Flow</span>
+                                <span className="text-emerald-400 font-bold">Upward Flow</span>
                                 <p className="text-sm text-slate-400 mt-1">{t('cards.flowSniper.bullishDesc')}</p>
                             </div>
                             <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
-                                <span className="text-rose-400 font-bold">BEARISH Flow</span>
+                                <span className="text-rose-400 font-bold">Downward Flow</span>
                                 <p className="text-sm text-slate-400 mt-1">{t('cards.flowSniper.bearishDesc')}</p>
                             </div>
                         </div>
                     }
                     signals={[
-                        { label: 'BULLISH', description: t('cards.flowSniper.signals.bullish'), color: 'bg-emerald-500' },
-                        { label: 'BEARISH', description: t('cards.flowSniper.signals.bearish'), color: 'bg-rose-500' },
+                        { label: 'UPWARD', description: t('cards.flowSniper.signals.bullish'), color: 'bg-emerald-500' },
+                        { label: 'DOWNWARD', description: t('cards.flowSniper.signals.bearish'), color: 'bg-rose-500' },
                         { label: 'NEUTRAL', description: t('cards.flowSniper.signals.neutral'), color: 'bg-slate-500' },
                     ]}
                 />

@@ -63,7 +63,7 @@ function SignalBadge({ type }: { type: 'hot' | 'whale' | 'squeeze' | null }) {
 
   const config = {
     hot: { icon: Zap, label: 'HOT', color: 'text-amber-400 bg-amber-400/10 border-amber-400/30' },
-    whale: { icon: Target, label: 'WHALE', color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30' },
+    whale: { icon: Target, label: 'INSTITUTIONAL', color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30' },
     squeeze: { icon: TrendingUp, label: 'SQUEEZE', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30' },
   };
 
@@ -325,7 +325,7 @@ export default function Page() {
         </div>
 
         <div className="relative z-10 max-w-5xl mx-auto text-center">
-          {/* Alpha Engine Live Indicator */}
+          {/* Analytics Engine Live Indicator */}
           <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-lg mb-6
             bg-[#0a1628]/80 backdrop-blur-sm border border-emerald-500/20
             shadow-[0_0_20px_rgba(16,185,129,0.1)]">
@@ -335,7 +335,7 @@ export default function Page() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-[0.15em] font-jakarta">
-                ALPHA ENGINE LIVE
+                ANALYTICS ENGINE LIVE
               </span>
             </div>
           </div>
@@ -383,6 +383,12 @@ export default function Page() {
             <span className="text-white/60">|</span>
             <span className="text-slate-300">{t('home.earlyAccessCta')}</span>
           </div>
+
+          {/* Regulatory Disclaimer */}
+          <p className="mt-4 text-[11px] text-slate-500 max-w-lg mx-auto leading-relaxed">
+            A market research workspace for price, options, sector, and session analytics.
+            Built for informational and educational use only. No brokerage, execution, custody, or investment advisory services.
+          </p>
 
           {/* Hero Dashboard Mockup — Perspective Preview */}
           <div className="relative mt-12 max-h-[680px] overflow-hidden" style={{ perspective: '1200px' }}>
@@ -547,7 +553,7 @@ export default function Page() {
         </div>
       </section>
 
-      {/* LIVE SIGNAL DASHBOARD */}
+      {/* LIVE ANALYTICS DASHBOARD */}
       <section id="live-demo" className="py-14 px-6">
         <div className="max-w-5xl mx-auto">
           {/* Section Header */}

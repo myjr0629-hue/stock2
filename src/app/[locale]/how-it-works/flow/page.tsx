@@ -289,7 +289,7 @@ export default async function FlowGuidePage() {
                     <IndicatorCard
                         icon={Target} iconColor="text-emerald-400" gradientFrom="from-emerald-500/[0.06]"
                         badgeColor="border-emerald-500/30" badgeBg="bg-emerald-500/20 text-emerald-300"
-                        mockupLabel="WHALE" mockupValue="LONG" mockupValueColor="text-emerald-400" mockupSub="+$718K" mockupSubColor="text-emerald-300"
+                        mockupLabel="INSTITUTIONAL" mockupValue="LONG" mockupValueColor="text-emerald-400" mockupSub="+$718K" mockupSubColor="text-emerald-300"
                         subMetrics={[{ label: 'C', value: '$1,016K', color: 'text-emerald-400' }, { label: 'P', value: '$298K', color: 'text-rose-400' }]}
                         titleKey="whale.title" badgeKey="whale.badge" descKey="whale.desc"
                         bullets={[
@@ -757,7 +757,7 @@ export default async function FlowGuidePage() {
                     <IndicatorCard
                         icon={Banknote} iconColor="text-emerald-400" gradientFrom="from-emerald-500/[0.06]"
                         badgeColor="border-emerald-500/30" badgeBg="bg-emerald-500/20 text-emerald-300"
-                        mockupLabel="SMART MONEY" mockupValue="72" mockupValueColor="text-amber-400" mockupSub={t('smartMoney.mockSub')} mockupSubColor="text-amber-300"
+                        mockupLabel="INST. ACTIVITY" mockupValue="72" mockupValueColor="text-amber-400" mockupSub={t('smartMoney.mockSub')} mockupSubColor="text-amber-300"
                         titleKey="smartMoney.title" badgeKey="smartMoney.badge" descKey="smartMoney.desc"
                         bullets={[
                             { color: 'bg-emerald-500', textKey: 'smartMoney.active' },

@@ -1974,7 +1974,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
                     <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden">
                         {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
-                        <EliteGate title="Classified Order Flow" fomoMessage={gt('fomoClassifiedFlow')} mode="blur" minHeight="280px">
+                        <EliteGate title="Institutional Order Flow" fomoMessage={gt('fomoClassifiedFlow')} mode="blur" minHeight="280px">
                             <div className="relative -mx-4 -mt-1">
                                 {/* Decorative Line (The "Stream") */}
                                 <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent blur-[1px]" />
@@ -1983,10 +1983,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                                         <h3 className="text-lg font-black text-white flex items-center gap-2 drop-shadow-[0_0_8px_rgba(255,255,255,0.5)] tracking-widest uppercase whitespace-nowrap">
                                             <div className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-                                            LEVEL 3: CLASSIFIED ORDER FLOW
+                                            LEVEL 3: INSTITUTIONAL ORDER FLOW
                                         </h3>
                                         <span className="text-[13px] font-black px-2.5 py-1 rounded bg-rose-950/40 border border-rose-500/40 text-rose-500 shadow-[0_0_10px_rgba(244,63,94,0.3)] animate-pulse tracking-widest whitespace-nowrap shrink-0">
-                                            TOP SECRET // EYES ONLY
+                                            ELITE ACCESS // INSTITUTIONAL
                                         </span>
                                         {/* Whale / Dark Pool Toggle */}
                                         <div className="flex bg-slate-950/80 backdrop-blur-xl rounded-lg p-1 border border-white/10 shrink-0 ml-auto gap-1">
@@ -1998,7 +1998,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             >
                                                 <Shield size={13} className={flowViewMode === 'WHALE' ? 'text-cyan-400' : 'text-slate-400'} />
                                                 <div className="flex flex-col items-start">
-                                                    <span className="text-xs font-black uppercase tracking-wider leading-none">Whale</span>
+                                                    <span className="text-xs font-black uppercase tracking-wider leading-none">Institutional</span>
                                                     <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'WHALE' ? 'text-cyan-300/70' : 'text-slate-400'}`}>{ui('whaleTracking')}</span>
                                                 </div>
                                                 {whaleTrades.length > 0 && (
@@ -2044,11 +2044,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             tradesLoading ? (
                                                 <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-400 font-mono text-sm border border-cyan-500/30 rounded-xl bg-cyan-950/30 backdrop-blur-md shadow-[0_0_15px_rgba(6,182,212,0.15)] gap-3 animate-pulse">
                                                     <Loader2 size={16} className="animate-spin text-cyan-400" />
-                                                    DEEP SCANNING WHALE FLOW...
+                                                    DEEP SCANNING INSTITUTIONAL FLOW...
                                                 </div>
                                             ) : whaleTrades.length === 0 ? (
                                                 <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-500/30 font-mono text-sm border border-cyan-500/10 rounded-xl bg-cyan-950/10 backdrop-blur-sm">
-                                                    No Classified Intel Found
+                                                    No Institutional Data Found
                                                 </div>
                                             ) : (
                                                 whaleTrades.map((t: any, i: number) => {
@@ -2466,7 +2466,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             {/* Other Indicators: 1-Column Full-Width with Spacious Layout */}
                             <div className="flex flex-col gap-3 mt-3">
                                 {/* Smart Money Score — ELITE */}
-                                <EliteGate title="Smart Money" mode="blur" compact>
+                                <EliteGate title="Institutional Activity" mode="blur" compact>
                                     <div className="bg-gradient-to-br from-indigo-950/20 to-slate-900/40 border border-indigo-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-indigo-500/30 transition-all">
                                         <div className="absolute inset-0 bg-indigo-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: money flow stack */}

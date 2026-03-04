@@ -33,8 +33,8 @@ export const sections: TermsSection[] = [
             <ol className="list-decimal list-inside space-y-2">
                 <li><strong>&quot;서비스&quot;</strong>란 단말기(PC, 모바일 등)에 상관없이 회원이 이용할 수 있는 SIGNUM HQ의 모든 데이터, AI 분석, 시각화 자료를 의미합니다.</li>
                 <li><strong>&quot;회원&quot;</strong>이란 본 약관에 동의하고 회사가 제공하는 절차를 완료하여 서비스 이용 계약을 체결한 자를 말합니다.</li>
-                <li><strong>&quot;Tactical Order&quot;</strong>란 알고리즘에 의해 산출된 특정 시장 상황에 대한 통계적 시그널(예: BUY, HOLD, SELL 등)을 지칭하며, 이는 <strong>단순 참고용일 뿐 실제 행동 지시가 아님</strong>을 의미합니다.</li>
-                <li><strong>&quot;프리미엄 서비스&quot;</strong>란 유료 구독을 통해 제공되는 고급 데이터 분석, 실시간 시그널, AI 리포트 등 부가 서비스를 의미합니다.</li>
+                <li><strong>&quot;Session Read&quot;</strong>란 알고리즘에 의해 산출된 특정 시장 상황에 대한 분석 상태 라벨(예: HIGH CONVICTION, POSITIVE BIAS, BALANCED, RISK FLAG 등)을 지칭하며, 이는 <strong>단순 참고용일 뿐 실제 행동 지시가 아님</strong>을 의미합니다.</li>
+                <li><strong>&quot;프리미엄 서비스&quot;</strong>란 유료 구독을 통해 제공되는 고급 데이터 분석, 실시간 분석 결과, AI 리포트 등 부가 서비스를 의미합니다.</li>
             </ol>
         ),
     },
@@ -45,10 +45,10 @@ export const sections: TermsSection[] = [
         highlight: true,
         content: (
             <ol className="list-decimal list-inside space-y-3">
-                <li><strong>단순 정보 제공:</strong> SIGNUM HQ에서 제공되는 모든 데이터, 분석 및 정보(Gamma Exposure, Options Flow, Max Pain, Dark Pool Tracker, Alpha Score, Tactical Order 등 포함)는 <strong>과거 데이터에 기반한 통계적 참고 자료일 뿐이며, 특정 종목의 추천이나 개별 자문을 구성하지 않습니다.</strong></li>
+                <li><strong>단순 정보 제공:</strong> SIGNUM HQ에서 제공되는 모든 데이터, 분석 및 정보(Gamma Exposure, Options Flow, Max Pain, Dark Pool Tracker, Analytics Score, Session Sentiment 등 포함)는 <strong>과거 데이터에 기반한 통계적 참고 자료일 뿐이며, 특정 종목의 추천이나 개별 자문을 구성하지 않습니다.</strong></li>
                 <li><strong>이용자 책임:</strong> 금융 시장 참여는 원금 손실의 위험이 따르며, <strong>모든 분석 판단에 따른 결과의 책임은 전적으로 이용자 본인에게 있습니다.</strong> 회사는 회원이 서비스에 게재된 정보에 의존하여 행한 이용 결과에 대해 어떠한 법적 책임도 지지 않습니다.</li>
                 <li><strong>서비스 범위:</strong> 본 서비스는 「자본시장과 금융투자업에 관한 법률」에 의한 개별 자문 또는 그와 유사한 맞춤형 서비스를 제공하지 않으며, <strong>회사는 데이터 분석 소프트웨어 제공자입니다.</strong></li>
-                <li><strong>예측 정확도 비보장:</strong> 서비스에서 제시되는 과거 데이터 기반의 통계 수치, 백테스트 결과, 알파 스코어 등은 <strong>미래의 결과를 보장하거나 예측하는 것이 아닙니다.</strong></li>
+                <li><strong>예측 정확도 비보장:</strong> 서비스에서 제시되는 과거 데이터 기반의 통계 수치, 백테스트 결과, 분석 스코어 등은 <strong>미래의 결과를 보장하거나 예측하는 것이 아닙니다.</strong></li>
             </ol>
         ),
     },

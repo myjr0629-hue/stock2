@@ -83,7 +83,7 @@ export const sections: PrivacySection[] = [
                 <p>We use collected personal information solely for the following purposes:</p>
                 <ol className="list-decimal list-inside space-y-2 mt-3">
                     <li><strong>Account Management:</strong> Identity verification, authentication, and account maintenance</li>
-                    <li><strong>Service Delivery:</strong> Providing data analysis, AI reports, signal alerts, and other content</li>
+                    <li><strong>Service Delivery:</strong> Providing data analysis, AI reports, analytics updates, and other content</li>
                     <li><strong>Paid Services:</strong> Subscription management, payment processing, and billing</li>
                     <li><strong>Service Improvement:</strong> Usage statistics analysis, quality improvement, and new feature development</li>
                     <li><strong>Customer Support:</strong> Responding to inquiries, delivering notices, and resolving disputes</li>

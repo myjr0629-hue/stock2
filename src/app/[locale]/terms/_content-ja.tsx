@@ -34,8 +34,8 @@ export const sections: TermsSection[] = [
             <ol className="list-decimal list-inside space-y-2">
                 <li><strong>「サービス」</strong>とは、端末（PC、モバイルなど）を問わず、会員が利用できるSIGNUM HQの全てのデータ、AI分析、ビジュアライゼーションを意味します。</li>
                 <li><strong>「会員」</strong>とは、本規約に同意し、当社が定める手続きを完了してサービス利用契約を締結した者をいいます。</li>
-                <li><strong>「Tactical Order」</strong>とは、アルゴリズムにより算出された特定の市場状況に対する統計的シグナル（例：BUY、HOLD、SELLなど）を指し、これは<strong>参考情報に過ぎず、実際の売買指示ではありません。</strong></li>
-                <li><strong>「プレミアムサービス」</strong>とは、有料サブスクリプションを通じて提供される高度なデータ分析、リアルタイムシグナル、AIレポートなどの付加サービスを意味します。</li>
+                <li><strong>「Session Read」</strong>とは、アルゴリズムにより算出された特定の市場状況に対する分析ステータスラベル（例：HIGH CONVICTION、POSITIVE BIAS、BALANCED、RISK FLAGなど）を指し、これは<strong>参考情報に過ぎず、実際の売買指示ではありません。</strong></li>
+                <li><strong>「プレミアムサービス」</strong>とは、有料サブスクリプションを通じて提供される高度なデータ分析、リアルタイム分析結果、AIレポートなどの付加サービスを意味します。</li>
             </ol>
         ),
     },
@@ -46,10 +46,10 @@ export const sections: TermsSection[] = [
         highlight: true,
         content: (
             <ol className="list-decimal list-inside space-y-3">
-                <li><strong>情報提供のみ：</strong> SIGNUM HQで提供される全てのデータ、分析および情報（Gamma Exposure、Options Flow、Max Pain、Dark Pool Tracker、Alpha Score、Tactical Orderなどを含む）は、<strong>過去のデータに基づく統計的参考資料に過ぎず、特定の銘柄の売買を勧誘したり投資助言を構成するものではありません。</strong></li>
+                <li><strong>情報提供のみ：</strong> SIGNUM HQで提供される全てのデータ、分析および情報（Gamma Exposure、Options Flow、Max Pain、Dark Pool Tracker、Analytics Score、Session Sentimentなどを含む）は、<strong>過去のデータに基づく統計的参考資料に過ぎず、特定の銘柄の売買を勧誘したり投資助言を構成するものではありません。</strong></li>
                 <li><strong>投資責任：</strong> 金融投資には元本損失のリスクが伴います。<strong>全ての投資判断とその損益の責任は利用者本人にあります。</strong>当社は、会員がサービスに掲載された情報に依拠して行った投資結果について、いかなる法的責任も負いません。</li>
                 <li><strong>非登録投資助言業者：</strong> 本サービスは、<strong>金融商品取引法に基づく投資助言・代理業、投資運用業</strong>またはそれに類する金融サービスを提供するものではなく、当社は金融庁に登録された投資助言業者ではありません。</li>
-                <li><strong>過去の実績は将来を保証しない：</strong> サービスで提示される過去データに基づく統計数値、バックテスト結果、アルファスコアなどは、<strong>将来の投資成果を保証または予測するものではありません。</strong></li>
+                <li><strong>過去の実績は将来を保証しない：</strong> サービスで提示される過去データに基づく統計数値、バックテスト結果、分析スコアなどは、<strong>将来の投資成果を保証または予測するものではありません。</strong></li>
             </ol>
         ),
     },
@@ -118,7 +118,7 @@ export const sections: TermsSection[] = [
         title: '第8条（知的財産権）',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li>サービス内の全てのデザイン、テキスト、チャート、アルゴリズム、データビジュアライゼーション、商標（<strong>SIGNUM HQ、Alpha Engine、Tactical Order</strong>など）およびその他のコンテンツは<strong>当社の知的財産</strong>であり、著作権法および関連法律により保護されます。</li>
+                <li>サービス内の全てのデザイン、テキスト、チャート、アルゴリズム、データビジュアライゼーション、商標（<strong>SIGNUM HQ、Analytics Engine、Session Read</strong>など）およびその他のコンテンツは<strong>当社の知的財産</strong>であり、著作権法および関連法律により保護されます。</li>
                 <li>会員は当社の事前書面同意なくサービスのコンテンツを<strong>営利目的で利用し、または第三者に提供、複製、配布することはできません。</strong></li>
                 <li>会員がサービス利用過程で作成した投稿物（ある場合）の著作権は当該会員に帰属しますが、当社はサービス運営目的の範囲内でこれを利用できます。</li>
             </ol>

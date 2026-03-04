@@ -65,7 +65,7 @@ export const sections: PrivacySection[] = [
                 <p>収集された個人情報は、以下の目的にのみ利用されます：</p>
                 <ol className="list-decimal list-inside space-y-2 mt-3">
                     <li><strong>会員管理：</strong> 加入意思確認、本人識別・認証、会員資格の維持・管理</li>
-                    <li><strong>サービス提供：</strong> データ分析サービス、AIレポート、シグナルアラートなどのコンテンツ提供</li>
+                    <li><strong>サービス提供：</strong> データ分析サービス、AIレポート、分析アップデートなどのコンテンツ提供</li>
                     <li><strong>有料サービス：</strong> サブスクリプション管理、決済処理、料金精算</li>
                     <li><strong>サービス改善：</strong> 利用統計分析、サービス品質向上、新機能開発</li>
                     <li><strong>カスタマーサポート：</strong> お問い合わせ対応、お知らせ伝達、紛争処理</li>
