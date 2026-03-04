@@ -1,0 +1,238 @@
+﻿   ??Next.js 15.5.9
+   - Environments: .env.local
+   - Experiments (use with caution):
+     쨌 optimizePackageImports
+
+   Creating an optimized production build ...
+ ??Compiled successfully in 4.6s
+   Skipping linting
+   Checking validity of types ...
+   Collecting page data ...
+[CACHE WARMER] ?뵦 Initializing (interval: 90s)
+   Generating static pages (0/154) ...
+[CACHE WARMER] ?뵦 Initializing (interval: 90s)
+   Generating static pages (38/154) 
+   Generating static pages (76/154) 
+   Generating static pages (115/154) 
+ ??Generating static pages (154/154)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                       Size  First Load JS  Revalidate  Expire
+????/_not-found                                   1 kB         104 kB
+????/[locale]                                  9.25 kB         130 kB
+??  ??/ko
+??  ??/en
+??  ??/ja
+????/[locale]/checkout                         5.48 kB         126 kB
+??  ??/ko/checkout
+??  ??/en/checkout
+??  ??/ja/checkout
+????/[locale]/dashboard                        17.6 kB         203 kB
+??  ??/ko/dashboard
+??  ??/en/dashboard
+??  ??/ja/dashboard
+????/[locale]/flow                             11.9 kB         204 kB
+??  ??/ko/flow
+??  ??/en/flow
+??  ??/ja/flow
+????/[locale]/how-it-works                       176 B         127 kB
+??  ??/ko/how-it-works
+??  ??/en/how-it-works
+??  ??/ja/how-it-works
+????/[locale]/how-it-works/command               216 B         132 kB
+??  ??/ko/how-it-works/command
+??  ??/en/how-it-works/command
+??  ??/ja/how-it-works/command
+????/[locale]/how-it-works/command/flow-radar    216 B         132 kB
+??  ??/ko/how-it-works/command/flow-radar
+??  ??/en/how-it-works/command/flow-radar
+??  ??/ja/how-it-works/command/flow-radar
+????/[locale]/how-it-works/dashboard             216 B         132 kB
+??  ??/ko/how-it-works/dashboard
+??  ??/en/how-it-works/dashboard
+??  ??/ja/how-it-works/dashboard
+????/[locale]/how-it-works/flow                  216 B         132 kB
+??  ??/ko/how-it-works/flow
+??  ??/en/how-it-works/flow
+??  ??/ja/how-it-works/flow
+????/[locale]/how-it-works/guardian              216 B         132 kB
+??  ??/ko/how-it-works/guardian
+??  ??/en/how-it-works/guardian
+??  ??/ja/how-it-works/guardian
+????/[locale]/how-it-works/intel                 216 B         132 kB
+??  ??/ko/how-it-works/intel
+??  ??/en/how-it-works/intel
+??  ??/ja/how-it-works/intel
+????/[locale]/how-it-works/portfolio             216 B         132 kB
+??  ??/ko/how-it-works/portfolio
+??  ??/en/how-it-works/portfolio
+??  ??/ja/how-it-works/portfolio
+????/[locale]/how-it-works/watchlist             216 B         132 kB
+??  ??/ko/how-it-works/watchlist
+??  ??/en/how-it-works/watchlist
+??  ??/ja/how-it-works/watchlist
+????/[locale]/intel                            26.4 kB         216 kB
+??  ??/ko/intel
+??  ??/en/intel
+??  ??/ja/intel
+????/[locale]/intel-guardian                   19.4 kB         198 kB
+??  ??/ko/intel-guardian
+??  ??/en/intel-guardian
+??  ??/ja/intel-guardian
+????/[locale]/login                            3.95 kB         179 kB
+??  ??/ko/login
+??  ??/en/login
+??  ??/ja/login
+????/[locale]/payments/fail                    3.78 kB         125 kB
+??  ??/ko/payments/fail
+??  ??/en/payments/fail
+??  ??/ja/payments/fail
+????/[locale]/payments/success                 4.53 kB         125 kB
+??  ??/ko/payments/success
+??  ??/en/payments/success
+??  ??/ja/payments/success
+????/[locale]/portfolio                          14 kB         208 kB
+??  ??/ko/portfolio
+??  ??/en/portfolio
+??  ??/ja/portfolio
+????/[locale]/pricing                          14.6 kB         135 kB
+??  ??/ko/pricing
+??  ??/en/pricing
+??  ??/ja/pricing
+????/[locale]/privacy                          12.7 kB         134 kB
+??  ??/ko/privacy
+??  ??/en/privacy
+??  ??/ja/privacy
+????/[locale]/refund                           2.85 kB         124 kB
+??  ??/ko/refund
+??  ??/en/refund
+??  ??/ja/refund
+????/[locale]/settings                         10.4 kB         185 kB
+??  ??/ko/settings
+??  ??/en/settings
+??  ??/ja/settings
+????/[locale]/terms                            17.7 kB         138 kB
+??  ??/ko/terms
+??  ??/en/terms
+??  ??/ja/terms
+????/[locale]/ticker                           3.54 kB         182 kB
+??  ??/ko/ticker
+??  ??/en/ticker
+??  ??/ja/ticker
+????/[locale]/watchlist                        13.4 kB         208 kB
+??  ??/ko/watchlist
+??  ??/en/watchlist
+??  ??/ja/watchlist
+??? /api/backtest                                386 B         103 kB
+??? /api/biopulse/calendar                       386 B         103 kB
+??? /api/chart                                   386 B         103 kB
+??? /api/command/unified                         386 B         103 kB
+??? /api/cron/backfill-terminal                  386 B         103 kB
+??? /api/cron/cross-sector-brief                 386 B         103 kB
+??? /api/cron/events                             386 B         103 kB
+??? /api/cron/market-feed                        386 B         103 kB
+??? /api/cron/policy                             386 B         103 kB
+??? /api/cron/report                             386 B         103 kB
+??? /api/cron/snapshot                           386 B         103 kB
+??? /api/cron/track-verify                       386 B         103 kB
+??? /api/cron/warm-analysis                      386 B         103 kB
+??? /api/cybershield/calendar                    386 B         103 kB
+??? /api/dashboard/daily-history                 386 B         103 kB
+??? /api/dashboard/unified                       386 B         103 kB
+??? /api/debug/audit                             386 B         103 kB
+??? /api/debug/generate-jan9                     386 B         103 kB
+??? /api/debug/guardian                          386 B         103 kB
+??? /api/debug/guardian-test                     386 B         103 kB
+??? /api/debug/hub                               386 B         103 kB
+??? /api/debug/kv                                386 B         103 kB
+??? /api/debug/options-probe                     386 B         103 kB
+??? /api/debug/raw-connection                    386 B         103 kB
+??? /api/debug/report-status                     386 B         103 kB
+??? /api/debug/sync-report                       386 B         103 kB
+??? /api/exchange-rates                          386 B         103 kB
+??? /api/flow/dark-pool-trades                   386 B         103 kB
+??? /api/flow/realtime-metrics                   386 B         103 kB
+??? /api/flow/unified                            386 B         103 kB
+??? /api/health/chart                            386 B         103 kB
+??? /api/health/deploy                           386 B         103 kB
+??? /api/health/env                              386 B         103 kB
+??? /api/health/report                           386 B         103 kB
+??? /api/intel/biopulse                          386 B         103 kB
+??? /api/intel/cloudfortress                     386 B         103 kB
+??? /api/intel/cloudfortress-calendar            386 B         103 kB
+??? /api/intel/cross-sector-brief                386 B         103 kB
+??? /api/intel/cybershield                       386 B         103 kB
+??? /api/intel/fast                              386 B         103 kB
+??? /api/intel/fintechpulse                      386 B         103 kB
+??? /api/intel/fintechpulse-calendar             386 B         103 kB
+??? /api/intel/m7                                386 B         103 kB
+??? /api/intel/m7-calendar                       386 B         103 kB
+????/api/intel/m7-fast                           386 B         103 kB         10s      1y
+??? /api/intel/orbitdefense                      386 B         103 kB
+??? /api/intel/physicalai                        386 B         103 kB
+????/api/intel/physicalai-fast                   386 B         103 kB         10s      1y
+??? /api/intel/powermatrix                       386 B         103 kB
+??? /api/intel/quantumedge                       386 B         103 kB
+??? /api/intel/quantumedge-calendar              386 B         103 kB
+??? /api/intel/siliconcore                       386 B         103 kB
+??? /api/intel/snapshot                          386 B         103 kB
+??? /api/live/analyst                            386 B         103 kB
+??? /api/live/earnings                           386 B         103 kB
+??? /api/live/fundamentals                       386 B         103 kB
+??? /api/live/macd                               386 B         103 kB
+??? /api/live/market                             386 B         103 kB
+??? /api/live/news                               386 B         103 kB
+??? /api/live/options/atm                        386 B         103 kB
+??? /api/live/options/chain                      386 B         103 kB
+??? /api/live/options/structure                  386 B         103 kB
+??? /api/live/options/trades                     386 B         103 kB
+??? /api/live/overview                           386 B         103 kB
+??? /api/live/prev-day                           386 B         103 kB
+??? /api/live/prices                             386 B         103 kB
+??? /api/live/quotes                             386 B         103 kB
+??? /api/live/related                            386 B         103 kB
+??? /api/live/risk-factors                       386 B         103 kB
+??? /api/live/short-squeeze                      386 B         103 kB
+??? /api/live/sma                                386 B         103 kB
+??? /api/live/ticker                             386 B         103 kB
+??? /api/live/treasury                           386 B         103 kB
+??? /api/live/volatility-regime                  386 B         103 kB
+??? /api/market/macro                            386 B         103 kB
+??? /api/market/status                           386 B         103 kB
+??? /api/market/ticker                           386 B         103 kB
+??? /api/orbitdefense/calendar                   386 B         103 kB
+??? /api/payments/confirm                        386 B         103 kB
+??? /api/performance                             386 B         103 kB
+??? /api/physicalai/calendar                     386 B         103 kB
+??? /api/portfolio/analyze                       386 B         103 kB
+??? /api/portfolio/batch                         386 B         103 kB
+??? /api/powermatrix/calendar                    386 B         103 kB
+??? /api/report/raw                              386 B         103 kB
+??? /api/report/run                              386 B         103 kB
+??? /api/report/status                           386 B         103 kB
+??? /api/reports/archive                         386 B         103 kB
+??? /api/reports/archives                        386 B         103 kB
+??? /api/reports/finalize                        386 B         103 kB
+??? /api/reports/generate                        386 B         103 kB
+??? /api/reports/latest                          386 B         103 kB
+??? /api/reports/read                            386 B         103 kB
+??? /api/seed/morning                            386 B         103 kB
+??? /api/siliconcore/calendar                    386 B         103 kB
+??? /api/stock                                   386 B         103 kB
+??? /api/ticker/overview                         386 B         103 kB
+??? /api/watchlist/analyze                       386 B         103 kB
+??? /api/watchlist/batch                         386 B         103 kB
+??? /auth/callback                               386 B         103 kB
++ First Load JS shared by all                   103 kB
+  ??chunks/1255-8befde0980f5cba9.js            45.6 kB
+  ??chunks/4bd1b696-100b9d70ed4e49c1.js        54.2 kB
+  ??other shared chunks (total)                   3 kB
+
+
+? Middleware                                    292 kB
+
+?? (Static)   prerendered as static content
+?? (SSG)      prerendered as static HTML (uses generateStaticParams)
+?  (Dynamic)  server-rendered on demand
+

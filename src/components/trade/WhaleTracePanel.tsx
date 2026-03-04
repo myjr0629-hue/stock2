@@ -114,7 +114,7 @@ export function WhaleTracePanel({
                                 `}>
                                     ${Math.abs(flow.amount).toFixed(1)}M
                                     <span className="ml-1 text-[9px] uppercase">
-                                        {isBuy ? 'BUY' : 'SELL'}
+                                        {isBuy ? 'BULLISH' : 'BEARISH'}
                                     </span>
                                 </div>
                             </div>

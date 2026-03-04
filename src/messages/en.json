@@ -756,7 +756,7 @@
     "guideTitle": "SIGNUM HQ Guide",
     "guideSuffix": "Guide",
     "guideSubtitle": "Learn the meaning and usage of each indicator",
-    "heroTitle": "Unveil the Market's Hidden Battlefield",
+    "heroTitle": "Unveil the Market's Hidden Structure",
     "heroDescription": "90% of traders draw lines on <rose>charts that already happened</rose>. SIGNUM HQ decodes institutional and <gold>whale</gold> activity through <gold>dark pool flows</gold> and options market makers'' physical defense lines (<cyan>Call Wall, GEX</cyan>) in real-time — a premium quant intelligence terminal that tracks <cyan>where price will move</cyan>, not where it''s been.",
     "dashboardDesc": "<cyan>Live Price</cyan> · ATM IV · GEX · Options Overlay — 6 premium indicators fused into one command center",
     "guardianDesc": "SPY/QQQ <cyan>Net GEX · Gamma Flip</cyan> · Market Phase · Sector Intel — read the market''s temperature first",
@@ -953,7 +953,7 @@
       "desc": "A <gold>composite confidence score</gold> that fuses 5 data points: <cyan>SMA trend</cyan>, VWAP, P/C Ratio, GEX, and Flow. Grades A through F provide an instant directional read.",
       "bull": "A-B+ (65+)  Bullish bias, signals aligned",
       "neutral": "B-C (45-64)  Neutral, searching for direction",
-      "bear": "D-F (0-44)  Bearish bias, sell signals concentrated",
+      "bear": "D-F (0-44)  Bearish bias, defensive indicators concentrated",
       "tip": "Conviction 80+ combined with stable VOL REGIME = high-probability entry point.",
       "tradingGuide": "Data Insight",
       "guide1": "Grade A: High conviction  Well-organized data supports position",
@@ -1833,7 +1833,7 @@
     },
     "squeeze": {
       "title": "Squeeze Probability",
-      "desc": "<purple>Squeeze Probability</purple> calculates gamma/short squeeze likelihood on a 0-100% scale. It synthesizes <rose>OI concentration, IV skew, whale positioning, and short interest</rose> to predict potential for sharp price moves. Above 70% is a high-risk zone."
+      "desc": "<purple>Squeeze Probability</purple> calculates gamma/short squeeze likelihood on a 0-100% scale. It synthesizes <rose>OI concentration, IV skew, whale positioning, and short interest</rose> to assess potential for sharp price moves. Above 70% is a high-risk zone."
     },
     "level3Title": "LEVEL 3: Institutional Order Flow",
     "level3Subtitle": "INSTITUTIONAL ORDER FLOW",
@@ -1847,9 +1847,9 @@
       "desc": "Displays large block trades executed on <purple>ATS (Alternative Trading System) dark pools</purple>. Used when <gold>institutions need to trade large volumes without market impact</gold>, showing print price, quantity, and exchange code."
     },
     "battlefield": {
-      "title": "OPTIONS FLOW BATTLEFIELD",
-      "badge": "Battlefield Visualization",
-      "desc": "<cyan>Options Flow Battlefield</cyan> visualizes <gold>put (bearish) vs call (bullish) volume by strike</gold> as horizontal bar charts. A key chart for instantly assessing the distribution of bearish and bullish forces around the current price.",
+      "title": "OPTIONS FLOW LANDSCAPE",
+      "badge": "Distribution Map",
+      "desc": "<cyan>Options Flow Landscape</cyan> visualizes <gold>put (bearish) vs call (bullish) volume by strike</gold> as horizontal bar charts. A key chart for instantly assessing the distribution of bearish and bullish forces around the current price.",
       "callLabel": "🟢 CALL FLOW (Bullish)",
       "callDesc": "Right green bars → Call option volume. Longer bars = larger bullish bets at that strike",
       "putLabel": "🔴 PUT FLOW (Bearish)",
@@ -1968,7 +1968,7 @@
       },
       "step3": {
         "title": "Step 3: Analyze Institutional Order Flow",
-        "desc": "Review large block trades and dark pool prints in Institutional Order Flow, and assess per-strike force distribution on Options Flow Battlefield."
+        "desc": "Review large block trades and dark pool prints in Institutional Order Flow, and assess per-strike force distribution on Options Flow Landscape."
       },
       "step4": {
         "title": "Step 4: Execute with Premium Indicators",
@@ -1980,7 +1980,7 @@
     "volumeOi": {
       "sectionTitle": "Volume / OI Toggle — Two Views of the Same Chart",
       "sectionSubtitle": "Same Chart, Different Lens — Understanding Options Flow for Beginners",
-      "sectionDesc": "The Options Flow Battlefield chart has <gold>two modes</gold>. Use the <indigo>Volume / OI toggle</indigo> button at the top to switch between them. Each mode provides a <cyan>completely different perspective</cyan> on the market. Understanding this difference alone gives you a foundation in options flow analysis.",
+      "sectionDesc": "The Options Flow Landscape chart has <gold>two modes</gold>. Use the <indigo>Volume / OI toggle</indigo> button at the top to switch between them. Each mode provides a <cyan>completely different perspective</cyan> on the market. Understanding this difference alone gives you a foundation in options flow analysis.",
       "diagramTitle": "Volume vs OI — Side by Side Comparison",
       "volumeBoxTitle": "Volume = Today's Trading Activity",
       "volumeBoxLine1": "→ Number of contracts being traded right now",
@@ -2663,7 +2663,7 @@
     "verdictCollapse": "Support Collapse (COLLAPSE)",
     "verdictCollapseMsg": "Last defense (${putWall}) broken. Extreme downward pressure, panic selling zone.",
     "verdictDanger": "Danger",
-    "verdictCollapseAction": "Cut longs immediately, short entry possible",
+    "verdictCollapseAction": "Elevated downside risk — review position defense",
     "verdictCollapseWarn": "Buying dips is risky, acceleration possible",
     "verdictCollapseTrigger": "Short covering signal if ${putWall} recovered",
     "verdictBearTrap": "Possible Bear Trap",
@@ -2694,7 +2694,7 @@
     "verdictSellWait": "Wait/Sell",
     "verdictWeakAction": "Reduce longs or add put hedge",
     "verdictWeakWarn": "Avoid new longs, bounce uncertain",
-    "verdictWeakTrigger": "Execute stop if ${putWall} breaks",
+    "verdictWeakTrigger": "Risk level elevated if ${putWall} breaks",
     "verdictMomentum": "Bullish Momentum (MOMENTUM)",
     "verdictMomentumMsg": "Mid-range but clear upside flow dominance. Institutional positioning is long.",
     "verdictBuyDominant": "Buy Dominant",
@@ -3052,7 +3052,7 @@
     "fomoMarketStructure": "Dark Pool · Short Vol · GEX Regime — Institutional Position Tracking",
     "fomoGexRegime": "Gamma Regime · Hedging Direction",
     "fomoClassifiedFlow": "$50K+ Institutional Orders · Dark Pool Block Prints — Live Feed",
-    "fomoOptionsBattlefield": "Strike-Level Call/Put Distribution · Key Support/Resistance Visualization",
+    "fomoOptionsBattlefield": "Strike-Level Call/Put Distribution · Support/Resistance Visualization",
     "fomoImpliedMove": "ATM Straddle-Based Expected Range",
     "fomoPutFloorCallWall": "Options Wall — Support/Resist",
     "fomoMaxPain": "Max Pain Convergence Analysis",
@@ -3077,7 +3077,7 @@
     "fomoRealityCheck": "Market Divergence Analysis",
     "fomoRlsiInsight": "Regime Change Detection System",
     "fomoGammaShield": "Gamma Shield Status",
-    "fomoFlowTopo": "Institutional Flow Topography · TARGET LOCK",
+    "fomoFlowTopo": "Institutional Flow Topography · FOCUS ZONE",
     "fomoIntelStack": "Tactical Verdict · Sector Flow Intelligence",
     "fomoAlphaLeaders": "Today's Analytics #1·#2 Leaders",
     "fomoM7Locked": "TSLA·NVDA Live Analysis",

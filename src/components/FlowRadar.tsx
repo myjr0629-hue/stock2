@@ -2246,14 +2246,14 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         </EliteGate>
 
                         {/* Visual Separator between LEVEL 3 and Bar Chart — PRO */}
-                        <ProGate title="Options Battlefield" fomoMessage={gt('fomoOptionsBattlefield')} mode="blur">
+                        <ProGate title="Options Landscape" fomoMessage={gt('fomoOptionsBattlefield')} mode="blur">
                             <div className="relative my-4">
                                 <div className="absolute inset-0 flex items-center">
                                     <div className="w-full border-t border-white/10"></div>
                                 </div>
                                 <div className="relative flex justify-center">
                                     <span className="bg-slate-900 px-4 text-[11px] font-black text-slate-400 tracking-widest">
-                                        OPTIONS FLOW BATTLEFIELD
+                                        OPTIONS FLOW LANDSCAPE
                                     </span>
                                 </div>
                             </div>

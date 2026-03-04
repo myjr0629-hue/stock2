@@ -367,20 +367,20 @@ function buildResponseFromResults(
                 const callWall = data.levels?.callWall;
                 const putFloor = data.levels?.putFloor;
 
-                // BUY signals
+                // BULLISH signals
                 if (putFloor && price && data.netGex && price <= putFloor * 1.02 && data.netGex > 0) {
-                    signals.push({ time: timestamp, ticker, type: 'BUY', message: `지지선 매수 기회 (Put Floor $${putFloor})`, messageKey: 'signalBuyPutFloor', params: { putFloor } });
+                    signals.push({ time: timestamp, ticker, type: 'BULLISH', message: `지지선 매수 기회 (Put Floor $${putFloor})`, messageKey: 'signalBuyPutFloor', params: { putFloor } });
                 }
                 if (data.pcr && data.pcr < 0.7) {
-                    signals.push({ time: timestamp, ticker, type: 'BUY', message: `콜 강세 (PCR ${data.pcr.toFixed(2)}) - 상승 추세`, messageKey: 'signalBuyCallBullish', params: { pcr: data.pcr.toFixed(2) } });
+                    signals.push({ time: timestamp, ticker, type: 'BULLISH', message: `콜 강세 (PCR ${data.pcr.toFixed(2)}) - 상승 추세`, messageKey: 'signalBuyCallBullish', params: { pcr: data.pcr.toFixed(2) } });
                 }
 
-                // SELL signals
+                // BEARISH signals
                 if (callWall && price && data.netGex && price >= callWall * 0.98 && data.netGex < 0) {
-                    signals.push({ time: timestamp, ticker, type: 'SELL', message: `저항선 도달 - 익절 고려 (Call Wall $${callWall})`, messageKey: 'signalSellCallWall', params: { callWall } });
+                    signals.push({ time: timestamp, ticker, type: 'BEARISH', message: `저항선 도달 - 익절 고려 (Call Wall $${callWall})`, messageKey: 'signalSellCallWall', params: { callWall } });
                 }
                 if (data.pcr && data.pcr > 1.3) {
-                    signals.push({ time: timestamp, ticker, type: 'SELL', message: `풋 헤징 증가 (PCR ${data.pcr.toFixed(2)}) - 하락 주의`, messageKey: 'signalSellPutHedge', params: { pcr: data.pcr.toFixed(2) } });
+                    signals.push({ time: timestamp, ticker, type: 'BEARISH', message: `풋 헤징 증가 (PCR ${data.pcr.toFixed(2)}) - 하락 주의`, messageKey: 'signalSellPutHedge', params: { pcr: data.pcr.toFixed(2) } });
                 }
 
                 // WHALE signals

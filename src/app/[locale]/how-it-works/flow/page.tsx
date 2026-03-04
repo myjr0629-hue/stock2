@@ -415,7 +415,7 @@ export default async function FlowGuidePage() {
                     <SectionCard icon={Shield} iconColor="text-purple-400" gradientFrom="from-purple-500/[0.06]" titleKey="classifiedDarkPool.title" descKey="classifiedDarkPool.desc" infoBg={<InfographicBg type="shield" />} />
                 </div>
 
-                {/* Options Flow Battlefield */}
+                {/* Options Flow Landscape */}
                 <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] p-5">
                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/[0.04] via-transparent to-transparent pointer-events-none" />
                     <div className="relative z-10 space-y-4">
@@ -428,7 +428,7 @@ export default async function FlowGuidePage() {
                             {t.rich('battlefield.desc', richTags)}
                         </p>
                         <div className="relative rounded-xl overflow-hidden border border-white/10 bg-slate-900/30 shadow-lg">
-                            <Image src="/guide/option flow battlefield.PNG" alt="Options Flow Battlefield" width={1440} height={700} className="w-full h-auto" />
+                            <Image src="/guide/option flow battlefield.PNG" alt="Options Flow Landscape" width={1440} height={700} className="w-full h-auto" />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-3">
                             <div className="p-3 rounded-lg bg-emerald-900/20 border border-emerald-500/20">

@@ -69,7 +69,7 @@ export function OptionsBattlefieldPanel({
                         <div className="w-1 h-8 bg-gradient-to-b from-rose-400 via-amber-400 to-emerald-400 rounded-full" />
                         <div>
                             <h3 className="text-sm font-bold text-white tracking-wide uppercase">
-                                Options Battlefield
+                                Options Landscape
                             </h3>
                             <p className="text-[10px] text-slate-500 mt-0.5">
                                 GEX Heat Map Analytics

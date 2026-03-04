@@ -1847,9 +1847,9 @@
       "desc": "<purple>ATS(Alternative Trading System) 다크풀</purple>에서 체결된 대형 블록 거래를 표시합니다. <gold>기관이 시장 충격 없이 대량 매매</gold>할 때 사용하며, 프린트 가격과 수량, 거래소 코드를 확인할 수 있습니다."
     },
     "battlefield": {
-      "title": "OPTIONS FLOW BATTLEFIELD",
-      "badge": "전장 시각화",
-      "desc": "<cyan>Options Flow Battlefield</cyan>는 스트라이크별 <gold>풋(하락) vs 콜(상승) 거래량</gold>을 수평 바 차트로 시각화합니다. 현재 가격을 중심으로 풋/콜의 세력 분포를 한눈에 파악할 수 있는 핵심 차트입니다.",
+      "title": "OPTIONS FLOW LANDSCAPE",
+      "badge": "분포 시각화",
+      "desc": "<cyan>Options Flow Landscape</cyan>는 스트라이크별 <gold>풋(하락) vs 콜(상승) 거래량</gold>을 수평 바 차트로 시각화합니다. 현재 가격을 중심으로 풋/콜의 세력 분포를 한눈에 파악할 수 있는 핵심 차트입니다.",
       "callLabel": "🟢 CALL FLOW (상승)",
       "callDesc": "오른쪽 녹색 막대 → 콜옵션 거래량. 길수록 강세 베팅이 큰 구간",
       "putLabel": "🔴 PUT FLOW (하락)",
@@ -1968,7 +1968,7 @@
       },
       "step3": {
         "title": "3단계: 기밀 주문 흐름 분석",
-        "desc": "Classified Order Flow에서 고래 거래와 다크풀 프린트를 확인하고, Options Flow Battlefield에서 스트라이크별 세력 분포를 파악합니다."
+        "desc": "Classified Order Flow에서 고래 거래와 다크풀 프린트를 확인하고, Options Flow Landscape에서 스트라이크별 세력 분포를 파악합니다."
       },
       "step4": {
         "title": "4단계: 프리미엄 지표로 실행",
@@ -1980,7 +1980,7 @@
     "volumeOi": {
       "sectionTitle": "Volume / OI 토글 — 차트 읽는 두 가지 시각",
       "sectionSubtitle": "같은 차트, 다른 관점 — 초보자도 이해하는 옵션 시장의 설계도",
-      "sectionDesc": "Options Flow Battlefield 차트에는 <gold>두 가지 모드</gold>가 있습니다. 상단의 <indigo>Volume / OI 토글</indigo> 버튼으로 전환할 수 있으며, 각 모드는 시장을 보는 <cyan>완전히 다른 관점</cyan>을 제공합니다. 초보자라면 이 차이를 이해하는 것만으로도 옵션 시장의 핵심을 파악할 수 있습니다.",
+      "sectionDesc": "Options Flow Landscape 차트에는 <gold>두 가지 모드</gold>가 있습니다. 상단의 <indigo>Volume / OI 토글</indigo> 버튼으로 전환할 수 있으며, 각 모드는 시장을 보는 <cyan>완전히 다른 관점</cyan>을 제공합니다. 초보자라면 이 차이를 이해하는 것만으로도 옵션 시장의 핵심을 파악할 수 있습니다.",
       "diagramTitle": "Volume vs OI — 한눈에 비교",
       "volumeBoxTitle": "Volume = 오늘의 거래 활동",
       "volumeBoxLine1": "→ 지금 이 순간 참가자들이 사고파는 계약 수",
@@ -2652,7 +2652,7 @@
     "verdictSuperCycleMsg": "저항벽(${callWall}) 돌파. 기관 수급과 옵션 구조 모두 상방을 지지하는 희귀한 조건.",
     "verdictConviction": "확신",
     "verdictSuperCycleAction": "기존 롱 유지, 풀백 시 추가 매수",
-    "verdictSuperCycleWarn": "숏 절대 금지, 역추세 베팅 금지",
+    "verdictSuperCycleWarn": "역추세 베팅 주의, 리스크 관리 필수",
     "verdictSuperCycleTrigger": "새 저항선 형성 시 목표가 상향",
     "verdictBreathingAfterBreak": "돌파 후 숨고르기",
     "verdictBreathingMsg": "저항(${callWall}) 돌파했으나 후속 수급이 약함. 지지 전환 확인까지 관망.",
@@ -2663,7 +2663,7 @@
     "verdictCollapse": "지지선 붕괴 (COLLAPSE)",
     "verdictCollapseMsg": "최후 방어선(${putWall}) 이탈. 하방 압력 극심, 패닉 매도 구간.",
     "verdictDanger": "위험",
-    "verdictCollapseAction": "롱 즉시 손절, 숏 진입 가능",
+    "verdictCollapseAction": "하방 리스크 인지, 포지션 방어 검토",
     "verdictCollapseWarn": "반등 매수 시도 위험, 낙하 가속 가능",
     "verdictCollapseTrigger": "${putWall} 회복 시 숏커버링 신호",
     "verdictBearTrap": "베어 트랩 가능성",
@@ -2674,7 +2674,7 @@
     "verdictBearTrapTrigger": "${putWall} 재진입 시 롱 신호",
     "verdictBreakoutReady": "돌파 임박 (BREAKOUT READY)",
     "verdictBreakoutReadyMsg": "저항(${callWall}) 근접. 옵션 수급 에너지 충전 완료, 돌파 시 가속 예상.",
-    "verdictStrongBuy": "강력 매수",
+    "verdictStrongBuy": "강세 집중",
     "verdictBreakoutReadyAction": "${callWall} 돌파 시 추종 매수",
     "verdictBreakoutReadyWarn": "돌파 전 선행 매수는 리스크 있음",
     "verdictBreakoutReadyTrigger": "거래량 동반 ${callWall} 돌파",
@@ -3052,7 +3052,7 @@
     "fomoMarketStructure": "다크풀 · 공매도 · GEX 레짐 — 기관 포지션 추적",
     "fomoGexRegime": "감마 익스포져 레짐 — 기관 헤징 방향",
     "fomoClassifiedFlow": "$50K+ 고래 주문 · 다크풀 블록 프린트 — 기밀 실시간 피드",
-    "fomoOptionsBattlefield": "스트라이크별 콜/풋 분포 · 핵심 지지/저항 시각화",
+    "fomoOptionsBattlefield": "스트라이크별 콜/풋 분포 · 지지/저항 시각화",
     "fomoImpliedMove": "ATM 스트래들 기반 예상 변동폭",
     "fomoPutFloorCallWall": "기관 옵션 벽 구조 — 핵심 지지/저항 레벨",
     "fomoMaxPain": "Max Pain 수렴 분석 — 만기일 가격 수렴점",
@@ -3077,7 +3077,7 @@
     "fomoRealityCheck": "시장 괴리 · 다이버전스 분석",
     "fomoRlsiInsight": "레짐 변화 감지 시스템",
     "fomoGammaShield": "감마 방어벽 현황",
-    "fomoFlowTopo": "기관 자금 흐름 지형도 · TARGET LOCK",
+    "fomoFlowTopo": "기관 자금 흐름 지형도 · FOCUS ZONE",
     "fomoIntelStack": "전술 판단 · 섹터 자금 흐름 인텔",
     "fomoAlphaLeaders": "AI Analytics #1·#2 리더 공개",
     "fomoM7Locked": "TSLA·NVDA 실시간 분석",

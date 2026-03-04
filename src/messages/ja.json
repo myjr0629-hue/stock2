@@ -1847,9 +1847,9 @@
       "desc": "<purple>ATS(Alternative Trading System)ダークプール</purple>で約定された大型ブロック取引を表示します。<gold>機関が市場インパクトなしに大量売買</gold>する際に使用され、プリント価格と数量、取引所コードを確認できます。"
     },
     "battlefield": {
-      "title": "OPTIONS FLOW BATTLEFIELD",
-      "badge": "戦場可視化",
-      "desc": "<cyan>Options Flow Battlefield</cyan>はストライク別の<gold>プット(下落) vs コール(上昇)出来高</gold>を水平バーチャートで可視化します。現在価格を中心にプット/コールの勢力分布を一目で把握できるコアチャートです。",
+      "title": "OPTIONS FLOW LANDSCAPE",
+      "badge": "分布マップ",
+      "desc": "<cyan>Options Flow Landscape</cyan>はストライク別の<gold>プット(下落) vs コール(上昇)出来高</gold>を水平バーチャートで可視化します。現在価格を中心にプット/コールの勢力分布を一目で把握できるコアチャートです。",
       "callLabel": "🟢 CALL FLOW (上昇)",
       "callDesc": "右側の緑のバー → コールオプション出来高。長いほど強気ベットが大きい区間",
       "putLabel": "🔴 PUT FLOW (下落)",
@@ -1968,7 +1968,7 @@
       },
       "step3": {
         "title": "ステップ3: 機密注文フロー分析",
-        "desc": "Classified Order Flowでホエール取引とダークプールプリントを確認し、Options Flow Battlefieldでストライク別の勢力分布を把握します。"
+        "desc": "Classified Order Flowでホエール取引とダークプールプリントを確認し、Options Flow Landscapeでストライク別の勢力分布を把握します。"
       },
       "step4": {
         "title": "ステップ4: プレミアム指標で実行",
@@ -1980,7 +1980,7 @@
     "volumeOi": {
       "sectionTitle": "Volume / OI トグル — チャートを読む二つの視点",
       "sectionSubtitle": "同じチャート、異なる視点 — 初心者でもわかるオプション市場の設計図",
-      "sectionDesc": "Options Flow Battlefieldチャートには<gold>二つのモード</gold>があります。上部の<indigo>Volume / OI トグル</indigo>ボタンで切り替えできます。各モードは市場を見る<cyan>全く異なる視点</cyan>を提供します。この違いを理解するだけで、オプション市場の核心を把握できます。",
+      "sectionDesc": "Options Flow Landscapeチャートには<gold>二つのモード</gold>があります。上部の<indigo>Volume / OI トグル</indigo>ボタンで切り替えできます。各モードは市場を見る<cyan>全く異なる視点</cyan>を提供します。この違いを理解するだけで、オプション市場の核心を把握できます。",
       "diagramTitle": "Volume vs OI — 一目で比較",
       "volumeBoxTitle": "Volume = 今日の取引活動",
       "volumeBoxLine1": "→ 今この瞬間トレーダーが売買している契約数",
@@ -2652,7 +2652,7 @@
     "verdictSuperCycleMsg": "抵抗壁(${callWall}) 突破。機関フローとオプション構造が共に上方を支持する稀な条件。",
     "verdictConviction": "確信",
     "verdictSuperCycleAction": "既存ロング維持、プルバック時に追加購入",
-    "verdictSuperCycleWarn": "ショート絶対禁止、逆トレンドベット禁止",
+    "verdictSuperCycleWarn": "逆トレンドベッティング注意、リスク管理必須",
     "verdictSuperCycleTrigger": "新しいレジスタンス形成時に目標引き上げ",
     "verdictBreathingAfterBreak": "ブレイクアウト後の調整",
     "verdictBreathingMsg": "抵抗(${callWall}) を突破したが後続フローが弱い。サポート転換確認まで様子見。",
@@ -2663,7 +2663,7 @@
     "verdictCollapse": "サポート崩壊（COLLAPSE）",
     "verdictCollapseMsg": "最後の防衛線(${putWall}) 脱落。下方圧力極大、パニック売りゾーン。",
     "verdictDanger": "危険",
-    "verdictCollapseAction": "ロング即座にカット、ショートエントリー可能",
+    "verdictCollapseAction": "下方リスク認識、ポジション防御検討",
     "verdictCollapseWarn": "反発買いはリスク高、下落加速の可能性",
     "verdictCollapseTrigger": "${putWall} 回復時にショートカバリングシグナル",
     "verdictBearTrap": "ベアトラップの可能性",
@@ -2674,7 +2674,7 @@
     "verdictBearTrapTrigger": "${putWall} 再突入時にロングシグナル",
     "verdictBreakoutReady": "ブレイクアウト迫る（BREAKOUT READY）",
     "verdictBreakoutReadyMsg": "抵抗(${callWall}) 接近。オプションフローエネルギー充電完了、突破時に加速予想。",
-    "verdictStrongBuy": "強力買い",
+    "verdictStrongBuy": "強気集中",
     "verdictBreakoutReadyAction": "${callWall} 突破時に追随買い",
     "verdictBreakoutReadyWarn": "突破前の先行買いはリスクあり",
     "verdictBreakoutReadyTrigger": "出来高を伴う ${callWall} 突破",
@@ -3052,7 +3052,7 @@
     "fomoMarketStructure": "ダークプール · 空売り · GEXレジーム — 機関ポジション追跡",
     "fomoGexRegime": "ガンマエクスポージャーレジーム — 機関ヘッジ方向",
     "fomoClassifiedFlow": "$50K+ ホエールオーダー · ダークプールブロックプリント — 機密リアルタイムフィード",
-    "fomoOptionsBattlefield": "ストライク別コール/プット分布 · 主要サポート/レジスタンス可視化",
+    "fomoOptionsBattlefield": "ストライク別コール/プット分布 · サポート/レジスタンス可視化",
     "fomoImpliedMove": "ATMストラドル基準の予想変動幅",
     "fomoPutFloorCallWall": "機関オプションウォール構造 — 主要サポート/レジスタンスレベル",
     "fomoMaxPain": "Max Pain収束分析",
@@ -3077,7 +3077,7 @@
     "fomoRealityCheck": "市場乖離·ダイバージェンス分析",
     "fomoRlsiInsight": "レジーム変化検知システム",
     "fomoGammaShield": "ガンマシールド現況",
-    "fomoFlowTopo": "機関資金フロートポグラフィ · TARGET LOCK",
+    "fomoFlowTopo": "機関資金フロートポグラフィ · FOCUS ZONE",
     "fomoIntelStack": "戦術判断 · セクター資金フローインテル",
     "fomoAlphaLeaders": "本日のAnalytics #1·#2リーダー",
     "fomoM7Locked": "TSLA·NVDAリアルタイム分析",
