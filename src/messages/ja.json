@@ -1,4 +1,4 @@
-﻿{
+{
   "auth": {
     "subtitle": "Analytics Engine搭載マーケットインテリジェンス",
     "continueWithGoogle": "Googleで続ける",
@@ -491,7 +491,7 @@
     "structDeepPullback": "過度な下落（割安買い）",
     "trigGexSqzLabel": "ガンマスクイーズ",
     "trigGexSqzDesc": "オプション市場の偏り（ショートガンマ）により株価変動性が爆発的に拡大する現象です",
-    "trigWhaleInLabel": "Institutional流入",
+    "trigWhaleInLabel": "ホエール流入",
     "trigWhaleInDesc": "500万ドル以上の大規模買い資金が検出されました（スマートマネー参入）",
     "trigWallBreakLabel": "抵抗突破",
     "trigWallBreakDesc": "コールオプション売り壁（Call Wall）を強い出来高で突破する強力な上昇シグナルです",
@@ -505,8 +505,8 @@
     "trigGexSafeDesc": "ロングガンマ圏に突入し、株価変動性が縮小し支持力が強化されています",
     "trigCorrectionLabel": "健全調整",
     "trigCorrectionDesc": "上昇トレンド中の一時的な売り物消化過程です（支持確認で再買いの機会）",
-    "trigWhaleDriverLabel": "Institutional主導",
-    "trigWhaleDriverDesc": "Institutional平均単価がエントリー圏を支持し、目標価格まで上昇余力が確保された状態です",
+    "trigWhaleDriverLabel": "ホエール主導",
+    "trigWhaleDriverDesc": "ホエール平均単価がエントリー圏を支持し、目標価格まで上昇余力が確保された状態です",
     "trigWallTestLabel": "抵抗テスト",
     "trigWallTestDesc": "現在の株価が主要抵抗壁（Call Wall）付近に到達し、突破を試みています",
     "labelMeaning": "意味",
@@ -1114,7 +1114,7 @@
       "tagline": "10-Sector Command Center",
       "desc": "SECTOR COMMANDは<cyan>10セクターのリアルタイム状況</cyan>を1つのダッシュボードで統合管理する司令塔です。<gold>Top Leaders/Laggards</gold>で全70銘柄中の最強/最弱銘柄を即座に把握し、各セクターカードで平均騰落率、GEX、Dark Pool、Analytics Scoreを一目で確認できます。",
       "macroTitle": "Macro Quick Strip",
-      "macroDesc": "上部Quick Stripは現在最も強いセクター(TOP)、最も弱いセクター(BOT)、Institutional活動が最も活発なセクター(WHALE)をリアルタイム表示します。",
+      "macroDesc": "上部Quick Stripは現在最も強いセクター(TOP)、最も弱いセクター(BOT)、ホエール活動が最も活発なセクター(WHALE)をリアルタイム表示します。",
       "alphaLeadersTitle": "Top Leaders / Laggards",
       "alphaLeadersDesc": "全<cyan>70銘柄</cyan>中Analytics Score基準で<emerald>上位3銘柄(Leaders)</emerald>と<rose>下位3銘柄(Laggards)</rose>をグラスモーフィズムカードで表示します。各カードにリアルタイムロゴ、ティッカー、騰落率、所属セクター、円形Analytics Scoreゲージが表示されます。",
       "leadersDesc": "Analytics Score上位3銘柄 — 最も強いシグナルの銘柄",
@@ -1158,7 +1158,7 @@
       "structureDesc": "Put/Call Ratio · GEXガンマ · ガンマフリップ · スクイーズリスク · IVスキュー · チェーン分析",
       "flow": "FLOW",
       "flowPts": "25pt",
-      "flowDesc": "ダークプール比率 · 空売り比率 · Institutionalインデックス · ブロックトレード · 純フロー",
+      "flowDesc": "ダークプール比率 · 空売り比率 · ホエールインデックス · ブロックトレード · 純フロー",
       "regime": "REGIME",
       "regimePts": "15pt",
       "regimeDesc": "VIX · Fear & Greed · ドル指数(DXY) · イールドカーブ · リスクローテーション方向",
@@ -1232,8 +1232,8 @@
       "netPremiumTitle": "Net Premium（純プレミアム）",
       "netPremiumDesc": "コールオプションプレミアムとプットオプションプレミアムの差です。プラスならコール優位（上昇期待）、マイナスならプット優位（下落期待）を意味します。",
       "netPremiumTrading": "Net Premiumプラス + 出来高増加 → 機関コール買い集中、上昇モメンタム。マイナス + 出来高増加 → 機関プット買い、下方ヘッジ・弱気ベット。",
-      "whaleIndexTitle": "Institutional Index（Institutional指数）",
-      "whaleIndexDesc": "GEX、ダークプール比率、ブロックトレード頻度を総合して機関（Institutional）投資家の蓄積/分配状態を推定する指標です。",
+      "whaleIndexTitle": "Institutional Index（ホエール指数）",
+      "whaleIndexDesc": "GEX、ダークプール比率、ブロックトレード頻度を総合して機関（ホエール）投資家の蓄積/分配状態を推定する指標です。",
       "whaleIndexTrading": "Whale HIGH + Alpha Aグレード → 機関蓄積区間、プルバック買い機会。Whale LOW + 株価下落 → 機関関心低下、様子見またはポジション縮小。"
     },
     "usage": {
@@ -1706,10 +1706,10 @@
   "flowGuide": {
     "subtitle": "オプションチェーン全量分析 — 機関参加者級オプションインテリジェンスダッシュボード",
     "overviewTitle": "FLOW RADAR 概要",
-    "overviewDesc": "<cyan>FLOW RADAR</cyan>はリアルタイムオプションチェーンを分析し、<gold>機関・Institutional・ダークプール</gold>のポジショニングと市場構造を一目で把握できる総合オプションインテリジェンスシステムです。3段階レベルで構成され、AI VerdictからCIassified Order Flowまで深い分析を提供します。",
+    "overviewDesc": "<cyan>FLOW RADAR</cyan>はリアルタイムオプションチェーンを分析し、<gold>機関・ホエール・ダークプール</gold>のポジショニングと市場構造を一目で把握できる総合オプションインテリジェンスシステムです。3段階レベルで構成され、AI VerdictからCIassified Order Flowまで深い分析を提供します。",
     "level1Title": "LEVEL 1: AI VERDICT",
     "level1Subtitle": "方向性分析",
-    "level1Desc": "4つのコア指標を統合し<cyan>AIが自動的に方向性を判断</cyan>します。OPI(デルタ圧力)、ATM IV(ボラティリティ温度)、Composite Index(総合指数)、Whale Position(Institutionalポジション)に基づき<gold>BULLISH/BEARISH/NEUTRAL</gold>判定を下します。",
+    "level1Desc": "4つのコア指標を統合し<cyan>AIが自動的に方向性を判断</cyan>します。OPI(デルタ圧力)、ATM IV(ボラティリティ温度)、Composite Index(総合指数)、Whale Position(ホエールポジション)に基づき<gold>BULLISH/BEARISH/NEUTRAL</gold>判定を下します。",
     "opi": {
       "title": "OPI (Options Pressure Index)",
       "badge": "デルタ圧力",
@@ -1756,13 +1756,13 @@
       "guide3": "30%未満でIV急騰 → パニック区間、ヘッジ必須"
     },
     "whale": {
-      "title": "Whale Position (Institutionalポジション)",
+      "title": "Whale Position (ホエールポジション)",
       "badge": "大型取引",
-      "desc": "<emerald>Whale Position</emerald>は<gold>$50K以上の大型オプション取引</gold>のコール/プット純ポジションを分析します。機関・Institutionalの方向性ベットを追跡し、スマートマネーの流れを把握します。",
-      "long": "LONG: コールプレミアム > プットプレミアム → Institutional強気ベット",
-      "short": "SHORT: プットプレミアム > コールプレミアム → Institutional弱気ベット",
-      "neutral": "NEUTRAL: コール ≈ プット → Institutional様子見またはストラドル",
-      "tip": "Institutionalプレミアムが$1M以上の場合、高確信度の取引です。Classified Order Flowで個別内訳を確認してください。",
+      "desc": "<emerald>Whale Position</emerald>は<gold>$50K以上の大型オプション取引</gold>のコール/プット純ポジションを分析します。機関・ホエールの方向性ベットを追跡し、スマートマネーの流れを把握します。",
+      "long": "LONG: コールプレミアム > プットプレミアム → ホエール強気ベット",
+      "short": "SHORT: プットプレミアム > コールプレミアム → ホエール弱気ベット",
+      "neutral": "NEUTRAL: コール ≈ プット → ホエール様子見またはストラドル",
+      "tip": "ホエールプレミアムが$1M以上の場合、高確信度の取引です。Classified Order Flowで個別内訳を確認してください。",
       "tradingGuide": "Whale活用戦略",
       "guide1": "Whale LONG + OPI正 → 機関とオプションフロー一致、トレンド追随",
       "guide2": "WhaleとOPIが逆方向 → 混在、方向確認後にエントリー",
@@ -1833,13 +1833,13 @@
     },
     "squeeze": {
       "title": "Squeeze Probability (スクイーズ確率)",
-      "desc": "<purple>Squeeze Probability</purple>はガンマ/ショートスクイーズの発生可能性を0～100%で算出します。<rose>OI集中度、IVスキュー、Institutionalポジション、Short Interest</rose>等を総合し、急騰/急落の可能性を予測します。70%以上は高リスク区間です。"
+      "desc": "<purple>Squeeze Probability</purple>はガンマ/ショートスクイーズの発生可能性を0～100%で算出します。<rose>OI集中度、IVスキュー、ホエールポジション、Short Interest</rose>等を総合し、急騰/急落の可能性を予測します。70%以上は高リスク区間です。"
     },
     "level3Title": "LEVEL 3: 機密注文フロー",
     "level3Subtitle": "CLASSIFIED ORDER FLOW",
     "level3Desc": "<rose>Classified Order Flow</rose>はリアルタイムで捕捉された<gold>大型注文(Whale)とダークプール(ATS)取引</gold>を個別に表示します。各注文の方向(CALL/PUT)、サイズ、満期、ストライクを確認できます。",
     "classifiedWhale": {
-      "title": "🐋 Whale Trades (Institutional取引)",
+      "title": "🐋 Whale Trades (ホエール取引)",
       "desc": "<emerald>$50K以上の大型オプション取引</emerald>をリアルタイムで追跡します。各取引のプレミアム、ストライク、満期、方向(CALL/PUT)を表示し、<gold>機関・ヘッジファンドの方向性ベット</gold>を直接確認できます。"
     },
     "classifiedDarkPool": {
@@ -1890,7 +1890,7 @@
       "title": "Smart Money Score",
       "badge": "機関活動度",
       "mockSub": "活発",
-      "desc": "<emerald>Smart Money Score</emerald>は<gold>大型取引(Institutional)、ブロック取引、ダークプール活動</gold>の比重を総合し、0～100のスコアで機関活動度を算出します。70以上は機関が積極的にポジショニング中です。",
+      "desc": "<emerald>Smart Money Score</emerald>は<gold>大型取引(ホエール)、ブロック取引、ダークプール活動</gold>の比重を総合し、0～100のスコアで機関活動度を算出します。70以上は機関が積極的にポジショニング中です。",
       "active": "70+: 機関積極活動 → 方向性シグナル強い",
       "moderate": "40～70: 通常活動 → 様子見または小規模調整",
       "weak": "40未満: 機関非活性 → リテール主導市場",
@@ -1968,7 +1968,7 @@
       },
       "step3": {
         "title": "ステップ3: 機密注文フロー分析",
-        "desc": "Classified Order FlowでInstitutional取引とダークプールプリントを確認し、Options Flow Battlefieldでストライク別の勢力分布を把握します。"
+        "desc": "Classified Order Flowでホエール取引とダークプールプリントを確認し、Options Flow Battlefieldでストライク別の勢力分布を把握します。"
       },
       "step4": {
         "title": "ステップ4: プレミアム指標で実行",
@@ -2030,7 +2030,7 @@
       "velocity": {
         "title": "Velocity",
         "subtitle": "Alpha Velocity 0.1",
-        "desc": "S1グレードのデータ精度と機械的速度で、今すぐ上昇する上位0.1%のAnalyticsのみを狩猟します。"
+        "desc": "S1グレードのデータ精度と機械的速度で、今すぐ上昇する上位0.1%のアルファのみを狩猟します。"
       }
     },
     "weeklyBriefing": {
@@ -2074,7 +2074,7 @@
     "proCta": "PROを始める",
     "eliteDesc": "機関グレード分析スイート完全版",
     "eliteF1": "PRO全機能 + 6ターミナル完全開放",
-    "eliteF2": "Classified Flow（Institutionalスイープ）リアルタイム",
+    "eliteF2": "Classified Flow（ホエールスイープ）リアルタイム",
     "eliteF3": "DEX（Delta Exposure）アンロック",
     "eliteF4": "Smart Money Index アンロック",
     "eliteF5": "ウォッチリスト · ポートフォリオ無制限 + 5秒更新",
@@ -2119,7 +2119,7 @@
       "flowUnit": "Flow Unit（リアルタイムフロー）",
       "opiPcRatio": "OPI + P/C Ratio",
       "flowIndicators": "ATM IV · GEX · Whale等10指標",
-      "classifiedFlow": "Classified Flow（Institutionalスイープ）",
+      "classifiedFlow": "Classified Flow（ホエールスイープ）",
       "dex": "DEX（Delta Exposure）",
       "smartMoney": "Smart Money Index",
       "darkPoolShort": "ダークプール · 空売りボリューム",
@@ -2961,7 +2961,7 @@
     "cmdVerdictBuyDip": "強気シグナル集中。調整時エントリー機会。サポート: ${support}、ターゲット: ${target}。",
     "cmdVerdictHedge": "弱気シグナル優勢。ヘッジまたはポジション縮小推奨。下方注意圏 ${floor}。",
     "cmdVerdictTrim": "過熱兆候。一部利益確定検討。抵抗: ${resist}。",
-    "cmdVerdictDipBuy": "テクニカル調整。Analytics良好→押し目買い機会。サポート: ${support}。",
+    "cmdVerdictDipBuy": "テクニカル調整。アルファ良好→押し目買い機会。サポート: ${support}。",
     "cmdVerdictShortGamma": "ショートガンマ→双方向ボラ注意。方向確認後対応。重要レベル: Max Pain ${mp}。",
     "cmdVerdictHold": "現水準維持。明確な方向性なし。次のカタリスト（決算、マクロ）待ち。",
     "putFloorSupport": "Put Floor($${putFloor})サポートテスト。",
@@ -3028,7 +3028,7 @@
     "proFeature3": "INTEL 全10セクターレポート",
     "proFeature4": "GUARDIAN フルアクセス",
     "proFeature5": "ウォッチリスト 15銘柄",
-    "eliteFeature1": "Classified Flow（Institutionalテープ）リアルタイム",
+    "eliteFeature1": "Classified Flow（ホエールテープ）リアルタイム",
     "eliteFeature2": "DEX（デルタエクスポージャー）フルアクセス",
     "eliteFeature3": "スマートマネーインデックス",
     "eliteFeature4": "ウォッチリスト無制限 + 5秒更新",
@@ -3051,7 +3051,7 @@
     "fomoAiVerdict": "AIが分析したオプションフロー方向 · 売買圧力の総合判断",
     "fomoMarketStructure": "ダークプール · 空売り · GEXレジーム — 機関ポジション追跡",
     "fomoGexRegime": "ガンマエクスポージャーレジーム — 機関ヘッジ方向",
-    "fomoClassifiedFlow": "$50K+ Institutionalオーダー · ダークプールブロックプリント — 機密リアルタイムフィード",
+    "fomoClassifiedFlow": "$50K+ ホエールオーダー · ダークプールブロックプリント — 機密リアルタイムフィード",
     "fomoOptionsBattlefield": "ストライク別コール/プット分布 · 主要サポート/レジスタンス可視化",
     "fomoImpliedMove": "ATMストラドル基準の予想変動幅",
     "fomoPutFloorCallWall": "機関オプションウォール構造 — 主要サポート/レジスタンスレベル",
