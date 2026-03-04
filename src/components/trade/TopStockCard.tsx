@@ -129,7 +129,7 @@ export function TopStockCard({
                         </svg>
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
                             <span className="text-lg font-mono font-black text-white">{alphaScore}</span>
-                            <span className="text-[7px] text-slate-500 uppercase">Alpha</span>
+                            <span className="text-[7px] text-slate-500 uppercase">Score</span>
                         </div>
                     </div>
                 </div>

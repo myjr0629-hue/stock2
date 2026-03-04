@@ -165,7 +165,7 @@ export default function PortfolioClientPage({
                                 </div>
                                 <div className="text-center">{t('weight')}</div>
                                 <div className="text-center">{t('daysHeld')}</div>
-                                <div className="text-center">Alpha</div>
+                                <div className="text-center">Score</div>
                                 <div className="text-center">Signal</div>
                                 <div className="text-center">{t('action')}</div>
                             </div>

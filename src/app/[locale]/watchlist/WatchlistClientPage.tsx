@@ -128,7 +128,7 @@ export default function WatchlistClientPage({
                                     : 'border-white/[0.06] bg-white/[0.03] text-slate-300 hover:text-white hover:border-white/[0.12]'
                                     }`}
                             >
-                                {key === 'default' ? 'Default' : key === 'alpha' ? 'Alpha' : key === 'change' ? 'Change%' : 'Whale'}
+                                {key === 'default' ? 'Default' : key === 'alpha' ? 'Score' : key === 'change' ? 'Change%' : 'Whale'}
                                 {sortKey === key && key !== 'default' && (
                                     <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>
                                 )}
@@ -153,7 +153,7 @@ export default function WatchlistClientPage({
                                 <div className="text-center">{t('symbol')}</div>
                                 <div className="text-center">{t('price')}</div>
                                 <div className="text-center">Chart</div>
-                                <div className="text-center">Alpha</div>
+                                <div className="text-center">Score</div>
                                 <div className="text-center">{t('signal')}</div>
                                 <div className="text-center">Whale</div>
                                 <div className="text-center">IV</div>
@@ -305,12 +305,12 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
 
             {/* ── Avg Alpha (Radar Rings BG) — PRO gate ── */}
             <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
-                <ProGate mode="blur" compact fomoMessage="AVG ALPHA">
+                <ProGate mode="blur" compact fomoMessage="AVG SCORE">
                     <div className="flex items-center gap-3">
                         <StatsAlphaGauge score={stats.avgAlpha} grade={stats.avgGrade} />
                         <div>
                             <div className="text-xl font-black text-white tabular-nums">{stats.avgAlpha}</div>
-                            <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold">AVG ALPHA</div>
+                            <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold">AVG SCORE</div>
                         </div>
                     </div>
                 </ProGate>

@@ -326,7 +326,7 @@ export default async function WatchlistGuidePage() {
                                     <span className="text-slate-300 text-[13px]">{t('cards.sort.default')}</span>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold text-[12px]">Alpha</span>
+                                    <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold text-[12px]">Score</span>
                                     <span className="text-slate-300 text-[13px]">{t('cards.sort.alpha')}</span>
                                 </div>
                                 <div className="flex items-center gap-3">

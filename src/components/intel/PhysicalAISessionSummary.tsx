@@ -216,7 +216,7 @@ export function PhysicalAISessionSummary({ sharedData, sharedRefreshing }: Physi
                                     q.alphaScore >= 50 ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
                                         'bg-slate-700/30 border-slate-600/30 text-slate-300'
                                     }`}>
-                                    <span className="text-[9px] font-bold opacity-70">ALPHA</span>
+                                    <span className="text-[9px] font-bold opacity-70">SCORE</span>
                                     <span className="text-xs font-black tracking-tight">
                                         {q.alphaScore > 0 ? q.alphaScore.toFixed(1) : '-'}
                                     </span>

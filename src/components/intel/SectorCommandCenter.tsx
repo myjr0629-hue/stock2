@@ -514,7 +514,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                     <span className="text-[13px] font-bold text-slate-300 text-center">GEX</span>
                     <span className="text-[13px] font-bold text-slate-300 text-center">PCR</span>
                     <span className="text-[13px] font-bold text-slate-300 text-center">D.POOL</span>
-                    <span className="text-[13px] font-bold text-slate-300 text-center">ALPHA</span>
+                    <span className="text-[13px] font-bold text-slate-300 text-center">SCORE</span>
                     <span className="text-[13px] font-bold text-slate-300 text-right">LEADER</span>
                     <span />
                 </div>

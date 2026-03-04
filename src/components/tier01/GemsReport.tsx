@@ -87,7 +87,7 @@ function TopAlphaAnalysis({ ticker }: { ticker: GemsTicker }) {
             </div>
             <div className="space-y-2 mt-4 pt-3 border-t border-slate-700/50">
                 <div className="flex justify-between items-center">
-                    <span className="text-slate-500 text-xs font-bold uppercase tracking-wide">AlphaScore</span>
+                    <span className="text-slate-500 text-xs font-bold uppercase tracking-wide">Score</span>
                     <AlphaScore score={ticker.alphaScore} velocity={ticker.velocity} />
                 </div>
             </div>
@@ -199,14 +199,14 @@ export function GemsReport({ data }: Props) {
 
                 <div className="bg-[#1E293B]/95 border border-slate-700 rounded-2xl overflow-hidden shadow-2xl backdrop-blur-sm">
                     <div className="px-6 py-4 bg-[#0F172A]/50 border-b border-slate-700 flex justify-between items-center">
-                        <h3 className="text-emerald-400 font-bold text-sm track-widest uppercase flex items-center gap-2"><Database className="w-4 h-4" /> Section 6: Alpha Vector Grid (12 Assets)</h3>
+                        <h3 className="text-emerald-400 font-bold text-sm track-widest uppercase flex items-center gap-2"><Database className="w-4 h-4" /> Section 6: Analytics Vector Grid (12 Assets)</h3>
                         <div className="flex items-center gap-2"><span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span><div className="text-[10px] text-slate-400 font-mono uppercase font-bold">Sync: 10m Interval</div></div>
                     </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-[#0F172A]/80 text-[10px] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-700">
-                                    <th className="p-3">Rank</th><th className="p-3">Ticker</th><th className="p-3">Role</th><th className="p-3">Price</th><th className="p-3 text-emerald-500">Target (T+3)</th><th className="p-3">Ret 3D</th><th className="p-3 w-[140px]">AlphaScore</th><th className="p-3">Detail</th><th className="p-3">MM Pos</th><th className="p-3">Edge</th><th className="p-3">Secret (S1/S2)</th><th className="p-3 text-rose-500">Stop Loss</th><th className="p-3">Guide</th>
+                                    <th className="p-3">Rank</th><th className="p-3">Ticker</th><th className="p-3">Role</th><th className="p-3">Price</th><th className="p-3 text-emerald-500">Target (T+3)</th><th className="p-3">Ret 3D</th><th className="p-3 w-[140px]">Score</th><th className="p-3">Detail</th><th className="p-3">MM Pos</th><th className="p-3">Edge</th><th className="p-3">Secret (S1/S2)</th><th className="p-3 text-rose-500">Stop Loss</th><th className="p-3">Guide</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-700/50">
