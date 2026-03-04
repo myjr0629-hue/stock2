@@ -1577,7 +1577,7 @@
     },
     "calendar": {
       "title": "ECONOMIC CALENDAR",
-      "desc": "Displays schedules and expected market impact of major economic events including <gold>CPI, PPI, PMI, FOMC</gold>. Volatility can expand significantly around HIGH-rated events, making preparation essential.",
+      "desc": "Displays schedules and expected market impact of major economic events including <gold>CPI, PPI, PMI, FOMC</gold>. HIGH-rated events may trigger significant volatility expansion — <gold>volatility expansion zone</gold>.",
       "date1": "2/27 Fri",
       "event1": "PPI / Core PPI (Jan)",
       "date2": "3/2 Mon",
