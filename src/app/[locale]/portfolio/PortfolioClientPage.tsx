@@ -79,16 +79,6 @@ export default function PortfolioClientPage({
                             <span className="text-[12px] text-emerald-300/90 group-hover:text-emerald-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
                         </Link>
                         <button
-                            onClick={() => refresh()}
-                            className="p-2 hover:bg-white/5 rounded transition-all relative"
-                            title="Refresh"
-                        >
-                            <RefreshCw className={`w-3.5 h-3.5 text-slate-500 hover:text-slate-300 ${loading ? 'animate-spin' : ''}`} />
-                            {isRefreshing && (
-                                <span className="absolute top-1 right-1 w-1.5 h-1.5 bg-cyan-400 rounded-full" />
-                            )}
-                        </button>
-                        <button
                             onClick={() => !isAtLimit && setShowAddModal(true)}
                             className={`flex items-center gap-1.5 px-4 py-1.5 border text-xs font-bold rounded-lg transition-all ${isAtLimit
                                 ? 'bg-rose-500/10 border-rose-500/30 text-rose-400 cursor-not-allowed'

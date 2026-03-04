@@ -206,13 +206,6 @@ function AlphaStatusBar() {
                     <BookOpen className="w-3.5 h-3.5 text-cyan-400/80 group-hover:text-cyan-300 transition-colors" />
                     <span className="text-[12px] text-cyan-300/90 group-hover:text-cyan-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
                 </Link>
-                <button
-                    onClick={handleRefresh}
-                    disabled={isLoading}
-                    className="p-1 rounded hover:bg-white/5 transition-colors disabled:opacity-50"
-                >
-                    <RefreshCw className={`w-3.5 h-3.5 text-slate-400 ${isLoading ? 'animate-spin' : ''}`} />
-                </button>
             </div>
         </div>
     );
