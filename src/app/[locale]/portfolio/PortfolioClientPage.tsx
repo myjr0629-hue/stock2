@@ -606,7 +606,7 @@ function PortfolioActionBadge({ action }: { action: 'RUN' | 'HOLD' | 'TAKE' | 'E
             border: 'border-emerald-500/30',
             text: 'text-emerald-400',
             icon: <TrendingUp className="w-3 h-3" />,
-            tooltip: '모멘텀 유지 - 계속 보유하세요'
+            tooltip: '모멘텀 유지 - 보유 유효 구간'
         },
         'HOLD': {
             bg: 'bg-gradient-to-r from-amber-500/15 to-yellow-600/10',
@@ -620,14 +620,14 @@ function PortfolioActionBadge({ action }: { action: 'RUN' | 'HOLD' | 'TAKE' | 'E
             border: 'border-cyan-500/30',
             text: 'text-cyan-400',
             icon: <Target className="w-3 h-3" />,
-            tooltip: '익절 검토 - 수익 확정을 고려하세요'
+            tooltip: '익절 검토 - 수익 확정 구간'
         },
         'EXIT': {
             bg: 'bg-gradient-to-r from-rose-500/15 to-red-600/10',
             border: 'border-rose-500/30',
             text: 'text-rose-400',
             icon: <Zap className="w-3 h-3" />,
-            tooltip: '손절 검토 - 포지션 정리를 고려하세요'
+            tooltip: '손절 검토 - 포지션 정리 구간'
         }
     };
 

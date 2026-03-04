@@ -116,7 +116,7 @@ export async function GET(request: Request) {
         } else if (score <= 35 || (changePct < -3 && score < 50)) {
             action = 'TRIM';
             confidence = Math.min(90, 50 + (50 - score));
-            triggers.push('→ 비중 축소 권장');
+            triggers.push('→ 비중 축소 신호');
         } else if (score >= 50 && score < 75) {
             action = 'HOLD';
             confidence = 60 + (score - 50);

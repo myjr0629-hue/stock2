@@ -22,7 +22,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         meaning: '미국 기술주 중심 대형주 100개 기업의 시가총액 가중 지수입니다.',
         interpretation: '기술주 전반의 시장 방향성을 대표합니다. 상승 시 위험선호(Risk-On), 하락 시 위험회피(Risk-Off) 신호.',
         action: 'NDX 상승 시 기술주 비중 유지/확대, 하락 시 방어적 포지션으로 전환.',
-        caution: '개별 종목과의 상관관계를 항상 확인하세요. NDX 상승에도 개별주가 하락할 수 있습니다.'
+        caution: '개별 종목과의 상관관계를 항상 확인이 필요합니다. NDX 상승에도 개별주가 하락할 수 있습니다.'
     },
     'VIX': {
         id: 'VIX',
@@ -31,7 +31,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         category: 'macro',
         meaning: 'S&P 500 옵션 가격에서 도출한 향후 30일 예상 변동성입니다.',
         interpretation: '16 이하: 안정적 / 16~20: 보통 / 20 이상: 불안정 / 30 이상: 극단적 공포',
-        action: 'VIX 20 이상 시 신규 진입 자제, 포지션 축소 고려. VIX 급등 후 하락 시 반등 진입 기회.',
+        action: 'VIX 20 이상 시 신규 진입 자제 구간, 포지션 축소 적합. VIX 급등 후 하락 시 반등 진입 기회.',
         caution: 'VIX는 "방향"이 아닌 "변동성"을 측정합니다. VIX 상승이 반드시 하락을 의미하지 않습니다.'
     },
     'US10Y': {
@@ -52,7 +52,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         meaning: '미국 달러의 6개 주요 통화 대비 상대적 강세를 측정하는 지수입니다.',
         interpretation: '상승: 달러 강세 → 수출기업/해외매출 비중 높은 기업에 부정적 / 하락: 달러 약세 → 수출 우호적',
         action: 'DXY 급등 시 해외 매출 비중 높은 종목(AAPL, MSFT) 주의. 원자재/신흥국 관련주도 영향.',
-        caution: '장기 추세와 단기 변동을 구분하세요. 일시적 달러 강세는 실적에 즉각 반영되지 않습니다.'
+        caution: '장기 추세와 단기 변동을 구분이 필요합니다. 일시적 달러 강세는 실적에 즉각 반영되지 않습니다.'
     },
 
     // ===== TECHNICAL INDICATORS =====
@@ -95,7 +95,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         meaning: '콜옵션 미결제약정(OI)이 집중된 가격대입니다. 저항선 역할.',
         interpretation: '딜러가 콜 매도 포지션을 헤징하면서 해당 가격대가 "천장"처럼 작용합니다.',
         action: 'Call Wall 근처에서는 추가 상승 여력이 제한될 수 있습니다. 돌파 시 감마 스퀴즈 가능.',
-        caution: 'OI 데이터가 없으면 가격 구조로 추정합니다. 등급(A/B/C)을 확인하세요.'
+        caution: 'OI 데이터가 없으면 가격 구조로 추정합니다. 등급(A/B/C) 확인이 필요합니다.'
     },
     'PUT_FLOOR': {
         id: 'PUT_FLOOR',
@@ -155,7 +155,7 @@ export const EXPLANATIONS: Record<string, Explanation> = {
         meaning: '변동성이 높고 하드컷 레벨이 필요한 종목 전용 슬롯입니다.',
         interpretation: '11번/12번 슬롯에 배정됩니다. 사이즈 자동 축소 적용.',
         action: '손절 레벨(하드컷) 설정 구간. Top3 승격은 매우 엄격한 조건에서만.',
-        caution: '하이리스크 종목은 전체 포트폴리오의 10% 이하로 제한하세요.'
+        caution: '하이리스크 종목은 전체 포트폴리오의 10% 이하로 제한되는 구간입니다.'
     },
 
     // ===== S-51.1 NARRATIVE TERMS =====

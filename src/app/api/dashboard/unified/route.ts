@@ -377,7 +377,7 @@ function buildResponseFromResults(
 
                 // BEARISH signals
                 if (callWall && price && data.netGex && price >= callWall * 0.98 && data.netGex < 0) {
-                    signals.push({ time: timestamp, ticker, type: 'BEARISH', message: `저항선 도달 - 익절 고려 (Call Wall $${callWall})`, messageKey: 'signalSellCallWall', params: { callWall } });
+                    signals.push({ time: timestamp, ticker, type: 'BEARISH', message: `저항선 도달 - 익절 구간 (Call Wall $${callWall})`, messageKey: 'signalSellCallWall', params: { callWall } });
                 }
                 if (data.pcr && data.pcr > 1.3) {
                     signals.push({ time: timestamp, ticker, type: 'BEARISH', message: `풋 헤징 증가 (PCR ${data.pcr.toFixed(2)}) - 하락 주의`, messageKey: 'signalSellPutHedge', params: { pcr: data.pcr.toFixed(2) } });
@@ -400,7 +400,7 @@ function buildResponseFromResults(
                     signals.push({ time: timestamp, ticker, type: 'ALERT', message: `🚀 Call Wall 돌파 ($${callWall}) - 신규 고점`, messageKey: 'signalCallWallBreak', params: { callWall } });
                 }
                 if (putFloor && price && price < putFloor) {
-                    signals.push({ time: timestamp, ticker, type: 'ALERT', message: `💥 Put Floor 이탈 ($${putFloor}) - 손절 고려`, messageKey: 'signalPutFloorBreak', params: { putFloor } });
+                    signals.push({ time: timestamp, ticker, type: 'ALERT', message: `💥 Put Floor 이탈 ($${putFloor}) - 손절 구간`, messageKey: 'signalPutFloorBreak', params: { putFloor } });
                 }
 
                 // ALERT signals — V2 dashboard card signals

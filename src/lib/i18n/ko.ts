@@ -110,11 +110,11 @@ export const ko = {
         downStrong: "급락 추세",
         templates: {
             upWithLongGamma: "상승 추세 + 롱 감마 (변동성 축소) → 추세 지속 예상",
-            upWithShortGamma: "상승 추세 + 숏 감마 (급등락 가능) → 분할 진입 권장",
+            upWithShortGamma: "상승 추세 + 숏 감마 (급등락 가능) → 분할 진입 적합",
             boxWithVwapAbove: "박스권 + VWAP 상단 유지 → 모멘텀 회복 시도",
             boxWithVwapBelow: "박스권 + VWAP 하단 횡보 → 하방 이탈 주의",
             downWithSupport: "하락 추세 + 풋 플로어 지지 → 반등 시도 가능",
-            downNoSupport: "하락 추세 + 지지선 미확인 → 회피 권장"
+            downNoSupport: "하락 추세 + 지지선 미확인 → 회피 신호"
         }
     },
 
