@@ -394,7 +394,7 @@
     "addTicker": "銘柄追加",
     "whale": "Institutional Index",
     "whaleIndex": "Institutional Index",
-    "alphaColumn": "Alpha",
+    "alphaColumn": "Analytics",
     "symbol": "銘柄コード",
     "price": "現在値",
     "change": "騰落率",
@@ -1234,7 +1234,7 @@
       "netPremiumTrading": "Net Premiumプラス + 出来高増加 → 機関コール買い集中、上昇モメンタム。マイナス + 出来高増加 → 機関プット買い、下方ヘッジ・弱気ベット。",
       "whaleIndexTitle": "Institutional Index（ホエール指数）",
       "whaleIndexDesc": "GEX、ダークプール比率、ブロックトレード頻度を総合して機関（ホエール）投資家の蓄積/分配状態を推定する指標です。",
-      "whaleIndexTrading": "Whale HIGH + Alpha Aグレード → 機関蓄積区間、プルバック買い機会。Whale LOW + 株価下落 → 機関関心低下、様子見またはポジション縮小。"
+      "whaleIndexTrading": "Whale HIGH + Analytics Aグレード → 機関蓄積区間、プルバック買い機会。Whale LOW + 株価下落 → 機関関心低下、様子見またはポジション縮小。"
     },
     "usage": {
       "title": "実践トレード活用法",
@@ -1291,7 +1291,7 @@
       "weightDesc": "ポートフォリオ全体における当該銘柄の比重です。",
       "daysHeld": "保有日数",
       "daysHeldDesc": "銘柄購入後の経過日数です。",
-      "alpha": "Alpha",
+      "alpha": "Analytics",
       "alphaDesc": "AIが算出したAnalytics Score (0-100) とA〜Fグレードです。",
       "signal": "Signal",
       "signalDesc": "BUY / HOLD / WATCH 等のAI投資シグナルと信頼度です。",
@@ -1327,10 +1327,10 @@
       "title": "Status Indicator",
       "badge": "アクション",
       "desc": "Analytics Scoreと市場状況に基づく投資アクション提案です。",
-      "buy": "追加購入適合 - Alpha 75+ & 上昇モメンタム",
+      "buy": "追加購入適合 - Analytics 75+ & 上昇モメンタム",
       "hold": "現ポジション維持 - 安定状態",
       "watch": "様子見推奨 - 方向性不確実",
-      "trim": "比重縮小推奨 - Alpha 35未満または急落"
+      "trim": "比重縮小推奨 - Analytics 35未満または急落"
     },
     "warningTitle": "リスク告知",
     "warningDesc": "SIGNUM HQのポートフォリオ分析は参考資料であり、個別アドバイスではありません。すべての分析判断とそれに伴う損益の責任は利用者本人にあります。",
@@ -1343,7 +1343,7 @@
         "badge": "Score",
         "meaning": "各銘柄のAnalytics Scoreを数値で表示します。グレード(A/B/C/D/F)と共に素早く強度を把握できます。",
         "desc": "数値横の色でグレードを区別します。<green>Green</green>は強気、<red>Red</red>は弱気です。",
-        "title": "Alpha カラム"
+        "title": "Analytics カラム"
       },
       "whaleIndex": {
         "badge": "Institutional Index",
@@ -1387,7 +1387,7 @@
       "signal": {
         "title": "Signal カラム",
         "badge": "分析ステータス",
-        "meaning": "Alpha分析結果に基づく売買シグナルと信頼度を表示します。",
+        "meaning": "Analytics分析結果に基づく売買シグナルと信頼度を表示します。",
         "buy": "買い適格 — 強気シグナル検出",
         "strongBuy": "強力買い — 複数の強気指標が一致",
         "hold": "保有維持 — 現在のポジション維持を推奨",
@@ -1432,7 +1432,7 @@
         "desc": "上昇銘柄と下落銘柄の数を比較して市場のムードを把握します。"
       },
       "avgAlpha": {
-        "title": "平均Alpha",
+        "title": "平均Analytics Score",
         "desc": "全ウォッチリスト銘柄の平均Analytics Scoreを表示します。"
       },
       "session": {
@@ -2029,7 +2029,7 @@
       },
       "velocity": {
         "title": "Velocity",
-        "subtitle": "Alpha Velocity 0.1",
+        "subtitle": "Analytics Velocity 0.1",
         "desc": "S1グレードのデータ精度と機械的速度で、今すぐ上昇する上位0.1%のアルファのみを狩猟します。"
       }
     },
@@ -2210,7 +2210,7 @@
     "quickActions": "クイックアクション"
   },
   "alpha": {
-    "signal": "Alpha Signal",
+    "signal": "Analytics Signal",
     "enginePowered": "Analytics Engine搭載",
     "confidence": "信頼度"
   },
@@ -2832,7 +2832,7 @@
     "pcrPutPanic": "プット買い過熱、パニックまたはヘッジ需要急増",
     "pcrPutDominant": "プット優勢、下方圧力検知",
     "pcrBalanced": "コール/プット均衡、方向性模索中",
-    "alphaAvg": "📊 セクター平均Alpha <mark>{score}</mark>",
+    "alphaAvg": "📊 セクター平均Score <mark>{score}</mark>",
     "alphaHigh": " — {tickers} 高得点(60+)",
     "alphaLow": ", {tickers} 低得点(40-)",
     "callWallNear": "🎯 {ticker} Call Wall ${wall}接近 ({dist}%)、突破でガンマスクイーズの可能性",
@@ -3079,7 +3079,7 @@
     "fomoGammaShield": "ガンマシールド現況",
     "fomoFlowTopo": "機関資金フロートポグラフィ · TARGET LOCK",
     "fomoIntelStack": "戦術判断 · セクター資金フローインテル",
-    "fomoAlphaLeaders": "本日のAlpha #1·#2リーダー",
+    "fomoAlphaLeaders": "本日のAnalytics #1·#2リーダー",
     "fomoM7Locked": "TSLA·NVDAリアルタイム分析",
     "fomoM7LockedTicker": "{ticker} リアルタイム分析",
     "fomoPostMarket": "取引後AIセクターブリーフ",

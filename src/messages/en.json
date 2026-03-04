@@ -394,7 +394,7 @@
     "addTicker": "Add Ticker",
     "whale": "Institutional Index",
     "whaleIndex": "Institutional Index",
-    "alphaColumn": "Score",
+    "alphaColumn": "Analytics",
     "symbol": "Symbol",
     "price": "Price",
     "change": "Change",
@@ -1291,7 +1291,7 @@
       "weightDesc": "Percentage weight of the holding in the total portfolio.",
       "daysHeld": "Days Held",
       "daysHeldDesc": "Number of days since purchase.",
-      "alpha": "Score",
+      "alpha": "Analytics",
       "alphaDesc": "AI-calculated Analytics Score (0-100) with A-F grade.",
       "signal": "Status",
       "signalDesc": "POSITIVE BIAS / BALANCED / LOW CONVICTION AI analysis indicators with confidence level.",
@@ -2029,8 +2029,8 @@
       },
       "velocity": {
         "title": "Velocity",
-        "subtitle": "Alpha Velocity 0.1",
-        "desc": "Hunts only the top 0.1% alpha rising right now with S1 grade data precision and mechanical speed."
+        "subtitle": "Analytics Velocity 0.1",
+        "desc": "Hunts only the top 0.1% edge rising right now with S1 grade data precision and mechanical speed."
       }
     },
     "weeklyBriefing": {
@@ -2210,7 +2210,7 @@
     "quickActions": "Quick Actions"
   },
   "alpha": {
-    "signal": "Alpha Signal",
+    "signal": "Analytics Signal",
     "enginePowered": "Powered by Analytics Engine",
     "confidence": "Confidence"
   },
@@ -2832,7 +2832,7 @@
     "pcrPutPanic": "Put buying overheated, panic or hedge demand surge",
     "pcrPutDominant": "Put dominant, downside pressure detected",
     "pcrBalanced": "Call/Put balanced, searching direction",
-    "alphaAvg": "📊 Sector avg Alpha <mark>{score}</mark>",
+    "alphaAvg": "📊 Sector avg Score <mark>{score}</mark>",
     "alphaHigh": " — {tickers} high score(60+)",
     "alphaLow": ", {tickers} low score(40-)",
     "callWallNear": "🎯 {ticker} Call Wall ${wall} nearby ({dist}%), gamma squeeze possible on break",
@@ -2961,7 +2961,7 @@
     "cmdVerdictBuyDip": "Bullish signals concentrated. Entry opportunity on dip. Support: ${support}, Target: ${target}.",
     "cmdVerdictHedge": "Bearish signals dominant. Hedge or reduce position. Downside zone ${floor}.",
     "cmdVerdictTrim": "Overheating signs. Consider partial profit-taking. Resistance: ${resist}.",
-    "cmdVerdictDipBuy": "Technical correction. Alpha solid → dip buy opportunity. Support: ${support}.",
+    "cmdVerdictDipBuy": "Technical correction. Score solid → dip buy opportunity. Support: ${support}.",
     "cmdVerdictShortGamma": "Short Gamma → bidirectional vol risk. Confirm direction first. Key level: Max Pain ${mp}.",
     "cmdVerdictHold": "Maintain current level. No clear direction. Await next catalyst (earnings, macro).",
     "putFloorSupport": "Put Floor($${putFloor}) support test.",
@@ -3079,7 +3079,7 @@
     "fomoGammaShield": "Gamma Shield Status",
     "fomoFlowTopo": "Institutional Flow Topography · TARGET LOCK",
     "fomoIntelStack": "Tactical Verdict · Sector Flow Intelligence",
-    "fomoAlphaLeaders": "Today's Alpha #1·#2 Leaders",
+    "fomoAlphaLeaders": "Today's Analytics #1·#2 Leaders",
     "fomoM7Locked": "TSLA·NVDA Live Analysis",
     "fomoM7LockedTicker": "{ticker} Live Analysis",
     "fomoPostMarket": "Post-Market AI Sector Brief",

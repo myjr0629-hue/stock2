@@ -1234,7 +1234,7 @@
       "netPremiumTrading": "Net Premium 양수 + 거래량 증가 → 기관 콜 매수 집중, 상승 모멘텀. 음수 + 거래량 증가 → 기관 풋 매수, 하방 헤지·약세 베팅.",
       "whaleIndexTitle": "Institutional Index (고래 지수)",
       "whaleIndexDesc": "GEX, 다크풀 비율, 블록 트레이드 빈도를 종합하여 기관(고래) 투자자의 매집/분배 상태를 추정하는 지표입니다.",
-      "whaleIndexTrading": "Whale HIGH + Alpha A등급 → 기관 매집 구간, 풀백 접근 기회. Whale LOW + 주가 하락 → 기관 관심 저하, 관망 또는 비중 축소."
+      "whaleIndexTrading": "Whale HIGH + Analytics A등급 → 기관 매집 구간, 풀백 접근 기회. Whale LOW + 주가 하락 → 기관 관심 저하, 관망 또는 비중 축소."
     },
     "usage": {
       "title": "실전 데이터 활용법",
@@ -1291,7 +1291,7 @@
       "weightDesc": "전체 포트폴리오에서 해당 종목이 차지하는 비중입니다.",
       "daysHeld": "보유일",
       "daysHeldDesc": "종목 매입 후 경과 일수입니다.",
-      "alpha": "Alpha",
+      "alpha": "Analytics",
       "alphaDesc": "AI가 산출한 Analytics Score(0-100)와 A~F 등급입니다.",
       "signal": "Signal",
       "signalDesc": "BUY / HOLD / WATCH 등 AI 분석 시그널과 신뢰도입니다.",
@@ -1327,10 +1327,10 @@
       "title": "Status Indicator",
       "badge": "액션",
       "desc": "Analytics Score와 시장 상황을 기반으로 한 분석 액션 제안입니다.",
-      "buy": "추가 매수 적합 - Alpha 75+ & 상승 모멘텀",
+      "buy": "추가 매수 적합 - Analytics 75+ & 상승 모멘텀",
       "hold": "현 포지션 유지 - 안정적인 상태",
       "watch": "관망 권장 - 방향성 불확실",
-      "trim": "비중 축소 권장 - Alpha 35 미만 또는 급락"
+      "trim": "비중 축소 권장 - Analytics 35 미만 또는 급락"
     },
     "warningTitle": "위험 고지",
     "warningDesc": "SIGNUM HQ의 포트폴리오 분석은 참고 자료이며, 개별 자문이 아닙니다. 모든 분석 판단과 그에 따른 손익의 책임은 전적으로 이용자 본인에게 있습니다.",
@@ -1343,7 +1343,7 @@
         "badge": "점수",
         "meaning": "각 종목의 Analytics Score를 숫자로 표시합니다. 등급(A/B/C/D/F)과 함께 빠르게 강도를 파악할 수 있습니다.",
         "desc": "숫자 옆의 색상으로 등급을 구분합니다. <green> 초록</green>은 강세, <red> 빨강</red>은 약세입니다.",
-        "title": "Alpha 컬럼"
+        "title": "Analytics 컬럼"
       },
       "whaleIndex": {
         "badge": "고래 지수",
@@ -1387,7 +1387,7 @@
       "signal": {
         "title": "Signal 컬럼",
         "badge": "분석 시그널",
-        "meaning": "Alpha 분석 결과에 기반한 분석 시그널과 신뢰도를 표시합니다.",
+        "meaning": "Analytics 분석 결과에 기반한 분석 시그널과 신뢰도를 표시합니다.",
         "buy": "매수 적합  강세 시그널 감지",
         "strongBuy": "강력 매수  복수 강세 지표 일치",
         "hold": "보유 유지  현재 포지션 유지 권장",
@@ -1432,7 +1432,7 @@
         "desc": "상승 종목과 하락 종목 수를 비교하여 시장 분위기를 파악합니다."
       },
       "avgAlpha": {
-        "title": "평균 Alpha",
+        "title": "평균 Analytics Score",
         "desc": "전체 관심 종목의 평균 Analytics Score를 표시합니다."
       },
       "session": {
@@ -2029,7 +2029,7 @@
       },
       "velocity": {
         "title": "Velocity",
-        "subtitle": "Alpha Velocity 0.1",
+        "subtitle": "Analytics Velocity 0.1",
         "desc": "S1 등급의 데이터 정밀도와 기계적 속도로, 지금 당장 오르는 상위 0.1%의 알파만을 사냥합니다."
       }
     },
@@ -2210,7 +2210,7 @@
     "quickActions": "빠른 액션"
   },
   "alpha": {
-    "signal": "Alpha Signal",
+    "signal": "Analytics Signal",
     "enginePowered": "Analytics Engine 기반",
     "confidence": "신뢰도"
   },
@@ -2832,7 +2832,7 @@
     "pcrPutPanic": "풋 매수 과열, 패닉 또는 헷지 수요 급증",
     "pcrPutDominant": "풋 우위, 하방 압력 감지",
     "pcrBalanced": "콜/풋 균형, 방향성 탐색 중",
-    "alphaAvg": "📊 섹터 평균 Alpha <mark>{score}</mark>",
+    "alphaAvg": "📊 섹터 평균 Score <mark>{score}</mark>",
     "alphaHigh": " — {tickers} 고점수(60+)",
     "alphaLow": ", {tickers} 저점수(40-)",
     "callWallNear": "🎯 {ticker} Call Wall ${wall} 근접 ({dist}%), 돌파 시 감마 스퀴즈 가능",
@@ -3079,7 +3079,7 @@
     "fomoGammaShield": "감마 방어벽 현황",
     "fomoFlowTopo": "기관 자금 흐름 지형도 · TARGET LOCK",
     "fomoIntelStack": "전술 판단 · 섹터 자금 흐름 인텔",
-    "fomoAlphaLeaders": "AI Alpha #1·#2 리더 공개",
+    "fomoAlphaLeaders": "AI Analytics #1·#2 리더 공개",
     "fomoM7Locked": "TSLA·NVDA 실시간 분석",
     "fomoM7LockedTicker": "{ticker} 실시간 분석",
     "fomoPostMarket": "장마감 후 전 섹터 AI 브리프",
