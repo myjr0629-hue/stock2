@@ -57,8 +57,8 @@
   },
   "home": {
     "badge": "リアルタイム米国マーケットデータ",
-    "headline1": "MARKET LOGIC,",
-    "headline2": "SOLVED.",
+    "headline1": "MARKET INTELLIGENCE,",
+    "headline2": "ORGANIZED.",
     "tagline1": "機関参加者の",
     "tagline1Bold1": "Dark Pool",
     "tagline1Mid": "活動とアルゴリズム",
@@ -85,13 +85,13 @@
     "includedInSignum": "SIGNUM HQに含まれます",
     "valuePerMonth": "相当",
     "consolidatedPricing": "統合プラン",
-    "signalDashboard": "Signal Dashboard",
+    "signalDashboard": "Analytics Dashboard",
     "signalDashboardDesc": "リアルタイム Analytics Engine 分析結果",
     "optionsChain": "Options Chain",
     "fomoSubheadline": "あなたの競合は",
-    "fomoHighlight": "既にこのシグナルを見ています",
+    "fomoHighlight": "既にこのデータを見ています",
     "earlyAccessLabel": "Early Access メンバーシップ開放",
-    "earlyAccessCta": "情報を先取りするか、誰かの収益源になるか",
+    "earlyAccessCta": "より速く、より体系的なリサーチのためのマーケット分析ツール。",
     "priceStrikethrough": "$450+/月",
     "justNow": "たった今",
     "secondsAgo": "秒前"
@@ -616,7 +616,7 @@
     "action_hold": "様子見",
     "action_reduce": "比重縮小",
     "action_exit": "リスク離脱",
-    "conclusionBuy": "グレード{grade} — 買いシグナル。",
+    "conclusionBuy": "グレード{grade} — 上昇構造。",
     "conclusionWatch": "グレード{grade} — ウォッチ候補。",
     "conclusionHold": "グレード{grade} — 様子見。",
     "conclusionCaution": "グレード{grade} — 注意必要。"
@@ -722,7 +722,7 @@
     "closed": "クローズ",
     "reportBasisPrice": "レポート基準価格",
     "realtimeReturn": "リアルタイムリターン",
-    "analysisComplete": "分析完了。買いシグナル待ち",
+    "analysisComplete": "分析完了。上昇構造待ち",
     "marketClosedNoTrigger": "市場クローズ - リアルタイムトリガーなし",
     "whaleAccumulationZone": "Whale買い集め安全圏"
   },
@@ -1180,7 +1180,7 @@
       "reduce": "REDUCE — ポジション縮小",
       "exit": "EXIT — ポジション整理",
       "gatesTitle": "セーフティゲートシステム",
-      "gatesDesc": "Alpha Engineは単純なスコア合算ではありません。<rose>危険パターン検知時に自動ダウングレード</rose>が適用されます。Call Wall突破失敗、過度な空売り比率、GEX急変などの条件でスコアが強制的に引き下げられます。"
+      "gatesDesc": "Analytics Engineは単純なスコア合算ではありません。<rose>危険パターン検知時に自動ダウングレード</rose>が適用されます。Call Wall突破失敗、過度な空売り比率、GEX急変などの条件でスコアが強制的に引き下げられます。"
     },
     "postMarket": {
       "title": "POST-MARKET BRIEF",
@@ -1318,7 +1318,7 @@
       "scoreBadge": "0-100",
       "scoreDesc": "価格モメンタム、オプションフロー、GEX等を総合した銘柄の強度スコアです。",
       "a": "80-100点 - 非常に強気、追加購入に適合",
-      "b": "65-79点 - 強気、保有推奨",
+      "b": "65-79点 - 強気、保有継続が妥当",
       "c": "50-64点 - 中立、様子見",
       "d": "35-49点 - 弱気、比重縮小を検討",
       "f": "0-34点 - 非常に弱気、比重縮小推奨"
@@ -1386,7 +1386,7 @@
       },
       "signal": {
         "title": "Signal カラム",
-        "badge": "売買シグナル",
+        "badge": "分析ステータス",
         "meaning": "Alpha分析結果に基づく売買シグナルと信頼度を表示します。",
         "buy": "買い適格 — 強気シグナル検出",
         "strongBuy": "強力買い — 複数の強気指標が一致",
@@ -2211,7 +2211,7 @@
   },
   "alpha": {
     "signal": "Alpha Signal",
-    "enginePowered": "Alpha Engine搭載",
+    "enginePowered": "Analytics Engine搭載",
     "confidence": "信頼度"
   },
   "legal": {
@@ -2407,7 +2407,7 @@
     "analystHold": "保有",
     "analystSell": "売り",
     "analystStrongSell": "強い売り",
-    "analystBuyReco": "買い推奨",
+    "analystBuyReco": "買いコンセンサス",
     "analystOfTotal": "名中",
     "instAccum": "機関買い集めシグナル",
     "instDist": "機関売り抜けシグナル",

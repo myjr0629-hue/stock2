@@ -27,7 +27,7 @@ export function IntelLayout({ children, status = 'ACTIVE' }: IntelLayoutProps) {
             <header className="fixed top-0 left-0 right-0 h-14 border-b border-white/10 bg-[#050505]/80 backdrop-blur-md flex items-center px-6 z-40">
                 <div className="flex items-center gap-4">
                     <Shield className="w-5 h-5 text-cyan-500 animate-pulse" />
-                    <span className="text-sm font-bold tracking-widest text-cyan-500">ALPHA ENGINE V3.5</span>
+                    <span className="text-sm font-bold tracking-widest text-cyan-500">ANALYTICS ENGINE V3.5</span>
                 </div>
 
                 <div className="flex-1 flex justify-center">
