@@ -1043,10 +1043,11 @@ function MainChartPanel() {
                                             : (data?.underlyingPrice ?? undefined)
                                     }
                                     prevClose={
-                                        // POST: reference line = today's regular close (Yahoo/TradingView standard)
-                                        data?.session === 'POST' && data?.regularCloseToday
+                                        // POST/CLOSED(with afterhours): reference line = today's regular close (Command page standard)
+                                        (data?.session === 'POST' || (data?.session === 'CLOSED' && (data?.extended?.postPrice ?? 0) > 0))
+                                            && data?.regularCloseToday
                                             ? data.regularCloseToday
-                                            : prevClose
+                                            : (data?.prevRegularClose || prevClose)
                                     }
                                     alphaLevels={{
                                         callWall: data?.levels?.callWall ?? undefined,
