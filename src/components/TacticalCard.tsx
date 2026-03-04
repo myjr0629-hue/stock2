@@ -170,7 +170,7 @@ export function TacticalCard({ ticker, rank, price, change, entryBand, cutPrice,
 
                                 {hasWhale && (
                                     <span className="text-[10px] bg-indigo-500/20 px-1.5 py-1 rounded border border-indigo-500/30 text-indigo-300 font-bold flex items-center gap-1 uppercase tracking-wider animate-pulse">
-                                        <Zap className="w-3 h-3 text-indigo-400" /> Sniper
+                                        <Zap className="w-3 h-3 text-indigo-400" /> Precision
                                     </span>
                                 )}
                             </div>

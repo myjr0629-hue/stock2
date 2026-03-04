@@ -37,7 +37,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                 <div className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <Target className={`w-3 h-3 ${isGammaSqueeze ? "text-indigo-400 animate-pulse" : isPanicSelling ? "text-rose-400 animate-pulse" : "text-rose-400"}`} />
                     <div>
-                        Flow Sniper
+                        Flow Monitor
                         <div className="flex items-center gap-1 mt-0.5">
                             {isGammaSqueeze ? (
                                 <span className="block text-[11px] text-indigo-300 font-black animate-pulse font-jakarta">🚀 GAMMA SQUEEZE DETECTED</span>

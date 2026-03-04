@@ -136,7 +136,7 @@ function SniperCard({ item, isDiscovery = false }: { item: StockItem, isDiscover
                             <div className="flex items-center gap-2 mt-1">
                                 {isWhaleDriver && (
                                     <span className="text-[10px] px-1.5 rounded-sm bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 flex items-center gap-1 font-bold">
-                                        <Zap size={10} className="fill-indigo-300" /> SNIPER ACTIVE
+                                        <Zap size={10} className="fill-indigo-300" /> PRECISION ACTIVE
                                     </span>
                                 )}
                                 <span className="text-[10px] text-white/30 font-mono">SCORE {item.powerScore.toFixed(0)}</span>

@@ -1068,7 +1068,7 @@
     "signalTitle": "SIGNAL CORE",
     "signalDesc": "<gold>AI 기반 종합 시그널</gold> 분석 엔진입니다. 감지된 시그널(GOLDEN Cross, Analyst Buy 등)을 뱃지로 요약하고, 마감 세션 SMA+뉴스 기반 AI 분석 리포트를 제공합니다.",
     "flowTitle": "FLOW UNIT",
-    "flowDesc": "<emerald>실시간 옵션 자금 흐름</emerald>을 추적하는 Flow Sniper입니다. Net Premium(콜-풋 프리미엄 차이)과 Volume Strength로 기관의 <gold>방향성 베팅</gold>을 포착합니다. BULLISH/BEARISH 시그널과 활성 계약 수를 표시합니다.",
+    "flowDesc": "<emerald>실시간 옵션 자금 흐름</emerald>을 추적하는 Flow Monitor입니다. Net Premium(콜-풋 프리미엄 차이)과 Volume Strength로 기관의 <gold>방향성 베팅</gold>을 포착합니다. BULLISH/BEARISH 시그널과 활성 계약 수를 표시합니다.",
     "gammaTitle": "TACTICAL RANGE & NET GAMMA ENGINE",
     "gammaDesc": "<gold>옵션 데이터 기반 전술 레벨</gold>과 <cyan>감마 엔진</cyan> 분석입니다. Support/Resist/Max Pain 레벨로 단기 분석 범위를 설정하고, Net GEX 방향과 Gamma Flip Level로 시장 성격을 파악합니다.",
     "intelTitle": "INTEL FEED (AI)",
