@@ -130,7 +130,7 @@ const PADDLE_PRICES = {
 export default function PricingPage() {
     const t = useTranslations("pricing");
     const locale = useLocale();
-    const isKo = locale === 'ko';
+    const isKo = locale === 'ko';  // kept for Paddle checkout routing only
     const [isAnnual, setIsAnnual] = useState(false);
     const [paddle, setPaddle] = useState<Paddle | null>(null);
     const router = useRouter();
@@ -177,23 +177,10 @@ export default function PricingPage() {
     const proAnnualMonthly = 39;   // Founding annual: $49 base, ~20% off  → $39/mo ($468/yr)
     const eliteAnnualMonthly = 59; // Founding annual: $79 base, ~25% off → $59/mo ($708/yr)
 
-    // KRW Prices (Korean locale only — fixed KRW, USD shown as sub-text)
-    const krw = {
-        proOriginal: 99000, proFounding: 69000, proAnnual: 49000,
-        eliteOriginal: 149000, eliteFounding: 99000, eliteAnnual: 79000,
-    };
-    const fmtKrw = (v: number) => `₩${v.toLocaleString()}`;
-
     const proPrice = isAnnual ? proAnnualMonthly : proFoundingMonthly;
     const proOriginal = isAnnual ? proFoundingMonthly : proPriceMonthly;
     const elitePrice = isAnnual ? eliteAnnualMonthly : eliteFoundingMonthly;
     const eliteOriginal = isAnnual ? eliteFoundingMonthly : elitePriceMonthly;
-
-    // KRW display values
-    const krwProPrice = isAnnual ? krw.proAnnual : krw.proFounding;
-    const krwProOriginal = isAnnual ? krw.proFounding : krw.proOriginal;
-    const krwElitePrice = isAnnual ? krw.eliteAnnual : krw.eliteFounding;
-    const krwEliteOriginal = isAnnual ? krw.eliteFounding : krw.eliteOriginal;
 
     // ============================================================
     // FEATURE MATRIX DATA
@@ -295,11 +282,11 @@ export default function PricingPage() {
     // COMPETITOR DATA
     // ============================================================
     const competitors = [
-        { name: "Unusual Whales", price: isKo ? "~₩70,000/mo" : "$50/mo", scope: t("competitors.uw") },
-        { name: "SpotGamma", price: isKo ? "~₩139,000–349,000/mo" : "$99–249/mo", scope: t("competitors.sg") },
-        { name: "FlowAlgo", price: isKo ? "~₩209,000/mo" : "$149/mo", scope: t("competitors.fa") },
-        { name: "Ortex", price: isKo ? "~₩69,000–209,000/mo" : "$49–149/mo", scope: t("competitors.ortex") },
-        { name: "SIGNUM HQ", price: isKo ? "₩69,000/mo~" : "$49/mo~", scope: t("competitors.signum"), highlight: true },
+        { name: "Unusual Whales", price: "$50/mo", scope: t("competitors.uw") },
+        { name: "SpotGamma", price: "$99–249/mo", scope: t("competitors.sg") },
+        { name: "FlowAlgo", price: "$149/mo", scope: t("competitors.fa") },
+        { name: "Ortex", price: "$49–149/mo", scope: t("competitors.ortex") },
+        { name: "SIGNUM HQ", price: "$49/mo~", scope: t("competitors.signum"), highlight: true },
     ];
 
     // ============================================================
@@ -372,26 +359,7 @@ export default function PricingPage() {
                         </button>
                     </div>
 
-                    {/* KRW Payment Trust Badge — ko locale only */}
-                    {isKo && (
-                        <div className="flex items-center justify-center gap-3 mt-5 text-[13px] text-slate-300">
-                            <span>🇰🇷</span>
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                                원화 고정가 결제
-                            </span>
-                            <span className="text-white/15">·</span>
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                                환율변동 없음
-                            </span>
-                            <span className="text-white/15">·</span>
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                                해외수수료 0원
-                            </span>
-                        </div>
-                    )}
+
                 </div>
             </section>
 
@@ -407,8 +375,8 @@ export default function PricingPage() {
                             <p className="text-sm text-slate-400 leading-relaxed">{t("freeDesc")}</p>
                         </div>
                         <div className="mb-7">
-                            <span className={`${isKo ? 'text-4xl' : 'text-5xl'} font-black text-white font-jakarta`}>{isKo ? '₩0' : '$0'}</span>
-                            <span className="text-slate-400 text-base ml-1.5">{isKo ? '/월' : '/mo'}</span>
+                            <span className="text-5xl font-black text-white font-jakarta">$0</span>
+                            <span className="text-slate-400 text-base ml-1.5">/mo</span>
                         </div>
                         <ul className="space-y-3.5 mb-9 text-sm">
                             {[t("freeF1"), t("freeF2"), t("freeF3"), t("freeF4")].map((f, i) => (
@@ -433,10 +401,10 @@ export default function PricingPage() {
                             <p className="text-sm text-slate-400 leading-relaxed">{t("proDesc")}</p>
                         </div>
                         <div className="mb-7 flex items-baseline flex-wrap gap-x-1">
-                            <span className="text-lg text-red-500 line-through font-bold font-jakarta">{isKo ? fmtKrw(krwProOriginal) : `$${proOriginal}`}</span>
+                            <span className="text-lg text-red-500 line-through font-bold font-jakarta">{`$${proOriginal}`}</span>
                             <span className="whitespace-nowrap">
-                                <span className={`${isKo ? 'text-4xl' : 'text-5xl'} font-black text-white font-jakarta`}>{isKo ? fmtKrw(krwProPrice) : `$${proPrice}`}</span>
-                                <span className="text-slate-400 text-base ml-0.5">{isKo ? '/월' : '/mo'}</span>
+                                <span className="text-5xl font-black text-white font-jakarta">{`$${proPrice}`}</span>
+                                <span className="text-slate-400 text-base ml-0.5">/mo</span>
                             </span>
                             {!isAnnual ? (
                                 <span className="ml-2 text-[11px] text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
@@ -444,10 +412,9 @@ export default function PricingPage() {
                                 </span>
                             ) : (
                                 <span className="ml-2 text-[11px] text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
-                                    {isKo ? '₩240,000 절약' : 'SAVE 20%'}
+                                    SAVE 20%
                                 </span>
                             )}
-                            {isKo && <span className="w-full text-sm text-cyan-400/60 font-mono mt-1">US ${proPrice} /mo</span>}
                         </div>
                         <ul className="space-y-3.5 mb-9 text-sm">
                             {[t("proF1"), t("proF2"), t("proF3"), t("proF4"), t("proF5")].map((f, i) => (
@@ -478,10 +445,10 @@ export default function PricingPage() {
                             <p className="text-sm text-slate-400 leading-relaxed">{t("eliteDesc")}</p>
                         </div>
                         <div className="mb-7 flex items-baseline flex-wrap gap-x-1">
-                            <span className="text-lg text-red-500 line-through font-bold font-jakarta">{isKo ? fmtKrw(krwEliteOriginal) : `$${eliteOriginal}`}</span>
+                            <span className="text-lg text-red-500 line-through font-bold font-jakarta">{`$${eliteOriginal}`}</span>
                             <span className="whitespace-nowrap">
-                                <span className={`${isKo ? 'text-4xl' : 'text-5xl'} font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-white font-jakarta`}>{isKo ? fmtKrw(krwElitePrice) : `$${elitePrice}`}</span>
-                                <span className="text-slate-400 text-base ml-0.5">{isKo ? '/월' : '/mo'}</span>
+                                <span className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-white font-jakarta">{`$${elitePrice}`}</span>
+                                <span className="text-slate-400 text-base ml-0.5">/mo</span>
                             </span>
                             {!isAnnual ? (
                                 <span className="ml-2 text-[11px] text-cyan-400 bg-cyan-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
@@ -489,10 +456,9 @@ export default function PricingPage() {
                                 </span>
                             ) : (
                                 <span className="ml-2 text-[11px] text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
-                                    {isKo ? '₩360,000 절약' : 'SAVE 25%'}
+                                    SAVE 25%
                                 </span>
                             )}
-                            {isKo && <span className="w-full text-sm text-cyan-400/60 font-mono mt-1">US ${elitePrice} /mo</span>}
                         </div>
                         <ul className="space-y-3.5 mb-9 text-sm">
                             {[t("eliteF1"), t("eliteF2"), t("eliteF3"), t("eliteF4"), t("eliteF5"), t("eliteF6")].map((f, i) => (
@@ -580,24 +546,22 @@ export default function PricingPage() {
                                     style={{ background: 'linear-gradient(145deg, rgba(255,255,255,0.08) 0%, rgba(255,255,255,0.03) 100%)', border: '1px solid rgba(245,158,11,0.2)' }}>
                                     <p className="text-xs text-amber-400 font-bold uppercase tracking-widest mb-2.5 font-jakarta">PRO</p>
                                     <div className="flex items-baseline justify-center gap-1">
-                                        <span className="text-slate-400 line-through text-sm font-medium font-jakarta">{isKo ? fmtKrw(krw.proOriginal) : '$69'}</span>
-                                        <span className="text-3xl font-black text-white font-jakarta">{isKo ? fmtKrw(krw.proFounding) : '$49'}</span>
-                                        <span className="text-slate-300 text-xs">{isKo ? '/월' : '/mo'}</span>
+                                        <span className="text-slate-400 line-through text-sm font-medium font-jakarta">$69</span>
+                                        <span className="text-3xl font-black text-white font-jakarta">$49</span>
+                                        <span className="text-slate-300 text-xs">/mo</span>
                                     </div>
-                                    {isKo && <p className="text-cyan-400/60 text-xs font-mono mt-1">US $49 /mo</p>}
-                                    <p className="text-emerald-400 text-xs font-semibold mt-2 font-jakarta">{isKo ? '연간결제: ₩49,000/월 — ₩240,000 절약' : t("foundingAnnualPro")}</p>
+                                    <p className="text-emerald-400 text-xs font-semibold mt-2 font-jakarta">{t("foundingAnnualPro")}</p>
                                 </div>
                                 {/* ELITE */}
                                 <div className="rounded-xl p-5 text-center backdrop-blur-sm"
                                     style={{ background: 'linear-gradient(145deg, rgba(34,211,238,0.1) 0%, rgba(34,211,238,0.03) 100%)', border: '1px solid rgba(34,211,238,0.25)' }}>
                                     <p className="text-xs text-cyan-400 font-bold uppercase tracking-widest mb-2.5 font-jakarta">ELITE</p>
                                     <div className="flex items-baseline justify-center gap-1">
-                                        <span className="text-slate-400 line-through text-sm font-medium font-jakarta">{isKo ? fmtKrw(krw.eliteOriginal) : '$149'}</span>
-                                        <span className="text-3xl font-black text-white font-jakarta">{isKo ? fmtKrw(krw.eliteFounding) : '$79'}</span>
-                                        <span className="text-slate-300 text-xs">{isKo ? '/월' : '/mo'}</span>
+                                        <span className="text-slate-400 line-through text-sm font-medium font-jakarta">$149</span>
+                                        <span className="text-3xl font-black text-white font-jakarta">$79</span>
+                                        <span className="text-slate-300 text-xs">/mo</span>
                                     </div>
-                                    {isKo && <p className="text-cyan-400/60 text-xs font-mono mt-1">US $79 /mo</p>}
-                                    <p className="text-emerald-400 text-xs font-semibold mt-2 font-jakarta">{isKo ? '연간결제: ₩79,000/월 — ₩360,000 절약' : t("foundingAnnualElite")}</p>
+                                    <p className="text-emerald-400 text-xs font-semibold mt-2 font-jakarta">{t("foundingAnnualElite")}</p>
                                 </div>
                             </div>
 
@@ -611,11 +575,11 @@ export default function PricingPage() {
                                     <div className="flex items-center gap-5">
                                         <span className="text-sm font-jakarta">
                                             <span className="text-slate-300 font-bold">PRO </span>
-                                            <span className="text-emerald-400 font-bold">{isKo ? '₩49,000' : '$39'}<span className="text-slate-300 font-normal">{isKo ? '/월' : '/mo'}</span></span>
+                                            <span className="text-emerald-400 font-bold">$39<span className="text-slate-300 font-normal">/mo</span></span>
                                         </span>
                                         <span className="text-sm font-jakarta">
                                             <span className="text-slate-300 font-bold">ELITE </span>
-                                            <span className="text-emerald-400 font-bold">{isKo ? '₩79,000' : '$59'}<span className="text-slate-300 font-normal">{isKo ? '/월' : '/mo'}</span></span>
+                                            <span className="text-emerald-400 font-bold">$59<span className="text-slate-300 font-normal">/mo</span></span>
                                         </span>
                                     </div>
                                 </div>
