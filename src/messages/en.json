@@ -1020,7 +1020,7 @@
       "golden": "GOLDEN  SMA 50 > SMA 200, bullish trend shift",
       "dead": "DEAD  SMA 50 < SMA 200, bearish trend shift",
       "neutral": "NEUTRAL  No crossover, existing trend continues",
-      "tip": "GOLDEN Cross + CONVICTION Grade A = ideal buy signal combination.",
+      "tip": "GOLDEN Cross + CONVICTION Grade A = ideal entry structure combination.",
       "tradingGuide": "Data Insight",
       "guide1": "GOLDEN Cross: Mid-long term buy thesis  Use trailing stops",
       "guide2": "DEAD Cross: Defensive strategy  Consider downside hedges",
@@ -1296,7 +1296,7 @@
       "signal": "Status",
       "signalDesc": "POSITIVE BIAS / BALANCED / LOW CONVICTION AI analysis indicators with confidence level.",
       "action": "Action",
-      "actionDesc": "Analysis actions: RUN (detailed analysis), HOLD (maintain), etc."
+      "actionDesc": "Execution protocol: RUN (detailed analysis), HOLD (maintain), etc."
     },
     "currencyTitle": "Real-Time Currency Conversion",
     "currencyDesc": "Built-in real-time currency conversion for Korean and Japanese users.",
@@ -1805,7 +1805,7 @@
       "desc": "<cyan>P/C Ratio</cyan> measures market bullish/bearish sentiment via <gold>put volume ÷ call volume</gold>. Above 1.0 indicates put dominance (bearish sentiment), below 0.7 indicates call dominance (bullish sentiment).",
       "callDom": "Below 0.7: Call dominant (bullish) → Excessive = overheating warning",
       "balanced": "0.7-1.0: Balanced → Normal market conditions",
-      "putDom": "Above 1.0: Put dominant (bearish) → Extreme = contrarian buy signal",
+      "putDom": "Above 1.0: Put dominant (bearish) → Extreme = contrarian entry opportunity",
       "tip": "P/C Ratio above 1.3 indicates extreme fear, which historically correlates with higher bounce probability.",
       "tradingGuide": "P/C Ratio Data Insight",
       "guide1": "P/C > 1.2 with support holding → Contrarian buy opportunity",

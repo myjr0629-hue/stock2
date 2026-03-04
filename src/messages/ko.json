@@ -918,8 +918,8 @@
       "prevCloseLabel": "전일 종가"
     },
     "signal": {
-      "buyDesc": "매수 시그널",
-      "sellDesc": "매도 시그널",
+      "buyDesc": "상승 바이어스",
+      "sellDesc": "하락 바이어스",
       "alertDesc": "다크풀 · 이상거래",
       "whaleDesc": "고래 활동 감지"
     }
@@ -990,11 +990,11 @@
       "title": "ANALYST TARGET",
       "badge": "컨센서스",
       "desc": "월가 애널리스트들의 <emerald>시장 등급</emerald> 분포와 매수/매도 비율을 표시합니다. Strong Buy~Strong Sell 5단계 분포와 총 애널리스트 수를 확인할 수 있습니다.",
-      "strongBuy": "Strong Buy  강력 매수 추천",
-      "buy": "Buy  매수 추천",
-      "hold": "Hold  보유 추천",
-      "sell": "Sell  매도 추천",
-      "tip": "매수 추천 비율 80%+ = 시장 컨센서스가 강하게 형성, 단 역발상 관점도 고려.",
+      "strongBuy": "Strong Buy  강력 매수 컨센서스",
+      "buy": "Buy  매수 컨센서스",
+      "hold": "Hold  보유 컨센서스",
+      "sell": "Sell  매도 컨센서스",
+      "tip": "매수 컨센서스 비율 80%+ = 시장 컨센서스가 강하게 형성, 단 역발상 관점도 고려.",
       "tradingGuide": "데이터 활용법",
       "guide1": "매수 90%+: 강한 컨센서스  중장기 포지션 근거",
       "guide2": "매수 50-70%: 의견 분산  추가 분석 필요",
@@ -1020,7 +1020,7 @@
       "golden": "GOLDEN  SMA 50 > SMA 200, 상승 추세 전환",
       "dead": "DEAD  SMA 50 < SMA 200, 하락 추세 전환",
       "neutral": "NEUTRAL  교차 없음, 기존 추세 유지",
-      "tip": "GOLDEN Cross 직후 + CONVICTION A등급 = 매수 시그널의 이상적 조합.",
+      "tip": "GOLDEN Cross 직후 + CONVICTION A등급 = 진입 구조의 이상적 조합.",
       "tradingGuide": "데이터 활용법",
       "guide1": "GOLDEN Cross: 중장기 매수 근거  트레일링 스탑 활용",
       "guide2": "DEAD Cross: 방어적 전략  하락 헤지 고려",
@@ -1098,7 +1098,7 @@
       },
       "step4": {
         "title": "Step 4: 기관 흐름 추적",
-        "desc": "INST RADAR의 매집/분배 시그널과 FLOW UNIT의 Net Premium 방향을 확인합니다. ACCUMULATION + 콜 프리미엄  = 강한 매수 시그널."
+        "desc": "INST RADAR의 매집/분배 시그널과 FLOW UNIT의 Net Premium 방향을 확인합니다. ACCUMULATION + 콜 프리미엄  = 강한 상승 구조."
       },
       "warningTitle": "⚠️ 위험 고지 및 면책 사항",
       "warningDesc": "본 서비스에서 제공하는 모든 정보(지표, 시그널, 분석 결과 포함)는 투자 참고용 데이터이며, 투자 권유·매매 추천·투자 자문에 해당하지 않습니다. 금융 시장 참여는 원금 손실의 위험이 있으며, 과거 데이터와 지표가 미래 수익을 보장하지 않습니다. 모든 분석 판단은 전적으로 이용자 본인의 몫이며, 그에 따른 손익의 책임 또한 이용자 본인에게 있습니다. 본 서비스 제공자는 이용자의 이용 결과에 대해 어떠한 법적 책임도 지지 않습니다."
@@ -1296,7 +1296,7 @@
       "signal": "Signal",
       "signalDesc": "BUY / HOLD / WATCH 등 AI 분석 시그널과 신뢰도입니다.",
       "action": "Action",
-      "actionDesc": "RUN(상세 분석), HOLD(유지) 등 추천 액션입니다."
+      "actionDesc": "RUN(상세 분석), HOLD(유지) 등 분석 프로토콜입니다."
     },
     "currencyTitle": "실시간 환율 변환",
     "currencyDesc": "한국어/일본어 사용자를 위한 실시간 환율 변환 기능이 내장되어 있습니다.",
@@ -2407,7 +2407,7 @@
     "analystHold": "보유",
     "analystSell": "매도",
     "analystStrongSell": "적극 매도",
-    "analystBuyReco": "매수 추천",
+    "analystBuyReco": "매수 컨센서스",
     "analystOfTotal": "명 중",
     "instAccum": "기관 매집 시그널",
     "instDist": "기관 이탈 시그널",
@@ -2593,7 +2593,7 @@
     "ivExtremeLow": "극저 IV",
     "ivBuyFavorable": "매수 유리",
     "ivNeutral": "중립",
-    "ivStrategySpreadSell": "스프레드 매도 적극 추천",
+    "ivStrategySpreadSell": "스프레드 매도 적합",
     "ivStrategyVolShrink": "변동성 축소 베팅",
     "ivStrategyNakedBuy": "네이키드 매수 유리",
     "ivStrategySpreadBuy": "스프레드 매수 유리",
@@ -2683,7 +2683,7 @@
     "verdictResistanceAction": "보유 시 일부 익절 고려",
     "verdictResistanceWarn": "신규 롱 자제, 저항 확인 필요",
     "verdictResistanceTrigger": "${callWall} 돌파 확인 시 재진입",
-    "verdictBuyTheDip": "바닥 매수 기회 (BUY THE DIP)",
+    "verdictBuyTheDip": "바닥 반등 구간 (DIP ZONE)",
     "verdictBuyTheDipMsg": "지지선(${putWall}) 터치. 기관 저점 매집 포착, 손익비 유리한 구간.",
     "verdictBuy": "매수",
     "verdictBuyTheDipAction": "${putWall} 부근 분할 매수",

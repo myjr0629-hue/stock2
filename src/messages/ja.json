@@ -1,6 +1,6 @@
 {
   "auth": {
-    "subtitle": "Alpha Engine搭載トレーディングインテリジェンス",
+    "subtitle": "Analytics Engine搭載マーケットインテリジェンス",
     "continueWithGoogle": "Googleで続ける",
     "orContinueWith": "または",
     "email": "メール",
@@ -80,13 +80,13 @@
     "gammaExposureDesc": "マーケットメーカー(MM)のガンマヘッジポジションをリアルタイムで逆算し、Max Pain・コールウォール・プットフロアを導出。価格が引き寄せられる磁石点と反発/離脱ゾーンを一目で把握できます。",
     "darkPoolTracking": "Dark Pool & Whale 追跡",
     "darkPoolTrackingDesc": "一般取引所には表示されない10万株以上のダークプールブロック取引と機関の大量買い集めをリアルタイムで捕捉。スマートマネーの方向を先に読み取りましょう。",
-    "sniperSignal": "短期変曲点シグナル",
-    "sniperSignalDesc": "RSI・VWAP・ガンマフリップ・需給など計12のファクターが同時整列(Alignment)する瞬間を捕捉。感情ゼロ、データのみで短期変曲点を判別するスナイパーシグナル。",
+    "sniperSignal": "短期変曲点モニター",
+    "sniperSignalDesc": "RSI・VWAP・ガンマフリップ・需給など計12のファクターが同時整列(Alignment)する瞬間を捕捉。感情ゼロ、データのみで短期変曲点を判別するモニターシステム。",
     "includedInSignum": "SIGNUM HQに含まれます",
     "valuePerMonth": "相当",
     "consolidatedPricing": "統合プラン",
     "signalDashboard": "Signal Dashboard",
-    "signalDashboardDesc": "リアルタイム Alpha Engine 分析結果",
+    "signalDashboardDesc": "リアルタイム Analytics Engine 分析結果",
     "optionsChain": "Options Chain",
     "fomoSubheadline": "あなたの競合は",
     "fomoHighlight": "既にこのシグナルを見ています",
@@ -135,7 +135,7 @@
     "alignment": "正常",
     "bullRegime": "強気相場参入 :: 積極買い (Alpha Seek)",
     "bearRegime": "弱気相場参入 :: 防御運用 (Defense)",
-    "neutralRegime": "方向性不在 :: 様子見推奨 (Wait)",
+    "neutralRegime": "方向性不在 :: 様子見モード (Wait)",
     "selectSectorOnMap": "マップでセクターを選択",
     "loadingLiveData": "ライブデータ読み込み中...",
     "news": "News",
@@ -676,8 +676,8 @@
     "vsCurrentPrice": "現在価格比",
     "dealerStable": "ディーラーがボラティリティを抑制中 (安定)",
     "dealerVolatile": "ディーラーがボラティリティを加速中、急変動の可能性あり (注意)",
-    "recommendedStrategy": "推奨戦略",
-    "strategicEdgeDesc": "需給(GEX)と価格乖離に基づくシステム推奨"
+    "recommendedStrategy": "戦略概要",
+    "strategicEdgeDesc": "需給(GEX)と価格乖離に基づくシステム分析"
   },
   "flowSniper": {
     "realtimeTracking": "リアルタイムOption Flow追跡",
@@ -918,8 +918,8 @@
       "prevCloseLabel": "前日終値"
     },
     "signal": {
-      "buyDesc": "買いシグナル",
-      "sellDesc": "売りシグナル",
+      "buyDesc": "上昇バイアス",
+      "sellDesc": "下落バイアス",
       "alertDesc": "ダークプール · 異常取引",
       "whaleDesc": "クジラ取引検出"
     }
@@ -990,11 +990,11 @@
       "title": "ANALYST TARGET",
       "badge": "コンセンサス",
       "desc": "ウォール街アナリストの<emerald>アナリスト評価</emerald>分布と評価比率を表示します。Strong Buy〜Strong Sell 5段階の分布と総アナリスト数を確認できます。",
-      "strongBuy": "Strong Buy — 強力な買い推奨",
-      "buy": "Buy — 買い推奨",
-      "hold": "Hold — 保有推奨",
-      "sell": "Sell — 売り推奨",
-      "tip": "買い推奨比率80%+ = 市場コンセンサスが強く形成、ただし逆張り観点も考慮。",
+      "strongBuy": "Strong Buy — 強い買いコンセンサス",
+      "buy": "Buy — 買いコンセンサス",
+      "hold": "Hold — 保有コンセンサス",
+      "sell": "Sell — 売りコンセンサス",
+      "tip": "買いコンセンサス比率80%+ = 市場コンセンサスが強く形成、ただし逆張り観点も考慮。",
       "tradingGuide": "データ活用法",
       "guide1": "買い90%+：強いコンセンサス → 中長期ポジションの根拠",
       "guide2": "買い50-70%：意見分散 → 追加分析が必要",
@@ -1020,7 +1020,7 @@
       "golden": "GOLDEN — SMA 50 > SMA 200、上昇トレンド転換",
       "dead": "DEAD — SMA 50 < SMA 200、下降トレンド転換",
       "neutral": "NEUTRAL — クロスオーバーなし、既存トレンド継続",
-      "tip": "GOLDEN Cross + CONVICTION A等級 = 理想的な買いシグナルの組み合わせ。",
+      "tip": "GOLDEN Cross + CONVICTION A等級 = 理想的な上昇構造の組み合わせ。",
       "tradingGuide": "データ活用法",
       "guide1": "GOLDEN Cross：中長期買いの根拠 → トレーリングストップ活用",
       "guide2": "DEAD Cross：防御的戦略 → 下落ヘッジを検討",
@@ -1098,7 +1098,7 @@
       },
       "step4": {
         "title": "Step 4：機関フロー追跡",
-        "desc": "INST RADARの蓄積/分配シグナルとFLOW UNITのNet Premium方向を確認。ACCUMULATION + コールプレミアム上昇 = 強い買いシグナル。"
+        "desc": "INST RADARの蓄積/分配シグナルとFLOW UNITのNet Premium方向を確認。ACCUMULATION + コールプレミアム上昇 = 強い上昇構造。"
       },
       "warningTitle": "⚠️ リスク告知及び免責事項",
       "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は分析参考用データであり、特定の推奨・特定推奨・個別アドバイスには該当しません。金融投資には元本損失のリスクがあり、過去のデータや指標が将来の収益を保証するものではありません。すべての分析判断は利用者本人の責任において行われるものであり、それに伴う損益の責任も利用者本人に帰属します。本サービス提供者は利用者の利用結果について一切の法的責任を負いません。"
@@ -1169,7 +1169,7 @@
       "gradeS": "Sグレード — 85点以上 – 極めて強い",
       "gradeA": "Aグレード — 70〜84点 – 強いシグナル",
       "gradeB": "Bグレード — 55〜69点 – ポジティブ、注視維持",
-      "gradeC": "Cグレード — 40〜54点 – 中立、様子見推奨",
+      "gradeC": "Cグレード — 40〜54点 – 中立、様子見モード",
       "gradeD": "Dグレード — 25〜39点 – 弱気、ポジション縮小",
       "gradeF": "Fグレード — 24点以下 – 危険、ポジション整理",
       "actionTitle": "センチメントマップ",
