@@ -8,7 +8,7 @@ import { PrivacySection, PrivacyMeta } from './_content-en';
 export const meta: PrivacyMeta = {
     pageTitle: '개인정보처리방침',
     lastUpdated: '최종 수정일: 2026-02-12',
-    intro: 'SIGNUM HQ(이하 \'서비스\')는 이용자의 개인정보를 중요시하며, 「개인정보 보호법」 및 관련 법령을 준수합니다. 본 방침을 통해 이용자의 개인정보가 어떻게 수집·이용·보관·파기되는지 안내합니다.',
+    intro: 'SIGNUM HQ(이하 \'서비스\')는 이용자의 개인정보를 중요시하며, GDPR, CCPA 등 국제 개인정보 관련 법령을 준수합니다. 본 방침을 통해 이용자의 개인정보가 어떻게 수집·이용·보관·파기되는지 안내합니다.',
     effectiveDate: '본 개인정보처리방침은 ',
     effectiveDateBold: '2026년 2월 12일',
     effectiveDateSuffix: '부터 시행됩니다.',
@@ -22,7 +22,7 @@ export const sections: PrivacySection[] = [
         color: 'text-slate-400',
         title: '제1조 (목적)',
         content: (
-            <p>본 개인정보처리방침은 SIGNUM HQ(이하 &apos;서비스&apos;)가 이용자의 개인정보를 어떻게 수집, 이용, 보관, 파기하는지를 설명하며, 「개인정보 보호법」 및 관련 법령을 준수합니다.</p>
+            <p>본 개인정보처리방침은 SIGNUM HQ(이하 &apos;서비스&apos;)가 이용자의 개인정보를 어떻게 수집, 이용, 보관, 파기하는지를 설명하며, GDPR, CCPA 등 국제 개인정보 관련 법령을 준수합니다.</p>
         ),
     },
     {
@@ -150,22 +150,22 @@ export const sections: PrivacySection[] = [
                             <tr className="border-b border-white/[0.04]">
                                 <td className="py-2 pr-4">계약·구독 관련 기록</td>
                                 <td className="py-2 pr-4 text-white font-medium">5년</td>
-                                <td className="py-2">전자상거래법</td>
+                                <td className="py-2">IRS 규정</td>
                             </tr>
                             <tr className="border-b border-white/[0.04]">
                                 <td className="py-2 pr-4">대금 결제 및 재화 공급 기록</td>
                                 <td className="py-2 pr-4 text-white font-medium">5년</td>
-                                <td className="py-2">전자상거래법</td>
+                                <td className="py-2">IRS 규정</td>
                             </tr>
                             <tr className="border-b border-white/[0.04]">
                                 <td className="py-2 pr-4">소비자 불만·분쟁 처리 기록</td>
                                 <td className="py-2 pr-4 text-white font-medium">3년</td>
-                                <td className="py-2">전자상거래법</td>
+                                <td className="py-2">FTC Act / 내부 정책</td>
                             </tr>
                             <tr>
                                 <td className="py-2 pr-4">접속 로그 기록</td>
                                 <td className="py-2 pr-4 text-white font-medium">3개월</td>
-                                <td className="py-2">통신비밀보호법</td>
+                                <td className="py-2">내부 보안 정책</td>
                             </tr>
                         </tbody>
                     </table>
@@ -237,16 +237,8 @@ export const sections: PrivacySection[] = [
                 <p>회사는 개인정보 처리에 관한 업무를 총괄해서 책임지고, 이용자의 불만 및 피해 구제를 위해 아래와 같이 개인정보 보호책임자를 지정하고 있습니다:</p>
                 <div className="mt-4 p-4 rounded-xl bg-white/[0.03] border border-white/[0.06]">
                     <ul className="space-y-2 text-sm">
-                        <li><strong>직위:</strong> 대표</li>
+                        <li><strong>직위:</strong> CEO / Data Protection Officer</li>
                         <li><strong>이메일:</strong> <a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a></li>
-                    </ul>
-                </div>
-                <div className="mt-4">
-                    <p className="text-xs text-slate-400">기타 개인정보 침해에 대한 신고 및 상담:</p>
-                    <ul className="list-disc list-inside space-y-1 mt-2 text-xs text-slate-400">
-                        <li>개인정보침해신고센터: <strong className="text-slate-300">privacy.kisa.or.kr / 118</strong></li>
-                        <li>대검찰청 사이버수사과: <strong className="text-slate-300">spo.go.kr / 1301</strong></li>
-                        <li>경찰청 사이버안전국: <strong className="text-slate-300">cyberbureau.police.go.kr / 182</strong></li>
                     </ul>
                 </div>
             </div>

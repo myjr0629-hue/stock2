@@ -171,22 +171,22 @@ export const sections: PrivacySection[] = [
                             <tr className="border-b border-white/[0.04]">
                                 <td className="py-2 pr-4">Contract / subscription records</td>
                                 <td className="py-2 pr-4 text-white font-medium">5 years</td>
-                                <td className="py-2">E-Commerce Act</td>
+                                <td className="py-2">IRS Regulations</td>
                             </tr>
                             <tr className="border-b border-white/[0.04]">
                                 <td className="py-2 pr-4">Payment / billing records</td>
                                 <td className="py-2 pr-4 text-white font-medium">5 years</td>
-                                <td className="py-2">E-Commerce Act</td>
+                                <td className="py-2">IRS Regulations</td>
                             </tr>
                             <tr className="border-b border-white/[0.04]">
                                 <td className="py-2 pr-4">Consumer complaint records</td>
                                 <td className="py-2 pr-4 text-white font-medium">3 years</td>
-                                <td className="py-2">E-Commerce Act</td>
+                                <td className="py-2">FTC Act / Internal Policy</td>
                             </tr>
                             <tr>
                                 <td className="py-2 pr-4">Access / server logs</td>
                                 <td className="py-2 pr-4 text-white font-medium">3 months</td>
-                                <td className="py-2">Telecomm. Privacy Act</td>
+                                <td className="py-2">Internal Security Policy</td>
                             </tr>
                         </tbody>
                     </table>

@@ -8,7 +8,7 @@ import { PrivacySection, PrivacyMeta } from './_content-en';
 export const meta: PrivacyMeta = {
     pageTitle: 'プライバシーポリシー',
     lastUpdated: '最終更新日: 2026年2月12日',
-    intro: 'SIGNUM HQ（以下「サービス」）は、利用者の個人情報を重視し、「個人情報の保護に関する法律（個人情報保護法）」および関連法令を遵守します。本ポリシーでは、利用者の個人情報の収集・利用・保管・廃棄について説明します。',
+    intro: 'SIGNUM HQ（以下「サービス」）は、利用者の個人情報を重視し、GDPR、CCPAなど国際的なプライバシー関連法令を遵守します。本ポリシーでは、利用者の個人情報の収集・利用・保管・廃棄について説明します。',
     effectiveDate: '本プライバシーポリシーは',
     effectiveDateBold: '2026年2月12日',
     effectiveDateSuffix: 'より施行されます。',
@@ -22,7 +22,7 @@ export const sections: PrivacySection[] = [
         color: 'text-slate-400',
         title: '第1条（目的）',
         content: (
-            <p>本プライバシーポリシーは、SIGNUM HQ（以下「サービス」）が利用者の個人情報をどのように収集、利用、保管、廃棄するかを説明し、「個人情報保護法」および関連法令を遵守することを目的とします。</p>
+            <p>本プライバシーポリシーは、SIGNUM HQ（以下「サービス」）が利用者の個人情報をどのように収集、利用、保管、廃棄するかを説明し、GDPR、CCPAなど国際的なプライバシー関連法令を遵守することを目的とします。</p>
         ),
     },
     {
@@ -150,22 +150,22 @@ export const sections: PrivacySection[] = [
                             <tr className="border-b border-white/[0.04]">
                                 <td className="py-2 pr-4">契約・サブスクリプション関連記録</td>
                                 <td className="py-2 pr-4 text-white font-medium">5年</td>
-                                <td className="py-2">電子商取引法</td>
+                                <td className="py-2">IRS規定</td>
                             </tr>
                             <tr className="border-b border-white/[0.04]">
                                 <td className="py-2 pr-4">代金決済・財貨供給記録</td>
                                 <td className="py-2 pr-4 text-white font-medium">5年</td>
-                                <td className="py-2">電子商取引法</td>
+                                <td className="py-2">IRS規定</td>
                             </tr>
                             <tr className="border-b border-white/[0.04]">
                                 <td className="py-2 pr-4">消費者不満・紛争処理記録</td>
                                 <td className="py-2 pr-4 text-white font-medium">3年</td>
-                                <td className="py-2">電子商取引法</td>
+                                <td className="py-2">FTC Act / 内部ポリシー</td>
                             </tr>
                             <tr>
                                 <td className="py-2 pr-4">接続ログ記録</td>
                                 <td className="py-2 pr-4 text-white font-medium">3ヶ月</td>
-                                <td className="py-2">通信秘密保護法</td>
+                                <td className="py-2">内部セキュリティポリシー</td>
                             </tr>
                         </tbody>
                     </table>
