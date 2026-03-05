@@ -116,7 +116,7 @@ export function LandingHeader() {
                             { label: "INTEL", href: "/intel", path: "/intel", hasLive: false },
                             { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio", hasLive: false },
                             { label: "WATCHLIST", href: "/watchlist", path: "/watchlist", hasLive: false },
-                            { label: "GUIDE", href: "/how-it-works", path: "/how-it-works", hasLive: false },
+                            // { label: "GUIDE", href: "/how-it-works", path: "/how-it-works", hasLive: false }, // Hidden for compliance review
                             { label: "PRICING", href: "/pricing", path: "/pricing", hasLive: false }
                         ].map((item) => {
                             const isActive = item.path
@@ -369,7 +369,7 @@ export function LandingHeader() {
                                         { label: "INTEL", href: "/intel", icon: "🔍" },
                                         { label: "PORTFOLIO", href: "/portfolio", icon: "💼" },
                                         { label: "WATCHLIST", href: "/watchlist", icon: "⭐" },
-                                        { label: "GUIDE", href: "/how-it-works", icon: "📖" },
+                                        // { label: "GUIDE", href: "/how-it-works", icon: "📖" }, // Hidden for compliance review
                                         { label: "PRICING", href: "/pricing", icon: "💰" },
                                     ].map((item) => {
                                         const isActive = item.href === "/intel"
