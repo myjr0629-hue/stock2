@@ -1020,8 +1020,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         </span>
                                     </div>
                                     <div className="relative z-10 flex items-baseline gap-1.5">
-                                        <span className={`text-lg font-black tabular-nums leading-none ${regimeColor}`}>{r?.regimeScore ?? '--'}</span>
-                                        <span className="text-[12px] font-jakarta text-white font-bold">/100</span>
+                                        <span className={`text-[20px] font-black tabular-nums leading-none ${regimeColor}`}>{r?.regimeScore ?? '--'}</span>
+                                        <span className="text-[14px] font-jakarta text-white font-bold">/100</span>
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{regimeDesc}</span>
                                     </div>
                                     <div className="relative z-10 flex gap-3 mt-1 text-[12px] font-jakarta tabular-nums">
@@ -1055,8 +1055,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>{conviction?.grade || '...'}</span>
                                     </div>
                                     <div className="relative z-10 flex items-baseline gap-1.5">
-                                        <span className={`text-lg font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '--'}</span>
-                                        <span className="text-[12px] font-jakarta text-white font-bold">/100</span>
+                                        <span className={`text-[20px] font-black tabular-nums leading-none ${isBull ? 'text-emerald-400' : isBear ? 'text-rose-400' : 'text-white'}`}>{conviction?.score ?? '--'}</span>
+                                        <span className="text-[14px] font-jakarta text-white font-bold">/100</span>
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{convDesc}</span>
                                     </div>
                                     <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-0.5">{conviction?.label || ''}</div>
@@ -1088,7 +1088,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </span>
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className={`text-lg font-black font-mono tabular-nums leading-none ${vwapDiff > 0 ? 'text-emerald-400' : vwapDiff < 0 ? 'text-rose-400' : 'text-white'}`}>${vwap.toFixed(2)}</span>
+                                    <span className={`text-[20px] font-black font-mono tabular-nums leading-none ${vwapDiff > 0 ? 'text-emerald-400' : vwapDiff < 0 ? 'text-rose-400' : 'text-white'}`}>${vwap.toFixed(2)}</span>
                                 </div>
                                 <div className="relative z-10 text-[12px] font-jakarta text-white mt-0.5">{vwapDesc}</div>
                                 <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-px">{td('vwapDeviation')} {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(2)}{td('vwapDeviationSuffix')}</div>
@@ -1121,8 +1121,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         </span>
                                     </div>
                                     <div className="relative z-10 flex items-baseline gap-1.5">
-                                        <span className={`text-lg font-black tabular-nums leading-none ${statusColor}`}>{s?.siPercent !== undefined ? s.siPercent.toFixed(1) : '--'}%</span>
-                                        <span className="text-[12px] text-white font-bold font-jakarta">SI%</span>
+                                        <span className={`text-[20px] font-black tabular-nums leading-none ${statusColor}`}>{s?.siPercent !== undefined ? s.siPercent.toFixed(1) : '--'}%</span>
+                                        <span className="text-[14px] text-white font-bold font-jakarta">SI%</span>
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{sqDesc}</span>
                                     </div>
                                     <div className="relative z-10 flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
@@ -1160,8 +1160,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className={`text-[12px] font-jakarta font-black px-1.5 py-px rounded ${isBullish ? 'bg-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-slate-300'}`}>{consensusKr}</span>
                                     </div>
                                     <div className="relative z-10 flex items-baseline gap-1.5">
-                                        <span className={`text-lg font-black tabular-nums leading-none ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span>
-                                        <span className="text-[12px] font-jakarta text-white font-bold">{td('analystBuyReco')}</span>
+                                        <span className={`text-[20px] font-black tabular-nums leading-none ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span>
+                                        <span className="text-[14px] font-jakarta text-white font-bold">{td('analystBuyReco')}</span>
                                         <span className="text-[12px] font-jakarta text-white">{total} {td('analystOfTotal')}</span>
                                     </div>
                                     {bd && total > 0 && (
@@ -1169,13 +1169,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <div className="text-[12px] text-slate-300 tabular-nums font-jakarta">
                                                 <span className="text-emerald-400 font-bold">{td('analystStrongBuy')} {bd.strongBuy}</span>
                                                 <span className="text-white/30 mx-0.5">|</span>
-                                                <span className="text-emerald-400/70">{td('analystBuy')} {bd.buy}</span>
+                                                <span className="text-emerald-400">{td('analystBuy')} {bd.buy}</span>
                                                 <span className="text-white/30 mx-0.5">|</span>
-                                                <span className="text-white/60">{td('analystHold')} {bd.hold}</span>
+                                                <span className="text-white/80">{td('analystHold')} {bd.hold}</span>
                                                 {(bd.sell > 0 || bd.strongSell > 0) && (
                                                     <>
                                                         <span className="text-white/30 mx-0.5">|</span>
-                                                        <span className="text-rose-400/70">{td('analystSell')} {bd.sell + bd.strongSell}</span>
+                                                        <span className="text-rose-400">{td('analystSell')} {bd.sell + bd.strongSell}</span>
                                                     </>
                                                 )}
                                             </div>
@@ -1186,12 +1186,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className="bg-rose-400/60" style={{ width: `${(bd.sell / total) * 100}%` }} />
                                                 <div className="bg-rose-500" style={{ width: `${(bd.strongSell / total) * 100}%` }} />
                                             </div>
-                                            <div className="text-[12px] font-jakarta text-white mt-0.5">→ {total} {td('analystOfTotal')} <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> {td('analystBuyReco')}</div>
+                                            <div className="text-[14px] font-jakarta text-white mt-0.5">→ {total} {td('analystOfTotal')} <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> {td('analystBuyReco')}</div>
                                         </div>
                                     )}
-                                    <div className="relative z-10 mt-0.5">
-                                        <span className="text-[12px] text-slate-300 font-jakarta">Analyst Consens.</span>
-                                    </div>
+
                                 </div>
                             );
                         })()}
@@ -1224,8 +1222,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         </span>
                                     </div>
                                     <div className="relative z-10 flex items-baseline gap-1.5">
-                                        <span className={`text-lg font-black tabular-nums leading-none ${dp > 35 ? 'text-indigo-400' : 'text-white/80'}`}>{dp.toFixed(1)}%</span>
-                                        <span className="text-[12px] font-jakarta text-white font-bold">{td('instDarkPool')}</span>
+                                        <span className={`text-[20px] font-black tabular-nums leading-none ${dp > 35 ? 'text-indigo-400' : 'text-white/80'}`}>{dp.toFixed(1)}%</span>
+                                        <span className="text-[14px] font-jakarta text-white font-bold">{td('instDarkPool')}</span>
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{instDesc}</span>
                                     </div>
                                     <div className="relative z-10 flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
@@ -1303,8 +1301,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                     {hasData ? (
                                         <div className="relative z-10 flex items-baseline gap-1.5">
-                                            <span className={`text-lg font-black tabular-nums leading-none ${gradeColor}`}>{f?.score}</span>
-                                            <span className="text-[12px] font-jakarta text-white font-bold">/100</span>
+                                            <span className={`text-[20px] font-black tabular-nums leading-none ${gradeColor}`}>{f?.score}</span>
+                                            <span className="text-[14px] font-jakarta text-white font-bold">/100</span>
                                             <span className="text-[12px] font-jakarta text-white ml-0.5">{fundDesc}</span>
                                         </div>
                                     ) : (
@@ -1379,7 +1377,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
                         <div className="relative z-10 flex flex-col gap-1">
                             {relatedData?.topRelated && relatedData.topRelated.length > 0 ? (
-                                relatedData.topRelated.slice(0, 3).map((item, idx) => (
+                                relatedData.topRelated.slice(0, 4).map((item, idx) => (
                                     <div key={idx} className="flex items-center justify-between cursor-pointer hover:bg-white/5 rounded px-1 -mx-1 transition-colors"
                                         onClick={() => window.location.href = `/${locale}/ticker?ticker=${item.ticker}`}>
                                         <div className="flex items-center gap-1.5">
@@ -1402,9 +1400,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="text-[12px] font-jakarta text-slate-300 text-center py-1">{td('loading')}</div>
                             )}
                         </div>
-                        <div className="relative z-10 mt-0.5">
-                            <span className="text-[12px] text-slate-300 font-jakarta">Related Tickers</span>
-                        </div>
+
                     </div>
 
                 </div>
