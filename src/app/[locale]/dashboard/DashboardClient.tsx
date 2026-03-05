@@ -763,8 +763,8 @@ function MainChartPanel() {
                                                 <div className="absolute top-0 h-full rounded-r-full bg-emerald-500/30" style={{ left: `${mpPos}%`, width: `${100 - mpPos}%` }} />
                                                 {/* Max Pain marker */}
                                                 <div className="absolute top-1/2 -translate-y-1/2 w-1 h-4 bg-amber-400 rounded-full" style={{ left: `${mpPos}%` }} />
-                                                {/* Current price marker */}
-                                                <div className="absolute -top-1 w-2.5 h-2.5 rounded-full border-2 border-white bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]" style={{ left: `${pricePos}%`, transform: 'translateX(-50%)' }} />
+                                                {/* Current price marker — centered on bar */}
+                                                <div className="absolute top-1/2 w-2.5 h-2.5 rounded-full border-2 border-white bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]" style={{ left: `${pricePos}%`, transform: 'translate(-50%, -50%)' }} />
                                             </div>
                                             <div className="flex justify-between mt-1.5">
                                                 <span className="text-[12px] font-mono text-rose-300">{pf > 0 ? `$${pf}` : ''}</span>
@@ -773,16 +773,6 @@ function MainChartPanel() {
                                             </div>
                                         </div>
                                     )}
-
-                                    {/* Insight line */}
-                                    <div className="mt-1.5">
-                                        <span className="text-[12px] text-slate-300">
-                                            {isNear && mp > 0 ? td('mpPinning') :
-                                                isAbove && dist > 3 ? td('mpAboveFar') :
-                                                    !isAbove && dist < -3 ? td('mpBelowFar') :
-                                                        isAbove ? td('mpAbove') : mp > 0 ? td('mpBelow') : ''}
-                                        </span>
-                                    </div>
                                 </div>
                             );
                         })()}
