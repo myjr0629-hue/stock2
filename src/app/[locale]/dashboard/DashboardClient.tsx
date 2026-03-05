@@ -718,21 +718,74 @@ function MainChartPanel() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Max Pain — PRO (peek: price visible, % distance blurred) */}
                     <ProGate title="Max Pain" mode="peek" compact>
-                        <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
-                            <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><circle cx="40" cy="32" r="14" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" /><circle cx="40" cy="32" r="3" fill="currentColor" className="text-cyan-400" /></svg>
-                            <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
-                                <Target className="w-4 h-4 text-cyan-400" />
-                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Max Pain</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-xl font-mono font-bold text-white">${data?.maxPain || "—"}</span>
-                                {data?.maxPain && data?.underlyingPrice && (
-                                    <span className={`text-xs font-mono ${data.underlyingPrice > data.maxPain ? "text-emerald-400" : "text-rose-400"}`}>
-                                        {((data.underlyingPrice - data.maxPain) / data.maxPain * 100).toFixed(1)}%
-                                    </span>
-                                )}
-                            </div>
-                        </div>
+                        {(() => {
+                            const mp = data?.maxPain || 0;
+                            const price = data?.underlyingPrice || 0;
+                            const cw = data?.levels?.callWall || 0;
+                            const pf = data?.levels?.putFloor || 0;
+                            const dist = mp > 0 && price > 0 ? ((price - mp) / mp * 100) : 0;
+                            const isAbove = dist > 0;
+                            const isNear = Math.abs(dist) < 2;
+                            const isAlert = isNear && mp > 0;
+
+                            // Range bar calculation (Put Floor to Call Wall)
+                            const rangeMin = pf > 0 ? pf : (mp > 0 ? mp * 0.95 : 0);
+                            const rangeMax = cw > 0 ? cw : (mp > 0 ? mp * 1.05 : 0);
+                            const rangeSpan = rangeMax - rangeMin;
+                            const mpPos = rangeSpan > 0 ? ((mp - rangeMin) / rangeSpan * 100) : 50;
+                            const pricePos = rangeSpan > 0 ? Math.max(0, Math.min(100, ((price - rangeMin) / rangeSpan * 100))) : 50;
+
+                            return (
+                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                    {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />}
+                                    <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><circle cx="40" cy="32" r="14" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" /><circle cx="40" cy="32" r="3" fill="currentColor" className="text-cyan-400" /></svg>
+                                    <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
+                                        <Target className="w-4 h-4 text-cyan-400" />
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Max Pain</span>
+                                        {isNear && mp > 0 && <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-amber-500/80 text-white">PIN</span>}
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xl font-mono font-bold text-white">${mp || "—"}</span>
+                                        {mp > 0 && price > 0 && (
+                                            <span className={`text-[12px] font-mono font-semibold ${isAbove ? "text-emerald-400" : "text-rose-400"}`}>
+                                                {isAbove ? '▲' : '▼'} {Math.abs(dist).toFixed(1)}%
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Range Bar: Put Floor — Max Pain — Call Wall */}
+                                    {mp > 0 && rangeSpan > 0 && (
+                                        <div className="mt-3">
+                                            <div className="relative h-2 bg-slate-700 rounded-full overflow-visible">
+                                                {/* Put Floor → Max Pain zone (bearish side) */}
+                                                <div className="absolute left-0 top-0 h-full rounded-l-full bg-rose-500/30" style={{ width: `${mpPos}%` }} />
+                                                {/* Max Pain → Call Wall zone (bullish side) */}
+                                                <div className="absolute top-0 h-full rounded-r-full bg-emerald-500/30" style={{ left: `${mpPos}%`, width: `${100 - mpPos}%` }} />
+                                                {/* Max Pain marker */}
+                                                <div className="absolute top-1/2 -translate-y-1/2 w-1 h-4 bg-amber-400 rounded-full" style={{ left: `${mpPos}%` }} />
+                                                {/* Current price marker */}
+                                                <div className="absolute -top-1 w-2.5 h-2.5 rounded-full border-2 border-white bg-cyan-400 shadow-[0_0_6px_rgba(34,211,238,0.6)]" style={{ left: `${pricePos}%`, transform: 'translateX(-50%)' }} />
+                                            </div>
+                                            <div className="flex justify-between mt-1.5">
+                                                <span className="text-[12px] font-mono text-rose-300">{pf > 0 ? `$${pf}` : ''}</span>
+                                                <span className="text-[12px] font-mono text-amber-300">MP</span>
+                                                <span className="text-[12px] font-mono text-emerald-300">{cw > 0 ? `$${cw}` : ''}</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Insight line */}
+                                    <div className="mt-1.5">
+                                        <span className="text-[12px] text-slate-300">
+                                            {isNear && mp > 0 ? td('mpPinning') :
+                                                isAbove && dist > 3 ? td('mpAboveFar') :
+                                                    !isAbove && dist < -3 ? td('mpBelowFar') :
+                                                        isAbove ? td('mpAbove') : mp > 0 ? td('mpBelow') : ''}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
                     </ProGate>
 
                     {/* Call Wall / Put Floor — PRO (blur: options level data) */}
