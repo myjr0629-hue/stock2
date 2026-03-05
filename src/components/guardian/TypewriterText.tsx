@@ -12,18 +12,21 @@ const TAG_COLORS: Record<string, string> = {
     '[현황]': 'text-cyan-400 font-bold',
     '[해석]': 'text-amber-400 font-bold',
     '[액션]': 'text-emerald-400 font-bold',
+    '[전망]': 'text-emerald-400 font-bold',
     '[진단]': 'text-cyan-400 font-bold',
     '[결론]': 'text-emerald-400 font-bold',
     // English
     '[Status]': 'text-cyan-400 font-bold',
     '[Interpretation]': 'text-amber-400 font-bold',
     '[Action]': 'text-emerald-400 font-bold',
+    '[Outlook]': 'text-emerald-400 font-bold',
     '[Diagnosis]': 'text-cyan-400 font-bold',
     '[Conclusion]': 'text-emerald-400 font-bold',
     // Japanese
     '[現況]': 'text-cyan-400 font-bold',
     '[解釈]': 'text-amber-400 font-bold',
     '[アクション]': 'text-emerald-400 font-bold',
+    '[見通し]': 'text-emerald-400 font-bold',
     '[診断]': 'text-cyan-400 font-bold',
     '[結論]': 'text-emerald-400 font-bold',
 };

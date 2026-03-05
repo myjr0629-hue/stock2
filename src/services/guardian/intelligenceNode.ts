@@ -1,6 +1,7 @@
 
 import { GoogleGenAI } from "@google/genai";
 import { Redis } from "@upstash/redis";
+import { SECTOR_MAP } from "@/services/universePolicy";
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -585,8 +586,10 @@ export class IntelligenceNode {
         const apiKey = getApiKey();
         if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
 
+        // ETF ID → sector name conversion (e.g. SMH → 반도체, HACK → 사이버보안)
+        const etfToName = (id: string): string => SECTOR_MAP[id]?.name || id;
         const vectorDesc = ctx.vectors.length > 0
-            ? ctx.vectors.slice(0, 3).map(v => `${v.source}->${v.target}`).join(", ")
+            ? ctx.vectors.slice(0, 3).map(v => `${etfToName(v.source)}->${etfToName(v.target)}`).join(", ")
             : "No significant rotation";
 
         const prompt = ROTATION_PROMPTS[locale](ctx, vectorDesc);
