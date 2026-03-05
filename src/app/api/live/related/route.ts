@@ -27,11 +27,11 @@ export async function GET(req: NextRequest) {
         const results = data?.results || [];
         const count = results.length;
 
-        // Get top 2 related tickers and fetch their prices
-        const top2Tickers = results.slice(0, 2).map((item: any) => item.ticker);
+        // Get top 3 related tickers and fetch their prices
+        const top3Tickers = results.slice(0, 3).map((item: any) => item.ticker);
 
-        // Fetch prices and logos for top 2 related tickers in parallel
-        const pricePromises = top2Tickers.map(async (relTicker: string) => {
+        // Fetch prices and logos for top 3 related tickers in parallel
+        const pricePromises = top3Tickers.map(async (relTicker: string) => {
             try {
                 // Fetch snapshot for price
                 const snapshotUrl = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers/${relTicker}?apiKey=${MASSIVE_API_KEY}`;
