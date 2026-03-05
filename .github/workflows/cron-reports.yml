@@ -1,13 +1,14 @@
 name: Report Generator
 
 on:
-  schedule:
-    # EOD Report: 02:00 UTC (화-토) = 21:00 ET (전일) = 11:00 KST
-    - cron: '0 2 * * 2-6'
-    # Pre-market Report: 11:30 UTC (월-금) = 06:30 ET = 20:30 KST
-    - cron: '30 11 * * 1-5'
-    # Open Report: 14:00 UTC (월-금) = 09:00 ET = 23:00 KST
-    - cron: '0 14 * * 1-5'
+  # [DISABLED] Schedule disabled — report snapshots not currently used in UI
+  # schedule:
+  #   # EOD Report: 02:00 UTC (화-토) = 21:00 ET (전일) = 11:00 KST
+  #   - cron: '0 2 * * 2-6'
+  #   # Pre-market Report: 11:30 UTC (월-금) = 06:30 ET = 20:30 KST
+  #   - cron: '30 11 * * 1-5'
+  #   # Open Report: 14:00 UTC (월-금) = 09:00 ET = 23:00 KST
+  #   - cron: '0 14 * * 1-5'
   
   # 수동 실행을 위한 트리거
   workflow_dispatch:

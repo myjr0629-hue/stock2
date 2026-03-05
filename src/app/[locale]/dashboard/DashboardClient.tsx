@@ -774,21 +774,45 @@ function MainChartPanel() {
 
                     {/* Call Wall / Put Floor — PRO (blur: options level data) */}
                     <ProGate title="Call Wall / Put Floor" fomoMessage={gt('fomoDashCallPut')} mode="blur" compact>
-                        <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
-                            <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><line x1="0" y1="20" x2="96" y2="20" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><line x1="0" y1="44" x2="96" y2="44" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
-                            <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
-                                <TrendingUp className="w-4 h-4 text-emerald-400" />
-                                <div className="flex flex-col leading-tight">
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Call Wall</span>
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Put Floor</span>
+                        {(() => {
+                            const cw = data?.levels?.callWall || 0;
+                            const pf = data?.levels?.putFloor || 0;
+                            const price = data?.underlyingPrice || 0;
+                            const cwDist = cw > 0 && price > 0 ? ((cw - price) / price * 100) : 0;
+                            const pfDist = pf > 0 && price > 0 ? ((price - pf) / price * 100) : 0;
+                            const range = cw - pf;
+                            const pricePos = range > 0 && price > 0 ? Math.max(0, Math.min(100, ((price - pf) / range * 100))) : 50;
+                            return (
+                                <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
+                                    <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><line x1="0" y1="20" x2="96" y2="20" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><line x1="0" y1="44" x2="96" y2="44" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
+                                    <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
+                                        <TrendingUp className="w-4 h-4 text-emerald-400" />
+                                        <div className="flex flex-col leading-tight">
+                                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Call Wall</span>
+                                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Put Floor</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-lg font-mono font-bold text-emerald-400">${cw || "—"}</span>
+                                        <span className="text-slate-500">/</span>
+                                        <span className="text-lg font-mono font-bold text-rose-400">${pf || "—"}</span>
+                                    </div>
+                                    {cw > 0 && pf > 0 && price > 0 && (
+                                        <div className="mt-2.5">
+                                            <div className="relative h-1.5 bg-slate-700 rounded-full overflow-visible">
+                                                <div className="absolute left-0 top-0 h-full rounded-l-full bg-rose-500/40" style={{ width: `${pricePos}%` }} />
+                                                <div className="absolute top-0 h-full rounded-r-full bg-emerald-500/40" style={{ left: `${pricePos}%`, width: `${100 - pricePos}%` }} />
+                                                <div className="absolute top-1/2 w-2 h-2 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]" style={{ left: `${pricePos}%`, transform: 'translate(-50%, -50%)' }} />
+                                            </div>
+                                            <div className="flex justify-between mt-1">
+                                                <span className="text-[12px] font-mono text-rose-300">↓{pfDist.toFixed(1)}%</span>
+                                                <span className="text-[12px] font-mono text-emerald-300">↑{cwDist.toFixed(1)}%</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <span className="text-lg font-mono font-bold text-emerald-400">${data?.levels?.callWall || "—"}</span>
-                                <span className="text-slate-500">/</span>
-                                <span className="text-lg font-mono font-bold text-rose-400">${data?.levels?.putFloor || "—"}</span>
-                            </div>
-                        </div>
+                            );
+                        })()}
                     </ProGate>
 
                     {/* Dark Pool % — PRO (blur: institutional data, FlowAlgo $149) */}
@@ -854,6 +878,21 @@ function MainChartPanel() {
                                             <span className="text-[12px] text-slate-300">vs DP {dp.toFixed(0)}%</span>
                                             <span className="text-[12px] text-slate-300">→</span>
                                             <span className={`text-[12px] font-semibold truncate ${crossSignal.color}`}>{crossSignal.label}</span>
+                                        </div>
+                                    )}
+                                    {sv > 0 && (
+                                        <div className="mt-2">
+                                            <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`absolute left-0 top-0 h-full rounded-full transition-all ${sv >= 50 ? 'bg-rose-400' : sv >= 40 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                                    style={{ width: `${Math.min(sv, 100)}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between mt-1">
+                                                <span className="text-[10px] text-slate-300">0%</span>
+                                                <span className="text-[10px] text-slate-300">40%</span>
+                                                <span className="text-[10px] text-slate-300">100%</span>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
